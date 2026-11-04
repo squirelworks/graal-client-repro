@@ -169,7 +169,8 @@ screen. Options is not built yet. On Windows it is a windowed program with
 no console; given flags, it attaches to the console it was started from.
 
 The listserver is read from `listserver.txt` next to the program (first
-line host, second line port), else 127.0.0.1:14921. The real 2.05 hides
+line host, second line port), else listserver.graal.in:14923 (the
+legacy-clients port; 14922 serves supported clients). The real 2.05 hides
 its listserver host in the exe; that is not used.
 
 The program carries a small set of its own, original assets

@@ -579,9 +579,10 @@ begin
     end;
     { the asset roots before anything is read from them }
     SetAssetRoots(Dir, ClientBuildLabel);
-    { listserver.txt next to the program, else a Seihai listserver on this
-      machine; the 2.05 one is gone }
-    ReadListServer(Dir, '127.0.0.1', 14921, ListHost, ListPort);
+    { listserver.txt next to the program, else the community listserver in
+      place of the 2.05 one, which is gone: listserver.graal.in, port 14923
+      for legacy clients (14922 is the supported-clients port) }
+    ReadListServer(Dir, DefaultListHost, DefaultListPort, ListHost, ListPort);
     { SIGTERM / Ctrl+C end the program on the start screen too }
     InstallStopHandlers;
     FillChar(R, SizeOf(R), 0);
