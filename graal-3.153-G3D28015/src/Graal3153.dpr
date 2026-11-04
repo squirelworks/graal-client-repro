@@ -494,7 +494,7 @@ var
   G: TAdventure;
   R: TStartResult;
   Dir, ListHost, ArrHost, Msg, Lvl, X, Y: string;
-  ListPort: Integer;
+  ListPort, I: Integer;
   Picked: Boolean;
   Fetch: TListFetch3153;
   Info: TStartInfo;
@@ -514,9 +514,10 @@ begin
       Result := 64;
       Exit;
     end;
-    { 3.153 reads its listserver from license/license.graal (line 0 host,
-      line 1 port, lines 5 and 6 fallbacks); listserver.txt next to the
-      program wins over it, and with neither, listserver.graal.in:14922 }
+    { The listserver is always listserver.graal.in:14922 first (the
+      project's rule). 3.153 itself read its host from license/license.graal
+      (line 0 host, lines 5 and 6 fallbacks); those hosts are tried after
+      it, on the same port. listserver.txt next to the program still wins. }
     { SIGTERM / Ctrl+C end the program on the start screen too }
     InstallStopHandlers;
     SetAssetRoots(Dir, ClientBuildLabel);
@@ -524,8 +525,12 @@ begin
       Hosts := LoadListHosts(AssetPath('license/license.graal'))
     else
       Hosts := LoadListHosts(Dir + 'license' + PathDelim + 'license.graal');
+    { listserver.graal.in in front, the licence hosts behind it }
+    SetLength(Hosts.Hosts, Length(Hosts.Hosts) + 1);
+    for I := High(Hosts.Hosts) downto 1 do Hosts.Hosts[I] := Hosts.Hosts[I - 1];
+    Hosts.Hosts[0] := DefaultListHost;
+    Hosts.Port := DefaultListPort;
     ArrHost := DefaultListHost;
-    if Length(Hosts.Hosts) > 0 then ArrHost := Hosts.Hosts[0];
     ReadListServer(Dir, ArrHost, Hosts.Port, ListHost, ListPort);
     FillChar(R, SizeOf(R), 0);
     Msg := '';
