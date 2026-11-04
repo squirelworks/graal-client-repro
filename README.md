@@ -10,8 +10,20 @@ The findings these rebuilds are based on live in
 servers they are tested against are the Seihai stack, mainly
 [seihai-gserver](https://github.com/squirelworks/seihai-gserver).
 
-This repo holds no original Graal code, graphics, or level data. Assets
-such as `pics1.png` are loaded from your own install at run time.
+> **Not affiliated.** graal-delphi is an independent fan project. It is not
+> affiliated with, endorsed by, or connected to GraalOnline or
+> graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad"). "Graal",
+> "Graal Online" and related names are trademarks of their respective
+> owners and are used here only to identify the software being
+> reimplemented.
+
+This repo holds no original Graal code, graphics, sounds or level data. The
+code is written from notes on the wire protocol, file formats and observed
+behaviour (in graal_analysis), not copied or translated from the original
+programs. Game assets such as `pics1.png`, `arrays.dat`, ganis, heads and
+bodies are loaded at run time from an install you supply. Tests that need
+original data, such as the tutorial levels inside the 2.05 exe, read it
+from a local path and are skipped when it is missing.
 
 ## Layout
 
