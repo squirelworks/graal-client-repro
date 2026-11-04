@@ -1,12 +1,13 @@
 { Connect3D: the start window (the original's TConnectFrame) and the
   screen drawing around the 3D view.
 
-  The start window holds the nickname (default "Stefan"), the host, the
-  port (14901), and the account and password (both "guest"), as the
-  original's did, with logo.bmp on top when the player's files have it.
-  The layout and look are this build's own. Offline is this build's
-  addition: it walks the client's default level, level1.x, with no
-  server. }
+  The start window holds the fields of the original's, in its order and
+  with its labels: Nickname, Server IP, Port (14901), Account and
+  Password (both "guest"), and a Start button; logo.bmp is shown on top
+  when the player's files have it. Seen under Wine, the original's
+  nickname starts empty. The layout and look are this build's own.
+  Offline and Quit are this build's additions: Offline walks the client's
+  default level, level1.x, with no server. }
 unit Connect3D;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
@@ -124,8 +125,8 @@ end;
 
 procedure DrawConnect(S: TGSurface; const F: TConnectForm; Focus: Integer);
 const
-  Labels: array[0..4] of string = ('Nickname', 'Server', 'Port', 'Account', 'Password');
-  Btns: array[0..2] of string = ('Connect', 'Offline', 'Quit');
+  Labels: array[0..4] of string = ('Nickname', 'Server IP', 'Port', 'Account', 'Password');
+  Btns: array[0..2] of string = ('Start', 'Offline', 'Quit');
 var
   I, X, Y, W, H: Integer;
   Logo: TGSurface;

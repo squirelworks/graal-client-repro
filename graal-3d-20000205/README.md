@@ -62,9 +62,13 @@ window unit.
 
 ## What works (0.0.1)
 
-- **Start window.** Nickname (`Stefan`), server, port `14901`, account and
-  password (`guest` / `guest`), with `logo.bmp` on top when it is there.
-  Connect logs in; Offline walks `level1.x` with no server.
+- **Start window.** The original's fields in its order and with its
+  labels: Nickname (empty), Server IP, Port `14901`, Account and Password
+  (`guest` / `guest`), and Start, with `logo.bmp` on top when it is there.
+  Offline (walks `level1.x` with no server) and Quit are this build's.
+  Compared by eye with the real `Graal3D.exe` under Wine: same fields and
+  defaults; the original is a small wood-panel dialog with a drop-down for
+  the server, this build draws its own plain window at 640×480.
 - **Login.** `GR3DV002`, account and password; the login line and the first
   props line (the full look and the UDP port) go out in one frame, as the
   original does.
@@ -170,7 +174,11 @@ The notes leave these open; each is marked "this build" in the code.
 - The registry store of nickname, account and the DES-hidden password.
 - Arm and leg swing while walking (only the body bob is drawn).
 - The "Graal execution file is corrupted" self-check.
-- A side-by-side check against the real client with Microsoft's
-  `d3drm.dll` (Wine's is a stub, see the lab notes).
+- A side-by-side check of play against the real client. Under Wine the
+  real client's start window opens, but past it the client needs
+  Microsoft's `d3drm.dll` (Wine's is a stub, see the lab notes), so no
+  real login could be compared here; the rebuild's login was checked
+  against the reference server.
+- The server drop-down list of the start window.
 - Admin login (id 1) and its account and player lists: no admin client
   shipped for Graal3D.

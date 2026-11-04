@@ -510,7 +510,7 @@ begin
       Exit;
     end;
     InstallStopHandlers;
-    F.Nick := 'Stefan';
+    F.Nick := '';
     F.Host := C.ServerAddr;
     F.Port := IntToStr(C.ServerPort);
     F.Account := C.AccountName;

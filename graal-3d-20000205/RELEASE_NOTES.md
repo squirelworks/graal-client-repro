@@ -37,8 +37,8 @@ another folder instead.
 
 ## Playing
 
-Run `Graal3D` with no arguments for the start window: nickname, server,
-port (14901), account and password (guest / guest). Connect logs into a
+Run `Graal3D` with no arguments for the start window: nickname, server
+IP, port (14901), account and password (guest / guest). Start logs into a
 Graal3D server; Offline walks the default level.
 
 - Keypad 8 / 2: forward and back. Keypad 4 / 6: step sideways. The arrow
