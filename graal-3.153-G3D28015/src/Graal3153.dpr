@@ -477,7 +477,7 @@ procedure TrainingLevel(const Dir: string; out Path, X, Y: string);
 begin
   X := '30';
   Y := '30';
-  Path := FirstFileIn(Dir, 'levels/offlinetutorial_b-2.nw;levels/offlinetutorial_b-2.graal;offlinetutorial_b-2.nw;offlinetutorial_b-2.graal');
+  Path := FirstFileIn(Dir, 'levels/tutorial/offlinetutorial_b-2.graal;levels/offlinetutorial_b-2.nw;levels/offlinetutorial_b-2.graal;offlinetutorial_b-2.nw;offlinetutorial_b-2.graal');
   if Path = '' then
   begin
     Path := Dir + 'start.nw';
