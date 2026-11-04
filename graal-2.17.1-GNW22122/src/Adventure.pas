@@ -181,8 +181,9 @@ type
     Screen: TGSurface;
     Sheet: TGSurface;    { pics1 }
     SheetBuiltin: Boolean; { Sheet is the built-in default }
-    { GS1 addtiledef: 'prefix'#9'image', newest first. A level whose name
-      starts with the prefix is drawn from that image instead of pics1. }
+    { GS1 addtiledef: 'prefix'#9'image', newest first, the sheet type in
+      Objects. A level whose name starts with the prefix is drawn from that
+      image instead of pics1. }
     TileDefs: TStringList;
     { GS1 replaceani OLD,NEW: the player's own OLD gani is played and sent
       as NEW (old=new pairs) }
@@ -309,14 +310,19 @@ type
     procedure DrawItems(CamX, CamY: Integer);
     { The 2 x 2 tiles of object I of table List at screen point X, Y. }
     procedure DrawObjectTiles(List, I, X, Y: Integer);
-    { GS1 addtiledef IMAGE,PREFIX: levels starting with PREFIX use IMAGE. }
-    procedure AddTileDef(const Img, Prefix: string);
+    { GS1 addtiledef IMAGE,PREFIX,TYPE: levels starting with PREFIX use
+      IMAGE, of sheet type TYPE (0 the old tile order, 1 and 2 the new). }
+    procedure AddTileDef(const Img, Prefix: string; Kind: Integer);
+    { The sheet type of the level's tile definition: 0 for pics1. }
+    function TileDefKind(const LevelName: string): Integer;
     procedure ReplaceAni(const OldName, NewName: string);
     { The player's gani after replaceani. }
     function OwnAniName: string;
     { The tile sheet for a level: the newest addtiledef whose prefix starts
       the name and whose image loads, else pics1. }
     function TileSheetFor(const LevelName: string): TGSurface;
+    { The index of that tile definition in TileDefs, or -1. }
+    function TileDefIndex(const LevelName: string): Integer;
     { A carried or thrown object (lift table entry Kind) at X, Y. }
     procedure DrawCarried(Kind, X, Y: Integer);
     { Not in hurt mode and not dead. }
@@ -878,6 +884,21 @@ begin
   Result := Floor(V + 0.0001);
 end;
 
+{ The wall test of the new tile order (sheet types 1 and 2), from the tile
+  id alone (client-internals/decomp-findings-2026-10-28-b/01-tile-type-tests.md). }
+function NewSheetWall(Tile: Integer): Boolean;
+var
+  Row, Col: Integer;
+begin
+  Row := Tile div 16;
+  Col := Tile mod 16;
+  Result := (Tile = 32) or
+    (((Row = 26) or (Row = 27)) and (Col >= 2)) or
+    ((Row >= 30) and (Row <= 47)) or ((Row >= 84) and (Row <= 95)) or
+    ((Row >= 116) and (Row <= 127)) or
+    ((Row >= 128) and Odd(Row div 16));
+end;
+
 function TAdventure.PointBlocked(PX, PY: Double): Boolean;
 var
   TX, TY, I: Integer;
@@ -897,7 +918,12 @@ begin
   { outside 0..63 is a gmap neighbour or a fixed tile; neither is modelled
     yet, so the edge is open and level links can be reached }
   if (TX < 0) or (TY < 0) or (TX >= BoardW) or (TY >= BoardH) then Exit;
-  Result := not Arrays.TilePassable(Level.Tile(TX, TY));
+  case TileDefKind(Level.Name) of
+    1, 2: Result := NewSheetWall(Level.Tile(TX, TY));
+    5: Result := False; { no board rule: only NPC shapes have types }
+  else
+    Result := not Arrays.TilePassable(Level.Tile(TX, TY));
+  end;
 end;
 
 procedure TAdventure.WalkStep(Dir: Integer);
@@ -3087,7 +3113,7 @@ begin
   if Result = '' then Result := Player.AniName;
 end;
 
-procedure TAdventure.AddTileDef(const Img, Prefix: string);
+procedure TAdventure.AddTileDef(const Img, Prefix: string; Kind: Integer);
 var
   E: string;
   I: Integer;
@@ -3096,16 +3122,16 @@ begin
   E := LowerCase(Trim(Prefix)) + #9 + Trim(Img);
   I := TileDefs.IndexOf(E);
   if I >= 0 then TileDefs.Delete(I);
-  TileDefs.Insert(0, E);
+  TileDefs.InsertObject(0, E, TObject(PtrInt(Kind)));
 end;
 
-function TAdventure.TileSheetFor(const LevelName: string): TGSurface;
+function TAdventure.TileDefIndex(const LevelName: string): Integer;
 var
   I, T: Integer;
   N, Prefix: string;
   S: TGSurface;
 begin
-  Result := Sheet;
+  Result := -1;
   N := LowerCase(LevelName);
   for I := 0 to TileDefs.Count - 1 do
   begin
@@ -3116,11 +3142,30 @@ begin
       S := Assets.Image(Copy(TileDefs[I], T + 1, MaxInt), '');
       if (S <> nil) and (S.Width > 0) then
       begin
-        Result := S;
+        Result := I;
         Exit;
       end;
     end;
   end;
+end;
+
+function TAdventure.TileSheetFor(const LevelName: string): TGSurface;
+var
+  I: Integer;
+begin
+  Result := Sheet;
+  I := TileDefIndex(LevelName);
+  if I >= 0 then
+    Result := Assets.Image(Copy(TileDefs[I], Pos(#9, TileDefs[I]) + 1, MaxInt), '');
+end;
+
+function TAdventure.TileDefKind(const LevelName: string): Integer;
+var
+  I: Integer;
+begin
+  Result := 0;
+  I := TileDefIndex(LevelName);
+  if I >= 0 then Result := Integer(PtrInt(TileDefs.Objects[I]));
 end;
 
 procedure TAdventure.Draw;
