@@ -66,7 +66,7 @@ decompiled code:
 
 ## Assets this build reads
 
-From the program's folder, `graal-assets/b13/` or `graal-assets/common/`
+From the program's folder, `graal-assets/b13/`, `graal-assets/b11/` or `graal-assets/common/`
 (or `--data`): `pics1.gif` (or `.png`), `arrays.dat`, and levels from
 `levels/` or the folder itself (`level1.graal` is the Training level).
 Without them it uses its built-in assets.

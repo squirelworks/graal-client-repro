@@ -398,7 +398,7 @@ var
   I: Integer;
   Ok: Boolean;
 begin
-  SetAssetRoots(Dir, ClientBuildLabel);
+  SetAssetRoots(Dir, ClientAssetFolders);
   P := AssetPath('pics1.gif');
   if P = '' then P := AssetPath('pics1.png');
   if (P <> '') and (LoadImageIndexed(P, Sheet) or LoadImageFile(P, Sheet)) then
