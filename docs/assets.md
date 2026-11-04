@@ -19,6 +19,7 @@ client line's own install held.
     2.05r2/             one folder per version line, named by the build's
     2.22/               version label (ClientBuildLabel)
     3.04/
+    4.04r2/  4.20r8/  4.20r6/
     zelda-online1/
 ```
 
@@ -45,6 +46,9 @@ that has it:
 | 2.17.1 | `2.17.1;2.22` | `2.17.1/` (none shipped), then `2.22/`: 2.17.1 came in the same folder as 2.22 |
 | 2.22 | `2.22` | `2.22/` |
 | 3.04 | `3.04` | `3.04/` (the Linux install, `graal-decompile/torque/lin304`) |
+| 4.04r2 (PR #35) | `4.04r2` | `4.04r2/` |
+| 4.20r8 (PR #38) | `4.20r8` | `4.20r8/` |
+| 4.20r6 (PR #40) | `4.20r6` | `4.20r6/` |
 | Zelda Online 1 (Java, `ZeldaOnline1.jar`) | its own `Assets` class, same order | `zelda-online1/` |
 
 `--data DIR` today replaces the program's folder: with it, the root and a
@@ -141,6 +145,15 @@ The zip is deterministic (sorted names, fixed times) and extracts as
   and the tutorial at the top and in `levels/`, so with only the zip it
   draws the built-in tiles and does not find Training; it needs the
   build to search 3.04's own folders.
+- 4.04r2, 4.20r8 and 4.20r6 keep their tiles in `levels/tiles/` and the
+  tutorial in `levels/tutorial/`, as 3.04 does, and ship no `arrays.dat`
+  or `sprites.png`. The 4.x builds look for `pics1.png` at the top, in
+  `levels/` and `levels/images/`, so with only the zip they draw the
+  built-in tiles (checked with Graal420 from PR #38).
+- 4.20r6's and 4.20r8's kept files are byte for byte the same, but each
+  build reads only its own label, so the zip holds both copies (about
+  1 MB). Labelling 4.20r6 `4.20r6;4.20r8` would let its folder go: every
+  file 4.20r8 has, 4.20r6's install has too.
 - 2.17.1 reads 2.22's start-window art and has no `objects.dat` (2.22
   shipped `tileobjects/` instead), as the shared install had it.
 
@@ -184,8 +197,11 @@ would save.
 | 2.22 | full install: `picso.png`, `levels/` with ganis, bomys, emoticons, midis, offline tutorial (from `graal-delphi-assets/2.22-src`, not in `graal clients.zip`) | 732 | 10348 | | **yes** (`2.22/`) |
 | 2.3, 2.31 | install not in project files | | | | no |
 | 3.04 (Linux) | Torque install (`graal-decompile/torque/lin304`, from Drive "Graal v3.04[Linux][Obsolete].sh"): `levels/` with `tiles/`, `tutorial/`, `images/`; `sounds/`, `maps/`, `license/`; Torque scripts in `common/`, `graaldata/` (cut) | 414 | 5600 | 110 same as 2.22 | **yes** (`3.04/`) |
+| 4.04r2 | thin Windows install, dumped from its Thinstall package (`graal-decompile/unpacked-installers/4.04r2/files`): `levels/` (`tiles/`, `tutorial/`, `ganis/`, `images/`, heads, bodies), `levels3d/` GUI, `languages3D/`, `license/`, `sounds/` | 131 | | | **yes** (`4.04r2/`, 68 kept) |
+| 4.20r8 | Linux installer 4.208 (Drive "Graal v4.20r8[Linux][Installer].bin", autopackage; laid out by its install script). The Windows "Unpacked" 7z on Drive is password-protected | 130 | | | **yes** (`4.20r8/`, 69 kept) |
+| 4.20r6 | Linux installer 4.206 (Drive "Graal v4.20r6[Linux][Installer][2007-01-10].bin"); the rebuild is of the Mac 4.20r6, whose dmg is not unpacked. Same files as 4.20r8 byte for byte except `license/sig.graal` | 130 | | | **yes** (`4.20r6/`, 69 kept) |
 | 3.153 (Mac) | install in `graal-decompile/torque/mac3153`; not inventoried until a build lands | | | | no |
-| 4.x to 6.x | installs on Drive, not unpacked in project files | | | | no |
+| 5.x, 6.x | unpacked Windows clients in `graal-decompile/unpacked-installers/` (5.12 to 6.03r7) | | | | 5.00r7 in flight (PR #39) |
 | Graal3D (2000) | DirectX `.x` meshes and `.bmp` textures at the top | 21 | 455 | | no |
 | Zelda Online 1 | applet: `pics1.gif`, `arrays.dat`, 36 `level*.zelda` (`Z3-V1.03`), `link.gif`, `state.gif`, `hit.au`, classes (from Drive `zeldaonline1.7z`) | 38 kept | 130 | | **yes** (`zelda-online1/`: `pics1.gif`, `arrays.dat`, `levels/*.zelda`) |
 | Zelda Online 2 | Java classes and levels under `game/` (author source alongside: never copied) | 90 | 535 | | no |
