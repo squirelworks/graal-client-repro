@@ -9,6 +9,10 @@ set -eu
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 GS=$1
 B=${2:-graal-2.05r2-GNW03081}
+# the 1998 builds (gen 1) talk to a relay, not to a gserver
+if grep -qs "ClientGeneration = 1;" "$ROOT/$B"/src/Protocol*.pas; then
+  exec "$ROOT/scripts/loopback-relay.sh" "$B"
+fi
 GSDIR=$(cd "$(dirname "$GS")/../.." && pwd)
 WORK=$(mktemp -d)
 trap 'kill $PID 2>/dev/null || true; rm -rf "$WORK"' EXIT
