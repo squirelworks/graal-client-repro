@@ -1,0 +1,78 @@
+name: release
+
+# One release per rebuilt client, named after its build folder
+# (e.g. graal-2.05r2-GNW03081). This builds that folder on Linux and
+# Windows and makes a DRAFT release with the binaries attached; Squirrel
+# reviews it and presses Publish (the suite-wide rule in seihai RELEASES.md).
+# Start it from the Actions tab with the folder name, or by pushing a tag
+# with that name.
+on:
+  push:
+    tags: ['graal-*']
+  workflow_dispatch:
+    inputs:
+      build:
+        description: Build folder to release, e.g. graal-2.05r2-GNW03081
+        required: true
+
+env:
+  BUILD: ${{ inputs.build || github.ref_name }}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the name is a build folder
+        shell: bash
+        run: test -d "$BUILD/src"
+      - name: Install Free Pascal (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y fp-compiler fp-units-base fp-units-fcl fp-units-x11
+      - name: Install Free Pascal (Windows)
+        if: runner.os == 'Windows'
+        run: choco install freepascal -y --no-progress
+      - name: Build and test
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = Windows ]; then
+            export PATH="$(ls -d /c/tools/freepascal/bin/* | head -1):$PATH"
+            export FPCFLAGS='-O2 -FuC:\tools\freepascal\units\i386-win32\*'
+          fi
+          scripts/build.sh "$BUILD"
+          scripts/test.sh
+      - name: Pack
+        shell: bash
+        run: |
+          OUT="$BUILD-${RUNNER_OS,,}"
+          mkdir -p "dist/$OUT"
+          for F in build/"$BUILD"/*; do
+            case "$F" in *.o|*.ppu|*.a|*.bmp) ;; *) [ -f "$F" ] && [ -x "$F" -o "${F##*.}" = exe ] && cp "$F" "dist/$OUT/";; esac
+          done
+          cp "$BUILD/README.md" "dist/$OUT/"
+          cd dist && 7z a "$OUT.zip" "$OUT" > /dev/null
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ runner.os }}
+          path: dist/*.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.BUILD }}
+          name: ${{ env.BUILD }}
+          target_commitish: ${{ github.sha }}
+          draft: true
+          files: dist/**/*.zip
