@@ -167,6 +167,35 @@ Hardening checks, all in CI:
   a bad frame, an unknown compression byte or an unfinished message over
   4 MB drops the link.
 
+After the play layer came in (2026-11-04): 20 headless 2.22 clients on
+one seihai-gserver for 20 s, walking at random and taking a link every
+3 s: all 20 ended clean, 368 of 368 link warps went through, tick p99 at
+most 0.76 ms, 18 MB peak each.
+
+## Checked against the real 2.22
+
+The real `Graal_222.exe` (Graal Reborn 2.22.0 folder) runs under Wine in a
+network namespace with only loopback. Training side by side with the
+rebuild on the same files (`--data` pointed at that folder):
+
+- The same level, path and NPC places: palm trees, cauldron, teacher and
+  torches stand where the real client draws them.
+- Different, not done yet:
+  - the board: the tutorial's `addtiledef picso.png,offlinetutorial,1`
+    is a type 1 tile set, which the real client draws in another tile
+    order (sand round the edge, flowered grass); the rebuild still draws
+    it with pics1;
+  - the player: the tutorial dresses the player with
+    `setplayerprop #P1..#P6` and `replaceani idle,human2_idle` (hair, legs,
+    arms on the human2 ganis); the rebuild skips both and draws the
+    default character, bald because `khairs0.png` is not in the folder;
+  - the torches' light and the darker night look, the teacher's "Touch to
+    get information" text (its gani attribute), and the chat bar under
+    the game (the real game view is 640 x 456 above it);
+- Where Training puts the player: the real one starts just below the
+  cauldron; the rebuild now starts at (27.5, 31.5), matched by eye (the
+  earlier guess, (30, 30), stood inside the cauldron).
+
 ## Owner decisions
 
 - `NEEDS OWNER DECISION`: the real 2.22 answers `PLO_LISTPROCESSES` (182)
@@ -196,6 +225,8 @@ Hardening checks, all in CI:
   (`button1-4.bmp`) are not used (the shared screen draws its own);
   Options, UDP peer traffic, voice chat.
 - Where Training puts the player on `offlinetutorial_b-2.graal` is not
-  traced: (30, 30) is a guess. The tutorial's other script lines (the
-  player's look, `loadmap`, the NPC talk) need the GS1 engine.
+  traced: (27.5, 31.5), below the cauldron, is matched by eye to the real
+  client (see above). The tutorial's script lines the engine does not
+  model yet (`setplayerprop #P1..#P6`, `replaceani`, `loadmap`,
+  `setletters`) are logged and skipped.
 - A macOS window (headless or `--dump` there, as for 2.05).

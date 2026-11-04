@@ -518,11 +518,13 @@ end;
   (offlinetutorial_a-1 .. c-3, starting at the centre, b-2) when it lies
   next to the program; else the built-in starter level (a start.nw next to
   the program replaces it). The arrival point on offlinetutorial_b-2 is not
-  traced yet: (30, 30) is a guess. }
+  traced: (27.5, 31.5), just below the cauldron, is matched by eye to a
+  screenshot of the real 2.22 under Wine (the earlier guess, (30, 30),
+  put the player inside the cauldron). }
 procedure TrainingLevel(const Dir: string; out Path, X, Y: string);
 begin
-  X := '30';
-  Y := '30';
+  X := '27.5';
+  Y := '31.5';
   Path := FirstFileIn(Dir, 'levels/offlinetutorial_b-2.graal;offlinetutorial_b-2.graal');
   if Path = '' then
   begin
