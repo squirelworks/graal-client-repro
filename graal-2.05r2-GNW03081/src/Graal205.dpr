@@ -72,6 +72,8 @@ uses
   GLevelWrite in '../../common/GLevelWrite.pas',
   EditorDoc in 'editor/EditorDoc.pas',
   EditorUI in 'editor/EditorUI.pas',
+  EditorDialogs in 'editor/EditorDialogs.pas',
+  EditorObjSets in 'editor/EditorObjSets.pas',
   EditorView in 'editor/EditorView.pas',
   EditorMain in 'editor/EditorMain.pas';
 

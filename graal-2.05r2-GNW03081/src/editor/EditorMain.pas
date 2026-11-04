@@ -35,7 +35,7 @@ procedure FreeEditor;
 implementation
 
 uses
-  SysUtils, GSurface, GLevel, GBuiltin, EditorUI, EditorDoc, EditorView;
+  SysUtils, GSurface, GLevel, GBuiltin, GAssetDirs, EditorUI, EditorDoc, EditorView;
 
 type
   TImageSource = class
@@ -107,6 +107,10 @@ begin
   end;
   Source.G := G;
   View.Sheet := G.Sheet;
+  { objects*.txt / objects.dat: the game folder first, then the assets }
+  SetLength(View.ObjFolders, AssetRootCount + 1);
+  View.ObjFolders[0] := GetCurrentDir;
+  for X := 0 to AssetRootCount - 1 do View.ObjFolders[X + 1] := AssetRoot(X);
   View.Images := Source.Image;
   View.ExitCode := eeNone;
   OpenPlayerLevel(G);
