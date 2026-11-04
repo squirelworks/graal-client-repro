@@ -9,9 +9,10 @@ game (NPCs, items, weapons, the script engine, the editors) is not there yet.
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").
 
-These zips hold no original Graal code, graphics, sounds or levels. Point the
-client at a 2.05 install you own with `--data DIR` for the tiles, ganis,
-heads and bodies.
+These zips hold no original Graal code, graphics, sounds or levels. The
+client carries simple graphics of its own; put a 2.05 install you own next
+to it, or point `--data DIR` at one, for the real tiles, ganis, heads and
+bodies.
 
 ## Downloads
 
@@ -35,6 +36,13 @@ System Settings > Privacy & Security.
 - Level links and warps. The point 2.05 tests for a link was measured on
   the real client under Wine: the body's centre pushed 1 to 1.5 tiles ahead
   in the walking direction.
+- A start screen when run with no arguments, as 2.05 opened its connect
+  dialog: Training for the offline levels, Start for the server list from
+  the listserver (named in `listserver.txt`), then account and password.
+  On Windows it is a windowed program.
+- Its own small set of original built-in graphics and two offline levels,
+  so it runs with nothing next to it. Files from a 2.05 install next to it,
+  or under `--data`, replace them.
 - A headless mode for stress runs, with a random walker, JSON stats and
   clean shutdown on SIGTERM / Ctrl+C. Twenty of these ran next to 92 bots on
   seihai-gserver for 60 s: all ended clean, 134 of 135 links went through,
@@ -43,24 +51,25 @@ System Settings > Privacy & Security.
 ## Running it
 
 ```
+Graal205                                                   # start screen
 GRAAL_PW=... Graal205 --server HOST:PORT --account NAME --data /path/to/graal205
 Graal205 --level some.nw --data /path/to/graal205          # offline
 Graal205 --server HOST:PORT --account NAME --headless --seconds 600 \
   --walk random --link-every 5 --stats-every 10              # stress run
 ```
 
-Arrow keys or I/J/K/L walk, Esc quits. Run `Graal205` with no arguments for
+Arrow keys or I/J/K/L walk, Esc leaves the game. Run `Graal205 --help` for
 every flag.
 
 ## Not yet
 
 NPCs, baddies, items and weapons; the GS1 script engine; the editors; chat
-bubbles and names; poses beyond idle and walk; the listserver step; UDP peer
+bubbles and names; poses beyond idle and walk; the Options page; UDP peer
 traffic; a macOS window. See the build's README for the full list.
 
 ## Checks behind this release
 
-The test suite (73 checks) runs with range and overflow checks and the heap
+The test suite (87 checks) runs with range and overflow checks and the heap
 tracer, and must end with no unfreed memory. It includes a fuzz run of
 20000 random and mangled messages and 3000 random frames through the
 receive path. CI also logs two of these clients into seihai-gserver, has the

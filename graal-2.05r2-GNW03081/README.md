@@ -34,7 +34,8 @@ decompiled code:
 | `src/Protocol205.pas` | | ids, token, cipher constants, buffer limits |
 | `src/GraalClient.pas` | `TGraalClient`, `TAdventureClient` | out buffer, zlib frames, gen-3 insertion, login, receive split with `PLO_RAWDATA` |
 | `src/Adventure.pas` | `TAdventure`, `TServerPlayer` | game state, message handlers, 50 ms tick, drawing |
-| `src/Graal205.dpr` | | command line front end: window, scripted keys, frame dump, stress runs |
+| `src/Graal205.dpr` | | front end: the start screen with no arguments, or the command line (window, scripted keys, frame dump, stress runs) |
+| `src/StartScreen205.pas` | (`TConnectFrame`, server list) | what 2.05 plugs into the shared start screen (`common/GStartScreen.pas`): its listserver step and its character |
 | `src/RunMode.pas` | | stress-run support: clock, stop signals, tick histogram, random walker, JSON |
 
 ## What works
@@ -82,6 +83,32 @@ decompiled code:
 - Loopback: two clients log into seihai-gserver, load the board and walk;
   the second must see the first. Then one walks through a level link
   (`scripts/loopback.sh`, run in CI).
+
+## Start screen and built-in assets
+
+Run `Graal205` with no arguments and it opens a window, as 2.05 did, with
+the start screen of its connect dialog: a nick name, the character, and the
+buttons Training, Options and Start. Training plays the offline levels;
+Start asks the listserver for the server list (`newmain`, plain zlib, the
+2.05 reply layout), then takes an account and password and logs into the
+server picked. Esc in the game, or a lost link, goes back to the start
+screen. Options is not built yet. On Windows it is a windowed program with
+no console; given flags, it attaches to the console it was started from.
+
+The listserver is read from `listserver.txt` next to the program (first
+line host, second line port), else 127.0.0.1:14921. The real 2.05 hides
+its listserver host in the exe; that is not used.
+
+The program carries a small set of its own, original assets
+(`common/builtin/`, made by `scripts/builtin/make_builtin.py` and compiled
+in as `common/GBuiltin.pas`): a tile sheet, a body, a head, the shadow,
+`idle` and `walk` ganis, `arrays.dat`, and two linked offline levels. They
+are drawn new for this project and are not the 2.05 graphics. Anything the
+program finds on disk wins over them: put a 2.05 install (or the assets
+zip) next to the program, or point `--data` at one, and its `pics1`,
+ganis, heads, bodies, levels and start-screen images are used instead.
+Training starts at `levels/tutorial_b-4.graal` when that file is there,
+else at the built-in `start.nw`.
 
 ## Stress runs (phase 4)
 
@@ -140,8 +167,8 @@ Hardening checks, all in CI:
 - Most of the 59 server ids 2.05 handles. NPCs, baddies, items, weapons
   and the rest of the game.
 - The GS1 script engine (161 commands), the built-in editors.
-- The listserver link (DES-hidden host, `newmain`).
+- The listserver host hidden in the 2.05 exe (DES); `listserver.txt` names it instead.
 - The window size (640x480 is assumed, not read from the binary). The
   board edge is treated as open.
 - Several clients in one process (one per process for now).
-- The listserver step before the game server.
+- The Options page, the language and character pickers of the start screen.

@@ -15,7 +15,7 @@ unit Adventure;
 interface
 
 uses
-  Classes, GTypes, GLevel, GSurface, GArrays, GAni, GraalClient, Protocol205;
+  Classes, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GraalClient, Protocol205;
 
 const
   { The game view. 2.05's window size is not yet read from the binary;
@@ -102,7 +102,6 @@ type
     procedure SendInitialProps;
     procedure SendMovedProps;
     function BodyFor(P: TServerPlayer): TGSurface;
-    procedure DrawPlayer(P: TServerPlayer; CamX, CamY: Integer);
     function GetOther(I: Integer): TServerPlayer;
     function GetOtherCount: Integer;
   public
@@ -110,6 +109,7 @@ type
     Player: TServerPlayer;
     Screen: TGSurface;
     Sheet: TGSurface;    { pics1 }
+    SheetBuiltin: Boolean; { Sheet is the built-in default }
     Arrays: TGArrays;
     Assets: TAssets;
     Frame: Integer;
@@ -136,6 +136,11 @@ type
     procedure Log(const S: string);
     { Points pics1, arrays.dat and the image folders at an install. }
     procedure UseInstall(const Dir: string);
+    { Draws P with the camera at (CamX, CamY) pixels; also used for the
+      character on the start screen. }
+    procedure DrawPlayer(P: TServerPlayer; CamX, CamY: Integer);
+    { The built-in tile sheet and tile types (done by Create). }
+    procedure UseBuiltins;
     function ConnectServer(const Host: string; Port: Word;
       const Account, Password: string): Boolean;
     { The walking routine for one direction key (one step). }
@@ -306,7 +311,7 @@ end;
 
 function TAssets.Image(const Name, Kind: string): TGSurface;
 var
-  Key, F: string;
+  Key, F, D: string;
   I: Integer;
   S: TGSurface;
   Ok: Boolean;
@@ -333,6 +338,12 @@ begin
     if Kind = 'body' then Ok := LoadImageIndexed(F, S)
     else Ok := LoadImageFile(F, S);
     if not Ok then FreeAndNil(S);
+  end;
+  { nothing on disk: the built-in default of that name, if there is one }
+  if (S = nil) and BuiltinFile(Name, D) then
+  begin
+    S := TGSurface.Create(0, 0);
+    if not LoadImageData(D, Name, S, Kind = 'body') then FreeAndNil(S);
   end;
   if S = nil then Missing.Add(Name);
   FNames.AddObject(Key, S);
@@ -363,6 +374,11 @@ begin
       A := TGraalAni.Create;
       if not A.LoadFromFile(F) then FreeAndNil(A);
     end;
+  end;
+  if (A = nil) and BuiltinFile(Name + '.gani', F) then
+  begin
+    A := TGraalAni.Create;
+    if not A.LoadFromString(F) then FreeAndNil(A);
   end;
   if A = nil then Missing.Add(Name + '.gani');
   FNames.AddObject(Key, A);
@@ -547,6 +563,16 @@ begin
   Arrays := TGArrays.Create;
   Assets := TAssets.Create;
   FOthers := TList.Create;
+  UseBuiltins;
+end;
+
+procedure TAdventure.UseBuiltins;
+var
+  D: string;
+begin
+  if BuiltinFile('pics1.png', D) and LoadImageData(D, 'pics1.png', Sheet, False) then
+    SheetBuiltin := True;
+  if BuiltinFile('arrays.dat', D) then Arrays.LoadFromString(D);
 end;
 
 destructor TAdventure.Destroy;
@@ -603,12 +629,15 @@ var
 begin
   Assets.Dir := Dir;
   P := IncludeTrailingPathDelimiter(Dir);
-  if (Sheet.Width = 0) and not LoadImageFile(P + 'pics1.png', Sheet) then
-    LoadImageFile(P + 'pics1.gif', Sheet);
-  if Arrays.LoadFromFile(P + 'arrays.dat') then
+  { the install's tile sheet and tile types replace the built-in ones, but
+    not a sheet given with --sheet }
+  if (Sheet.Width = 0) or SheetBuiltin then
+    if LoadImageFile(P + 'pics1.png', Sheet) or LoadImageFile(P + 'pics1.gif', Sheet) then
+      SheetBuiltin := False;
+  if FileExists(P + 'arrays.dat') and Arrays.LoadFromFile(P + 'arrays.dat') then
     Log('arrays.dat loaded')
   else
-    Log('arrays.dat not found in ' + Dir + ': walls do not block');
+    Log('arrays.dat not found in ' + Dir + ': using the built-in tile types');
 end;
 
 function TAdventure.ConnectServer(const Host: string; Port: Word;
@@ -754,7 +783,18 @@ end;
 { ---- level links ---- }
 
 function TAdventure.LoadLevelFile(const FileName: string): Boolean;
+var
+  D: string;
 begin
+  if not FileExists(FileName) and BuiltinFile(ExtractFileName(FileName), D) and
+    (LowerCase(ExtractFileExt(FileName)) <> '.png') then
+  begin
+    { a built-in level: links from it look in the install, then here }
+    Result := Level.LoadFromString(D);
+    Level.Name := ExtractFileName(FileName);
+    if Result then FLevelDir := '';
+    Exit;
+  end;
   Result := Level.LoadFromFile(FileName);
   if Result then FLevelDir := ExtractFilePath(FileName);
 end;
@@ -823,11 +863,7 @@ begin
     Path := IncludeTrailingPathDelimiter(Assets.Dir) + 'levels' + PathDelim + L.Dest
   else if (Assets.Dir <> '') and FileExists(IncludeTrailingPathDelimiter(Assets.Dir) + L.Dest) then
     Path := IncludeTrailingPathDelimiter(Assets.Dir) + L.Dest;
-  if Path = '' then
-  begin
-    Log('link to ' + L.Dest + ': level not found');
-    Exit;
-  end;
+  if Path = '' then Path := L.Dest; { LoadLevelFile tries the built-in ones }
   if not LoadLevelFile(Path) then
   begin
     Log('link to ' + L.Dest + ': ' + Level.LastError);

@@ -34,19 +34,27 @@ common/                     code that is the same across builds
   GBzip2.pas                bzip2 in and out of string buffers (gen 5, 2.22 on)
   GSocket.pas               non-blocking TCP, polled from the game tick
   GLevel.pas                64x64 level: GR-V1.0x, Z3-V1.0x, GLEVNW01, board packet, GR-V writer
-  GSurface.pas              32-bit software surface, tile sheet blit, BMP/PNG/GIF loading, palette recolour
+  GSurface.pas              32-bit software surface, tile sheet blit, BMP/PNG/GIF/JPEG loading, palette recolour
   GArrays.pas               arrays.dat tile types (what blocks)
   GAni.pas                  GANI0001 animations
-  GWindow.pas               a window and keyboard (X11 / Win32 GDI)
+  GWindow.pas               a window, keyboard, mouse and typed text (X11 / Win32 GDI)
+  GFont.pas                 an original 5x7 font for the window
+  GStartScreen.pas          the start screen and server list every build opens with
+  GBuiltin.pas              built-in original assets, compiled in (generated)
+  builtin/                  those assets as files (scripts/builtin/make_builtin.py)
 graal-2.05r2-GNW03081/      Graal 2.05 rev 2
   src/                      the client (Graal205.dpr and its units)
   tests/                    Test205.dpr
+graal-2.17.1-GNW22122/      Graal 2.17.1
+  src/                      the client (Graal217.dpr and its units)
+  tests/                    Test217.dpr
 graal-2.22-GNW03014/        Graal 2.22
   src/                      the client (Graal222.dpr and its units)
   tests/                    Test222.dpr
 scripts/
   build.sh                  build every rebuild and its tests
   test.sh                   run every test program
+  builtin/                  draws the built-in assets and writes GBuiltin.pas / GFont.pas
   loopback.sh               log a rebuild into seihai-gserver (acceptance check)
 ```
 
@@ -153,8 +161,28 @@ steps and are required before a build counts as done.
 | Build | Token | Wire | World | Play | Harden | Release |
 |---|---|---|---|---|---|---|
 | [2.05 rev 2](graal-2.05r2-GNW03081/) | `GNW03081` | done | board, player from ganis, window | walking and collision; props out; other players; level links | headless stress mode, fuzzed receive path, leak checks | v0.0.1 draft |
+| [2.17.1](graal-2.17.1-GNW22122/) | `GNW22122` | login with tamper check; all 79 server ids accepted | from 2.05: board, player and others from ganis, window | from 2.05: walking, links; GANI and direction props out | from 2.05: headless stress mode, fuzzed receive path, leak checks | not yet |
 | [2.22](graal-2.22-GNW03014/) | `GNW03014` | done (gen 5, bzip2) | board, level cache, gmaps | walking and collision; props out; other players; level links; gmap edges | headless stress mode, fuzzed receive path, leak checks | v0.0.1 after merge |
 
 ## Licence
 
 Not chosen yet.
+
+## Every build is a GUI program
+
+Each build opens a window with the start screen when started with no
+arguments, as the original clients did: Training for the offline levels,
+Start for the server list from the listserver, then account and password.
+Flags still run it from the command line (stress runs, CI). Each build
+carries the small original assets in `common/builtin/`, so it runs with
+nothing next to it; files from a real install next to the program, or
+under `--data`, replace them.
+
+A build plugs into `common/GStartScreen.pas` with:
+
+- a `TListFetch` subclass for its listserver step (2.05: plain zlib, id 0
+  `newmain`);
+- a `TStartInfo`: the title lines, the background images to look for next
+  to the program, and a callback that draws the character;
+- its own front end, which picks the Training level and runs the game
+  (see `RunGui` in `graal-2.05r2-GNW03081/src/Graal205.dpr`).
