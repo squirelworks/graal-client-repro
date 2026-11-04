@@ -14,7 +14,12 @@ program TestEditor205;
 uses
   SysUtils, Classes,
   GLevel in '../../common/GLevel.pas',
-  GLevelWrite in '../../common/GLevelWrite.pas';
+  GLevelWrite in '../../common/GLevelWrite.pas',
+  EditorDoc in '../src/editor/EditorDoc.pas',
+  GSurface in '../../common/GSurface.pas',
+  GFont in '../../common/GFont.pas',
+  EditorUI in '../src/editor/EditorUI.pas',
+  EditorView in '../src/editor/EditorView.pas';
 
 var
   Passed, Failed, Skipped: Integer;
@@ -37,6 +42,18 @@ procedure Skip(const What: string);
 begin
   Inc(Skipped);
   WriteLn('skip  ', What);
+end;
+
+procedure WriteText(const FileName, Text: string);
+var
+  F: TFileStream;
+begin
+  F := TFileStream.Create(FileName, fmCreate);
+  try
+    if Text <> '' then F.WriteBuffer(Text[1], Length(Text));
+  finally
+    F.Free;
+  end;
 end;
 
 function ReadFileStr(const FileName: string): string;
@@ -272,6 +289,296 @@ begin
   end;
 end;
 
+procedure TestEditorBoard;
+var
+  E: TEditor;
+  D: TEditorDoc;
+  I: Integer;
+  B: TTileBlock;
+begin
+  E := TEditor.Create;
+  try
+    E.Background := 7;
+    D := E.NewDoc;
+    Check((D.Title = '(new)') and (D.Level.Tiles[0] = 7) and (D.Level.Tiles[BoardSize - 1] = 7),
+      'editor: a new level is (new), filled with the background tile');
+    D.SetTile(3, 4, 100);
+    Check((D.Level.Tile(3, 4) = 100) and D.Modified and (D.UndoCount = 1), 'editor: set a tile');
+    Check(D.Undo and (D.Level.Tile(3, 4) = 7), 'editor: undo restores the tile');
+    Check(D.HasSel and (D.SelX = 3) and (D.SelY = 4) and (D.SelW = 1), 'editor: undo selects the rectangle');
+    Check(not D.Undo, 'editor: nothing more to undo');
+    for I := 1 to 130 do D.SetTile(I mod 64, 0, I);
+    Check(D.UndoCount = 128, 'editor: the undo stack holds 128 records');
+    for I := 1 to 128 do D.Undo;
+    { records 1 and 2 (x 1 and 2 from the background) were dropped }
+    Check((D.Level.Tile(1, 0) = 1) and (D.Level.Tile(2, 0) = 2) and (D.Level.Tile(3, 0) = 7),
+      'editor: the oldest records were dropped');
+
+    D.Select(10, 12, 8, 9);
+    Check((D.SelX = 8) and (D.SelY = 9) and (D.SelW = 3) and (D.SelH = 4), 'editor: selection is normalised');
+    D.Select(60, 60, 70, -3);
+    Check((D.SelX = 60) and (D.SelY = 0) and (D.SelW = 4) and (D.SelH = 61), 'editor: selection is clipped to the board');
+
+    { copy floats a copy; drop writes it }
+    D.Select(0, 0, 1, 1);
+    D.FillSelection(50);
+    E.Copy;
+    Check(D.Floating and (D.Float.W = 2) and (D.Level.Tile(0, 0) = 50), 'editor: copy floats the selection, board unchanged');
+    D.MoveFloat(20, 20);
+    D.DropFloat;
+    Check(not D.Floating and (D.Level.Tile(21, 21) = 50) and (D.Level.Tile(0, 0) = 50),
+      'editor: dropping writes the floating block');
+    Check(D.HasSel and (D.SelX = 20) and (D.SelW = 2), 'editor: the drop is selected');
+    { cut lifts and clears }
+    E.Cut;
+    Check(D.Floating and (D.Level.Tile(20, 20) = 7), 'editor: cut fills the hole with the background');
+    D.MoveFloat(62, 63);
+    D.DropFloat;
+    Check((D.Level.Tile(62, 63) = 50) and (D.Level.Tile(63, 63) = 50), 'editor: a drop at the edge is clipped');
+    Check(D.Undo and (D.Level.Tile(62, 63) = 7), 'editor: undo a clipped drop');
+    E.Paste(30, 31);
+    Check(D.FloatContains(31, 32) and not D.FloatContains(32, 32), 'editor: paste floats the clipboard');
+    E.Delete;
+    Check(not D.Floating, 'editor: delete drops a floating paste');
+    D.Select(0, 0, 1, 1);
+    E.Delete;
+    Check(D.Level.Tile(0, 0) = 7, 'editor: delete fills the selection with the background');
+
+    { flood fill }
+    D.Select(0, 0, 63, 63);
+    D.FillSelection(7);
+    for I := 0 to 63 do D.SetTile(I, 10, 1); { a wall across the board }
+    D.FloodFill(5, 5, TileBlock(1, 1, 3));
+    Check((D.Level.Tile(0, 0) = 3) and (D.Level.Tile(63, 9) = 3) and (D.Level.Tile(5, 10) = 1) and
+      (D.Level.Tile(5, 11) = 7), 'editor: flood fill stops at other tiles');
+    B := TileBlock(2, 1, 4);
+    B.Tiles[1] := 5;
+    D.FloodFill(0, 20, B);
+    Check((D.Level.Tile(0, 20) = 4) and (D.Level.Tile(1, 20) = 5) and (D.Level.Tile(2, 30) = 4),
+      'editor: flood fill repeats a block');
+    Check(D.Undo and (D.Level.Tile(0, 20) = 7) and (D.Level.Tile(0, 0) = 3), 'editor: flood fill is one undo');
+  finally
+    E.Free;
+  end;
+end;
+
+procedure TestEditorObjects;
+var
+  E: TEditor;
+  D: TEditorDoc;
+  K: TEditorObjKind;
+  N, I: Integer;
+  L: TLevelLink;
+  F: string;
+begin
+  E := TEditor.Create;
+  try
+    D := E.NewDoc;
+    N := D.AddChest(10, 10);
+    Check((D.Level.Chests[N].Item = 1) and (D.Level.Chests[N].Sign = -1), 'objects: new chest is bluerupee, no sign');
+    N := D.AddBaddy(20, 20, 0);
+    Check(D.Level.Baddies[N].Verses = 'Stop!\Ouch!\', 'objects: new baddy says Stop! and Ouch!');
+    N := D.AddBaddy(22, 20, 5);
+    Check(D.Level.Baddies[N].Verses = '\\', 'objects: a frog has no verses');
+    D.AddNPC(30.5, 30, 'x.png');
+    Check(D.ObjectAt(11, 11, K, I) and (K = okChest) and (I = 0), 'objects: chest under the cursor');
+    Check(D.ObjectAt(31, 31, K, I) and (K = okNPC), 'objects: NPC under the cursor');
+    Check(not D.ObjectAt(12, 12, K, I) and (K = okNone), 'objects: nothing there');
+    N := D.CloneObject(okBaddy, 0, 40, 41);
+    Check((N = 2) and (D.Level.Baddies[2].X = 40) and (D.Level.Baddies[2].Verses = 'Stop!\Ouch!\'),
+      'objects: right button clones a baddy');
+    D.DeleteObject(okBaddy, 1);
+    Check((Length(D.Level.Baddies) = 2) and (D.Level.Baddies[1].X = 40), 'objects: delete a baddy');
+    D.MoveObject(okNPC, 0, 1.5, 2);
+    Check(D.Level.NPCs[0].X = 1.5, 'objects: move an NPC');
+
+    L := LinkWarpDefaults(63, 10, 1, 4);
+    Check((L.NewX = '0') and (L.NewY = 'playery'), 'warp: east edge arrives at x 0');
+    L := LinkWarpDefaults(10, 63, 4, 1);
+    Check((L.NewX = 'playerx') and (L.NewY = '0'), 'warp: south edge arrives at y 0');
+    L := LinkWarpDefaults(0, 10, 1, 4);
+    Check(L.NewX = '61', 'warp: one-wide west edge arrives at x 61');
+    L := LinkWarpDefaults(10, 0, 4, 1);
+    Check(L.NewY = '61', 'warp: one-high north edge arrives at y 61');
+    L := LinkWarpDefaults(0, 10, 2, 4);
+    Check((L.NewX = 'playerx') and (L.NewY = 'playery'), 'warp: elsewhere both follow the player');
+    D.Select(63, 30, 63, 33);
+    N := D.MakeWarpLink;
+    Check((N = 0) and (D.Level.Links[0].H = 4) and (D.Level.Links[0].NewX = '0'), 'warp: from the selection');
+
+    Check(not D.Save and D.NeedsName, 'save: a new level needs a name');
+    F := GetTempDir + 'testeditor205-doc.nw';
+    D.Level.Links[0].Dest := 'next.nw';
+    Check(D.SaveAs(F) and not D.Modified and (D.Title = 'testeditor205-doc.nw'), 'save: save as .nw');
+    E.CloseDoc(0);
+    Check(E.DocCount = 0, 'tabs: closed');
+    D := E.OpenDoc(F);
+    Check((D <> nil) and (Length(D.Level.Chests) = 1) and (Length(D.Level.NPCs) = 1) and
+      (D.Level.NPCs[0].X = 1.5) and (D.Level.Links[0].Dest = 'next.nw'), 'tabs: reopen the saved level');
+    Check(E.OpenDoc(F) = D, 'tabs: opening an open file switches to its tab');
+    E.NewDoc;
+    Check((E.DocCount = 2) and (E.Current = 1), 'tabs: a second tab');
+    DeleteFile(F);
+    F := GetTempDir + 'testeditor205-bad.graal';
+    WriteText(F, 'not a level');
+    Check((E.OpenDoc(F) = nil) and (E.LastError = 'Unsupported file type!'), 'open: Unsupported file type!');
+    DeleteFile(F);
+  finally
+    E.Free;
+  end;
+end;
+
+var
+  Clock: Int64 = 100000;
+
+{ One frame of input: the mouse at (X, Y), optionally a press. }
+var
+  NoInput: TEditorInput;
+
+function Inp(X, Y: Integer; Press, Held: Boolean; const Chars: string): TEditorInput;
+begin
+  Result := NoInput;
+  Result.MouseX := X;
+  Result.MouseY := Y;
+  Result.LeftPress := Press;
+  Result.Left := Held or Press;
+  Result.PressX := X;
+  Result.PressY := Y;
+  Result.Chars := Chars;
+  Inc(Clock, 1000);
+  Result.NowMs := Clock;
+end;
+
+{ The screen point of board tile (TX, TY) with the view unscrolled. }
+function BX(TX: Integer): Integer;
+begin
+  Result := BoardX + TX * 16 + 8;
+end;
+
+function BY(TY: Integer): Integer;
+begin
+  Result := BoardY + TY * 16 + 8;
+end;
+
+procedure Click(V: TEditorView; X, Y: Integer);
+begin
+  V.Step(Inp(X, Y, True, True, ''));
+  V.Step(Inp(X, Y, False, False, ''));
+end;
+
+procedure TestEditorView;
+var
+  Sheet, Screen: TGSurface;
+  V: TEditorView;
+  D: TEditorDoc;
+  R: TRectI;
+  I: TEditorInput;
+  F: string;
+begin
+  Sheet := TGSurface.Create(2048, 512);
+  Screen := TGSurface.Create(640, 480);
+  V := TEditorView.Create(Sheet);
+  try
+    Check(SheetTileAt(0, 0) = 0, 'view: sheet tile 0 top left');
+    Check(SheetTileAt(16, 16) = 17, 'view: sheet tile 17 is row 1 col 1');
+    Check(SheetTileAt(256, 0) = 512, 'view: the second sheet block starts at 512');
+    V.Step(Inp(0, 0, False, False, ''));
+    D := V.Editor.Doc;
+    Check((D <> nil) and (V.Editor.DocCount = 1), 'view: opens with a (new) tab');
+
+    { pick tile 17 in the palette, paint by dragging }
+    Click(V, PalX0 + 16 + 4, PalY0 + 16 + 4);
+    Check((V.Pen.W = 1) and (V.Pen.Tiles[0] = 17) and V.PenPaints and D.Floating,
+      'view: a palette click picks one tile');
+    V.Step(Inp(BX(5), BY(5), True, True, ''));
+    V.Step(Inp(BX(6), BY(5), False, True, ''));
+    V.Step(Inp(BX(7), BY(5), False, True, ''));
+    V.Step(Inp(BX(7), BY(5), False, False, ''));
+    Check((D.Level.Tile(5, 5) = 17) and (D.Level.Tile(6, 5) = 17) and (D.Level.Tile(7, 5) = 17) and
+      (D.Level.Tile(8, 5) = 0), 'view: dragging paints the picked tile');
+    V.Step(Inp(BX(1), BY(1), False, False, #27));
+    Check(not D.Floating and (V.ExitCode = eeNone), 'view: Esc drops the pen first');
+
+    { select by dragging, copy, undo }
+    V.Step(Inp(BX(5), BY(5), True, True, ''));
+    V.Step(Inp(BX(7), BY(6), False, True, ''));
+    V.Step(Inp(BX(7), BY(6), False, False, ''));
+    Check(D.HasSel and (D.SelX = 5) and (D.SelW = 3) and (D.SelH = 2), 'view: drag selects');
+    V.Step(Inp(BX(7), BY(6), False, False, #3));
+    Check(D.Floating and (V.Editor.Clipboard.W = 3), 'view: Ctrl+C copies');
+    V.Step(Inp(BX(5), BY(5), True, True, ''));
+    V.Step(Inp(BX(5), BY(10), False, True, ''));
+    V.Step(Inp(BX(5), BY(10), False, False, ''));
+    Check((D.Level.Tile(5, 10) = 17) and (D.Level.Tile(7, 10) = 17) and (D.Level.Tile(5, 5) = 17),
+      'view: drag the copy and drop it');
+    V.Step(Inp(BX(1), BY(1), False, False, #26));
+    Check(D.Level.Tile(5, 10) = 0, 'view: Ctrl+Z undoes the drop');
+
+    { Delete fills with the background }
+    V.Editor.Background := 9;
+    D.Select(5, 5, 5, 5);
+    I := Inp(BX(1), BY(1), False, False, '');
+    I.Del := True;
+    V.Step(I);
+    Check(D.Level.Tile(5, 5) = 9, 'view: Del fills the selection with the background tile');
+
+    { place a chest from the things palette }
+    Click(V, 434 + 4, 89 + 4);
+    Check(V.Mode = pmThings, 'view: Baddies,Npcs,Chests mode');
+    Click(V, PalX0 + 10, PalY0 + 2 + ThingChest * LineH + 4);
+    Check(V.Placing and (V.Thing = ThingChest), 'view: pick the chest');
+    Click(V, BX(20), BY(20));
+    Check((Length(D.Level.Chests) = 1) and (D.Level.Chests[0].X = 20), 'view: click places it');
+    { drag it }
+    V.Step(Inp(BX(20), BY(20), True, True, ''));
+    V.Step(Inp(BX(22), BY(18), False, True, ''));
+    V.Step(Inp(BX(22), BY(18), False, False, ''));
+    Check((D.Level.Chests[0].X = 22) and (D.Level.Chests[0].Y = 18), 'view: drag an object');
+    { right button copies it }
+    I := Inp(BX(22), BY(18), False, False, '');
+    I.RightPress := True;
+    I.Right := True;
+    I.RightX := I.MouseX;
+    I.RightY := I.MouseY;
+    V.Step(I);
+    V.Step(Inp(BX(30), BY(18), False, False, ''));
+    Check(Length(D.Level.Chests) = 2, 'view: the right button copies a chest');
+
+    { toolbar }
+    R := ToolRect(taNew);
+    Click(V, R.X + 5, R.Y + 5);
+    Check(V.Editor.DocCount = 2, 'view: New opens a tab');
+    R := ToolRect(taPlay);
+    Click(V, R.X + 5, R.Y + 5);
+    Check((V.Dialog is TMessageDialog) and (V.ExitCode = eeNone),
+      'view: Play asks for a name first');
+    V.Step(Inp(0, 0, False, False, #13));
+    Check(V.Dialog = nil, 'view: Enter closes the message');
+    V.Editor.Current := 0;
+    F := GetTempDir + 'testeditor205-view.graal';
+    V.Step(Inp(0, 0, False, False, #19));
+    Check(V.Dialog is TPromptDialog, 'view: Ctrl+S on a new level asks for a name');
+    V.Step(Inp(0, 0, False, False, F + #13));
+    Check((V.Dialog = nil) and FileExists(F) and not V.Editor.Doc.Modified, 'view: saved');
+    D.SetTile(0, 0, 3);
+    Click(V, ToolRect(taPlay).X + 5, ToolRect(taPlay).Y + 5);
+    Check((V.ExitCode = eePlay) and (V.PlayFile = F) and not D.Modified,
+      'view: Play saves the modified level and plays it');
+    V.ExitCode := eeNone;
+    V.Draw(Screen);
+    Check(Screen.GetPixel(1, 1) <> 0, 'view: draws');
+    if GetEnvironmentVariable('EDITOR205_DUMP') <> '' then
+      Screen.SaveBMP(GetEnvironmentVariable('EDITOR205_DUMP'));
+    V.Step(Inp(0, 0, False, False, #27));
+    Check(V.ExitCode = eeLeave, 'view: Esc leaves the editor');
+    DeleteFile(F);
+  finally
+    V.Free;
+    Screen.Free;
+    Sheet.Free;
+  end;
+end;
+
 procedure TestTutorials;
 const
   Names: array[0..12] of string = ('a-1', 'a-2', 'a-3', 'a-4', 'b-1', 'b-2',
@@ -315,6 +622,9 @@ begin
   TestGRV;
   TestNWWrite;
   TestSaveFile;
+  TestEditorBoard;
+  TestEditorObjects;
+  TestEditorView;
   TestTutorials;
   WriteLn(Format('%d passed, %d failed, %d skipped', [Passed, Failed, Skipped]));
   if Failed > 0 then Halt(1);

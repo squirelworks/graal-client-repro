@@ -19,7 +19,9 @@ uses
 
 type
   TGKey = (gkNone, gkUp, gkLeft, gkDown, gkRight, gkAction, gkAttack,
-    gkItem, gkMap, gkChat, gkEscape, gkItemList);
+    gkItem, gkMap, gkChat, gkEscape, gkItemList,
+    { the 2.05 built-in editor: F4 opens it, F5 is the load level dialog }
+    gkEditor, gkLoadLevel, gkDelete, gkInsert);
 
   TGWindow = class
   private
@@ -39,10 +41,23 @@ type
     FPressed: array[TGKey] of Boolean; { pressed since the last tick }
     FClicked: Boolean;
     FClickX, FClickY: Integer;
+    FRightClicked: Boolean;
+    FRightX, FRightY: Integer;
+    FWheel: Integer;
     FChars: string;
     procedure AddClick(X, Y: Integer);
+    procedure AddRightClick(X, Y: Integer);
+{$IFNDEF MSWINDOWS}{$IFNDEF GW_NONE}
+    procedure SetArrow(Sym: Cardinal; Down: Boolean);
+{$ENDIF}{$ENDIF}
   public
     MouseX, MouseY: Integer;
+    { Mouse buttons held now, and the Ctrl / Shift keys (for the editor). }
+    MouseLeft, MouseRight: Boolean;
+    CtrlHeld, ShiftHeld: Boolean;
+    { The arrow keys alone (up, left, down, right), without the I J K L
+      letters that also walk, so the editor can scroll with them. }
+    ArrowHeld: array[0..3] of Boolean;
     Held: array[TGKey] of Boolean;
     Closed: Boolean;
     constructor Create(const Title: string; AWidth, AHeight: Integer);
@@ -56,8 +71,12 @@ type
     procedure SetKey(K: TGKey; Down: Boolean);
     { The last left click since the last call, in window pixels. }
     function TakeClick(out X, Y: Integer): Boolean;
+    { The last right click since the last call. }
+    function TakeRightClick(out X, Y: Integer): Boolean;
+    { Mouse wheel steps since the last call: up is negative. }
+    function TakeWheel: Integer;
     { Characters typed since the last call: printable ones, #8 backspace,
-      #9 tab, #13 enter, #27 escape. }
+      #9 tab, #13 enter, #27 escape, and Ctrl+letter as #1..#26. }
     function TakeChars: string;
     procedure AddChar(C: Char);
   end;
@@ -87,6 +106,29 @@ begin
   FClickY := Y;
   MouseX := X;
   MouseY := Y;
+end;
+
+procedure TGWindow.AddRightClick(X, Y: Integer);
+begin
+  FRightClicked := True;
+  FRightX := X;
+  FRightY := Y;
+  MouseX := X;
+  MouseY := Y;
+end;
+
+function TGWindow.TakeRightClick(out X, Y: Integer): Boolean;
+begin
+  Result := FRightClicked;
+  X := FRightX;
+  Y := FRightY;
+  FRightClicked := False;
+end;
+
+function TGWindow.TakeWheel: Integer;
+begin
+  Result := FWheel;
+  FWheel := 0;
 end;
 
 function TGWindow.TakeClick(out X, Y: Integer): Boolean;
@@ -133,6 +175,10 @@ begin
     Ord('Q'): Result := gkItemList;
     VK_TAB: Result := gkChat;
     VK_ESCAPE: Result := gkEscape;
+    VK_F4: Result := gkEditor;
+    VK_F5: Result := gkLoadLevel;
+    VK_DELETE: Result := gkDelete;
+    VK_INSERT: Result := gkInsert;
   else
     Result := gkNone;
   end;
@@ -143,12 +189,50 @@ begin
   Result := 0;
   if ActiveWindow <> nil then
     case Msg of
-      WM_KEYDOWN: begin ActiveWindow.SetKey(VKToKey(WP), True); Exit; end;
-      WM_KEYUP: begin ActiveWindow.SetKey(VKToKey(WP), False); Exit; end;
+      WM_KEYDOWN, WM_KEYUP:
+        begin
+          if WP = VK_CONTROL then ActiveWindow.CtrlHeld := Msg = WM_KEYDOWN;
+          if WP = VK_SHIFT then ActiveWindow.ShiftHeld := Msg = WM_KEYDOWN;
+          case WP of
+            VK_UP: ActiveWindow.ArrowHeld[0] := Msg = WM_KEYDOWN;
+            VK_LEFT: ActiveWindow.ArrowHeld[1] := Msg = WM_KEYDOWN;
+            VK_DOWN: ActiveWindow.ArrowHeld[2] := Msg = WM_KEYDOWN;
+            VK_RIGHT: ActiveWindow.ArrowHeld[3] := Msg = WM_KEYDOWN;
+          end;
+          ActiveWindow.SetKey(VKToKey(WP), Msg = WM_KEYDOWN);
+          Exit;
+        end;
       WM_CHAR: begin ActiveWindow.AddChar(Chr(WP and $FF)); Exit; end;
       WM_LBUTTONDOWN:
         begin
+          ActiveWindow.MouseLeft := True;
           ActiveWindow.AddClick(SmallInt(LP and $FFFF), SmallInt((LP shr 16) and $FFFF));
+          SetCapture(Wnd);
+          Exit;
+        end;
+      WM_LBUTTONUP:
+        begin
+          ActiveWindow.MouseLeft := False;
+          if not ActiveWindow.MouseRight then ReleaseCapture;
+          Exit;
+        end;
+      WM_RBUTTONDOWN:
+        begin
+          ActiveWindow.MouseRight := True;
+          ActiveWindow.AddRightClick(SmallInt(LP and $FFFF), SmallInt((LP shr 16) and $FFFF));
+          SetCapture(Wnd);
+          Exit;
+        end;
+      WM_RBUTTONUP:
+        begin
+          ActiveWindow.MouseRight := False;
+          if not ActiveWindow.MouseLeft then ReleaseCapture;
+          Exit;
+        end;
+      WM_MOUSEWHEEL:
+        begin
+          if SmallInt((WP shr 16) and $FFFF) > 0 then Dec(ActiveWindow.FWheel)
+          else Inc(ActiveWindow.FWheel);
           Exit;
         end;
       WM_MOUSEMOVE:
@@ -273,8 +357,22 @@ begin
     XK_q: Result := gkItemList;
     XK_Tab: Result := gkChat;
     XK_Escape: Result := gkEscape;
+    XK_F4: Result := gkEditor;
+    XK_F5: Result := gkLoadLevel;
+    XK_Delete, XK_KP_Delete: Result := gkDelete;
+    XK_Insert, XK_KP_Insert: Result := gkInsert;
   else
     Result := gkNone;
+  end;
+end;
+
+procedure TGWindow.SetArrow(Sym: Cardinal; Down: Boolean);
+begin
+  case Sym of
+    XK_Up: ArrowHeld[0] := Down;
+    XK_Left: ArrowHeld[1] := Down;
+    XK_Down: ArrowHeld[2] := Down;
+    XK_Right: ArrowHeld[3] := Down;
   end;
 end;
 
@@ -305,7 +403,7 @@ begin
   XSetWMNormalHints(D, FWin, Hints);
   XFree(Hints);
   XSelectInput(D, FWin, KeyPressMask or KeyReleaseMask or ExposureMask or
-    StructureNotifyMask or ButtonPressMask or PointerMotionMask);
+    StructureNotifyMask or ButtonPressMask or ButtonReleaseMask or PointerMotionMask);
   Atom := XInternAtom(D, 'WM_DELETE_WINDOW', False);
   FWmDelete := Atom;
   XSetWMProtocols(D, FWin, @Atom, 1);
@@ -361,6 +459,9 @@ begin
       KeyPress:
         begin
           Sym := XLookupKeysym(@E.xkey, 0);
+          if (Sym = XK_Control_L) or (Sym = XK_Control_R) then CtrlHeld := True;
+          if (Sym = XK_Shift_L) or (Sym = XK_Shift_R) then ShiftHeld := True;
+          SetArrow(Sym, True);
           SetKey(KeySymToKey(Sym), True);
           if Sym = XK_BackSpace then AddChar(#8)
           else if (Sym = XK_Return) or (Sym = XK_KP_Enter) then AddChar(#13)
@@ -370,17 +471,35 @@ begin
           begin
             N := XLookupString(@E.xkey, @Buf[0], SizeOf(Buf), nil, nil);
             for I := 0 to N - 1 do
-              if (Buf[I] >= ' ') and (Buf[I] <= '~') then AddChar(Buf[I]);
+              if ((Buf[I] >= ' ') and (Buf[I] <= '~')) or
+                ((Buf[I] >= #1) and (Buf[I] <= #26)) then AddChar(Buf[I]);
           end;
         end;
       ButtonPress:
-        if E.xbutton.button = 1 then AddClick(E.xbutton.x, E.xbutton.y);
+        case E.xbutton.button of
+          1: begin MouseLeft := True; AddClick(E.xbutton.x, E.xbutton.y); end;
+          3: begin MouseRight := True; AddRightClick(E.xbutton.x, E.xbutton.y); end;
+          4: Dec(FWheel);
+          5: Inc(FWheel);
+        end;
+      ButtonRelease:
+        case E.xbutton.button of
+          1: MouseLeft := False;
+          3: MouseRight := False;
+        end;
       MotionNotify:
         begin
           MouseX := E.xmotion.x;
           MouseY := E.xmotion.y;
         end;
-      KeyRelease: SetKey(KeySymToKey(XLookupKeysym(@E.xkey, 0)), False);
+      KeyRelease:
+        begin
+          Sym := XLookupKeysym(@E.xkey, 0);
+          if (Sym = XK_Control_L) or (Sym = XK_Control_R) then CtrlHeld := False;
+          if (Sym = XK_Shift_L) or (Sym = XK_Shift_R) then ShiftHeld := False;
+          SetArrow(Sym, False);
+          SetKey(KeySymToKey(Sym), False);
+        end;
       ClientMessage:
         if Cardinal(E.xclient.data.l[0]) = FWmDelete then Closed := True;
       DestroyNotify: Closed := True;

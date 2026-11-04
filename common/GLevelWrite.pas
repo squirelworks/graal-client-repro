@@ -22,15 +22,6 @@ interface
 uses
   GLevel;
 
-const
-  { The 2.05 chest item list, in index order (level-editor-205.md).
-    GLEVNW01 chests name the item. }
-  WriterItemNames: array[0..24] of string = ('greenrupee', 'bluerupee', 'redrupee',
-    'bombs', 'darts', 'heart', 'glove1', 'bow', 'bomb', 'shield', 'sword',
-    'fullheart', 'superbomb', 'battleaxe', 'goldensword', 'mirrorshield',
-    'glove2', 'lizardshield', 'lizardsword', 'goldrupee', 'fireball',
-    'fireblast', 'nukeshot', 'joltbomb', 'spinattack');
-
 { Sign text to sign-alphabet bytes (no x, y, no trailing newline). }
 function EncodeSignText(const Text: string): string;
 { The three baddy verses of a level baddy (attack, hurt, player hurt), split
@@ -295,8 +286,8 @@ begin
     for I := 0 to High(Level.Chests) do
       with Level.Chests[I] do
       begin
-        if (Item >= 0) and (Item <= High(WriterItemNames)) then
-          ItemS := WriterItemNames[Item]
+        if (Item >= 0) and (Item <= High(ItemNames)) then
+          ItemS := ItemNames[Item]
         else
           ItemS := IntToStr(Item);
         Result := Result + #10'CHEST ' + IntToStr(X) + ' ' + IntToStr(Y) + ' ' + ItemS + ' ' +
