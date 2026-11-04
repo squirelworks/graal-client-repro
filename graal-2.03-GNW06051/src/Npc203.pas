@@ -1358,7 +1358,7 @@ begin
   if S <> '' then Result := ',' + S else Result := '';
 end;
 
-{ GS1 commands that 2.03 added (its release notes list them): 2.03 does
+{ GS1 commands that 2.04 added (its release notes list them): 2.03 does
   not know them, so a script that uses them does nothing there }
 const
   LaterCommands: array[0..7] of string = ('setshape', 'setshape2',
