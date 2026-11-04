@@ -91,8 +91,8 @@ scripts/loopback.sh path/to/seihai-gserver/target/release/seihai-gserver
 
 ## Roadmap for each build
 
-Every build goes through the same phases. Phase 4 is the finishing step and
-is required before a build counts as done.
+Every build goes through the same phases. Phases 4 and 5 are the finishing
+steps and are required before a build counts as done.
 
 1. **Wire.** Framing, cipher, login line, the receive dispatcher. Checked
    against real captures of the original client.
@@ -107,12 +107,17 @@ is required before a build counts as done.
    and malformed or hostile packets without crashing; fuzzed receive path.
    The build then joins the Seihai 1000-player stress runs as one of the
    client mixes.
+5. **Release.** Once phase 4 is merged, the build gets its own GitHub
+   release. The tag is the folder name (`graal-2.05r2-GNW03081`), and the
+   release carries the built Linux and Windows binaries. Pushing the tag
+   runs `.github/workflows/release.yml`, which builds that one folder and
+   attaches the binaries.
 
 ## Status
 
-| Build | Token | Wire | World | Play | Harden |
-|---|---|---|---|---|---|
-| [2.05 rev 2](graal-2.05r2-GNW03081/) | `GNW03081` | done | board drawn, player marker | not started | not started |
+| Build | Token | Wire | World | Play | Harden | Release |
+|---|---|---|---|---|---|---|
+| [2.05 rev 2](graal-2.05r2-GNW03081/) | `GNW03081` | done | board drawn, player marker | not started | not started | not yet |
 
 ## Licence
 
