@@ -7,6 +7,9 @@ set -eu
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 FPC=${FPC:-fpc}
 FLAGS=${FPCFLAGS:--O2}
+# The native Windows compiler cannot read MSYS paths (/d/a/...): give it
+# mixed-form paths (D:/a/...) when cygpath is there.
+native() { if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf '%s' "$1"; fi; }
 cd "$ROOT"
 if [ $# -gt 0 ]; then BUILDS="$*"; else BUILDS=$(ls -d graal-*/ | tr -d /); fi
 for B in $BUILDS; do
@@ -16,6 +19,7 @@ for B in $BUILDS; do
     [ -f "$P" ] || continue
     echo "== $P"
     (cd "$(dirname "$P")" && "$FPC" -Mdelphi -Sh -vew $FLAGS \
-      -Fu"$ROOT/common" -Fu"$ROOT/$B/src" -FE"$OUT" -FU"$OUT" "$(basename "$P")")
+      -Fu"$(native "$ROOT/common")" -Fu"$(native "$ROOT/$B/src")" \
+      -FE"$(native "$OUT")" -FU"$(native "$OUT")" "$(basename "$P")")
   done
 done

@@ -44,10 +44,9 @@ jobs:
           done
 
   windows:
-    # Not verified yet: the Windows socket path has only been compiled in
-    # review. Kept non-blocking until it has passed once.
+    # Chocolatey's Free Pascal is the 32-bit i386-win32 compiler. That is
+    # the target 2.05 itself shipped for, so it is kept.
     runs-on: windows-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - name: Install Free Pascal
