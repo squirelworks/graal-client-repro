@@ -87,9 +87,14 @@ common unit, it gets its own copy in its folder rather than a flag in
 ## Build, test, run
 
 ```
+# Linux
 sudo apt-get install fp-compiler fp-units-base fp-units-fcl
 scripts/build.sh
 scripts/test.sh
+
+# Windows: install Free Pascal (e.g. `choco install freepascal`), put its
+# bin\i386-win32 folder on PATH, then run the same scripts from Git Bash.
+# build.sh hands the compiler native paths through cygpath.
 
 # offline: draw a level
 build/graal-2.05r2-GNW03081/Graal205 --level some.graal --sheet path/to/pics1.png --dump frame.bmp
