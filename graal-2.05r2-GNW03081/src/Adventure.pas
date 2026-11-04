@@ -65,10 +65,20 @@ type
     Dir: Integer;
     AniName: string;
     AniStart: Integer;  { frame the animation started on }
+    { -1: the animation runs with time. Otherwise the step to draw, for
+      other players, whose pose comes from their sprite prop. }
+    FixedStep: Integer;
+    Gone: Boolean;      { PCONNECTED or a level leave seen }
+    BodyCache: TGSurface; { the body recoloured for this player }
+    BodyKey: string;
     constructor Create;
-    { Parses a prop stream. Stops at the first id it cannot size, the way
-      2.05 does, and returns the ids applied. }
-    function ApplyProps(R: TGReader): string;
+    destructor Destroy; override;
+    { Parses a prop stream. Stops at the first id the stream does not
+      accept, the way 2.05 does, and returns the ids applied. Other is the
+      OTHERPLPROPS stream, which accepts fewer ids than the player's own. }
+    function ApplyProps(R: TGReader; Other: Boolean): string;
+    { Sets the pose of another player from the 2.05 sprite prop. }
+    procedure PoseFromSprite;
     procedure SetAni(const Name: string; Frame: Integer);
   end;
 
@@ -76,11 +86,10 @@ type
   private
     FClient: TAdventureClient;
     FLog: TStrings;
-    FBodyCache: TGSurface;
-    FBodyKey: string;
     FSentX, FSentY: Double;
     FSentSprite: Integer;
     FPropsSent: Boolean;
+    FOthers: TList;
     procedure HandleMessage(Id: Integer; const Data: string);
     procedure ClientLog(const Line: string);
     function PointBlocked(PX, PY: Double): Boolean;
@@ -88,6 +97,8 @@ type
     procedure SendMovedProps;
     function BodyFor(P: TServerPlayer): TGSurface;
     procedure DrawPlayer(P: TServerPlayer; CamX, CamY: Integer);
+    function GetOther(I: Integer): TServerPlayer;
+    function GetOtherCount: Integer;
   public
     Level: TAdventureLevel;
     Player: TServerPlayer;
@@ -114,12 +125,24 @@ type
     { One frame: network in, game step, network out, draw. }
     procedure Tick;
     procedure Draw;
+    { The player's own wire sprite: direction + 4 x the 2.05 sprite number
+      for the current animation step. }
+    function OwnSprite: Integer;
+    { Another player by id; Make adds it when it is not known yet. }
+    function FindOther(Id: Integer; Make: Boolean): TServerPlayer;
+    procedure RemoveOther(Id: Integer);
+    property Others[I: Integer]: TServerPlayer read GetOther;
+    property OtherCount: Integer read GetOtherCount;
     property Client: TAdventureClient read FClient;
     property LogLines: TStrings read FLog;
   end;
 
 { Fallback tile sheet when pics1 is not available: each tile gets a flat
   colour derived from its index, so a frame still shows the board layout. }
+{ The 2.05 animation step for a gani name and frame, and the sprite prop
+  value (direction + 4 x sprite number) that goes with it. }
+function AniStepNumber(const AniName: string; Frame: Integer): Integer;
+function WireSprite(const AniName: string; Frame, Dir: Integer): Integer;
 procedure MakeIndexSheet(Sheet: TGSurface);
 
 implementation
@@ -182,6 +205,49 @@ begin
   FNames.Free;
   Missing.Free;
   inherited Destroy;
+end;
+
+{ ---- the 2.05 sprite prop (graal_analysis client-internals/
+  feature-specs/11-emotes-ganis.md, decomp-findings-2026-10-24/
+  sprite-step-table.tsv and gani-to-step.tsv) ---- }
+
+const
+  SpriteOfStep: array[0..38] of Byte = (
+    0, 4, 5, 4, 3, 2, 1, 2, 3, 6, 7, 8, 9, 10, 11, 12, 13, 11, 12, 14,
+    15, 16, 17, 23, 18, 19, 20, 19, 18, 21, 22, 21, 18, 24, 25, 26, 27, 28, 29);
+
+function AniStepNumber(const AniName: string; Frame: Integer): Integer;
+var
+  N: string;
+begin
+  N := LowerCase(AniName);
+  if (N = 'idle') or (N = 'def') then Result := Frame
+  else if (N = 'walk') or (N = 'walkslow') then Result := Frame + 1
+  else if N = 'kick' then Result := 9
+  else if (N = 'sword') or (N = 'ridesword') or (N = 'spin') then Result := 9 + Frame mod 5
+  else if N = 'push' then Result := 14 + Frame
+  else if N = 'grab' then Result := 19
+  else if N = 'pull' then Result := 20 + Frame
+  else if N = 'lift' then Result := 23
+  else if (N = 'carrystill') or (N = 'hiddenstill') then Result := 24
+  else if (N = 'carry') or (N = 'hidden') then Result := 25 + Frame
+  else if N = 'shoot' then Result := 33
+  else if N = 'ridestill' then Result := 34
+  else if N = 'ridefire' then Result := 35
+  else if N = 'rideeat' then Result := 36
+  else if N = 'ride' then Result := 35 + Frame and 1
+  else if N = 'sit' then Result := 37
+  else if N = 'sleep' then Result := 38
+  else Result := 0; { swim, lava and unknown names go out as idle }
+end;
+
+function WireSprite(const AniName: string; Frame, Dir: Integer): Integer;
+var
+  St: Integer;
+begin
+  St := AniStepNumber(AniName, Frame);
+  if (St < 0) or (St > High(SpriteOfStep)) then St := 0;
+  Result := (Dir and 3) + 4 * SpriteOfStep[St];
 end;
 
 function TAssets.FindFile(const Name: string; const Dirs: array of string): string;
@@ -289,6 +355,32 @@ begin
   HeadImage := 'head0.gif';
   Dir := DirDown;
   AniName := 'idle';
+  FixedStep := -1;
+end;
+
+destructor TServerPlayer.Destroy;
+begin
+  BodyCache.Free;
+  inherited Destroy;
+end;
+
+procedure TServerPlayer.PoseFromSprite;
+var
+  S, F: Integer;
+begin
+  { invert the step table for the poses drawn so far: S 0 is idle, and the
+    walk frames give S 1 to 5. Several frames share an S; the first wins. }
+  S := Sprite div 4;
+  AniName := 'idle';
+  FixedStep := 0;
+  if (S >= 1) and (S <= 5) then
+    for F := 0 to 7 do
+      if SpriteOfStep[F + 1] = S then
+      begin
+        AniName := 'walk';
+        FixedStep := F;
+        Exit;
+      end;
 end;
 
 procedure TServerPlayer.SetAni(const Name: string; Frame: Integer);
@@ -300,7 +392,7 @@ begin
   end;
 end;
 
-function TServerPlayer.ApplyProps(R: TGReader): string;
+function TServerPlayer.ApplyProps(R: TGReader; Other: Boolean): string;
 var
   P, V, I: Integer;
 begin
@@ -308,6 +400,13 @@ begin
   while not R.Eof do
   begin
     P := R.ReadGChar;
+    { the ids each 2.05 parser accepts (protocol/player-props.md) }
+    if Other then
+    begin
+      if (P = 1) or ((P >= 3) and (P <= 7)) or (P = 14) or (P = 22) or (P = 23) or
+        ((P >= 25) and (P <= 29)) or ((P >= 43) and (P <= 49)) or (P > 51) then Exit;
+    end
+    else if P > 42 then Exit;
     case P of
       PLPROP_NICKNAME: Nickname := R.ReadGString;
       PLPROP_MAXPOWER: MaxPower := R.ReadGChar;
@@ -362,13 +461,14 @@ begin
         begin
           Sprite := R.ReadGChar;
           Dir := Sprite mod 4;
+          if Other then PoseFromSprite;
         end;
       PLPROP_STATUS: Status := R.ReadGChar;
       PLPROP_CARRYSPRITE, PLPROP_HORSEBUSHES, PLPROP_EFFECTCOLORS,
       PLPROP_MAGICPOINTS, PLPROP_ALIGNMENT, PLPROP_ADDITFLAGS,
-      PLPROP_GMAPLEVELX, PLPROP_GMAPLEVELY, PLPROP_Z, PLPROP_JOINLEAVELVL,
-      PLPROP_PSTATUSMSG:
+      PLPROP_GMAPLEVELX, PLPROP_GMAPLEVELY, PLPROP_Z, PLPROP_PSTATUSMSG:
         R.ReadGChar;
+      PLPROP_JOINLEAVELVL: if R.ReadGChar = 0 then Gone := True;
       PLPROP_CURLEVEL: Level := R.ReadGString;
       PLPROP_GATTRIB1..PLPROP_GATTRIB5:
         Attr[P - PLPROP_GATTRIB1 + 1] := R.ReadGString;
@@ -387,7 +487,11 @@ begin
           R.ReadGChar;
           R.ReadGInt3;
         end;
-      PLPROP_PCONNECTED: ;
+      PLPROP_PCONNECTED:
+        begin
+          Gone := True;
+          if not R.Eof then R.ReadByte; { 2.05 skips one byte after it }
+        end;
     else
       Exit; { unknown size: the rest of the stream is lost }
     end;
@@ -412,10 +516,12 @@ begin
   Sheet := TGSurface.Create(0, 0);
   Arrays := TGArrays.Create;
   Assets := TAssets.Create;
-  FBodyCache := TGSurface.Create(0, 0);
+  FOthers := TList.Create;
 end;
 
 destructor TAdventure.Destroy;
+var
+  I: Integer;
 begin
   FClient.Free;
   Level.Free;
@@ -424,7 +530,8 @@ begin
   Sheet.Free;
   Arrays.Free;
   Assets.Free;
-  FBodyCache.Free;
+  for I := 0 to FOthers.Count - 1 do TServerPlayer(FOthers[I]).Free;
+  FOthers.Free;
   FLog.Free;
   inherited Destroy;
 end;
@@ -552,7 +659,57 @@ begin
   Player.Y := NY;
 end;
 
+{ ---- other players ---- }
+
+function TAdventure.GetOther(I: Integer): TServerPlayer;
+begin
+  Result := TServerPlayer(FOthers[I]);
+end;
+
+function TAdventure.GetOtherCount: Integer;
+begin
+  Result := FOthers.Count;
+end;
+
+function TAdventure.FindOther(Id: Integer; Make: Boolean): TServerPlayer;
+var
+  I: Integer;
+begin
+  for I := 0 to FOthers.Count - 1 do
+  begin
+    Result := TServerPlayer(FOthers[I]);
+    if Result.Id = Id then Exit;
+  end;
+  Result := nil;
+  if not Make then Exit;
+  Result := TServerPlayer.Create;
+  Result.Id := Id;
+  Result.FixedStep := 0;
+  FOthers.Add(Result);
+end;
+
+procedure TAdventure.RemoveOther(Id: Integer);
+var
+  P: TServerPlayer;
+begin
+  P := FindOther(Id, False);
+  if P = nil then Exit;
+  FOthers.Remove(P);
+  P.Free;
+end;
+
 { ---- props to the server ---- }
+
+function TAdventure.OwnSprite: Integer;
+var
+  A: TGraalAni;
+  F: Integer;
+begin
+  F := 0;
+  A := Assets.Ani(Player.AniName);
+  if A <> nil then F := A.StepAt(Frame - Player.AniStart);
+  Result := WireSprite(Player.AniName, F, Player.Dir);
+end;
 
 procedure TAdventure.SendInitialProps;
 begin
@@ -567,25 +724,27 @@ begin
     GChar(PLPROP_ADDITFLAGS) + GChar(0));
   FSentX := Player.X;
   FSentY := Player.Y;
-  FSentSprite := Player.Dir;
+  FSentSprite := OwnSprite;
   FPropsSent := True;
 end;
 
 procedure TAdventure.SendMovedProps;
 var
   S: string;
+  Spr: Integer;
 begin
   { a diff of the changed props, sent at most every other tick (100 ms) }
   if not FPropsSent or (Frame mod 2 <> 0) then Exit;
   S := '';
   if Player.X <> FSentX then S := S + GChar(PLPROP_X) + GChar(Round(Player.X * 2));
   if Player.Y <> FSentY then S := S + GChar(PLPROP_Y) + GChar(Round(Player.Y * 2));
-  if Player.Dir <> FSentSprite then S := S + GChar(PLPROP_SPRITE) + GChar(Player.Dir);
+  Spr := OwnSprite;
+  if Spr <> FSentSprite then S := S + GChar(PLPROP_SPRITE) + GChar(Spr);
   if S = '' then Exit;
   FClient.SendPacket(PLI_PLAYERPROPS, S);
   FSentX := Player.X;
   FSentY := Player.Y;
-  FSentSprite := Player.Dir;
+  FSentSprite := Spr;
 end;
 
 { ---- messages from the server ---- }
@@ -599,19 +758,28 @@ var
   SG: TLevelSign;
   CH: TLevelChest;
   W: TStringList;
+  OP: TServerPlayer;
 begin
   R := TGReader.Create(Data);
   try
     case Id of
       PLO_PLAYERPROPS:
         begin
-          S := Player.ApplyProps(R);
+          S := Player.ApplyProps(R, False);
           Log('PLAYERPROPS ' + S);
           if not LoggedIn then
           begin
             LoggedIn := True;
             SendInitialProps;
           end;
+        end;
+      PLO_OTHERPLPROPS: { s id + prop stream; an unknown id adds the player }
+        begin
+          if Length(Data) < 2 then Exit;
+          V := R.ReadGShort;
+          OP := FindOther(V, True);
+          OP.ApplyProps(R, True);
+          if OP.Gone then RemoveOther(V);
         end;
       PLO_PLAYERWARP: { c x*2, c y*2, level }
         begin
@@ -624,6 +792,7 @@ begin
         end;
       PLO_LEVELNAME:
         begin
+          while FOthers.Count > 0 do RemoveOther(Others[0].Id);
           Level.Clear;
           Level.Name := Data;
           BoardLoaded := False;
@@ -749,20 +918,21 @@ begin
   end;
   Key := P.BodyImage;
   for I := 0 to 4 do Key := Key + ',' + IntToStr(P.Colors[I]);
-  if Key <> FBodyKey then
+  if P.BodyCache = nil then P.BodyCache := TGSurface.Create(0, 0);
+  if Key <> P.BodyKey then
   begin
-    FBodyCache.SetSize(Src.Width, Src.Height);
-    FBodyCache.Indices := Src.Indices;
-    FBodyCache.Palette := Src.Palette;
+    P.BodyCache.SetSize(Src.Width, Src.Height);
+    P.BodyCache.Indices := Src.Indices;
+    P.BodyCache.Palette := Src.Palette;
     { entry 5 skin, 6 coat, 4 sleeves, 3 shoes, 1 belt; 0 the outline (18);
       2 is the clear colour }
-    FBodyCache.Recolor([5, 6, 4, 3, 1, 0, 2],
+    P.BodyCache.Recolor([5, 6, 4, 3, 1, 0, 2],
       [ColorTable[P.Colors[0] mod 20], ColorTable[P.Colors[1] mod 20],
        ColorTable[P.Colors[2] mod 20], ColorTable[P.Colors[3] mod 20],
        ColorTable[P.Colors[4] mod 20], ColorTable[18], 0]);
-    FBodyKey := Key;
+    P.BodyKey := Key;
   end;
-  Result := FBodyCache;
+  Result := P.BodyCache;
 end;
 
 procedure TAdventure.DrawPlayer(P: TServerPlayer; CamX, CamY: Integer);
@@ -786,7 +956,14 @@ begin
     Screen.FillRect(BX + 38, BY + 16, 2, 32, $FFFFFFFF);
     Exit;
   end;
-  St := A.StepAt(Frame - P.AniStart);
+  if P.FixedStep >= 0 then
+  begin
+    St := P.FixedStep;
+    if St > High(A.Steps) then St := 0;
+  end
+  else
+    St := A.StepAt(Frame - P.AniStart);
+  if St > High(A.Steps) then Exit;
   Parts := A.Steps[St].Dirs[P.Dir and 3];
   for I := 0 to High(Parts) do
   begin
@@ -817,7 +994,7 @@ end;
 
 procedure TAdventure.Draw;
 var
-  CamX, CamY, TX, TY, X0, Y0: Integer;
+  CamX, CamY, TX, TY, X0, Y0, I: Integer;
 begin
   Screen.Fill($FF000000);
   if Sheet.Width = 0 then MakeIndexSheet(Sheet);
@@ -835,6 +1012,9 @@ begin
       if (TX < BoardW) and (TY < BoardH) then
         DrawTile(Screen, Sheet, Level.Tile(TX, TY), TX * TileSize - CamX,
           TY * TileSize - CamY);
+  { others first, then the player on top }
+  for I := 0 to FOthers.Count - 1 do
+    DrawPlayer(Others[I], CamX, CamY);
   DrawPlayer(Player, CamX, CamY);
 end;
 

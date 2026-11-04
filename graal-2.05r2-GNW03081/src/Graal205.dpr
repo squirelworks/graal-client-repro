@@ -246,6 +246,9 @@ begin
     else if I = 0 then
       G.Draw;
     G.Log(Format('player at %.2f,%.2f facing %d', [G.Player.X, G.Player.Y, G.Player.Dir]));
+    for I := 0 to G.OtherCount - 1 do
+      G.Log(Format('other player %d %s at %.1f,%.1f sprite %d', [G.Others[I].Id,
+        G.Others[I].Nickname, G.Others[I].X, G.Others[I].Y, G.Others[I].Sprite]));
     if G.Assets.Missing.Count > 0 then
       G.Log('not found in the install: ' + G.Assets.Missing.CommaText);
     if Dump <> '' then

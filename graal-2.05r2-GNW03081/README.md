@@ -22,6 +22,7 @@ decompiled code:
 | Frame loop | `client-internals/rendering-observations.md` |
 | Walking and collision | `client-internals/decomp-findings-2026-10-25-m/01-walking-rule.md` |
 | Ganis | `formats/gani.txt` |
+| Sprite prop and poses | `client-internals/feature-specs/11-emotes-ganis.md`, `client-internals/decomp-findings-2026-10-24/sprite-step-table.tsv` |
 | Body colours | `client-internals/body-colours-and-attributes.md` |
 | Tile types | `formats/arrays-and-signatures.md` |
 
@@ -58,17 +59,21 @@ decompiled code:
 - Walking with the 2.05 rule: half-tile steps, six probes per facing, the
   0.1 corner nudge, keys taken in the order up, left, down, right. Blocking
   comes from `arrays.dat` tile types and level chests (tests).
-- Props out: the session-start set {0, 11, 13, 18, 31, 33}, then position,
-  direction and sprite whenever they change, at most every 100 ms.
-- Loopback: logs into seihai-gserver, gets the burst, loads the board and
-  walks a few steps (`scripts/loopback.sh`, run in CI).
+- Props out: the session-start set {0, 11, 13, 18, 31, 33}, then position
+  and sprite whenever they change, at most every 100 ms. The sprite prop is
+  direction + 4 x the 2.05 sprite number of the current animation step, so
+  walk frames go out as they do from the original.
+- Other players (`PLO_OTHERPLPROPS`): added on first sight, drawn with
+  their head, body colours and pose from their sprite prop, and removed on
+  `PCONNECTED` or a level leave. Each prop stream stops at the first id
+  2.05 would not accept in it, as the original does (tests).
+- Loopback: two clients log into seihai-gserver, load the board and walk;
+  the second must see the first (`scripts/loopback.sh`, run in CI).
 
 ## Not yet
 
-- Walk sprite frames on the wire: the `PLPROP_SPRITE` value 2.05 sends while
-  walking is not in the notes yet, so only the direction is sent.
-- Level links (warping by walking off a link), UDP peer traffic, other
-  players' movement.
+- Level links (warping by walking off a link), UDP peer traffic.
+- Other players' poses beyond idle and walk, chat bubbles and names.
 - Most of the 59 server ids 2.05 handles. NPCs, baddies, items, weapons
   and the rest of the game.
 - The GS1 script engine (161 commands), the built-in editors.
