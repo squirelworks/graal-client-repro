@@ -20,6 +20,9 @@ PORT=${LOOPBACK_PORT:-14862}
 cp -r "$GSDIR/world" "$WORK/world"
 # a port of its own, so a gserver left running on 14802 does not answer
 sed -i "s/14802/$PORT/" "$WORK/world/config/server.txt"
+# the build's own token too (the folder name ends with it), for builds
+# seihai-core has no profile for
+printf '\n%s\n' "${B##*-}" >> "$WORK/world/config/allowedversions.txt"
 # two levels joined by a link at x 36 of the start level
 mkdir -p "$WORK/world/levels"
 printf 'GLEVNW01\nLINK linked.nw 36 0 1 64 2 playery\n' > "$WORK/world/levels/onlinestartlocal.nw"
