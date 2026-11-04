@@ -250,6 +250,8 @@ SPRITE_RECTS = {
     65: (96, 16, 16, 16), 351: (112, 16, 16, 16),         # bombs darts heart bomb bow
     261: (0, 64, 32, 32), 267: (32, 64, 32, 32), 265: (64, 64, 32, 32),
     263: (96, 64, 32, 32), 239: (0, 96, 32, 32),          # carried objects
+    107: (0, 128, 10, 30), 109: (10, 128, 10, 30),        # arrows up, down
+    108: (20, 128, 30, 10), 110: (20, 140, 30, 10),       # arrows left, right
 }
 
 
@@ -258,7 +260,7 @@ def sprite_word(x, y, w, h):
 
 
 def draw_sprites():
-    im = Image.new('RGBA', (128, 128), (0, 0, 0, 0))
+    im = Image.new('RGBA', (128, 160), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
     d.ellipse((0, 0, 23, 11), fill=(0, 0, 0, 255))
     # the blit has no blending: thin the shadow out to every other pixel
@@ -297,7 +299,49 @@ def draw_sprites():
         ob = Image.new('RGBA', (32, 32), (0, 0, 0, 0))
         draw_object(ImageDraw.Draw(ob), b, 0, 0)
         im.paste(ob, (x, y), ob)
+    # arrows: shaft, head and fletching, pointing their way
+    shaft, head, feather = (150, 100, 50, 255), (220, 220, 230, 255), (230, 60, 50, 255)
+    for n, (dx, dy) in ((107, (0, -1)), (109, (0, 1)), (108, (-1, 0)), (110, (1, 0))):
+        x, y, w, h = SPRITE_RECTS[n]
+        if dx == 0:
+            d.line((x + 4, y + 3, x + 4, y + 26), fill=shaft, width=2)
+            ty = y if dy < 0 else y + 29
+            d.polygon([(x, ty + 6 * -dy), (x + 4, ty), (x + 9, ty + 6 * -dy)], fill=head)
+            fy = y + 24 if dy < 0 else y + 1
+            d.rectangle((x + 1, fy, x + 8, fy + 4), fill=feather)
+        else:
+            d.line((x + 3, y + 4, x + 26, y + 4), fill=shaft, width=2)
+            tx = x if dx < 0 else x + 29
+            d.polygon([(tx + 6 * -dx, y), (tx, y + 4), (tx + 6 * -dx, y + 9)], fill=head)
+            fx = x + 24 if dx < 0 else x + 1
+            d.rectangle((fx, y + 1, fx + 4, y + 8), fill=feather)
     return im
+
+
+def draw_weapons():
+    """The built-in weapons' pictures (wbomb1-3, wbowi1-4), 32 x 32."""
+    out = []
+    for name, kind, col in (('wbomb1', 'bomb', (40, 60, 160)), ('wbomb2', 'bomb', (220, 220, 240)),
+                            ('wbomb3', 'bomb', (210, 40, 40)), ('wbowi1', 'bow', (150, 100, 50)),
+                            ('wbowi2', 'ball', (240, 120, 30)), ('wbowi3', 'ball', (240, 220, 60)),
+                            ('wbowi4', 'ball', (120, 230, 120))):
+        im = Image.new('RGBA', (32, 32), (0, 0, 0, 0))
+        d = ImageDraw.Draw(im)
+        if kind == 'bomb':
+            d.ellipse((5, 9, 27, 31), fill=col + (255,), outline=(10, 10, 20, 255))
+            d.ellipse((10, 13, 15, 18), fill=(255, 255, 255, 255))
+            d.line((20, 10, 25, 3), fill=(150, 100, 50, 255), width=2)
+            d.ellipse((24, 1, 28, 5), fill=(255, 200, 40, 255))
+        elif kind == 'bow':
+            d.arc((2, 2, 29, 29), 225, 45, fill=col + (255,), width=3)
+            d.line((7, 7, 26, 26), fill=(240, 240, 240, 255))
+            d.line((4, 28, 26, 6), fill=(120, 80, 40, 255), width=2)
+            d.polygon([(23, 4), (28, 3), (27, 8)], fill=(220, 220, 230, 255))
+        else:
+            d.ellipse((6, 6, 26, 26), fill=col + (255,), outline=(120, 30, 10, 255))
+            d.ellipse((11, 10, 17, 16), fill=(255, 255, 220, 255))
+        out.append((name + '.png', im))
+    return out
 
 
 def draw_bombs():
@@ -612,6 +656,7 @@ def start_levels():
     put(36, 37, O_STONE)
     put(24, 26, O_SIGN)
     put(26, 25, O_CHEST)
+    put(30, 24, O_CHEST)
     b = [T_SAND] * 4096
     for i in range(4096):
         if next(r) % 30 == 0:
@@ -634,7 +679,7 @@ def start_levels():
                                 'and throws, D lays a bomb.\n'
                                 'Put a Graal install by the\n'
                                 'program to play the real one.')],
-                     [(26, 25, 'redrupee', -1)])
+                     [(26, 25, 'redrupee', -1), (30, 24, 'bow', -1)])
     start2 = nw_level(b, [('start.nw', 0, 28, 1, 8, '60', 'playery')], [])
     return start, start2
 
@@ -661,6 +706,7 @@ def main():
         ('carry.gani', gani([1, 2, 3, 4], True, lambda k, d: 'PARAM1   8 -18').encode()),
         ('sword1.png', png_bytes(draw_sword())),
         ('bomb1.png', png_bytes(draw_bombs())),
+    ] + [(n, png_bytes(im)) for n, im in draw_weapons()] + [
         ('hurt.gani', gani([0], False, None, [7]).encode()),
         ('dead.gani', gani([0], False).encode()),
         ('walk.gani', gani([1, 2, 3, 4], True).encode()),

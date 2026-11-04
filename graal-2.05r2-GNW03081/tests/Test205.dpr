@@ -1146,6 +1146,95 @@ begin
   end;
 end;
 
+procedure TestWeapons;
+var
+  G: TAdventure;
+  I, A0, P0: Integer;
+begin
+  G := TAdventure.Create;
+  try
+    G.Headless := True;
+    Check(G.LoadLevelFile('start.nw'), 'weapons: the built-in level loads');
+    G.Tick;
+    Check((Length(G.Weapons) = 1) and (G.Weapons[0].Name = 'Bomb') and (G.Selected = 0),
+      'weapons: offline the list starts with the bomb');
+    G.GiveItem(7);
+    Check((Length(G.Weapons) = 2) and (G.Weapons[1].Name = 'Bow') and
+      (G.Weapons[1].Image = 'wbowi1.gif') and (G.Selected = 1), 'weapons: the bow is added and selected');
+    G.GiveItem(7);
+    Check(Length(G.Weapons) = 2, 'weapons: a name already listed is not added again');
+    G.AddWeapon('-hidden', '', -1);
+    G.SelectWeapon(2);
+    Check(G.Selected = 0, 'weapons: selecting skips names starting with -');
+    G.RemoveWeapon('-hidden');
+    G.Selected := 1;
+    G.RemoveWeapon('Bow');
+    Check(G.Selected = 0, 'weapons: deleting the last entry selects the new last');
+    G.GiveItem(7);
+    { the bow: an arrow flies a tile a tick and stops at a wall }
+    G.Player.X := 20;
+    G.Player.Y := 30;
+    G.Player.Dir := DirRight;
+    A0 := G.Player.Arrows;
+    G.ItemKey := True;
+    G.Tick;
+    Check((Length(G.Shots) = 1) and (G.Player.Arrows = A0 - 1) and G.Shots[0].Mine,
+      'weapons: D with the bow shoots an arrow');
+    Check(G.Shots[0].Sprite = 110, 'weapons: the arrow sprite is 107 + direction');
+    for I := 1 to 80 do G.Tick;
+    Check(Length(G.Shots) = 0, 'weapons: the arrow is gone at the edge or a wall');
+    G.Player.Arrows := 0;
+    G.ItemKey := True;
+    G.Tick;
+    Check(Length(G.Shots) = 0, 'weapons: no arrows, no shot');
+    { another player's arrow hurts half a heart; a shield facing it stops it }
+    P0 := G.Player.Power;
+    G.Receive(PLO_ARROWADD, GShort(9) + GChar(Round((G.Player.X - 3) * 2)) +
+      GChar(Round((G.Player.Y + 1.5) * 2)) + GChar(DirRight) + GChar(110) + GChar(1));
+    Check((Length(G.Shots) = 1) and not G.Shots[0].Mine, 'weapons: ARROWADD makes a shot');
+    for I := 1 to 6 do G.Tick;
+    Check(G.Player.Power = P0 - 1, 'weapons: an arrow takes half a heart');
+    for I := 1 to 40 do G.Tick;
+    G.Player.Dir := DirLeft;
+    G.Player.ShieldPower := 1;
+    P0 := G.Player.Power;
+    G.Receive(PLO_ARROWADD, GShort(9) + GChar(Round((G.Player.X - 3) * 2)) +
+      GChar(Round((G.Player.Y + 1.5) * 2)) + GChar(DirRight) + GChar(110) + GChar(1));
+    for I := 1 to 6 do G.Tick;
+    Check(G.Player.Power = P0, 'weapons: a shield facing the arrow stops it');
+    for I := 1 to 6 do G.Tick;
+    Check(Length(G.Shots) = 0, 'weapons: a power-1 shield knocks it back for three ticks');
+    { the server's list }
+    G.Receive(PLO_DEFAULTWEAPON, GChar(20));
+    Check((G.Weapons[High(G.Weapons)].Name = 'Fireball') and (G.Selected = High(G.Weapons)),
+      'weapons: DEFAULTWEAPON adds a built-in weapon');
+    G.Receive(PLO_DEFAULTWEAPON, GChar(5));
+    Check(G.Weapons[High(G.Weapons)].Name = 'Fireball', 'weapons: a pickup number adds no weapon');
+    G.Receive(PLO_NPCWEAPONADD, GS('Lantern') + 'xx');
+    Check(G.Weapons[High(G.Weapons)].Name = 'Lantern', 'weapons: NPCWEAPONADD adds by name');
+    G.Receive(PLO_NPCWEAPONDEL, 'Lantern');
+    Check(G.Weapons[High(G.Weapons)].Name = 'Fireball', 'weapons: NPCWEAPONDEL removes it');
+    { the item list: Q opens it, arrows move the selection, other keys close }
+    G.Selected := 0;
+    A0 := Round(G.Player.X * 2);
+    G.ItemListKey := True;
+    G.Tick;
+    Check(G.ItemListOpen, 'item list: Q opens it');
+    G.Tick;
+    G.Keys[DirRight] := True;
+    G.Tick;
+    G.Keys[DirRight] := False;
+    Check(G.Selected = 1, 'item list: Right takes the next cell');
+    Check(Round(G.Player.X * 2) = A0, 'item list: the player does not walk');
+    G.Tick;
+    G.AttackKey := True;
+    G.Tick;
+    Check(not G.ItemListOpen and (G.Mode = ModeFree), 'item list: another game key closes it');
+  finally
+    G.Free;
+  end;
+end;
+
 procedure TestServerList;
 var
   L: TListServers;
@@ -1214,6 +1303,7 @@ begin
   TestActions;
   TestCombat;
   TestSigns;
+  TestWeapons;
   WriteLn(Format('%d passed, %d failed, %d skipped', [Passed, Failed, Skipped]));
   if Failed > 0 then Halt(1);
 end.
