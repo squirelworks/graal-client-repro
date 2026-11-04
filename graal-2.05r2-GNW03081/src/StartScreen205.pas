@@ -146,6 +146,18 @@ begin
   L.NickLabel := StartRect(208, 178, 70, 16);
   L.LanguageField := StartRect(312, 145, 145, 24);
   L.NickField := StartRect(312, 173, 145, 24);
+  { 2.05's TPaintButton captions are clWindowText (black); the welcome
+    label is centred (taCenter) }
+  L.CaptionColor := 0;
+  L.WelcomeCentered := True;
+  { no fourth button, no account fields on 2.05's window }
+  L.Extra := StartRect(0, 0, 0, 0);
+  L.ExtraText := '';
+  L.ExtraImages := '';
+  L.AccountLabel := StartRect(0, 0, 0, 0);
+  L.PasswordLabel := StartRect(0, 0, 0, 0);
+  L.AccountField := StartRect(0, 0, 0, 0);
+  L.PasswordField := StartRect(0, 0, 0, 0);
 end;
 
 end.
