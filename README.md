@@ -126,9 +126,10 @@ steps and are required before a build counts as done.
    client mixes.
 5. **Release.** Once phase 4 is merged, the build gets its own GitHub
    release. The tag is the folder name (`graal-2.05r2-GNW03081`), and the
-   release carries the built Linux and Windows binaries. Pushing the tag
-   runs `.github/workflows/release.yml`, which builds that one folder and
-   attaches the binaries.
+   release carries the built Linux and Windows binaries.
+   `.github/workflows/release.yml` (run from the Actions tab with the
+   folder name, or by pushing the tag) builds that one folder and makes a
+   draft release; Squirrel reviews it and presses Publish.
 
 ## Status
 
