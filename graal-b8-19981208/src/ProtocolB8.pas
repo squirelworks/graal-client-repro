@@ -12,6 +12,8 @@ const
   { the build as players and the archive name it, and its folder under
     graal-assets }
   ClientBuildLabel = 'b8';
+  { asset folders: its own, then b7, whose install files it shares }
+  ClientAssetFolders = 'b8;b7';
   ClientBuildName = '8th Graal (beta8)';
   { gen 1 sends no version token; the folder carries the link date }
   ClientLinkDate = '19981208';
