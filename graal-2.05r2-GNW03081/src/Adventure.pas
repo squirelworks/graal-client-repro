@@ -174,6 +174,10 @@ type
     FPropsSent: Boolean;
     FOthers: TList;
     FLevelDir: string;     { folder of the level file played offline }
+    { the boards around this one on the big map, drawn past its edges:
+      index (dy + 1) * 3 + dx + 1, nil where there is none }
+    FNear: array[0..8] of TAdventureLevel;
+    FNearFor: string;
     FWarpPending: Boolean; { a link warp was asked of the server }
     FWarpX, FWarpY: Double;
     FWarpLevel: string;
@@ -328,6 +332,8 @@ type
     { A carried or thrown object (lift table entry Kind) at X, Y. }
     procedure DrawCarried(Kind, X, Y: Integer);
     procedure DrawThrown(CamX, CamY: Integer);
+    procedure LoadNear;
+    function NearLevel(const Name: string): TAdventureLevel;
     procedure SetHidden(Hide: Boolean);
     procedure BreakThrown(I: Integer);
     { Not in hurt mode and not dead. }
@@ -925,6 +931,7 @@ begin
   FreeAndNil(Baddies);
   FreeAndNil(Npcs);
   FClient.Free;
+  for I := 0 to 8 do FreeAndNil(FNear[I]);
   Level.Free;
   Player.Free;
   Screen.Free;
@@ -3499,26 +3506,78 @@ begin
   end;
 end;
 
+function TAdventure.NearLevel(const Name: string): TAdventureLevel;
+var
+  D, Path: string;
+begin
+  Result := nil;
+  if Name = '' then Exit;
+  Result := TAdventureLevel.Create;
+  Path := '';
+  if (FLevelDir <> '') and FileExists(FLevelDir + Name) then
+    Path := FLevelDir + Name
+  else if AssetPath('levels/' + Name) <> '' then
+    Path := AssetPath('levels/' + Name)
+  else if AssetPath(Name) <> '' then
+    Path := AssetPath(Name);
+  if (Path <> '') and Result.LoadFromFile(Path) then Exit;
+  if BuiltinFile(Name, D) and Result.LoadFromString(D) then Exit;
+  FreeAndNil(Result);
+end;
+
+procedure TAdventure.LoadNear;
+var
+  I: Integer;
+begin
+  if FNearFor = Level.Name then Exit;
+  FNearFor := Level.Name;
+  for I := 0 to 8 do
+  begin
+    FreeAndNil(FNear[I]);
+    { online the server has the boards; only the ones played offline }
+    if (I <> 4) and not FClient.Connected then
+      FNear[I] := NearLevel(MapNeighbour(Level.Name, I mod 3 - 1, I div 3 - 1));
+  end;
+end;
+
 procedure TAdventure.Draw;
 var
-  CamX, CamY, TX, TY, X0, Y0, I: Integer;
+  CamX, CamY, TX, TY, X0, Y0, I, MinX, MinY, MaxX, MaxY: Integer;
+  L: TAdventureLevel;
 begin
   Screen.Fill($FF000000);
   if Sheet.Width = 0 then MakeIndexSheet(Sheet);
-  { centre on the player's body (the sprite box is 3 tiles wide) }
+  LoadNear;
+  { centre on the player's body (the sprite box is 3 tiles wide); the
+    view stops at an edge with no board past it on the big map (side by
+    side with the real 2.05 on the tutorial) }
   CamX := Round((Player.X + 1.5) * TileSize) - ScreenW div 2;
   CamY := Round((Player.Y + 2) * TileSize) - ViewH div 2;
-  if CamX > BoardW * TileSize - ScreenW then CamX := BoardW * TileSize - ScreenW;
-  if CamY > BoardH * TileSize - ViewH then CamY := BoardH * TileSize - ViewH;
-  if CamX < 0 then CamX := 0;
-  if CamY < 0 then CamY := 0;
-  X0 := CamX div TileSize;
-  Y0 := CamY div TileSize;
+  MinX := 0;
+  MinY := 0;
+  MaxX := BoardW * TileSize - ScreenW;
+  MaxY := BoardH * TileSize - ViewH;
+  if FNear[3] <> nil then MinX := -ScreenW;
+  if FNear[5] <> nil then MaxX := BoardW * TileSize;
+  if FNear[1] <> nil then MinY := -ViewH;
+  if FNear[7] <> nil then MaxY := BoardH * TileSize;
+  if CamX > MaxX then CamX := MaxX;
+  if CamY > MaxY then CamY := MaxY;
+  if CamX < MinX then CamX := MinX;
+  if CamY < MinY then CamY := MinY;
+  X0 := Floor(CamX / TileSize);
+  Y0 := Floor(CamY / TileSize);
   for TY := Y0 to Y0 + ViewH div TileSize + 1 do
     for TX := X0 to X0 + ScreenW div TileSize + 1 do
-      if (TX < BoardW) and (TY < BoardH) then
-        DrawTile(Screen, Sheet, Level.Tile(TX, TY), TX * TileSize - CamX,
-          TY * TileSize - CamY);
+    begin
+      I := 4;
+      if TX < 0 then Dec(I) else if TX >= BoardW then Inc(I);
+      if TY < 0 then Dec(I, 3) else if TY >= BoardH then Inc(I, 3);
+      if I = 4 then L := Level else L := FNear[I];
+      if L <> nil then
+        DrawTile(Screen, Sheet, L.Tile((TX + BoardW) mod BoardW, (TY + BoardH) mod BoardH),
+          TX * TileSize - CamX, TY * TileSize - CamY);
+    end;
   { a chest not yet opened shows the closed chest (arrays.dat list 13:
     1784, 1785, 1800, 1801) at its record; the board under it is not
     changed. The real 2.05 draws it so on the tutorial, where the board
