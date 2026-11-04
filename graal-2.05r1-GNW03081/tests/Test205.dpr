@@ -81,9 +81,9 @@ begin
   end;
 end;
 
-{ A real 2.05 rev 1 session against a lab GServer (graal_analysis lab run 2,
-  key 98): the junk byte of each message after the login line sat at these
-  0-based indexes. }
+{ A real 2.05 rev 2 session (the cipher is the same in 2.05 rev 1) against a lab
+  GServer (graal_analysis lab run 2, key 98): the junk byte of each message
+  after the login line sat at these 0-based indexes. }
 procedure TestGen3Capture;
 const
   Ids: array[0..6] of Integer = (37, 34, 34, 23, 23, 23, 34);
