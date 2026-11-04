@@ -51,7 +51,8 @@ decompiled code:
   (`N`), five colours (`S`), position (`P`). Walking sends `P` (x and y in
   half tiles, frame*4 + direction) at most every 100 ms, and a link sends
   `I` and moves the level link to the new room. Board changes go out and
-  come in as `B` (w*8+h). Tested against the walk bytes captured from two
+  come in as `B` (w*8+h). A player who leaves (`-` or the end of a pairing,
+  on either link) is dropped. Tested against the walk bytes captured from two
   real 1.1.9 clients.
 - Peers' `P`, `N`, `S`, `C`, `I` and `B` lines are applied; the other
   D types are counted and not applied yet.
@@ -75,10 +76,6 @@ decompiled code:
   from `sprites.gif` and `heads.gif`.
 - `onlinestart.graal` was built into the original program. Without it the
   built-in start level stands in.
-- A player met through the fixed `Graal8` game stays drawn until a level
-  room says it left; the relay's `-` for a player never paired in the
-  room is not applied. What 1.1.9 does with the `Graal8` pair after the
-  first state push was not seen in the captures.
 - Two and Four Players (one keyboard), save games (`.gsave`), the
   registration key line (`8`) and web levels over HTTP are not built.
 

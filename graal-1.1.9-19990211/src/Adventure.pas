@@ -2481,6 +2481,8 @@ begin
       end;
     RLO_PEERLEFT:
       begin
+        if (FindOther(IdNumber(Data), False) <> nil) and Echo then
+          WriteLn(ErrOutput, 'player ' + Data + ' left');
         RemoveOther(IdNumber(Data));
         Exit;
       end;
@@ -2517,7 +2519,11 @@ begin
           if Length(Data) < 2 then Exit;
           V := R.ReadGShort;
           OP := FindOther(V, True);
+          S := OP.Nickname;
           OP.ApplyProps(R, True);
+          { a nickname arriving: the line the relay loopback check reads }
+          if (OP.Nickname <> S) and Echo then
+            WriteLn(ErrOutput, Format('other player %.8d %s', [V, OP.Nickname]));
           if OP.Gone then RemoveOther(V);
         end;
       PLO_PLAYERWARP: { c x*2, c y*2, level }
