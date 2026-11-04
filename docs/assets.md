@@ -50,6 +50,7 @@ that has it:
 | 4.20r8 (PR #38) | `4.20r8` | `4.20r8/` |
 | 4.20r6 (PR #40) | `4.20r6;4.20r8` | `4.20r6/` (none shipped), then `4.20r8/`: its install's files are 4.20r8's byte for byte |
 | 5.00r7 | `5.00r7` | `5.00r7/` |
+| Game Boy Color demo 1.10 (PR #80, `graalgb-1.10`) | `gb-1.10` | `gb-1.10/graal.gbc` |
 | 1998-99 betas b1 to b15, b4a, b5a, b9a (PRs #51 to #69) | `bN`; b12 to b15 `bN;b11`, b8 `b8;b7` | `bN/`, then `b11/` or `b7/` |
 | Graal3D (PR #70) | `3d` | `3d/` |
 | Zelda Online 1 (Java, `ZeldaOnline1.jar`) | its own `Assets` class, same order | `zelda-online1/` |
@@ -141,7 +142,9 @@ name next to the exe (1st to 3rd Graal and the 4th alpha have no
 in `levels/` or at the top. Sounds, music (`.wav`, `.mid`) and `.lost`
 files are cut: the beta builds play none. **Graal3D** keeps the 20
 meshes and textures its build opens (`level1.x`, the body-part `.x`
-files and the `.bmp` textures); `startlevel.x` is the server's.
+files and the `.bmp` textures); `startlevel.x` is the server's. **Game Boy** (`gb-1.10`) keeps only the
+demo ROM `graal.gbc` (262,144 bytes, MD5 `2b2fef91df11f9fbae3e1ece2366fdd3`,
+from `graal-decompile/gameboy-demo/rom/`).
 
 **Fallback labels.** `needed_assets.py --fallback VERSION=OTHER` leaves
 out of VERSION's folder what OTHER has byte for byte, for a build
@@ -232,7 +235,8 @@ would save.
 | Graal3D (2000) | DirectX `.x` meshes and `.bmp` textures at the top | 21 | 455 | | **yes** (`3d/`) |
 | Zelda Online 1 | applet: `pics1.gif`, `arrays.dat`, 36 `level*.zelda` (`Z3-V1.03`), `link.gif`, `state.gif`, `hit.au`, classes (from Drive `zeldaonline1.7z`) | 38 kept | 130 | | **yes** (`zelda-online1/`: `pics1.gif`, `arrays.dat`, `levels/*.zelda`) |
 | Zelda Online 2 | Java classes and levels under `game/` (author source alongside: never copied) | 90 | 535 | | no |
-| Java Graal, Game Boy demo | not in `graal clients.zip` (`javagraal_rip.rar`, `graalgb.rar` on Drive) | | | | no |
+| Java Graal | not in `graal clients.zip` (`javagraal_rip.rar` on Drive) | | | | no |
+| Game Boy Color demo | `graal-decompile/gameboy-demo/rom/graal.gbc` | 1 | 256 KB | | **yes** (`gb-1.10/graal.gbc`) |
 
 When a new build lands, its thread lists the files its build opens; its
 line's install goes through `merge_assets.py` and `needed_assets.py`, and
