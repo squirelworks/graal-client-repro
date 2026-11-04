@@ -1,8 +1,8 @@
 unit ListServer420r6;
 
-{ Where 4.20r6 starts, and the listserver step the rebuild uses when it
-  has nowhere else to go (graal_analysis protocol/v4x-clients.md, "Login
-  server and license.graal").
+{ Where 4.20r6 starts, and the listserver step the rebuild asks first
+  (graal_analysis protocol/v4x-clients.md, "Login server and
+  license.graal").
 
   4.x has no listserver protocol. license/license.graal in the game folder
   is a short CRLF text file: line 0 the host, line 1 the port (14900 in the
@@ -12,9 +12,9 @@ unit ListServer420r6;
   The real client checks the file's RSA signature (license/sig.license);
   the rebuild does not.
 
-  With no licence file there is no Login host, so the rebuild asks
-  listserver.graal.in on 14922 with the listserver step of the 3.x
-  clients: id 7 V2ENCRYPTKEYCL = GCHAR key + token + 'newmain' and id 1
+  The rebuild's Start asks listserver.graal.in on 14922 first, with the
+  listserver step of the 3.x clients, and offers the licence file's Login
+  hosts only as extra rows after that list: id 7 V2ENCRYPTKEYCL = GCHAR key + token + 'newmain' and id 1
   SERVERLIST (account, password) together in one plain zlib frame; the
   replies are gen 5, keyed with that key. The token sent is 4.20r6's own.
   The reply ids are 0 (the list), 2 (status), 4 (error, the connection
@@ -36,7 +36,7 @@ const
   LSO_SITEURL = 3;
   LSO_ERROR = 4;
   LSO_UPGURL = 5;
-  { the port when the licence file names none, and the stand-in's }
+  { the default listserver, and the port when the licence file names none }
   DefaultListPort = 14922;
   DefaultListHost = 'listserver.graal.in';
 

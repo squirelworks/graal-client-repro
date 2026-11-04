@@ -30,9 +30,9 @@ build's README.
 
 ## What works
 
-- The start screen: nick name, Training, Start. With the install's
-  `license/license.graal`, Start offers the Login server it names; with
-  no licence file it asks `listserver.graal.in` on port 14922 for a list.
+- The start screen: nick name, Training, Start. Start asks
+  `listserver.graal.in` on port 14922 for a list; the Login server named
+  in the install's `license/license.graal` is added as an extra row.
   Then account, password and Connect.
 - Login with `G3D27076`, the platform `mac` and three machine fields,
   which the rebuild leaves empty. No tamper check.
@@ -53,7 +53,7 @@ saved passwords; Options. See the build's README for the full list.
 
 ## Checks behind this release
 
-The test suite (105 checks) runs with range and overflow checks and the
+The test suite (108 checks) runs with range and overflow checks and the
 heap tracer, and must end with no unfreed memory. CI also logs two of
 these clients into seihai-gserver, has the second see the first, and
 walks one through a level link.
