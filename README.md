@@ -89,6 +89,13 @@ login line), stays in that build's folder. When a later build differs from a
 common unit, it gets its own copy in its folder rather than a flag in
 `common/`.
 
+The GS1 language (`GGs1.pas`) is shared under that rule: it holds only the
+language (parsing, statements, expressions, the command table), and what
+each command does lives in the build's own NPC host (`Npc205`, `Npc217`,
+...). A build uses it until it is found to read GS1 differently; then it
+takes its own copy, as for any other unit. The NPC, baddy, sound, map and
+editor units stay per build.
+
 ## Toolchain
 
 - **Free Pascal 3.2** in Delphi mode (`-Mdelphi`) is the build used here and
