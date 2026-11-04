@@ -19,6 +19,7 @@ uses
   GSurface in '../../common/GSurface.pas',
   GFont in '../../common/GFont.pas',
   EditorUI in '../src/editor/EditorUI.pas',
+  EditorDialogs in '../src/editor/EditorDialogs.pas',
   EditorView in '../src/editor/EditorView.pas';
 
 var
@@ -579,6 +580,159 @@ begin
   end;
 end;
 
+{ A press at a control of the open form dialog. }
+procedure PressCtl(V: TEditorView; Dlg: TFormDialog; C: TCtl; DX, DY: Integer);
+begin
+  V.Step(Inp(C.R.X + DX, C.R.Y + DY, True, True, ''));
+  V.Step(Inp(C.R.X + DX, C.R.Y + DY, False, False, ''));
+end;
+
+type
+  TFormPeek = class(TFormDialog);
+
+function CtlOf(Dlg: TEditorDialog; Id: Integer): TCtl;
+var
+  I: Integer;
+begin
+  Result := nil;
+  for I := 0 to High(TFormPeek(Dlg).Ctls) do
+    if (TFormPeek(Dlg).Ctls[I].Id = Id) and (TFormPeek(Dlg).Ctls[I].Kind <> ckLabel) then
+    begin
+      Result := TFormPeek(Dlg).Ctls[I];
+      Exit;
+    end;
+end;
+
+procedure TestEditorDialogs;
+var
+  Sheet: TGSurface;
+  V: TEditorView;
+  D: TEditorDoc;
+  L: TLevelLink;
+  E: string;
+  C: TCtl;
+  Dl: TEditorDialog;
+  R: TRectI;
+begin
+  Check(LinkFromFields('a.graal', '0', '30', '1', '4', 'playerx', '61', L, E) and (E = ''),
+    'link dialog: good values');
+  Check(not LinkFromFields('', '0', '30', '1', '4', '1', '2', L, E) and (E = WrongLinkValues),
+    'link dialog: no file is Wrong values!');
+  Check(not LinkFromFields('a', 'x', '30', '1', '4', '1', '2', L, E), 'link dialog: x must be a number');
+  Check(not LinkFromFields('a', '60', '30', '8', '4', '1', '2', L, E), 'link dialog: the field stays on the board');
+  Sheet := TGSurface.Create(2048, 512);
+  V := TEditorView.Create(Sheet);
+  try
+    V.Step(Inp(0, 0, False, False, ''));
+    D := V.Editor.Doc;
+    { warp field on the east edge }
+    D.Select(63, 20, 63, 23);
+    R := ToolRect(taWarp);
+    Click(V, R.X + 3, R.Y + 3);
+    Check(V.Dialog is TLinkOptionsDialog, 'warp: opens the link dialog');
+    Check(Length(D.Level.Links) = 0, 'warp: no link before OK');
+    V.Step(Inp(0, 0, False, False, #13));
+    Check(V.Dialog is TLinkOptionsDialog, 'warp: OK with no file keeps the dialog open');
+    V.Step(Inp(0, 0, False, False, #13)); { closes the Wrong values! box }
+    V.Step(Inp(0, 0, False, False, 'east.graal'#13));
+    Check((V.Dialog = nil) and (Length(D.Level.Links) = 1) and (D.Level.Links[0].Dest = 'east.graal') and
+      (D.Level.Links[0].NewX = '0') and (D.Level.Links[0].H = 4), 'warp: OK adds the link');
+    { link list: edit and delete }
+    V.Step(Inp(0, 0, False, False, 'l'));
+    Dl := V.Dialog;
+    Check(Dl is TLinkListDialog, 'links: L opens the link list');
+    C := CtlOf(Dl, IdList);
+    Check((C.Items.Count = 1) and (Pos('east.graal', C.Items[0]) = 1), 'links: the list shows the link');
+    PressCtl(V, TFormDialog(Dl), CtlOf(Dl, IdEdit), 5, 5);
+    V.Step(Inp(0, 0, False, False, #9#9#9#9#9#8'62'#13));
+    Check(D.Level.Links[0].NewX = '62', 'links: tab to New X and change it');
+    PressCtl(V, TFormDialog(Dl), CtlOf(Dl, IdDelete), 5, 5);
+    Check(Length(D.Level.Links) = 0, 'links: Delete');
+    PressCtl(V, TFormDialog(Dl), CtlOf(Dl, IdClose), 5, 5);
+    Check(V.Dialog = nil, 'links: Close');
+
+    { chest }
+    D.AddChest(10, 10);
+    V.Step(Inp(BX(10), BY(10), True, True, ''));
+    V.Step(Inp(BX(10), BY(10), False, False, ''));
+    Clock := Clock - 1900; { the second click comes quickly }
+    V.Step(Inp(BX(10), BY(10), True, True, ''));
+    V.Step(Inp(BX(10), BY(10), False, False, ''));
+    Dl := V.Dialog;
+    Check(Dl is TChestDialog, 'chest: double-click opens the chest dialog');
+    if Dl is TChestDialog then
+    begin
+      C := CtlOf(Dl, IdItem);
+      Check(C.Items[C.Index] = 'bluerupee', 'chest: the item shows');
+      PressCtl(V, TFormDialog(Dl), C, 5, 5);
+      { the drop-down list opens below; pick its third row (redrupee) }
+      V.Step(Inp(C.R.X + 5, C.R.Y + C.R.H + 1 + 2 * LineH + 5, True, True, ''));
+      V.Step(Inp(0, 0, False, False, ''));
+      Check(D.Level.Chests[0].Item = 2, 'chest: pick redrupee');
+      V.Step(Inp(0, 0, False, False, #8#8'3'));
+      Check(D.Level.Chests[0].Sign = 3, 'chest: sign index');
+      PressCtl(V, TFormDialog(Dl), CtlOf(Dl, IdSigns), 5, 5);
+      V.Step(Inp(0, 0, False, False, #27));
+      PressCtl(V, TFormDialog(Dl), CtlOf(Dl, IdDelete), 5, 5);
+      Check((V.Dialog = nil) and (Length(D.Level.Chests) = 0), 'chest: Delete Chest');
+    end;
+
+    { baddy }
+    D.AddBaddy(4, 4, 0);
+    V.Dialog := TBaddyDialog.Create(D, 0);
+    Dl := V.Dialog;
+    C := CtlOf(Dl, IdType);
+    PressCtl(V, TFormDialog(Dl), C, 5, 5);
+    V.Step(Inp(C.R.X + 5, C.R.Y + C.R.H + 1 + 5 * LineH + 5, True, True, ''));
+    V.Step(Inp(0, 0, False, False, ''));
+    Check((D.Level.Baddies[0].Kind = 5) and (D.Level.Baddies[0].Verses = '\\') and
+      not CtlOf(Dl, IdVerse1).Enabled, 'baddy: a frog has no verses');
+    PressCtl(V, TFormDialog(Dl), C, 5, 5);
+    V.Step(Inp(C.R.X + 5, C.R.Y + C.R.H + 1 + 0 * LineH + 5, True, True, ''));
+    V.Step(Inp(0, 0, False, False, ''));
+    PressCtl(V, TFormDialog(Dl), CtlOf(Dl, IdVerse1), 5, 5);
+    V.Step(Inp(0, 0, False, False, #8'?'));
+    Check(D.Level.Baddies[0].Verses = 'Stop?\Ouch!\', 'baddy: edit the attack verse');
+    V.Step(Inp(0, 0, False, False, #13));
+    Check(V.Dialog = nil, 'baddy: Enter closes');
+
+    { signs }
+    V.Step(Inp(0, 0, False, False, 's'));
+    Dl := V.Dialog;
+    Check(Dl is TSignsDialog, 'signs: S opens the sign editor');
+    PressCtl(V, TFormDialog(Dl), CtlOf(Dl, IdNew), 5, 5);
+    Check(Length(D.Level.Signs) = 1, 'signs: New');
+    V.Step(Inp(0, 0, False, False, 'Hi #A'#13'there'));
+    Check(D.Level.Signs[0].Text = 'Hi #A'#10'there', 'signs: type the text');
+    PressCtl(V, TFormDialog(Dl), CtlOf(Dl, IdX), 5, 5);
+    V.Step(Inp(0, 0, False, False, #8'12'));
+    Check(D.Level.Signs[0].X = 12, 'signs: X');
+    PressCtl(V, TFormDialog(Dl), CtlOf(Dl, IdClose), 5, 5);
+
+    { NPC and its script }
+    D.AddNPC(20, 20, '');
+    V.Dialog := TPersonDialog.Create(D, 0);
+    Dl := V.Dialog;
+    V.Step(Inp(0, 0, False, False, 'door.png'));
+    Check(D.Level.NPCs[0].Image = 'door.png', 'npc: the image');
+    PressCtl(V, TFormDialog(Dl), CtlOf(Dl, IdAction), 5, 5);
+    V.Step(Inp(0, 0, False, False, 'if (playerenters) {'#13'say 0;'#13'}'));
+    PressCtl(V, TFormDialog(Dl), CtlOf(TFormPeek(Dl).Child, IdOK), 5, 5);
+    Check(D.Level.NPCs[0].Script = 'if (playerenters) {'#10'say 0;'#10'}', 'npc: the script');
+    V.Step(Inp(0, 0, False, False, #27));
+    Check(V.Dialog = nil, 'npc: Esc closes');
+
+    { flags }
+    V.Dialog := TFlagsDialog.Create(V.Editor.Flags);
+    V.Step(Inp(0, 0, False, False, 'gotsword'#13' visited '));
+    PressCtl(V, TFormDialog(V.Dialog), CtlOf(V.Dialog, IdClose), 5, 5);
+    Check((V.Editor.Flags.Count = 2) and (V.Editor.Flags[1] = 'visited'), 'flags: edited in memory');
+  finally
+    V.Free;
+    Sheet.Free;
+  end;
+end;
+
 procedure TestTutorials;
 const
   Names: array[0..12] of string = ('a-1', 'a-2', 'a-3', 'a-4', 'b-1', 'b-2',
@@ -625,6 +779,7 @@ begin
   TestEditorBoard;
   TestEditorObjects;
   TestEditorView;
+  TestEditorDialogs;
   TestTutorials;
   WriteLn(Format('%d passed, %d failed, %d skipped', [Passed, Failed, Skipped]));
   if Failed > 0 then Halt(1);

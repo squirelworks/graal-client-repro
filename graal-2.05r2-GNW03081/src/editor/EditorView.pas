@@ -30,7 +30,8 @@ type
   TMouseState = (msIdle, msSelect, msDragFloat, msPaint, msDragObject, msPalette,
     msHScroll, msVScroll, msPalHScroll, msPalVScroll);
   TEditorExit = (eeNone, eeLeave, eePlay);
-  TDialogKind = (dkNone, dkInfo, dkOpen, dkSaveAs, dkSaveAsClose, dkCloseAsk, dkPlayName);
+  TDialogKind = (dkNone, dkInfo, dkOpen, dkSaveAs, dkSaveAsClose, dkCloseAsk, dkLinks,
+    dkObject);
   { An image from the install (NPC images), or nil. }
   TImageFunc = function(const Name: string): TGSurface of object;
 
@@ -60,6 +61,7 @@ type
     FAnchorX, FAnchorY: Integer;
     FOffX, FOffY: Integer;
     FDragKind: TEditorObjKind;
+    FPressTX, FPressTY: Integer;
     FDragIndex: Integer;
     FLastPaintX, FLastPaintY: Integer;
     FLastClickMs: Int64;
@@ -129,7 +131,7 @@ function SheetTileAt(PX, PY: Integer): Integer;
 implementation
 
 uses
-  SysUtils, GFont, GLevelWrite;
+  SysUtils, GFont, GLevelWrite, EditorDialogs;
 
 const
   TileSz = 16;
@@ -299,7 +301,6 @@ end;
 procedure TEditorView.Action(A: TToolAction);
 var
   D: TEditorDoc;
-  N: Integer;
 begin
   D := Editor.Doc;
   case A of
@@ -352,12 +353,19 @@ begin
     taWarp:
       if D <> nil then
       begin
-        N := D.MakeWarpLink;
-        if N < 0 then SetStatus('Select the warp field first')
-        else SetStatus('Warp field added: edit its destination in the link list');
+        if D.Floating then D.DropFloat;
+        if not D.HasSel then SetStatus('Select the warp field first')
+        else
+          { the link is added when the dialog's OK accepts it }
+          ShowDialog(TLinkOptionsDialog.Create(D, LinkWarpDefaults(D.SelX, D.SelY, D.SelW,
+            D.SelH)), dkObject);
       end;
-    taLinks, taSigns, taFlags:
-      SetStatus(ToolHints[A] + ': not in this build yet');
+    taLinks:
+      if D <> nil then ShowDialog(TLinkListDialog.Create(D), dkLinks);
+    taSigns:
+      if D <> nil then ShowDialog(TSignsDialog.Create(D, -1), dkObject);
+    taFlags:
+      ShowDialog(TFlagsDialog.Create(Editor.Flags), dkObject);
     taClose:
       if D <> nil then
       begin
@@ -408,6 +416,16 @@ begin
     V := '';
     if Dlg is TPromptDialog then V := Trim(TPromptDialog(Dlg).Value);
     case Kind of
+      dkLinks:
+        if (Dlg is TLinkListDialog) and (TLinkListDialog(Dlg).LoadFile <> '') and (D <> nil) then
+        begin
+          { Load: the destination in a new tab, next to this level }
+          V := TLinkListDialog(Dlg).LoadFile;
+          if (ExtractFilePath(D.FileName) <> '') and
+            FileExists(ExtractFilePath(D.FileName) + V) then
+            V := ExtractFilePath(D.FileName) + V;
+          OpenFile(V);
+        end;
       dkOpen:
         if (Dlg.Result = drOk) and (V <> '') then OpenFile(V);
       dkSaveAs, dkSaveAsClose:
@@ -538,10 +556,16 @@ begin
   begin
     if Dbl then
     begin
-      SetStatus('Object dialogs are not in this build yet');
+      case K of
+        okChest: ShowDialog(TChestDialog.Create(D, N), dkObject);
+        okNPC: ShowDialog(TPersonDialog.Create(D, N), dkObject);
+        okBaddy: ShowDialog(TBaddyDialog.Create(D, N), dkObject);
+      end;
       Exit;
     end;
     D.ObjectRect(K, N, OX, OY, OW, OH);
+    FPressTX := TX;
+    FPressTY := TY;
     FDragKind := K;
     FDragIndex := N;
     FOffX := TX - OX;
@@ -589,6 +613,7 @@ begin
   begin
     { Right Mousebutton -> copy: the copy hangs on the mouse }
     N := D.CloneObject(K, N, TX, TY);
+    FPressTX := -1;
     FDragKind := K;
     FDragIndex := N;
     FOffX := 0;
@@ -642,7 +667,8 @@ begin
         FLastPaintY := TY;
       end;
     msDragObject:
-      if (TX >= 0) and (TY >= 0) and (TX < BoardW) and (TY < BoardH) then
+      if (TX >= 0) and (TY >= 0) and (TX < BoardW) and (TY < BoardH) and
+        ((TX <> FPressTX) or (TY <> FPressTY)) then
         D.MoveObject(FDragKind, FDragIndex, TX - FOffX, TY - FOffY);
   end;
 end;

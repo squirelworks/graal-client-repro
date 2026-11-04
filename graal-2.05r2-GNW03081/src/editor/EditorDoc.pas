@@ -29,7 +29,7 @@ unit EditorDoc;
 interface
 
 uses
-  GLevel;
+  Classes, GLevel;
 
 const
   MaxUndo = 128;
@@ -132,6 +132,8 @@ type
     Clipboard: TTileBlock;
     Background: Word;
     LastError: string;
+    { Edit flags: the client's in-memory flag list; never saved }
+    Flags: TStringList;
     constructor Create;
     destructor Destroy; override;
     function Doc: TEditorDoc;
@@ -619,7 +621,14 @@ begin
 end;
 
 procedure TEditorDoc.MoveObject(Kind: TEditorObjKind; Index: Integer; X, Y: Double);
+var
+  OX, OY, OW, OH: Integer;
 begin
+  { a click without a move changes nothing }
+  if ObjectRect(Kind, Index, OX, OY, OW, OH) and (Kind <> okNPC) and (OX = Round(X)) and
+    (OY = Round(Y)) then Exit;
+  if (Kind = okNPC) and (Index >= 0) and (Index <= High(Level.NPCs)) and
+    (Level.NPCs[Index].X = X) and (Level.NPCs[Index].Y = Y) then Exit;
   case Kind of
     okChest:
       if (Index >= 0) and (Index <= High(Level.Chests)) then
@@ -763,6 +772,7 @@ constructor TEditor.Create;
 begin
   inherited Create;
   Current := -1;
+  Flags := TStringList.Create;
 end;
 
 destructor TEditor.Destroy;
@@ -770,6 +780,7 @@ var
   I: Integer;
 begin
   for I := 0 to High(Docs) do Docs[I].Free;
+  Flags.Free;
   inherited Destroy;
 end;
 
