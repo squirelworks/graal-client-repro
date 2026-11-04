@@ -193,7 +193,6 @@ folder of them, `graal-assets/`, for all the rebuilt clients:
 graal-assets/
   common/     files the same in every version that has them
   2.05r2/     one folder per version, named by the build's version label
-  2.17.1/
   2.22/
 ```
 
@@ -202,3 +201,8 @@ A build looks for a file in its own folder (or `--data`), then in
 its built-in assets (`common/GAssetDirs.pas`). `graal-assets` is found next
 to the program or one folder up, so several clients can share one copy.
 `scripts/assets/merge_assets.py` builds the folder from per-version sets.
+
+A version that shipped with another version's files reads that version's
+folder next. Graal 2.17.1 came in the same folder as 2.22, so the 2.17.1
+build looks in `graal-assets/2.17.1/` (if there is one), then
+`graal-assets/2.22/`, then `common/`. No second copy is needed.
