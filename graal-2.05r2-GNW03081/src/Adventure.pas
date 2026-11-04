@@ -120,6 +120,7 @@ type
   TAdventure = class
   private
     FModeUntil: Integer;   { frame the sword swing or lift ends }
+    FSignWasDown: Boolean; { a game key was down on the tick before }
     FHurtCount: Integer;   { hurt mode: ticks left of 40 }
     FKnockX, FKnockY: Double;
     FEntryX, FEntryY: Double; { where the player came into this level }
@@ -195,6 +196,10 @@ type
     Thrown: array of TThrownObject;
     Bombs: array of TBomb;
     Blasts: array of TBlast;
+    { Reading a sign: its lines and the first line of the page shown. }
+    Reading: Boolean;
+    SignLines: array of string;
+    SignLine: Integer;
     OnSwordHit: TSwordHitEvent;
     OnBombBlast: TBombBlastEvent;
     OnArrowHit: TArrowHitEvent;
@@ -271,6 +276,14 @@ type
     { The D key with the bomb: a bomb with a 60-tick fuse. }
     procedure LayBomb;
     procedure AddBlast(X, Y: Double; Reach, Kind: Integer; Mine: Boolean);
+    { The level sign whose 2 x 2 holds (PX, PY), or -1. }
+    function SignAt(PX, PY: Double): Integer;
+    { Opens the sign panel on Text (lines split at newlines). }
+    procedure ReadSign(const Text: string);
+    { The keys while reading: Up turns back a page, any other game key
+      turns on, or ends reading on a page that is not full. }
+    procedure SignKeys;
+    procedure DrawSign(CamTop: Integer);
     property Others[I: Integer]: TServerPlayer read GetOther;
     property OtherCount: Integer read GetOtherCount;
     property Client: TAdventureClient read FClient;
@@ -1048,6 +1061,8 @@ begin
         AddItem(Level.Chests[I].X, Level.Chests[I].Y - 1, Level.Chests[I].Item, 24);
         GiveItem(Level.Chests[I].Item);
       end;
+      if (Level.Chests[I].Sign >= 0) and (Level.Chests[I].Sign <= High(Level.Signs)) then
+        ReadSign(Level.Signs[Level.Chests[I].Sign].Text);
       if FClient.Connected then
         FClient.SendPacket(PLI_OPENCHEST, GChar(Level.Chests[I].X) + GChar(Level.Chests[I].Y));
       Exit;
@@ -1433,6 +1448,219 @@ begin
         end;
       end;
     Inc(I);
+  end;
+end;
+
+{ ---- signs (sign-panel.md) ---- }
+
+const
+  { a character's glyph is its place in this string; '#' places are glyphs
+    with no plain character }
+  GlyphOrder = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789' +
+    '!?-.,#>()#####"####'':/~&### <####;';
+
+function GlyphOf(C: Char): Integer;
+begin
+  if C = '#' then Result := -1 else Result := Pos(C, GlyphOrder) - 1;
+end;
+
+{ The advance of a glyph. The client keeps a table of half widths; only I
+  (6), space (8) and most letters (12) are noted, so the other narrow ones
+  here are a guess. }
+function GlyphAdvance(C: Char): Integer;
+begin
+  case C of
+    ' ': Result := 8;
+    'I', 'i', 'l', 'j', '!', '.', ',', ':', ';', '''': Result := 6;
+  else
+    Result := 12;
+  end;
+end;
+
+{ The picture glyph for '#' and a letter, or -1. #A, #B, #X, #Y and the
+  arrows are as read; which of 71 to 75 and 87 the other six take is a
+  guess. }
+function ButtonGlyph(C: Char): Integer;
+begin
+  case C of
+    'A': Result := 91;
+    'B': Result := 92;
+    'X': Result := 93;
+    'Y': Result := 94;
+    'u': Result := 77;
+    'd': Result := 78;
+    'l': Result := 79;
+    'r': Result := 80;
+    'h': Result := 71;
+    'x': Result := 72;
+    'y': Result := 73;
+    'z': Result := 74;
+    '4': Result := 75;
+    '.': Result := 87;
+  else
+    Result := -1;
+  end;
+end;
+
+function TAdventure.SignAt(PX, PY: Double): Integer;
+var
+  I, TX, TY: Integer;
+begin
+  Result := -1;
+  TX := Floor(PX);
+  TY := Floor(PY);
+  for I := 0 to High(Level.Signs) do
+    if (TX >= Level.Signs[I].X) and (TX <= Level.Signs[I].X + 1) and
+      (TY >= Level.Signs[I].Y) and (TY <= Level.Signs[I].Y + 1) then
+    begin
+      Result := I;
+      Exit;
+    end;
+end;
+
+procedure TAdventure.ReadSign(const Text: string);
+var
+  I, St: Integer;
+  T: string;
+begin
+  SetLength(SignLines, 0);
+  T := Text;
+  while (T <> '') and ((T[Length(T)] = #10) or (T[Length(T)] = #13)) do
+    SetLength(T, Length(T) - 1);
+  St := 1;
+  for I := 1 to Length(T) + 1 do
+    if (I > Length(T)) or (T[I] = #10) then
+    begin
+      SetLength(SignLines, Length(SignLines) + 1);
+      SignLines[High(SignLines)] := Copy(T, St, I - St);
+      if (SignLines[High(SignLines)] <> '') and
+        (SignLines[High(SignLines)][Length(SignLines[High(SignLines)])] = #13) then
+        SetLength(SignLines[High(SignLines)], Length(SignLines[High(SignLines)]) - 1);
+      St := I + 1;
+    end;
+  SignLine := 0;
+  Reading := True;
+  { the key that opened the sign does nothing until it is let go }
+  FSignWasDown := True;
+end;
+
+procedure TAdventure.SignKeys;
+var
+  Down: Boolean;
+  D: Integer;
+begin
+  Down := Keys[0] or Keys[1] or Keys[2] or Keys[3] or ActionKey or AttackKey or ItemKey;
+  if Down and not FSignWasDown then
+  begin
+    if Keys[DirUp] then
+    begin
+      if SignLine > 0 then Dec(SignLine, 3);
+    end
+    else if Length(SignLines) < SignLine + 3 then
+      Reading := False
+    else
+      Inc(SignLine, 3);
+  end;
+  FSignWasDown := Down;
+  for D := 0 to 3 do Keys[D] := False;
+  ActionKey := False;
+  AttackKey := False;
+  ItemKey := False;
+end;
+
+procedure TAdventure.DrawSign(CamTop: Integer);
+const
+  CellsW = 24;
+  CellsH = 9;
+var
+  L: TGSurface;
+  X, Y, W, H, I, K, CX, G: Integer;
+  S: string;
+  Fill: Cardinal;
+
+  procedure Glyph(N, DX, DY: Integer);
+  begin
+    Screen.Blit(L, (N mod 16) * 16, (N div 16) * 32, 16, 32, DX, DY);
+  end;
+
+begin
+  L := Assets.Image('letters.png', '');
+  W := CellsW * 16;
+  H := CellsH * 16;
+  X := (ScreenW - W) div 2;
+  { low on the view, or high when the player is far down it }
+  { (on the 640 x 480 view: y 256, or 128 past 14 tiles down) }
+  if Player.Y - CamTop / TileSize > 14 then Y := 128 else Y := 256;
+  if L = nil then
+  begin
+    Screen.FillRect(X, Y, W, H, $FF000000);
+    Screen.FillRect(X + 2, Y + 2, W - 4, H - 4, $FFFFE7A5);
+  end
+  else
+  begin
+    for I := 0 to CellsW - 1 do
+    begin
+      Glyph(100, X + I * 16, Y);
+      Glyph(101, X + I * 16, Y + H - 32);
+    end;
+    I := 0;
+    while I * 32 < H do
+    begin
+      Glyph(102, X, Y + I * 32);
+      Glyph(103, X + W - 16, Y + I * 32);
+      Inc(I);
+    end;
+    Glyph(96, X, Y);
+    Glyph(97, X + W - 16, Y);
+    Glyph(98, X, Y + H - 32);
+    Glyph(99, X + W - 16, Y + H - 32);
+    { the two fills, from the colours at (254, 223) and (255, 223), each
+      skipped when it is the sheet's clear colour }
+    Fill := L.GetPixel(254, 223);
+    if Fill shr 24 <> 0 then Screen.FillRect(X + 16, Y + 24, W - 32, H - 48, Fill);
+    Fill := L.GetPixel(255, 223);
+    if Fill shr 24 <> 0 then Screen.FillRect(X + 24, Y + 32, W - 48, H - 64, Fill);
+  end;
+  { three lines a page, 32 pixels apart }
+  for K := 0 to 2 do
+  begin
+    if SignLine + K > High(SignLines) then Break;
+    S := SignLines[SignLine + K];
+    CX := X + 16;
+    I := 1;
+    while I <= Length(S) do
+    begin
+      if (S[I] = '#') and (I < Length(S)) then
+      begin
+        Inc(I);
+        if S[I] = 'i' then
+        begin
+          Inc(I, 2); { #i and a character: an image from the level's list, not drawn }
+          Continue;
+        end;
+        G := ButtonGlyph(S[I]);
+        if G < 0 then G := 86;
+        if L <> nil then Glyph(G, CX, Y + 16 + K * 32);
+        Inc(CX, 16);
+      end
+      else
+      begin
+        G := GlyphOf(S[I]);
+        if (G >= 0) and (L <> nil) then
+        begin
+          Glyph(G, CX, Y + 16 + K * 32);
+          Inc(CX, GlyphAdvance(S[I]));
+        end
+        else
+        begin
+          { outside the glyph order: the system font, in the colour at (253, 223) }
+          if L <> nil then Fill := L.GetPixel(253, 223) else Fill := $FF000000;
+          DrawText(Screen, CX, Y + 16 + K * 32 + 8, S[I], Fill or $FF000000, 2);
+          Inc(CX, 12);
+        end;
+      end;
+      Inc(I);
+    end;
   end;
 end;
 
@@ -1954,6 +2182,9 @@ begin
     ActionKey := False;
     ItemKey := False;
   end;
+  { reading a sign is its own input state: nothing walks or acts }
+  if Reading then SignKeys
+  else FSignWasDown := False;
   { the game keys first: a swing or a lift holds the player still }
   if AttackKey then Attack;
   if ActionKey then Action;
@@ -1993,6 +2224,13 @@ begin
     centre pushed ahead in the walking direction (measured on the real
     client, see LinkAhead) }
   if Moved then FollowLink(LinkAt(Player.X + 1.5 + AX, Player.Y + 2 + AY));
+  { walking up against a sign opens it (the probe over the sign's 2 x 2) }
+  if Moved and Keys[DirUp] and (Mode = ModeFree) and not Reading then
+  begin
+    ProbePoint(AX, AY);
+    D := SignAt(Player.X + 1.5, AY);
+    if (D >= 0) and ((Player.Dir and 3) = DirUp) then ReadSign(Level.Signs[D].Text);
+  end;
   SendMovedProps;
   FClient.Flush;
   if not Headless then Draw;
@@ -2319,6 +2557,7 @@ begin
     DrawCarried(Thrown[I].Kind, Round(Thrown[I].X * TileSize) - CamX,
       Round(Thrown[I].Y * TileSize) - CamY);
   DrawStatus;
+  if Reading then DrawSign(CamY);
 end;
 
 end.

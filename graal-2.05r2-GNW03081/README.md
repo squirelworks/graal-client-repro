@@ -79,6 +79,13 @@ decompiled code:
   Bombs and explosions go out and come in (`PLI_BOMBADD`, `PLI_EXPLOSION`,
   `PLO_BOMBADD`, `PLO_BOMBDEL`, `PLO_EXPLOSION`) (tests). Where 2.05 puts a
   new bomb was not read: a tile and a half ahead.
+- Signs, from the 2.05 sign panel: walking up into a sign (or opening a
+  chest that names one) shows it on the scroll from `letters.png`, three
+  lines a page, with the `#` button pictures. Up turns back a page, any
+  other game key turns on, and on a page that is not full ends reading;
+  nothing walks or acts while reading (tests). The glyph advances other
+  than I, space and the common letters, and the button pictures for `#h`,
+  `#x`, `#y`, `#z`, `#4` and `#.`, are guesses; `#i` images are skipped.
 - The status display, laid out as 2.05 draws it from `state.png`: the A/S/D
   buttons, the item icons with rupee, bomb and arrow counts, big hearts up
   to four containers and small hearts in rows past that, and the alignment

@@ -1089,6 +1089,63 @@ begin
   end;
 end;
 
+procedure TestSigns;
+var
+  G: TAdventure;
+  I: Integer;
+
+  procedure Press(D: Integer);
+  begin
+    G.Keys[D] := True;
+    G.Tick;
+    G.Keys[D] := False;
+    G.Tick;
+  end;
+
+begin
+  G := TAdventure.Create;
+  try
+    G.Headless := True;
+    Check(G.LoadLevelFile('start.nw') and (G.SignAt(24.5, 27.5) = 0) and (G.SignAt(22, 27) = -1),
+      'signs: the sign covers its 2 x 2');
+    G.Player.X := 23;
+    G.Player.Y := 30;
+    G.Player.Dir := DirUp;
+    for I := 1 to 30 do
+    begin
+      G.Keys[DirUp] := True;
+      G.Tick;
+      if G.Reading then Break;
+    end;
+    Check(G.Reading and (Length(G.SignLines) = 7) and (G.SignLine = 0), 'signs: walking up into a sign reads it');
+    G.Keys[DirUp] := True;
+    G.Tick;
+    Check(G.SignLine = 0, 'signs: the key that opened it does nothing while held');
+    G.Keys[DirUp] := False;
+    G.Tick;
+    Press(DirRight);
+    Check(G.SignLine = 3, 'signs: another key turns the page');
+    G.AttackKey := True;
+    G.Tick;
+    Check((G.SignLine = 6) and (G.Mode = ModeFree), 'signs: S turns the page, no swing');
+    G.Tick;
+    Press(DirUp);
+    Check(G.SignLine = 3, 'signs: Up turns back');
+    Press(DirDown);
+    Check(G.Reading and (G.SignLine = 6), 'signs: the last page');
+    Press(DirDown);
+    Check(not G.Reading, 'signs: a key on a page that is not full ends reading');
+    G.ReadSign('a'#10'b'#10'c');
+    G.Tick;
+    Press(DirLeft);
+    Check(G.Reading and (G.SignLine = 3), 'signs: three lines show an empty second page');
+    Press(DirLeft);
+    Check(not G.Reading, 'signs: then close');
+  finally
+    G.Free;
+  end;
+end;
+
 procedure TestServerList;
 var
   L: TListServers;
@@ -1156,6 +1213,7 @@ begin
   TestStatus;
   TestActions;
   TestCombat;
+  TestSigns;
   WriteLn(Format('%d passed, %d failed, %d skipped', [Passed, Failed, Skipped]));
   if Failed > 0 then Halt(1);
 end.

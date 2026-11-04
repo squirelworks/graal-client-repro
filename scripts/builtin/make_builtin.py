@@ -334,6 +334,75 @@ def draw_sword():
     return im
 
 
+# ---------------------------------------------------------------- letters
+# The sign sheet's geometry (256 x 224, 16 x 32 glyphs in the 2.05 glyph
+# order, frame pieces 96 to 103, fill colours at (252..255, 223); see
+# graal_analysis client-internals/sign-panel.md), with new art: the
+# built-in 5 x 7 font doubled.
+GLYPH_ORDER = ('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+               '!?-.,#>()#####"####\':/~&### <####;')
+
+
+def draw_letters():
+    import font5x7
+    im = Image.new('RGBA', (256, 224), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    ink = (60, 40, 30, 255)
+
+    def cell(n):
+        return (n % 16) * 16, (n // 16) * 32
+
+    def glyph(n, ch, colour=ink):
+        x, y = cell(n)
+        rows = font5x7.G.get(ch)
+        if not rows:
+            return
+        for r, row in enumerate(rows):
+            for c, px in enumerate(row):
+                if px == '#':
+                    d.rectangle((x + 1 + 2 * c, y + 9 + 2 * r, x + 2 + 2 * c, y + 10 + 2 * r), fill=colour)
+
+    for n, ch in enumerate(GLYPH_ORDER):
+        if ch != '#':
+            glyph(n, ch)
+    # button pictures: a disc with the letter or arrow
+    for n, ch in ((91, 'A'), (92, 'B'), (93, 'X'), (94, 'Y'), (71, 'H'), (72, 'X'),
+                  (73, 'Y'), (74, 'Z'), (75, '4'), (87, '.'), (86, '?')):
+        x, y = cell(n)
+        d.ellipse((x, y + 7, x + 15, y + 22), fill=(200, 50, 40, 255))
+        glyph(n, ch, (255, 255, 255, 255))
+    for n, pts in ((77, ((8, 8), (1, 20), (15, 20))), (78, ((8, 23), (1, 11), (15, 11))),
+                   (79, ((1, 15), (13, 8), (13, 22))), (80, ((15, 15), (3, 8), (3, 22)))):
+        x, y = cell(n)
+        d.polygon([(x + a, y + b) for a, b in pts], fill=(200, 50, 40, 255))
+    # the scroll frame
+    paper, edge, rim = (255, 235, 180, 255), (150, 100, 50, 255), (110, 70, 30, 255)
+    for n in (100, 101):
+        x, y = cell(n)
+        top = n == 100
+        d.rectangle((x, y + (8 if top else 0), x + 15, y + (31 if top else 23)), fill=paper)
+        ey = y + 8 if top else y + 20
+        d.rectangle((x, ey, x + 15, ey + 3), fill=edge)
+    for n in (102, 103):
+        x, y = cell(n)
+        left = n == 102
+        d.rectangle((x + (4 if left else 0), y, x + (15 if left else 11), y + 31), fill=paper)
+        ex = x + 4 if left else x + 8
+        d.rectangle((ex, y, ex + 3, y + 31), fill=edge)
+    for n, (l, t) in ((96, (True, True)), (97, (False, True)), (98, (True, False)), (99, (False, False))):
+        x, y = cell(n)
+        d.rectangle((x, y, x + 15, y + 31), fill=(0, 0, 0, 0))
+        cy = y + 10 if t else y + 22
+        d.rectangle((x + (4 if l else 0), y + (8 if t else 0), x + (15 if l else 11), y + (31 if t else 23)), fill=paper)
+        d.ellipse((x + 1, cy - 6, x + 14, cy + 6), fill=edge, outline=rim)
+        d.ellipse((x + 5, cy - 2, x + 10, cy + 2), fill=paper)
+    # fill colours: 253 the system-font text, 254 and 255 the two fills
+    im.putpixel((253, 223), ink)
+    im.putpixel((254, 223), paper)
+    im.putpixel((255, 223), paper)
+    return im
+
+
 # ---------------------------------------------------------------- status sheet
 # Same geometry as the state sheet the 2.05 status routine reads (224 x 145;
 # see graal_analysis client-internals/status-display.md), new art.
@@ -558,7 +627,13 @@ def start_levels():
         for x in range(0, 30):
             b[x + y * 64] = T_PATH
     start = nw_level(a, [('start2.nw', 63, 28, 1, 8, '1', 'playery')],
-                     [(30, 28, 'Welcome. This is the built-in starter level.\nDrop a Graal install next to the program to play the real one.')],
+                     [(24, 26, 'Welcome! This is the\n'
+                                'built-in starter level.\n'
+                                'Any key turns the page.\n'
+                                'S swings the sword, A lifts\n'
+                                'and throws, D lays a bomb.\n'
+                                'Put a Graal install by the\n'
+                                'program to play the real one.')],
                      [(26, 25, 'redrupee', -1)])
     start2 = nw_level(b, [('start.nw', 0, 28, 1, 8, '60', 'playery')], [])
     return start, start2
@@ -578,6 +653,7 @@ def main():
         ('head0.png', png_bytes(draw_head())),
         ('sprites.png', png_bytes(draw_sprites())),
         ('state.png', png_bytes(draw_state())),
+        ('letters.png', png_bytes(draw_letters())),
         ('idle.gani', gani([0], False).encode()),
         ('sword.gani', gani([0, 0, 0], False, sword_part, [1, 1, 1]).encode()),
         ('lift.gani', gani([0, 0], False, lambda k, d: 'PARAM1   8 %d' % (-6 - 10 * k), [1, 1]).encode()),
