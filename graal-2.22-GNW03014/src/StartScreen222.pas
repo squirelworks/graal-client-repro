@@ -51,9 +51,8 @@ type
   329) / (204, 361), 173 x 24. FormShow places four TPaintButtons with lime
   MS Sans Serif captions: Start Online at (423, 345), Training at (423,
   215), Options at (423, 245), all 105 x 26 with the button1 face, and
-  "Get an account" at (408, 275), 145 x 26 with the button2 face. The
-  shared screen does not yet draw the account fields or the fourth button
-  on this window (the server list page asks for the account). }
+  "Get an account" at (408, 275), 145 x 26 with the button2 face (not
+  built: a click says so). }
 procedure Classic222(var L: TClassicLayout);
 
 const
@@ -170,6 +169,16 @@ begin
   L.NickField := StartRect(200, 241, 177, 24);
   L.LanguageLabel := StartRect(72, 274, 74, 16);
   L.LanguageField := StartRect(200, 269, 177, 24);
+  { FormShow's captions are lime ($00FF00); the welcome label is centred }
+  L.CaptionColor := $00FF00;
+  L.WelcomeCentered := True;
+  L.Extra := StartRect(408, 275, 145, 26);
+  L.ExtraText := 'Get an account';
+  L.ExtraImages := 'button2.bmp;builtin/button2.bmp;images/button2.bmp';
+  L.AccountLabel := StartRect(76, 332, 60, 16);
+  L.PasswordLabel := StartRect(76, 364, 73, 16);
+  L.AccountField := StartRect(204, 329, 173, 24);
+  L.PasswordField := StartRect(204, 361, 173, 24);
 end;
 
 procedure TCharacter222.Draw(S: TGSurface; X, Y: Integer; const Nick: string);

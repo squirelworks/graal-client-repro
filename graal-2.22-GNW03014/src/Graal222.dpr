@@ -511,6 +511,8 @@ begin
     { 2.22 reads its listserver from arrays2.dat (line 0 host, line 1
       port, lines 5 and 6 fallbacks); listserver.txt next to the program
       wins over it, and with neither, a Seihai listserver on this machine }
+    { SIGTERM / Ctrl+C end the program on the start screen too }
+    InstallStopHandlers;
     Hosts := LoadListHosts(Dir + 'arrays2.dat');
     ArrHost := '127.0.0.1';
     if Length(Hosts.Hosts) > 0 then ArrHost := Hosts.Hosts[0];
@@ -531,13 +533,14 @@ begin
         Info.Backgrounds := Backgrounds222;
         Info.DrawCharacter := Who.Draw;
         Classic222(Info.Classic);
+        Info.StopRequested := StopRequested;
         Picked := RunStartScreen(Win, G.Screen, Fetch, Info, Dir, ListHost, ListPort, Msg, R);
       finally
         Who.Free;
         Fetch.Free;
         G.Free;
       end;
-      if not Picked or Win.Closed then Exit;
+      if not Picked or Win.Closed or StopRequested then Exit;
       GuiArgs := TStringList.Create;
       try
         GuiArgs.Add('--window');
@@ -568,7 +571,7 @@ begin
       finally
         FreeAndNil(GuiArgs);
       end;
-    until Win.Closed;
+    until Win.Closed or StopRequested;
   finally
     Win.Free;
   end;
