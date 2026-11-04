@@ -12,6 +12,7 @@ client line's own install held.
   Graal205(.exe)        every rebuilt client sits at the top
   Graal217(.exe)
   Graal222(.exe)
+  Graal304              (Linux only, as the original)
   graal-assets/         graal-assets.zip extracted here
     README.txt
     common/             byte for byte the same in every version that has it
@@ -40,6 +41,7 @@ that has it:
 | 2.05, 2.05 rev 1 (2.0-line thread) | own label, then `2.05r2` | own folder if any, then `2.05r2/` |
 | 2.17.1 | `2.17.1;2.22` | `2.17.1/` (none shipped), then `2.22/`: 2.17.1 came in the same folder as 2.22 |
 | 2.22 | `2.22` | `2.22/` |
+| 3.04 | `3.04` | `3.04/` (not in the zip yet: no 3.04 install in hand) |
 
 `--data DIR` today replaces the program's folder: with it, the root and a
 `graal-assets/` beside the program are not read, only `DIR` (or
@@ -113,6 +115,8 @@ The zip is deterministic (sorted names, fixed times) and extracts as
   `tutorial_b-4` names; 2.22's lacks `g2k2master[0].gani` and
   `petzzz.mng`, which `offlinetutorial_b-2` names. Older installs have
   `gate1.gif` (`levels/gifs/`), but it is not copied across versions.
+- Graal304 has no `3.04/` folder: no 3.04 install is in the project
+  files. It runs on its built-in art until one is supplied.
 - 2.17.1 reads 2.22's start-window art and has no `objects.dat` (2.22
   shipped `tileobjects/` instead), as the shared install had it.
 
@@ -155,7 +159,8 @@ would save.
 | 2.17.1 | shipped inside the 2.22 folder | | | | **yes** (reads `2.22/`) |
 | 2.22 | full install: `picso.png`, `levels/` with ganis, bomys, emoticons, midis, offline tutorial (from `graal-delphi-assets/2.22-src`, not in `graal clients.zip`) | 732 | 10348 | | **yes** (`2.22/`) |
 | 2.3, 2.31 | install not in project files | | | | no |
-| 3.x to 6.x | installs not in project files | | | | no |
+| 3.04 (Linux) | install not in project files; the build reads `license/license.graal` for its listserver | | | | **yes** (`3.04/`, empty until an install is supplied) |
+| 3.153, 4.x to 6.x | installs not in project files | | | | no |
 | Graal3D (2000) | DirectX `.x` meshes and `.bmp` textures at the top | 21 | 455 | | no |
 | Zelda Online 2 | Java classes and levels under `game/` (author source alongside: never copied) | 90 | 535 | | no |
 | Java Graal, Game Boy demo | not in `graal clients.zip` (`javagraal_rip.rar`, `graalgb.rar` on Drive) | | | | no |
