@@ -28,7 +28,7 @@ original's graphics, rooms and texts from a copy of the demo that you own.
 |---|---|
 | Rooms, links, texts, NPC records, characters, controls | graal_analysis `client-internals/gameboy-demo.md` |
 | What the demo does in play (speeds, sword, lifting, A items, the captive, Start) | the same note, "Seen in an emulator" |
-| Where the data sits in the ROM (for the importer) | the shared notes on the ROM's layout (`graal-decompile/gameboy-demo/`, data regions only) |
+| The shape of the demo's tables (for the importer) | the same note's room, text, NPC and character formats; the importer finds each table by its shape, so it holds no addresses of the demo |
 | The start point, the link and wall tests, corner sliding, the text box and menu layout | measured on the running demo in an emulator (positions in WRAM, the window map and OAM), written down in the code where each is used |
 
 ## Layout
