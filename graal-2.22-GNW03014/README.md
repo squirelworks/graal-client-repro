@@ -32,11 +32,34 @@ captures of the real 2.22 client, not from decompiled code:
 | `src/Protocol222.pas` | ids, token, tamper bytes, gen-5 constants, the 80 handled ids |
 | `src/GraalClient.pas` | `TGraalClient` (socket, out buffer, frames) and `TAdventureClient` (gen-5 codec, login) |
 | `src/Adventure.pas` | `TAdventure`: game state, level cache, gmaps, message handlers, 50 ms tick, drawing |
-| `src/Graal222.dpr` | command line front end: window, scripted keys, frame dump, stress runs |
+| `src/Graal222.dpr` | front end: the start screen with no arguments; flags for the window, scripted keys, frame dump, stress runs |
+| `src/ListServer222.pas` | the 2.22 listserver step and `arrays2.dat` |
+| `src/StartScreen222.pas` | what 2.22 plugs into the shared start screen (`../common/GStartScreen.pas`): list step, fallback hosts, start-window art, character |
 | `src/RunMode.pas` | stress-run support (the same as 2.05's) |
 
 ## What works
 
+- **A GUI program**, as `Graal_222.exe` was. Started with no arguments it
+  opens the shared start screen (`common/GStartScreen.pas`): a nick name,
+  Training, Options and Start. On Windows it is a windowed program with no
+  console. Flags still run it from the command line (stress runs, CI).
+- **Training** starts the offline tutorial `Graal_222.exe` carried in its
+  resources (`offlinetutorial_b-2.graal`, the centre of nine levels) when
+  it lies next to the program, else the built-in starter level.
+- **Built-in assets**: the program carries small original defaults (tile
+  sheet, body, head, ganis, two levels; `common/builtin/`), so it runs
+  with nothing next to it. Files from a 2.22 install next to it, or under
+  `--data`, replace them, and `screenimg1.jpg` (also looked for in
+  `builtin/`) replaces the drawn start-screen backdrop.
+- **The listserver step**: hosts from `arrays2.dat` (line 0, then the
+  fallbacks on lines 5 and 6), `listserver.txt` next to the program wins
+  over it; id 7 (key, `GNW30123`, `newmain`) in a plain zlib frame, then
+  id 1 (account, password) in gen 5; the list (id 0), status (2), site (3),
+  error (4) and upgrade (5) lines back (tests; tried against a stand-in
+  2.22 listserver and then seihai-gserver on a virtual screen).
+- **addtiledef**: the one GS1 line read without a script engine. A level
+  script's `addtiledef IMAGE,PREFIX` swaps the tile sheet for levels whose
+  name starts with PREFIX, which is how the tutorial gets `picso.png`.
 - **Login** as 2.22 sends it: type 5, the key, `GNW03014`, account,
   password, in a frame of its own (zlib, no compression byte, no XOR). Then
   `PLI_LANGUAGE` and `PLI_TAMPERCHECK` (`250e4d0f962b03ede631`) in the next
@@ -126,6 +149,10 @@ Hardening checks, all in CI:
   2.22: gravity, textwidth, isthisflagset, ...), the built-in editors
   (F4 / F6), chat bubbles and names, poses beyond what the ganis give.
 - Files other than `.gmap` are not saved; `LARGEFILESTART` / `END`.
-- The listserver step (`arrays2.dat`, id 7 + `GNW30123newmain`), the
-  start window, options, UDP peer traffic, voice chat.
+- `arrays2.sig` is not checked; the original start window's buttons
+  (`button1-4.bmp`) are not used (the shared screen draws its own);
+  Options, UDP peer traffic, voice chat.
+- Where Training puts the player on `offlinetutorial_b-2.graal` is not
+  traced: (30, 30) is a guess. The tutorial's other script lines (the
+  player's look, `loadmap`, the NPC talk) need the GS1 engine.
 - A macOS window (headless or `--dump` there, as for 2.05).

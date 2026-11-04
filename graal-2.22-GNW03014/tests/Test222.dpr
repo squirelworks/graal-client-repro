@@ -22,6 +22,8 @@ uses
   Protocol222 in '../src/Protocol222.pas',
   GraalClient in '../src/GraalClient.pas',
   Adventure in '../src/Adventure.pas',
+  GBuiltin in '../../common/GBuiltin.pas',
+  GStartScreen in '../../common/GStartScreen.pas',
   ListServer222 in '../src/ListServer222.pas';
 
 {$I Capture222.inc}
@@ -331,10 +333,11 @@ begin
     Check(C.GotList and (Length(C.Servers) = 2), 'list: two servers read');
     if Length(C.Servers) = 2 then
     begin
-      Check((C.Servers[0].Kind = 'P') and (C.Servers[0].Name = 'Classic') and
-        (C.Servers[0].Players = '12') and (C.Servers[0].Ip = '127.0.0.1') and
+      Check((C.Servers[0].Name = 'P Classic') and
+        (ServerDisplayName(C.Servers[0].Name) = 'Classic') and
+        (C.Servers[0].Players = '12') and (C.Servers[0].Host = '127.0.0.1') and
         (C.Servers[0].Port = 14802), 'list: type prefix, name, players, ip, port');
-      Check((C.Servers[1].Kind = '') and (C.Servers[1].Name = 'Plain') and
+      Check((ServerDisplayName(C.Servers[1].Name) = 'Plain') and
         (C.Servers[1].Port = 14900), 'list: a silver server has no prefix');
     end;
     Check((C.Status = 'Line one'#10'Line two') and (C.SiteUrl = 'http://site') and
@@ -346,8 +349,8 @@ begin
       (H.Port = 14922), 'arrays2.dat: host, port, fallbacks on lines 5 and 6');
     H := ParseArrays2('');
     Check((Length(H.Hosts) = 0) and (H.Port = 14922), 'arrays2.dat: empty file');
-    Check(Length(ParseServerList(GChar(5) + GChar(8) + GString('x'))) = 1,
-      'list: a cut-off list keeps what it read');
+    Check(Length(ParseServerList(GChar(5) + GChar(8) + GString('x'))) = 0,
+      'list: a cut-off list gives no half-read server');
   finally
     C.Free;
     Codec.Free;
@@ -468,6 +471,9 @@ var
   I, NWalk, NIdle, NY: Integer;
 begin
   G := LoggedInGame(Codec);
+  { the built-in tile types belong to the built-in sheet, not to this real
+    board: walk with no table, as on a board with no arrays.dat }
+  G.Arrays.LoadFromString('');
   Msgs := TStringList.Create;
   try
     G.Tick; { the login frame }
@@ -1100,12 +1106,42 @@ begin
   end;
 end;
 
+{ The built-in defaults: a game with nothing next to it still has a tile
+  sheet, the starter level and the walking gani. }
+procedure TestBuiltins;
+var
+  G: TAdventure;
+begin
+  G := TAdventure.Create;
+  try
+    G.Headless := True;
+    Check(G.SheetBuiltin and (G.Sheet <> nil) and (G.Sheet.Width > 0),
+      'built-in: the default tile sheet');
+    Check(G.LoadLevelFile('start.nw') and (Length(G.Level.Links) > 0),
+      'built-in: start.nw loads with no install');
+    Check(G.Assets.Ani('walk') <> nil, 'built-in: walk gani');
+    { the tutorial's addtiledef, read from its NPC script }
+    SetLength(G.Level.NPCs, 1);
+    G.Level.NPCs[0].Script := 'if (playerenters) {'#10 +
+      '  addtiledef picso.png,offlinetutorial,1;'#10'  loadmap x;'#10'}';
+    G.NoteTileDefs(G.Level);
+    Check((G.TileDefs.Count = 1) and (G.TileDefs[0] = 'offlinetutorial'#9'picso.png'),
+      'addtiledef: image and prefix read from the level script');
+    Check(G.TileSheetFor('offlinetutorial_a-1.graal') = G.Sheet,
+      'addtiledef: a missing image keeps pics1');
+    Check(G.TileSheetFor('start.nw') = G.Sheet, 'addtiledef: other levels keep pics1');
+  finally
+    G.Free;
+  end;
+end;
+
 begin
   TestGTypes;
   TestBzip2;
   TestGen5Capture;
   TestLogin;
   TestListServer;
+  TestBuiltins;
   TestLoginBurst;
   TestWalkProps;
   TestProps;

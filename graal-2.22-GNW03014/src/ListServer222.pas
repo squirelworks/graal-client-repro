@@ -11,14 +11,12 @@ unit ListServer222;
   reply ids are 0 (the list), 2 (status), 3 (site url), 4 (error, the
   connection closes) and 5 (upgrade url).
 
-  The id 0 layout: GCHAR count, then per server GCHAR field count and that
-  many GSTRINGs: type+name, language, description, url, version, players,
-  ip, port. The type prefix is '3 ', 'P ', 'H ' or 'U ' (none for silver). }
+  The id 0 layout is the 2.05 one, read by GStartScreen.ParseServerList. }
 
 interface
 
 uses
-  SysUtils, Classes, GTypes, Protocol222, GraalClient;
+  SysUtils, Classes, GTypes, Protocol222, GraalClient, GStartScreen;
 
 const
   ListToken = 'GNW30123';
@@ -33,19 +31,6 @@ const
   DefaultListPort = 14922;
 
 type
-  TServerEntry = record
-    Kind: string;        { '', 'P', 'H', '3' or 'U' }
-    Name: string;
-    Language: string;
-    Description: string;
-    Url: string;
-    Version: string;
-    Players: string;
-    Ip: string;
-    Port: Integer;
-  end;
-  TServerEntries = array of TServerEntry;
-
   TListHosts = record
     Hosts: array of string;
     Port: Integer;
@@ -53,7 +38,7 @@ type
 
   TListServerClient = class(TAdventureClient)
   private
-    FServers: TServerEntries;
+    FServers: TListServers;
     FStatus, FSiteUrl, FUpgradeUrl, FError: string;
     FGotList: Boolean;
     procedure HandleMessage(Id: Integer; const Data: string);
@@ -62,7 +47,7 @@ type
     constructor Create;
     { Queue and send id 7 then id 1. Call after Connect (or StartOffline). }
     procedure SendRequest(const Account, Password: string);
-    property Servers: TServerEntries read FServers;
+    property Servers: TListServers read FServers;
     property Status: string read FStatus;
     property SiteUrl: string read FSiteUrl;
     property UpgradeUrl: string read FUpgradeUrl;
@@ -74,7 +59,6 @@ type
   Empty Hosts when the text has no host. }
 function ParseArrays2(const Text: string): TListHosts;
 function LoadListHosts(const Path: string): TListHosts;
-function ParseServerList(const Data: string): TServerEntries;
 
 implementation
 
@@ -129,54 +113,6 @@ begin
     S := '';
   end;
   Result := ParseArrays2(S);
-end;
-
-function ParseServerList(const Data: string): TServerEntries;
-var
-  R: TGReader;
-  Count, I, J, Fields: Integer;
-  F: array[0..7] of string;
-  S: string;
-begin
-  SetLength(Result, 0);
-  R := TGReader.Create(Data);
-  try
-    if R.Eof then Exit;
-    Count := R.ReadGChar;
-    for I := 1 to Count do
-    begin
-      if R.Eof then Break;
-      Fields := R.ReadGChar;
-      for J := 0 to 7 do F[J] := '';
-      for J := 0 to Fields - 1 do
-      begin
-        if R.Eof then Break;
-        S := R.ReadGString;
-        if J <= 7 then F[J] := S;
-      end;
-      SetLength(Result, Length(Result) + 1);
-      with Result[High(Result)] do
-      begin
-        Name := F[0];
-        Kind := '';
-        if (Length(Name) >= 2) and (Name[2] = ' ') and
-          (Name[1] in ['3', 'P', 'H', 'U']) then
-        begin
-          Kind := Name[1];
-          Name := Copy(Name, 3, MaxInt);
-        end;
-        Language := F[1];
-        Description := F[2];
-        Url := F[3];
-        Version := F[4];
-        Players := F[5];
-        Ip := F[6];
-        Port := StrToIntDef(F[7], 0);
-      end;
-    end;
-  finally
-    R.Free;
-  end;
 end;
 
 { TListServerClient }

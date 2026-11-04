@@ -34,7 +34,10 @@
 program Graal222;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
-{$IFDEF MSWINDOWS}{$APPTYPE CONSOLE}{$ENDIF}
+{ A windowed program on Windows, like 2.05: started with no arguments it
+  opens the start screen. With arguments it attaches to the console it was
+  started from (OpenConsoleIO) and runs as before. }
+{$IFDEF MSWINDOWS}{$IFDEF FPC}{$APPTYPE GUI}{$ELSE}{$APPTYPE CONSOLE}{$ENDIF}{$ENDIF}
 
 uses
   SysUtils, Classes,
@@ -44,23 +47,45 @@ uses
   GLevel in '../../common/GLevel.pas',
   GSurface in '../../common/GSurface.pas',
   GArrays in '../../common/GArrays.pas',
-  GAni in '../../common/GAni.pas',
-  GWindow in '../../common/GWindow.pas',
   GBzip2 in '../../common/GBzip2.pas',
+  GBuiltin in '../../common/GBuiltin.pas',
+  GAni in '../../common/GAni.pas',
+  GFont in '../../common/GFont.pas',
+  GWindow in '../../common/GWindow.pas',
   Protocol222 in 'Protocol222.pas',
   GraalClient in 'GraalClient.pas',
   Adventure in 'Adventure.pas',
+  GStartScreen in '../../common/GStartScreen.pas',
+  ListServer222 in 'ListServer222.pas',
+  StartScreen222 in 'StartScreen222.pas',
   RunMode in 'RunMode.pas';
+
+var
+  { Set while the start screen runs a game: the arguments it chose, read
+    in place of the command line. }
+  GuiArgs: TStringList = nil;
+  { why the last game ended, for the start screen }
+  LastGameError: string = '';
+
+function ArgCount: Integer;
+begin
+  if GuiArgs <> nil then Result := GuiArgs.Count else Result := ParamCount;
+end;
+
+function ArgAt(I: Integer): string;
+begin
+  if GuiArgs <> nil then Result := GuiArgs[I - 1] else Result := ParamStr(I);
+end;
 
 function Arg(const Name, Default: string): string;
 var
   I: Integer;
 begin
   Result := Default;
-  for I := 1 to ParamCount - 1 do
-    if ParamStr(I) = Name then
+  for I := 1 to ArgCount - 1 do
+    if ArgAt(I) = Name then
     begin
-      Result := ParamStr(I + 1);
+      Result := ArgAt(I + 1);
       Exit;
     end;
 end;
@@ -70,13 +95,15 @@ var
   I: Integer;
 begin
   Result := False;
-  for I := 1 to ParamCount do
-    if ParamStr(I) = Name then Result := True;
+  for I := 1 to ArgCount do
+    if ArgAt(I) = Name then Result := True;
 end;
+
 
 procedure Usage;
 begin
   WriteLn('Graal ', ClientBuildLabel, ' (', ClientVersionToken, ') rebuild');
+  WriteLn('  (no arguments: the start screen, Training or the server list)');
   WriteLn('  --server HOST:PORT --account NAME [--password-env VAR]');
   WriteLn('  --level FILE [--x X --y Y]');
   WriteLn('  common: [--data DIR] [--window | --headless] [--frames N] [--seconds N]');
@@ -200,6 +227,10 @@ begin
   Result := Result + ',"nodelay":' + LowerCase(BoolToStr(NoDelay, True)) + '}';
 end;
 
+{ One game: from the command line, or as the start screen chose it (then
+  GuiWin is the window to play in, and nothing goes to stdout). Returns
+  the exit code. }
+function RunGame(GuiWin: TGWindow; const GuiPw, GuiNick: string): Integer;
 var
   G: TAdventure;
   Win: TGWindow;
@@ -212,12 +243,13 @@ var
   StartUs, GateUs, NowUs, T0, NextStatsUs: Int64;
 
 begin
-  Randomize;
+  Result := 64;
+  ExitCode_ := 64;
   Server := Arg('--server', '');
   if (Server = '') and (Arg('--level', '') = '') then
   begin
     Usage;
-    Halt(64);
+    Exit;
   end;
   Online := Server <> '';
   UseWindow := HasArg('--window') and not HasArg('--headless');
@@ -225,9 +257,10 @@ begin
   Account := Arg('--account', '');
   InstallStopHandlers;
   G := TAdventure.Create;
-  G.Echo := True;
+  G.Echo := GuiWin = nil;
   G.Headless := HasArg('--headless');
-  Win := nil;
+  if GuiNick <> '' then G.Player.Nickname := GuiNick;
+  Win := GuiWin;
   Script := TKeyScript.Create;
   Walker := TWalker.Create(Cardinal(StrToIntDef(Arg('--seed', '1'), 1)));
   Hist := TTickHistogram.Create;
@@ -239,8 +272,10 @@ begin
   try
     Sheet := Arg('--sheet', '');
     if Sheet <> '' then
-      if not LoadImageFile(Sheet, G.Sheet) then
-        G.Log('warning: cannot load tile sheet ' + Sheet + '; using index colours');
+      if LoadImageFile(Sheet, G.Sheet) then
+        G.SheetBuiltin := False
+      else
+        G.Log('warning: cannot load tile sheet ' + Sheet + '; using the built-in one');
     Data := Arg('--data', '');
     if Data <> '' then G.UseInstall(Data);
     Script.Parse(Arg('--keys', ''));
@@ -274,7 +309,8 @@ begin
         Host := Server;
         Port := 14802;
       end;
-      Pw := GetEnvironmentVariable(Arg('--password-env', 'GRAAL_PW'));
+      if GuiWin <> nil then Pw := GuiPw
+      else Pw := SysUtils.GetEnvironmentVariable(Arg('--password-env', 'GRAAL_PW'));
       if G.ConnectServer(Host, Port, Account, Pw) then
       begin
         if NoDelay and not G.Client.Socket.SetNoDelay(True) then
@@ -304,7 +340,7 @@ begin
       end;
     end;
 
-    if UseWindow and (Frames >= 0) then
+    if UseWindow and (Frames >= 0) and (Win = nil) then
     begin
       Win := TGWindow.Create('Graal ' + ClientBuildLabel + ' (' + ClientVersionToken + ')',
         ScreenW, ScreenH);
@@ -355,7 +391,7 @@ begin
           Break;
         end;
         NowUs := MonoUs;
-        if (StatsEvery > 0) and (NowUs >= NextStatsUs) then
+        if (StatsEvery > 0) and (NowUs >= NextStatsUs) and (GuiWin = nil) then
         begin
           WriteLn(StatsJson('stats', '', '', Account, G, Hist, I, NowUs - StartUs, NoDelay));
           Flush(Output);
@@ -407,17 +443,140 @@ begin
       else if not OK then begin EndState := 'nologin'; ExitCode_ := 2; end
       else if Dropped then begin EndState := 'dropped'; ExitCode_ := 3; end
       else begin EndState := 'clean'; ExitCode_ := 0; end;
-      WriteLn(StatsJson('summary', EndState, Error, Account, G, Hist, I,
-        MonoUs - StartUs, NoDelay));
+      if GuiWin = nil then
+        WriteLn(StatsJson('summary', EndState, Error, Account, G, Hist, I,
+          MonoUs - StartUs, NoDelay));
+      if Error <> '' then LastGameError := Error
+      else if not OK then LastGameError := 'the server did not log you in'
+      else LastGameError := '';
     end
     else if OK and not Crashed then ExitCode_ := 0
     else ExitCode_ := 1;
   finally
-    Win.Free;
+    if Win <> GuiWin then Win.Free;
     Script.Free;
     Walker.Free;
     Hist.Free;
     G.Free;
   end;
-  Halt(ExitCode_);
+  Result := ExitCode_;
+end;
+
+{ Training: the offline tutorial Graal_222.exe carried in its resources
+  (offlinetutorial_a-1 .. c-3, starting at the centre, b-2) when it lies
+  next to the program; else the built-in starter level (a start.nw next to
+  the program replaces it). The arrival point on offlinetutorial_b-2 is not
+  traced yet: (30, 30) is a guess. }
+procedure TrainingLevel(const Dir: string; out Path, X, Y: string);
+begin
+  X := '30';
+  Y := '30';
+  Path := FirstFileIn(Dir, 'levels/offlinetutorial_b-2.graal;offlinetutorial_b-2.graal');
+  if Path = '' then
+  begin
+    Path := Dir + 'start.nw';
+    X := '30';
+    Y := '30';
+  end;
+end;
+
+{ No arguments: the start screen, then the game it picks, and back to the
+  start screen when the game ends (Esc, or a failed or dropped login). }
+function RunGui: Integer;
+var
+  Win: TGWindow;
+  G: TAdventure;
+  R: TStartResult;
+  Dir, ListHost, ArrHost, Msg, Lvl, X, Y: string;
+  ListPort: Integer;
+  Picked: Boolean;
+  Fetch: TListFetch222;
+  Info: TStartInfo;
+  Who: TCharacter222;
+  Hosts: TListHosts;
+begin
+  Result := 0;
+  Dir := ExtractFilePath(ParamStr(0));
+  Win := TGWindow.Create('Graal ' + ClientBuildLabel + ' (' + ClientVersionToken + ')',
+    ScreenW, ScreenH);
+  try
+    if not Win.Ok then
+    begin
+      OpenConsoleIO;
+      WriteLn(ErrOutput, 'no display for the start screen; run with arguments:');
+      Usage;
+      Result := 64;
+      Exit;
+    end;
+    { 2.22 reads its listserver from arrays2.dat (line 0 host, line 1
+      port, lines 5 and 6 fallbacks); listserver.txt next to the program
+      wins over it, and with neither, a Seihai listserver on this machine }
+    Hosts := LoadListHosts(Dir + 'arrays2.dat');
+    ArrHost := '127.0.0.1';
+    if Length(Hosts.Hosts) > 0 then ArrHost := Hosts.Hosts[0];
+    ReadListServer(Dir, ArrHost, Hosts.Port, ListHost, ListPort);
+    FillChar(R, SizeOf(R), 0);
+    Msg := '';
+    repeat
+      Win.TakeChars;
+      G := TAdventure.Create;
+      Fetch := TListFetch222.Create;
+      Fetch.SetFallbacks(Hosts);
+      Who := TCharacter222.Create;
+      try
+        G.UseInstall(Dir);
+        Who.G := G;
+        Info.Title := 'graal-delphi';
+        Info.Subtitle := '2.22 rebuilt';
+        Info.Backgrounds := Backgrounds222;
+        Info.DrawCharacter := Who.Draw;
+        Picked := RunStartScreen(Win, G.Screen, Fetch, Info, Dir, ListHost, ListPort, Msg, R);
+      finally
+        Who.Free;
+        Fetch.Free;
+        G.Free;
+      end;
+      if not Picked or Win.Closed then Exit;
+      GuiArgs := TStringList.Create;
+      try
+        GuiArgs.Add('--window');
+        GuiArgs.Add('--data');
+        GuiArgs.Add(Dir);
+        if R.Choice = scTraining then
+        begin
+          TrainingLevel(Dir, Lvl, X, Y);
+          GuiArgs.Add('--level');
+          GuiArgs.Add(Lvl);
+          GuiArgs.Add('--x');
+          GuiArgs.Add(X);
+          GuiArgs.Add('--y');
+          GuiArgs.Add(Y);
+        end
+        else
+        begin
+          GuiArgs.Add('--server');
+          GuiArgs.Add(R.Host + ':' + IntToStr(R.Port));
+          GuiArgs.Add('--account');
+          GuiArgs.Add(R.Account);
+        end;
+        LastGameError := '';
+        if RunGame(Win, R.Password, R.Nickname) <> 0 then
+          Msg := LastGameError
+        else
+          Msg := '';
+      finally
+        FreeAndNil(GuiArgs);
+      end;
+    until Win.Closed;
+  finally
+    Win.Free;
+  end;
+end;
+
+begin
+  Randomize;
+  if ParamCount = 0 then
+    Halt(RunGui);
+  OpenConsoleIO;
+  Halt(RunGame(nil, '', ''));
 end.

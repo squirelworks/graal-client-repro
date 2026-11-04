@@ -1,7 +1,9 @@
 # Graal 2.22 (GNW03014)
 
 The first rebuild of the classic Graal 2.22 client in Delphi (Object
-Pascal). It talks the 2.22 wire protocol (gen 5: a compression byte per
+Pascal). Like the original it is a windowed program: it opens on a start
+screen with Training (the offline tutorial), the server list from the
+listserver, and login. It talks the 2.22 wire protocol (gen 5: a compression byte per
 frame, zlib or bzip2, and the partial XOR cipher), draws levels and gmaps,
 walks across gmap edges, and takes level links. It is an early version:
 most of the game (NPCs, items, weapons, the script engine, the editors) is
@@ -11,9 +13,11 @@ not there yet.
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").
 
-These zips hold no original Graal code, graphics, sounds or levels. Point the
-client at a 2.22 install you own with `--data DIR` for the tiles, ganis,
-heads and bodies.
+These zips hold no original Graal code, graphics, sounds or levels. The
+program carries small original default graphics and a starter level of its
+own, so it runs as it is. Put it in a 2.22 install you own (or point it at
+one with `--data DIR`) and the install's tiles, ganis, heads, bodies,
+start-window picture and offline tutorial take their place.
 
 ## Downloads
 
@@ -30,6 +34,11 @@ System Settings > Privacy & Security.
 
 ## What works
 
+- The start screen: nick name, Training, Start. Start fetches the server
+  list (hosts from the install's `arrays2.dat`, or `listserver.txt` next
+  to the program), then account, password and Connect.
+- Training: the offline tutorial levels, when they lie next to the
+  program, with the tutorial's own tile set; else a built-in starter level.
 - Login to a 2.22 server: login type 5, `GNW03014`, the tamper check, and
   gen-5 frames both ways. Checked against frames of a real 2.22 session:
   the rebuild makes the real client's uncompressed frames byte for byte
@@ -50,6 +59,8 @@ System Settings > Privacy & Security.
 
 ## Running it
 
+Start `Graal222` with no arguments for the start screen. From a terminal:
+
 ```
 GRAAL_PW=... Graal222 --server HOST:PORT --account NAME --data /path/to/graal222
 Graal222 --level some.nw --data /path/to/graal222          # offline
@@ -58,18 +69,17 @@ Graal222 --server HOST:PORT --account NAME --headless --seconds 600 \
   --walk random --link-every 5 --stats-every 10              # stress run
 ```
 
-Arrow keys or I/J/K/L walk, Esc quits. Run `Graal222` with no arguments for
-every flag.
+Arrow keys or I/J/K/L walk; Esc leaves the game (back to the start screen
+when it was started from there). Run `Graal222 --help` for every flag.
 
 ## Not yet
 
 NPCs, baddies, items and weapons; the GS1 script engine; the editors; chat
-bubbles and names; the listserver step and the start window; UDP peer
-traffic; a macOS window. See the build's README for the full list.
+bubbles and names; Options; UDP peer traffic; a macOS window. See the build's README for the full list.
 
 ## Checks behind this release
 
-The test suite (72 checks) runs with range and overflow checks and the heap
+The test suite (87 checks) runs with range and overflow checks and the heap
 tracer, and must end with no unfreed memory. It includes frames of a real
 2.22 session, a bzip2 round trip against random and repetitive data, and a
 fuzz run of 20000 random messages and 3000 random gen-5 frames through the

@@ -162,7 +162,7 @@ steps and are required before a build counts as done.
 |---|---|---|---|---|---|---|
 | [2.05 rev 2](graal-2.05r2-GNW03081/) | `GNW03081` | done | board, player from ganis, window | walking and collision; props out; other players; level links | headless stress mode, fuzzed receive path, leak checks | v0.0.1 draft |
 | [2.17.1](graal-2.17.1-GNW22122/) | `GNW22122` | login with tamper check; all 79 server ids accepted | from 2.05: board, player and others from ganis, window | from 2.05: walking, links; GANI and direction props out | from 2.05: headless stress mode, fuzzed receive path, leak checks | not yet |
-| [2.22](graal-2.22-GNW03014/) | `GNW03014` | done (gen 5, bzip2) | board, level cache, gmaps | walking and collision; props out; other players; level links; gmap edges | headless stress mode, fuzzed receive path, leak checks | v0.0.1 after merge |
+| [2.22](graal-2.22-GNW03014/) | `GNW03014` | done (gen 5, bzip2); start screen and 2.22 listserver step | board, level cache, gmaps | walking and collision; props out; other players; level links; gmap edges; Training on the offline tutorial | headless stress mode, fuzzed receive path, leak checks | v0.0.1 after merge |
 
 ## Licence
 

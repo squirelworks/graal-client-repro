@@ -19,7 +19,7 @@ unit Adventure;
 interface
 
 uses
-  Classes, GTypes, GLevel, GSurface, GArrays, GAni, GraalClient, Protocol222;
+  Classes, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GraalClient, Protocol222;
 
 const
   { The game view. 640x480 is assumed for 2.22 as for 2.05; not read from
@@ -132,6 +132,10 @@ type
     FSentGani: string;
     FPropsSent: Boolean;
     FOthers: TList;
+    { addtiledef lines seen in level scripts: 'prefix'#9'image', newest
+      first; FTileDefLevel is the level last scanned }
+    FTileDefs: TStringList;
+    FTileDefLevel: string;
     FLevels: TStringList;  { lower-case name -> TCachedLevel }
     FLevelDir: string;     { folder of the level file played offline }
     FWarpPending: Boolean; { a link warp was asked of the server }
@@ -154,7 +158,6 @@ type
     procedure SendLoginFrame;
     procedure SendMovedProps;
     function BodyFor(P: TServerPlayer): TGSurface;
-    procedure DrawPlayer(P: TServerPlayer; CamX, CamY: Integer);
     function GetOther(I: Integer): TServerPlayer;
     function GetOtherCount: Integer;
     function GetCurrent: TCachedLevel;
@@ -170,6 +173,7 @@ type
     Player: TServerPlayer;
     Screen: TGSurface;
     Sheet: TGSurface;    { pics1 }
+    SheetBuiltin: Boolean; { Sheet is the built-in default }
     Arrays: TGArrays;
     Assets: TAssets;
     Frame: Integer;
@@ -202,6 +206,17 @@ type
     procedure Log(const S: string);
     { Points pics1, arrays.dat and the image folders at an install. }
     procedure UseInstall(const Dir: string);
+    { Draws P with the camera at (CamX, CamY) pixels; also used for the
+      character on the start screen. }
+    procedure DrawPlayer(P: TServerPlayer; CamX, CamY: Integer);
+    { The built-in tile sheet and tile types (done by Create). }
+    procedure UseBuiltins;
+    { Notes the addtiledef lines in L's NPC scripts. }
+    procedure NoteTileDefs(L: TAdventureLevel);
+    { The tile sheet for a level: an addtiledef image whose prefix starts
+      the level name, else pics1. }
+    function TileSheetFor(const LevelName: string): TGSurface;
+    property TileDefs: TStringList read FTileDefs;
     function ConnectServer(const Host: string; Port: Word;
       const Account, Password: string): Boolean;
     { The walking routine for one direction key (one step). }
@@ -350,7 +365,7 @@ end;
 
 function TAssets.Image(const Name, Kind: string): TGSurface;
 var
-  Key, F: string;
+  Key, F, D: string;
   I: Integer;
   S: TGSurface;
   Ok: Boolean;
@@ -377,6 +392,12 @@ begin
     if Kind = 'body' then Ok := LoadImageIndexed(F, S)
     else Ok := LoadImageFile(F, S);
     if not Ok then FreeAndNil(S);
+  end;
+  { nothing on disk: the built-in default of that name, if there is one }
+  if (S = nil) and BuiltinFile(Name, D) then
+  begin
+    S := TGSurface.Create(0, 0);
+    if not LoadImageData(D, Name, S, Kind = 'body') then FreeAndNil(S);
   end;
   if S = nil then Missing.Add(Name);
   FNames.AddObject(Key, S);
@@ -409,6 +430,11 @@ begin
       A := TGraalAni.Create;
       if not A.LoadFromFile(F) then FreeAndNil(A);
     end;
+  end;
+  if (A = nil) and BuiltinFile(N + '.gani', F) then
+  begin
+    A := TGraalAni.Create;
+    if not A.LoadFromString(F) then FreeAndNil(A);
   end;
   if A = nil then Missing.Add(N + '.gani');
   FNames.AddObject(Key, A);
@@ -705,6 +731,17 @@ begin
   Arrays := TGArrays.Create;
   Assets := TAssets.Create;
   FOthers := TList.Create;
+  FTileDefs := TStringList.Create;
+  UseBuiltins;
+end;
+
+procedure TAdventure.UseBuiltins;
+var
+  D: string;
+begin
+  if BuiltinFile('pics1.png', D) and LoadImageData(D, 'pics1.png', Sheet, False) then
+    SheetBuiltin := True;
+  if BuiltinFile('arrays.dat', D) then Arrays.LoadFromString(D);
 end;
 
 destructor TAdventure.Destroy;
@@ -723,6 +760,7 @@ begin
   Assets.Free;
   for I := 0 to FOthers.Count - 1 do TServerPlayer(FOthers[I]).Free;
   FOthers.Free;
+  FTileDefs.Free;
   FLog.Free;
   inherited Destroy;
 end;
@@ -786,12 +824,15 @@ var
 begin
   Assets.Dir := Dir;
   P := IncludeTrailingPathDelimiter(Dir);
-  if (Sheet.Width = 0) and not LoadImageFile(P + 'pics1.png', Sheet) then
-    LoadImageFile(P + 'pics1.gif', Sheet);
-  if Arrays.LoadFromFile(P + 'arrays.dat') then
+  { the install's tile sheet and tile types replace the built-in ones, but
+    not a sheet given with --sheet }
+  if (Sheet.Width = 0) or SheetBuiltin then
+    if LoadImageFile(P + 'pics1.png', Sheet) or LoadImageFile(P + 'pics1.gif', Sheet) then
+      SheetBuiltin := False;
+  if FileExists(P + 'arrays.dat') and Arrays.LoadFromFile(P + 'arrays.dat') then
     Log('arrays.dat loaded')
   else
-    Log('arrays.dat not found in ' + Dir + ': walls do not block');
+    Log('arrays.dat not found in ' + Dir + ': using the built-in tile types');
 end;
 
 function TAdventure.ConnectServer(const Host: string; Port: Word;
@@ -1050,7 +1091,7 @@ end;
 
 function TAdventure.LoadLevelFile(const FileName: string): Boolean;
 var
-  Data, N, P: string;
+  Data, N, P, D: string;
   CX, CY: Integer;
   L: TCachedLevel;
 begin
@@ -1086,7 +1127,15 @@ begin
   FreeAndNil(Gmap);
   GmapName := '';
   L := CachedLevel(ExtractFileName(FileName), True);
-  Result := L.LoadFromFile(FileName);
+  if not FileExists(FileName) and BuiltinFile(ExtractFileName(FileName), D) and
+    (LowerCase(ExtractFileExt(FileName)) <> '.png') then
+  begin
+    { a built-in level: links from it look in the install, then here }
+    Result := L.LoadFromString(D);
+    FLevelDir := '';
+  end
+  else
+    Result := L.LoadFromFile(FileName);
   L.HasBoard := Result;
   L.Name := ExtractFileName(FileName);
   if not Result then Level.LastError := L.LastError;
@@ -1165,11 +1214,7 @@ begin
     Path := FLevelDir + L.Dest
   else
     Path := Assets.LevelFile(L.Dest);
-  if Path = '' then
-  begin
-    Log('link to ' + L.Dest + ': level not found');
-    Exit;
-  end;
+  if Path = '' then Path := L.Dest; { LoadLevelFile tries the built-in ones }
   if not LoadLevelFile(Path) then
   begin
     Log('link to ' + L.Dest + ': ' + Level.LastError);
@@ -1858,12 +1903,91 @@ begin
   end;
 end;
 
+{ GS1's addtiledef IMAGE,PREFIX[,TYPE] swaps the tile sheet for every level
+  whose name starts with PREFIX (2.22's offline tutorial sets picso.png
+  for "offlinetutorial" this way). Without a script engine the rebuild
+  reads the line wherever it is in a level's NPCs, without its condition. }
+procedure TAdventure.NoteTileDefs(L: TAdventureLevel);
+var
+  I, P, E: Integer;
+  Src, Low, Args, Img, Prefix: string;
+  Parts: TStringList;
+begin
+  Parts := TStringList.Create;
+  try
+    for I := 0 to High(L.NPCs) do
+    begin
+      Src := L.NPCs[I].Script;
+      Low := LowerCase(Src);
+      P := Pos('addtiledef ', Low);
+      while P > 0 do
+      begin
+        E := P + Length('addtiledef ');
+        Args := '';
+        while (E <= Length(Src)) and not (Src[E] in [';', #10, #13, '}']) do
+        begin
+          Args := Args + Src[E];
+          Inc(E);
+        end;
+        Parts.CommaText := '';
+        Parts.Delimiter := ',';
+        Parts.StrictDelimiter := True;
+        Parts.DelimitedText := Args;
+        if Parts.Count >= 2 then
+        begin
+          Img := Trim(Parts[0]);
+          Prefix := LowerCase(Trim(Parts[1]));
+          if (Img <> '') and (Pos('#', Img) = 0) and (Pos('..', Img) = 0) then
+          begin
+            if FTileDefs.IndexOf(Prefix + #9 + Img) >= 0 then
+              FTileDefs.Delete(FTileDefs.IndexOf(Prefix + #9 + Img));
+            FTileDefs.Insert(0, Prefix + #9 + Img);
+          end;
+        end;
+        Delete(Low, 1, E - 1);
+        Delete(Src, 1, E - 1);
+        P := Pos('addtiledef ', Low);
+      end;
+    end;
+  finally
+    Parts.Free;
+  end;
+end;
+
+function TAdventure.TileSheetFor(const LevelName: string): TGSurface;
+var
+  I, T: Integer;
+  N, Prefix: string;
+  S: TGSurface;
+begin
+  Result := Sheet;
+  N := LowerCase(LevelName);
+  for I := 0 to FTileDefs.Count - 1 do
+  begin
+    T := Pos(#9, FTileDefs[I]);
+    Prefix := Copy(FTileDefs[I], 1, T - 1);
+    if Copy(N, 1, Length(Prefix)) = Prefix then
+    begin
+      S := Assets.Image(Copy(FTileDefs[I], T + 1, MaxInt), '');
+      if (S <> nil) and (S.Width > 0) then Result := S;
+      Exit;
+    end;
+  end;
+end;
+
 procedure TAdventure.Draw;
 var
   CamX, CamY, TX, TY, X0, Y0, I, T, WorldW, WorldH, PX, PY: Integer;
+  Tiles: TGSurface;
 begin
   Screen.Fill($FF000000);
   if Sheet.Width = 0 then MakeIndexSheet(Sheet);
+  if Level.Name <> FTileDefLevel then
+  begin
+    NoteTileDefs(Level);
+    FTileDefLevel := Level.Name;
+  end;
+  Tiles := TileSheetFor(Level.Name);
   { on a gmap the camera works in world tiles: local + 64 x cell }
   PX := 0;
   PY := 0;
@@ -1891,7 +2015,7 @@ begin
       begin
         T := WorldTile(TX, TY);
         if T >= 0 then
-          DrawTile(Screen, Sheet, T, TX * TileSize - CamX, TY * TileSize - CamY);
+          DrawTile(Screen, Tiles, T, TX * TileSize - CamX, TY * TileSize - CamY);
       end;
   { others first, then the player on top }
   for I := 0 to FOthers.Count - 1 do
