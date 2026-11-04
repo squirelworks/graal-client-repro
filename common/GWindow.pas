@@ -118,7 +118,7 @@ begin
   WC.hCursor := LoadCursor(0, IDC_ARROW);
   WC.lpszClassName := 'TGraalWindow';
   Windows.RegisterClass(WC);
-  R := Rect(0, 0, AWidth, AHeight);
+  R.Left := 0; R.Top := 0; R.Right := AWidth; R.Bottom := AHeight;
   AdjustWindowRect(R, WS_OVERLAPPEDWINDOW and not WS_THICKFRAME, False);
   FWnd := CreateWindow('TGraalWindow', PChar(Title),
     WS_OVERLAPPEDWINDOW and not WS_THICKFRAME, Integer(CW_USEDEFAULT), 0,
