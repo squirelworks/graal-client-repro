@@ -21,7 +21,8 @@ uses
   GAni in '../../common/GAni.pas',
   Protocol222 in '../src/Protocol222.pas',
   GraalClient in '../src/GraalClient.pas',
-  Adventure in '../src/Adventure.pas';
+  Adventure in '../src/Adventure.pas',
+  ListServer222 in '../src/ListServer222.pas';
 
 {$I Capture222.inc}
 
@@ -288,6 +289,69 @@ begin
   finally
     C.Free;
     Codec.Free;
+  end;
+end;
+
+{ The 2.22 listserver step: id 7 with the key, GNW30123 and newmain in a
+  plain zlib frame, then id 1 in gen 5; the list, status and urls back. }
+procedure TestListServer;
+var
+  C: TListServerClient;
+  Codec, SCodec: TGen5;
+  Wire, Plain, List: string;
+  Len: Integer;
+  H: TListHosts;
+begin
+  C := TListServerClient.Create;
+  Codec := TGen5.Create(CaptureKey);
+  SCodec := TGen5.Create(CaptureKey);
+  try
+    C.StartOffline(CaptureKey);
+    C.Sink := True;
+    C.SendRequest('acc', 'pw');
+    Wire := C.Sent;
+    Len := (Ord(Wire[1]) shl 8) or Ord(Wire[2]);
+    Check(ZDecompress(Copy(Wire, 3, Len), Plain) and
+      (Plain = GChar(7) + GChar(CaptureKey) + 'GNW30123newmain' + #10) and
+      (Length(Plain) = 18),
+      'list: id 7, key, GNW30123, newmain in a plain zlib frame (18 bytes)');
+    Check(ServerReadFrame(Codec, Copy(Wire, Len + 3, MaxInt), Plain) and
+      (Plain = GChar(1) + GString('acc') + GString('pw') + #10) and
+      (Ord(Wire[Len + 5]) = 2),
+      'list: id 1 account and password in a raw gen-5 frame');
+    List := GChar(2) +
+      GChar(8) + GString('P Classic') + GString('English') + GString('A server') +
+        GString('http://x') + GString('2.22') + GString('12') +
+        GString('127.0.0.1') + GString('14802') +
+      GChar(8) + GString('Plain') + GString('') + GString('') + GString('') +
+        GString('') + GString('0') + GString('10.0.0.1') + GString('14900');
+    C.FeedRaw(ServerFrame(SCodec, GChar(0) + List + #10 + GChar(2) +
+      'Line one'#13'Line two' + #10 + GChar(3) + 'http://site' + #10 +
+      GChar(5) + 'http://up' + #10));
+    Check(C.GotList and (Length(C.Servers) = 2), 'list: two servers read');
+    if Length(C.Servers) = 2 then
+    begin
+      Check((C.Servers[0].Kind = 'P') and (C.Servers[0].Name = 'Classic') and
+        (C.Servers[0].Players = '12') and (C.Servers[0].Ip = '127.0.0.1') and
+        (C.Servers[0].Port = 14802), 'list: type prefix, name, players, ip, port');
+      Check((C.Servers[1].Kind = '') and (C.Servers[1].Name = 'Plain') and
+        (C.Servers[1].Port = 14900), 'list: a silver server has no prefix');
+    end;
+    Check((C.Status = 'Line one'#10'Line two') and (C.SiteUrl = 'http://site') and
+      (C.UpgradeUrl = 'http://up'), 'list: status, site and upgrade lines');
+    H := ParseArrays2('list.example'#13#10'14922'#13#10'a'#13#10'b'#13#10'c'#13#10 +
+      'fb1.example'#13#10'fb2.example'#13#10);
+    Check((Length(H.Hosts) = 3) and (H.Hosts[0] = 'list.example') and
+      (H.Hosts[1] = 'fb1.example') and (H.Hosts[2] = 'fb2.example') and
+      (H.Port = 14922), 'arrays2.dat: host, port, fallbacks on lines 5 and 6');
+    H := ParseArrays2('');
+    Check((Length(H.Hosts) = 0) and (H.Port = 14922), 'arrays2.dat: empty file');
+    Check(Length(ParseServerList(GChar(5) + GChar(8) + GString('x'))) = 1,
+      'list: a cut-off list keeps what it read');
+  finally
+    C.Free;
+    Codec.Free;
+    SCodec.Free;
   end;
 end;
 
@@ -1041,6 +1105,7 @@ begin
   TestBzip2;
   TestGen5Capture;
   TestLogin;
+  TestListServer;
   TestLoginBurst;
   TestWalkProps;
   TestProps;
