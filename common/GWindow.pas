@@ -3,11 +3,14 @@
   Stands in for the DelphiX TDXForm of the originals. Back ends:
     Windows   GDI (StretchDIBits), the same API under Delphi and Free Pascal
     Unix      X11 through Free Pascal's xlib units (XPutImage)
+    macOS     none yet: Ok is False, so the client runs headless or writes
+              frames with --dump (a Cocoa back end is still to come)
   The window shows the surface 1:1 and keeps a held-key table that the game
   tick reads, which is how DelphiX's DXInput was used. }
 unit GWindow;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
+{$IFDEF DARWIN}{$DEFINE GW_NONE}{$ENDIF}
 
 interface
 
@@ -22,14 +25,16 @@ type
   private
 {$IFDEF MSWINDOWS}
     FWnd: THandle;
-{$ELSE}
+{$ENDIF}
+{$IFDEF GW_NONE}
+{$ELSE}{$IFNDEF MSWINDOWS}
     FDisplay: Pointer;
     FWin: Cardinal;
     FGC: Pointer;
     FImage: Pointer;
     FImageBuf: Pointer;
     FWmDelete: Cardinal;
-{$ENDIF}
+{$ENDIF}{$ENDIF}
     FWidth, FHeight: Integer;
     FPressed: array[TGKey] of Boolean; { pressed since the last tick }
   public
@@ -52,9 +57,10 @@ uses
   SysUtils
 {$IFDEF MSWINDOWS}
   , Windows, Messages
-{$ELSE}
+{$ENDIF}
+{$IFNDEF MSWINDOWS}{$IFNDEF GW_NONE}
   , xlib, x, xutil, keysym, xkblib, ctypes
-{$ENDIF};
+{$ENDIF}{$ENDIF};
 
 procedure TGWindow.SetKey(K: TGKey; Down: Boolean);
 begin
@@ -168,7 +174,38 @@ begin
   ReleaseDC(FWnd, DC);
 end;
 
-{$ELSE}
+{$ENDIF}
+
+{$IFDEF GW_NONE}
+
+constructor TGWindow.Create(const Title: string; AWidth, AHeight: Integer);
+begin
+  inherited Create;
+  FWidth := AWidth;
+  FHeight := AHeight;
+end;
+
+destructor TGWindow.Destroy;
+begin
+  inherited Destroy;
+end;
+
+function TGWindow.Ok: Boolean;
+begin
+  Result := False;
+end;
+
+procedure TGWindow.Pump;
+begin
+end;
+
+procedure TGWindow.Present(Surface: TGSurface);
+begin
+end;
+
+{$ENDIF}
+
+{$IFNDEF MSWINDOWS}{$IFNDEF GW_NONE}
 
 function KeySymToKey(K: TKeySym): TGKey;
 begin
@@ -288,6 +325,6 @@ begin
   XFlush(D);
 end;
 
-{$ENDIF}
+{$ENDIF}{$ENDIF}
 
 end.
