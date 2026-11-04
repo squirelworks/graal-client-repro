@@ -22,6 +22,7 @@ uses
   GSurface in '../../common/GSurface.pas',
   GArrays in '../../common/GArrays.pas',
   GAni in '../../common/GAni.pas',
+  GAssetDirs in '../../common/GAssetDirs.pas',
   Protocol603 in '../src/Protocol603.pas',
   GraalClient in '../src/GraalClient.pas',
   Adventure in '../src/Adventure.pas',
@@ -1214,6 +1215,37 @@ end;
 
 { The built-in defaults: a game with nothing next to it still has a tile
   sheet, the starter level and the walking gani. }
+{ A 5.x/6.x install keeps pics1.png in levels/tiles/ and sprites.png in
+  levels/images/downloads/; both are found from the program's folder. }
+procedure TestInstallLayout;
+var
+  G: TAdventure;
+  Dir, Png: string;
+  S: TGSurface;
+begin
+  Dir := IncludeTrailingPathDelimiter(GetTempDir(False)) + 'g603install' + PathDelim;
+  ForceDirectories(Dir + 'levels' + PathDelim + 'tiles');
+  ForceDirectories(Dir + 'levels' + PathDelim + 'images' + PathDelim + 'downloads');
+  Check(BuiltinFile('pics1.png', Png), 'install: a PNG to lay out');
+  WriteText(Dir + 'levels' + PathDelim + 'tiles' + PathDelim + 'pics1.png', Png);
+  WriteText(Dir + 'levels' + PathDelim + 'images' + PathDelim + 'downloads' +
+    PathDelim + 'sprites.png', Png);
+  G := TAdventure.Create;
+  try
+    G.UseInstall(Dir);
+    Check(not G.SheetBuiltin and (G.Sheet.Width > 0),
+      'install: pics1.png from levels/tiles/ replaces the built-in sheet');
+    S := G.Assets.Image('sprites.png', '');
+    Check((S <> nil) and (S.Width > 0), 'install: sprites.png from levels/images/downloads/');
+  finally
+    G.Free;
+    SetAssetRoots('', ClientBuildLabel);
+    DeleteFile(Dir + 'levels' + PathDelim + 'tiles' + PathDelim + 'pics1.png');
+    DeleteFile(Dir + 'levels' + PathDelim + 'images' + PathDelim + 'downloads' +
+      PathDelim + 'sprites.png');
+  end;
+end;
+
 procedure TestBuiltins;
 var
   G: TAdventure;
@@ -1248,6 +1280,7 @@ begin
   TestLogin;
   TestListServer;
   TestBuiltins;
+  TestInstallLayout;
   TestLoginBurst;
   TestWalkProps;
   TestProps;
