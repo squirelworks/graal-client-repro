@@ -34,7 +34,7 @@ jobs:
         run: test -d "$BUILD/src"
       - name: Install Free Pascal (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y fp-compiler fp-units-base fp-units-fcl
+        run: sudo apt-get update && sudo apt-get install -y fp-compiler fp-units-base fp-units-fcl libx11-dev
       - name: Install Free Pascal (Windows)
         if: runner.os == 'Windows'
         run: choco install freepascal -y --no-progress

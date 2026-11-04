@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Free Pascal
-        run: sudo apt-get update && sudo apt-get install -y fp-compiler fp-units-base fp-units-fcl
+        run: sudo apt-get update && sudo apt-get install -y fp-compiler fp-units-base fp-units-fcl libx11-dev
       - name: Build (Delphi mode)
         run: scripts/build.sh
       - name: Unit tests
@@ -31,7 +31,7 @@ jobs:
           repository: squirelworks/seihai-gserver
           path: seihai-gserver
       - name: Install Free Pascal
-        run: sudo apt-get update && sudo apt-get install -y fp-compiler fp-units-base fp-units-fcl
+        run: sudo apt-get update && sudo apt-get install -y fp-compiler fp-units-base fp-units-fcl libx11-dev
       - uses: dtolnay/rust-toolchain@stable
       - name: Build seihai-gserver
         run: cargo build --release --manifest-path seihai-gserver/Cargo.toml
