@@ -22,6 +22,10 @@ const
     tokens": 27 July 2006). }
   ClientVersionToken = 'G3D27076';
   ClientBuildLabel = '4.20r6';
+  { Its folders under graal-assets: its own, then 4.20r8's. The files the
+    two installs ship are byte for byte the same, so the shared zip keeps
+    one copy, under 4.20r8. }
+  AssetVersions = '4.20r6;4.20r8';
   { After the password the login line carries an unprefixed comma list:
     the platform and three machine fields. }
   LoginPlatform = 'mac';

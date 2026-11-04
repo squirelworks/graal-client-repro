@@ -15,7 +15,8 @@ program carries small original default graphics and a starter level of its
 own, so it runs as it is. Put it in the root of a 4.20r6 install you own (or
 point it at one with `--data DIR`) and the install's tiles, ganis, heads and
 bodies take their place. The shared `graal-assets/` folder next to the
-program works too (`graal-assets/4.20r6/`, then `graal-assets/common/`).
+program works too (`graal-assets/4.20r6/`, then `graal-assets/4.20r8/`,
+then `graal-assets/common/`).
 
 ## Downloads
 

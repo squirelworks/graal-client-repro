@@ -230,6 +230,8 @@ type
     procedure DrawPlayer(P: TServerPlayer; CamX, CamY: Integer);
     { The built-in tile sheet and tile types (done by Create). }
     procedure UseBuiltins;
+    { Adds the lines of a tiledefs file (as 3.04's) as addtiledefs. }
+    procedure LoadTileDefsFile(const Path: string);
     { Notes the addtiledef lines in L's NPC scripts. }
     procedure NoteTileDefs(L: TAdventureLevel);
     { The tile sheet for a level: an addtiledef image whose prefix starts
@@ -380,6 +382,8 @@ begin
   if (Name = '') or (Pos('..', Name) > 0) or (Pos('/', Name) > 0) or
     (Pos('\', Name) > 0) then Exit;
   Result := AssetPath('levels/' + Name);
+  { the 4.x installs keep the offline tutorial in levels/tutorial/ }
+  if Result = '' then Result := AssetPath('levels/tutorial/' + Name);
   if Result = '' then Result := AssetPath(Name);
 end;
 
@@ -404,7 +408,7 @@ begin
   else if Kind = 'sword' then F := FindFile(Name, ['levels/swords/', 'levels/', ''])
   else if Kind = 'shield' then F := FindFile(Name, ['levels/shields/', 'levels/', ''])
   else if Kind = 'hat' then F := FindFile(Name, ['levels/hats/', 'levels/', ''])
-  else F := FindFile(Name, ['', 'levels/', 'levels/images/']);
+  else F := FindFile(Name, ['', 'levels/', 'levels/images/', 'levels/tiles/']);
   S := nil;
   if F <> '' then
   begin
@@ -853,27 +857,81 @@ begin
   FLevels.AddObject(LowerCase(Name), Result);
 end;
 
+{ The first of Rels found under the asset roots, or ''. }
+function FirstAssetPath(const Rels: array of string): string;
+var
+  I: Integer;
+begin
+  Result := '';
+  for I := 0 to High(Rels) do
+  begin
+    Result := AssetPath(Rels[I]);
+    if Result <> '' then Exit;
+  end;
+end;
+
 procedure TAdventure.UseInstall(const Dir: string);
 var
   P: string;
 begin
   Assets.Dir := Dir;
   { the folder itself, then graal-assets/<version>/ and graal-assets/common/ }
-  SetAssetRoots(Dir, ClientBuildLabel);
+  SetAssetRoots(Dir, AssetVersions);
   if AssetsFolder <> '' then Log('assets: ' + AssetsFolder);
   { the install's tile sheet and tile types replace the built-in ones, but
     not a sheet given with --sheet }
   if (Sheet.Width = 0) or SheetBuiltin then
   begin
-    P := AssetPath('pics1.png');
-    if P = '' then P := AssetPath('pics1.gif');
+    { the 4.x installs keep their tile sheets in levels/tiles/ }
+    P := FirstAssetPath(['pics1.png', 'pics1.gif', 'levels/tiles/pics1.png',
+      'levels/tiles/pics1.gif']);
     if (P <> '') and LoadImageFile(P, Sheet) then SheetBuiltin := False;
   end;
+  LoadTileDefsFile(AssetPath('levels/tiledefs/tiledefsOffline.txt'));
   P := AssetPath('arrays.dat');
   if (P <> '') and Arrays.LoadFromFile(P) then
     Log('arrays.dat loaded')
   else
     Log('arrays.dat not found in ' + Dir + ': using the built-in tile types');
+end;
+
+{ The tile definitions file 3.04 reads for offline play
+  (levels/tiledefs/tiledefsOffline.txt; lab-304-linux-2026-10-30.md): one
+  line per sheet, IMAGE,PREFIX,... Each line is taken as an addtiledef.
+  The 4.x installs ship no such file; one dropped there is read. }
+procedure TAdventure.LoadTileDefsFile(const Path: string);
+var
+  L, Parts: TStringList;
+  I: Integer;
+  Img, Prefix: string;
+begin
+  if Path = '' then Exit;
+  L := TStringList.Create;
+  Parts := TStringList.Create;
+  try
+    try
+      L.LoadFromFile(Path);
+    except
+      Exit;
+    end;
+    for I := 0 to L.Count - 1 do
+    begin
+      Parts.Clear;
+      Parts.Delimiter := ',';
+      Parts.StrictDelimiter := True;
+      Parts.DelimitedText := Trim(L[I]);
+      if Parts.Count < 2 then Continue;
+      Img := Trim(Parts[0]);
+      Prefix := LowerCase(Trim(Parts[1]));
+      if (Img = '') or (Pos('..', Img) > 0) then Continue;
+      if FTileDefs.IndexOf(Prefix + #9 + Img) < 0 then
+        FTileDefs.Add(Prefix + #9 + Img);
+    end;
+    Log(Format('%d tile definitions from %s', [FTileDefs.Count, ExtractFileName(Path)]));
+  finally
+    Parts.Free;
+    L.Free;
+  end;
 end;
 
 function TAdventure.ConnectServer(const Host: string; Port: Word;
