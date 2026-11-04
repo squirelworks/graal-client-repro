@@ -1,9 +1,9 @@
 # Graal 2.05 rev 2 (GNW03081)
 
 The first rebuild of the classic Graal 2.05 rev 2 client in Delphi
-(Object Pascal). It talks the 2.05 wire protocol, draws the board and the
-players, walks, and takes level links. It is an early version: most of the
-game (NPCs, items, weapons, the script engine, the editors) is not there yet.
+(Object Pascal). It talks the 2.05 wire protocol and plays the offline
+Training levels and online servers with NPCs, items, weapons, baddies, the
+GS1 script engine and the level editor. It is still early: see "Not yet".
 
 > **Not affiliated.** graal-delphi is an independent fan project. It is not
 > affiliated with, endorsed by, or connected to GraalOnline or
@@ -29,6 +29,11 @@ System Settings > Privacy & Security.
 
 ## What works
 
+- NPCs and the GS1 script engine, items, combat, signs, weapons and the
+  bow, the Q item list, baddies, sound, the map, and the level editor.
+- Names under NPC characters and other players, as 2.05 draws them.
+- Checked side by side with the real 2.05 rev 2 under Wine on the
+  Training level: characters, heads, shields and shadows match.
 - Login to a 2.05 server (gen-3 cipher, zlib framing, the 2.05 login line).
 - The board, the player and other players drawn from the install's tiles
   and ganis; the 2.05 sprite prop and its poses (idle and walk so far).
@@ -36,8 +41,7 @@ System Settings > Privacy & Security.
 - Level links and warps. The point 2.05 tests for a link was measured on
   the real client under Wine: the body's centre pushed 1 to 1.5 tiles ahead
   in the walking direction.
-- A start screen when run with no arguments, as 2.05 opened its connect
-  dialog: Training for the offline levels, Start for the server list from
+- A start screen of its own when run with no arguments: Training for the offline levels, Start for the server list from
   the listserver (named in `listserver.txt`), then account and password.
   On Windows it is a windowed program.
 - Its own small set of original built-in graphics and two offline levels,
@@ -63,13 +67,12 @@ every flag.
 
 ## Not yet
 
-NPCs, baddies, items and weapons; the GS1 script engine; the editors; chat
-bubbles and names; poses beyond idle and walk; the Options page; UDP peer
-traffic; a macOS window. See the build's README for the full list.
+Chat bubbles; the Options page; UDP peer traffic; a macOS window; parts of
+GS1 that print "not modelled" in the log. See the build's README for the full list.
 
 ## Checks behind this release
 
-The test suite (87 checks) runs with range and overflow checks and the heap
+The test suite (264 checks) runs with range and overflow checks and the heap
 tracer, and must end with no unfreed memory. It includes a fuzz run of
 20000 random and mangled messages and 3000 random frames through the
 receive path. CI also logs two of these clients into seihai-gserver, has the
