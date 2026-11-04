@@ -338,6 +338,13 @@ end;
 function TBaddyManager.Prop(B: TBaddy; P: Integer): string;
 var
   Img: string;
+
+  { one byte: kept to what the wire can carry }
+  function GChar(V: Integer): Char;
+  begin
+    Result := GTypes.GChar(EnsureRange(V, 0, 223));
+  end;
+
 begin
   case P of
     0: Result := GChar(B.Id);
@@ -391,7 +398,7 @@ begin
         begin
           B.Power := V;
           if P + 2 > Length(Data) then Break;
-          L := Ord(Data[P + 2]) - 30;
+          L := Max(2, Ord(Data[P + 2]) - 30);
           if L <= 2 then B.Image := BaddyImages[B.Kind]
           else B.Image := Copy(Data, P + 3, L - 2);
         end;
@@ -421,6 +428,7 @@ begin
         end;
       8..10:
         begin
+          V := Max(0, V);
           B.Verses[Id - 8] := Copy(Data, P + 2, V);
           L := V + 1;
         end;

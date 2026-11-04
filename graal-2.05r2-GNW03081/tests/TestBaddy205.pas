@@ -91,8 +91,9 @@ var
   M: TBaddyManager;
   B: TBaddy;
   Y0: Double;
-  I: Integer;
+  I, J, K, Raised: Integer;
   Found: Boolean;
+  Data: string;
 begin
   { a new baddy, walking: a quarter tile every second tick }
   W := TTestBaddyWorld.Create;
@@ -225,6 +226,23 @@ begin
     Check(Found, 'online: the leader sends BADDYPROPS for its baddy');
     Check(M.Receive(PLO_BADDYPROPS_ID, GChar(5) + GChar(5) + GChar(BdDead)) and (M.Find(5) = nil),
       'props: mode 9 removes the baddy');
+    { random bytes: never an exception, and every prop still writes }
+    RandSeed := 19;
+    Raised := 0;
+    for I := 1 to 20000 do
+    begin
+      Data := '';
+      for J := 1 to Random(40) do Data := Data + Chr(Random(256));
+      try
+        if Random(2) = 0 then M.Receive(PLO_BADDYPROPS_ID, Data)
+        else M.Receive(PLO_BADDYHURT_ID, Data);
+        for J := 0 to M.Count - 1 do
+          for K := 0 to 10 do M.Prop(M.Baddy(J), K);
+      except
+        Inc(Raised);
+      end;
+    end;
+    Check(Raised = 0, Format('props: 20000 random messages, %d raised', [Raised]));
   finally
     M.Free;
   end;
