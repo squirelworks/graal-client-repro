@@ -1,0 +1,114 @@
+name: graalgb
+
+# The Game Boy Color demo rebuild (graalgb-1.10/): a GBDK C program that
+# builds a .gbc ROM. It has its own job because it is not a Delphi build.
+# Pull requests and pushes build it on Linux and Windows and play it in an
+# emulator. A tag graalgb-1.10-v<version>, or a manual run, also makes a
+# DRAFT release with the ROM and the importer; Squirrel reviews it and
+# presses Publish.
+on:
+  push:
+    branches: [main]
+    tags: ['graalgb-*-v*']
+    paths: ['graalgb-*/**', '.github/workflows/graalgb.yml', 'scripts/builtin/font5x7.py']
+  pull_request:
+    paths: ['graalgb-*/**', '.github/workflows/graalgb.yml', 'scripts/builtin/font5x7.py']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release as a draft, e.g. v0.0.1 (empty = build only)
+        required: false
+        default: ''
+
+concurrency:
+  group: graalgb-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GBDK_VERSION: 4.3.0
+  FOLDER: graalgb-1.10
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install GBDK-2020
+        run: |
+          curl -sSL -o gbdk.tar.gz "https://github.com/gbdk-2020/gbdk-2020/releases/download/$GBDK_VERSION/gbdk-linux64.tar.gz"
+          tar xzf gbdk.tar.gz -C "$RUNNER_TEMP"
+          echo "GBDK_HOME=$RUNNER_TEMP/gbdk" >> "$GITHUB_ENV"
+      - name: Build the ROM
+        run: |
+          "$FOLDER/build.sh"
+          sha256sum "build/$FOLDER/GraalGB.gbc"
+      - name: Play it in an emulator
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/python" -m pip install --quiet pyboy==2.8.1 pillow==13.0.0
+          "$RUNNER_TEMP/venv/bin/python" -I "$FOLDER/tests/smoke.py" "build/$FOLDER" "build/$FOLDER/shots"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: graalgb-linux
+          path: |
+            build/graalgb-1.10/GraalGB.gbc
+            build/graalgb-1.10/GraalGB.noi
+            build/graalgb-1.10/shots/
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install GBDK-2020
+        shell: bash
+        run: |
+          curl -sSL -o gbdk.zip "https://github.com/gbdk-2020/gbdk-2020/releases/download/$GBDK_VERSION/gbdk-win64.zip"
+          7z x -y -o"$RUNNER_TEMP" gbdk.zip > /dev/null
+          echo "GBDK_HOME=$(cygpath -u "$RUNNER_TEMP")/gbdk" >> "$GITHUB_ENV"
+      - name: Build the ROM and play it
+        shell: bash
+        env:
+          PYTHON: python
+        run: |
+          "$FOLDER/build.sh"
+          sha256sum "build/$FOLDER/GraalGB.gbc"
+          python -m venv "$RUNNER_TEMP/venv"
+          VPY="$(cygpath -u "$RUNNER_TEMP")/venv/Scripts/python.exe"
+          "$VPY" -m pip install --quiet pyboy==2.8.1 pillow==13.0.0
+          "$VPY" -I "$FOLDER/tests/smoke.py" "build/$FOLDER"
+
+  release:
+    needs: [linux, windows]
+    if: startsWith(github.ref, 'refs/tags/graalgb-') || (github.event_name == 'workflow_dispatch' && inputs.version != '')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Name the version
+        env:
+          IN_VERSION: ${{ inputs.version }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if [ -n "$IN_VERSION" ]; then V="$IN_VERSION"; else V="v${TAG##*-v}"; fi
+          echo "VERSION=$V" >> "$GITHUB_ENV"
+          echo "TITLE=$(head -1 "$FOLDER/RELEASE_NOTES.md" | sed 's/^# *//') $V" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@v4
+        with:
+          name: graalgb-linux
+          path: rom
+      - name: Pack
+        run: |
+          OUT="$FOLDER-$VERSION"
+          mkdir -p "dist/$OUT"
+          cp rom/GraalGB.gbc "$FOLDER/tools/import_assets.py" "$FOLDER/tools/gpak.py" \
+             "$FOLDER/README.md" "$FOLDER/RELEASE_NOTES.md" "dist/$OUT/"
+          cd dist && zip -qr "$OUT.zip" "$OUT"
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.FOLDER }}-${{ env.VERSION }}
+          name: ${{ env.TITLE }}
+          body_path: ${{ env.FOLDER }}/RELEASE_NOTES.md
+          target_commitish: ${{ github.sha }}
+          draft: true
+          files: dist/*.zip

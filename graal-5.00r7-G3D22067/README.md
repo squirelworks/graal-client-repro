@@ -75,10 +75,15 @@ drawn, characters are not, until the server sends a 178.
 From the program's folder (or `--data`), then `graal-assets/5.00r7/`, then
 `graal-assets/common/`:
 
-- `pics1.png` (or `pics1.gif`), `arrays.dat`
+- `pics1.png` (or `pics1.gif`) at the top or in `levels/tiles/`, where a
+  5.00r7 install keeps it; `arrays.dat` (a 5.00r7 install has none, so the
+  built-in tile types are used)
 - `levels/` for levels, ganis and images; `levels/heads/`, `levels/bodies/`,
-  `levels/swords/`, `levels/shields/`, `levels/hats/`, `levels/images/`
+  `levels/swords/`, `levels/shields/`, `levels/hats/`, `levels/images/`,
+  `levels/tiles/` and `levels/images/downloads/` (where the install keeps
+  `sprites.png`)
 - `levels/offlinetutorial_b-2.nw` (or `.graal`) for Training, else `start.nw`
+  (a 5.00r7 install has no offline tutorial, so Training plays `start.nw`)
 - `listserver.txt` (optional)
 
 ## Not yet, or not known
