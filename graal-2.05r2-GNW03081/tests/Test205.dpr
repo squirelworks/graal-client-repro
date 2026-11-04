@@ -19,6 +19,7 @@ uses
   GSurface in '../../common/GSurface.pas',
   GArrays in '../../common/GArrays.pas',
   GBuiltin in '../../common/GBuiltin.pas',
+  GAssetDirs in '../../common/GAssetDirs.pas',
   GAni in '../../common/GAni.pas',
   Protocol205 in '../src/Protocol205.pas',
   GraalClient in '../src/GraalClient.pas',
@@ -792,6 +793,42 @@ begin
   Result := Chr(Length(S) + 32) + S;
 end;
 
+procedure PutFile(const Path, Text: string);
+var
+  L: TStringList;
+begin
+  ForceDirectories(ExtractFilePath(Path));
+  L := TStringList.Create;
+  try
+    L.Text := Text;
+    L.SaveToFile(Path);
+  finally
+    L.Free;
+  end;
+end;
+
+procedure TestAssetDirs;
+var
+  Root, Exe: string;
+begin
+  Root := IncludeTrailingPathDelimiter(GetTempDir) + 'assetdirs-' + IntToStr(Random(1000000)) + PathDelim;
+  Exe := Root + 'clients' + PathDelim;
+  PutFile(Root + 'graal-assets' + PathDelim + 'common' + PathDelim + 'a.txt', 'common');
+  PutFile(Root + 'graal-assets' + PathDelim + 'common' + PathDelim + 'b.txt', 'common');
+  PutFile(Root + 'graal-assets' + PathDelim + '2.05r2' + PathDelim + 'b.txt', 'version');
+  PutFile(Exe + 'c.txt', 'exe');
+  PutFile(Root + 'graal-assets' + PathDelim + 'common' + PathDelim + 'c.txt', 'common');
+  SetAssetRoots(Exe, '2.05r2');
+  Check(AssetRootCount = 3, 'assets: the program folder, the version folder, common');
+  Check(Pos('common', AssetPath('a.txt')) > 0, 'assets: a file only in common is found there');
+  Check(Pos('2.05r2', AssetPath('b.txt')) > 0, 'assets: the version folder wins over common');
+  Check(AssetPath('c.txt') = Exe + 'c.txt', 'assets: the program folder wins over both');
+  Check(AssetPath('nothere.txt') = '', 'assets: a missing file gives no path');
+  SetAssetRoots(Root + 'graal-assets', '2.05r2');
+  Check(Pos('2.05r2', AssetPath('b.txt')) > 0, 'assets: --data may point at graal-assets itself');
+  SetAssetRoots('', '');
+end;
+
 procedure TestServerList;
 var
   L: TListServers;
@@ -854,6 +891,7 @@ begin
   TestReceiveLimits;
   TestTutorials;
   TestServerList;
+  TestAssetDirs;
   TestBuiltins;
   WriteLn(Format('%d passed, %d failed, %d skipped', [Passed, Failed, Skipped]));
   if Failed > 0 then Halt(1);

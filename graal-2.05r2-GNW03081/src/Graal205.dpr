@@ -48,6 +48,7 @@ uses
   GSurface in '../../common/GSurface.pas',
   GArrays in '../../common/GArrays.pas',
   GBuiltin in '../../common/GBuiltin.pas',
+  GAssetDirs in '../../common/GAssetDirs.pas',
   GAni in '../../common/GAni.pas',
   GFont in '../../common/GFont.pas',
   GWindow in '../../common/GWindow.pas',
@@ -275,7 +276,9 @@ begin
       else
         G.Log('warning: cannot load tile sheet ' + Sheet + '; using the built-in one');
     Data := Arg('--data', '');
-    if Data <> '' then G.UseInstall(Data);
+    { no --data: the program's folder (and a graal-assets beside it) }
+    if Data = '' then Data := ExtractFilePath(ParamStr(0));
+    G.UseInstall(Data);
     Script.Parse(Arg('--keys', ''));
     if Arg('--keys', '') <> '' then WalkName := Arg('--walk', 'script')
     else WalkName := Arg('--walk', 'idle');
