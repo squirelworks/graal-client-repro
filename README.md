@@ -40,6 +40,9 @@ common/                     code that is the same across builds
 graal-2.05r2-GNW03081/      Graal 2.05 rev 2
   src/                      the client (Graal205.dpr and its units)
   tests/                    Test205.dpr
+graal-2.17.1-GNW22122/      Graal 2.17.1
+  src/                      the client (Graal217.dpr and its units)
+  tests/                    Test217.dpr
 scripts/
   build.sh                  build every rebuild and its tests
   test.sh                   run every test program
@@ -149,6 +152,7 @@ steps and are required before a build counts as done.
 | Build | Token | Wire | World | Play | Harden | Release |
 |---|---|---|---|---|---|---|
 | [2.05 rev 2](graal-2.05r2-GNW03081/) | `GNW03081` | done | board, player from ganis, window | walking and collision; props out; other players; level links | headless stress mode, fuzzed receive path, leak checks | v0.0.1 draft |
+| [2.17.1](graal-2.17.1-GNW22122/) | `GNW22122` | login with tamper check; all 79 server ids accepted | from 2.05: board, player and others from ganis, window | from 2.05: walking, links; GANI and direction props out | from 2.05: headless stress mode, fuzzed receive path, leak checks | not yet |
 
 ## Licence
 
