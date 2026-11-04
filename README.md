@@ -177,9 +177,10 @@ Each build opens a window with the start screen when started with no
 arguments, as the original clients did: Training for the offline levels,
 Start for the server list from the listserver, then account and password.
 Flags still run it from the command line (stress runs, CI). Each build
-carries the small original assets in `common/builtin/`, so it runs with
-nothing next to it; files from a real install next to the program, or
-under `--data`, replace them.
+carries stand-in assets in `common/builtin/`, all new art drawn by
+`scripts/builtin/make_builtin.py` (no original file or pixel), so it runs
+with nothing next to it; files from a real install next to the program,
+or under `--data`, replace them.
 
 A build plugs into `common/GStartScreen.pas` with:
 
@@ -204,8 +205,10 @@ graal-assets/
 
 A build looks for a file in its own folder (or `--data`), then in
 `graal-assets/<version>/`, then in `graal-assets/common/`, and else uses
-its built-in assets (`common/GAssetDirs.pas`). `graal-assets` is found next
-to the program or one folder up, so several clients can share one copy.
+its built-in assets (`common/GAssetDirs.pas`). The root is the folder the
+program is in: the original files go next to the exe as the original
+install had them (`levels/`, `sounds/`, ...), or in `graal-assets/` inside
+that folder. Nothing above the program's folder is read.
 `scripts/assets/merge_assets.py` builds the folder from per-version sets.
 
 A version that shipped with another version's files reads that version's

@@ -16,7 +16,7 @@ These zips hold no original Graal code, graphics, sounds or levels. The
 program carries small original default graphics and a starter level of its
 own, so it runs as it is. 2.17.1 shipped in the same folder as 2.22: put it
 in that install (or point it at one with `--data DIR`, or keep a
-`graal-assets/` folder next to it) and the install's tiles, ganis, heads,
+`graal-assets/` folder inside the program's folder) and the install's tiles, ganis, heads,
 bodies and offline tutorial take their place.
 
 ## Downloads

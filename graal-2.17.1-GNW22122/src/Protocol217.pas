@@ -11,6 +11,14 @@ unit Protocol217;
 interface
 
 const
+  { the listserver used when neither listserver.txt nor arrays2.dat names
+    one: the community listserver's legacy port. 2.17.1's list login is
+    the classic plain frame, which 14923 answers and 14922 (the
+    supported-clients port) does not
+    (protocol/public-listserver-2026-10-25.md) }
+  DefaultListHost = 'listserver.graal.in';
+  DefaultListPort = 14923;
+
   { The 8-byte version token in the login line. }
   ClientVersionToken = 'GNW22122';
   ClientBuildLabel = '2.17.1';

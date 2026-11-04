@@ -313,7 +313,7 @@ begin
       else
         G.Log('warning: cannot load tile sheet ' + Sheet + '; using the built-in one');
     Data := Arg('--data', '');
-    { no --data: the program's folder (and a graal-assets beside it) }
+    { no --data: the program's folder (and a graal-assets inside it) }
     if Data = '' then Data := ExtractFilePath(ParamStr(0));
     G.UseInstall(Data);
     Script.Parse(Arg('--keys', ''));
@@ -582,11 +582,9 @@ begin
     SetAssetRoots(Dir, ClientAssetFolders);
     { 2.17 reads its listserver from arrays2.dat (line 0 host, line 1
       port); listserver.txt next to the program wins over it. With
-      neither, the public listserver's legacy port: 2.17.1's list login is
-      the classic plain frame, which 14923 answers and 14922 does not
-      (protocol/public-listserver-2026-10-25.md) }
-    ArrHost := 'listserver.graal.in';
-    ListPort := 14923;
+      neither, DefaultListHost:DefaultListPort (Protocol217) }
+    ArrHost := DefaultListHost;
+    ListPort := DefaultListPort;
     ReadArrays2(Dir, ArrHost, ListPort);
     ReadListServer(Dir, ArrHost, ListPort, ListHost, ListPort);
     { SIGTERM / Ctrl+C end the program on the start screen too }
@@ -603,8 +601,6 @@ begin
         Who.G := G;
         Info.Title := 'graal-delphi';
         Info.Subtitle := '2.17.1 rebuilt';
-        Info.Backgrounds := Backgrounds217;
-        Info.Classic.Used := False; { 2.17.1's original window is not laid out yet }
         Info.DrawCharacter := Who.Draw;
         Info.StopRequested := StopRequested;
         Picked := RunStartScreen(Win, G.Screen, Fetch, Info, Dir, ListHost, ListPort, Msg, R);

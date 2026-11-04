@@ -16,9 +16,12 @@
   A build that shipped with another version's files names that version as
   a fallback: 2.17.1 came in the same folder as 2.22, so its label is
   '2.17.1;2.22' and it reads graal-assets/2.22/ with no second copy.
-  graal-assets is found in the data folder, one folder up from it, or is
-  the data folder itself (when it holds a common/ folder). Nothing found:
-  the build's built-in assets fill in. }
+  The data folder is the folder the program is in (or --data). Its own
+  files and folders come first, laid out as the original install was
+  (levels/, sounds/, ...); graal-assets is looked for only inside it, or
+  is the data folder itself (when it holds a common/ folder). Nothing is
+  looked for above the data folder. Nothing found: the build's built-in
+  assets (new art) fill in. }
 unit GAssetDirs;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
@@ -61,7 +64,7 @@ end;
 
 procedure SetAssetRoots(const DataDir, Version: string);
 var
-  D, Up, Rest, V: string;
+  D, Rest, V: string;
   P: Integer;
 begin
   SetLength(Roots, 0);
@@ -69,13 +72,11 @@ begin
   if DataDir = '' then D := '' else D := IncludeTrailingPathDelimiter(ExpandFileName(DataDir));
   if D <> '' then
   begin
-    Up := ExtractFilePath(ExcludeTrailingPathDelimiter(D));
+    { only inside the data folder: never a folder above it }
     if DirectoryExists(D + 'common') then
       Folder := D
     else if DirectoryExists(D + 'graal-assets') then
-      Folder := D + 'graal-assets' + PathDelim
-    else if (Up <> '') and DirectoryExists(Up + 'graal-assets') then
-      Folder := Up + 'graal-assets' + PathDelim;
+      Folder := D + 'graal-assets' + PathDelim;
     if Folder <> D then AddRoot(D);
   end;
   if Folder <> '' then

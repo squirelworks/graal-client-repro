@@ -169,7 +169,8 @@ screen. Options is not built yet. On Windows it is a windowed program with
 no console; given flags, it attaches to the console it was started from.
 
 The listserver is read from `listserver.txt` next to the program (first
-line host, second line port), else 127.0.0.1:14921. The real 2.05 hides
+line host, second line port), else listserver.graal.in:14923 (the
+legacy-clients port; 14922 serves supported clients). The real 2.05 hides
 its listserver host in the exe; that is not used.
 
 The program carries a small set of its own, original assets
@@ -179,18 +180,13 @@ in as `common/GBuiltin.pas`): a tile sheet, a body, a head, the shadow,
 are drawn new for this project and are not the 2.05 graphics. Anything the
 program finds on disk wins over them: put a 2.05 install (or the assets
 zip) next to the program, or point `--data` at one, and its `pics1`,
-ganis, heads, bodies, levels and start-screen images are used instead.
+ganis, heads, bodies and levels are used in the game instead.
 Training starts at `levels/tutorial_b-4.graal` when that file is there,
 else at the built-in `start.nw`.
 
-When the original start-window art lies next to the program
-(`screenimg1.jpg` and `button1.bmp`, also looked for under
-`embedded/images/`), the start screen takes 2.05's own layout instead:
-the 476x330 `TConnectFrame` with that picture behind it, the welcome text,
-Language and Nick Name where its form puts them, and Training, Options and
-Start Online where `TConnectFrame.FormShow` places its three 105x26
-buttons. Only the positions are in this repository; the pictures come from
-the user's own copy.
+The start screen is always this project's own layout, wording and art.
+It never draws the original 2.05 start window or its pictures, even when
+they are next to the program.
 
 ## Stress runs (phase 4)
 
