@@ -61,6 +61,7 @@ uses
   GraalClient in 'GraalClient.pas',
   Gs1205 in 'Gs1205.pas',
   Npc205 in 'Npc205.pas',
+  Baddy205 in 'Baddy205.pas',
   NpcBridge205 in 'NpcBridge205.pas',
   Adventure in 'Adventure.pas',
   GSound in '../../common/GSound.pas',

@@ -13,7 +13,8 @@ unit NpcBridge205;
 interface
 
 uses
-  Classes, SysUtils, Math, GTypes, GLevel, GSurface, Gs1205, Npc205, Adventure;
+  Classes, SysUtils, Math, GTypes, GLevel, GSurface, GArrays, GFont, Gs1205, Npc205,
+  Baddy205, Adventure;
 
 type
   TAdventureNpcWorld = class(TNpcWorld)
@@ -57,8 +58,32 @@ type
     function ArrowHit(X, Y: Double; Power: Integer): Boolean;
   end;
 
+  { The baddies' view of the game. }
+  TAdventureBaddyWorld = class(TBaddyWorld)
+  private
+    FAdv: TAdventure;
+  public
+    constructor Create(Adv: TAdventure);
+    function Online: Boolean; override;
+    function Leader: Boolean; override;
+    function PlayerX: Double; override;
+    function PlayerY: Double; override;
+    function PlayerDir: Integer; override;
+    function PlayerHere: Boolean; override;
+    function Blocked(X, Y: Double): Boolean; override;
+    procedure HurtPlayer(Hearts, FromX, FromY: Double); override;
+    procedure Shoot(X, Y: Double; Dir, Sprite, Kind: Integer); override;
+    procedure Send(Id: Integer; const Data: string); override;
+    function Image(const Name: string): TGSurface; override;
+    function Arrays: TGArrays; override;
+    procedure DrawVerse(Screen: TGSurface; CX, Y: Integer; const Text: string); override;
+    procedure AllDied; override;
+  end;
+
 { The NPC manager for a game, with its combat events hooked up. }
 function CreateNpcManager(Adv: TAdventure): TNpcManager;
+{ The baddies of a game. }
+function CreateBaddyManager(Adv: TAdventure): TBaddyManager;
 
 implementation
 
@@ -72,6 +97,11 @@ begin
   Adv.OnSwordHit := W.SwordHit;
   Adv.OnBombBlast := W.BombBlast;
   Adv.OnArrowHit := W.ArrowHit;
+end;
+
+function CreateBaddyManager(Adv: TAdventure): TBaddyManager;
+begin
+  Result := TBaddyManager.Create(TAdventureBaddyWorld.Create(Adv));
 end;
 
 constructor TAdventureNpcWorld.Create(Adv: TAdventure);
@@ -325,8 +355,14 @@ begin
 end;
 
 procedure TAdventureNpcWorld.PutBaddy(Kind: Integer; X, Y: Double; const Img: string; Power: Integer);
+var
+  B: TBaddy;
 begin
-  FAdv.Log(Format('PUTCOMP %d %.1f,%.1f %s', [Kind, X, Y, Img]));
+  { putcomp: offline or on the leader only, as the original's AI }
+  if Online and not FAdv.Npcs.IsLeader then Exit;
+  B := FAdv.Baddies.Add(Kind, X, Y, '');
+  if Img <> '' then B.Image := Img;
+  if Power > 0 then B.Power := Power;
 end;
 
 procedure TAdventureNpcWorld.Shoot(const Kind: string; X, Y: Double; Dir: Integer);
@@ -409,16 +445,111 @@ end;
 procedure TAdventureNpcWorld.SwordHit(X, Y, W, H: Double; Power: Integer);
 begin
   FAdv.Npcs.SwordHit(X, Y, W, H, Power);
+  if FAdv.Baddies <> nil then FAdv.Baddies.SwordHit(Power);
 end;
 
 procedure TAdventureNpcWorld.BombBlast(X, Y: Double; Radius: Integer);
 begin
   FAdv.Npcs.BombBlast(X, Y, Radius);
+  { a blast hits a baddy whose body covers its middle, at power 4 (in
+    2.05 the bomb's size times four) }
+  if FAdv.Baddies <> nil then FAdv.Baddies.PointHit(X, Y, 4);
 end;
 
 function TAdventureNpcWorld.ArrowHit(X, Y: Double; Power: Integer): Boolean;
 begin
   Result := FAdv.Npcs.ArrowHit(X, Y, Power);
+  if not Result and (FAdv.Baddies <> nil) then Result := FAdv.Baddies.PointHit(X, Y, Power);
+end;
+
+{ ---- TAdventureBaddyWorld ---- }
+
+constructor TAdventureBaddyWorld.Create(Adv: TAdventure);
+begin
+  inherited Create;
+  FAdv := Adv;
+end;
+
+function TAdventureBaddyWorld.Online: Boolean;
+begin
+  Result := FAdv.IsOnline;
+end;
+
+function TAdventureBaddyWorld.Leader: Boolean;
+begin
+  Result := (FAdv.Npcs <> nil) and FAdv.Npcs.IsLeader;
+end;
+
+function TAdventureBaddyWorld.PlayerX: Double;
+begin
+  Result := FAdv.Player.X;
+end;
+
+function TAdventureBaddyWorld.PlayerY: Double;
+begin
+  Result := FAdv.Player.Y;
+end;
+
+function TAdventureBaddyWorld.PlayerDir: Integer;
+begin
+  Result := FAdv.Player.Dir and 3;
+end;
+
+function TAdventureBaddyWorld.PlayerHere: Boolean;
+begin
+  Result := FAdv.Mode <> ModeDead;
+end;
+
+function TAdventureBaddyWorld.Blocked(X, Y: Double): Boolean;
+begin
+  Result := (X < 0) or (Y < 0) or (X >= 64) or (Y >= 64) or FAdv.PointBlocked(X, Y);
+end;
+
+procedure TAdventureBaddyWorld.HurtPlayer(Hearts, FromX, FromY: Double);
+begin
+  FAdv.HurtFrom(Hearts, FromX, FromY);
+end;
+
+procedure TAdventureBaddyWorld.Shoot(X, Y: Double; Dir, Sprite, Kind: Integer);
+begin
+  FAdv.AddShot(X, Y, Dir, Sprite, Kind, False);
+end;
+
+procedure TAdventureBaddyWorld.Send(Id: Integer; const Data: string);
+begin
+  FAdv.SendPacket(Id, Data);
+end;
+
+function TAdventureBaddyWorld.Image(const Name: string): TGSurface;
+begin
+  { 2.05 keeps the baddies in their own folder, 2.22 in levels/baddies }
+  if SameText(Name, 'wbow1.gif') then
+  begin
+    Result := FAdv.Assets.Image(Name, 'weapon');
+    Exit;
+  end;
+  Result := nil;
+  if SameText(Copy(Name, 1, 5), 'baddy') then
+  begin
+    Result := FAdv.Assets.Image('baddies(not the guild!)/' + Name, '');
+    if Result = nil then Result := FAdv.Assets.Image('baddies/' + Name, '');
+  end;
+  if Result = nil then Result := FAdv.Assets.Image(Name, '');
+end;
+
+function TAdventureBaddyWorld.Arrays: TGArrays;
+begin
+  Result := FAdv.Arrays;
+end;
+
+procedure TAdventureBaddyWorld.DrawVerse(Screen: TGSurface; CX, Y: Integer; const Text: string);
+begin
+  DrawText(Screen, CX - TextWidth(Text, 1) div 2, Y, Text, $FFFFFFFF, 1);
+end;
+
+procedure TAdventureBaddyWorld.AllDied;
+begin
+  if FAdv.Npcs <> nil then FAdv.Npcs.FireAll('compusdied');
 end;
 
 end.
