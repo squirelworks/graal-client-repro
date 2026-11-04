@@ -8,7 +8,14 @@
   case-insensitively, as the parser lowercases each line.
 
   Movie mode (GANI0002) is not read: 2.05 plays player animations from
-  sprite-mode files. }
+  sprite-mode files.
+
+  ATTACHSPRITE parent child dx dy (2.1 on) hangs a sprite on another: every
+  placement of the parent also places the child dx, dy pixels from it,
+  over the parent; ATTACHSPRITE2 places it under the parent [inf: which of
+  the two goes under is read from how the 2.2-era player ganis layer, not
+  traced]. Attachments are expanded into the steps when the file is read,
+  so a step's rows list every sprite to draw, in drawing order. }
 unit GAni;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
@@ -21,7 +28,7 @@ const
 type
   TGraalAniSprite = record
     Id: Integer;
-    Sheet: string;   { SPRITES, HEAD, BODY, SWORD, SHIELD, ATTR1..5, PARAMn or a file }
+    Sheet: string;   { SPRITES, HEAD, BODY, SWORD, SHIELD, ATTR1..30, PARAMn or a file }
     X, Y, W, H: Integer;
   end;
 
@@ -33,6 +40,11 @@ type
   end;
 
   TGraalAniPartList = array of TGraalAniPart;
+
+  TGraalAniAttach = record
+    Parent, Child, DX, DY: Integer;
+    Under: Boolean;     { ATTACHSPRITE2 }
+  end;
 
   TGraalAniStep = record
     Dirs: array[0..3] of TGraalAniPartList;
@@ -47,11 +59,14 @@ type
     Name: string;
     Sprites: array of TGraalAniSprite;
     Steps: array of TGraalAniStep;
+    Attachments: array of TGraalAniAttach;
     Loop, Continuous, SingleDirection: Boolean;
     SetBackTo, DefaultHead, DefaultBody: string;
-    DefaultAttr: array[1..5] of string;
+    DefaultAttr: array[1..30] of string; { #P1 to #P30 (2.16 added 10 to 30) }
     DefaultParam: array[1..20] of string;
     function LoadFromString(const Text: string): Boolean;
+    { Parts with every attached sprite placed (see ATTACHSPRITE above). }
+    function ExpandAttachments(const Parts: TGraalAniPartList): TGraalAniPartList;
     function LoadFromFile(const FileName: string): Boolean;
     function FindSprite(Id: Integer; out S: TGraalAniSprite): Boolean;
     function TotalTicks: Integer;
@@ -137,6 +152,41 @@ begin
   end;
 end;
 
+function TGraalAni.ExpandAttachments(const Parts: TGraalAniPartList): TGraalAniPartList;
+var
+  Count: Integer;
+
+  procedure Put(Sprite, X, Y, Depth: Integer);
+  var
+    J: Integer;
+  begin
+    { under, the sprite, over; a chain stops 4 deep (a loop in the file
+      cannot run away) }
+    if Depth < 4 then
+      for J := 0 to High(Attachments) do
+        if Attachments[J].Under and (Attachments[J].Parent = Sprite) then
+          Put(Attachments[J].Child, X + Attachments[J].DX, Y + Attachments[J].DY, Depth + 1);
+    if Count >= Length(Result) then SetLength(Result, Count * 2 + 4);
+    Result[Count].Sprite := Sprite;
+    Result[Count].X := X;
+    Result[Count].Y := Y;
+    Inc(Count);
+    if Depth < 4 then
+      for J := 0 to High(Attachments) do
+        if not Attachments[J].Under and (Attachments[J].Parent = Sprite) then
+          Put(Attachments[J].Child, X + Attachments[J].DX, Y + Attachments[J].DY, Depth + 1);
+  end;
+
+var
+  I: Integer;
+begin
+  SetLength(Result, 0);
+  Count := 0;
+  for I := 0 to High(Parts) do
+    Put(Parts[I].Sprite, Parts[I].X, Parts[I].Y, 0);
+  SetLength(Result, Count);
+end;
+
 function TGraalAni.LoadFromString(const Text: string): Boolean;
 var
   Lines, W: TStringList;
@@ -166,6 +216,7 @@ begin
   Result := False;
   SetLength(Sprites, 0);
   SetLength(Steps, 0);
+  SetLength(Attachments, 0);
   Lines := TStringList.Create;
   W := TStringList.Create;
   try
@@ -197,6 +248,16 @@ begin
           Sprites[N].W := StrToIntDef(W[5], 0);
           Sprites[N].H := StrToIntDef(W[6], 0);
         end
+        else if ((Key = 'attachsprite') or (Key = 'attachsprite2')) and (W.Count >= 5) then
+        begin
+          N := Length(Attachments);
+          SetLength(Attachments, N + 1);
+          Attachments[N].Parent := StrToIntDef(W[1], -1);
+          Attachments[N].Child := StrToIntDef(W[2], -1);
+          Attachments[N].DX := StrToIntDef(W[3], 0);
+          Attachments[N].DY := StrToIntDef(W[4], 0);
+          Attachments[N].Under := Key = 'attachsprite2';
+        end
         else if Key = 'loop' then Loop := True
         else if Key = 'continuous' then Continuous := True
         else if Key = 'singledirection' then SingleDirection := True
@@ -211,7 +272,7 @@ begin
         else if (Copy(Key, 1, 11) = 'defaultattr') and (W.Count > 1) then
         begin
           K := StrToIntDef(Copy(Key, 12, 2), 0);
-          if (K >= 1) and (K <= 5) then DefaultAttr[K] := W[1];
+          if (K >= 1) and (K <= 30) then DefaultAttr[K] := W[1];
         end
         else if Key = 'ani' then InAni := True;
         Continue;
@@ -249,6 +310,10 @@ begin
       end;
     end;
     if D > 0 then FinishStep;
+    if Length(Attachments) > 0 then
+      for I := 0 to High(Steps) do
+        for K := 0 to 3 do
+          Steps[I].Dirs[K] := ExpandAttachments(Steps[I].Dirs[K]);
     MaxId := -1;
     for I := 0 to High(Sprites) do
       if Sprites[I].Id > MaxId then MaxId := Sprites[I].Id;

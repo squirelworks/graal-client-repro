@@ -3,17 +3,22 @@
   Command line:
     Graal217 --server HOST:PORT --account NAME [--password-env VAR]
     Graal217 --level FILE.graal|FILE.nw [--x X --y Y]
+    Graal217 FILE.graal|FILE.nw   open the level in the built-in editor
   common options:
     --data DIR        a Graal install: pics1, arrays.dat, levels/ganis, heads,
                       bodies, swords, shields, hats
     --window          show the game in a window and read the keyboard
-                      (arrows or IJKL walk, Esc quits)
+                      (arrows or IJKL walk, S sword, A lift,
+                      throw or open, M map, Esc quits); with a window,
+                      sound effects play unless --nosound
+    --nosound         no sound or music
     --headless        no drawing at all (stress runs)
     --frames N        stop after N frames; 0 = until stopped (default: 100
                       without a window or --seconds, no limit in a window)
     --seconds N       stop after N seconds
     --keys SCRIPT     scripted keys, e.g. "right*10,down*4,wait*5"; each
-                      entry holds one direction for that many frames
+                      entry holds one direction for that many frames; a, s
+                      and d press that game key for one frame
     --walk MODE       script (default with --keys), idle (default without),
                       or random
     --walk-ms N       random walk: a new direction every N ms (default 100)
@@ -54,10 +59,24 @@ uses
   GWindow in '../../common/GWindow.pas',
   Protocol217 in 'Protocol217.pas',
   GraalClient in 'GraalClient.pas',
+  GGs1 in '../../common/GGs1.pas',
+  Npc217 in 'Npc217.pas',
+  Baddy217 in 'Baddy217.pas',
+  NpcBridge217 in 'NpcBridge217.pas',
   Adventure in 'Adventure.pas',
+  GSound in '../../common/GSound.pas',
+  Sound217 in 'Sound217.pas',
+  Map217 in 'Map217.pas',
   GStartScreen in '../../common/GStartScreen.pas',
   StartScreen217 in 'StartScreen217.pas',
-  RunMode in 'RunMode.pas';
+  RunMode in 'RunMode.pas',
+  GLevelWrite in '../../common/GLevelWrite.pas',
+  EditorDoc in 'editor/EditorDoc.pas',
+  EditorUI in 'editor/EditorUI.pas',
+  EditorDialogs in 'editor/EditorDialogs.pas',
+  EditorObjSets in 'editor/EditorObjSets.pas',
+  EditorView in 'editor/EditorView.pas',
+  EditorMain in 'editor/EditorMain.pas';
 
 var
   { Set while the start screen runs a game: the arguments it chose, read
@@ -108,8 +127,15 @@ begin
   WriteLn('  common: [--data DIR] [--window | --headless] [--frames N] [--seconds N]');
   WriteLn('          [--keys SCRIPT] [--walk script|idle|random] [--walk-ms N] [--seed N]');
   WriteLn('          [--link-every N] [--nodelay] [--stats-every N]');
-  WriteLn('          [--dump FRAME.bmp] [--sheet FILE]');
+  WriteLn('          [--dump FRAME.bmp] [--sheet FILE] [--nosound]');
 end;
+
+const
+  { game keys in a key script: pressed on that tick }
+  ScriptKeyA = 10;
+  ScriptKeyS = 11;
+  ScriptKeyD = 12;
+  ScriptKeyQ = 13;
 
 type
   TKeyScript = class
@@ -145,6 +171,10 @@ begin
       else if Name = 'left' then D := DirLeft
       else if Name = 'down' then D := DirDown
       else if Name = 'right' then D := DirRight
+      else if Name = 'a' then D := ScriptKeyA
+      else if Name = 's' then D := ScriptKeyS
+      else if Name = 'd' then D := ScriptKeyD
+      else if Name = 'q' then D := ScriptKeyQ
       else D := -1;
       for J := 1 to N do
       begin
@@ -238,11 +268,17 @@ var
   Hist: TTickHistogram;
   Server, Host, Sheet, Dump, Pw, Data, Account, WalkName, EndState, Error: string;
   Port, Frames, I, C, D, Seconds, StatsEvery, ExitCode_: Integer;
-  OK, Online, UseWindow, NoDelay, Dropped, Crashed: Boolean;
+  OK, Online, UseWindow, NoDelay, Dropped, Crashed, EditorFirst: Boolean;
   StartUs, GateUs, NowUs, T0, NextStatsUs: Int64;
+  WasHeld: array[0..4] of Boolean;
 
 begin
   Result := 64;
+  WasHeld[0] := False;
+  WasHeld[1] := False;
+  WasHeld[2] := False;
+  WasHeld[3] := False;
+  WasHeld[4] := False;
   ExitCode_ := 64;
   Server := Arg('--server', '');
   if (Server = '') and (Arg('--level', '') = '') then
@@ -253,6 +289,7 @@ begin
   Online := Server <> '';
   UseWindow := HasArg('--window') and not HasArg('--headless');
   NoDelay := HasArg('--nodelay');
+  EditorFirst := HasArg('--editor');
   Account := Arg('--account', '');
   InstallStopHandlers;
   G := TAdventure.Create;
@@ -326,6 +363,9 @@ begin
     else
     begin
       OK := G.LoadLevelFile(Arg('--level', ''));
+      { offline on the tutorial, 2.05 switches to the tutorial maps }
+      if Copy(LowerCase(ExtractFileName(Arg('--level', ''))), 1, 9) = 'tutorial_' then
+        UseTutorialMaps;
       if OK then
       begin
         G.Player.X := StrToFloatDef(Arg('--x', '30'), 30);
@@ -352,6 +392,9 @@ begin
       end;
     end;
 
+    { sound only in a window: stress runs and tests open no device }
+    SoundEnabled := (Win <> nil) and not HasArg('--nosound');
+
     { the frame loop: a 50 ms gate; a late frame is not made up }
     StartUs := MonoUs;
     GateUs := StartUs;
@@ -371,14 +414,38 @@ begin
         begin
           Win.Pump;
           if Win.Closed or Win.Held[gkEscape] then Break;
+          { F4: the built-in level editor (offline only) }
+          if Win.WasPressed(gkEditor) or EditorFirst then
+          begin
+            EditorFirst := False;
+            EditorKey(Win, G, Online);
+            if Win.Closed then Break;
+          end;
           G.Keys[DirUp] := Win.Held[gkUp];
           G.Keys[DirLeft] := Win.Held[gkLeft];
           G.Keys[DirDown] := Win.Held[gkDown];
           G.Keys[DirRight] := Win.Held[gkRight];
+          { the game keys act on the press, not while held }
+          G.ActionKey := Win.Held[gkAction] and not WasHeld[0];
+          G.AttackKey := Win.Held[gkAttack] and not WasHeld[1];
+          G.ItemKey := Win.Held[gkItem] and not WasHeld[2];
+          G.MapKey := Win.Held[gkMap] and not WasHeld[3];
+          WasHeld[0] := Win.Held[gkAction];
+          WasHeld[1] := Win.Held[gkAttack];
+          WasHeld[2] := Win.Held[gkItem];
+          WasHeld[3] := Win.Held[gkMap];
+          G.ItemListKey := Win.Held[gkItemList] and not WasHeld[4];
+          WasHeld[4] := Win.Held[gkItemList];
         end;
         if Walker.Mode = wmScript then D := Script.DirAt(I)
         else D := Walker.DirAt(I, G.Level, G.Player.X, G.Player.Y);
-        if D >= 0 then G.Keys[D] := True;
+        case D of
+          DirUp..DirRight: G.Keys[D] := True;
+          ScriptKeyA: G.ActionKey := True;
+          ScriptKeyS: G.AttackKey := True;
+          ScriptKeyD: G.ItemKey := True;
+          ScriptKeyQ: G.ItemListKey := True;
+        end;
         T0 := MonoUs;
         G.Tick;
         Hist.Add(MonoUs - T0);
@@ -454,6 +521,10 @@ begin
     else if OK and not Crashed then ExitCode_ := 0
     else ExitCode_ := 1;
   finally
+    SoundShutdown;
+    SoundEnabled := False;
+    MapOpen := False;
+    UseDefaultMaps;
     if Win <> GuiWin then Win.Free;
     Script.Free;
     Walker.Free;
@@ -510,10 +581,12 @@ begin
     { the asset roots before anything is read from them }
     SetAssetRoots(Dir, ClientAssetFolders);
     { 2.17 reads its listserver from arrays2.dat (line 0 host, line 1
-      port); listserver.txt next to the program wins over it, and with
-      neither, a Seihai listserver on this machine }
-    ArrHost := '127.0.0.1';
-    ListPort := 14921;
+      port); listserver.txt next to the program wins over it. With
+      neither, the public listserver's legacy port: 2.17.1's list login is
+      the classic plain frame, which 14923 answers and 14922 does not
+      (protocol/public-listserver-2026-10-25.md) }
+    ArrHost := 'listserver.graal.in';
+    ListPort := 14923;
     ReadArrays2(Dir, ArrHost, ListPort);
     ReadListServer(Dir, ArrHost, ListPort, ListHost, ListPort);
     { SIGTERM / Ctrl+C end the program on the start screen too }
@@ -577,10 +650,54 @@ begin
   end;
 end;
 
+{ Graal217 level.graal: like 2.05, open the file in the editor in the
+  file's folder, with the local player at 30, 30.5. }
+function RunEditorFile(const FileName: string): Integer;
+var
+  Win: TGWindow;
+  Dir, Path: string;
+begin
+  Dir := ExtractFilePath(ParamStr(0));
+  Path := ExpandFileName(FileName);
+  Win := TGWindow.Create('Graal ' + ClientBuildLabel + ' (' + ClientVersionToken + ')',
+    ScreenW, ScreenH);
+  try
+    if not Win.Ok then
+    begin
+      OpenConsoleIO;
+      WriteLn(ErrOutput, 'no display for the editor');
+      Result := 64;
+      Exit;
+    end;
+    SetAssetRoots(Dir, ClientAssetFolders);
+    if ExtractFilePath(Path) <> '' then SetCurrentDir(ExtractFilePath(Path));
+    GuiArgs := TStringList.Create;
+    try
+      GuiArgs.Add('--window');
+      GuiArgs.Add('--data');
+      GuiArgs.Add(Dir);
+      GuiArgs.Add('--level');
+      GuiArgs.Add(Path);
+      GuiArgs.Add('--x');
+      GuiArgs.Add('30');
+      GuiArgs.Add('--y');
+      GuiArgs.Add('30.5');
+      GuiArgs.Add('--editor');
+      Result := RunGame(Win, '', '');
+    finally
+      FreeAndNil(GuiArgs);
+    end;
+  finally
+    Win.Free;
+  end;
+end;
+
 begin
   Randomize;
   if ParamCount = 0 then
     Halt(RunGui);
+  if (ParamCount = 1) and (Copy(ParamStr(1), 1, 1) <> '-') and FileExists(ParamStr(1)) then
+    Halt(RunEditorFile(ParamStr(1)));
   OpenConsoleIO;
   Halt(RunGame(nil, '', ''));
 end.
