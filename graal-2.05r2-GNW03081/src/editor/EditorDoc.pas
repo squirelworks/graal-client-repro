@@ -29,7 +29,7 @@ unit EditorDoc;
 interface
 
 uses
-  GLevel;
+  Classes, GLevel;
 
 const
   MaxUndo = 128;
@@ -39,6 +39,8 @@ const
     'Golden Warrior', 'Lizardon', 'Dragon');
   DefaultBaddyVerses = 'Stop!\Ouch!\';
   DefaultChestItem = 1;
+  { a stamp cell that leaves the board tile as it is (2047 in objects.dat) }
+  TransparentTile = $FFFF;
 
 type
   TTileBlock = record
@@ -132,6 +134,8 @@ type
     Clipboard: TTileBlock;
     Background: Word;
     LastError: string;
+    { Edit flags: the client's in-memory flag list; never saved }
+    Flags: TStringList;
     constructor Create;
     destructor Destroy; override;
     function Doc: TEditorDoc;
@@ -331,7 +335,8 @@ begin
   PushUndo(X1, Y1, X2 - X1, Y2 - Y1);
   for J := Y1 to Y2 - 1 do
     for I := X1 to X2 - 1 do
-      Level.Tiles[I + J * BoardW] := B.Tiles[(J - Y) * B.W + (I - X)];
+      if B.Tiles[(J - Y) * B.W + (I - X)] <> TransparentTile then
+        Level.Tiles[I + J * BoardW] := B.Tiles[(J - Y) * B.W + (I - X)];
   Modified := True;
 end;
 
@@ -510,7 +515,8 @@ begin
         if BX < 0 then Inc(BX, B.W);
         BY := (J - Y) mod B.H;
         if BY < 0 then Inc(BY, B.H);
-        Level.Tiles[I + J * BoardW] := B.Tiles[BY * B.W + BX];
+        if B.Tiles[BY * B.W + BX] <> TransparentTile then
+          Level.Tiles[I + J * BoardW] := B.Tiles[BY * B.W + BX];
       end;
   Modified := True;
 end;
@@ -619,7 +625,14 @@ begin
 end;
 
 procedure TEditorDoc.MoveObject(Kind: TEditorObjKind; Index: Integer; X, Y: Double);
+var
+  OX, OY, OW, OH: Integer;
 begin
+  { a click without a move changes nothing }
+  if ObjectRect(Kind, Index, OX, OY, OW, OH) and (Kind <> okNPC) and (OX = Round(X)) and
+    (OY = Round(Y)) then Exit;
+  if (Kind = okNPC) and (Index >= 0) and (Index <= High(Level.NPCs)) and
+    (Level.NPCs[Index].X = X) and (Level.NPCs[Index].Y = Y) then Exit;
   case Kind of
     okChest:
       if (Index >= 0) and (Index <= High(Level.Chests)) then
@@ -763,6 +776,7 @@ constructor TEditor.Create;
 begin
   inherited Create;
   Current := -1;
+  Flags := TStringList.Create;
 end;
 
 destructor TEditor.Destroy;
@@ -770,6 +784,7 @@ var
   I: Integer;
 begin
   for I := 0 to High(Docs) do Docs[I].Free;
+  Flags.Free;
   inherited Destroy;
 end;
 

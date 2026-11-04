@@ -354,7 +354,7 @@ end;
 
 function WrapLines(const T: string; W: Integer): string;
 var
-  I, MaxChars: Integer;
+  I, MaxChars, Sp: Integer;
   Line: string;
 begin
   MaxChars := W div CharW;
@@ -371,8 +371,19 @@ begin
     end;
     if Length(Line) >= MaxChars then
     begin
-      Result := Result + Line + #10;
-      Line := '';
+      { break after the last space when there is one }
+      Sp := LastDelimiter(' ', Line);
+      if (Sp > 1) and (T[I] <> ' ') then
+      begin
+        Result := Result + Copy(Line, 1, Sp - 1) + #10;
+        Line := Copy(Line, Sp + 1, MaxInt);
+      end
+      else
+      begin
+        Result := Result + Line + #10;
+        Line := '';
+        if T[I] = ' ' then Continue;
+      end;
     end;
     Line := Line + T[I];
   end;
