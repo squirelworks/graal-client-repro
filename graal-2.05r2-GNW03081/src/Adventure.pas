@@ -232,7 +232,8 @@ type
     ActionKey, AttackKey, ItemKey: Boolean;
     { The map key (M) pressed this tick: opens or closes the big map. }
     MapKey: Boolean;
-    { What the player is doing: ModeFree, ModeSword, ModeLift, ModeCarry. }
+    { What the player is doing: ModeFree, ModeSword, ModeLift, ModeCarry,
+      ModeHidden. }
     Mode: Integer;
     { The lift table entry carried (0 bush, 1 sign, 2 pot, 3 stone,
       4 black stone), or -1. }
@@ -327,6 +328,7 @@ type
     { A carried or thrown object (lift table entry Kind) at X, Y. }
     procedure DrawCarried(Kind, X, Y: Integer);
     procedure DrawThrown(CamX, CamY: Integer);
+    procedure SetHidden(Hide: Boolean);
     procedure BreakThrown(I: Integer);
     { Not in hurt mode and not dead. }
     function Hurtable: Boolean;
@@ -399,6 +401,7 @@ const
   ModeLift = 2;
   ModeCarry = 3;
   ModeDead = 5;
+  ModeHidden = 6; { under a carried bush or stone }
   { The sprite of each item (arrays.dat array 24), by item number. }
   ItemSprites: array[0..24] of Integer = (136, 137, 138, 67, 143, 139, 145,
     351, 65, 350, 314, 315, 321, 323, 322, 324, 325, 328, 329, 330, 331, 332,
@@ -1052,12 +1055,14 @@ const
     (1.025, 1.975, 2.025, 2.975, 3.025, 0.975),
     (0.525, 1.475, 1.525, 2.475, 2.525, 0.475),
     (1.025, 1.975, 2.025, 2.975, 3.025, 0.975));
-  Speed = 1.0; { on foot }
 var
-  NX, NY, F: Double;
+  NX, NY, F, Speed: Double;
   B: array[0..5] of Boolean;
   I: Integer;
 begin
+  { on foot; hidden under a carried object 0.2 of that, 0.1 tile a tick
+    (carry-hide-and-glove.md, seen live) }
+  if Mode = ModeHidden then Speed := 0.2 else Speed := 1.0;
   Player.Dir := Dir;
   NX := Player.X + StepX[Dir] * Speed;
   NY := Player.Y + StepY[Dir] * Speed;
@@ -1195,7 +1200,7 @@ var
   PX, PY: Double;
   OX, OY, E: Integer;
 begin
-  if Mode = ModeCarry then
+  if (Mode = ModeCarry) or (Mode = ModeHidden) then
   begin
     Throw;
     Exit;
@@ -1220,6 +1225,11 @@ var
   PX, PY: Double;
   OX, OY, E, I: Integer;
 begin
+  if Mode = ModeHidden then
+  begin
+    SetHidden(False);
+    Exit;
+  end;
   if Mode = ModeCarry then
   begin
     Throw;
@@ -1294,6 +1304,13 @@ begin
   Thrown[N].DY := DY[Player.Dir and 3];
   Thrown[N].Kind := CarryKind;
   Thrown[N].Age := 0;
+  if Mode = ModeHidden then
+  begin
+    { thrown from hiding: the player shows again }
+    Player.Status := Player.Status and not 2;
+    if FClient.Connected then
+      FClient.SendPacket(PLI_PLAYERPROPS, GChar(PLPROP_STATUS) + GChar(Player.Status));
+  end;
   CarryKind := -1;
   Mode := ModeFree;
   Player.SetAni('idle', Frame);
@@ -1440,7 +1457,8 @@ end;
 
 function TAdventure.Hurtable: Boolean;
 begin
-  Result := (FHurtCount = 0) and (Mode <> ModeDead);
+  { a hidden player is not hit }
+  Result := (FHurtCount = 0) and (Mode <> ModeDead) and (Mode <> ModeHidden);
 end;
 
 procedure TAdventure.HurtPlayer(Hearts, KX, KY: Double);
@@ -1784,8 +1802,50 @@ begin
   Selected := I;
 end;
 
+procedure TAdventure.SetHidden(Hide: Boolean);
+var
+  N: Integer;
+begin
+  if Hide then
+  begin
+    Mode := ModeHidden;
+    Player.Status := Player.Status or 2;
+    Player.SetAni('hiddenstill', Frame);
+  end
+  else
+  begin
+    Mode := ModeCarry;
+    Player.Status := Player.Status and not 2;
+    Player.SetAni('carrystill', Frame);
+    { out from under a bush, its leaves fly }
+    if CarryKind = 0 then
+    begin
+      N := Length(Breaks);
+      SetLength(Breaks, N + 1);
+      Breaks[N].X := Player.X + 1.5;
+      Breaks[N].Y := Player.Y + 2.5;
+      Breaks[N].Kind := 0;
+      Breaks[N].Age := 0;
+    end;
+  end;
+  if FClient.Connected then
+    FClient.SendPacket(PLI_PLAYERPROPS, GChar(PLPROP_STATUS) + GChar(Player.Status));
+end;
+
 procedure TAdventure.UseWeapon;
 begin
+  { D while carrying a bush or a stone hides under it, and D again comes
+    out (a pot or a sign: nothing; carry-hide-and-glove.md) }
+  if Mode = ModeHidden then
+  begin
+    SetHidden(False);
+    Exit;
+  end;
+  if Mode = ModeCarry then
+  begin
+    if CarryKind in [0, 3, 4] then SetHidden(True);
+    Exit;
+  end;
   if (Selected < 0) or (Selected > High(Weapons)) or (Mode <> ModeFree) or not WeaponsOn then Exit;
   case Weapons[Selected].Item of
     8: LayBombOf(1);
@@ -2930,7 +2990,8 @@ begin
   AX := 0;
   AY := 0;
   for D := 0 to 3 do
-    if Keys[D] and ((Mode = ModeFree) or (Mode = ModeCarry)) and (FHurtCount < 35) then
+    if Keys[D] and ((Mode = ModeFree) or (Mode = ModeCarry) or (Mode = ModeHidden)) and
+      (FHurtCount < 35) then
     begin
       WalkStep(D);
       Moved := True;
@@ -2960,13 +3021,14 @@ begin
         { the hurt pose holds while the hurt mode runs }
       else if Moved then Player.SetAni('walk', Frame) else Player.SetAni('idle', Frame);
     ModeCarry: if Moved then Player.SetAni('carry', Frame) else Player.SetAni('carrystill', Frame);
+    ModeHidden: if Moved then Player.SetAni('hidden', Frame) else Player.SetAni('hiddenstill', Frame);
   end;
   TickItems;
   TickShots;
   TickCombat;
   { NPCs: pushing into one, walking over one, then timeouts }
   for D := 0 to 3 do
-    if Keys[D] and ((Mode = ModeFree) or (Mode = ModeCarry)) then
+    if Keys[D] and ((Mode = ModeFree) or (Mode = ModeCarry) or (Mode = ModeHidden)) then
       Npcs.PlayerPush(D, Player.X, Player.Y);
   if Moved then Npcs.PlayerMoved(Player.X, Player.Y);
   Npcs.Tick;
@@ -3092,6 +3154,13 @@ var
 begin
   BX := Round(P.X * TileSize) - CamX;
   BY := Round(P.Y * TileSize) - CamY;
+  { hidden: only the object shows, over the legs (measured side by side
+    with 2.05) }
+  if (P = Player) and (Mode = ModeHidden) then
+  begin
+    DrawCarried(CarryKind, BX + 8, BY + 24);
+    Exit;
+  end;
   A := Assets.Ani(P.AniName);
   if A = nil then
   begin
