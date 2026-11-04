@@ -1725,8 +1725,12 @@ begin
     if (S = '') and N.Character then S := N.Chat;
     if S <> '' then
     begin
-      TW := TextWidth(S, 1);
-      DrawText(Screen, DX + 24 - TW div 2, DY - 10, S, $FFFFFFFF, 1);
+      { as a name: the size of the nickname, white over a blue copy at
+        +1, +1 (2.05 draws chat in its 24 px font, client-internals/
+        chat-text.md; this is the project's own font) }
+      TW := TextWidth(S, 2);
+      DrawText(Screen, DX + 24 - TW div 2 + 1, DY - 13 + 1, S, $FF0000FF, 2);
+      DrawText(Screen, DX + 24 - TW div 2, DY - 13, S, $FFFFFFFF, 2);
     end;
   end;
 end;

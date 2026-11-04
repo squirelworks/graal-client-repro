@@ -23,6 +23,11 @@ const
     640x480 is the classic default and is marked as an assumption. }
   ScreenW = 640;
   ScreenH = 480;
+  { 2.05 keeps a chat line along the bottom of its window (a sunken white
+    edit box, 24 pixels high); the board is drawn in the 456 pixels above
+    it and the camera keeps to that, as seen side by side under Wine. }
+  ChatBarH = 24;
+  ViewH = ScreenH - ChatBarH;
 
   { Directions, as the walking routine numbers them. }
   DirUp = 0;
@@ -42,6 +47,10 @@ type
   TAssets = class
   private
     FNames: TStringList;  { lower-case key -> TGSurface or TGraalAni }
+    FIndex: TStringList;  { lower-case file name, every file under levels/ }
+    FPaths: TStringList;  { FIndex.Objects[I] is the index of its path here }
+    procedure IndexDir(const Path: string; Depth: Integer);
+    function Indexed(const Name: string): string;
     function FindFile(const Name: string; const Dirs: array of string): string;
   public
     Dir: string;          { install folder; '' = none }
@@ -53,6 +62,12 @@ type
     function Ani(const Name: string): TGraalAni;
   end;
 
+{ Loads a picture as 2.05 shows it: a palette picture with no transparency
+  of its own is drawn with its palette colour 0 left out (the black frame
+  around tutorialmap2.png is not drawn, side by side under Wine). }
+function LoadImageKeyed(const FileName: string; Dest: TGSurface): Boolean;
+
+type
   TServerPlayer = class
   public
     Id: Integer;
@@ -230,6 +245,12 @@ type
     Shots: array of TShot;
     { The item list window (Q); ItemListKey is its key's press this tick. }
     ItemListOpen, ItemListKey: Boolean;
+    { the chat line along the bottom: being typed in, and its text }
+    ChatTyping: Boolean;
+    ChatLine: string;
+    { frames left for the player's own chat once a direction key is
+      pressed; -1 while it stays }
+    ChatLeft: Integer;
     OnSwordHit: TSwordHitEvent;
     OnBombBlast: TBombBlastEvent;
     OnArrowHit: TArrowHitEvent;
@@ -306,6 +327,9 @@ type
     procedure HurtFrom(Hearts, FromX, FromY: Double);
     { After death, on a direction key: hearts by AP, at the level's entry. }
     procedure Respawn;
+    { Says Text: shown over the player, playerchats for the NPCs, and
+      PLPROP_CURCHAT to the server. }
+    procedure Say(const Text: string);
     { The D key with the bomb: a bomb with a 60-tick fuse. }
     procedure LayBomb;
     procedure AddBlast(X, Y: Double; Reach, Kind: Integer; Mine: Boolean);
@@ -327,6 +351,7 @@ type
     procedure TickShots;
     procedure DrawShots(CamX, CamY: Integer);
     procedure DrawItemList;
+    procedure DrawChatBar;
     { The level sign whose 2 x 2 holds (PX, PY), or -1. }
     function SignAt(PX, PY: Double): Integer;
     { Opens the sign panel on Text (lines split at newlines). }
@@ -415,6 +440,24 @@ begin
   end;
 end;
 
+function LoadImageKeyed(const FileName: string; Dest: TGSurface): Boolean;
+var
+  I: Integer;
+begin
+  if LoadImageIndexed(FileName, Dest) then
+  begin
+    Result := True;
+    for I := 0 to High(Dest.Pixels) do
+      if Dest.Pixels[I] shr 24 <> $FF then Exit;
+    for I := 0 to High(Dest.Indices) do
+      if Dest.Indices[I] = 0 then Dest.Pixels[I] := 0;
+    SetLength(Dest.Indices, 0);
+    SetLength(Dest.Palette, 0);
+  end
+  else
+    Result := LoadImageFile(FileName, Dest);
+end;
+
 { TAssets }
 
 constructor TAssets.Create;
@@ -433,8 +476,47 @@ var
 begin
   for I := 0 to FNames.Count - 1 do FNames.Objects[I].Free;
   FNames.Free;
+  FIndex.Free;
+  FPaths.Free;
   Missing.Free;
   inherited Destroy;
+end;
+
+procedure TAssets.IndexDir(const Path: string; Depth: Integer);
+var
+  SR: TSearchRec;
+begin
+  if Depth > 8 then Exit;
+  if FindFirst(Path + '*', faAnyFile, SR) = 0 then
+  begin
+    repeat
+      if (SR.Name = '.') or (SR.Name = '..') then Continue;
+      if (SR.Attr and faDirectory) <> 0 then
+        IndexDir(Path + SR.Name + PathDelim, Depth + 1)
+      else if FIndex.IndexOf(LowerCase(SR.Name)) < 0 then
+        FIndex.AddObject(LowerCase(SR.Name), TObject(PtrInt(FPaths.Add(Path + SR.Name))));
+    until FindNext(SR) <> 0;
+    FindClose(SR);
+  end;
+end;
+
+{ 2.05 finds a picture by its name in any folder under levels/ (gate1.gif
+  in levels/gifs, light2.png in levels/images), not only in the folder of
+  its kind. The first root that has a file of that name wins. }
+function TAssets.Indexed(const Name: string): string;
+var
+  K, I: Integer;
+begin
+  if FIndex = nil then
+  begin
+    FIndex := TStringList.Create;
+    FIndex.Sorted := True;
+    FPaths := TStringList.Create;
+    for K := 0 to AssetRootCount - 1 do
+      IndexDir(AssetRoot(K) + 'levels' + PathDelim, 0);
+  end;
+  I := FIndex.IndexOf(LowerCase(Name));
+  if I >= 0 then Result := FPaths[PtrInt(FIndex.Objects[I])] else Result := '';
 end;
 
 { ---- the 2.05 sprite prop (graal_analysis client-internals/
@@ -505,6 +587,9 @@ begin
           Exit;
         end;
       end;
+  Result := Indexed(Name);
+  if Result = '' then Result := Indexed(Base + '.png');
+  if Result = '' then Result := Indexed(Base + '.gif');
 end;
 
 function TAssets.Image(const Name, Kind: string): TGSurface;
@@ -535,7 +620,7 @@ begin
   begin
     S := TGSurface.Create(0, 0);
     if Kind = 'body' then Ok := LoadImageIndexed(F, S)
-    else Ok := LoadImageFile(F, S);
+    else Ok := LoadImageKeyed(F, S);
     if not Ok then FreeAndNil(S);
   end;
   { nothing on disk: the built-in default of that name, if there is one }
@@ -595,17 +680,19 @@ end;
 constructor TServerPlayer.Create;
 begin
   inherited Create;
-  { a new player: orange, darkred, black, darkred, black; body.png; head0 }
+  { a new player as the real 2.05 makes one: orange, darkred, black,
+    darkred, black; body.png; head26 (what it shows for the default head
+    name), facing up }
   Colors[0] := 2;
   Colors[1] := 5;
   Colors[2] := 18;
   Colors[3] := 5;
   Colors[4] := 18;
   BodyImage := 'body.png';
-  HeadImage := 'head0.gif';
+  HeadImage := 'head26.gif';
   SwordImage := 'sword1.gif';
   ShieldImage := 'shield1.gif';
-  Dir := DirDown;
+  Dir := DirUp;
   AniName := 'idle';
   FixedStep := -1;
 end;
@@ -778,6 +865,7 @@ begin
   Player.GlovePower := 1;
   Player.SwordPower := 1;
   CarryKind := -1;
+  ChatLeft := -1;
   AP := 50;
   ShowStats := $1FF;
   WeaponsOn := True;
@@ -924,9 +1012,14 @@ begin
     end;
   TX := TileOf(PX);
   TY := TileOf(PY);
-  { outside 0..63 is a gmap neighbour or a fixed tile; neither is modelled
-    yet, so the edge is open and level links can be reached }
-  if (TX < 0) or (TY < 0) or (TX >= BoardW) or (TY >= BoardH) then Exit;
+  { outside 0..63 blocks: links lie on the board's edge rows, so they are
+    reached first, and at an edge with no link the real 2.05 keeps the
+    player on the board (the tutorial start, side by side under Wine) }
+  if (TX < 0) or (TY < 0) or (TX >= BoardW) or (TY >= BoardH) then
+  begin
+    Result := True;
+    Exit;
+  end;
   Result := not Arrays.TilePassable(Level.Tile(TX, TY));
 end;
 
@@ -1336,6 +1429,19 @@ end;
 procedure TAdventure.HurtFrom(Hearts, FromX, FromY: Double);
 begin
   HurtPlayer(Hearts, Player.X + 1.5 - FromX, Player.Y + 2 - FromY);
+end;
+
+procedure TAdventure.Say(const Text: string);
+var
+  T: string;
+begin
+  T := Text;
+  if Length(T) > 256 then T := Copy(T, 1, 253) + '...';
+  Player.Chat := T;
+  ChatLeft := -1;
+  if T <> '' then Npcs.PlayerChats(T);
+  if FClient.Connected then
+    FClient.SendPacket(PLI_PLAYERPROPS, GChar(PLPROP_CURCHAT) + GString(T));
 end;
 
 procedure TAdventure.Respawn;
@@ -1932,6 +2038,8 @@ end;
 { The picture glyph for '#' and a letter, or -1. #A, #B, #X, #Y and the
   arrows are as read; which of 71 to 75 and 87 the other six take is a
   guess. }
+{ The letters.png cell of a #-glyph: the cell is the glyph's place in the
+  sign alphabet. #h (the face) and #4 take two cells. }
 function ButtonGlyph(C: Char): Integer;
 begin
   case C of
@@ -1943,12 +2051,12 @@ begin
     'd': Result := 78;
     'l': Result := 79;
     'r': Result := 80;
-    'h': Result := 71;
-    'x': Result := 72;
-    'y': Result := 73;
-    'z': Result := 74;
-    '4': Result := 75;
-    '.': Result := 87;
+    'h': Result := 74;
+    'x': Result := 71;
+    'y': Result := 72;
+    'z': Result := 73;
+    '4': Result := 87;
+    '.': Result := 67;
   else
     Result := -1;
   end;
@@ -1970,13 +2078,57 @@ begin
     end;
 end;
 
+{ #K(n) in a sign is the character with code n, for the ones the sign
+  alphabet has no place for; the editor writes each line break as #K(13)
+  and a newline, and the CR is not drawn (graal_analysis
+  formats/sign-text.md). #k(n), small k, is the name of the key set for
+  game key n, in graalconfig.txt's order: the tutorial's "press the #k(8)
+  key" shows "Tab" in the real 2.05. }
+const
+  SignKeyNames: array[0..10] of string = ('Up', 'Left', 'Down', 'Right',
+    'D', 'S', 'A', 'M', 'Tab', 'Q', 'P');
+
+function ExpandSignEscapes(const S: string): string;
+var
+  I, J, N: Integer;
+begin
+  Result := '';
+  I := 1;
+  while I <= Length(S) do
+  begin
+    if (S[I] = '#') and (I + 3 <= Length(S)) and ((S[I + 1] = 'K') or (S[I + 1] = 'k')) and
+      (S[I + 2] = '(') then
+    begin
+      J := I + 3;
+      N := 0;
+      while (J <= Length(S)) and (S[J] in ['0'..'9']) and (N < 1000) do
+      begin
+        N := N * 10 + Ord(S[J]) - Ord('0');
+        Inc(J);
+      end;
+      if (J <= Length(S)) and (S[J] = ')') and (J > I + 3) and (N < 256) then
+      begin
+        if S[I + 1] = 'k' then
+        begin
+          if N <= High(SignKeyNames) then Result := Result + SignKeyNames[N];
+        end
+        else if N <> 13 then Result := Result + Chr(N);
+        I := J + 1;
+        Continue;
+      end;
+    end;
+    Result := Result + S[I];
+    Inc(I);
+  end;
+end;
+
 procedure TAdventure.ReadSign(const Text: string);
 var
   I, St: Integer;
   T: string;
 begin
   SetLength(SignLines, 0);
-  T := Text;
+  T := ExpandSignEscapes(Text);
   while (T <> '') and ((T[Length(T)] = #10) or (T[Length(T)] = #13)) do
     SetLength(T, Length(T) - 1);
   St := 1;
@@ -2008,7 +2160,9 @@ begin
     begin
       if SignLine > 0 then Dec(SignLine, 3);
     end
-    else if Length(SignLines) < SignLine + 3 then
+    { the last page ends reading, full or not: a sign of exactly three
+      lines closes on the next key in the real 2.05, with no empty page }
+    else if Length(SignLines) <= SignLine + 3 then
       Reading := False
     else
       Inc(SignLine, 3);
@@ -2055,8 +2209,9 @@ begin
       Glyph(100, X + I * 16, Y);
       Glyph(101, X + I * 16, Y + H - 32);
     end;
+    { the sides stop where the bottom corners start }
     I := 0;
-    while I * 32 < H do
+    while I * 32 < H - 32 do
     begin
       Glyph(102, X, Y + I * 32);
       Glyph(103, X + W - 16, Y + I * 32);
@@ -2094,6 +2249,11 @@ begin
         if G < 0 then G := 86;
         if L <> nil then Glyph(G, CX, Y + 16 + K * 32);
         Inc(CX, 16);
+        if (S[I] = 'h') or (S[I] = '4') then
+        begin
+          if L <> nil then Glyph(G + 1, CX, Y + 16 + K * 32);
+          Inc(CX, 16);
+        end;
       end
       else
       begin
@@ -2240,7 +2400,7 @@ end;
 function TAdventure.FollowLink(I: Integer): Boolean;
 var
   L: TLevelLink;
-  NX, NY: Double;
+  NX, NY, OX, OY: Double;
   Path: string;
 begin
   Result := False;
@@ -2273,13 +2433,19 @@ begin
   else if AssetPath(L.Dest) <> '' then
     Path := AssetPath(L.Dest);
   if Path = '' then Path := L.Dest; { LoadLevelFile tries the built-in ones }
+  { the player stands at the new place before the level's NPCs see
+    playerenters, so their scripts read where the player arrived }
+  OX := Player.X;
+  OY := Player.Y;
+  Player.X := NX;
+  Player.Y := NY;
   if not LoadLevelFile(Path) then
   begin
+    Player.X := OX;
+    Player.Y := OY;
     Log('link to ' + L.Dest + ': ' + Level.LastError);
     Exit;
   end;
-  Player.X := NX;
-  Player.Y := NY;
   Player.Level := Level.Name;
   Log(Format('link to %s at %.1f,%.1f', [Level.Name, NX, NY]));
   Result := True;
@@ -2714,6 +2880,19 @@ begin
         DirRight: AX := AX + LinkAhead;
       end;
     end;
+  { the own chat stays while the player stands still; the first step
+    starts 60 frames (3 s), then an empty line is sent
+    (client-internals/chat-text.md) }
+  if Moved and (Player.Chat <> '') and (ChatLeft < 0) then ChatLeft := 60;
+  if ChatLeft > 0 then
+  begin
+    Dec(ChatLeft);
+    if ChatLeft = 0 then
+    begin
+      Say('');
+      ChatLeft := -1;
+    end;
+  end;
   case Mode of
     ModeFree:
       if FHurtCount > 0 then
@@ -2805,6 +2984,19 @@ procedure TAdventure.DrawNames(CamX, CamY: Integer);
     DrawText(Screen, TX, TY, Name, $FFFFFFFF, 2);
   end;
 
+  procedure Over(const Text: string; X, Y: Double);
+  var
+    TX, TY: Integer;
+  begin
+    if Text = '' then Exit;
+    TX := Round(X * TileSize) - CamX + 24 - TextWidth(Text, 2) div 2;
+    if TX + TextWidth(Text, 2) > ScreenW then TX := ScreenW - TextWidth(Text, 2);
+    if TX < 0 then TX := 0;
+    TY := Round(Y * TileSize) - CamY - 12;
+    DrawText(Screen, TX + 1, TY + 1, Text, $FF0000FF, 2);
+    DrawText(Screen, TX, TY, Text, $FFFFFFFF, 2);
+  end;
+
 var
   I: Integer;
   N: TNpc;
@@ -2817,6 +3009,10 @@ begin
   end;
   for I := 0 to FOthers.Count - 1 do
     One(Others[I].Nickname, Others[I].X, Others[I].Y);
+  { chat over the players, as a name but above the head }
+  for I := 0 to FOthers.Count - 1 do
+    Over(Others[I].Chat, Others[I].X, Others[I].Y);
+  Over(Player.Chat, Player.X, Player.Y);
 end;
 
 procedure TAdventure.DrawPlayer(P: TServerPlayer; CamX, CamY: Integer);
@@ -2963,7 +3159,7 @@ procedure TAdventure.DrawStatus;
 const
   RowStart: array[0..5] of Integer = (0, 5, 11, 16, 22, 27);
 var
-  St: TGSurface;
+  St, Img: TGSurface;
   I, N, Row, Col, X, Half, HX, HY, Hearts2, Down: Integer;
 
   procedure Part(SX, SY, W, H, DX, DY: Integer);
@@ -2982,13 +3178,23 @@ var
       Part(14 * (Ord(D[J]) - Ord('0')), 81, 14, 16, X0 + (J - 1) * 12, Y);
   end;
 
+  { the key on a button: large, white over a black copy at +1, +1 (2.05
+    uses 26 pt Helvetica; this is the project's own font at three times) }
   procedure KeyName(const K: string; BX, BY: Integer);
   var
-    TX: Integer;
+    TX, Sc: Integer;
   begin
-    TX := BX + (22 - TextWidth(K, 2)) div 2;
-    DrawText(Screen, TX + 1, BY + 9 + 1, K, $FF000000, 2);
-    DrawText(Screen, TX, BY + 9, K, $FFFFFFFF, 2);
+    if Length(K) = 1 then Sc := 3 else Sc := 2;
+    TX := BX + (22 - TextWidth(K, Sc)) div 2;
+    DrawText(Screen, TX + 1, BY + (33 - 7 * Sc) div 2 + 1, K, $FF000000, Sc);
+    DrawText(Screen, TX, BY + (33 - 7 * Sc) div 2, K, $FFFFFFFF, Sc);
+  end;
+
+  { a power beside its icon: white over a blue copy at +1, +1 }
+  procedure PowerText(const T: string; X, Y: Integer);
+  begin
+    DrawText(Screen, X + 1, Y + 6, T, $FF0000FF, 2);
+    DrawText(Screen, X, Y + 5, T, $FFFFFFFF, 2);
   end;
 
 begin
@@ -3005,9 +3211,19 @@ begin
       KeyName('S', 80, 30);
       Part(202, 0, 22, 33, 145, 30);
       KeyName('D', 145, 30);
+      { the item-list key, small, over the D button }
+      DrawText(Screen, 148, 28, 'Q', $FF000000, 1);
+      DrawText(Screen, 147, 27, 'Q', $FFFFFFFF, 1);
+      { the sword: sprite 17 of the player's sword image, (94, 36, 28, 28),
+        at (105, 31), and its power beside it }
+      if Player.SwordPower >= 1 then
+      begin
+        Img := Assets.Image(Player.SwordImage, 'sword');
+        if Img <> nil then Screen.Blit(Img, 94, 36, 28, 28, 105, 31);
+        PowerText(IntToStr(Player.SwordPower), 125, 31);
+      end;
       if Player.GlovePower >= 2 then
-        DrawText(Screen, 60, 31, IntToStr(Player.GlovePower), $FFFFFFFF, 1);
-      DrawText(Screen, 125, 31, IntToStr(Player.SwordPower), $FFFFFFFF, 1);
+        PowerText(IntToStr(Player.GlovePower), 60, 31);
     end;
   end;
   if WeaponsOn then
@@ -3086,14 +3302,14 @@ begin
   if Sheet.Width = 0 then MakeIndexSheet(Sheet);
   { centre on the player's body (the sprite box is 3 tiles wide) }
   CamX := Round((Player.X + 1.5) * TileSize) - ScreenW div 2;
-  CamY := Round((Player.Y + 2) * TileSize) - ScreenH div 2;
+  CamY := Round((Player.Y + 2) * TileSize) - ViewH div 2;
   if CamX > BoardW * TileSize - ScreenW then CamX := BoardW * TileSize - ScreenW;
-  if CamY > BoardH * TileSize - ScreenH then CamY := BoardH * TileSize - ScreenH;
+  if CamY > BoardH * TileSize - ViewH then CamY := BoardH * TileSize - ViewH;
   if CamX < 0 then CamX := 0;
   if CamY < 0 then CamY := 0;
   X0 := CamX div TileSize;
   Y0 := CamY div TileSize;
-  for TY := Y0 to Y0 + ScreenH div TileSize + 1 do
+  for TY := Y0 to Y0 + ViewH div TileSize + 1 do
     for TX := X0 to X0 + ScreenW div TileSize + 1 do
       if (TX < BoardW) and (TY < BoardH) then
         DrawTile(Screen, Sheet, Level.Tile(TX, TY), TX * TileSize - CamX,
@@ -3117,6 +3333,24 @@ begin
   DrawMaps(Self);
   if Reading then DrawSign(CamY);
   if ItemListOpen then DrawItemList;
+  DrawChatBar;
+end;
+
+{ The chat line: a plain sunken edit box across the bottom, with what is
+  being typed in it. }
+procedure TAdventure.DrawChatBar;
+var
+  Y: Integer;
+begin
+  Y := ViewH;
+  Screen.FillRect(0, Y, ScreenW, ChatBarH, $FFFFFFFF);
+  Screen.FillRect(0, Y, ScreenW, 1, $FFA6A6A6);
+  Screen.FillRect(0, Y, 1, ChatBarH - 1, $FFA6A6A6);
+  Screen.FillRect(1, Y + 1, ScreenW - 2, 1, $FF6A6A6A);
+  Screen.FillRect(1, Y + 1, 1, ChatBarH - 3, $FF6A6A6A);
+  Screen.FillRect(1, Y + ChatBarH - 2, ScreenW - 2, 1, $FFE3E3E3);
+  if ChatTyping then
+    DrawText(Screen, 3, Y + 8, ChatLine + '_', $FF000000, 1);
 end;
 
 end.

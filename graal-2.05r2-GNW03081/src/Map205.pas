@@ -241,7 +241,7 @@ begin
   if Path <> '' then
   begin
     M.Image := TGSurface.Create(0, 0);
-    if not LoadImageFile(Path, M.Image) or (M.Image.Width = 0) then FreeAndNil(M.Image);
+    if not LoadImageKeyed(Path, M.Image) or (M.Image.Width = 0) then FreeAndNil(M.Image);
   end;
 end;
 
@@ -444,7 +444,7 @@ var
   P: TServerPlayer;
 begin
   if (MiniMap.Image = nil) or (MiniMap.Cols <= 0) then Exit;
-  Bottom := ScreenH - MinimapBottom;
+  Bottom := ViewH - MinimapBottom;
   Top := Bottom - MiniMap.Image.Height;
   G.Screen.Blit(MiniMap.Image, 0, 0, MiniMap.Image.Width, MiniMap.Image.Height,
     MinimapLeft, Top);

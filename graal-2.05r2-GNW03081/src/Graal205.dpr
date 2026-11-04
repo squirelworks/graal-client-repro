@@ -271,6 +271,9 @@ var
   OK, Online, UseWindow, NoDelay, Dropped, Crashed, EditorFirst: Boolean;
   StartUs, GateUs, NowUs, T0, NextStatsUs: Int64;
   WasHeld: array[0..4] of Boolean;
+  Typed: string;
+  K: Integer;
+  Chatting: Boolean;
 
 begin
   Result := 64;
@@ -362,14 +365,15 @@ begin
     end
     else
     begin
+      { placed first: the level's NPCs see playerenters on loading }
+      G.Player.X := StrToFloatDef(Arg('--x', '30'), 30);
+      G.Player.Y := StrToFloatDef(Arg('--y', '30'), 30);
       OK := G.LoadLevelFile(Arg('--level', ''));
       { offline on the tutorial, 2.05 switches to the tutorial maps }
       if Copy(LowerCase(ExtractFileName(Arg('--level', ''))), 1, 9) = 'tutorial_' then
         UseTutorialMaps;
       if OK then
       begin
-        G.Player.X := StrToFloatDef(Arg('--x', '30'), 30);
-        G.Player.Y := StrToFloatDef(Arg('--y', '30'), 30);
         G.Log(Format('%s: %s, %d links, %d signs, %d chests, %d npcs, %d baddies',
           [G.Level.Name, G.Level.Magic, Length(G.Level.Links), Length(G.Level.Signs),
            Length(G.Level.Chests), Length(G.Level.NPCs), Length(G.Level.Baddies)]));
@@ -421,20 +425,36 @@ begin
             EditorKey(Win, G, Online);
             if Win.Closed then Break;
           end;
-          G.Keys[DirUp] := Win.Held[gkUp];
-          G.Keys[DirLeft] := Win.Held[gkLeft];
-          G.Keys[DirDown] := Win.Held[gkDown];
-          G.Keys[DirRight] := Win.Held[gkRight];
+          { the chat line: Tab goes into it and back out; while in it the
+            keys type there and Enter says the line }
+          Typed := Win.TakeChars;
+          for K := 1 to Length(Typed) do
+            if Typed[K] = #9 then G.ChatTyping := not G.ChatTyping
+            else if G.ChatTyping then
+              case Typed[K] of
+                #8: if G.ChatLine <> '' then SetLength(G.ChatLine, Length(G.ChatLine) - 1);
+                #13:
+                  begin
+                    G.Say(G.ChatLine);
+                    G.ChatLine := '';
+                  end;
+                #32..#255: if Length(G.ChatLine) < 300 then G.ChatLine := G.ChatLine + Typed[K];
+              end;
+          Chatting := G.ChatTyping;
+          G.Keys[DirUp] := Win.Held[gkUp] and not Chatting;
+          G.Keys[DirLeft] := Win.Held[gkLeft] and not Chatting;
+          G.Keys[DirDown] := Win.Held[gkDown] and not Chatting;
+          G.Keys[DirRight] := Win.Held[gkRight] and not Chatting;
           { the game keys act on the press, not while held }
-          G.ActionKey := Win.Held[gkAction] and not WasHeld[0];
-          G.AttackKey := Win.Held[gkAttack] and not WasHeld[1];
-          G.ItemKey := Win.Held[gkItem] and not WasHeld[2];
-          G.MapKey := Win.Held[gkMap] and not WasHeld[3];
+          G.ActionKey := Win.Held[gkAction] and not WasHeld[0] and not Chatting;
+          G.AttackKey := Win.Held[gkAttack] and not WasHeld[1] and not Chatting;
+          G.ItemKey := Win.Held[gkItem] and not WasHeld[2] and not Chatting;
+          G.MapKey := Win.Held[gkMap] and not WasHeld[3] and not Chatting;
           WasHeld[0] := Win.Held[gkAction];
           WasHeld[1] := Win.Held[gkAttack];
           WasHeld[2] := Win.Held[gkItem];
           WasHeld[3] := Win.Held[gkMap];
-          G.ItemListKey := Win.Held[gkItemList] and not WasHeld[4];
+          G.ItemListKey := Win.Held[gkItemList] and not WasHeld[4] and not Chatting;
           WasHeld[4] := Win.Held[gkItemList];
         end;
         if Walker.Mode = wmScript then D := Script.DirAt(I)
