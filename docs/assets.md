@@ -50,7 +50,7 @@ that has it:
 | 4.20r8 (PR #38) | `4.20r8` | `4.20r8/` |
 | 4.20r6 (PR #40) | `4.20r6;4.20r8` | `4.20r6/` (none shipped), then `4.20r8/`: its install's files are 4.20r8's byte for byte |
 | 5.00r7 | `5.00r7` | `5.00r7/` (not in the zip yet: no 5.00r7 install in project files) |
-| 1998-99 betas b1 to b15, b4a, b5a, b9a (PRs #51 to #69) | `bN` (own folder only) | `bN/` |
+| 1998-99 betas b1 to b15, b4a, b5a, b9a (PRs #51 to #69) | `bN`; b12 to b15 `bN;b11`, b8 `b8;b7` | `bN/`, then `b11/` or `b7/` |
 | Graal3D (PR #70) | `3d` | `3d/` |
 | Zelda Online 1 (Java, `ZeldaOnline1.jar`) | its own `Assets` class, same order | `zelda-online1/` |
 
@@ -147,9 +147,10 @@ files and the `.bmp` textures); `startlevel.x` is the server's.
 out of VERSION's folder what OTHER has byte for byte, for a build
 labelled `VERSION;OTHER`. It refuses when OTHER has any file VERSION's
 install lacks. The betas that qualify, one level deep: b12, b13, b14 and
-b15 on b11 (b12's kept files are b11's exactly), and b8 on b7. With
-those labels the zip goes from 35 MB to 23 MB; until the beta builds
-carry them, every beta has its full folder.
+b15 on b11 (b12's kept files are b11's exactly), and b8 on b7. The beta
+builds carry those labels (PRs #51 to #54 and #59), and the zip is cut
+with `--fallback b12=b11 --fallback b13=b11 --fallback b14=b11
+--fallback b15=b11 --fallback b8=b7`: 23 MB instead of 35 MB.
 
 ### Known gaps
 
