@@ -1,7 +1,8 @@
 #!/bin/sh
 # Loopback acceptance check for the 1998 relay builds (gen 1): start the lab
 # relay (scripts/relay98.py) and join two copies of the rebuilt client. Both
-# must get their ids, pair, and the second must see the first's nickname.
+# must get their ids, pair and see each other's nickname, and the first
+# must drop the second when it quits.
 #   scripts/loopback-relay.sh BUILD
 # BUILD: a gen-1 folder, e.g. graal-1.1.9-19990211.
 set -eu
@@ -35,11 +36,22 @@ for L in loop1 loop2; do
     echo "$L: no clean JSON summary"; exit 1
   fi
 done
-if ! grep -q "other player .* loop1" "$WORK/loop2.log"; then
-  echo "loop2 did not see loop1"; exit 1
+# each must see the other's nickname arrive while both are on: the
+# "other player <id> <nick>" line HandleData logs on an N, not the list
+# printed at exit
+for P in "loop2 loop1" "loop1 loop2"; do
+  set -- $P
+  if ! grep -Eq "^other player [0-9a-f]{8} $2\$" "$WORK/$1.log"; then
+    echo "$1 did not see $2"; exit 1
+  fi
+done
+# loop2 quits first: loop1 must drop it and not still list it at exit
+ID2=$(sed -n 's/^other player \([0-9a-f]\{8\}\) loop2$/\1/p' "$WORK/loop1.log" | head -1)
+if ! grep -q "^player $ID2 left" "$WORK/loop1.log"; then
+  echo "loop1 did not see loop2 leave"; exit 1
 fi
-if ! grep -q "other player .* loop2" "$WORK/loop1.log"; then
-  echo "loop1 did not see loop2"; exit 1
+if grep -q "^other player .* loop2 at " "$WORK/loop1.log"; then
+  echo "loop1 still lists loop2 after it left"; exit 1
 fi
 [ $RC2 -eq 0 ] || exit $RC2
 exit $RC
