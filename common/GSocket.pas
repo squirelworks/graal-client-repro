@@ -36,7 +36,9 @@ implementation
 uses
   SysUtils,
 {$IFDEF FPC}
-  sockets, {$IFDEF UNIX} BaseUnix, netdb, {$ENDIF} {$IFDEF WINDOWS} WinSock2, {$ENDIF}
+  { WinSock2 comes first so that, where both units declare a name
+    (in_addr, htons, closesocket), the sockets unit's version wins }
+  {$IFDEF WINDOWS} WinSock2, {$ENDIF} sockets, {$IFDEF UNIX} BaseUnix, netdb, {$ENDIF}
 {$ELSE}
   WinSock, Windows,
 {$ENDIF}
@@ -75,7 +77,7 @@ begin
 end;
 {$ELSE}
 var
-  A: in_addr;
+  A: sockets.in_addr;
 begin
   A := StrToNetAddr(Host);
   Addr := A.s_addr;
