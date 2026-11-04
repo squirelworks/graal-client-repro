@@ -15,7 +15,8 @@
   as 2.05's MCI path does, and loops a .mid when it ends. Elsewhere it is
   silent for now.
 
-  What is kept from 2.05's one sound routine (decompile 004a35c8):
+  What is kept from 2.05's one sound routine (its sound path, graal_analysis
+  client-internals/sound-and-music.md):
   - the file is looked for under sounds/ (GAssetDirs: the data folder,
     beside the program, wins over graal-assets); a missing file is silent;
   - a leading '+' loops the effect; looped effects stop with
