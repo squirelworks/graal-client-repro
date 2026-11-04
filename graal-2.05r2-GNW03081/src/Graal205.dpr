@@ -506,6 +506,8 @@ begin
       Result := 64;
       Exit;
     end;
+    { the asset roots before anything is read from them }
+    SetAssetRoots(Dir, ClientBuildLabel);
     { listserver.txt next to the program, else a Seihai listserver on this
       machine; the 2.05 one is gone }
     ReadListServer(Dir, '127.0.0.1', 14921, ListHost, ListPort);
