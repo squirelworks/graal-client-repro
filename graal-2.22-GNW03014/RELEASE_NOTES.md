@@ -1,0 +1,77 @@
+# Graal 2.22 (GNW03014)
+
+The first rebuild of the classic Graal 2.22 client in Delphi (Object
+Pascal). It talks the 2.22 wire protocol (gen 5: a compression byte per
+frame, zlib or bzip2, and the partial XOR cipher), draws levels and gmaps,
+walks across gmap edges, and takes level links. It is an early version:
+most of the game (NPCs, items, weapons, the script engine, the editors) is
+not there yet.
+
+> **Not affiliated.** graal-delphi is an independent fan project. It is not
+> affiliated with, endorsed by, or connected to GraalOnline or
+> graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").
+
+These zips hold no original Graal code, graphics, sounds or levels. Point the
+client at a 2.22 install you own with `--data DIR` for the tiles, ganis,
+heads and bodies.
+
+## Downloads
+
+| Zip | Runs on | Window |
+|---|---|---|
+| `…-linux.zip` | Linux x86-64 | X11 |
+| `…-windows.zip` | Windows, 32-bit (as 2.22 itself was) | GDI |
+| `…-macos.zip` | macOS on Apple silicon | none yet: headless, or `--dump` frames to a file |
+
+Each zip has `Graal222` (the client), `Test222` (its test suite) and the
+build's README. On macOS the binaries are not signed: after unzipping, run
+`xattr -d com.apple.quarantine Graal222 Test222` once, or allow them under
+System Settings > Privacy & Security.
+
+## What works
+
+- Login to a 2.22 server: login type 5, `GNW03014`, the tamper check, and
+  gen-5 frames both ways. Checked against frames of a real 2.22 session:
+  the rebuild makes the real client's uncompressed frames byte for byte
+  and reads the real server's, bzip2 included.
+- The 2.1+ player props (GANI as text, OSTYPE, TEXTCODEPAGE, gmap cells),
+  stopping where 2.22's own parsers stop.
+- The board, the player and other players drawn from the install's tiles
+  and ganis.
+- Walking and collision, with props sent every 100 ms as 2.22 does.
+- Level links, asked with LEVELWARP or, for a level already seen,
+  LEVELWARPMOD with its mod time, each followed by the tamper check.
+- Gmaps: the warp onto a gmap, the `.gmap` file, the neighbouring levels,
+  and walking over an edge into the next level.
+- A headless mode for stress runs, with a random walker, JSON stats and
+  clean shutdown on SIGTERM / Ctrl+C. Fifty of these ran in one level of
+  seihai-gserver for 40 s: all ended clean, 1616 of 1619 links went
+  through, about 4.8 MB each.
+
+## Running it
+
+```
+GRAAL_PW=... Graal222 --server HOST:PORT --account NAME --data /path/to/graal222
+Graal222 --level some.nw --data /path/to/graal222          # offline
+Graal222 --level world.gmap --data /path/to/graal222       # offline gmap
+Graal222 --server HOST:PORT --account NAME --headless --seconds 600 \
+  --walk random --link-every 5 --stats-every 10              # stress run
+```
+
+Arrow keys or I/J/K/L walk, Esc quits. Run `Graal222` with no arguments for
+every flag.
+
+## Not yet
+
+NPCs, baddies, items and weapons; the GS1 script engine; the editors; chat
+bubbles and names; the listserver step and the start window; UDP peer
+traffic; a macOS window. See the build's README for the full list.
+
+## Checks behind this release
+
+The test suite (72 checks) runs with range and overflow checks and the heap
+tracer, and must end with no unfreed memory. It includes frames of a real
+2.22 session, a bzip2 round trip against random and repetitive data, and a
+fuzz run of 20000 random messages and 3000 random gen-5 frames through the
+receive path. CI also logs two of these clients into seihai-gserver, has
+the second see the first, and walks one through a level link.

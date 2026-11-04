@@ -31,6 +31,7 @@ from a local path and are skipped when it is missing.
 common/                     code that is the same across builds
   GTypes.pas                GCHAR / GSHORT / GINT3..5 / GSTRING, message reader
   GZlib.pas                 zlib in and out of string buffers
+  GBzip2.pas                bzip2 in and out of string buffers (gen 5, 2.22 on)
   GSocket.pas               non-blocking TCP, polled from the game tick
   GLevel.pas                64x64 level: GR-V1.0x, Z3-V1.0x, GLEVNW01, board packet, GR-V writer
   GSurface.pas              32-bit software surface, tile sheet blit, BMP/PNG/GIF loading, palette recolour
@@ -40,6 +41,9 @@ common/                     code that is the same across builds
 graal-2.05r2-GNW03081/      Graal 2.05 rev 2
   src/                      the client (Graal205.dpr and its units)
   tests/                    Test205.dpr
+graal-2.22-GNW03014/        Graal 2.22
+  src/                      the client (Graal222.dpr and its units)
+  tests/                    Test222.dpr
 scripts/
   build.sh                  build every rebuild and its tests
   test.sh                   run every test program
@@ -149,6 +153,7 @@ steps and are required before a build counts as done.
 | Build | Token | Wire | World | Play | Harden | Release |
 |---|---|---|---|---|---|---|
 | [2.05 rev 2](graal-2.05r2-GNW03081/) | `GNW03081` | done | board, player from ganis, window | walking and collision; props out; other players; level links | headless stress mode, fuzzed receive path, leak checks | v0.0.1 draft |
+| [2.22](graal-2.22-GNW03014/) | `GNW03014` | done (gen 5, bzip2) | board, level cache, gmaps | walking and collision; props out; other players; level links; gmap edges | headless stress mode, fuzzed receive path, leak checks | v0.0.1 after merge |
 
 ## Licence
 
