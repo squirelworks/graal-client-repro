@@ -44,6 +44,9 @@ common/                     code that is the same across builds
   GBuiltin.pas              built-in original assets, compiled in (generated)
   GAssetDirs.pas            where a build finds the player's own Graal files (graal-assets/)
   builtin/                  those assets as files (scripts/builtin/make_builtin.py)
+graal-2.05-GNW03081/        Graal 2.05
+  src/                      the client (Graal205.dpr and its units)
+  tests/                    Test205.dpr
 graal-2.05r2-GNW03081/      Graal 2.05 rev 2
   src/                      the client (Graal205.dpr and its units)
   tests/                    Test205.dpr
@@ -170,6 +173,7 @@ steps and are required before a build counts as done.
 
 | Build | Token | Wire | World | Play | Harden | Release |
 |---|---|---|---|---|---|---|
+| [2.05](graal-2.05-GNW03081/) | `GNW03081` | as 2.05 rev 2 | as 2.05 rev 2 | as 2.05 rev 2 | as 2.05 rev 2 | v0.0.1 after merge |
 | [2.05 rev 2](graal-2.05r2-GNW03081/) | `GNW03081` | done | board, player from ganis, window | walking and collision; props out; other players; level links | headless stress mode, fuzzed receive path, leak checks | v0.0.1 draft |
 | [2.17.1](graal-2.17.1-GNW22122/) | `GNW22122` | login with tamper check; all 79 server ids accepted | board, players and NPCs from ganis (ATTACHSPRITE, #P1 to #P30), addtiledef sheets, window | everything 2.05 plays (items, combat, NPCs and GS1, baddies, sound, maps, editor); GANI and direction props out; replaceani | from 2.05: headless stress mode, fuzzed receive path, leak checks | not yet |
 | [2.22](graal-2.22-GNW03014/) | `GNW03014` | done (gen 5, bzip2); start screen and 2.22 listserver step | board, level cache, gmaps | walking and collision; props out; other players; level links; gmap edges; Training on the offline tutorial | headless stress mode, fuzzed receive path, leak checks | v0.0.1 after merge |
