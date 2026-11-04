@@ -134,7 +134,28 @@ var
   M: TNpcManager;
   N: TNpc;
   S: TGsScript;
+  Bad, I: Integer;
+const
+  { each stops part way through a statement; the half-built pieces must
+    still be freed (the heap check at exit catches a leak) }
+  Broken: array[0..4] of string = (
+    'this.a = (1 + (2 * 3;',
+    'if (this.a == (1 + 2) this.b = 1;',
+    'for (i = 0; i < (3 + 1; i++) this.c++;',
+    'for (i = 0; i < 3; i++) { this.d = (4 + ; }',
+    'setplayerprop #c,(1+;');
 begin
+  Bad := 0;
+  for I := 0 to High(Broken) do
+  begin
+    S := TGsScript.Create;
+    try
+      if not S.Compile(Broken[I]) then Inc(Bad);
+    finally
+      S.Free;
+    end;
+  end;
+  C(Bad >= 4, 'gs1: broken scripts report errors and free their pieces');
   W := TTestWorld.Create;
   M := TNpcManager.Create(W);
   try

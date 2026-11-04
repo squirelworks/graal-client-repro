@@ -300,6 +300,7 @@ type
   TGsScript = class
   private
     FFuncs: TStringList;   { name -> start node index (Objects) }
+    FOwned: TList;         { every node and expression made for this script }
   public
     Nodes: TList;
     LoopCount: Integer;
@@ -543,22 +544,25 @@ end;
 
 { ---- expressions ---- }
 
-destructor TGsExpr.Destroy;
+{ Nodes and expressions are owned by the script that compiled them (its
+  FOwned list), so a compile error part way through a statement frees the
+  half-built pieces too. Neither frees its children. }
+
 var
-  I: Integer;
+  GOwner: TList; { FOwned of the script being compiled }
+
+procedure Own(O: TObject);
 begin
-  A.Free;
-  B.Free;
-  for I := 0 to High(Args) do Args[I].Free;
+  if GOwner <> nil then GOwner.Add(O);
+end;
+
+destructor TGsExpr.Destroy;
+begin
   inherited;
 end;
 
 destructor TGsNode.Destroy;
-var
-  I: Integer;
 begin
-  Expr.Free;
-  for I := 0 to High(Args) do Args[I].Free;
   inherited;
 end;
 
@@ -742,6 +746,7 @@ end;
 function TGsCompiler.Emit(Kind: TGsNodeKind): TGsNode;
 begin
   Result := TGsNode.Create;
+  Own(Result);
   Result.Kind := Kind;
   Result.Line := Line;
   Result.Target := -1;
@@ -756,6 +761,7 @@ end;
 function MakeExpr(Kind: TGsExprKind): TGsExpr;
 begin
   Result := TGsExpr.Create;
+  Own(Result);
   Result.Kind := Kind;
 end;
 
@@ -1175,14 +1181,14 @@ begin
             N.Args[I] := C.ParseOr;
             if C.TokKind <> tkEnd then
             begin
-              FreeAndNil(N.Args[I]);
+              N.Args[I] := nil;
               Script.Errors.Add(Format('line %d: %s: bad number "%s"',
                 [Line, GsCommands[Op - GsFirstOp].Name, N.Raw[I]]));
             end;
           except
             on E: EGsCompile do
             begin
-              FreeAndNil(N.Args[I]);
+              N.Args[I] := nil;
               Script.Errors.Add(Format('line %d: %s: bad number "%s"',
                 [Line, GsCommands[Op - GsFirstOp].Name, N.Raw[I]]));
             end;
@@ -1484,13 +1490,15 @@ begin
   Nodes := TList.Create;
   Errors := TStringList.Create;
   FFuncs := TStringList.Create;
+  FOwned := TList.Create;
 end;
 
 destructor TGsScript.Destroy;
 var
   I: Integer;
 begin
-  for I := 0 to Nodes.Count - 1 do TGsNode(Nodes[I]).Free;
+  for I := 0 to FOwned.Count - 1 do TObject(FOwned[I]).Free;
+  FOwned.Free;
   Nodes.Free;
   Errors.Free;
   FFuncs.Free;
@@ -1500,13 +1508,17 @@ end;
 function TGsScript.Compile(const Text: string): Boolean;
 var
   C: TGsCompiler;
+  Saved: TList;
 begin
   Source := Text;
+  Saved := GOwner;
+  GOwner := FOwned;
   C := TGsCompiler.Create;
   try
     Result := C.Compile(Self, Text);
   finally
     C.Free;
+    GOwner := Saved;
   end;
 end;
 
