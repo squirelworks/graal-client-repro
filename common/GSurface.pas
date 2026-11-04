@@ -285,13 +285,19 @@ begin
   if Data = '' then Exit;
   if Copy(Data, 1, 2) = 'BM' then
   begin
+    { 8 and 24-bit here; other depths (the 4-bit buttons of the old
+      clients) through the FPC reader }
     Result := Dest.LoadBMPString(Data);
+{$IFNDEF FPC}
     Exit;
+{$ENDIF}
+    if Result then Exit;
   end;
 {$IFDEF FPC}
   Ext := LowerCase(ExtractFileExt(Name));
   { pick the reader by the bytes, then by the name }
-  if Copy(Data, 2, 3) = 'PNG' then Reader := TFPReaderPNG.Create
+  if Copy(Data, 1, 2) = 'BM' then Reader := TFPReaderBMP.Create
+  else if Copy(Data, 2, 3) = 'PNG' then Reader := TFPReaderPNG.Create
   else if Copy(Data, 1, 3) = 'GIF' then Reader := TFPReaderGIF.Create
   else if Copy(Data, 1, 2) = #$FF#$D8 then Reader := TFPReaderJPEG.Create
   else if Ext = '.png' then Reader := TFPReaderPNG.Create

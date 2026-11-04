@@ -58,13 +58,38 @@ type
   { Draws the player's character with its feet near (X, Y + 40). }
   TDrawCharacter = procedure(S: TGSurface; X, Y: Integer; const Nick: string) of object;
 
+  TStartRect = record
+    X, Y, W, H: Integer;
+  end;
+
+  { The original start window of a build, drawn when its art lies next to
+    the program: positions inside a FormW x FormH window, which is centred
+    in the game screen. The numbers come from the build's own forms and
+    code; the images are not part of this project. }
+  TClassicLayout = record
+    Used: Boolean;
+    FormW, FormH: Integer;
+    { the button face: two states side by side (up, down); ';' between
+      names tried }
+    ButtonImages: string;
+    Training, Options, Start: TStartRect;
+    TrainingText, OptionsText, StartText: string;
+    Welcome: TStartRect;
+    WelcomeText: string;
+    LanguageLabel, NickLabel: TStartRect;
+    LanguageField, NickField: TStartRect;
+  end;
+
   TStartInfo = record
     Title, Subtitle: string;
+    Classic: TClassicLayout;
     { image files tried, in order, relative to the program's folder;
       ';' between names. None found: a drawn backdrop with the titles. }
     Backgrounds: string;
     DrawCharacter: TDrawCharacter;
   end;
+
+function StartRect(X, Y, W, H: Integer): TStartRect;
 
 { PLO id 0 of the listserver: c count, then per server c field count and
   that many strings (name, language, description, url, version, players,
@@ -159,6 +184,14 @@ begin
   Result := Name;
   if (Length(Name) > 2) and (Name[2] = ' ') and (Pos(Name[1], 'PH3U') > 0) then
     Result := Copy(Name, 3, MaxInt);
+end;
+
+function StartRect(X, Y, W, H: Integer): TStartRect;
+begin
+  Result.X := X;
+  Result.Y := Y;
+  Result.W := W;
+  Result.H := H;
 end;
 
 { ---- drawing helpers ---- }
@@ -291,14 +324,64 @@ begin
   end;
 end;
 
+{ The original start window: the background at the window's size, the
+  labels and fields where its form puts them, and the buttons drawn from
+  the two-state face. }
+procedure ClassicButton(S, Face: TGSurface; const R: TRectI; const Caption: string; Down: Boolean);
+var
+  FW: Integer;
+begin
+  FW := Face.Width div 2;
+  if Down then
+    S.Blit(Face, FW, 0, FW, Face.Height, R.X, R.Y)
+  else
+    S.Blit(Face, 0, 0, FW, Face.Height, R.X, R.Y);
+  DrawText(S, R.X + (R.W - TextWidth(Caption, 1)) div 2 + Ord(Down),
+    R.Y + (R.H - GlyphH) div 2 + Ord(Down), Caption, $FF000000, 1);
+  DrawText(S, R.X + (R.W - TextWidth(Caption, 1)) div 2 + 1 + Ord(Down),
+    R.Y + (R.H - GlyphH) div 2 + Ord(Down), Caption, $FF000000, 1);
+end;
+
+procedure ClassicField(S: TGSurface; const R: TRectI; const Text: string; Caret: Boolean);
+var
+  T: string;
+begin
+  S.FillRect(R.X, R.Y, R.W, R.H, $FF404040);
+  S.FillRect(R.X + 1, R.Y + 1, R.W - 1, R.H - 1, $FFFFFFFF);
+  S.FillRect(R.X + 2, R.Y + 2, R.W - 3, R.H - 3, $FF008000);
+  T := Text;
+  while (T <> '') and (TextWidth(T + '_', 1) > R.W - 8) do Delete(T, 1, 1);
+  if Caret and ((NowMs div 400) mod 2 = 0) then T := T + '_';
+  DrawText(S, R.X + 4, R.Y + (R.H - GlyphH) div 2, T, $FF00FF00, 1);
+end;
+
+procedure DrawClassic(S, Back, Face: TGSurface; const L: TClassicLayout; OX, OY: Integer;
+  const BTraining, BOptions, BStart, FNick, FLang, LWelcome: TRectI;
+  const Nick, Note: string; MX, MY: Integer; MDown: Boolean);
+begin
+  S.Fill($FF000000);
+  S.Blit(Back, 0, 0, Back.Width, Back.Height, OX, OY);
+  Wrapped(S, LWelcome.X + 4, LWelcome.Y, LWelcome.W - 8, L.WelcomeText, $FF00FF00, 1);
+  DrawText(S, OX + L.LanguageLabel.X, OY + L.LanguageLabel.Y + 4, 'Language:', $FF00FF00, 1);
+  DrawText(S, OX + L.NickLabel.X, OY + L.NickLabel.Y + 4, 'Nick Name:', $FF00FF00, 1);
+  ClassicField(S, FLang, 'English', False);
+  ClassicField(S, FNick, Nick, True);
+  ClassicButton(S, Face, BTraining, L.TrainingText, MDown and Inside(BTraining, MX, MY));
+  ClassicButton(S, Face, BOptions, L.OptionsText, MDown and Inside(BOptions, MX, MY));
+  ClassicButton(S, Face, BStart, L.StartText, MDown and Inside(BStart, MX, MY));
+  if Note <> '' then DrawText(S, OX + 8, OY + L.FormH + 6, Note, ColFocus, 1);
+end;
+
 function RunStartScreen(Win: TGWindow; S: TGSurface; Fetch: TListFetch;
   const Info: TStartInfo; const DataDir, ListHost: string; ListPort: Integer;
   const Message: string; var R: TStartResult): Boolean;
 type
   TPage = (pgStart, pgList);
 var
-  Back: TGSurface;
-  HasBack: Boolean;
+  Back, BtnFace: TGSurface;
+  HasBack, Classic: Boolean;
+  OX, OY: Integer;
+  FLang, LWelcome: TRectI;
   Page: TPage;
   Focus, Sel, I, CX, CY, Y, Top: Integer;
   Clicked: Boolean;
@@ -311,6 +394,7 @@ const
 begin
   Result := False;
   Back := TGSurface.Create(0, 0);
+  BtnFace := TGSurface.Create(0, 0);
   try
     HasBack := LoadBackground(DataDir, Info.Backgrounds, Back);
     Page := pgStart;
@@ -329,6 +413,23 @@ begin
     BConnect := RectI(400, 420, 220, 36);
     BRefresh := RectI(210, 420, 170, 36);
     BBack := RectI(20, 420, 170, 36);
+    { the original window, when its background and buttons are here }
+    Classic := Info.Classic.Used and HasBack and (Back.Width = Info.Classic.FormW) and
+      (Back.Height = Info.Classic.FormH) and
+      LoadBackground(DataDir, Info.Classic.ButtonImages, BtnFace) and (BtnFace.Width >= 2);
+    OX := (S.Width - Info.Classic.FormW) div 2;
+    OY := (S.Height - Info.Classic.FormH) div 2;
+    if Classic then
+      with Info.Classic do
+      begin
+        BTraining := RectI(OX + Training.X, OY + Training.Y, Training.W, Training.H);
+        BOptions := RectI(OX + Options.X, OY + Options.Y, Options.W, Options.H);
+        BStart := RectI(OX + Start.X, OY + Start.Y, Start.W, Start.H);
+        FNick := RectI(OX + NickField.X, OY + NickField.Y, NickField.W, NickField.H);
+        FLang := RectI(OX + LanguageField.X, OY + LanguageField.Y, LanguageField.W,
+          LanguageField.H);
+        LWelcome := RectI(OX + Welcome.X, OY + Welcome.Y, Welcome.W, Welcome.H);
+      end;
     while True do
     begin
       Win.Pump;
@@ -369,6 +470,14 @@ begin
           end;
         end;
         { drawing }
+        if Classic then
+        begin
+          DrawClassic(S, Back, BtnFace, Info.Classic, OX, OY, BTraining, BOptions, BStart,
+            FNick, FLang, LWelcome, R.Nickname, Note, Win.MouseX, Win.MouseY, False);
+          Win.Present(S);
+          Sleep(20);
+          Continue;
+        end;
         S.Fill(ColBack);
         if HasBack then
           S.Blit(Back, 0, 0, Back.Width, Back.Height, (S.Width - Back.Width) div 2, 8)
@@ -480,6 +589,7 @@ begin
       Sleep(20);
     end;
   finally
+    BtnFace.Free;
     Back.Free;
   end;
 end;
