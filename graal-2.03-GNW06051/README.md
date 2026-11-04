@@ -67,7 +67,7 @@ decompiled code:
 - Handlers for the login burst: player props (pre-2.1 forms), warp, level
   name, board packet, links, signs, chests, signature, world time, start
   and disconnect messages, set active level.
-- Levels from disk: GR-V1.00 to 1.03, Z3-V1.03/1.04 (no GLEVNW01 in 2.04). All 13 tutorial
+- Levels from disk: GR-V1.00 to 1.03, Z3-V1.03/1.04 (no GLEVNW01 in 2.03). All 13 tutorial
   levels embedded in the original exe decode to the published tiles, and
   their boards re-encode byte for byte with the 2.05 writer rules (test, with
   the levels supplied locally).
