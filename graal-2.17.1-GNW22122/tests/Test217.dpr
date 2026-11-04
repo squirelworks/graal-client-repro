@@ -19,10 +19,15 @@ uses
   GLevel in '../../common/GLevel.pas',
   GSurface in '../../common/GSurface.pas',
   GArrays in '../../common/GArrays.pas',
+  GBuiltin in '../../common/GBuiltin.pas',
   GAni in '../../common/GAni.pas',
   Protocol217 in '../src/Protocol217.pas',
   GraalClient in '../src/GraalClient.pas',
-  Adventure in '../src/Adventure.pas';
+  Adventure in '../src/Adventure.pas',
+  GFont in '../../common/GFont.pas',
+  GWindow in '../../common/GWindow.pas',
+  GStartScreen in '../../common/GStartScreen.pas',
+  StartScreen217 in '../src/StartScreen217.pas';
 
 var
   Passed, Failed, Skipped: Integer;
@@ -833,6 +838,44 @@ begin
   end;
 end;
 
+
+procedure TestStartScreen217;
+var
+  Dir, Host: string;
+  Port: Integer;
+  L: TStringList;
+  G: TAdventure;
+begin
+  Dir := IncludeTrailingPathDelimiter(GetTempDir) + 'test217-' + IntToStr(Random(1000000)) + PathDelim;
+  ForceDirectories(Dir);
+  Host := 'h';
+  Port := 1;
+  ReadArrays2(Dir, Host, Port);
+  Check((Host = 'h') and (Port = 1), 'arrays2.dat: none keeps the defaults');
+  L := TStringList.Create;
+  try
+    L.Add('list.example');
+    L.Add('14922');
+    L.SaveToFile(Dir + 'arrays2.dat');
+  finally
+    L.Free;
+  end;
+  ReadArrays2(Dir, Host, Port);
+  Check((Host = 'list.example') and (Port = 14922), 'arrays2.dat: line 0 host, line 1 port');
+  DeleteFile(Dir + 'arrays2.dat');
+  RemoveDir(Dir);
+  G := TAdventure.Create;
+  try
+    G.Headless := True;
+    Check(G.SheetBuiltin and (G.Sheet <> nil), 'built-in: the default tile sheet');
+    Check(G.LoadLevelFile('start.nw') and (Length(G.Level.Links) > 0),
+      'built-in: start.nw loads with no install');
+    Check(G.Assets.Ani('walk') <> nil, 'built-in: walk gani');
+  finally
+    G.Free;
+  end;
+end;
+
 begin
   TestGTypes;
   TestGen3Capture;
@@ -850,6 +893,7 @@ begin
   TestFuzz;
   TestReceiveLimits;
   TestTutorials;
+  TestStartScreen217;
   WriteLn(Format('%d passed, %d failed, %d skipped', [Passed, Failed, Skipped]));
   if Failed > 0 then Halt(1);
 end.

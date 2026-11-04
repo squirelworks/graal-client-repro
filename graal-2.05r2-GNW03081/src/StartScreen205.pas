@@ -19,7 +19,8 @@ type
     Client: TGraalClient;
     StartMs: Int64;
     procedure Message(Id: Integer; const Data: string);
-    procedure Start(const Host: string; Port: Integer); override;
+    procedure Start(const Host: string; Port: Integer;
+      const Account, Password: string); override;
     procedure Poll; override;
     destructor Destroy; override;
   end;
@@ -57,7 +58,8 @@ begin
   end;
 end;
 
-procedure TListFetch205.Start(const Host: string; Port: Integer);
+procedure TListFetch205.Start(const Host: string; Port: Integer;
+  const Account, Password: string);
 begin
   FreeAndNil(Client);
   SetLength(Servers, 0);

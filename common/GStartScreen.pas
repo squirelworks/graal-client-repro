@@ -48,7 +48,10 @@ type
     Servers: TListServers;
     Status: string;
     Done, Failed: Boolean;
-    procedure Start(const Host: string; Port: Integer); virtual; abstract;
+    { Account and Password are what the list page holds when the list is
+      asked for; builds whose list step does not send them ignore them. }
+    procedure Start(const Host: string; Port: Integer;
+      const Account, Password: string); virtual; abstract;
     procedure Poll; virtual; abstract;
   end;
 
@@ -362,7 +365,7 @@ begin
             Page := pgList;
             Focus := 0;
             Note := '';
-            Fetch.Start(ListHost, ListPort);
+            Fetch.Start(ListHost, ListPort, R.Account, R.Password);
           end;
         end;
         { drawing }
@@ -416,7 +419,7 @@ begin
           if Inside(BRefresh, CX, CY) then
           begin
             Sel := -1;
-            Fetch.Start(ListHost, ListPort);
+            Fetch.Start(ListHost, ListPort, R.Account, R.Password);
           end;
           if Inside(BConnect, CX, CY) or ((Pos(#13, Chars) > 0) and (Sel >= 0)) then
             Clicked := True

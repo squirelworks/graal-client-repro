@@ -37,6 +37,16 @@ decompiled code:
 - The own prop stream takes ids up to 74 and stops at 50, 51 and 53.
 - `PLAYERWARP2` (49) moves the player; the gmap itself is not drawn yet.
 - Ids 68, 69 and 169 to 185 are accepted and ignored for now.
+- A GUI program, like the original: with no arguments it opens the shared
+  start screen (`common/GStartScreen.pas`). `src/StartScreen217.pas` plugs
+  in 2.17's list step: one plain zlib frame holding id 0 `newmain` and id 1
+  with the account and password, sent when the list page opens and on
+  Refresh. The listserver comes from `arrays2.dat` in the program's folder
+  (line 0 host, line 1 port), as 2.17 reads it; `listserver.txt` wins over
+  it; with neither, 127.0.0.1:14921. Training starts at
+  `offlinetutorial_b-2.graal` when it lies next to the program, else at the
+  built-in `start.nw`. The built-in original assets fill in for anything
+  not on disk (tests).
 - Loopback: two 2.17.1 clients log into seihai-gserver, see each other and
   walk through a link (`scripts/loopback.sh`, run in CI).
 
@@ -47,7 +57,8 @@ decompiled code:
 - Gmaps, the ids 169 to 185 (ghost mode, server maps, serverwarp, RPG
   window, status list, process list, screenshots, level heights), large
   file downloads.
-- The listserver step (`arrays2.dat` and its signature check).
+- The `arrays2.sig` check of `arrays2.dat`.
+- The arrival point on `offlinetutorial_b-2.graal` (30, 30 is a guess).
 - Chat-line emoticons and the rest of what 2.17.1 added over 2.05.
 - The link test point was measured on 2.05, not on 2.17.1.
 - Everything listed under "Not yet" for 2.05.
@@ -55,5 +66,6 @@ decompiled code:
 ## Build and run
 
 As for 2.05: `scripts/build.sh graal-2.17.1-GNW22122`, `scripts/test.sh`,
-then `Graal217` with the same flags as `Graal205`. A 2.2.2-era install
+then `Graal217` with no arguments for the start screen, or with the same
+flags as `Graal205`. A 2.2.2-era install
 (with `levels/ganis`) works as `--data`.
