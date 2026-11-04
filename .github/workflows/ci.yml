@@ -1,0 +1,61 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Free Pascal
+        run: sudo apt-get update && sudo apt-get install -y fp-compiler fp-units-base fp-units-fcl
+      - name: Build (Delphi mode)
+        run: scripts/build.sh
+      - name: Unit tests
+        run: scripts/test.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: build/
+
+  loopback:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: squirelworks/seihai-gserver
+          path: seihai-gserver
+      - name: Install Free Pascal
+        run: sudo apt-get update && sudo apt-get install -y fp-compiler fp-units-base fp-units-fcl
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build seihai-gserver
+        run: cargo build --release --manifest-path seihai-gserver/Cargo.toml
+      - name: Build clients
+        run: scripts/build.sh
+      - name: Log each rebuild into seihai-gserver
+        run: |
+          for B in $(ls -d graal-*/ | tr -d /); do
+            scripts/loopback.sh seihai-gserver/target/release/seihai-gserver "$B"
+          done
+
+  windows:
+    # Not verified yet: the Windows socket path has only been compiled in
+    # review. Kept non-blocking until it has passed once.
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Free Pascal
+        shell: pwsh
+        run: choco install freepascal -y --no-progress
+      - name: Build and test
+        shell: bash
+        run: |
+          export PATH="$(ls -d /c/tools/freepascal/bin/* | head -1):$PATH"
+          scripts/build.sh
+          scripts/test.sh

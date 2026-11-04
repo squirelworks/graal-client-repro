@@ -1,0 +1,9 @@
+build/
+*.o
+*.ppu
+*.a
+*.exe
+*.dcu
+*.bmp
+*.res
+!**/res/*.res
