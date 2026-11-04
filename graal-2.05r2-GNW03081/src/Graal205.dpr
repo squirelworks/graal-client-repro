@@ -506,6 +506,8 @@ begin
     { listserver.txt next to the program, else a Seihai listserver on this
       machine; the 2.05 one is gone }
     ReadListServer(Dir, '127.0.0.1', 14921, ListHost, ListPort);
+    { SIGTERM / Ctrl+C end the program on the start screen too }
+    InstallStopHandlers;
     FillChar(R, SizeOf(R), 0);
     Msg := '';
     repeat
@@ -521,13 +523,14 @@ begin
         Info.Backgrounds := Backgrounds205;
         Classic205(Info.Classic);
         Info.DrawCharacter := Who.Draw;
+        Info.StopRequested := StopRequested;
         Picked := RunStartScreen(Win, G.Screen, Fetch, Info, Dir, ListHost, ListPort, Msg, R);
       finally
         Who.Free;
         Fetch.Free;
         G.Free;
       end;
-      if not Picked or Win.Closed then Exit;
+      if not Picked or Win.Closed or StopRequested then Exit;
       GuiArgs := TStringList.Create;
       try
         GuiArgs.Add('--window');
@@ -558,7 +561,7 @@ begin
       finally
         FreeAndNil(GuiArgs);
       end;
-    until Win.Closed;
+    until Win.Closed or StopRequested;
   finally
     Win.Free;
   end;

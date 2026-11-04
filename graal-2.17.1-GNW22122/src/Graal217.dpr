@@ -511,6 +511,8 @@ begin
     ListPort := 14921;
     ReadArrays2(Dir, ArrHost, ListPort);
     ReadListServer(Dir, ArrHost, ListPort, ListHost, ListPort);
+    { SIGTERM / Ctrl+C end the program on the start screen too }
+    InstallStopHandlers;
     FillChar(R, SizeOf(R), 0);
     Msg := '';
     repeat
@@ -526,13 +528,14 @@ begin
         Info.Backgrounds := Backgrounds217;
         Info.Classic.Used := False; { 2.17.1's original window is not laid out yet }
         Info.DrawCharacter := Who.Draw;
+        Info.StopRequested := StopRequested;
         Picked := RunStartScreen(Win, G.Screen, Fetch, Info, Dir, ListHost, ListPort, Msg, R);
       finally
         Who.Free;
         Fetch.Free;
         G.Free;
       end;
-      if not Picked or Win.Closed then Exit;
+      if not Picked or Win.Closed or StopRequested then Exit;
       GuiArgs := TStringList.Create;
       try
         GuiArgs.Add('--window');
@@ -563,7 +566,7 @@ begin
       finally
         FreeAndNil(GuiArgs);
       end;
-    until Win.Closed;
+    until Win.Closed or StopRequested;
   finally
     Win.Free;
   end;
