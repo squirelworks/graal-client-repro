@@ -111,15 +111,34 @@ type
     Mine: Boolean;
   end;
 
+  { A weapon in the player's list: a built-in one (Item is its item
+    number) or a server NPC weapon (Item -1). }
+  TWeapon = record
+    Name, Image: string;
+    Item: Integer;
+  end;
+
+  { A flying shot: Kind 0 arrow, 1 fireball, 2 fireblast, 3 nuke; Sprite
+    is its sprite table entry (arrows 107 + direction). }
+  TShot = record
+    X, Y: Double;
+    Dir, Sprite, Kind: Integer;
+    Mine: Boolean;   { shot by this player: never hits this player }
+    Back: Integer;   { ticks left of a bounce off a shield, or 0 }
+  end;
+
   { Hooks for what the NPC and baddy code answers to, in tiles: a sword
-    swing's hit box, a bomb blast's centre and reach, an arrow's tip. }
+    swing's hit box, a bomb blast's centre and reach, an arrow's middle
+    (True when something took the shot, which then goes). }
   TSwordHitEvent = procedure(X, Y, W, H: Double; Power: Integer) of object;
   TBombBlastEvent = procedure(X, Y: Double; Radius: Integer) of object;
-  TArrowHitEvent = procedure(X, Y: Double; Power: Integer) of object;
+  TArrowHitEvent = function(X, Y: Double; Power: Integer): Boolean of object;
 
   TAdventure = class
   private
     FModeUntil: Integer;   { frame the sword swing or lift ends }
+    FSignWasDown: Boolean; { a game key was down on the tick before }
+    FListWasDown: Boolean;
     FHurtCount: Integer;   { hurt mode: ticks left of 40 }
     FKnockX, FKnockY: Double;
     FEntryX, FEntryY: Double; { where the player came into this level }
@@ -138,6 +157,7 @@ type
     FWarpT0: Int64;
     procedure KnockStep;
     procedure CheckSwordHits;
+    procedure ItemListKeys;
     procedure TickCombat;
     procedure DrawCombat(CamX, CamY: Integer);
     procedure HandleMessage(Id: Integer; const Data: string);
@@ -195,6 +215,17 @@ type
     Thrown: array of TThrownObject;
     Bombs: array of TBomb;
     Blasts: array of TBlast;
+    { Reading a sign: its lines and the first line of the page shown. }
+    Reading: Boolean;
+    SignLines: array of string;
+    SignLine: Integer;
+    { The weapon list (2.05 keeps one, in arrival order) and the selected
+      entry, shown beside the D button. }
+    Weapons: array of TWeapon;
+    Selected: Integer;
+    Shots: array of TShot;
+    { The item list window (Q); ItemListKey is its key's press this tick. }
+    ItemListOpen, ItemListKey: Boolean;
     OnSwordHit: TSwordHitEvent;
     OnBombBlast: TBombBlastEvent;
     OnArrowHit: TArrowHitEvent;
@@ -273,6 +304,32 @@ type
     { The D key with the bomb: a bomb with a 60-tick fuse. }
     procedure LayBomb;
     procedure AddBlast(X, Y: Double; Reach, Kind: Integer; Mine: Boolean);
+    { Adds a weapon unless the list has its name, and selects it. }
+    procedure AddWeapon(const Name, Image: string; Item: Integer);
+    { A built-in weapon by item number (7 bow, 8 bomb, 12 superbomb, 20 to
+      23); other numbers are pickups and add nothing. }
+    procedure AddDefaultWeapon(Item: Integer);
+    procedure RemoveWeapon(const Name: string);
+    { Selects the first entry from I on, wrapping, that is not hidden (an
+      empty name or one starting with '-'). }
+    procedure SelectWeapon(I: Integer);
+    { The D key: uses the selected weapon. }
+    procedure UseWeapon;
+    procedure LayBombOf(Power: Integer);
+    { Fires a shot of Kind the way the player faces. }
+    procedure Shoot(Kind: Integer);
+    procedure AddShot(X, Y: Double; Dir, Sprite, Kind: Integer; Mine: Boolean);
+    procedure TickShots;
+    procedure DrawShots(CamX, CamY: Integer);
+    procedure DrawItemList;
+    { The level sign whose 2 x 2 holds (PX, PY), or -1. }
+    function SignAt(PX, PY: Double): Integer;
+    { Opens the sign panel on Text (lines split at newlines). }
+    procedure ReadSign(const Text: string);
+    { The keys while reading: Up turns back a page, any other game key
+      turns on, or ends reading on a page that is not full. }
+    procedure SignKeys;
+    procedure DrawSign(CamTop: Integer);
     property Others[I: Integer]: TServerPlayer read GetOther;
     property OtherCount: Integer read GetOtherCount;
     property Client: TAdventureClient read FClient;
@@ -457,6 +514,7 @@ begin
   else if Kind = 'sword' then F := FindFile(Name, ['levels/swords/', 'levels/', ''])
   else if Kind = 'shield' then F := FindFile(Name, ['levels/shields/', 'levels/', ''])
   else if Kind = 'hat' then F := FindFile(Name, ['levels/hats/', 'levels/', ''])
+  else if Kind = 'weapon' then F := FindFile(Name, ['levels/weapons/', 'levels/', ''])
   else F := FindFile(Name, ['', 'levels/', 'levels/images/']);
   S := nil;
   if F <> '' then
@@ -709,6 +767,10 @@ begin
   AP := 50;
   ShowStats := $FF;
   WeaponsOn := True;
+  { offline the player has the client's own bomb; online the server sends
+    the list }
+  Selected := -1;
+  AddDefaultWeapon(8);
   UseBuiltins;
 end;
 
@@ -797,6 +859,8 @@ function TAdventure.ConnectServer(const Host: string; Port: Word;
 begin
   ConnectAtMs := NowMs;
   LoginMs := -1;
+  SetLength(Weapons, 0);
+  Selected := -1;
   Result := FClient.Connect(Host, Port);
   if not Result then
   begin
@@ -1050,6 +1114,8 @@ begin
         AddItem(Level.Chests[I].X, Level.Chests[I].Y - 1, Level.Chests[I].Item, 24);
         GiveItem(Level.Chests[I].Item);
       end;
+      if (Level.Chests[I].Sign >= 0) and (Level.Chests[I].Sign <= High(Level.Signs)) then
+        ReadSign(Level.Signs[Level.Chests[I].Sign].Text);
       if FClient.Connected then
         FClient.SendPacket(PLI_OPENCHEST, GChar(Level.Chests[I].X) + GChar(Level.Chests[I].Y));
       Exit;
@@ -1116,6 +1182,7 @@ begin
     19: Rupees(100);
     3: Player.Bombs := Min(Player.Bombs + 5, 99);
     4: Player.Arrows := Min(Player.Arrows + 5, 99);
+    7, 8, 12, 20, 21, 22, 23: AddDefaultWeapon(Item);
     5: Player.Power := Min(Player.Power + 2, Player.MaxPower * 2);
     6: Player.GlovePower := Max(Player.GlovePower, 2);
     16: Player.GlovePower := Max(Player.GlovePower, 3);
@@ -1310,6 +1377,11 @@ begin
 end;
 
 procedure TAdventure.LayBomb;
+begin
+  LayBombOf(1);
+end;
+
+procedure TAdventure.LayBombOf(Power: Integer);
 const
   DX: array[0..3] of Double = (0, -1.5, 0, 1.5);
   DY: array[0..3] of Double = (-1.5, 0, 1.5, 0);
@@ -1324,12 +1396,12 @@ begin
     body }
   Bombs[N].X := Round((Player.X + 0.5 + DX[Player.Dir and 3]) * 2) / 2;
   Bombs[N].Y := Round((Player.Y + 1 + DY[Player.Dir and 3]) * 2) / 2;
-  Bombs[N].Power := 1;
+  Bombs[N].Power := Power;
   Bombs[N].Fuse := 60;
   Bombs[N].Mine := True;
   if FClient.Connected then
     FClient.SendPacket(PLI_BOMBADD, GChar(Round(Bombs[N].X * 2)) + GChar(Round(Bombs[N].Y * 2)) +
-      GChar(1 + 8) + GChar(60));
+      GChar(Power + 8) + GChar(60));
 end;
 
 procedure TAdventure.AddBlast(X, Y: Double; Reach, Kind: Integer; Mine: Boolean);
@@ -1435,6 +1507,577 @@ begin
         end;
       end;
     Inc(I);
+  end;
+end;
+
+{ ---- weapons and shots (status-display.md "The selected weapon",
+  decomp-findings-2026-10-28/02-item-list.md, damage-sources.md) ---- }
+
+procedure TAdventure.AddWeapon(const Name, Image: string; Item: Integer);
+var
+  I: Integer;
+begin
+  for I := 0 to High(Weapons) do
+    if Weapons[I].Name = Name then Exit;
+  I := Length(Weapons);
+  SetLength(Weapons, I + 1);
+  Weapons[I].Name := Name;
+  Weapons[I].Image := Image;
+  Weapons[I].Item := Item;
+  SelectWeapon(I);
+end;
+
+procedure TAdventure.AddDefaultWeapon(Item: Integer);
+var
+  Img, N: string;
+begin
+  case Item of
+    7: Img := 'wbowi1.gif';
+    8: Img := 'wbomb1.gif';
+    12: Img := 'wbomb2.gif';
+    20: Img := 'wbowi2.gif';
+    21: Img := 'wbowi3.gif';
+    22: Img := 'wbowi4.gif';
+    23: Img := 'wbomb3.gif';
+  else
+    Exit;
+  end;
+  N := ItemNames[Item];
+  N[1] := UpCase(N[1]);
+  AddWeapon(N, Img, Item);
+end;
+
+procedure TAdventure.RemoveWeapon(const Name: string);
+var
+  I, J: Integer;
+begin
+  for I := 0 to High(Weapons) do
+    if Weapons[I].Name = Name then
+    begin
+      for J := I to High(Weapons) - 1 do Weapons[J] := Weapons[J + 1];
+      SetLength(Weapons, Length(Weapons) - 1);
+      { the selection keeps its index if it still exists, else the last }
+      if Selected > High(Weapons) then Selected := High(Weapons);
+      Exit;
+    end;
+end;
+
+procedure TAdventure.SelectWeapon(I: Integer);
+var
+  K, J: Integer;
+begin
+  if Length(Weapons) = 0 then
+  begin
+    Selected := -1;
+    Exit;
+  end;
+  if (I < 0) or (I > High(Weapons)) then I := 0;
+  for K := 0 to High(Weapons) do
+  begin
+    J := (I + K) mod Length(Weapons);
+    if (Weapons[J].Name <> '') and (Weapons[J].Name[1] <> '-') then
+    begin
+      Selected := J;
+      Exit;
+    end;
+  end;
+  Selected := I;
+end;
+
+procedure TAdventure.UseWeapon;
+begin
+  if (Selected < 0) or (Selected > High(Weapons)) or (Mode <> ModeFree) or not WeaponsOn then Exit;
+  case Weapons[Selected].Item of
+    8: LayBombOf(1);
+    12: LayBombOf(2);
+    23: LayBombOf(3);
+    7:
+      if Player.Arrows > 0 then
+      begin
+        Dec(Player.Arrows);
+        Shoot(0);
+      end;
+    20: Shoot(1);
+    21: Shoot(2);
+    22: Shoot(3);
+  end;
+  { NPC weapons run their script; that is the NPC code's part }
+end;
+
+procedure TAdventure.Shoot(Kind: Integer);
+const
+  { where 2.05 starts a shot was not read: just ahead of the body's middle }
+  SX: array[0..3] of Double = (1.25, -0.5, 1.25, 2.5);
+  SY: array[0..3] of Double = (0, 1.75, 2.5, 1.75);
+var
+  D, N: Integer;
+begin
+  D := Player.Dir and 3;
+  AddShot(Player.X + SX[D], Player.Y + SY[D], D, 107 + D, Kind, True);
+  N := High(Shots);
+  if FClient.Connected then
+    FClient.SendPacket(PLI_ARROWADD, GChar(Round(Shots[N].X * 2)) + GChar(Round(Shots[N].Y * 2)) +
+      GChar(D) + GChar(107 + D) + GChar(Kind + 1));
+end;
+
+procedure TAdventure.AddShot(X, Y: Double; Dir, Sprite, Kind: Integer; Mine: Boolean);
+var
+  N: Integer;
+begin
+  N := Length(Shots);
+  SetLength(Shots, N + 1);
+  Shots[N].X := X;
+  Shots[N].Y := Y;
+  Shots[N].Dir := Dir and 3;
+  Shots[N].Sprite := Sprite;
+  Shots[N].Kind := Kind;
+  Shots[N].Mine := Mine;
+  Shots[N].Back := 0;
+end;
+
+procedure TAdventure.TickShots;
+const
+  DX: array[0..3] of Integer = (0, -1, 0, 1);
+  DY: array[0..3] of Integer = (-1, 0, 1, 0);
+var
+  I: Integer;
+  V: Cardinal;
+  W, H: Double;
+  Gone, Hit: Boolean;
+  Sh: TShot;
+begin
+  I := 0;
+  while I <= High(Shots) do
+  begin
+    Sh := Shots[I];
+    { one tile a tick along its direction }
+    Sh.X := Sh.X + DX[Sh.Dir];
+    Sh.Y := Sh.Y + DY[Sh.Dir];
+    { the size from the sprite table: ((v >> 6) & 63) / 16 by (v & 63) / 16 }
+    W := 0.5;
+    H := 0.5;
+    if (Arrays.Lists[24] <> nil) and (Sh.Sprite >= 0) and (Sh.Sprite <= High(Arrays.Lists[24].Values)) then
+    begin
+      V := Cardinal(Arrays.Lists[24].Values[Sh.Sprite]);
+      W := ((V shr 6) and 63) / 16;
+      H := (V and 63) / 16;
+    end;
+    Gone := (Sh.X < -2) or (Sh.Y < -2) or (Sh.X >= 64) or (Sh.Y >= 64);
+    Hit := False;
+    if Sh.Back > 0 then
+    begin
+      Dec(Sh.Back);
+      Gone := Gone or (Sh.Back = 0);
+    end
+    else if not Gone then
+    begin
+      { walls: 2.05's blocking test for arrows and fireballs lost its
+        arguments in the decompile; here every shot stops at a wall }
+      if PointBlocked(Sh.X + W / 2, Sh.Y + H / 2) then
+      begin
+        Gone := True;
+        Hit := True;
+      end
+      else if Sh.Mine then
+      begin
+        if Assigned(OnArrowHit) and OnArrowHit(Sh.X + W / 2, Sh.Y + H / 2, 1 + Ord(Sh.Kind in [1, 3])) then
+        begin
+          Gone := True;
+          Hit := True;
+        end;
+      end
+      else if Hurtable and (AP <> 100) and (Sh.X + W > Player.X + 0.5) and (Sh.X < Player.X + 2.5) and
+        (Sh.Y + H > Player.Y + 1) and (Sh.Y < Player.Y + 3) then
+      begin
+        if ((Player.Dir and 3) = (Sh.Dir xor 2)) and (Player.ShieldPower > 0) and
+          (Sh.Kind <= 1) and ((Player.AniName = 'idle') or (Player.AniName = 'walk')) then
+        begin
+          { the shield: power 1 knocks an arrow back for three ticks;
+            2 and up send the shot back as this player's own }
+          Sh.Dir := Sh.Dir xor 2;
+          if Player.ShieldPower >= 2 then
+          begin
+            if Sh.Sprite in [107..110] then Sh.Sprite := 107 + Sh.Dir;
+            Sh.Mine := True;
+            if FClient.Connected then
+              FClient.SendPacket(PLI_ARROWADD, GChar(Round(Sh.X * 2)) + GChar(Round(Sh.Y * 2)) +
+                GChar(Sh.Dir + 4) + GChar(Sh.Sprite) + GChar(Sh.Kind + 1));
+          end
+          else if Sh.Sprite in [107..110] then
+            Sh.Back := 3
+          else
+            Gone := True;
+        end
+        else
+        begin
+          if Sh.Kind in [1, 3] then HurtPlayer(1, DX[Sh.Dir], DY[Sh.Dir])
+          else HurtPlayer(0.5, DX[Sh.Dir], DY[Sh.Dir]);
+          Gone := True;
+          Hit := True;
+        end;
+      end;
+    end;
+    { a fireblast or nuke leaves a blast of reach 2 where it stops }
+    if Hit and (Sh.Kind >= 2) then AddBlast(Sh.X - 0.5, Sh.Y - 0.5, 2, 1, Sh.Mine);
+    if Gone then
+    begin
+      Shots[I] := Shots[High(Shots)];
+      SetLength(Shots, Length(Shots) - 1);
+      Continue;
+    end;
+    Shots[I] := Sh;
+    Inc(I);
+  end;
+end;
+
+procedure TAdventure.DrawShots(CamX, CamY: Integer);
+var
+  I, SX, SY, SW, SH: Integer;
+  Img: TGSurface;
+begin
+  Img := Assets.Image('sprites.png', '');
+  for I := 0 to High(Shots) do
+    if (Img <> nil) and Arrays.SpriteRect(Shots[I].Sprite, SX, SY, SW, SH) then
+      Screen.Blit(Img, SX, SY, SW, SH, Round(Shots[I].X * TileSize) - CamX,
+        Round(Shots[I].Y * TileSize) - CamY)
+    else
+      Screen.FillRect(Round(Shots[I].X * TileSize) - CamX, Round(Shots[I].Y * TileSize) - CamY,
+        8, 8, $FFFFFFFF);
+end;
+
+{ The item list window: from (16, 80) to 16 pixels from the right and
+  bottom edges, cells from (48, 112), packed left to right then down;
+  each cell is the image (or a 32 x 32 place) over its name. }
+procedure ListCells(G: TAdventure; out CX, CY, CW, CH: array of Integer);
+var
+  I, X, Y, RowH, W, H: Integer;
+  Img: TGSurface;
+begin
+  X := 48;
+  Y := 112;
+  RowH := 0;
+  for I := 0 to High(G.Weapons) do
+  begin
+    if I > High(CX) then Break;
+    Img := nil;
+    if G.Weapons[I].Image <> '' then Img := G.Assets.Image(G.Weapons[I].Image, 'weapon');
+    if Img <> nil then
+    begin
+      W := Img.Width;
+      H := Img.Height;
+    end
+    else
+    begin
+      W := 32;
+      H := 32;
+    end;
+    W := Max(W, TextWidth(G.Weapons[I].Name, 1)) + 10;
+    H := H + GlyphH + 15;
+    if (X + W > ScreenW - 48) and (X > 48) then
+    begin
+      X := 48;
+      Inc(Y, RowH);
+      RowH := 0;
+    end;
+    CX[I] := X;
+    CY[I] := Y;
+    CW[I] := W;
+    CH[I] := H;
+    Inc(X, W);
+    if H > RowH then RowH := H;
+  end;
+end;
+
+procedure TAdventure.ItemListKeys;
+var
+  CX, CY, CW, CH: array[0..63] of Integer;
+  Down: Boolean;
+  I, Best, BestD, D, Dir, MX, MY: Integer;
+begin
+  Down := Keys[0] or Keys[1] or Keys[2] or Keys[3] or ActionKey or AttackKey or ItemKey or ItemListKey;
+  if Down and not FListWasDown then
+  begin
+    Dir := -1;
+    for I := 3 downto 0 do
+      if Keys[I] then Dir := I;
+    if Dir >= 0 then
+    begin
+      { an arrow key takes the nearest cell that way }
+      ListCells(Self, CX, CY, CW, CH);
+      if (Selected >= 0) and (Selected <= High(Weapons)) and (Selected <= 63) then
+      begin
+        MX := CX[Selected] + CW[Selected] div 2;
+        MY := CY[Selected] + CH[Selected] div 2;
+        Best := -1;
+        BestD := MaxInt;
+        for I := 0 to Min(High(Weapons), 63) do
+        begin
+          if (I = Selected) or (Weapons[I].Name = '') or (Weapons[I].Name[1] = '-') then Continue;
+          case Dir of
+            DirUp: if CY[I] + CH[I] > CY[Selected] then Continue;
+            DirDown: if CY[I] < CY[Selected] + CH[Selected] then Continue;
+            DirLeft: if (CY[I] <> CY[Selected]) or (CX[I] >= CX[Selected]) then Continue;
+            DirRight: if (CY[I] <> CY[Selected]) or (CX[I] <= CX[Selected]) then Continue;
+          end;
+          D := Sqr(CX[I] + CW[I] div 2 - MX) + Sqr(CY[I] + CH[I] div 2 - MY);
+          if D < BestD then
+          begin
+            BestD := D;
+            Best := I;
+          end;
+        end;
+        if Best >= 0 then Selected := Best;
+      end;
+    end
+    else
+      { the list key again, or any other game key, closes it }
+      ItemListOpen := False;
+  end;
+  FListWasDown := Down;
+  for I := 0 to 3 do Keys[I] := False;
+  ActionKey := False;
+  AttackKey := False;
+  ItemKey := False;
+  ItemListKey := False;
+end;
+
+procedure TAdventure.DrawItemList;
+var
+  CX, CY, CW, CH: array[0..63] of Integer;
+  I, W, H: Integer;
+  Img: TGSurface;
+begin
+  W := ScreenW - 32;
+  H := ScreenH - 96;
+  Screen.FillRect(16, 80, W, H, $FF302010);
+  Screen.FillRect(18, 82, W - 4, H - 4, $FFFFF0C8);
+  DrawText(Screen, 48, 92, 'Weapons', $FF302010, 2);
+  ListCells(Self, CX, CY, CW, CH);
+  for I := 0 to Min(High(Weapons), 63) do
+  begin
+    if CY[I] + CH[I] > ScreenH - 64 then Break;
+    if I = Selected then Screen.FillRect(CX[I], CY[I], CW[I], CH[I], $FFFFD480);
+    Img := nil;
+    if Weapons[I].Image <> '' then Img := Assets.Image(Weapons[I].Image, 'weapon');
+    if Img <> nil then
+      Screen.Blit(Img, 0, 0, Img.Width, Img.Height, CX[I] + (CW[I] - Img.Width) div 2, CY[I] + 5)
+    else
+      Screen.FillRect(CX[I] + (CW[I] - 32) div 2, CY[I] + 5, 32, 32, $FFB0A080);
+    DrawText(Screen, CX[I] + (CW[I] - TextWidth(Weapons[I].Name, 1)) div 2,
+      CY[I] + CH[I] - GlyphH - 5, Weapons[I].Name, $FF302010, 1);
+  end;
+end;
+
+{ ---- signs (sign-panel.md) ---- }
+
+const
+  { a character's glyph is its place in this string; '#' places are glyphs
+    with no plain character }
+  GlyphOrder = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789' +
+    '!?-.,#>()#####"####'':/~&### <####;';
+
+function GlyphOf(C: Char): Integer;
+begin
+  if C = '#' then Result := -1 else Result := Pos(C, GlyphOrder) - 1;
+end;
+
+{ The advance of a glyph. The client keeps a table of half widths; only I
+  (6), space (8) and most letters (12) are noted, so the other narrow ones
+  here are a guess. }
+function GlyphAdvance(C: Char): Integer;
+begin
+  case C of
+    ' ': Result := 8;
+    'I', 'i', 'l', 'j', '!', '.', ',', ':', ';', '''': Result := 6;
+  else
+    Result := 12;
+  end;
+end;
+
+{ The picture glyph for '#' and a letter, or -1. #A, #B, #X, #Y and the
+  arrows are as read; which of 71 to 75 and 87 the other six take is a
+  guess. }
+function ButtonGlyph(C: Char): Integer;
+begin
+  case C of
+    'A': Result := 91;
+    'B': Result := 92;
+    'X': Result := 93;
+    'Y': Result := 94;
+    'u': Result := 77;
+    'd': Result := 78;
+    'l': Result := 79;
+    'r': Result := 80;
+    'h': Result := 71;
+    'x': Result := 72;
+    'y': Result := 73;
+    'z': Result := 74;
+    '4': Result := 75;
+    '.': Result := 87;
+  else
+    Result := -1;
+  end;
+end;
+
+function TAdventure.SignAt(PX, PY: Double): Integer;
+var
+  I, TX, TY: Integer;
+begin
+  Result := -1;
+  TX := Floor(PX);
+  TY := Floor(PY);
+  for I := 0 to High(Level.Signs) do
+    if (TX >= Level.Signs[I].X) and (TX <= Level.Signs[I].X + 1) and
+      (TY >= Level.Signs[I].Y) and (TY <= Level.Signs[I].Y + 1) then
+    begin
+      Result := I;
+      Exit;
+    end;
+end;
+
+procedure TAdventure.ReadSign(const Text: string);
+var
+  I, St: Integer;
+  T: string;
+begin
+  SetLength(SignLines, 0);
+  T := Text;
+  while (T <> '') and ((T[Length(T)] = #10) or (T[Length(T)] = #13)) do
+    SetLength(T, Length(T) - 1);
+  St := 1;
+  for I := 1 to Length(T) + 1 do
+    if (I > Length(T)) or (T[I] = #10) then
+    begin
+      SetLength(SignLines, Length(SignLines) + 1);
+      SignLines[High(SignLines)] := Copy(T, St, I - St);
+      if (SignLines[High(SignLines)] <> '') and
+        (SignLines[High(SignLines)][Length(SignLines[High(SignLines)])] = #13) then
+        SetLength(SignLines[High(SignLines)], Length(SignLines[High(SignLines)]) - 1);
+      St := I + 1;
+    end;
+  SignLine := 0;
+  Reading := True;
+  { the key that opened the sign does nothing until it is let go }
+  FSignWasDown := True;
+end;
+
+procedure TAdventure.SignKeys;
+var
+  Down: Boolean;
+  D: Integer;
+begin
+  Down := Keys[0] or Keys[1] or Keys[2] or Keys[3] or ActionKey or AttackKey or ItemKey;
+  if Down and not FSignWasDown then
+  begin
+    if Keys[DirUp] then
+    begin
+      if SignLine > 0 then Dec(SignLine, 3);
+    end
+    else if Length(SignLines) < SignLine + 3 then
+      Reading := False
+    else
+      Inc(SignLine, 3);
+  end;
+  FSignWasDown := Down;
+  for D := 0 to 3 do Keys[D] := False;
+  ActionKey := False;
+  AttackKey := False;
+  ItemKey := False;
+end;
+
+procedure TAdventure.DrawSign(CamTop: Integer);
+const
+  CellsW = 24;
+  CellsH = 9;
+var
+  L: TGSurface;
+  X, Y, W, H, I, K, CX, G: Integer;
+  S: string;
+  Fill: Cardinal;
+
+  procedure Glyph(N, DX, DY: Integer);
+  begin
+    Screen.Blit(L, (N mod 16) * 16, (N div 16) * 32, 16, 32, DX, DY);
+  end;
+
+begin
+  L := Assets.Image('letters.png', '');
+  W := CellsW * 16;
+  H := CellsH * 16;
+  X := (ScreenW - W) div 2;
+  { low on the view, or high when the player is far down it }
+  { (on the 640 x 480 view: y 256, or 128 past 14 tiles down) }
+  if Player.Y - CamTop / TileSize > 14 then Y := 128 else Y := 256;
+  if L = nil then
+  begin
+    Screen.FillRect(X, Y, W, H, $FF000000);
+    Screen.FillRect(X + 2, Y + 2, W - 4, H - 4, $FFFFE7A5);
+  end
+  else
+  begin
+    for I := 0 to CellsW - 1 do
+    begin
+      Glyph(100, X + I * 16, Y);
+      Glyph(101, X + I * 16, Y + H - 32);
+    end;
+    I := 0;
+    while I * 32 < H do
+    begin
+      Glyph(102, X, Y + I * 32);
+      Glyph(103, X + W - 16, Y + I * 32);
+      Inc(I);
+    end;
+    Glyph(96, X, Y);
+    Glyph(97, X + W - 16, Y);
+    Glyph(98, X, Y + H - 32);
+    Glyph(99, X + W - 16, Y + H - 32);
+    { the two fills, from the colours at (254, 223) and (255, 223), each
+      skipped when it is the sheet's clear colour }
+    Fill := L.GetPixel(254, 223);
+    if Fill shr 24 <> 0 then Screen.FillRect(X + 16, Y + 24, W - 32, H - 48, Fill);
+    Fill := L.GetPixel(255, 223);
+    if Fill shr 24 <> 0 then Screen.FillRect(X + 24, Y + 32, W - 48, H - 64, Fill);
+  end;
+  { three lines a page, 32 pixels apart }
+  for K := 0 to 2 do
+  begin
+    if SignLine + K > High(SignLines) then Break;
+    S := SignLines[SignLine + K];
+    CX := X + 16;
+    I := 1;
+    while I <= Length(S) do
+    begin
+      if (S[I] = '#') and (I < Length(S)) then
+      begin
+        Inc(I);
+        if S[I] = 'i' then
+        begin
+          Inc(I, 2); { #i and a character: an image from the level's list, not drawn }
+          Continue;
+        end;
+        G := ButtonGlyph(S[I]);
+        if G < 0 then G := 86;
+        if L <> nil then Glyph(G, CX, Y + 16 + K * 32);
+        Inc(CX, 16);
+      end
+      else
+      begin
+        G := GlyphOf(S[I]);
+        if (G >= 0) and (L <> nil) then
+        begin
+          Glyph(G, CX, Y + 16 + K * 32);
+          Inc(CX, GlyphAdvance(S[I]));
+        end
+        else
+        begin
+          { outside the glyph order: the system font, in the colour at (253, 223) }
+          if L <> nil then Fill := L.GetPixel(253, 223) else Fill := $FF000000;
+          DrawText(Screen, CX, Y + 16 + K * 32 + 8, S[I], Fill or $FF000000, 2);
+          Inc(CX, 12);
+        end;
+      end;
+      Inc(I);
+    end;
   end;
 end;
 
@@ -1902,7 +2545,37 @@ begin
         end;
       PLO_TOALL: Log('TOALL ' + Data);
       PLO_SETACTIVELEVEL: Log('SETACTIVELEVEL ' + Data);
-      PLO_LEVELMODTIME, PLO_ISLEADER, PLO_DEFAULTWEAPON, PLO_UNKNOWN168,
+      PLO_DEFAULTWEAPON: { c item number }
+        if Length(Data) >= 1 then AddDefaultWeapon(R.ReadGChar);
+      PLO_NPCWEAPONADD: { name, then the weapon NPC's props (image, script) }
+        begin
+          S := R.ReadGString;
+          if S <> '' then AddWeapon(S, '', -1);
+        end;
+      PLO_NPCWEAPONDEL: RemoveWeapon(Data);
+      PLO_ARROWADD: { s player, c x*2, c y*2, c flags, c sprite, c type + 1 }
+        begin
+          if Length(Data) < 7 then Exit;
+          R.ReadGShort;
+          FX := R.ReadGChar / 2;
+          FY := R.ReadGChar / 2;
+          V := R.ReadGChar;
+          BX := R.ReadGChar;
+          BY := R.ReadGChar - 1;
+          if V and 4 <> 0 then
+            { a shot sent back: first the copy flying the other way on the
+              same line goes }
+            for I := High(Shots) downto 0 do
+              if ((Shots[I].Dir xor 2) = (V and 3)) and
+                (((Shots[I].Dir and 1 = 0) and (Abs(Shots[I].X - FX) < 0.01)) or
+                 ((Shots[I].Dir and 1 = 1) and (Abs(Shots[I].Y - FY) < 0.01))) then
+              begin
+                Shots[I] := Shots[High(Shots)];
+                SetLength(Shots, Length(Shots) - 1);
+              end;
+          AddShot(FX, FY, V and 3, BX, Max(0, Min(3, BY)), False);
+        end;
+      PLO_LEVELMODTIME, PLO_ISLEADER, PLO_UNKNOWN168,
       PLO_STAFFGUILDS, PLO_HASNPCSERVER, PLO_FILEUPTODATE, PLO_FILESENDFAILED:
         ; { accepted; their effects belong to later stages }
     else
@@ -1956,10 +2629,21 @@ begin
     ActionKey := False;
     ItemKey := False;
   end;
+  { reading a sign is its own input state: nothing walks or acts }
+  if Reading then SignKeys
+  else FSignWasDown := False;
+  { the item list (Q) takes the keys while it is open }
+  if ItemListOpen then ItemListKeys
+  else if ItemListKey and (Mode = ModeFree) and not Reading then
+  begin
+    ItemListOpen := True;
+    FListWasDown := True;
+  end;
+  ItemListKey := False;
   { the game keys first: a swing or a lift holds the player still }
   if AttackKey then Attack;
   if ActionKey then Action;
-  if ItemKey then LayBomb;
+  if ItemKey then UseWeapon;
   AttackKey := False;
   ActionKey := False;
   ItemKey := False;
@@ -1990,11 +2674,19 @@ begin
     ModeCarry: if Moved then Player.SetAni('carry', Frame) else Player.SetAni('carrystill', Frame);
   end;
   TickItems;
+  TickShots;
   TickCombat;
   { links are tested on the player's own walk, at one point: the body's
     centre pushed ahead in the walking direction (measured on the real
     client, see LinkAhead) }
   if Moved then FollowLink(LinkAt(Player.X + 1.5 + AX, Player.Y + 2 + AY));
+  { walking up against a sign opens it (the probe over the sign's 2 x 2) }
+  if Moved and Keys[DirUp] and (Mode = ModeFree) and not Reading then
+  begin
+    ProbePoint(AX, AY);
+    D := SignAt(Player.X + 1.5, AY);
+    if (D >= 0) and ((Player.Dir and 3) = DirUp) then ReadSign(Level.Signs[D].Text);
+  end;
   SendMovedProps;
   FClient.Flush;
   if not Headless then Draw;
@@ -2246,6 +2938,15 @@ begin
       Part(14 * (Player.Arrows mod 10), 81, 14, 16, 386, 48);
     end;
   end;
+  { the selected weapon's whole image beside the D button: x 170, centred
+    on y 45 }
+  if (ShowStats and $01 <> 0) and WeaponsOn and (Selected >= 0) and (Selected <= High(Weapons)) and
+    (Weapons[Selected].Image <> '') then
+  begin
+    St := Assets.Image(Weapons[Selected].Image, 'weapon');
+    if St <> nil then Screen.Blit(St, 0, 0, St.Width, St.Height, 170, 45 - St.Height div 2);
+    St := Assets.Image('state.png', '');
+  end;
   { hearts: one per container while power remains }
   if ShowStats and $20 <> 0 then
   begin
@@ -2317,10 +3018,13 @@ begin
     DrawPlayer(Others[I], CamX, CamY);
   DrawPlayer(Player, CamX, CamY);
   DrawCombat(CamX, CamY);
+  DrawShots(CamX, CamY);
   for I := 0 to High(Thrown) do
     DrawCarried(Thrown[I].Kind, Round(Thrown[I].X * TileSize) - CamX,
       Round(Thrown[I].Y * TileSize) - CamY);
   DrawStatus;
+  if Reading then DrawSign(CamY);
+  if ItemListOpen then DrawItemList;
 end;
 
 end.

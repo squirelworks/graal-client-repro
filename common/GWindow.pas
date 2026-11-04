@@ -19,7 +19,7 @@ uses
 
 type
   TGKey = (gkNone, gkUp, gkLeft, gkDown, gkRight, gkAction, gkAttack,
-    gkItem, gkMap, gkChat, gkEscape,
+    gkItem, gkMap, gkChat, gkEscape, gkItemList,
     { the 2.05 built-in editor: F4 opens it, F5 is the load level dialog }
     gkEditor, gkLoadLevel, gkDelete, gkInsert);
 
@@ -172,6 +172,7 @@ begin
     Ord('S'), VK_SPACE: Result := gkAttack;
     Ord('D'): Result := gkItem;
     Ord('M'): Result := gkMap;
+    Ord('Q'): Result := gkItemList;
     VK_TAB: Result := gkChat;
     VK_ESCAPE: Result := gkEscape;
     VK_F4: Result := gkEditor;
@@ -353,6 +354,7 @@ begin
     XK_s, XK_space: Result := gkAttack;
     XK_d: Result := gkItem;
     XK_m: Result := gkMap;
+    XK_q: Result := gkItemList;
     XK_Tab: Result := gkChat;
     XK_Escape: Result := gkEscape;
     XK_F4: Result := gkEditor;

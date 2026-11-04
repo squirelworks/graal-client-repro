@@ -124,6 +124,7 @@ const
   ScriptKeyA = 10;
   ScriptKeyS = 11;
   ScriptKeyD = 12;
+  ScriptKeyQ = 13;
 
 type
   TKeyScript = class
@@ -162,6 +163,7 @@ begin
       else if Name = 'a' then D := ScriptKeyA
       else if Name = 's' then D := ScriptKeyS
       else if Name = 'd' then D := ScriptKeyD
+      else if Name = 'q' then D := ScriptKeyQ
       else D := -1;
       for J := 1 to N do
       begin
@@ -257,12 +259,13 @@ var
   Port, Frames, I, C, D, Seconds, StatsEvery, ExitCode_: Integer;
   OK, Online, UseWindow, NoDelay, Dropped, Crashed, EditorFirst: Boolean;
   StartUs, GateUs, NowUs, T0, NextStatsUs: Int64;
-  WasHeld: array[0..2] of Boolean;
+  WasHeld: array[0..3] of Boolean;
 
 begin
   Result := 64;
   WasHeld[0] := False;
   WasHeld[1] := False;
+  WasHeld[3] := False;
   WasHeld[2] := False;
   ExitCode_ := 64;
   Server := Arg('--server', '');
@@ -411,6 +414,8 @@ begin
           WasHeld[0] := Win.Held[gkAction];
           WasHeld[1] := Win.Held[gkAttack];
           WasHeld[2] := Win.Held[gkItem];
+          G.ItemListKey := Win.Held[gkItemList] and not WasHeld[3];
+          WasHeld[3] := Win.Held[gkItemList];
         end;
         if Walker.Mode = wmScript then D := Script.DirAt(I)
         else D := Walker.DirAt(I, G.Level, G.Player.X, G.Player.Y);
@@ -419,6 +424,7 @@ begin
           ScriptKeyA: G.ActionKey := True;
           ScriptKeyS: G.AttackKey := True;
           ScriptKeyD: G.ItemKey := True;
+          ScriptKeyQ: G.ItemListKey := True;
         end;
         T0 := MonoUs;
         G.Tick;
