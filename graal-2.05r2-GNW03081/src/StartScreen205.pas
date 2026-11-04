@@ -2,8 +2,9 @@
   (common/GStartScreen.pas): its listserver step and its character.
 
   2.05 asks the listserver for the list over a plain zlib link (no cipher),
-  sending id 0 with "newmain"; the reply is id 0 with the list, 2 a status
-  line, 4 an error (graal_analysis protocol/listserver.md). }
+  sending id 0 with "newmain" and id 1 with the account and password; the
+  reply is id 0 with the list, 2 a status line, 4 an error (graal_analysis
+  protocol/listserver.md). }
 unit StartScreen205;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
@@ -72,8 +73,12 @@ begin
     Failed := True;
     Exit;
   end;
-  { 2.05 sends id 0 with the list name and waits; no account here }
+  { One plain zlib frame: id 0 with the list name, then id 1 with the
+    account and password. A stock 2.05 sends id 0 alone, but the public
+    listserver's legacy port (14923) answers only once id 1 has come
+    (graal_analysis manual/06-listserver.md, the login-type matrix). }
   Client.SendPacket(0, 'newmain');
+  Client.SendPacket(1, GString(Account) + GString(Password));
   Client.Flush;
 end;
 

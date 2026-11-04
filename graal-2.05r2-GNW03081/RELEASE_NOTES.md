@@ -24,6 +24,35 @@ bodies.
 Each zip has `Graal205` (the client), `Test205` (its test suite) and the
 build's README.
 
+## Where to put your Graal files
+
+The zip has no Graal files in it. Put yours in the same folder as
+`Graal205` (on Windows `Graal205.exe`), in either of these ways:
+
+- Unzip `graal-assets.zip` into that folder, so the folder holds
+  `Graal205.exe` and `graal-assets/` side by side.
+- Or copy the contents of a Graal 2.05 install into that folder:
+  `levels/`, `sounds/`, `pics1.png`, `body.png`, `sprites.png` and the rest,
+  laid out as the install has them.
+
+```
+Graal 2.05/
+  Graal205.exe
+  graal-assets/        (from graal-assets.zip)
+    common/
+    2.05r2/
+```
+
+The original `Graal.exe` is not needed. Only that folder is read, never
+the folder above it. `--data DIR` points at another folder instead.
+
+## Playing online
+
+Press Start, type your account and password, then press Enter (or
+Refresh) to get the server list from listserver.graal.in:14923. Pick a
+server and press Connect. A `listserver.txt` next to the program (host on
+the first line, port on the second) names another listserver.
+
 ## What works
 
 - NPCs and the GS1 script engine, items, combat, signs, weapons and the
