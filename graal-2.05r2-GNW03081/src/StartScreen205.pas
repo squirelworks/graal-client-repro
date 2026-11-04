@@ -32,18 +32,6 @@ type
     procedure Draw(S: TGSurface; X, Y: Integer; const Nick: string);
   end;
 
-{ The 2.05 start window (TConnectFrame): a 476 x 330 dialog with
-  SCREENIMG1 behind it, the welcome label, the language and nick name
-  fields from its form, and three TPaintButtons of 105 x 26 with the
-  BUTTON1 face that FormShow places: Training at (336, 240), Start Online
-  at (336, 280), Options at (200, 280) (graal_analysis: TConnectFrame.dfm,
-  TConnectFrame.FormShow). Used when screenimg1.jpg and button1.bmp lie
-  next to the program, as in the assets zip. }
-procedure Classic205(var L: TClassicLayout);
-
-const
-  Backgrounds205 = 'screenimg1.jpg;embedded/images/screenimg1.jpg;images/screenimg1.jpg';
-
 implementation
 
 uses
@@ -125,39 +113,6 @@ begin
   G.Player.Dir := 2;
   G.Player.AniName := 'idle';
   G.DrawPlayer(G.Player, -X, -Y);
-end;
-
-procedure Classic205(var L: TClassicLayout);
-begin
-  L.Used := True;
-  L.FormW := 476;
-  L.FormH := 330;
-  L.ButtonImages := 'button1.bmp;embedded/images/button1.bmp;images/button1.bmp';
-  L.Training := StartRect(336, 240, 105, 26);
-  L.Start := StartRect(336, 280, 105, 26);
-  L.Options := StartRect(200, 280, 105, 26);
-  L.TrainingText := 'Training';
-  L.StartText := 'Start Online';
-  L.OptionsText := 'Options';
-  L.Welcome := StartRect(24, 136, 153, 153);
-  L.WelcomeText := 'Welcome to Graal! Select your character, then press ''Training'' ' +
-    'for some offline training levels, and ''Start'' for the online mode.';
-  L.LanguageLabel := StartRect(208, 148, 64, 16);
-  L.NickLabel := StartRect(208, 178, 70, 16);
-  L.LanguageField := StartRect(312, 145, 145, 24);
-  L.NickField := StartRect(312, 173, 145, 24);
-  { 2.05's TPaintButton captions are clWindowText (black); the welcome
-    label is centred (taCenter) }
-  L.CaptionColor := 0;
-  L.WelcomeCentered := True;
-  { no fourth button, no account fields on 2.05's window }
-  L.Extra := StartRect(0, 0, 0, 0);
-  L.ExtraText := '';
-  L.ExtraImages := '';
-  L.AccountLabel := StartRect(0, 0, 0, 0);
-  L.PasswordLabel := StartRect(0, 0, 0, 0);
-  L.AccountField := StartRect(0, 0, 0, 0);
-  L.PasswordField := StartRect(0, 0, 0, 0);
 end;
 
 end.
