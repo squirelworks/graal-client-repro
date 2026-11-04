@@ -137,6 +137,8 @@ type
     { Takes link I: online, asks the server for the level; offline, loads
       it. Returns False when the level cannot be had. }
     function FollowLink(I: Integer): Boolean;
+    { One message from the server, as the client's dispatcher hands it on. }
+    procedure Receive(Id: Integer; const Data: string);
     { The player's own wire sprite: direction + 4 x the 2.05 sprite number
       for the current animation step. }
     function OwnSprite: Integer;
@@ -171,9 +173,8 @@ begin
   for T := 0 to 4095 do
   begin
     TileSheetPos(T, SX, SY);
-{$IFOPT Q+}{$DEFINE QWAS}{$Q-}{$ENDIF}
-    H := Cardinal(T) * 2654435761;
-{$IFDEF QWAS}{$Q+}{$ENDIF}
+    { Knuth's multiplicative hash, kept in 32 bits without overflowing }
+    H := Cardinal((Int64(T) * 2654435761) and $FFFFFFFF);
     Sheet.FillRect(SX, SY, TileSize, TileSize, $FF000000 or (H shr 8));
     Sheet.FillRect(SX, SY, TileSize, 1, $FF202020);
     Sheet.FillRect(SX, SY, 1, TileSize, $FF202020);
@@ -847,6 +848,11 @@ end;
 
 { ---- messages from the server ---- }
 
+procedure TAdventure.Receive(Id: Integer; const Data: string);
+begin
+  HandleMessage(Id, Data);
+end;
+
 procedure TAdventure.HandleMessage(Id: Integer; const Data: string);
 var
   R: TGReader;
@@ -1016,6 +1022,13 @@ begin
   Draw;
 end;
 
+{ A colour prop as an index into the 20 colours; a hostile or garbled
+  value (below 0, above 19) wraps instead of indexing out of the table. }
+function ColorIndex(C: Integer): Integer;
+begin
+  Result := ((C mod 20) + 20) mod 20;
+end;
+
 function TAdventure.BodyFor(P: TServerPlayer): TGSurface;
 var
   Src: TGSurface;
@@ -1041,9 +1054,9 @@ begin
     { entry 5 skin, 6 coat, 4 sleeves, 3 shoes, 1 belt; 0 the outline (18);
       2 is the clear colour }
     P.BodyCache.Recolor([5, 6, 4, 3, 1, 0, 2],
-      [ColorTable[P.Colors[0] mod 20], ColorTable[P.Colors[1] mod 20],
-       ColorTable[P.Colors[2] mod 20], ColorTable[P.Colors[3] mod 20],
-       ColorTable[P.Colors[4] mod 20], ColorTable[18], 0]);
+      [ColorTable[ColorIndex(P.Colors[0])], ColorTable[ColorIndex(P.Colors[1])],
+       ColorTable[ColorIndex(P.Colors[2])], ColorTable[ColorIndex(P.Colors[3])],
+       ColorTable[ColorIndex(P.Colors[4])], ColorTable[18], 0]);
     P.BodyKey := Key;
   end;
   Result := P.BodyCache;
