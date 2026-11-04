@@ -58,6 +58,20 @@ the first line, port on the second) names another listserver.
 - NPCs and the GS1 script engine, items, combat, signs, weapons and the
   bow, the Q item list, baddies, sound, the map, and the level editor.
 - Names under NPC characters and other players, as 2.05 draws them.
+- Checked side by side with the real 2.05 rev 2 under Wine through the
+  Training levels, action by action:
+  - the default look (head26, facing up), the intro signs with their key
+    names and face glyph, and the status bar icons;
+  - a chat line along the bottom (Tab, type, Enter), with your line shown
+    over your head;
+  - chests opened by walking up into them, the glove, and lifting;
+  - throwing: one tile a tick, a falling arc with a shadow, and the object
+    breaking into pieces;
+  - hiding under a carried bush or stone with D;
+  - a heart and the hearts left over a character that was hit;
+  - the next level drawn past the board's edge, as the real client scrolls
+    into it;
+  - the baddy, and the bomb's fuse and blast.
 - Checked side by side with the real 2.05 rev 2 under Wine on the
   Training level: characters, heads, shields and shadows match.
 - Login to a 2.05 server (gen-3 cipher, zlib framing, the 2.05 login line).
@@ -93,12 +107,13 @@ every flag.
 
 ## Not yet
 
-Chat bubbles; the Options page; UDP peer traffic; parts of
+Names and chat in the Windows system font (this build uses its own pixel
+font); the Options page; UDP peer traffic; parts of
 GS1 that print "not modelled" in the log. See the build's README for the full list.
 
 ## Checks behind this release
 
-The test suite (264 checks) runs with range and overflow checks and the heap
+The test suite (265 checks) runs with range and overflow checks and the heap
 tracer, and must end with no unfreed memory. It includes a fuzz run of
 20000 random and mangled messages and 3000 random frames through the
 receive path. CI also logs two of these clients into seihai-gserver, has the
