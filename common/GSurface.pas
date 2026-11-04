@@ -26,6 +26,10 @@ type
   public
     Width, Height: Integer;
     Pixels: TPixels;
+    { Set for palette images loaded with LoadImageIndexed: the index of each
+      pixel and the file's palette, so a body can be recoloured. }
+    Indices: array of Byte;
+    Palette: TPixels;
     constructor Create(AWidth, AHeight: Integer);
     procedure SetSize(AWidth, AHeight: Integer);
     procedure Fill(Color: Cardinal);
@@ -36,6 +40,9 @@ type
     procedure Blit(Src: TGSurface; SX, SY, W, H, DX, DY: Integer);
     procedure SaveBMP(const FileName: string);
     function LoadBMP(const FileName: string): Boolean;
+    { Rebuilds Pixels from Indices with palette entry Slot[i] replaced by
+      Color[i]. Needs an indexed image. }
+    procedure Recolor(const Slots: array of Integer; const Colors: array of Cardinal);
   end;
 
 procedure TileSheetPos(Tile: Integer; out SX, SY: Integer);
@@ -43,6 +50,8 @@ procedure TileSheetPos(Tile: Integer; out SX, SY: Integer);
 procedure DrawTile(Dest, Sheet: TGSurface; Tile, DX, DY: Integer);
 { Loads .bmp everywhere, and .png / .gif through fcl-image under Free Pascal. }
 function LoadImageFile(const FileName: string; Dest: TGSurface): Boolean;
+{ Same, keeping the palette indices (palette .png / .gif only). }
+function LoadImageIndexed(const FileName: string; Dest: TGSurface): Boolean;
 
 implementation
 
@@ -231,7 +240,24 @@ begin
   Result := True;
 end;
 
-function LoadImageFile(const FileName: string; Dest: TGSurface): Boolean;
+procedure TGSurface.Recolor(const Slots: array of Integer; const Colors: array of Cardinal);
+var
+  Pal: TPixels;
+  I: Integer;
+begin
+  if Length(Indices) <> Width * Height then Exit;
+  Pal := Copy(Palette, 0, Length(Palette));
+  for I := 0 to High(Slots) do
+    if (Slots[I] >= 0) and (Slots[I] < Length(Pal)) and (I <= High(Colors)) then
+      Pal[Slots[I]] := Colors[I];
+  for I := 0 to High(Indices) do
+    if Indices[I] < Length(Pal) then
+      Pixels[I] := Pal[Indices[I]]
+    else
+      Pixels[I] := 0;
+end;
+
+function LoadAny(const FileName: string; Dest: TGSurface; Indexed: Boolean): Boolean;
 {$IFDEF FPC}
 var
   Img: TFPMemoryImage;
@@ -249,6 +275,7 @@ begin
 {$IFDEF FPC}
   Img := TFPMemoryImage.Create(0, 0);
   try
+    Img.UsePalette := Indexed;
     try
       Img.LoadFromFile(FileName);
     except
@@ -263,11 +290,38 @@ begin
           (Cardinal(C.red shr 8) shl 16) or (Cardinal(C.green shr 8) shl 8) or
           Cardinal(C.blue shr 8);
       end;
+    SetLength(Dest.Indices, 0);
+    SetLength(Dest.Palette, 0);
+    if Indexed and Img.UsePalette and (Img.Palette.Count <= 256) then
+    begin
+      SetLength(Dest.Palette, Img.Palette.Count);
+      for X := 0 to Img.Palette.Count - 1 do
+      begin
+        C := Img.Palette.Color[X];
+        Dest.Palette[X] := (Cardinal(C.alpha shr 8) shl 24) or
+          (Cardinal(C.red shr 8) shl 16) or (Cardinal(C.green shr 8) shl 8) or
+          Cardinal(C.blue shr 8);
+      end;
+      SetLength(Dest.Indices, Img.Width * Img.Height);
+      for Y := 0 to Img.Height - 1 do
+        for X := 0 to Img.Width - 1 do
+          Dest.Indices[X + Y * Img.Width] := Img.Pixels[X, Y];
+    end;
     Result := True;
   finally
     Img.Free;
   end;
 {$ENDIF}
+end;
+
+function LoadImageFile(const FileName: string; Dest: TGSurface): Boolean;
+begin
+  Result := LoadAny(FileName, Dest, False);
+end;
+
+function LoadImageIndexed(const FileName: string; Dest: TGSurface): Boolean;
+begin
+  Result := LoadAny(FileName, Dest, True) and (Length(Dest.Indices) = Dest.Width * Dest.Height);
 end;
 
 end.

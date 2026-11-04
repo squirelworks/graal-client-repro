@@ -17,8 +17,11 @@ uses
   GSocket in '../../common/GSocket.pas',
   GLevel in '../../common/GLevel.pas',
   GSurface in '../../common/GSurface.pas',
+  GArrays in '../../common/GArrays.pas',
+  GAni in '../../common/GAni.pas',
   Protocol205 in '../src/Protocol205.pas',
-  GraalClient in '../src/GraalClient.pas';
+  GraalClient in '../src/GraalClient.pas',
+  Adventure in '../src/Adventure.pas';
 
 var
   Passed, Failed, Skipped: Integer;
@@ -291,6 +294,107 @@ begin
   Check(Reencoded = Count, Format('tutorial boards re-encode byte for byte (%d of %d)', [Reencoded, Count]));
 end;
 
+
+function BE(V: Integer): string;
+begin
+  Result := Chr((V shr 24) and $FF) + Chr((V shr 16) and $FF) + Chr((V shr 8) and $FF) + Chr(V and $FF);
+end;
+
+{ arrays.dat with array 0 = the given passable tiles, array 1 = (), then
+  23 empty arrays; array 2 nested to check kind 1. }
+function MakeArrays(const Free: array of Integer): string;
+var
+  I: Integer;
+begin
+  Result := BE(Length(Free));
+  for I := 0 to High(Free) do Result := Result + BE(Free[I]);
+  Result := Result + BE(0);
+  Result := Result + BE((1 shl 16) or 2) + BE(1) + BE(7) + BE(0);
+  for I := 3 to 24 do Result := Result + BE(0);
+end;
+
+procedure TestArrays;
+var
+  A: TGArrays;
+begin
+  A := TGArrays.Create;
+  try
+    Check(A.LoadFromString(MakeArrays([0, 5, 4095])), 'arrays.dat: 25 arrays parse');
+    Check(A.TilePassable(5) and A.TilePassable(4095) and not A.TilePassable(6),
+      'arrays.dat: tiles in array 0 are passable, others block');
+    Check((Length(A.Lists[2].Items) = 2) and (A.Lists[2].Items[0].Values[0] = 7),
+      'arrays.dat: nested array (kind 1)');
+    Check(not A.LoadFromString(BE(3) + BE(1)), 'arrays.dat: short file is rejected');
+  finally
+    A.Free;
+  end;
+end;
+
+procedure TestGani;
+var
+  A: TGraalAni;
+  S: TGraalAniSprite;
+begin
+  A := TGraalAni.Create;
+  try
+    Check(A.LoadFromString(
+      'GANI0001'#10 +
+      'SPRITE 1 BODY 0 0 32 32 test body'#10 +
+      'SPRITE 2 HEAD 0 64 32 32 test head'#10 +
+      'loop'#10'DEFAULTATTR1 hat1.png'#10#10 +
+      'ANI'#10 +
+      '  1 8 16,  2 8 2'#10'  1 8 16'#10'  1 8 16, 2 8 0'#10'  1 8 16'#10 +
+      'WAIT 2'#10#10 +
+      '  2 0 0'#10'  2 0 0'#10'  2 0 0'#10'  2 0 0'#10 +
+      'PLAYSOUND step.wav 1 2'#10 +
+      'ANIEND'#10), 'gani: sprite mode parses');
+    Check((Length(A.Steps) = 2) and A.Loop and (A.DefaultAttr[1] = 'hat1.png'),
+      'gani: two steps, LOOP, DEFAULTATTR1');
+    Check((Length(A.Steps[0].Dirs[0]) = 2) and (A.Steps[0].Dirs[2][1].Y = 0) and
+      (A.Steps[0].Ticks = 3) and (A.Steps[1].Sound = 'step.wav'),
+      'gani: placements per direction, WAIT and PLAYSOUND go to their step');
+    Check(A.FindSprite(2, S) and (S.Sheet = 'HEAD') and (S.Y = 64), 'gani: sprite lookup');
+    Check((A.StepAt(0) = 0) and (A.StepAt(2) = 0) and (A.StepAt(3) = 1) and (A.StepAt(4) = 0),
+      'gani: step timing and looping');
+  finally
+    A.Free;
+  end;
+end;
+
+{ A walled 64x64 level: tile 1 blocks, tile 0 is free. }
+procedure TestWalking;
+var
+  G: TAdventure;
+  I: Integer;
+begin
+  G := TAdventure.Create;
+  try
+    G.Arrays.LoadFromString(MakeArrays([0]));
+    for I := 0 to BoardSize - 1 do G.Level.Tiles[I] := 0;
+    for I := 0 to 63 do G.Level.Tiles[I + 20 * 64] := 1; { a wall along y = 20 }
+    G.Player.X := 9.5;
+    G.Player.Y := 10;
+    G.WalkStep(DirRight);
+    Check((G.Player.X = 10) and (G.Player.Y = 10) and (G.Player.Dir = DirRight),
+      'walk: a free step moves half a tile and sets the facing');
+    for I := 1 to 40 do G.WalkStep(DirDown);
+    Check(G.Player.Y = 17,
+      'walk: walking down stops with the body (y + 3) on the wall''s tile line');
+    for I := 1 to 10 do G.WalkStep(DirUp);
+    Check(G.Player.Y = 12, 'walk: walking away is free');
+    { a one-tile pillar at (30, 5) under the left edge of the body: only
+      probe 0 is blocked, so the step is refused and nudged +0.1 }
+    G.Level.Tiles[30 + 5 * 64] := 1;
+    G.Player.X := 30;
+    G.Player.Y := 5;
+    G.WalkStep(DirUp);
+    Check((G.Player.Y = 5) and (Abs(G.Player.X - 30.1) < 1e-9),
+      'walk: a refused step nudges 0.1 round a corner');
+  finally
+    G.Free;
+  end;
+end;
+
 begin
   TestGTypes;
   TestGen3Capture;
@@ -299,6 +403,9 @@ begin
   TestBoardWriter;
   TestNW;
   TestTileSheet;
+  TestArrays;
+  TestGani;
+  TestWalking;
   TestTutorials;
   WriteLn(Format('%d passed, %d failed, %d skipped', [Passed, Failed, Skipped]));
   if Failed > 0 then Halt(1);
