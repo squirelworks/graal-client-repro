@@ -56,6 +56,12 @@ decompiled code:
   player, into a 640x480 frame. The player is drawn from the install's ganis
   (`idle`, `walk`) with head, body, sword and shield images, and the body is
   recoloured from the five colour props.
+- The status display, laid out as 2.05 draws it from `state.png`: the A/S/D
+  buttons, the item icons with rupee, bomb and arrow counts, big hearts up
+  to four containers and small hearts in rows past that, and the alignment
+  bar. A new account starts at 3 hearts, 10 bombs and 5 arrows. The
+  built-in `state.png` is new art in the same layout (tests). Not drawn yet:
+  the glove and sword icons, the selected weapon and the magic bar.
 - A window (X11 on Linux, GDI on Windows) with keyboard input: arrows or
   IJKL walk, Esc quits. `--keys` drives the same input from a script, so
   headless runs can walk too.
