@@ -255,6 +255,7 @@ type
     { Draws P with the camera at (CamX, CamY) pixels; also used for the
       character on the start screen. }
     procedure DrawPlayer(P: TServerPlayer; CamX, CamY: Integer);
+    procedure DrawNames(CamX, CamY: Integer);
     { The status display over the board: buttons, counts, hearts, bars. }
     procedure DrawStatus;
     { The built-in tile sheet and tile types (done by Create). }
@@ -2778,6 +2779,37 @@ begin
   Result := P.BodyCache;
 end;
 
+{ The names under characters: an NPC that shows a character with a #n
+  name, and the other players. The player's own is not drawn (2.05 shows
+  none offline). White on a blue shadow, as 2.05 draws them; the font is
+  the built-in one. }
+procedure TAdventure.DrawNames(CamX, CamY: Integer);
+
+  procedure One(const Name: string; X, Y: Double);
+  var
+    TX, TY: Integer;
+  begin
+    if Name = '' then Exit;
+    TX := Round(X * TileSize) - CamX + 24 - TextWidth(Name, 2) div 2;
+    TY := Round(Y * TileSize) - CamY + 44;
+    DrawText(Screen, TX + 1, TY + 1, Name, $FF0000FF, 2);
+    DrawText(Screen, TX, TY, Name, $FFFFFFFF, 2);
+  end;
+
+var
+  I: Integer;
+  N: TNpc;
+begin
+  for I := 0 to Npcs.Count - 1 do
+  begin
+    N := Npcs.Npc(I);
+    if N.Gone or not N.Visible or not N.Character then Continue;
+    One(N.Nickname, N.X, N.Y);
+  end;
+  for I := 0 to FOthers.Count - 1 do
+    One(Others[I].Nickname, Others[I].X, Others[I].Y);
+end;
+
 procedure TAdventure.DrawPlayer(P: TServerPlayer; CamX, CamY: Integer);
 var
   A: TGraalAni;
@@ -3123,6 +3155,7 @@ begin
   DrawCombat(CamX, CamY);
   DrawShots(CamX, CamY);
   Npcs.Draw(Screen, CamX, CamY, True);
+  DrawNames(CamX, CamY);
   for I := 0 to High(Thrown) do
     DrawCarried(Thrown[I].Kind, Round(Thrown[I].X * TileSize) - CamX,
       Round(Thrown[I].Y * TileSize) - CamY);
