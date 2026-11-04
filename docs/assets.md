@@ -19,6 +19,7 @@ client line's own install held.
     2.05r2/             one folder per version line, named by the build's
     2.22/               version label (ClientBuildLabel)
     3.04/
+    zelda-online1/
 ```
 
 Nothing above the root is read. A real install dropped into the root, laid
@@ -39,10 +40,12 @@ that has it:
 | Build | Label passed to `SetAssetRoots` | Version folders read |
 |---|---|---|
 | 2.05 rev 2 | `2.05r2` | `2.05r2/` |
-| 2.05, 2.05 rev 1 (2.0-line thread) | own label, then `2.05r2` | own folder if any, then `2.05r2/` |
+| 2.05 | `2.05;2.05r2` | `2.05/` (none: the 2.05 archive holds only the exe), then `2.05r2/` |
+| 2.05 rev 1 | `2.05r1;2.05r2` | `2.05r1/` (none: only the exe), then `2.05r2/` |
 | 2.17.1 | `2.17.1;2.22` | `2.17.1/` (none shipped), then `2.22/`: 2.17.1 came in the same folder as 2.22 |
 | 2.22 | `2.22` | `2.22/` |
 | 3.04 | `3.04` | `3.04/` (the Linux install, `graal-decompile/torque/lin304`) |
+| Zelda Online 1 (Java, `ZeldaOnline1.jar`) | its own `Assets` class, same order | `zelda-online1/` |
 
 `--data DIR` today replaces the program's folder: with it, the root and a
 `graal-assets/` beside the program are not read, only `DIR` (or
@@ -102,7 +105,8 @@ and must not be used for the 2.0 line.
 every set has it, byte for byte, at the same path. Every build reads
 `common/`, so a file shared by only some sets stays in their own folders;
 in `common/` it would hand the other builds a file their install never
-had. Today that leaves 5 files in `common/`. 2.22 and 3.04 share 110
+had. Today no file is in all four sets, so `common/` is empty (the 5
+npc and weapon scripts 2.05 rev 2, 2.22 and 3.04 share stay in each). 2.22 and 3.04 share 110
 files byte for byte (ganis, emoticons, smilies) that 2.05 rev 2 lacks;
 they stay in both folders. The 2.05 rev 2 and 2.22 sets share almost
 nothing byte for byte (2.22 re-saved its art). A version that
@@ -183,6 +187,7 @@ would save.
 | 3.153 (Mac) | install in `graal-decompile/torque/mac3153`; not inventoried until a build lands | | | | no |
 | 4.x to 6.x | installs on Drive, not unpacked in project files | | | | no |
 | Graal3D (2000) | DirectX `.x` meshes and `.bmp` textures at the top | 21 | 455 | | no |
+| Zelda Online 1 | applet: `pics1.gif`, `arrays.dat`, 36 `level*.zelda` (`Z3-V1.03`), `link.gif`, `state.gif`, `hit.au`, classes (from Drive `zeldaonline1.7z`) | 38 kept | 130 | | **yes** (`zelda-online1/`: `pics1.gif`, `arrays.dat`, `levels/*.zelda`) |
 | Zelda Online 2 | Java classes and levels under `game/` (author source alongside: never copied) | 90 | 535 | | no |
 | Java Graal, Game Boy demo | not in `graal clients.zip` (`javagraal_rip.rar`, `graalgb.rar` on Drive) | | | | no |
 
