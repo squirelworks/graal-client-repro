@@ -19,6 +19,8 @@ uses
   GSurface in '../../common/GSurface.pas',
   GFont in '../../common/GFont.pas',
   EditorUI in '../src/editor/EditorUI.pas',
+  EditorDialogs in '../src/editor/EditorDialogs.pas',
+  EditorObjSets in '../src/editor/EditorObjSets.pas',
   EditorView in '../src/editor/EditorView.pas';
 
 var
@@ -579,6 +581,238 @@ begin
   end;
 end;
 
+{ A press at a control of the open form dialog. }
+procedure PressCtl(V: TEditorView; Dlg: TFormDialog; C: TCtl; DX, DY: Integer);
+begin
+  V.Step(Inp(C.R.X + DX, C.R.Y + DY, True, True, ''));
+  V.Step(Inp(C.R.X + DX, C.R.Y + DY, False, False, ''));
+end;
+
+type
+  TFormPeek = class(TFormDialog);
+
+function CtlOf(Dlg: TEditorDialog; Id: Integer): TCtl;
+var
+  I: Integer;
+begin
+  Result := nil;
+  for I := 0 to High(TFormPeek(Dlg).Ctls) do
+    if (TFormPeek(Dlg).Ctls[I].Id = Id) and (TFormPeek(Dlg).Ctls[I].Kind <> ckLabel) then
+    begin
+      Result := TFormPeek(Dlg).Ctls[I];
+      Exit;
+    end;
+end;
+
+procedure TestEditorDialogs;
+var
+  Sheet: TGSurface;
+  V: TEditorView;
+  D: TEditorDoc;
+  L: TLevelLink;
+  E: string;
+  C: TCtl;
+  Dl: TEditorDialog;
+  R: TRectI;
+begin
+  Check(LinkFromFields('a.graal', '0', '30', '1', '4', 'playerx', '61', L, E) and (E = ''),
+    'link dialog: good values');
+  Check(not LinkFromFields('', '0', '30', '1', '4', '1', '2', L, E) and (E = WrongLinkValues),
+    'link dialog: no file is Wrong values!');
+  Check(not LinkFromFields('a', 'x', '30', '1', '4', '1', '2', L, E), 'link dialog: x must be a number');
+  Check(not LinkFromFields('a', '60', '30', '8', '4', '1', '2', L, E), 'link dialog: the field stays on the board');
+  Sheet := TGSurface.Create(2048, 512);
+  V := TEditorView.Create(Sheet);
+  try
+    V.Step(Inp(0, 0, False, False, ''));
+    D := V.Editor.Doc;
+    { warp field on the east edge }
+    D.Select(63, 20, 63, 23);
+    R := ToolRect(taWarp);
+    Click(V, R.X + 3, R.Y + 3);
+    Check(V.Dialog is TLinkOptionsDialog, 'warp: opens the link dialog');
+    Check(Length(D.Level.Links) = 0, 'warp: no link before OK');
+    V.Step(Inp(0, 0, False, False, #13));
+    Check(V.Dialog is TLinkOptionsDialog, 'warp: OK with no file keeps the dialog open');
+    V.Step(Inp(0, 0, False, False, #13)); { closes the Wrong values! box }
+    V.Step(Inp(0, 0, False, False, 'east.graal'#13));
+    Check((V.Dialog = nil) and (Length(D.Level.Links) = 1) and (D.Level.Links[0].Dest = 'east.graal') and
+      (D.Level.Links[0].NewX = '0') and (D.Level.Links[0].H = 4), 'warp: OK adds the link');
+    { link list: edit and delete }
+    V.Step(Inp(0, 0, False, False, 'l'));
+    Dl := V.Dialog;
+    Check(Dl is TLinkListDialog, 'links: L opens the link list');
+    C := CtlOf(Dl, IdList);
+    Check((C.Items.Count = 1) and (Pos('east.graal', C.Items[0]) = 1), 'links: the list shows the link');
+    PressCtl(V, TFormDialog(Dl), CtlOf(Dl, IdEdit), 5, 5);
+    V.Step(Inp(0, 0, False, False, #9#9#9#9#9#8'62'#13));
+    Check(D.Level.Links[0].NewX = '62', 'links: tab to New X and change it');
+    PressCtl(V, TFormDialog(Dl), CtlOf(Dl, IdDelete), 5, 5);
+    Check(Length(D.Level.Links) = 0, 'links: Delete');
+    PressCtl(V, TFormDialog(Dl), CtlOf(Dl, IdClose), 5, 5);
+    Check(V.Dialog = nil, 'links: Close');
+
+    { chest }
+    D.AddChest(10, 10);
+    V.Step(Inp(BX(10), BY(10), True, True, ''));
+    V.Step(Inp(BX(10), BY(10), False, False, ''));
+    Clock := Clock - 1900; { the second click comes quickly }
+    V.Step(Inp(BX(10), BY(10), True, True, ''));
+    V.Step(Inp(BX(10), BY(10), False, False, ''));
+    Dl := V.Dialog;
+    Check(Dl is TChestDialog, 'chest: double-click opens the chest dialog');
+    if Dl is TChestDialog then
+    begin
+      C := CtlOf(Dl, IdItem);
+      Check(C.Items[C.Index] = 'bluerupee', 'chest: the item shows');
+      PressCtl(V, TFormDialog(Dl), C, 5, 5);
+      { the drop-down list opens below; pick its third row (redrupee) }
+      V.Step(Inp(C.R.X + 5, C.R.Y + C.R.H + 1 + 2 * LineH + 5, True, True, ''));
+      V.Step(Inp(0, 0, False, False, ''));
+      Check(D.Level.Chests[0].Item = 2, 'chest: pick redrupee');
+      V.Step(Inp(0, 0, False, False, #8#8'3'));
+      Check(D.Level.Chests[0].Sign = 3, 'chest: sign index');
+      PressCtl(V, TFormDialog(Dl), CtlOf(Dl, IdSigns), 5, 5);
+      V.Step(Inp(0, 0, False, False, #27));
+      PressCtl(V, TFormDialog(Dl), CtlOf(Dl, IdDelete), 5, 5);
+      Check((V.Dialog = nil) and (Length(D.Level.Chests) = 0), 'chest: Delete Chest');
+    end;
+
+    { baddy }
+    D.AddBaddy(4, 4, 0);
+    V.Dialog := TBaddyDialog.Create(D, 0);
+    Dl := V.Dialog;
+    C := CtlOf(Dl, IdType);
+    PressCtl(V, TFormDialog(Dl), C, 5, 5);
+    V.Step(Inp(C.R.X + 5, C.R.Y + C.R.H + 1 + 5 * LineH + 5, True, True, ''));
+    V.Step(Inp(0, 0, False, False, ''));
+    Check((D.Level.Baddies[0].Kind = 5) and (D.Level.Baddies[0].Verses = '\\') and
+      not CtlOf(Dl, IdVerse1).Enabled, 'baddy: a frog has no verses');
+    PressCtl(V, TFormDialog(Dl), C, 5, 5);
+    V.Step(Inp(C.R.X + 5, C.R.Y + C.R.H + 1 + 0 * LineH + 5, True, True, ''));
+    V.Step(Inp(0, 0, False, False, ''));
+    PressCtl(V, TFormDialog(Dl), CtlOf(Dl, IdVerse1), 5, 5);
+    V.Step(Inp(0, 0, False, False, #8'?'));
+    Check(D.Level.Baddies[0].Verses = 'Stop?\Ouch!\', 'baddy: edit the attack verse');
+    V.Step(Inp(0, 0, False, False, #13));
+    Check(V.Dialog = nil, 'baddy: Enter closes');
+
+    { signs }
+    V.Step(Inp(0, 0, False, False, 's'));
+    Dl := V.Dialog;
+    Check(Dl is TSignsDialog, 'signs: S opens the sign editor');
+    PressCtl(V, TFormDialog(Dl), CtlOf(Dl, IdNew), 5, 5);
+    Check(Length(D.Level.Signs) = 1, 'signs: New');
+    V.Step(Inp(0, 0, False, False, 'Hi #A'#13'there'));
+    Check(D.Level.Signs[0].Text = 'Hi #A'#10'there', 'signs: type the text');
+    PressCtl(V, TFormDialog(Dl), CtlOf(Dl, IdX), 5, 5);
+    V.Step(Inp(0, 0, False, False, #8'12'));
+    Check(D.Level.Signs[0].X = 12, 'signs: X');
+    PressCtl(V, TFormDialog(Dl), CtlOf(Dl, IdClose), 5, 5);
+
+    { NPC and its script }
+    D.AddNPC(20, 20, '');
+    V.Dialog := TPersonDialog.Create(D, 0);
+    Dl := V.Dialog;
+    V.Step(Inp(0, 0, False, False, 'door.png'));
+    Check(D.Level.NPCs[0].Image = 'door.png', 'npc: the image');
+    PressCtl(V, TFormDialog(Dl), CtlOf(Dl, IdAction), 5, 5);
+    V.Step(Inp(0, 0, False, False, 'if (playerenters) {'#13'say 0;'#13'}'));
+    PressCtl(V, TFormDialog(Dl), CtlOf(TFormPeek(Dl).Child, IdOK), 5, 5);
+    Check(D.Level.NPCs[0].Script = 'if (playerenters) {'#10'say 0;'#10'}', 'npc: the script');
+    V.Step(Inp(0, 0, False, False, #27));
+    Check(V.Dialog = nil, 'npc: Esc closes');
+
+    { flags }
+    V.Dialog := TFlagsDialog.Create(V.Editor.Flags);
+    V.Step(Inp(0, 0, False, False, 'gotsword'#13' visited '));
+    PressCtl(V, TFormDialog(V.Dialog), CtlOf(V.Dialog, IdClose), 5, 5);
+    Check((V.Editor.Flags.Count = 2) and (V.Editor.Flags[1] = 'visited'), 'flags: edited in memory');
+  finally
+    V.Free;
+    Sheet.Free;
+  end;
+end;
+
+procedure TestObjectSets;
+var
+  St: TObjectSet;
+  Sets: TObjectSets;
+  D: TEditorDoc;
+  Dat, Dir: string;
+  Sheet: TGSurface;
+  V: TEditorView;
+begin
+  St := TObjectSet.Create;
+  try
+    Check(St.LoadGOBJSET('GOBJSET01'#10#10'OBJECT 2 2 Bush'#10'ACAD'#10'ASAT'#10'OBJECTEND'#10 +
+      #10'OBJECT 3 1 Long Fence Part'#10'AAABAC'#10'OBJECTEND'#10), 'stamps: GOBJSET01 loads');
+    Check((St.Count = 2) and (St.Stamps[0].Name = 'Bush') and (St.Stamps[0].Block.Tiles[0] = 2) and
+      (St.Stamps[0].Block.Tiles[3] = 19), 'stamps: Bush is tiles 2 3 18 19');
+    Check(St.Stamps[1].Name = 'Long Fence Part', 'stamps: names may have spaces');
+    Check(St.SaveText = 'GOBJSET01'#10#10'OBJECT 2 2 Bush'#10'ACAD'#10'ASAT'#10'OBJECTEND'#10 +
+      #10'OBJECT 3 1 Long Fence Part'#10'AAABAC'#10'OBJECTEND'#10, 'stamps: GOBJSET01 writes back the same');
+    Dat := 'Dot'#10#1#2 + #5#0#0#0 + #$FF#7#0#0;
+    Check(St.LoadObjectsDat(Dat) and (St.Count = 1) and (St.Stamps[0].Block.H = 2) and
+      (St.Stamps[0].Block.Tiles[0] = 5) and (St.Stamps[0].Block.Tiles[1] = TransparentTile),
+      'stamps: objects.dat with a transparent cell');
+    Check(St.SaveDat = Dat, 'stamps: objects.dat writes back the same');
+  finally
+    St.Free;
+  end;
+  D := TEditorDoc.Create(9);
+  try
+    St := TObjectSet.Create;
+    St.LoadObjectsDat('Dot'#10#1#2 + #5#0#0#0 + #$FF#7#0#0);
+    D.WriteBlock(3, 3, St.Stamps[0].Block);
+    Check((D.Level.Tile(3, 3) = 5) and (D.Level.Tile(3, 4) = 9), 'stamps: a transparent cell keeps the board');
+    St.Free;
+  finally
+    D.Free;
+  end;
+  { the sets in a folder }
+  Dir := GetTempDir + 'testeditor205-objs';
+  ForceDirectories(Dir);
+  WriteText(Dir + PathDelim + 'objectsSnow.txt', 'GOBJSET01'#10'OBJECT 1 1 Snow'#10'AB'#10'OBJECTEND'#10);
+  WriteText(Dir + PathDelim + 'objects.dat', 'Dot'#10#1#1 + #5#0#0#0);
+  Sets := TObjectSets.Create;
+  try
+    Sets.LoadFromFolders([Dir]);
+    Check((Sets.Count = 2) and (Sets.Sets[0].Name = 'Standard') and (Sets.Sets[1].Name = 'Snow'),
+      'stamps: objects.dat is the Standard set, then objects<set>.txt');
+  finally
+    Sets.Free;
+  end;
+  { the side panel: pick a stamp, add the selection }
+  Sheet := TGSurface.Create(2048, 512);
+  V := TEditorView.Create(Sheet);
+  try
+    SetLength(V.ObjFolders, 1);
+    V.ObjFolders[0] := Dir;
+    V.Step(Inp(0, 0, False, False, ''));
+    Click(V, 434 + 4, 41 + 4);
+    Check((V.Mode = pmObjects) and (V.ObjSets.Count = 2), 'stamps: the predefined object mode reads the sets');
+    Click(V, PalX0 + 10, PalY0 + 52 + 2 + 4);
+    Check((V.CurStamp = 0) and V.Editor.Doc.Floating, 'stamps: a click picks the stamp');
+    Click(V, BX(2), BY(2));
+    Check(V.Editor.Doc.Level.Tile(2, 2) = 5, 'stamps: and a board click places it');
+    V.Editor.Doc.Select(0, 0, 1, 0);
+    Click(V, PalX0 + 2 * 44 + 5, PalY0 + 24 + 5);
+    Check(V.Dialog is TPromptDialog, 'stamps: Add asks for a name');
+    V.Step(Inp(0, 0, False, False, 'Pair'#13));
+    Check((V.CurrentSet.Count = 2) and (V.CurrentSet.Stamps[1].Name = 'Pair') and
+      (V.CurrentSet.Stamps[1].Block.W = 2), 'stamps: the selection is added after the picked stamp');
+    Click(V, PalX0 + 3 * 44 + 5, PalY0 + 24 + 5);
+    Check(V.CurrentSet.Count = 1, 'stamps: Delete object');
+  finally
+    V.Free;
+    Sheet.Free;
+  end;
+  DeleteFile(Dir + PathDelim + 'objectsSnow.txt');
+  DeleteFile(Dir + PathDelim + 'objects.dat');
+  RemoveDir(Dir);
+end;
+
 procedure TestTutorials;
 const
   Names: array[0..12] of string = ('a-1', 'a-2', 'a-3', 'a-4', 'b-1', 'b-2',
@@ -625,6 +859,8 @@ begin
   TestEditorBoard;
   TestEditorObjects;
   TestEditorView;
+  TestEditorDialogs;
+  TestObjectSets;
   TestTutorials;
   WriteLn(Format('%d passed, %d failed, %d skipped', [Passed, Failed, Skipped]));
   if Failed > 0 then Halt(1);

@@ -23,14 +23,15 @@ unit EditorView;
 interface
 
 uses
-  GSurface, GLevel, EditorUI, EditorDoc;
+  GSurface, GLevel, EditorUI, EditorDoc, EditorObjSets;
 
 type
   TPaletteMode = (pmObjects, pmTiles, pmThings);
   TMouseState = (msIdle, msSelect, msDragFloat, msPaint, msDragObject, msPalette,
     msHScroll, msVScroll, msPalHScroll, msPalVScroll);
   TEditorExit = (eeNone, eeLeave, eePlay);
-  TDialogKind = (dkNone, dkInfo, dkOpen, dkSaveAs, dkSaveAsClose, dkCloseAsk, dkPlayName);
+  TDialogKind = (dkNone, dkInfo, dkOpen, dkSaveAs, dkSaveAsClose, dkCloseAsk, dkLinks,
+    dkObject, dkStampName, dkSetName);
   { An image from the install (NPC images), or nil. }
   TImageFunc = function(const Name: string): TGSurface of object;
 
@@ -60,6 +61,7 @@ type
     FAnchorX, FAnchorY: Integer;
     FOffX, FOffY: Integer;
     FDragKind: TEditorObjKind;
+    FPressTX, FPressTY: Integer;
     FDragIndex: Integer;
     FLastPaintX, FLastPaintY: Integer;
     FLastClickMs: Int64;
@@ -71,6 +73,9 @@ type
     procedure BoardPress(const I: TEditorInput; TX, TY: Integer);
     procedure BoardRightPress(const I: TEditorInput; TX, TY: Integer);
     procedure PalettePress(const I: TEditorInput);
+    procedure ObjectsPress(const I: TEditorInput);
+    procedure DrawObjects(S: TGSurface);
+    procedure PickStamp(N: Integer);
     procedure HandleKeys(const I: TEditorInput);
     procedure DragStep(const I: TEditorInput);
     procedure Release;
@@ -103,7 +108,14 @@ type
     Dialog: TEditorDialog;
     ExitCode: TEditorExit;
     PlayFile: string;
+    { predefined objects: the sets, read from ObjFolders when first shown }
+    ObjSets: TObjectSets;
+    ObjFolders: array of string;
+    ObjSetsLoaded: Boolean;
+    CurSet, CurStamp, StampTop: Integer;
     constructor Create(ASheet: TGSurface);
+    function CurrentSet: TObjectSet;
+    procedure LoadObjectSets;
     destructor Destroy; override;
     procedure Step(const I: TEditorInput);
     procedure Draw(S: TGSurface);
@@ -129,7 +141,7 @@ function SheetTileAt(PX, PY: Integer): Integer;
 implementation
 
 uses
-  SysUtils, GFont, GLevelWrite;
+  SysUtils, GFont, GLevelWrite, EditorDialogs;
 
 const
   TileSz = 16;
@@ -192,12 +204,15 @@ begin
   FBoard := TGSurface.Create(BoardViewW, BoardViewH);
   Mode := pmTiles;
   Thing := -1;
+  ObjSets := TObjectSets.Create;
+  CurStamp := -1;
   FDragIndex := -1;
 end;
 
 destructor TEditorView.Destroy;
 begin
   Dialog.Free;
+  ObjSets.Free;
   FBoard.Free;
   Editor.Free;
   inherited Destroy;
@@ -299,7 +314,6 @@ end;
 procedure TEditorView.Action(A: TToolAction);
 var
   D: TEditorDoc;
-  N: Integer;
 begin
   D := Editor.Doc;
   case A of
@@ -352,12 +366,19 @@ begin
     taWarp:
       if D <> nil then
       begin
-        N := D.MakeWarpLink;
-        if N < 0 then SetStatus('Select the warp field first')
-        else SetStatus('Warp field added: edit its destination in the link list');
+        if D.Floating then D.DropFloat;
+        if not D.HasSel then SetStatus('Select the warp field first')
+        else
+          { the link is added when the dialog's OK accepts it }
+          ShowDialog(TLinkOptionsDialog.Create(D, LinkWarpDefaults(D.SelX, D.SelY, D.SelW,
+            D.SelH)), dkObject);
       end;
-    taLinks, taSigns, taFlags:
-      SetStatus(ToolHints[A] + ': not in this build yet');
+    taLinks:
+      if D <> nil then ShowDialog(TLinkListDialog.Create(D), dkLinks);
+    taSigns:
+      if D <> nil then ShowDialog(TSignsDialog.Create(D, -1), dkObject);
+    taFlags:
+      ShowDialog(TFlagsDialog.Create(Editor.Flags), dkObject);
     taClose:
       if D <> nil then
       begin
@@ -398,6 +419,7 @@ var
   Kind: TDialogKind;
   D: TEditorDoc;
   V: string;
+  St: TStamp;
 begin
   Dlg := Dialog;
   Kind := FDialogKind;
@@ -408,6 +430,34 @@ begin
     V := '';
     if Dlg is TPromptDialog then V := Trim(TPromptDialog(Dlg).Value);
     case Kind of
+      dkStampName:
+        if (Dlg.Result = drOk) and (V <> '') and (D <> nil) and D.HasSel and (CurrentSet <> nil) then
+        begin
+          St.Name := V;
+          St.Block := D.SelectionBlock;
+          CurrentSet.Insert(CurStamp + 1, St);
+          CurStamp := CurStamp + 1;
+          SetStatus('Object added: ' + V);
+        end;
+      dkSetName:
+        if (Dlg.Result = drOk) and (V <> '') then
+        begin
+          if Length(ObjFolders) > 0 then ObjSets.NewSet(ObjFolders[0], V)
+          else ObjSets.NewSet(GetCurrentDir, V);
+          CurSet := ObjSets.Count - 1;
+          CurStamp := -1;
+          StampTop := 0;
+        end;
+      dkLinks:
+        if (Dlg is TLinkListDialog) and (TLinkListDialog(Dlg).LoadFile <> '') and (D <> nil) then
+        begin
+          { Load: the destination in a new tab, next to this level }
+          V := TLinkListDialog(Dlg).LoadFile;
+          if (ExtractFilePath(D.FileName) <> '') and
+            FileExists(ExtractFilePath(D.FileName) + V) then
+            V := ExtractFilePath(D.FileName) + V;
+          OpenFile(V);
+        end;
       dkOpen:
         if (Dlg.Result = drOk) and (V <> '') then OpenFile(V);
       dkSaveAs, dkSaveAsClose:
@@ -474,6 +524,8 @@ begin
     FAnchorY := I.PressY - PalY0 + PalScrollY;
     MouseState := msPalette;
   end
+  else if Mode = pmObjects then
+    ObjectsPress(I)
   else if Mode = pmThings then
   begin
     Row := (I.PressY - PalY0 - 2) div LineH;
@@ -538,10 +590,16 @@ begin
   begin
     if Dbl then
     begin
-      SetStatus('Object dialogs are not in this build yet');
+      case K of
+        okChest: ShowDialog(TChestDialog.Create(D, N), dkObject);
+        okNPC: ShowDialog(TPersonDialog.Create(D, N), dkObject);
+        okBaddy: ShowDialog(TBaddyDialog.Create(D, N), dkObject);
+      end;
       Exit;
     end;
     D.ObjectRect(K, N, OX, OY, OW, OH);
+    FPressTX := TX;
+    FPressTY := TY;
     FDragKind := K;
     FDragIndex := N;
     FOffX := TX - OX;
@@ -589,6 +647,7 @@ begin
   begin
     { Right Mousebutton -> copy: the copy hangs on the mouse }
     N := D.CloneObject(K, N, TX, TY);
+    FPressTX := -1;
     FDragKind := K;
     FDragIndex := N;
     FOffX := 0;
@@ -642,7 +701,8 @@ begin
         FLastPaintY := TY;
       end;
     msDragObject:
-      if (TX >= 0) and (TY >= 0) and (TX < BoardW) and (TY < BoardH) then
+      if (TX >= 0) and (TY >= 0) and (TX < BoardW) and (TY < BoardH) and
+        ((TX <> FPressTX) or (TY <> FPressTY)) then
         D.MoveObject(FDragKind, FDragIndex, TX - FOffX, TY - FOffY);
   end;
 end;
@@ -743,10 +803,146 @@ begin
     if I.Wheel <> 0 then
     begin
       if InRect(RectI(PalX0, PalY0, PalW, PalH), I.MouseX, I.MouseY) then
-        Inc(PalScrollY, I.Wheel * 3 * TileSz)
+      begin
+        if Mode = pmObjects then StampTop := MaxI(0, StampTop + I.Wheel * 3)
+        else Inc(PalScrollY, I.Wheel * 3 * TileSz);
+      end
       else
         Inc(D.ScrollY, I.Wheel * 3 * TileSz);
     end;
+  end;
+end;
+
+{ ---- predefined objects ---- }
+
+const
+  ObjSetY = PalY0;          { "Set:" row }
+  ObjBtnY = PalY0 + 24;     { New, Save, Add, Delete }
+  ObjListY = PalY0 + 52;    { the stamp names }
+  ObjBtnW = 43;
+  ObjBtnCaps: array[0..3] of string = ('New', 'Save', 'Add', 'Del');
+  ObjBtnHints: array[0..3] of string = ('New', 'Save objects',
+    'Add the selection to the objects', 'Delete object');
+
+function ObjListRows: Integer;
+begin
+  Result := (PalY0 + PalH - ObjListY - 4) div LineH;
+end;
+
+procedure TEditorView.LoadObjectSets;
+begin
+  ObjSets.LoadFromFolders(ObjFolders);
+  ObjSetsLoaded := True;
+  CurSet := 0;
+  CurStamp := -1;
+  StampTop := 0;
+end;
+
+function TEditorView.CurrentSet: TObjectSet;
+begin
+  if (CurSet >= 0) and (CurSet < ObjSets.Count) then Result := ObjSets.Sets[CurSet]
+  else Result := nil;
+end;
+
+procedure TEditorView.PickStamp(N: Integer);
+var
+  St: TObjectSet;
+begin
+  St := CurrentSet;
+  if (St = nil) or (N < 0) or (N >= St.Count) then Exit;
+  CurStamp := N;
+  Pen := St.Stamps[N].Block;
+  PenPaints := False;
+  Placing := False;
+  if Editor.Doc <> nil then
+  begin
+    Editor.Doc.StartFloat(Pen, MaxI(0, MouseTX), MaxI(0, MouseTY));
+    FollowMouse := True;
+  end;
+  SetStatus(St.Stamps[N].Name);
+end;
+
+procedure TEditorView.ObjectsPress(const I: TEditorInput);
+var
+  St: TObjectSet;
+  K, Row: Integer;
+  D: TEditorDoc;
+begin
+  St := CurrentSet;
+  D := Editor.Doc;
+  if I.PressY < ObjSetY + 20 then
+  begin
+    if ObjSets.Count = 0 then Exit;
+    if I.PressX < PalX0 + 40 then CurSet := (CurSet + ObjSets.Count - 1) mod ObjSets.Count
+    else if I.PressX >= PalX0 + PalW - 20 then CurSet := (CurSet + 1) mod ObjSets.Count;
+    CurStamp := -1;
+    StampTop := 0;
+    Exit;
+  end;
+  if I.PressY < ObjListY - 4 then
+  begin
+    K := (I.PressX - PalX0) div (ObjBtnW + 1);
+    case K of
+      0: ShowDialog(TPromptDialog.Create('Object set', 'Name of the new set:', ''), dkSetName);
+      1:
+        if St <> nil then
+        begin
+          if St.Save then SetStatus('Objects saved') else SetStatus('Cannot write ' + St.FileName);
+        end;
+      2:
+        if (St <> nil) and (D <> nil) and D.HasSel then
+          ShowDialog(TPromptDialog.Create('Object name', 'Name of the object:', ''), dkStampName)
+        else if St = nil then
+          SetStatus('Make an object set first')
+        else
+          SetStatus('Select the tiles first');
+      3:
+        if (St <> nil) and (CurStamp >= 0) then
+        begin
+          St.Remove(CurStamp);
+          if CurStamp >= St.Count then CurStamp := St.Count - 1;
+        end;
+    end;
+    Exit;
+  end;
+  Row := (I.PressY - ObjListY - 2) div LineH + StampTop;
+  if (St <> nil) and (Row >= 0) and (Row < St.Count) then PickStamp(Row);
+end;
+
+procedure TEditorView.DrawObjects(S: TGSurface);
+var
+  St: TObjectSet;
+  K, Row, Y: Integer;
+  Cap: string;
+begin
+  St := CurrentSet;
+  ButtonCtl(S, RectI(PalX0, ObjSetY, 20, 20), '<', False, ObjSets.Count > 1);
+  ButtonCtl(S, RectI(PalX0 + PalW - 20, ObjSetY, 20, 20), '>', False, ObjSets.Count > 1);
+  if St <> nil then Cap := 'Set: ' + St.Name else Cap := 'Set: (none)';
+  if (St <> nil) and St.Modified then Cap := Cap + '*';
+  TextClip(S, PalX0 + 26, ObjSetY + 7, PalW - 52, Cap, ColText);
+  for K := 0 to 3 do
+    ButtonCtl(S, RectI(PalX0 + K * (ObjBtnW + 1), ObjBtnY, ObjBtnW, 22), ObjBtnCaps[K], False,
+      (K = 0) or (St <> nil));
+  S.FillRect(PalX0, ObjListY, PalW, PalY0 + PalH - ObjListY, ColWindow);
+  Sunken(S, RectI(PalX0, ObjListY, PalW, PalY0 + PalH - ObjListY));
+  if St = nil then
+  begin
+    DrawLabel(S, PalX0 + 6, ObjListY + 6, 'No object sets found', ColGrayText);
+    Exit;
+  end;
+  Y := ObjListY + 2;
+  for Row := StampTop to StampTop + ObjListRows - 1 do
+  begin
+    if Row >= St.Count then Break;
+    if Row = CurStamp then
+    begin
+      S.FillRect(PalX0 + 2, Y, PalW - 4, LineH, ColHighlight);
+      TextClip(S, PalX0 + 6, Y + 4, PalW - 10, St.Stamps[Row].Name, ColHighlightText);
+    end
+    else
+      TextClip(S, PalX0 + 6, Y + 4, PalW - 10, St.Stamps[Row].Name, ColText);
+    Inc(Y, LineH);
   end;
 end;
 
@@ -800,7 +996,10 @@ begin
     else if InRect(RectI(BoardX + BoardViewW, BoardY, 18, BoardViewH), I.PressX, I.PressY) then
       MouseState := msVScroll
     else if InRect(RectI(434, 41, 190, 14), I.PressX, I.PressY) then
-      Mode := pmObjects
+    begin
+      Mode := pmObjects;
+      if not ObjSetsLoaded then LoadObjectSets;
+    end
     else if InRect(RectI(434, 65, 190, 14), I.PressX, I.PressY) then
       Mode := pmTiles
     else if InRect(RectI(434, 89, 190, 14), I.PressX, I.PressY) then
@@ -946,6 +1145,7 @@ begin
     begin
       for TY := 0 to D.Float.H - 1 do
         for TX := 0 to D.Float.W - 1 do
+          if D.Float.Tiles[TY * D.Float.W + TX] <> TransparentTile then
           DrawTile(FBoard, Sheet, D.Float.Tiles[TY * D.Float.W + TX],
             (D.FloatX + TX) * TileSz - D.ScrollX, (D.FloatY + TY) * TileSz - D.ScrollY);
       DashRect(FBoard, D.FloatX * TileSz - D.ScrollX, D.FloatY * TileSz - D.ScrollY,
@@ -1006,7 +1206,7 @@ begin
           DrawLabel(S, PalX0 + 6, PalY0 + 6 + I * LineH, ThingNames[I], ColText);
       end;
     pmObjects:
-      DrawLabel(S, PalX0 + 6, PalY0 + 6, 'No object sets loaded', ColGrayText);
+      DrawObjects(S);
   end;
   Sunken(S, RectI(PalX0 - 1, PalY0 - 1, PalW + 2, PalH + 2));
   { the background tile preview }

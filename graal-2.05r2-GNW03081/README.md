@@ -37,6 +37,8 @@ decompiled code:
 | `src/Graal205.dpr` | | front end: the start screen with no arguments, or the command line (window, scripted keys, frame dump, stress runs) |
 | `src/StartScreen205.pas` | (`TConnectFrame`, server list) | what 2.05 plugs into the shared start screen (`common/GStartScreen.pas`): its listserver step and its character |
 | `src/RunMode.pas` | | stress-run support: clock, stop signals, tick histogram, random walker, JSON |
+| `src/Sound205.pas` | | the sounds the game plays by itself each tick (gani `PLAYSOUND`), through `common/GSound.pas` |
+| `src/Map205.pas` | (`TGraalMap`) | the big map on M and the minimap, with every player's head |
 
 ## What works
 
@@ -132,6 +134,29 @@ decompiled code:
   the second must see the first. Then one walks through a level link
   (`scripts/loopback.sh`, run in CI).
 
+## Sound and maps
+
+- Effects are `.wav` files from `sounds/` (beside the program or under
+  `--data` first, then `graal-assets/2.05r2/`, then `graal-assets/common/`);
+  a missing one is silent. They play only with a window, and `--nosound`
+  turns them off. Windows plays through waveOut, Linux through ALSA loaded
+  at run time (no ALSA, no sound, no error), macOS not at all yet.
+- As in 2.05: at most 8 effects at once, each of the 15 effects 2.05 knows
+  by name at most once a tick, a `+` in front loops, pan and volume from
+  the distance to the player (the formula from the 2.05 binary is in
+  `common/GSound.pas`). Played so far: gani `PLAYSOUND` (sword, lift,
+  steps, and `lift.wav` on hurt and death), `extra.wav` on taking an item,
+  `chest.wav` on opening a chest, `crush.wav` when a thrown object lands,
+  `put.wav` on laying a bomb, `bomb.wav` for a blast, `dead.wav` on dying.
+- Music (`.mid`) goes to MCI on Windows and loops, as 2.05's MCI path does;
+  it is silent elsewhere, and nothing starts music until the script engine
+  is in.
+- M opens the big map (`bigmap.txt` + `map.png`, 56 px a level): centred
+  on the player's head and kept inside the map, the arrows scroll it 8 px a
+  tick, M closes it. The minimap (`minimap.txt` + `map2.png`) sits in the
+  bottom-left corner with the status display (showstats bit 0x100).
+  Offline on the tutorial both switch to `tutorialmap.txt`.
+
 ## Start screen and built-in assets
 
 Run `Graal205` with no arguments and it opens a window, as 2.05 did, with
@@ -216,6 +241,12 @@ Hardening checks, all in CI:
 
 ## Not yet
 
+- Sound: music outside Windows, Winamp, `lift2.wav` for female players,
+  sounds for actions not built yet (arrows, swimming, signs, horses), the `setmusicvolume` / `play` script commands, asking the server
+  for a missing sound file.
+- Maps: the text 2.05 writes at the top left of the big map, names under
+  the mouse, the small head icons, chat marks on the minimap, `setmap` /
+  `setminimap` from scripts and maps from the server list entry.
 - The link test point while walking diagonally, standing on a link, and at
   the level edge was not measured; diagonally the two offsets add.
 - `PLI_LEVELWARPMOD` for cached levels; every link sends `PLI_LEVELWARP`.
