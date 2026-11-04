@@ -110,6 +110,15 @@ ganis, heads, bodies, levels and start-screen images are used instead.
 Training starts at `levels/tutorial_b-4.graal` when that file is there,
 else at the built-in `start.nw`.
 
+When the original start-window art lies next to the program
+(`screenimg1.jpg` and `button1.bmp`, also looked for under
+`embedded/images/`), the start screen takes 2.05's own layout instead:
+the 476x330 `TConnectFrame` with that picture behind it, the welcome text,
+Language and Nick Name where its form puts them, and Training, Options and
+Start Online where `TConnectFrame.FormShow` places its three 105x26
+buttons. Only the positions are in this repository; the pictures come from
+the user's own copy.
+
 ## Stress runs (phase 4)
 
 The same client runs headless for the Seihai stress runs, one process per

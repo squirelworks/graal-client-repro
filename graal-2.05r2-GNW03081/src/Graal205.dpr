@@ -519,6 +519,7 @@ begin
         Info.Title := 'graal-delphi';
         Info.Subtitle := '2.05 rev 2 rebuilt';
         Info.Backgrounds := Backgrounds205;
+        Classic205(Info.Classic);
         Info.DrawCharacter := Who.Draw;
         Picked := RunStartScreen(Win, G.Screen, Fetch, Info, Dir, ListHost, ListPort, Msg, R);
       finally

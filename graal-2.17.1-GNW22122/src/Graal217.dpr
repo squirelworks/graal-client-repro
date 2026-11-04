@@ -524,6 +524,7 @@ begin
         Info.Title := 'graal-delphi';
         Info.Subtitle := '2.17.1 rebuilt';
         Info.Backgrounds := Backgrounds217;
+        Info.Classic.Used := False; { 2.17.1's original window is not laid out yet }
         Info.DrawCharacter := Who.Draw;
         Picked := RunStartScreen(Win, G.Screen, Fetch, Info, Dir, ListHost, ListPort, Msg, R);
       finally
