@@ -508,7 +508,7 @@ begin
       Exit;
     end;
     { the asset roots before anything is read from them }
-    SetAssetRoots(Dir, ClientBuildLabel);
+    SetAssetRoots(Dir, ClientAssetFolders);
     { 2.17 reads its listserver from arrays2.dat (line 0 host, line 1
       port); listserver.txt next to the program wins over it, and with
       neither, a Seihai listserver on this machine }

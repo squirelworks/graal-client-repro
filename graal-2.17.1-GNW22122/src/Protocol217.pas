@@ -14,6 +14,9 @@ const
   { The 8-byte version token in the login line. }
   ClientVersionToken = 'GNW22122';
   ClientBuildLabel = '2.17.1';
+  { Where the build finds its files under graal-assets: 2.17.1 shipped in
+    the same folder as 2.22, so it falls back to graal-assets/2.22/. }
+  ClientAssetFolders = '2.17.1;2.22';
   { PLI_TAMPERCHECK, sent once right after PLI_LANGUAGE: 10 raw bytes, two
     chained CRC-32 words over the original exe's memory image, constant for
     the build (version-profiles/tampercheck-values.tsv). }

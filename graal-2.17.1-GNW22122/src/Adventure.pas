@@ -571,7 +571,7 @@ var
 begin
   Assets.Dir := Dir;
   { the folder itself, then graal-assets/<version>/ and graal-assets/common/ }
-  SetAssetRoots(Dir, ClientBuildLabel);
+  SetAssetRoots(Dir, ClientAssetFolders);
   if AssetsFolder <> '' then Log('assets: ' + AssetsFolder);
   { the install's tile sheet and tile types replace the built-in ones, but
     not a sheet given with --sheet }
