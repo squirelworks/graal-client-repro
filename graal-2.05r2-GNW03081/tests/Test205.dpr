@@ -986,6 +986,109 @@ begin
   end;
 end;
 
+procedure TestCombat;
+var
+  G: TAdventure;
+  P: TServerPlayer;
+  I, T0: Integer;
+  X0, Y0: Double;
+begin
+  G := TAdventure.Create;
+  try
+    G.Headless := True;
+    Check(G.LoadLevelFile('start.nw'), 'combat: the built-in level loads');
+    G.Tick;
+    G.Player.X := 30;
+    G.Player.Y := 30;
+    { a hit clamps CURPOWER to the maximum first, then takes half hearts }
+    G.Player.MaxPower := 3;
+    G.Player.Power := 9;
+    X0 := G.Player.X;
+    G.HurtPlayer(1, 1, 0);
+    Check(G.Player.Power = 4, 'combat: power is clamped to the maximum before the hit');
+    Check(not G.Hurtable, 'combat: hurt mode after a hit');
+    G.HurtPlayer(1, 1, 0);
+    Check(G.Player.Power = 4, 'combat: no second hit in hurt mode');
+    for I := 1 to 5 do G.Tick;
+    Check(Abs(G.Player.X - (X0 + 5)) < 0.01, 'combat: five ticks of knockback, a tile each');
+    for I := 1 to 10 do G.Tick;
+    Check(Abs(G.Player.X - (X0 + 5)) < 0.01, 'combat: no knockback after the fifth tick');
+    for I := 1 to 25 do G.Tick;
+    Check(G.Hurtable, 'combat: hurt mode ends after 40 ticks');
+    { death, then a direction key respawns at the entry point }
+    G.AP := 10;
+    G.HurtPlayer(2, 0, 1);
+    Check((G.Mode = ModeDead) and (G.Player.Power = 0), 'combat: no hearts left is death');
+    G.Player.MaxPower := 5;
+    G.Respawn;
+    Check((G.Mode = ModeFree) and (G.Player.Power = 6), 'combat: AP under 20 respawns with three hearts');
+    G.AP := 30;
+    G.Mode := ModeDead;
+    G.Respawn;
+    Check(G.Player.Power = 10, 'combat: AP under 40 respawns with five hearts');
+    G.AP := 50;
+    G.Respawn;
+    Check(G.Player.Power = 10, 'combat: else all hearts (5)');
+    { PLO_HURTPLAYER: known attackers within 10 tiles, players only }
+    G.Player.X := 30;
+    G.Player.Y := 30;
+    P := G.FindOther(7, True);
+    P.X := 33;
+    P.Y := 30;
+    G.Receive(PLO_HURTPLAYER, GShort(7) + GChar($60 - 32 + 16) + GChar($60 - 32) + GChar(5) +
+      GChar(0) + GChar(0) + GChar(0));
+    Check(G.Player.Power = 10, 'combat: HURTPLAYER with the NPC field is refused');
+    G.Receive(PLO_HURTPLAYER, GShort(8) + GChar($60 - 32 + 16) + GChar($60 - 32) + GChar(2));
+    Check(G.Player.Power = 10, 'combat: HURTPLAYER from an unknown player is refused');
+    P.X := 41;
+    G.Receive(PLO_HURTPLAYER, GShort(7) + GChar($60 - 32 + 16) + GChar($60 - 32) + GChar(2));
+    Check(G.Player.Power = 10, 'combat: HURTPLAYER from over 10 tiles is refused');
+    P.X := 33;
+    G.Receive(PLO_HURTPLAYER, GShort(7) + GChar($60 - 32 + 16) + GChar($60 - 32) + GChar(5));
+    Check(G.Player.Power = 8, 'combat: HURTPLAYER power is capped at two half hearts');
+    for I := 1 to 40 do G.Tick;
+    { another player's swing: facing the player, two tiles off }
+    G.Player.X := 30;
+    G.Player.Y := 30;
+    P.X := 28;
+    P.Y := 30;
+    P.Dir := DirRight;
+    P.SwordPower := 2;
+    P.Sprite := 6 * 4 + DirRight;
+    G.Tick;
+    Check(G.Player.Power = 6, 'combat: a swing from another player takes SwordPower / 2 hearts');
+    P.Sprite := 0;
+    for I := 1 to 40 do G.Tick;
+    P.Dir := DirLeft;
+    P.Sprite := 6 * 4 + DirLeft;
+    G.Tick;
+    Check(G.Player.Power = 6, 'combat: a swing facing away misses');
+    G.RemoveOther(7);
+    { a bomb: laid ahead, goes off after 60 ticks, cuts the bush and hurts }
+    G.Player.X := 35;
+    G.Player.Y := 22;
+    G.Player.Dir := DirDown;
+    G.Player.Bombs := 3;
+    G.WeaponsOn := True;
+    G.LayBomb;
+    Check((Length(G.Bombs) = 1) and (G.Player.Bombs = 2), 'bombs: D lays a bomb');
+    T0 := G.Player.Power;
+    G.Bombs[0].X := 36;
+    G.Bombs[0].Y := 24;
+    G.Player.Y := 23;
+    for I := 1 to 59 do G.Tick;
+    Check((Length(G.Bombs) = 1) and (Length(G.Blasts) = 0), 'bombs: the fuse is 60 ticks');
+    G.Tick;
+    Check((Length(G.Bombs) = 0) and (Length(G.Blasts) = 1), 'bombs: then it explodes');
+    Check(G.Level.Tile(36, 26) = G.Arrays.ObjectTile(10, 0, 0, 0), 'bombs: the blast destroys the bush');
+    Check(G.Player.Power = T0 - 1, 'bombs: the blast hurts the player half a heart');
+    for I := 1 to 12 do G.Tick;
+    Check(Length(G.Blasts) = 0, 'bombs: the blast is gone after 11 ticks');
+  finally
+    G.Free;
+  end;
+end;
+
 procedure TestServerList;
 var
   L: TListServers;
@@ -1052,6 +1155,7 @@ begin
   TestBuiltins;
   TestStatus;
   TestActions;
+  TestCombat;
   WriteLn(Format('%d passed, %d failed, %d skipped', [Passed, Failed, Skipped]));
   if Failed > 0 then Halt(1);
 end.

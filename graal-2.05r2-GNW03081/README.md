@@ -68,6 +68,17 @@ decompiled code:
   ticks they are taken (`PLI_ITEMTAKE` online, given at once offline), and
   after 8.2 s they go (`PLI_ITEMDEL` online). Offline nothing drops, as in
   2.05 (tests).
+- Combat, from the 2.05 hurt and bomb code: a hit takes half hearts (after
+  clamping to the maximum), knocks the player back a tile a tick for five
+  ticks and gives 40 ticks of hurt mode; no hearts left is death, and a
+  direction key respawns at the level's entry point with hearts by AP.
+  Other players' swings are judged on this side (on their swing sprites,
+  0 to 4 tiles ahead, once a second); `PLO_HURTPLAYER` is taken from known
+  players within 10 tiles. D lays a bomb with a 60-tick fuse; its cross blast
+  (reach 2, 11 ticks) cuts bushes, breaks pots and stones, and hurts.
+  Bombs and explosions go out and come in (`PLI_BOMBADD`, `PLI_EXPLOSION`,
+  `PLO_BOMBADD`, `PLO_BOMBDEL`, `PLO_EXPLOSION`) (tests). Where 2.05 puts a
+  new bomb was not read: a tile and a half ahead.
 - The status display, laid out as 2.05 draws it from `state.png`: the A/S/D
   buttons, the item icons with rupee, bomb and arrow counts, big hearts up
   to four containers and small hearts in rows past that, and the alignment

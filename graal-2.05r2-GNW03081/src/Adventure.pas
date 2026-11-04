@@ -69,6 +69,7 @@ type
       other players, whose pose comes from their sprite prop. }
     FixedStep: Integer;
     Gone: Boolean;      { PCONNECTED or a level leave seen }
+    HitSecond: Integer; { second of the day this player's swing last hit us }
     BodyCache: TGSurface; { the body recoloured for this player }
     BodyKey: string;
     constructor Create;
@@ -97,9 +98,32 @@ type
     Kind, Age: Integer;   { lift table entry; ticks in the air }
   end;
 
+  TBomb = record
+    X, Y: Double;          { top-left of the 2 x 2 bomb }
+    Power, Fuse: Integer;  { power 1 to 3; ticks left }
+    Mine: Boolean;         { laid by this player }
+  end;
+
+  { An explosion: a cross of 2 x 2 pieces, Reach pieces each way. }
+  TBlast = record
+    X, Y: Double;
+    Reach, Kind, Age: Integer;
+    Mine: Boolean;
+  end;
+
+  { Hooks for what the NPC and baddy code answers to, in tiles: a sword
+    swing's hit box, a bomb blast's centre and reach, an arrow's tip. }
+  TSwordHitEvent = procedure(X, Y, W, H: Double; Power: Integer) of object;
+  TBombBlastEvent = procedure(X, Y: Double; Radius: Integer) of object;
+  TArrowHitEvent = procedure(X, Y: Double; Power: Integer) of object;
+
   TAdventure = class
   private
     FModeUntil: Integer;   { frame the sword swing or lift ends }
+    FHurtCount: Integer;   { hurt mode: ticks left of 40 }
+    FKnockX, FKnockY: Double;
+    FEntryX, FEntryY: Double; { where the player came into this level }
+    FEntryLevel: string;
     FClient: TAdventureClient;
     FLog: TStrings;
     FSentX, FSentY: Double;
@@ -112,6 +136,10 @@ type
     FWarpLevel: string;
     FWarpTimed: string;    { the level a timed warp waits for }
     FWarpT0: Int64;
+    procedure KnockStep;
+    procedure CheckSwordHits;
+    procedure TickCombat;
+    procedure DrawCombat(CamX, CamY: Integer);
     procedure HandleMessage(Id: Integer; const Data: string);
     procedure ClientLog(const Line: string);
     function PointBlocked(PX, PY: Double): Boolean;
@@ -165,6 +193,11 @@ type
     CarryKind: Integer;
     Items: array of TFloorItem;
     Thrown: array of TThrownObject;
+    Bombs: array of TBomb;
+    Blasts: array of TBlast;
+    OnSwordHit: TSwordHitEvent;
+    OnBombBlast: TBombBlastEvent;
+    OnArrowHit: TArrowHitEvent;
     constructor Create;
     destructor Destroy; override;
     procedure Log(const S: string);
@@ -226,6 +259,18 @@ type
     procedure DrawObjectTiles(List, I, X, Y: Integer);
     { A carried or thrown object (lift table entry Kind) at X, Y. }
     procedure DrawCarried(Kind, X, Y: Integer);
+    { Not in hurt mode and not dead. }
+    function Hurtable: Boolean;
+    { The shared hurt routine: Hearts off (clamped to the maximum first),
+      hurt mode with a five-tile knockback along (KX, KY), or death. }
+    procedure HurtPlayer(Hearts, KX, KY: Double);
+    { HurtPlayer with the knockback pointing away from (FromX, FromY). }
+    procedure HurtFrom(Hearts, FromX, FromY: Double);
+    { After death, on a direction key: hearts by AP, at the level's entry. }
+    procedure Respawn;
+    { The D key with the bomb: a bomb with a 60-tick fuse. }
+    procedure LayBomb;
+    procedure AddBlast(X, Y: Double; Reach, Kind: Integer; Mine: Boolean);
     property Others[I: Integer]: TServerPlayer read GetOther;
     property OtherCount: Integer read GetOtherCount;
     property Client: TAdventureClient read FClient;
@@ -244,6 +289,7 @@ const
   ModeSword = 1;
   ModeLift = 2;
   ModeCarry = 3;
+  ModeDead = 5;
   { The sprite of each item (arrays.dat array 24), by item number. }
   ItemSprites: array[0..24] of Integer = (136, 137, 138, 67, 143, 139, 145,
     351, 65, 350, 314, 315, 321, 323, 322, 324, 325, 328, 329, 330, 331, 332,
@@ -958,6 +1004,8 @@ begin
   ProbePoint(PX, PY);
   E := MatchObject(9, MaxInt, PX, PY, OX, OY);
   if E >= 0 then PutObject(OX, OY, 10, E, True);
+  { NPCs and baddies hit by the blade: a 2 x 2 box centred on the tip }
+  if Assigned(OnSwordHit) then OnSwordHit(PX - 1, PY - 1, 2, 2, Player.SwordPower);
 end;
 
 procedure TAdventure.Action;
@@ -1129,6 +1177,290 @@ begin
       Continue;
     end;
     Inc(I);
+  end;
+end;
+
+{ ---- combat: being hurt, knockback, dying, other players' swings,
+  bombs (decomp-findings-2026-10-24-d/01-sword-damage.md,
+  decomp-findings-2026-10-25-k/01-knockback-and-packet-hits.md,
+  damage-sources.md, lab-captures-2026-10-25/01-...md) ---- }
+
+function TAdventure.Hurtable: Boolean;
+begin
+  Result := (FHurtCount = 0) and (Mode <> ModeDead);
+end;
+
+procedure TAdventure.HurtPlayer(Hearts, KX, KY: Double);
+var
+  L: Double;
+begin
+  if not Hurtable then Exit;
+  { CURPOWER is in half hearts, clamped to the maximum before the hit }
+  Player.Power := Min(Player.Power, Player.MaxPower * 2) - Round(Hearts * 2);
+  if Player.Power > Player.MaxPower * 2 then Player.Power := Player.MaxPower * 2;
+  { hurt mode: 40 ticks; the first five push the player a tile each along
+    the knockback, scaled to one tile (a zero vector pushes east) }
+  L := Sqrt(KX * KX + KY * KY);
+  if L < 0.0001 then
+  begin
+    FKnockX := 1;
+    FKnockY := 0;
+  end
+  else
+  begin
+    FKnockX := KX / L;
+    FKnockY := KY / L;
+  end;
+  FHurtCount := 40;
+  if (Mode = ModeSword) or (Mode = ModeLift) or (Mode = ModeCarry) then
+  begin
+    { what happens to a carried object on a hit was not read: it is lost }
+    CarryKind := -1;
+    Mode := ModeFree;
+  end;
+  if Player.Power <= 0 then
+  begin
+    Player.Power := 0;
+    Mode := ModeDead;
+    FHurtCount := 0;
+    Player.SetAni('dead', Frame);
+  end
+  else
+    Player.SetAni('hurt', Frame);
+  if FClient.Connected then
+    FClient.SendPacket(PLI_PLAYERPROPS, GChar(PLPROP_CURPOWER) + GChar(Player.Power));
+end;
+
+procedure TAdventure.HurtFrom(Hearts, FromX, FromY: Double);
+begin
+  HurtPlayer(Hearts, Player.X + 1.5 - FromX, Player.Y + 2 - FromY);
+end;
+
+procedure TAdventure.Respawn;
+begin
+  { hearts by alignment (measured on 2.22): AP below 20 three, below 40
+    five, else all; back at the point the level was entered }
+  if AP < 20 then Player.Power := 6
+  else if AP < 40 then Player.Power := 10
+  else Player.Power := Player.MaxPower * 2;
+  if Player.Power > Player.MaxPower * 2 then Player.Power := Player.MaxPower * 2;
+  Player.X := FEntryX;
+  Player.Y := FEntryY;
+  Mode := ModeFree;
+  Player.SetAni('idle', Frame);
+  if FClient.Connected then
+  begin
+    FClient.SendPacket(PLI_PLAYERPROPS, GChar(PLPROP_CURPOWER) + GChar(Player.Power));
+    FClient.SendPacket(PLI_LEVELWARP, GChar(Round(Player.X * 2)) + GChar(Round(Player.Y * 2)) +
+      Level.Name);
+  end;
+end;
+
+{ One tick of knockback: a tile along the stored vector, undone when any of
+  the twelve body points (0.6 to 2.4 across, 1.1 to 2.9 down) is blocked. }
+procedure TAdventure.KnockStep;
+const
+  PX: array[0..11] of Double = (0.6, 1.5, 2.4, 0.6, 0.6, 0.6, 0.6, 1.5, 2.4, 2.4, 2.4, 2.4);
+  PY: array[0..11] of Double = (1.1, 1.1, 1.1, 1.1, 2.0, 2.9, 2.9, 2.9, 2.9, 1.1, 2.0, 2.9);
+var
+  NX, NY: Double;
+  I: Integer;
+begin
+  NX := Player.X + FKnockX;
+  NY := Player.Y + FKnockY;
+  for I := 0 to 11 do
+    if PointBlocked(NX + PX[I], NY + PY[I]) then Exit;
+  Player.X := NX;
+  Player.Y := NY;
+end;
+
+{ Others' swings, judged here as 2.05 does on the victim's side: the
+  attacker on swing sprites 6 to 10, the victim 0 to 4 tiles ahead and
+  under 2 tiles to the side, AP not 100, once a second per attacker. }
+procedure TAdventure.CheckSwordHits;
+var
+  I, S, Sec: Integer;
+  P: TServerPlayer;
+  DX, DY, Ahead, Side: Double;
+begin
+  if not Hurtable or (AP = 100) or (Mode = ModeDead) then Exit;
+  Sec := Round(Frac(Now) * 86400);
+  for I := 0 to FOthers.Count - 1 do
+  begin
+    P := Others[I];
+    S := P.Sprite div 4;
+    if (S < 6) or (S > 10) then Continue;
+    DX := Player.X - P.X;
+    DY := Player.Y - P.Y;
+    case P.Dir and 3 of
+      DirUp: begin Ahead := -DY; Side := DX; end;
+      DirLeft: begin Ahead := -DX; Side := DY; end;
+      DirDown: begin Ahead := DY; Side := DX; end;
+    else
+      begin Ahead := DX; Side := DY; end;
+    end;
+    if (Ahead < 0) or (Ahead > 4) or (Abs(Side) >= 2) then Continue;
+    if P.HitSecond = Sec then Continue;
+    P.HitSecond := Sec;
+    HurtPlayer(Max(-20, Min(20, P.SwordPower)) / 2, DX, DY);
+    Exit;
+  end;
+end;
+
+procedure TAdventure.LayBomb;
+const
+  DX: array[0..3] of Double = (0, -1.5, 0, 1.5);
+  DY: array[0..3] of Double = (-1.5, 0, 1.5, 0);
+var
+  N: Integer;
+begin
+  if (Mode <> ModeFree) or not WeaponsOn or (Player.Bombs <= 0) then Exit;
+  Dec(Player.Bombs);
+  N := Length(Bombs);
+  SetLength(Bombs, N + 1);
+  { where 2.05 puts the bomb was not read: a tile and a half ahead of the
+    body }
+  Bombs[N].X := Round((Player.X + 0.5 + DX[Player.Dir and 3]) * 2) / 2;
+  Bombs[N].Y := Round((Player.Y + 1 + DY[Player.Dir and 3]) * 2) / 2;
+  Bombs[N].Power := 1;
+  Bombs[N].Fuse := 60;
+  Bombs[N].Mine := True;
+  if FClient.Connected then
+    FClient.SendPacket(PLI_BOMBADD, GChar(Round(Bombs[N].X * 2)) + GChar(Round(Bombs[N].Y * 2)) +
+      GChar(1 + 8) + GChar(60));
+end;
+
+procedure TAdventure.AddBlast(X, Y: Double; Reach, Kind: Integer; Mine: Boolean);
+var
+  N, D, K, E, OX, OY, C: Integer;
+  PX, PY, QX, QY: Double;
+const
+  DX: array[0..4] of Integer = (0, 0, -1, 0, 1);
+  DY: array[0..4] of Integer = (0, -1, 0, 1, 0);
+begin
+  if Reach > 15 then Reach := 15;
+  N := Length(Blasts);
+  SetLength(Blasts, N + 1);
+  Blasts[N].X := X;
+  Blasts[N].Y := Y;
+  Blasts[N].Reach := Reach;
+  Blasts[N].Kind := Kind;
+  Blasts[N].Age := 0;
+  Blasts[N].Mine := Mine;
+  if Assigned(OnBombBlast) then OnBombBlast(X + 1, Y + 1, Reach);
+  { only the owner changes the board: bushes (cut entry 0) and the sign,
+    pot and stone (lift entries 1 to 3) under each piece, at four points }
+  if not Mine then Exit;
+  for D := 0 to 4 do
+    for K := 0 to Reach do
+    begin
+      if (D = 0) and (K > 0) then Break;
+      if (D > 0) and (K = 0) then Continue;
+      PX := X + DX[D] * 2 * K;
+      PY := Y + DY[D] * 2 * K;
+      for C := 0 to 3 do
+      begin
+        QX := PX + 0.5 + (C and 1);
+        QY := PY + 0.5 + (C shr 1);
+        E := MatchObject(9, 1, QX, QY, OX, OY);
+        if E = 0 then PutObject(OX, OY, 10, 0, True)
+        else
+        begin
+          E := MatchObject(11, 4, QX, QY, OX, OY);
+          if E >= 1 then PutObject(OX, OY, 12, E, True);
+        end;
+      end;
+    end;
+end;
+
+procedure TAdventure.TickCombat;
+var
+  I, D, K: Integer;
+  PX, PY: Double;
+const
+  DX: array[0..4] of Integer = (0, 0, -1, 0, 1);
+  DY: array[0..4] of Integer = (0, -1, 0, 1, 0);
+  KX: array[0..4] of Double = (0, 0, -1, 0, 1);
+  KY: array[0..4] of Double = (0, -1, 0, 1, 0);
+begin
+  if FHurtCount > 0 then
+  begin
+    Dec(FHurtCount);
+    if FHurtCount >= 35 then KnockStep;
+    if (FHurtCount = 0) and (Mode = ModeFree) then Player.SetAni('idle', Frame);
+  end;
+  CheckSwordHits;
+  { bombs burn down and go off as a blast of reach 2 }
+  I := 0;
+  while I <= High(Bombs) do
+  begin
+    Dec(Bombs[I].Fuse);
+    if Bombs[I].Fuse <= 0 then
+    begin
+      if Bombs[I].Mine and FClient.Connected then
+        FClient.SendPacket(PLI_EXPLOSION, GChar(2) + GChar(Round(Bombs[I].X * 2)) +
+          GChar(Round(Bombs[I].Y * 2)) + GChar(Bombs[I].Power + 8));
+      AddBlast(Bombs[I].X, Bombs[I].Y, 2, Bombs[I].Power, Bombs[I].Mine);
+      Bombs[I] := Bombs[High(Bombs)];
+      SetLength(Bombs, Length(Bombs) - 1);
+      Continue;
+    end;
+    Inc(I);
+  end;
+  { each blast lives 11 ticks; a piece hurts when its centre (one tile in)
+    is under a tile from the player's centre on both axes }
+  I := 0;
+  while I <= High(Blasts) do
+  begin
+    Inc(Blasts[I].Age);
+    if Blasts[I].Age > 11 then
+    begin
+      Blasts[I] := Blasts[High(Blasts)];
+      SetLength(Blasts, Length(Blasts) - 1);
+      Continue;
+    end;
+    for D := 0 to 4 do
+      for K := 0 to Blasts[I].Reach do
+      begin
+        if (D = 0) and (K > 0) then Break;
+        if (D > 0) and (K = 0) then Continue;
+        PX := Blasts[I].X + DX[D] * 2 * K + 1;
+        PY := Blasts[I].Y + DY[D] * 2 * K + 1;
+        if Hurtable and (Abs(PX - (Player.X + 1.5)) < 1) and (Abs(PY - (Player.Y + 2)) < 1) then
+        begin
+          if Blasts[I].Kind = 3 then HurtPlayer(1, KX[D], KY[D])
+          else HurtPlayer(0.5, KX[D], KY[D]);
+        end;
+      end;
+    Inc(I);
+  end;
+end;
+
+procedure TAdventure.DrawCombat(CamX, CamY: Integer);
+var
+  I, Stage, SX, SY: Integer;
+  Img: TGSurface;
+begin
+  Img := Assets.Image('bomb1.png', '');
+  if Img = nil then Exit;
+  for I := 0 to High(Bombs) do
+  begin
+    { blue, white, red for powers 1 to 3; it flashes near the end }
+    if (Bombs[I].Fuse < 15) and Odd(Bombs[I].Fuse div 2) then Continue;
+    Screen.Blit(Img, 32 * ((Bombs[I].Power - 1) mod 3), 0, 32, 32,
+      Round(Bombs[I].X * TileSize) - CamX, Round(Bombs[I].Y * TileSize) - CamY);
+  end;
+  for I := 0 to High(Blasts) do
+  begin
+    { the explosion pictures in bomb1.png: four vertical arms (32 x 160 at
+      x 0, 32, 64, 96) and four horizontal (128 x 32 from y 192), from
+      fat to thin as the blast dies; which part 2.05 cuts for each piece
+      was not read, so the arms are drawn whole for a reach-2 blast }
+    Stage := Min(3, Blasts[I].Age div 3);
+    SX := Round((Blasts[I].X + 1) * TileSize) - CamX;
+    SY := Round((Blasts[I].Y + 1) * TileSize) - CamY;
+    Screen.Blit(Img, 32 * Stage, 32, 32, 160, SX - 16, SY - 80);
+    Screen.Blit(Img, 0, 192 + 32 * Stage, 128, 32, SX - 64, SY - 16);
   end;
 end;
 
@@ -1486,6 +1818,61 @@ begin
           V := R.ReadGChar;
           if FloorItem(V) then AddItem(FX, FY, V, ItemLife);
         end;
+      PLO_BOMBADD: { s player, c x*2, c y*2, c power (+8 theirs), c fuse }
+        begin
+          if Length(Data) < 6 then Exit;
+          R.ReadGShort;
+          FX := R.ReadGChar / 2;
+          FY := R.ReadGChar / 2;
+          V := R.ReadGChar and 7;
+          I := R.ReadGChar;
+          J := Length(Bombs);
+          SetLength(Bombs, J + 1);
+          Bombs[J].X := FX;
+          Bombs[J].Y := FY;
+          Bombs[J].Power := Max(1, Min(3, V));
+          { the sender's copy burns five ticks shorter }
+          Bombs[J].Fuse := Max(1, I - 5);
+          Bombs[J].Mine := False;
+        end;
+      PLO_BOMBDEL: { c x*2, c y*2, no player id }
+        begin
+          if Length(Data) < 2 then Exit;
+          FX := R.ReadGChar / 2;
+          FY := R.ReadGChar / 2;
+          for I := High(Bombs) downto 0 do
+            if (Bombs[I].X = FX) and (Bombs[I].Y = FY) then
+            begin
+              Bombs[I] := Bombs[High(Bombs)];
+              SetLength(Bombs, Length(Bombs) - 1);
+            end;
+        end;
+      PLO_EXPLOSION: { s player, c reach, c x*2, c y*2, c power }
+        begin
+          if Length(Data) < 6 then Exit;
+          R.ReadGShort;
+          I := R.ReadGChar;
+          FX := R.ReadGChar / 2;
+          FY := R.ReadGChar / 2;
+          V := R.ReadGChar and 7;
+          if V = 0 then V := 1;
+          if V > 3 then V := 3;
+          AddBlast(FX, FY, I, V, False);
+        end;
+      PLO_HURTPLAYER: { s attacker, c dx, c dy, c power [+ i3 npc] }
+        begin
+          if Length(Data) < 5 then Exit;
+          V := R.ReadGShort;
+          OP := FindOther(V, False);
+          { a hit from an NPC (six or more bytes after the id) or from an
+            unknown player is refused, as are attackers over 10 tiles off }
+          if (OP = nil) or (Length(Data) - 2 >= 6) or not Hurtable or (AP = 100) then Exit;
+          if Sqr(OP.X - Player.X) + Sqr(OP.Y - Player.Y) > 100 then Exit;
+          FX := (R.ReadGChar + 32 - $60) / 16;
+          FY := (R.ReadGChar + 32 - $60) / 16;
+          I := Min(2, Max(0, R.ReadGChar));
+          HurtPlayer(I / 2, FX, FY);
+        end;
       PLO_ITEMDEL: { c x*2, c y*2: the item at exactly that point }
         begin
           if Length(Data) < 2 then Exit;
@@ -1550,9 +1937,27 @@ begin
     if not FClient.Connected then
       Log('link closed: ' + FClient.LastError);
   end;
+  { a new level: its entry point is where a death sends the player back }
+  if Level.Name <> FEntryLevel then
+  begin
+    FEntryLevel := Level.Name;
+    FEntryX := Player.X;
+    FEntryY := Player.Y;
+    SetLength(Bombs, 0);
+    SetLength(Blasts, 0);
+  end;
+  if Mode = ModeDead then
+  begin
+    if Keys[0] or Keys[1] or Keys[2] or Keys[3] then Respawn;
+    for D := 0 to 3 do Keys[D] := False;
+    AttackKey := False;
+    ActionKey := False;
+    ItemKey := False;
+  end;
   { the game keys first: a swing or a lift holds the player still }
   if AttackKey then Attack;
   if ActionKey then Action;
+  if ItemKey then LayBomb;
   AttackKey := False;
   ActionKey := False;
   ItemKey := False;
@@ -1564,7 +1969,7 @@ begin
   AX := 0;
   AY := 0;
   for D := 0 to 3 do
-    if Keys[D] and ((Mode = ModeFree) or (Mode = ModeCarry)) then
+    if Keys[D] and ((Mode = ModeFree) or (Mode = ModeCarry)) and (FHurtCount < 35) then
     begin
       WalkStep(D);
       Moved := True;
@@ -1576,10 +1981,14 @@ begin
       end;
     end;
   case Mode of
-    ModeFree: if Moved then Player.SetAni('walk', Frame) else Player.SetAni('idle', Frame);
+    ModeFree:
+      if FHurtCount > 0 then
+        { the hurt pose holds while the hurt mode runs }
+      else if Moved then Player.SetAni('walk', Frame) else Player.SetAni('idle', Frame);
     ModeCarry: if Moved then Player.SetAni('carry', Frame) else Player.SetAni('carrystill', Frame);
   end;
   TickItems;
+  TickCombat;
   { links are tested on the player's own walk, at one point: the body's
     centre pushed ahead in the walking direction (measured on the real
     client, see LinkAhead) }
@@ -1905,6 +2314,7 @@ begin
   for I := 0 to FOthers.Count - 1 do
     DrawPlayer(Others[I], CamX, CamY);
   DrawPlayer(Player, CamX, CamY);
+  DrawCombat(CamX, CamY);
   for I := 0 to High(Thrown) do
     DrawCarried(Thrown[I].Kind, Round(Thrown[I].X * TileSize) - CamX,
       Round(Thrown[I].Y * TileSize) - CamY);

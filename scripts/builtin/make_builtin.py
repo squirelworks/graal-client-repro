@@ -300,6 +300,28 @@ def draw_sprites():
     return im
 
 
+def draw_bombs():
+    """bomb1.png, in the layout the client cuts it: three 32 x 32 bombs
+    (powers 1 to 3) on top, four vertical blast arms (32 x 160) from y 32,
+    four horizontal arms (128 x 32) from y 192, fat to thin."""
+    im = Image.new('RGBA', (128, 320), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    for i, c in enumerate(((60, 90, 200), (220, 220, 240), (210, 40, 40))):
+        x = i * 32
+        d.ellipse((x + 5, 8, x + 27, 30), fill=c + (255,), outline=(10, 10, 20, 255))
+        d.ellipse((x + 10, 12, x + 15, 17), fill=(255, 255, 255, 255))
+        d.line((x + 20, 9, x + 25, 3), fill=(150, 100, 50, 255), width=2)
+        d.ellipse((x + 24, 1, x + 28, 5), fill=(255, 200, 40, 255))
+    for k in range(4):
+        w = 14 - 3 * k
+        for (col, ww) in (((200, 30, 20), w), ((250, 210, 40), w - 3), ((255, 255, 230), w - 6)):
+            if ww <= 0:
+                continue
+            d.rounded_rectangle((32 * k + 16 - ww, 34, 32 * k + 15 + ww, 189), ww, fill=col + (255,))
+            d.rounded_rectangle((2, 192 + 32 * k + 16 - ww, 125, 192 + 32 * k + 15 + ww), ww, fill=col + (255,))
+    return im
+
+
 def draw_sword():
     """sword1.png: one 32 x 32 blade per direction, up left down right."""
     im = Image.new('RGBA', (128, 32), (0, 0, 0, 0))
@@ -562,6 +584,9 @@ def main():
         ('carrystill.gani', gani([0], False, lambda k, d: 'PARAM1   8 -18').encode()),
         ('carry.gani', gani([1, 2, 3, 4], True, lambda k, d: 'PARAM1   8 -18').encode()),
         ('sword1.png', png_bytes(draw_sword())),
+        ('bomb1.png', png_bytes(draw_bombs())),
+        ('hurt.gani', gani([0], False, None, [7]).encode()),
+        ('dead.gani', gani([0], False).encode()),
         ('walk.gani', gani([1, 2, 3, 4], True).encode()),
         ('arrays.dat', arrays_dat(PASSABLE)),
         ('start.nw', start.encode()),
