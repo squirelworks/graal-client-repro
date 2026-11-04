@@ -1,0 +1,90 @@
+name: graal-3d
+
+# The Graal3D rebuild (graal-3d-20000205) has its own protocol and its own
+# server, so it is not logged into seihai-gserver like the 2D builds.
+# This job builds it, runs its tests, walks the stand-in level offline,
+# and logs two copies into the Graal3D reference server from
+# graal_analysis (graal3d/reference-server). macOS only on a manual run or
+# a tag, and never blocks.
+on:
+  push:
+    branches: [main]
+    tags: ['graal-3d-*']
+  pull_request:
+    paths:
+      - 'graal-3d-20000205/**'
+      - 'common/**'
+      - 'scripts/build.sh'
+      - 'scripts/test.sh'
+      - '.github/workflows/graal-3d.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: graal-3d-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: squirelworks/graal_analysis
+          path: graal_analysis
+          sparse-checkout: graal3d/reference-server
+      - name: Install Free Pascal
+        run: sudo apt-get update && sudo apt-get install -y fp-compiler fp-units-base fp-units-fcl libx11-dev
+      - name: Build and test
+        run: |
+          scripts/build.sh graal-3d-20000205
+          scripts/test.sh
+      - name: Walk the stand-in level offline
+        run: |
+          build/graal-3d-20000205/Graal3D --offline --data "$RUNNER_TEMP" --frames 80 \
+            --keys "fwd*40,jump*8,right*10,say:hi" --dump build/graal-3d-20000205/offline.bmp | tee offline.json
+          grep -q '"builtinLevel":true' offline.json
+          grep -q '"onGround":true' offline.json
+      - name: Log two clients into the Graal3D reference server
+        run: graal-3d-20000205/loopback3d.sh graal_analysis/graal3d/reference-server/g3dserver.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: graal-3d-linux
+          path: |
+            build/graal-3d-20000205/Graal3D
+            build/graal-3d-20000205/Test3D
+            build/graal-3d-20000205/*.bmp
+
+  windows:
+    # Chocolatey's Free Pascal is the 32-bit i386-win32 compiler, as for the
+    # 2D builds.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Free Pascal
+        shell: pwsh
+        run: choco install freepascal -y --no-progress
+      - name: Build, test, walk offline
+        shell: bash
+        run: |
+          export PATH="$(ls -d /c/tools/freepascal/bin/* | head -1):$PATH"
+          export FPCFLAGS='-O2 -FuC:\tools\freepascal\units\i386-win32\*'
+          scripts/build.sh graal-3d-20000205
+          scripts/test.sh
+          build/graal-3d-20000205/Graal3D.exe --offline --data "$RUNNER_TEMP" --frames 40 \
+            --keys "fwd*30,jump" > offline.json
+          cat offline.json
+          grep -q '"onGround":true' offline.json
+
+  macos:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+    continue-on-error: true
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Free Pascal
+        run: brew install fpc
+      - name: Build and test
+        run: |
+          scripts/build.sh graal-3d-20000205
+          scripts/test.sh
