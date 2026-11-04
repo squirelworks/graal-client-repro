@@ -24,7 +24,7 @@ from decompiled code:
 | | 3.153 | 4.04r2 (this folder) |
 |---|---|---|
 | Game token | `G3D28015` | `G3D17026` |
-| First server | listserver, `G3D30123` hello | a game server named `Login`, from `license/license.graal` |
+| First server | listserver, `G3D30123` hello | a game server named `Login`, from `license/license.graal`; the rebuild asks `listserver.graal.in:14922` first and offers the Login hosts as extra rows |
 | Login line | ends at the password | adds `win` and three machine fields (sent empty) |
 | After the login line | 37, 34 bigmap, 34 minimap in the same frame | its own frame, then 37 and 23 `basepackage.gupd` |
 | After the login burst | props, 34 for the head | 23 `idle.gani` and 157, 46, 44, props, 24, 34 `pics1.png` |
@@ -63,9 +63,11 @@ reads the 4.x install layout: tile sheets (`pics1.png`, `picso.png`) in
 opens `offlinetutorial_b-2.graal` there), and a
 `levels/tiledefs/tiledefsOffline.txt` if one is dropped in.
 
-With the install's `license/license.graal` the list page offers its Login
-host and fallbacks. With no licence file it asks `listserver.graal.in` on
-14922 for a list (a `listserver.txt` next to the program names another).
+Start always asks `listserver.graal.in` on 14922 for a list first (a
+`listserver.txt` next to the program names another). When the install has
+`license/license.graal`, its Login host and fallbacks are added after the
+list as extra rows named `Login`; picking one logs in there as the real
+client does. They are never the default.
 
 ```
 GRAAL_PW=... Graal404 --server HOST:PORT --account NAME

@@ -28,7 +28,8 @@ uses
   Adventure in '../src/Adventure.pas',
   GBuiltin in '../../common/GBuiltin.pas',
   GStartScreen in '../../common/GStartScreen.pas',
-  ListServer404 in '../src/ListServer404.pas';
+  ListServer404 in '../src/ListServer404.pas',
+  StartScreen404 in '../src/StartScreen404.pas';
 
 {$I Capture404.inc}
 
@@ -1015,6 +1016,45 @@ begin
   end;
 end;
 
+{ Start asks the listserver first; license.graal's Login hosts are only
+  added after it as extra rows, never in its place. }
+procedure TestStartRows;
+var
+  F: TListFetch404;
+  I: Integer;
+begin
+  F := TListFetch404.Create;
+  try
+    F.LoginHosts := ParseLicense('login.example'#13#10'14900'#13#10'a'#13#10'b'#13#10'c'#13#10 +
+      'fb.example'#13#10);
+    { nothing listens on port 1: the list fails, the Login rows remain }
+    F.Start('127.0.0.1', 1, 'acc', 'pw');
+    for I := 1 to 1000 do
+    begin
+      if F.Done or F.Failed then Break;
+      F.Poll;
+      Sleep(10);
+    end;
+    Check(F.Done and (Length(F.Servers) = 2) and (F.Servers[0].Name = LoginServerName) and
+      (F.Servers[0].Host = 'login.example') and (F.Servers[0].Port = 14900) and
+      (F.Servers[1].Host = 'fb.example'),
+      'start: with no listserver, the licence file''s Login host and fallback are offered');
+    F.LoginHosts := ParseLicense('');
+    F.Start('127.0.0.1', 1, 'acc', 'pw');
+    for I := 1 to 1000 do
+    begin
+      if F.Done or F.Failed then Break;
+      F.Poll;
+      Sleep(10);
+    end;
+    Check(F.Failed and (Length(F.Servers) = 0), 'start: no listserver and no licence file fails');
+  finally
+    F.Free;
+  end;
+  Check((DefaultListHost = 'listserver.graal.in') and (DefaultListPort = 14922),
+    'start: the default listserver is listserver.graal.in:14922');
+end;
+
 procedure TestFuzz;
 var
   G: TAdventure;
@@ -1217,6 +1257,7 @@ begin
   TestGen5Capture;
   TestLogin;
   TestListServer;
+  TestStartRows;
   TestBuiltins;
   TestLoginBurst;
   TestWalkProps;

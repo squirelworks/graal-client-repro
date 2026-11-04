@@ -29,9 +29,9 @@ build's README.
 
 ## What works
 
-- The start screen: nick name, Training, Start. With the install's
-  `license/license.graal`, Start offers the Login server it names; with
-  no licence file it asks `listserver.graal.in` on port 14922 for a list.
+- The start screen: nick name, Training, Start. Start asks
+  `listserver.graal.in` on port 14922 for a list; the Login server named
+  in the install's `license/license.graal` is added as an extra row.
   Then account, password and Connect.
 - Login with `G3D17026`, the platform `win` and three machine fields,
   which the rebuild leaves empty. No tamper check.

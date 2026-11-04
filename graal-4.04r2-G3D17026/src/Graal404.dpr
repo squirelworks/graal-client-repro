@@ -506,6 +506,7 @@ var
   Who: TCharacter404;
   Hosts: TListHosts;
   LoginMode: Boolean;
+  I: Integer;
 begin
   Result := 0;
   Dir := ExtractFilePath(ParamStr(0));
@@ -520,12 +521,11 @@ begin
       Result := 64;
       Exit;
     end;
-    { 4.04r2 reads its first server from license/license.graal (line 0
-      host, line 1 port, lines 5 and 6 fallbacks) and logs in there as a
-      game server named Login. With no licence file there is no Login
-      host to ask: the rebuild then asks listserver.graal.in on 14922 for
-      a list with the listserver step (a listserver.txt next to the
-      program names another). }
+    { Start asks listserver.graal.in on 14922 for a list (a
+      listserver.txt next to the program names another). The real 4.04r2
+      logs in to the Login server named in license/license.graal (line 0
+      host, line 1 port, lines 5 and 6 fallbacks); when the install has
+      that file its hosts are added as extra rows, never the default. }
     { SIGTERM / Ctrl+C end the program on the start screen too }
     InstallStopHandlers;
     SetAssetRoots(Dir, ClientBuildLabel);
@@ -533,18 +533,15 @@ begin
       Hosts := LoadListHosts(AssetPath('license/license.graal'))
     else
       Hosts := LoadListHosts(Dir + 'license' + PathDelim + 'license.graal');
-    LoginMode := (Length(Hosts.Hosts) > 0) and not FileExists(Dir + 'listserver.txt');
     ArrHost := DefaultListHost;
-    if LoginMode then ArrHost := Hosts.Hosts[0];
-    ReadListServer(Dir, ArrHost, Hosts.Port, ListHost, ListPort);
+    ReadListServer(Dir, ArrHost, DefaultListPort, ListHost, ListPort);
     FillChar(R, SizeOf(R), 0);
     Msg := '';
     repeat
       Win.TakeChars;
       G := TAdventure.Create;
       Fetch := TListFetch404.Create;
-      Fetch.LoginMode := LoginMode;
-      Fetch.SetFallbacks(Hosts);
+      Fetch.LoginHosts := Hosts;
       Who := TCharacter404.Create;
       try
         G.UseInstall(Dir);
@@ -581,6 +578,11 @@ begin
           GuiArgs.Add(R.Host + ':' + IntToStr(R.Port));
           GuiArgs.Add('--account');
           GuiArgs.Add(R.Account);
+          { a licence-file row is the Login server }
+          LoginMode := False;
+          for I := 0 to High(Hosts.Hosts) do
+            if (R.Host = Hosts.Hosts[I]) and (R.Port = Hosts.Port) then
+              LoginMode := True;
           if LoginMode then
           begin
             GuiArgs.Add('--server-name');
