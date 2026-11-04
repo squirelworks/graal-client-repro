@@ -19,7 +19,7 @@ uses
 
 type
   TGKey = (gkNone, gkUp, gkLeft, gkDown, gkRight, gkAction, gkAttack,
-    gkItem, gkMap, gkChat, gkEscape);
+    gkItem, gkMap, gkChat, gkEscape, gkItemList);
 
   TGWindow = class
   private
@@ -130,6 +130,7 @@ begin
     Ord('S'), VK_SPACE: Result := gkAttack;
     Ord('D'): Result := gkItem;
     Ord('M'): Result := gkMap;
+    Ord('Q'): Result := gkItemList;
     VK_TAB: Result := gkChat;
     VK_ESCAPE: Result := gkEscape;
   else
@@ -269,6 +270,7 @@ begin
     XK_s, XK_space: Result := gkAttack;
     XK_d: Result := gkItem;
     XK_m: Result := gkMap;
+    XK_q: Result := gkItemList;
     XK_Tab: Result := gkChat;
     XK_Escape: Result := gkEscape;
   else
