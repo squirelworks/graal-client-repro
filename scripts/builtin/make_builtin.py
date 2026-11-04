@@ -250,6 +250,8 @@ SPRITE_RECTS = {
     65: (96, 16, 16, 16), 351: (112, 16, 16, 16),         # bombs darts heart bomb bow
     261: (0, 64, 32, 32), 267: (32, 64, 32, 32), 265: (64, 64, 32, 32),
     263: (96, 64, 32, 32), 239: (0, 96, 32, 32),          # carried objects
+    107: (0, 128, 10, 30), 109: (10, 128, 10, 30),        # arrows up, down
+    108: (20, 128, 30, 10), 110: (20, 140, 30, 10),       # arrows left, right
 }
 
 
@@ -258,7 +260,7 @@ def sprite_word(x, y, w, h):
 
 
 def draw_sprites():
-    im = Image.new('RGBA', (128, 128), (0, 0, 0, 0))
+    im = Image.new('RGBA', (128, 160), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
     d.ellipse((0, 0, 23, 11), fill=(0, 0, 0, 255))
     # the blit has no blending: thin the shadow out to every other pixel
@@ -297,7 +299,49 @@ def draw_sprites():
         ob = Image.new('RGBA', (32, 32), (0, 0, 0, 0))
         draw_object(ImageDraw.Draw(ob), b, 0, 0)
         im.paste(ob, (x, y), ob)
+    # arrows: shaft, head and fletching, pointing their way
+    shaft, head, feather = (150, 100, 50, 255), (220, 220, 230, 255), (230, 60, 50, 255)
+    for n, (dx, dy) in ((107, (0, -1)), (109, (0, 1)), (108, (-1, 0)), (110, (1, 0))):
+        x, y, w, h = SPRITE_RECTS[n]
+        if dx == 0:
+            d.line((x + 4, y + 3, x + 4, y + 26), fill=shaft, width=2)
+            ty = y if dy < 0 else y + 29
+            d.polygon([(x, ty + 6 * -dy), (x + 4, ty), (x + 9, ty + 6 * -dy)], fill=head)
+            fy = y + 24 if dy < 0 else y + 1
+            d.rectangle((x + 1, fy, x + 8, fy + 4), fill=feather)
+        else:
+            d.line((x + 3, y + 4, x + 26, y + 4), fill=shaft, width=2)
+            tx = x if dx < 0 else x + 29
+            d.polygon([(tx + 6 * -dx, y), (tx, y + 4), (tx + 6 * -dx, y + 9)], fill=head)
+            fx = x + 24 if dx < 0 else x + 1
+            d.rectangle((fx, y + 1, fx + 4, y + 8), fill=feather)
     return im
+
+
+def draw_weapons():
+    """The built-in weapons' pictures (wbomb1-3, wbowi1-4), 32 x 32."""
+    out = []
+    for name, kind, col in (('wbomb1', 'bomb', (40, 60, 160)), ('wbomb2', 'bomb', (220, 220, 240)),
+                            ('wbomb3', 'bomb', (210, 40, 40)), ('wbowi1', 'bow', (150, 100, 50)),
+                            ('wbowi2', 'ball', (240, 120, 30)), ('wbowi3', 'ball', (240, 220, 60)),
+                            ('wbowi4', 'ball', (120, 230, 120))):
+        im = Image.new('RGBA', (32, 32), (0, 0, 0, 0))
+        d = ImageDraw.Draw(im)
+        if kind == 'bomb':
+            d.ellipse((5, 9, 27, 31), fill=col + (255,), outline=(10, 10, 20, 255))
+            d.ellipse((10, 13, 15, 18), fill=(255, 255, 255, 255))
+            d.line((20, 10, 25, 3), fill=(150, 100, 50, 255), width=2)
+            d.ellipse((24, 1, 28, 5), fill=(255, 200, 40, 255))
+        elif kind == 'bow':
+            d.arc((2, 2, 29, 29), 225, 45, fill=col + (255,), width=3)
+            d.line((7, 7, 26, 26), fill=(240, 240, 240, 255))
+            d.line((4, 28, 26, 6), fill=(120, 80, 40, 255), width=2)
+            d.polygon([(23, 4), (28, 3), (27, 8)], fill=(220, 220, 230, 255))
+        else:
+            d.ellipse((6, 6, 26, 26), fill=col + (255,), outline=(120, 30, 10, 255))
+            d.ellipse((11, 10, 17, 16), fill=(255, 255, 220, 255))
+        out.append((name + '.png', im))
+    return out
 
 
 def draw_bombs():
@@ -331,6 +375,75 @@ def draw_sword():
     d.rectangle((32 + 2, 14, 32 + 22, 17), fill=steel, outline=(60, 60, 80, 255)); d.rectangle((32 + 22, 10, 32 + 24, 21), fill=hilt)
     d.rectangle((64 + 14, 9, 64 + 17, 29), fill=steel, outline=(60, 60, 80, 255)); d.rectangle((64 + 10, 7, 64 + 21, 9), fill=hilt)
     d.rectangle((96 + 9, 14, 96 + 29, 17), fill=steel, outline=(60, 60, 80, 255)); d.rectangle((96 + 7, 10, 96 + 9, 21), fill=hilt)
+    return im
+
+
+# ---------------------------------------------------------------- letters
+# The sign sheet's geometry (256 x 224, 16 x 32 glyphs in the 2.05 glyph
+# order, frame pieces 96 to 103, fill colours at (252..255, 223); see
+# graal_analysis client-internals/sign-panel.md), with new art: the
+# built-in 5 x 7 font doubled.
+GLYPH_ORDER = ('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+               '!?-.,#>()#####"####\':/~&### <####;')
+
+
+def draw_letters():
+    import font5x7
+    im = Image.new('RGBA', (256, 224), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    ink = (60, 40, 30, 255)
+
+    def cell(n):
+        return (n % 16) * 16, (n // 16) * 32
+
+    def glyph(n, ch, colour=ink):
+        x, y = cell(n)
+        rows = font5x7.G.get(ch)
+        if not rows:
+            return
+        for r, row in enumerate(rows):
+            for c, px in enumerate(row):
+                if px == '#':
+                    d.rectangle((x + 1 + 2 * c, y + 9 + 2 * r, x + 2 + 2 * c, y + 10 + 2 * r), fill=colour)
+
+    for n, ch in enumerate(GLYPH_ORDER):
+        if ch != '#':
+            glyph(n, ch)
+    # button pictures: a disc with the letter or arrow
+    for n, ch in ((91, 'A'), (92, 'B'), (93, 'X'), (94, 'Y'), (71, 'H'), (72, 'X'),
+                  (73, 'Y'), (74, 'Z'), (75, '4'), (87, '.'), (86, '?')):
+        x, y = cell(n)
+        d.ellipse((x, y + 7, x + 15, y + 22), fill=(200, 50, 40, 255))
+        glyph(n, ch, (255, 255, 255, 255))
+    for n, pts in ((77, ((8, 8), (1, 20), (15, 20))), (78, ((8, 23), (1, 11), (15, 11))),
+                   (79, ((1, 15), (13, 8), (13, 22))), (80, ((15, 15), (3, 8), (3, 22)))):
+        x, y = cell(n)
+        d.polygon([(x + a, y + b) for a, b in pts], fill=(200, 50, 40, 255))
+    # the scroll frame
+    paper, edge, rim = (255, 235, 180, 255), (150, 100, 50, 255), (110, 70, 30, 255)
+    for n in (100, 101):
+        x, y = cell(n)
+        top = n == 100
+        d.rectangle((x, y + (8 if top else 0), x + 15, y + (31 if top else 23)), fill=paper)
+        ey = y + 8 if top else y + 20
+        d.rectangle((x, ey, x + 15, ey + 3), fill=edge)
+    for n in (102, 103):
+        x, y = cell(n)
+        left = n == 102
+        d.rectangle((x + (4 if left else 0), y, x + (15 if left else 11), y + 31), fill=paper)
+        ex = x + 4 if left else x + 8
+        d.rectangle((ex, y, ex + 3, y + 31), fill=edge)
+    for n, (l, t) in ((96, (True, True)), (97, (False, True)), (98, (True, False)), (99, (False, False))):
+        x, y = cell(n)
+        d.rectangle((x, y, x + 15, y + 31), fill=(0, 0, 0, 0))
+        cy = y + 10 if t else y + 22
+        d.rectangle((x + (4 if l else 0), y + (8 if t else 0), x + (15 if l else 11), y + (31 if t else 23)), fill=paper)
+        d.ellipse((x + 1, cy - 6, x + 14, cy + 6), fill=edge, outline=rim)
+        d.ellipse((x + 5, cy - 2, x + 10, cy + 2), fill=paper)
+    # fill colours: 253 the system-font text, 254 and 255 the two fills
+    im.putpixel((253, 223), ink)
+    im.putpixel((254, 223), paper)
+    im.putpixel((255, 223), paper)
     return im
 
 
@@ -543,6 +656,7 @@ def start_levels():
     put(36, 37, O_STONE)
     put(24, 26, O_SIGN)
     put(26, 25, O_CHEST)
+    put(30, 24, O_CHEST)
     b = [T_SAND] * 4096
     for i in range(4096):
         if next(r) % 30 == 0:
@@ -558,8 +672,14 @@ def start_levels():
         for x in range(0, 30):
             b[x + y * 64] = T_PATH
     start = nw_level(a, [('start2.nw', 63, 28, 1, 8, '1', 'playery')],
-                     [(30, 28, 'Welcome. This is the built-in starter level.\nDrop a Graal install next to the program to play the real one.')],
-                     [(26, 25, 'redrupee', -1)])
+                     [(24, 26, 'Welcome! This is the\n'
+                                'built-in starter level.\n'
+                                'Any key turns the page.\n'
+                                'S swings the sword, A lifts\n'
+                                'and throws, D lays a bomb.\n'
+                                'Put a Graal install by the\n'
+                                'program to play the real one.')],
+                     [(26, 25, 'redrupee', -1), (30, 24, 'bow', -1)])
     start2 = nw_level(b, [('start.nw', 0, 28, 1, 8, '60', 'playery')], [])
     return start, start2
 
@@ -578,6 +698,7 @@ def main():
         ('head0.png', png_bytes(draw_head())),
         ('sprites.png', png_bytes(draw_sprites())),
         ('state.png', png_bytes(draw_state())),
+        ('letters.png', png_bytes(draw_letters())),
         ('idle.gani', gani([0], False).encode()),
         ('sword.gani', gani([0, 0, 0], False, sword_part, [1, 1, 1]).encode()),
         ('lift.gani', gani([0, 0], False, lambda k, d: 'PARAM1   8 %d' % (-6 - 10 * k), [1, 1]).encode()),
@@ -585,6 +706,7 @@ def main():
         ('carry.gani', gani([1, 2, 3, 4], True, lambda k, d: 'PARAM1   8 -18').encode()),
         ('sword1.png', png_bytes(draw_sword())),
         ('bomb1.png', png_bytes(draw_bombs())),
+    ] + [(n, png_bytes(im)) for n, im in draw_weapons()] + [
         ('hurt.gani', gani([0], False, None, [7]).encode()),
         ('dead.gani', gani([0], False).encode()),
         ('walk.gani', gani([1, 2, 3, 4], True).encode()),
