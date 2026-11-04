@@ -57,7 +57,11 @@ As in 3.153, with the suffix `404`: `Protocol404`, `GraalClient`,
 
 Put `Graal404` in the root of a 4.04r2 install and start it with no
 arguments for the start screen. It finds the install's files from there,
-or from `graal-assets/4.04r2/` and `graal-assets/common/` next to it.
+or from `graal-assets/4.04r2/` and `graal-assets/common/` next to it. It
+reads the 4.x install layout: tile sheets (`pics1.png`, `picso.png`) in
+`levels/tiles/`, the offline tutorial in `levels/tutorial/` (Training
+opens `offlinetutorial_b-2.graal` there), and a
+`levels/tiledefs/tiledefsOffline.txt` if one is dropped in.
 
 With the install's `license/license.graal` the list page offers its Login
 host and fallbacks. With no licence file it asks `listserver.graal.in` on
