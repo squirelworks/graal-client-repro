@@ -91,7 +91,7 @@ common unit, it gets its own copy in its folder rather than a flag in
 
 ```
 # Linux
-sudo apt-get install fp-compiler fp-units-base fp-units-fcl fp-units-x11
+sudo apt-get install fp-compiler fp-units-base fp-units-fcl
 scripts/build.sh
 scripts/test.sh
 
