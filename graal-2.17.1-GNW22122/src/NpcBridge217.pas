@@ -436,7 +436,7 @@ begin
     { addtiledef IMAGE,PREFIX[,TYPE]: the 2.2-era offline tutorial that
       2.17.1 shipped with sets its tile sheet this way }
     if Op = GsFirstOp + GsCommandIndex('addtiledef') then
-      FAdv.AddTileDef(A.Str[0], A.Str[1])
+      FAdv.AddTileDef(A.Str[0], A.Str[1], Trunc(A.Num[2]))
     else if Op = GsFirstOp + GsCommandIndex('replaceani') then
       FAdv.ReplaceAni(A.Str[0], A.Str[1])
     else

@@ -41,6 +41,10 @@ As in 3.04, with the suffix `3153`: `Protocol3153`, `GraalClient`,
 Put `Graal3153` in the root of a 3.153 install and start it with no
 arguments for the start screen. It finds the install's files from there,
 or from `graal-assets/3.153/` and `graal-assets/common/` next to it.
+It also reads the 3.04 install layout (tile sheets in `levels/tiles/`,
+the offline tutorial in `levels/tutorial/`,
+`levels/tiledefs/tiledefsOffline.txt`), taken to hold for 3.153 until a
+3.153 install is in `graal-assets`.
 
 ```
 GRAAL_PW=... Graal3153 --server HOST:PORT --account NAME
