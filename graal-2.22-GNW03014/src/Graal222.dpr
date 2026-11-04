@@ -530,6 +530,7 @@ begin
         Info.Subtitle := '2.22 rebuilt';
         Info.Backgrounds := Backgrounds222;
         Info.DrawCharacter := Who.Draw;
+        Classic222(Info.Classic);
         Picked := RunStartScreen(Win, G.Screen, Fetch, Info, Dir, ListHost, ListPort, Msg, R);
       finally
         Who.Free;

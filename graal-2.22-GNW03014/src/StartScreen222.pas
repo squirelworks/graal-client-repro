@@ -43,6 +43,19 @@ type
     procedure Draw(S: TGSurface; X, Y: Integer; const Nick: string);
   end;
 
+{ The 2.22 start window (TConnectFrame, caption "Graal 2001"): 577 x 416
+  with SCREENIMG1 behind it. From its form: the "Welcome to Graal!" label
+  at (80, 208, 281 x 25), Nick Name at (72, 246) with its field at (200,
+  241, 177 x 24), Language at (72, 274) with its box at (200, 269, 177 x
+  24), and Account / Password at (76, 332) / (76, 364) with fields at (204,
+  329) / (204, 361), 173 x 24. FormShow places four TPaintButtons with lime
+  MS Sans Serif captions: Start Online at (423, 345), Training at (423,
+  215), Options at (423, 245), all 105 x 26 with the button1 face, and
+  "Get an account" at (408, 275), 145 x 26 with the button2 face. The
+  shared screen does not yet draw the account fields or the fourth button
+  on this window (the server list page asks for the account). }
+procedure Classic222(var L: TClassicLayout);
+
 const
   Backgrounds222 = 'screenimg1.jpg;builtin/screenimg1.jpg;screenimg2.jpg;' +
     'builtin/screenimg2.jpg;images/screenimg1.jpg';
@@ -137,6 +150,26 @@ destructor TListFetch222.Destroy;
 begin
   Client.Free;
   inherited Destroy;
+end;
+
+procedure Classic222(var L: TClassicLayout);
+begin
+  L.Used := True;
+  L.FormW := 577;
+  L.FormH := 416;
+  L.ButtonImages := 'button1.bmp;builtin/button1.bmp;images/button1.bmp';
+  L.Training := StartRect(423, 215, 105, 26);
+  L.Options := StartRect(423, 245, 105, 26);
+  L.Start := StartRect(423, 345, 105, 26);
+  L.TrainingText := 'Training';
+  L.OptionsText := 'Options';
+  L.StartText := 'Start Online';
+  L.Welcome := StartRect(80, 208, 281, 25);
+  L.WelcomeText := 'Welcome to Graal!';
+  L.NickLabel := StartRect(72, 246, 81, 16);
+  L.NickField := StartRect(200, 241, 177, 24);
+  L.LanguageLabel := StartRect(72, 274, 74, 16);
+  L.LanguageField := StartRect(200, 269, 177, 24);
 end;
 
 procedure TCharacter222.Draw(S: TGSurface; X, Y: Integer; const Nick: string);
