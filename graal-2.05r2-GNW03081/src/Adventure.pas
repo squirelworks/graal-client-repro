@@ -109,10 +109,17 @@ type
     Permanent: Boolean; { made with a life below 100: shown, never taken }
   end;
 
-  { An object in flight after a throw. }
+  { An object in flight after a throw. X, Y is the top-left of its 2 x 2
+    box on the ground; it is drawn above that by its height. }
   TThrownObject = record
-    X, Y, DX, DY: Double; { top-left of the 2 x 2 object, tiles per tick }
+    X, Y, DX, DY: Double; { tiles; tiles per tick }
     Kind, Age: Integer;   { lift table entry; ticks in the air }
+  end;
+
+  { The pieces of a thrown object that broke, centred on X, Y (tiles). }
+  TBreakEffect = record
+    X, Y: Double;
+    Kind, Age: Integer;
   end;
 
   TBomb = record
@@ -232,6 +239,7 @@ type
     CarryKind: Integer;
     Items: array of TFloorItem;
     Thrown: array of TThrownObject;
+    Breaks: array of TBreakEffect;
     Bombs: array of TBomb;
     Blasts: array of TBlast;
     { Reading a sign: its lines and the first line of the page shown. }
@@ -318,6 +326,8 @@ type
     procedure DrawObjectTiles(List, I, X, Y: Integer);
     { A carried or thrown object (lift table entry Kind) at X, Y. }
     procedure DrawCarried(Kind, X, Y: Integer);
+    procedure DrawThrown(CamX, CamY: Integer);
+    procedure BreakThrown(I: Integer);
     { Not in hurt mode and not dead. }
     function Hurtable: Boolean;
     { The shared hurt routine: Hearts off (clamped to the maximum first),
@@ -327,6 +337,7 @@ type
     procedure HurtFrom(Hearts, FromX, FromY: Double);
     { After death, on a direction key: hearts by AP, at the level's entry. }
     procedure Respawn;
+    function OpenChestAt(PX, PY: Double): Boolean;
     { Says Text: shown over the player, playerchats for the NPCs, and
       PLPROP_CURCHAT to the server. }
     procedure Say(const Text: string);
@@ -395,6 +406,13 @@ const
   ItemShadowSprite = 42;
   { the carry sprite of each lift table entry }
   CarrySprites: array[0..4] of Integer = (261, 267, 265, 263, 239);
+  { a thrown object's top over its box on the ground, by ticks in the air }
+  ThrowHeight: array[0..6] of Integer = (-14, -9, -7, -4, -1, 3, 6);
+  ThrowShadowSprite = 0;
+  BreakFrames = 4;
+  StonePieceSprites: array[0..3] of Integer = (96, 97, 98, 99);
+  PotPieceSprites: array[0..3] of Integer = (100, 101, 102, 103);
+  BushBreakSprites: array[0..1] of Integer = (115, 116);
   ItemLife = 164;
 { The items that can lie on the floor (PLO_ITEMADD makes only these). }
 function FloorItem(Item: Integer): Boolean;
@@ -1221,7 +1239,18 @@ begin
     if A <> nil then FModeUntil := Frame + A.TotalTicks else FModeUntil := Frame + 4;
     Exit;
   end;
-  { a chest record at the probe, not yet opened }
+  { a chest record at the probe, not yet opened; only from below, facing
+    up: from the side the real 2.05 does nothing }
+  if Player.Dir and 3 = DirUp then OpenChestAt(PX, PY);
+end;
+
+{ Opens the chest record at (PX, PY) that is not yet opened. The real 2.05
+  opens one as soon as the player walks up into it, and on A facing up. }
+function TAdventure.OpenChestAt(PX, PY: Double): Boolean;
+var
+  I: Integer;
+begin
+  Result := False;
   for I := 0 to High(Level.Chests) do
     if not Level.Chests[I].Opened and (PX >= Level.Chests[I].X) and
       (PX <= Level.Chests[I].X + 2) and (PY >= Level.Chests[I].Y) and
@@ -1241,6 +1270,7 @@ begin
         ReadSign(Level.Signs[Level.Chests[I].Sign].Text);
       if FClient.Connected then
         FClient.SendPacket(PLI_OPENCHEST, GChar(Level.Chests[I].X) + GChar(Level.Chests[I].Y));
+      Result := True;
       Exit;
     end;
 end;
@@ -1253,14 +1283,15 @@ var
   N: Integer;
 begin
   if CarryKind < 0 then Exit;
-  { it leaves from above the head; the flight itself was not read from
-    2.05: here it travels 0.5 tile a tick for 8 ticks and breaks }
+  { measured against 2.05 at 20 frames a second: it leaves from where it
+    was carried and flies one tile a tick, coming down from 14 px above
+    the player's top over six ticks, then breaks }
   N := Length(Thrown);
   SetLength(Thrown, N + 1);
   Thrown[N].X := Player.X + 0.5;
   Thrown[N].Y := Player.Y;
-  Thrown[N].DX := DX[Player.Dir and 3] * 0.5;
-  Thrown[N].DY := DY[Player.Dir and 3] * 0.5;
+  Thrown[N].DX := DX[Player.Dir and 3];
+  Thrown[N].DY := DY[Player.Dir and 3];
   Thrown[N].Kind := CarryKind;
   Thrown[N].Age := 0;
   CarryKind := -1;
@@ -1363,15 +1394,43 @@ begin
     Thrown[I].X := Thrown[I].X + Thrown[I].DX;
     Thrown[I].Y := Thrown[I].Y + Thrown[I].DY;
     Inc(Thrown[I].Age);
-    if Thrown[I].Age >= 8 then
+    { it breaks once it has come down, or on anything in its way }
+    if (Thrown[I].Age > High(ThrowHeight)) or
+      PointBlocked(Thrown[I].X + 1, Thrown[I].Y + 3) then
     begin
-      PlaySoundAt('crush.wav', Thrown[I].X + 1, Thrown[I].Y + 1);
-      Thrown[I] := Thrown[High(Thrown)];
-      SetLength(Thrown, Length(Thrown) - 1);
+      BreakThrown(I);
       Continue;
     end;
     Inc(I);
   end;
+  I := 0;
+  while I <= High(Breaks) do
+  begin
+    Inc(Breaks[I].Age);
+    if Breaks[I].Age >= BreakFrames then
+    begin
+      Breaks[I] := Breaks[High(Breaks)];
+      SetLength(Breaks, Length(Breaks) - 1);
+      Continue;
+    end;
+    Inc(I);
+  end;
+end;
+
+procedure TAdventure.BreakThrown(I: Integer);
+var
+  N: Integer;
+begin
+  PlaySoundAt('crush.wav', Thrown[I].X + 1, Thrown[I].Y + 1);
+  { the pieces fly apart 2.5 tiles under the box's top-left (measured) }
+  N := Length(Breaks);
+  SetLength(Breaks, N + 1);
+  Breaks[N].X := Thrown[I].X + 1;
+  Breaks[N].Y := Thrown[I].Y + 2.5;
+  Breaks[N].Kind := Thrown[I].Kind;
+  Breaks[N].Age := 0;
+  Thrown[I] := Thrown[High(Thrown)];
+  SetLength(Thrown, Length(Thrown) - 1);
 end;
 
 { ---- combat: being hurt, knockback, dying, other players' swings,
@@ -2351,6 +2410,7 @@ var
 begin
   SetLength(Items, 0);
   SetLength(Thrown, 0);
+  SetLength(Breaks, 0);
   if not FileExists(FileName) and BuiltinFile(ExtractFileName(FileName), D) and
     (LowerCase(ExtractFileExt(FileName)) <> '.png') then
   begin
@@ -2563,6 +2623,7 @@ begin
           while FOthers.Count > 0 do RemoveOther(Others[0].Id);
           SetLength(Items, 0);
           SetLength(Thrown, 0);
+          SetLength(Breaks, 0);
           if FWarpPending and (Data = FWarpLevel) then
           begin
             { the server sends no PLAYERWARP for a link: the client
@@ -2919,7 +2980,10 @@ begin
   begin
     ProbePoint(AX, AY);
     D := SignAt(Player.X + 1.5, AY);
-    if (D >= 0) and ((Player.Dir and 3) = DirUp) then ReadSign(Level.Signs[D].Text);
+    if (D >= 0) and ((Player.Dir and 3) = DirUp) then ReadSign(Level.Signs[D].Text)
+    { walking up into a chest opens it (the tutorial's glove chest, side by
+      side with the real 2.05) }
+    else if (Player.Dir and 3) = DirUp then OpenChestAt(Player.X + 1.5, AY);
   end;
   SendMovedProps;
   FClient.Flush;
@@ -3023,6 +3087,8 @@ var
   Spr: TGraalAniSprite;
   Img: TGSurface;
   SheetName, AttrName: string;
+  HeadX, HeadY: Integer;
+  HasParam: Boolean;
 begin
   BX := Round(P.X * TileSize) - CamX;
   BY := Round(P.Y * TileSize) - CamY;
@@ -3045,6 +3111,9 @@ begin
     St := A.StepAt(Frame - P.AniStart);
   if St > High(A.Steps) then Exit;
   Parts := A.Steps[St].Dirs[P.Dir and 3];
+  HasParam := False;
+  HeadX := 0;
+  HeadY := -10000;
   for I := 0 to High(Parts) do
   begin
     if Parts[I].Sprite = ParamSprite - 1 then
@@ -3053,6 +3122,7 @@ begin
         its carry sprite from the sprite table (bush 261, sign 267, pot
         265, stone 263, black stone 239: carry-hide-and-glove.md), or from
         its board tiles when there is no table }
+      HasParam := True;
       if (P = Player) and (CarryKind >= 0) then
         DrawCarried(CarryKind, BX + Parts[I].X, BY + Parts[I].Y);
       Continue;
@@ -3091,7 +3161,19 @@ begin
       Img := Assets.Image(Spr.Sheet, '');
     if Img <> nil then
       Screen.Blit(Img, Spr.X, Spr.Y, Spr.W, Spr.H, BX + Parts[I].X, BY + Parts[I].Y);
+    if SheetName = 'HEAD' then
+    begin
+      HeadX := BX + Parts[I].X;
+      HeadY := BY + Parts[I].Y;
+    end
+    else if Parts[I].Sprite = ParamSprite - 1 then
+      HasParam := True;
   end;
+  { the classic lift and carry ganis have no PARAM1 part: 2.05 draws the
+    carried object itself, 16 pixels above the head (side by side under
+    Wine: the light stone sits on the head while carrying) }
+  if (P = Player) and (CarryKind >= 0) and not HasParam and (HeadY > -10000) then
+    DrawCarried(CarryKind, HeadX, HeadY - 16);
 end;
 
 procedure TAdventure.DrawObjectTiles(List, I, X, Y: Integer);
@@ -3119,6 +3201,51 @@ begin
     DrawObjectTiles(11, Kind, X, Y);
 end;
 
+procedure TAdventure.DrawThrown(CamX, CamY: Integer);
+var
+  Img: TGSurface;
+  I, J, A, D, SX, SY, SW, SH, X, Y, X2, Y2: Integer;
+begin
+  Img := Assets.Image('sprites.png', '');
+  for I := 0 to High(Thrown) do
+  begin
+    X := Round(Thrown[I].X * TileSize) - CamX;
+    Y := Round(Thrown[I].Y * TileSize) - CamY;
+    { its shadow keeps to the ground, 44 px under the top }
+    if (Img <> nil) and Arrays.SpriteRect(ThrowShadowSprite, SX, SY, SW, SH) then
+      Screen.Blit(Img, SX, SY, SW, SH, X + 4, Y + 44);
+    A := Thrown[I].Age;
+    if A > High(ThrowHeight) then A := High(ThrowHeight);
+    DrawCarried(Thrown[I].Kind, X, Y + ThrowHeight[A]);
+  end;
+  if Img = nil then Exit;
+  for I := 0 to High(Breaks) do
+  begin
+    X := Round(Breaks[I].X * TileSize) - CamX;
+    Y := Round(Breaks[I].Y * TileSize) - CamY;
+    if Breaks[I].Kind = 0 then
+    begin
+      { a bush: its leaves burst out }
+      if Arrays.SpriteRect(BushBreakSprites[Breaks[I].Age and 1], SX, SY, SW, SH) then
+        Screen.Blit(Img, SX, SY, SW, SH, X - SW div 2, Y - SH div 2);
+      Continue;
+    end;
+    { four quarters spread out diagonally, 4 px further each frame }
+    D := 2 + 4 * Breaks[I].Age;
+    for J := 0 to 3 do
+    begin
+      if Breaks[I].Kind in [1, 2] then
+        A := PotPieceSprites[J]
+      else
+        A := StonePieceSprites[J];
+      if not Arrays.SpriteRect(A, SX, SY, SW, SH) then Continue;
+      if J and 1 = 0 then X2 := X - SW - D else X2 := X + D;
+      if J and 2 = 0 then Y2 := Y - SH - D else Y2 := Y + D;
+      Screen.Blit(Img, SX, SY, SW, SH, X2, Y2);
+    end;
+  end;
+end;
+
 procedure TAdventure.DrawItems(CamX, CamY: Integer);
 var
   I, SX, SY, SW, SH, HX, HY, HW, HH: Integer;
@@ -3131,7 +3258,7 @@ begin
   begin
     It := Items[I];
     { blinks out in its last moments }
-    if (It.Life < 37) and Odd(It.Life) then Continue;
+    if (It.Life < 37) and Odd(It.Life) and not It.Permanent then Continue;
     if (Img = nil) or not Arrays.SpriteRect(ItemSprites[It.Item], SX, SY, SW, SH) then
     begin
       { no sprite table: a marker the size of a rupee }
@@ -3160,7 +3287,7 @@ const
   RowStart: array[0..5] of Integer = (0, 5, 11, 16, 22, 27);
 var
   St, Img: TGSurface;
-  I, N, Row, Col, X, Half, HX, HY, Hearts2, Down: Integer;
+  I, N, Row, Col, X, Half, HX, HY, Hearts2, Down, SX, SY, SW, SH: Integer;
 
   procedure Part(SX, SY, W, H, DX, DY: Integer);
   begin
@@ -3222,8 +3349,17 @@ begin
         if Img <> nil then Screen.Blit(Img, 94, 36, 28, 28, 105, 31);
         PowerText(IntToStr(Player.SwordPower), 125, 31);
       end;
+      { the glove: sprite 145 for power 2, sprite 325 on top for power 3,
+        at (40, 29), and the power beside it }
       if Player.GlovePower >= 2 then
+      begin
+        Img := Assets.Image('sprites.png', '');
+        if (Img <> nil) and Arrays.SpriteRect(145, SX, SY, SW, SH) then
+          Screen.Blit(Img, SX, SY, SW, SH, 40, 29);
+        if (Img <> nil) and (Player.GlovePower >= 3) and Arrays.SpriteRect(325, SX, SY, SW, SH) then
+          Screen.Blit(Img, SX, SY, SW, SH, 40, 29);
         PowerText(IntToStr(Player.GlovePower), 60, 31);
+      end;
     end;
   end;
   if WeaponsOn then
@@ -3338,9 +3474,7 @@ begin
   DrawShots(CamX, CamY);
   Npcs.Draw(Screen, CamX, CamY, True);
   DrawNames(CamX, CamY);
-  for I := 0 to High(Thrown) do
-    DrawCarried(Thrown[I].Kind, Round(Thrown[I].X * TileSize) - CamX,
-      Round(Thrown[I].Y * TileSize) - CamY);
+  DrawThrown(CamX, CamY);
   DrawStatus;
   DrawMaps(Self);
   if Reading then DrawSign(CamY);
