@@ -24,8 +24,15 @@ to the program works too (`graal-assets/6.01r1/`, then
 | `…-linux.zip` | Linux x86-64 | X11 |
 | `…-windows.zip` | Windows, 32-bit | GDI |
 
-Each zip has `Graal601` (the client), `Test601` (its test suite) and the
-build's README.
+Each zip has `Graal601` (the client) and the build's README. The test
+programs are built and run on every release but no longer shipped.
+
+On Windows the first start may show **"Windows protected your PC"**. That
+is SmartScreen meeting an unsigned program it has not seen before, not a
+virus warning. Either click **More info**, then **Run anyway** (once), or
+unblock the zip before you extract it: right-click it, **Properties**,
+tick **Unblock**, **OK**. Then nothing in the folder is asked about again.
+See [Windows says "Windows protected your PC"](https://github.com/squirelworks/graal-delphi#windows-says-windows-protected-your-pc).
 
 ## What works
 

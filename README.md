@@ -44,6 +44,7 @@ common/                     code that is the same across builds
   GBuiltin.pas              built-in original assets, compiled in (generated)
   GAssetDirs.pas            where a build finds the player's own Graal files (graal-assets/)
   builtin/                  those assets as files (scripts/builtin/make_builtin.py)
+  win/                      the Windows manifest every client compiles in
 graal-2.05-GNW03081/        Graal 2.05
   src/                      the client (Graal205.dpr and its units)
   tests/                    Test205.dpr
@@ -63,6 +64,7 @@ scripts/
   assets/merge_assets.py    merges per-version sets of original files into one graal-assets/
   assets/needed_assets.py   cuts it to the files the clients open and zips it (docs/assets.md)
   loopback.sh               log a rebuild into seihai-gserver (acceptance check)
+  win/make_winres.py        gives each client its src/<Program>.rc (version info, manifest)
 ```
 
 ### Folder naming rule
@@ -214,6 +216,9 @@ set the DEP and ASLR flags, are not packed or compressed, and the zips
 hold only the client, no test programs. That makes them look like an
 ordinary program to SmartScreen and to antivirus heuristics, but it does
 not remove the "Unknown publisher" box. Only a code signature does.
+
+A new build folder gets its `src/<Program>.rc` and the `{$R}` line from
+`python3 scripts/win/make_winres.py`; CI fails until it has them.
 
 ### Signing (what it would take)
 

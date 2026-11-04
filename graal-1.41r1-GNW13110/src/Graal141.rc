@@ -1,0 +1,36 @@
+/* Windows resources for Graal141.exe: the shared manifest and a version
+   block, so Windows and antivirus see a named, versioned program
+   instead of a bare exe. Built only on Windows ({$R} in Graal141.dpr).
+   The release workflow stamps the version lines from the tag; keep
+   0,0,0,0 and "0.0.0-dev" here. */
+1 24 "../../common/win/graal-delphi.manifest"
+
+1 VERSIONINFO
+FILEVERSION 0,0,0,0
+PRODUCTVERSION 0,0,0,0
+FILEFLAGSMASK 0x3F
+FILEFLAGS 0x0
+FILEOS 0x40004
+FILETYPE 0x1
+FILESUBTYPE 0x0
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040904B0"
+    BEGIN
+      VALUE "CompanyName", "squirelworks"
+      VALUE "FileDescription", "graal-delphi 1.41 rev 1 client"
+      VALUE "FileVersion", "0.0.0-dev"
+      VALUE "InternalName", "Graal141"
+      VALUE "LegalCopyright", "graal-delphi contributors. Independent fan rebuild, not affiliated with GraalOnline."
+      VALUE "OriginalFilename", "Graal141.exe"
+      VALUE "ProductName", "graal-delphi"
+      VALUE "ProductVersion", "0.0.0-dev"
+      VALUE "Comments", "https://github.com/squirelworks/graal-delphi"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x409, 1200
+  END
+END

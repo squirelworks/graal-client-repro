@@ -21,6 +21,10 @@ program Graal3D;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
 {$IFDEF MSWINDOWS}{$IFDEF FPC}{$APPTYPE GUI}{$ELSE}{$APPTYPE CONSOLE}{$ENDIF}{$ENDIF}
+{ Windows: version info and manifest (src/Graal3D.rc), and the DEP and ASLR
+  flags ($0100 NX_COMPAT, $0040 DYNAMIC_BASE; the relocations come from -WR
+  in the Windows build flags). }
+{$IFDEF MSWINDOWS}{$IFDEF FPC}{$R Graal3D.rc}{$SETPEOPTFLAGS $0140}{$ENDIF}{$ENDIF}
 
 uses
   SysUtils, Classes, GSurface, GFont, GAssetDirs, GStartScreen,
