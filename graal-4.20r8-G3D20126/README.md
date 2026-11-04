@@ -58,9 +58,11 @@ reads the 4.x install layout: tile sheets (`pics1.png`, `picso.png`) in
 opens `offlinetutorial_b-2.graal` there), and a
 `levels/tiledefs/tiledefsOffline.txt` if one is dropped in.
 
-With the install's `license/license.graal` the list page offers its Login
-host and fallbacks. With no licence file it asks `listserver.graal.in` on
-14922 for a list (a `listserver.txt` next to the program names another).
+Start always asks `listserver.graal.in` on 14922 for a list first (a
+`listserver.txt` next to the program names another). When the install has
+`license/license.graal`, its Login host and fallbacks are added after the
+list as extra rows named `Login`; picking one logs in there as the real
+client does. They are never the default.
 
 ```
 GRAAL_PW=... Graal420 --server HOST:PORT --account NAME
