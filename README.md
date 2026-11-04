@@ -33,7 +33,10 @@ common/                     code that is the same across builds
   GZlib.pas                 zlib in and out of string buffers
   GSocket.pas               non-blocking TCP, polled from the game tick
   GLevel.pas                64x64 level: GR-V1.0x, Z3-V1.0x, GLEVNW01, board packet, GR-V writer
-  GSurface.pas              32-bit software surface, tile sheet blit, BMP/PNG/GIF loading
+  GSurface.pas              32-bit software surface, tile sheet blit, BMP/PNG/GIF loading, palette recolour
+  GArrays.pas               arrays.dat tile types (what blocks)
+  GAni.pas                  GANI0001 animations
+  GWindow.pas               a window and keyboard (X11 / Win32 GDI)
 graal-2.05r2-GNW03081/      Graal 2.05 rev 2
   src/                      the client (Graal205.dpr and its units)
   tests/                    Test205.dpr
@@ -82,13 +85,13 @@ common unit, it gets its own copy in its folder rather than a flag in
   or 7 build has not been tried yet; it is the next toolchain check.
 - DelphiX (DirectDraw) does not build outside Windows or under Free Pascal,
   so the rebuilds draw into a software surface (`GSurface`) and a front end
-  shows it. For now the front end writes a `.bmp`; a window comes later.
+  shows it: a window (`--window`), or a `.bmp` (`--dump`).
 
 ## Build, test, run
 
 ```
 # Linux
-sudo apt-get install fp-compiler fp-units-base fp-units-fcl
+sudo apt-get install fp-compiler fp-units-base fp-units-fcl libx11-dev
 scripts/build.sh
 scripts/test.sh
 
@@ -96,8 +99,8 @@ scripts/test.sh
 # bin\i386-win32 folder on PATH, then run the same scripts from Git Bash.
 # build.sh hands the compiler native paths through cygpath.
 
-# offline: draw a level
-build/graal-2.05r2-GNW03081/Graal205 --level some.graal --sheet path/to/pics1.png --dump frame.bmp
+# offline: walk around a level in a window, with assets from your own install
+build/graal-2.05r2-GNW03081/Graal205 --level some.graal --data path/to/graal --window
 
 # online: log into a server (password from an environment variable)
 GRAAL_PW=... build/graal-2.05r2-GNW03081/Graal205 --server 127.0.0.1:14802 --account test1 --dump frame.bmp
@@ -135,7 +138,7 @@ steps and are required before a build counts as done.
 
 | Build | Token | Wire | World | Play | Harden | Release |
 |---|---|---|---|---|---|---|
-| [2.05 rev 2](graal-2.05r2-GNW03081/) | `GNW03081` | done | board drawn, player marker | not started | not started | not yet |
+| [2.05 rev 2](graal-2.05r2-GNW03081/) | `GNW03081` | done | board, player from ganis, window | walking and collision; props out | not started | not yet |
 
 ## Licence
 
