@@ -107,6 +107,8 @@ GRAAL3D = {
 
 def keep(version, rel, full, folder):
     low = rel.lower()
+    if os.path.basename(low) == 'thumbs.db':
+        return False  # Windows Explorer's thumbnail cache, never opened
     if version == '3d':
         return low in GRAAL3D
     if BETA.match(version):

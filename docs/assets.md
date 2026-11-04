@@ -49,7 +49,7 @@ that has it:
 | 4.04r2 (PR #35) | `4.04r2` | `4.04r2/` |
 | 4.20r8 (PR #38) | `4.20r8` | `4.20r8/` |
 | 4.20r6 (PR #40) | `4.20r6;4.20r8` | `4.20r6/` (none shipped), then `4.20r8/`: its install's files are 4.20r8's byte for byte |
-| 5.00r7 | `5.00r7` | `5.00r7/` (not in the zip yet: no 5.00r7 install in project files) |
+| 5.00r7 | `5.00r7` | `5.00r7/` |
 | 1998-99 betas b1 to b15, b4a, b5a, b9a (PRs #51 to #69) | `bN`; b12 to b15 `bN;b11`, b8 `b8;b7` | `bN/`, then `b11/` or `b7/` |
 | Graal3D (PR #70) | `3d` | `3d/` |
 | Zelda Online 1 (Java, `ZeldaOnline1.jar`) | its own `Assets` class, same order | `zelda-online1/` |
@@ -171,6 +171,15 @@ with `--fallback b12=b11 --fallback b13=b11 --fallback b14=b11
   tutorial in `levels/tutorial/`, as 3.04 does, and ship no `arrays.dat`
   or `sprites.png`. The 4.x builds read `levels/tiles/`,
   `levels/tutorial/` and `levels/tiledefs/` (PRs #35, #38, #40).
+- 5.00r7 keeps its files as 4.x does: `levels/tiles/pics1.png`,
+  `levels/heads/head0.png`, `levels/bodies/body.png`, and `sprites.png`
+  only in `levels/images/downloads/`; no `arrays.dat` and no offline
+  tutorial. Graal500 on main looks for `pics1.png` at the top and in
+  `levels/`, so with only the zip it draws the built-in tiles; it needs
+  the build to search `levels/tiles/` as the 4.x builds do. The install's
+  `license/license.graal` names a LAN host (192.168.1.2, a local edit)
+  and Graal500 does not read it, so it is cut.
+- `Thumbs.db` (Windows Explorer's thumbnail cache) is cut everywhere.
 - 2.17.1 reads 2.22's start-window art and has no `objects.dat` (2.22
   shipped `tileobjects/` instead), as the shared install had it.
 
@@ -218,7 +227,7 @@ would save.
 | 4.20r8 | Linux installer 4.208 (Drive "Graal v4.20r8[Linux][Installer].bin", autopackage; laid out by its install script). The Windows "Unpacked" 7z on Drive is password-protected | 130 | | | **yes** (`4.20r8/`, 69 kept) |
 | 4.20r6 | Linux installer 4.206 (Drive "Graal v4.20r6[Linux][Installer][2007-01-10].bin"); the rebuild is of the Mac 4.20r6, whose dmg is not unpacked. Same files as 4.20r8 byte for byte except `license/sig.graal` | 130 | | | **yes** (reads `4.20r8/`) |
 | 3.153 (Mac) | install in `graal-decompile/torque/mac3153`; not inventoried until a build lands | | | | no |
-| 5.00r7 | Drive "Graal v5.00r7[Windows][Unpacked][CRC Patch].7z" (22 MB), not in project files | | | | **yes** (`5.00r7/`, empty until the install is supplied) |
+| 5.00r7 | "Graal v5.00r7[Windows][Unpacked][CRC Patch].7z", supplied by Squirrel: a played install with `levels/` (`tiles/`, `tiledefs/`, `ganis/`, `images/`, heads, bodies, swords, shields, hats), `sounds/`, `maps/`, `levels3d/`, `license/`, plus the last player's `pms/`, `profiles/`, `scriptfiles/`, `buddyaccounts.txt`, `game_config.txt` and the `weblevels/`, `webfiles/`, `updatepackages/` caches (all cut) | 2575 | 38 MB | 30 same as 4.20r8 | **yes** (`5.00r7/`, 1962 kept) |
 | 5.12 to 6.03r7 | unpacked Windows clients in `graal-decompile/unpacked-installers/` | | | | no |
 | Graal3D (2000) | DirectX `.x` meshes and `.bmp` textures at the top | 21 | 455 | | **yes** (`3d/`) |
 | Zelda Online 1 | applet: `pics1.gif`, `arrays.dat`, 36 `level*.zelda` (`Z3-V1.03`), `link.gif`, `state.gif`, `hit.au`, classes (from Drive `zeldaonline1.7z`) | 38 kept | 130 | | **yes** (`zelda-online1/`: `pics1.gif`, `arrays.dat`, `levels/*.zelda`) |
