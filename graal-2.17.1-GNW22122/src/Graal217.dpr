@@ -537,11 +537,13 @@ end;
 { Training: the tutorial 2.17 starts it on, the centre of its 3x3 grid,
   when it lies next to the program; else the built-in starter level (a
   start.nw next to the program replaces it). The arrival point on
-  offlinetutorial_b-2 is not traced yet: (30, 30) is a guess. }
+  offlinetutorial_b-2 is measured from the real 2.17.1 under Wine: the
+  player stands centred under the cauldron, at (27, 32.5) [measured from a
+  screenshot, not traced]. }
 procedure TrainingLevel(const Dir: string; out Path, X, Y: string);
 begin
-  X := '30';
-  Y := '30';
+  X := '27';
+  Y := '32.5';
   Path := FirstFileIn(Dir, 'levels/offlinetutorial_b-2.graal;offlinetutorial_b-2.graal');
   if Path = '' then
   begin
