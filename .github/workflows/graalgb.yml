@@ -45,7 +45,7 @@ jobs:
       - name: Play it in an emulator
         run: |
           python3 -m venv "$RUNNER_TEMP/venv"
-          "$RUNNER_TEMP/venv/bin/python" -m pip install --quiet pyboy==2.8.1
+          "$RUNNER_TEMP/venv/bin/python" -m pip install --quiet pyboy==2.8.1 pillow==13.0.0
           "$RUNNER_TEMP/venv/bin/python" -I "$FOLDER/tests/smoke.py" "build/$FOLDER" "build/$FOLDER/shots"
       - uses: actions/upload-artifact@v4
         with:
@@ -74,7 +74,7 @@ jobs:
           sha256sum "build/$FOLDER/GraalGB.gbc"
           python -m venv "$RUNNER_TEMP/venv"
           VPY="$(cygpath -u "$RUNNER_TEMP")/venv/Scripts/python.exe"
-          "$VPY" -m pip install --quiet pyboy==2.8.1
+          "$VPY" -m pip install --quiet pyboy==2.8.1 pillow==13.0.0
           "$VPY" -I "$FOLDER/tests/smoke.py" "build/$FOLDER"
 
   release:
