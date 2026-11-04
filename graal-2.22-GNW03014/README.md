@@ -36,6 +36,11 @@ captures of the real 2.22 client, not from decompiled code:
 | `src/ListServer222.pas` | the 2.22 listserver step and `arrays2.dat` |
 | `src/StartScreen222.pas` | what 2.22 plugs into the shared start screen (`../common/GStartScreen.pas`): list step, fallback hosts, start-window art, character |
 | `src/RunMode.pas` | stress-run support (the same as 2.05's) |
+| `src/Gs1222.pas` | the GS1 script engine, a copy of 2.05's (`Gs1205`); 2.22's own additions are not in yet |
+| `src/Npc222.pas`, `src/NpcBridge222.pas` | level NPCs and what their scripts reach in the game (copies of 2.05's) |
+| `src/Baddy222.pas` | baddies (a copy of 2.05's) |
+| `src/Sound222.pas` | the sounds the game plays by itself (gani `PLAYSOUND`), through `common/GSound.pas` |
+| `src/Map222.pas` | the big map on M and the minimap, from the install's `maps/` |
 
 ## What works
 
@@ -55,7 +60,8 @@ captures of the real 2.22 client, not from decompiled code:
   (`common/GAssetDirs.pas`).
 - **The listserver step**: hosts from `arrays2.dat` (line 0, then the
   fallbacks on lines 5 and 6), `listserver.txt` next to the program wins
-  over it; id 7 (key, `GNW30123`, `newmain`) in a plain zlib frame, then
+  over it, and with neither it asks `listserver.graal.in` on port 14922
+  (the original pointed at GraalOnline's listserver); id 7 (key, `GNW30123`, `newmain`) in a plain zlib frame, then
   id 1 (account, password) in gen 5; the list (id 0), status (2), site (3),
   error (4) and upgrade (5) lines back (tests; tried against a stand-in
   2.22 listserver and then seihai-gserver on a virtual screen).
@@ -109,6 +115,38 @@ captures of the real 2.22 client, not from decompiled code:
   the second sees the first; one walks through a level link
   (`scripts/loopback.sh`, run in CI for every build).
 
+## Play, carried over from 2.05
+
+The game layer of the 2.05 rev 2 rebuild runs in 2.22 too, in 2.22's own
+copies of its units (the repo's rule for `common/`). What each part does,
+and which notes it comes from, is in the 2.05 README; here it runs on the
+2.22 wire and on gmaps. None of it has been checked side by side with the
+real 2.22 yet beyond the offline tutorial.
+
+- **Actions**: S swings the sword and cuts bushes; A lifts, carries,
+  throws and opens chests; items on the floor are taken by walking over
+  them (`PLI_ITEMTAKE`).
+- **Combat**: hurt, knockback, death and respawn; other players' swings
+  are judged on their `sword` gani (2.1 and later send GANI) or on the
+  classic sword sprites; bombs and explosions both ways.
+- **The status display**: A/S/D buttons, rupees, bombs, arrows, hearts and
+  the alignment bar, from the install's `state.png`.
+- **Signs**, **weapons** (the weapon list, D, shots, the Q item list),
+  `PLO_DEFAULTWEAPON`, `PLO_NPCWEAPONADD`, `PLO_NPCWEAPONDEL`.
+- **Level NPCs and GS1**: offline, a level's NPCs and baddies start when
+  the player enters it (the offline tutorial's teacher, palm trees and
+  cauldron show and run their scripts); online they come from the server
+  (`PLO_NPCPROPS`, `PLO_BADDYPROPS`). NPC pictures are found in the
+  install's `levels/webgifs`, `npcs`, `images`, `tiledefs` and the other
+  level folders.
+- **Sound effects** (window only, `--nosound` turns them off) and the
+  **maps** (M for the big map, the minimap bottom left).
+- On a gmap, all of this lives in the player's current cell: it is drawn in
+  that cell's place, and crossing an edge, a warp or a link clears it.
+
+Keys: arrows or I/J/K/L walk, S sword, A lift / throw / open, D weapon,
+Q item list, M map, Esc leaves. `--keys` takes `a`, `s`, `d` and `q` too.
+
 ## Stress runs (phase 4)
 
 The same flags as 2.05 (`--headless`, `--seconds`, `--walk random`,
@@ -147,9 +185,12 @@ Hardening checks, all in CI:
   not measured.
 - The early-flush size of the out buffer (60000 here, so a raw body fits
   the u16 length) is not traced; nor is `TCP_NODELAY`.
-- NPCs, baddies, items, weapons, the GS1 engine (and the GS1 additions of
-  2.22: gravity, textwidth, isthisflagset, ...), the built-in editors
-  (F4 / F6), chat bubbles and names, poses beyond what the ganis give.
+- The GS1 additions of 2.22 (gravity, textwidth, isthisflagset, ...),
+  the 2.22 NPC props past 40 (`plo-npcprops-layouts.tsv`: 44 to 47 and
+  53 to 73), NPCs in gmap cells other than the player's, the built-in
+  editors (F4 / F6), chat bubbles and names.
+- The 2.22 status display's sword and glove pictures beside S and A, and
+  the chat bar under the game (the real 2.22 draws both).
 - Files other than `.gmap` are not saved; `LARGEFILESTART` / `END`.
 - `arrays2.sig` is not checked; the original start window's buttons
   (`button1-4.bmp`) are not used (the shared screen draws its own);

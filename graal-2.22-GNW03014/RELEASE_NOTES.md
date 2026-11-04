@@ -5,9 +5,12 @@ Pascal). Like the original it is a windowed program: it opens on a start
 screen with Training (the offline tutorial), the server list from the
 listserver, and login. It talks the 2.22 wire protocol (gen 5: a compression byte per
 frame, zlib or bzip2, and the partial XOR cipher), draws levels and gmaps,
-walks across gmap edges, and takes level links. It is an early version:
-most of the game (NPCs, items, weapons, the script engine, the editors) is
-not there yet.
+walks across gmap edges, and takes level links. It also carries the
+game layer of the 2.05 rebuild: the sword, lifting and throwing, chests,
+items, combat and bombs, the status display, signs, weapons, level NPCs
+with the GS1 script engine, baddies, sound effects and the maps. It is an
+early version: 2.22's own additions to the script engine, the editors and
+chat are not there yet.
 
 > **Not affiliated.** graal-delphi is an independent fan project. It is not
 > affiliated with, endorsed by, or connected to GraalOnline or
@@ -36,7 +39,8 @@ System Settings > Privacy & Security.
 
 - The start screen: nick name, Training, Start. Start fetches the server
   list (hosts from the install's `arrays2.dat`, or `listserver.txt` next
-  to the program), then account, password and Connect.
+  to the program, else `listserver.graal.in:14922`), then account,
+  password and Connect.
 - Training: the offline tutorial levels, when they lie next to the
   program, with the tutorial's own tile set; else a built-in starter level.
 - Login to a 2.22 server: login type 5, `GNW03014`, the tamper check, and
@@ -48,6 +52,12 @@ System Settings > Privacy & Security.
 - The board, the player and other players drawn from the install's tiles
   and ganis.
 - Walking and collision, with props sent every 100 ms as 2.22 does.
+- S sword, A lift / throw / open, D weapon, Q item list, M map; items,
+  bombs, hearts, death and respawn; signs.
+- Level NPCs and their GS1 scripts, and baddies: offline from the level
+  file (the offline tutorial's teacher, trees and cauldron), online from
+  the server.
+- Sound effects in a window (`--nosound` turns them off).
 - Level links, asked with LEVELWARP or, for a level already seen,
   LEVELWARPMOD with its mod time, each followed by the tamper check.
 - Gmaps: the warp onto a gmap, the `.gmap` file, the neighbouring levels,
@@ -69,17 +79,19 @@ Graal222 --server HOST:PORT --account NAME --headless --seconds 600 \
   --walk random --link-every 5 --stats-every 10              # stress run
 ```
 
-Arrow keys or I/J/K/L walk; Esc leaves the game (back to the start screen
+Arrow keys or I/J/K/L walk, S sword, A lift / throw / open, D weapon,
+Q item list, M map; Esc leaves the game (back to the start screen
 when it was started from there). Run `Graal222 --help` for every flag.
 
 ## Not yet
 
-NPCs, baddies, items and weapons; the GS1 script engine; the editors; chat
-bubbles and names; Options; UDP peer traffic; a macOS window. See the build's README for the full list.
+2.22's additions to GS1 and its NPC props past 40; NPCs in gmap cells
+other than the player's; the editors; chat bubbles, names and the chat
+bar; Options; UDP peer traffic; a macOS window. See the build's README for the full list.
 
 ## Checks behind this release
 
-The test suite (87 checks) runs with range and overflow checks and the heap
+The test suites (305 checks) runs with range and overflow checks and the heap
 tracer, and must end with no unfreed memory. It includes frames of a real
 2.22 session, a bzip2 round trip against random and repetitive data, and a
 fuzz run of 20000 random messages and 3000 random gen-5 frames through the
