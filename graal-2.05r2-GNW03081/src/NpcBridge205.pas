@@ -451,8 +451,8 @@ end;
 procedure TAdventureNpcWorld.BombBlast(X, Y: Double; Radius: Integer);
 begin
   FAdv.Npcs.BombBlast(X, Y, Radius);
-  { a blast hits a baddy whose body covers its middle, at power 4 (0x538150:
-    the bomb's size times four) }
+  { a blast hits a baddy whose body covers its middle, at power 4 (in
+    2.05 the bomb's size times four) }
   if FAdv.Baddies <> nil then FAdv.Baddies.PointHit(X, Y, 4);
 end;
 

@@ -1,32 +1,32 @@
 { Baddy205: the baddies of 2.05 rev 2 (TComputer in the original).
 
-  Read from the 2.05 decompile (graal205_pass3.jsonl, functions
-  0x4d5e0c to 0x4d954c), not copied from it:
-  - create (0x4d5e0c): the power and image by type, the first direction
+  Read from the 2.05 client's baddy class in the decompile, not copied
+  from it:
+  - create: the power and image by type, the first direction
     (facing the player when near, else up or down), the mode by type
     (4 rises from the ground, 5 hops about its start, 6 shoots ink);
-  - one step (0x4d6bd8), every second game tick, the AI only offline or
+  - one step, every second game tick, the AI only offline or
     on the level leader (PLO_ISLEADER):
       0 walk 0.25 tile (x2 for types 6 and 8), turn at a wall, look
         about when the counter runs out, hunt on sight;
-      1 look about (head offsets 0x54a964), then walk a random way;
+      1 look about (the head turns by a fixed table), then walk a random way;
       2 hunt 0.5 tile (x1.5 for type 8) toward the player's middle,
         along the main axis plus the other in proportion; archers (3, 9)
         go to a spot 11 tiles off the player's line and shoot;
       3 hurt and 4 bumped by a shield: knocked back, then hunt or die;
       5 dying (14 ticks), then gone; 6 type 4's 43-tick cycle; 7 type 5's
         46-tick hop; 8 type 6's ink shot;
-  - sight (0x4f7b64): the player inside the 90-degree cone the head
+  - sight: the player inside the 90-degree cone the head
     faces, within 20 tiles, nothing blocking on the straight line;
-  - touch (0x4d6ab0): the player's middle within a tile of the baddy's
+  - touch: the player's middle within a tile of the baddy's
     middle on both axes hurts the player;
-  - sword (0x4d6268, 0x4d6810): a shield block for types 0, 1, 2 and 7
+  - sword: a shield block for types 0, 1, 2 and 7
     facing the swing, else a hit of the sword's power;
-  - drawing (TComputer.virt_002): arrays.dat list 20 by ani * 4 + dir,
+  - drawing: arrays.dat list 20 by ani * 4 + dir,
     list 23 for type 4, list 22 for the death puff; sprites 48 to 63,
     104 to 106 and 117 to 130 from the baddy's image, 111 to 114 from
     wbow1.gif, the rest from sprites.png;
-  - BDPROP 0 to 10 (0x4d86fc, 0x4d8940), PLO_BADDYPROPS (2), PLO_BADDYHURT
+  - BDPROP 0 to 10 (written and read by the client), PLO_BADDYPROPS (2), PLO_BADDYHURT
     (27), PLI_BADDYPROPS (15) and PLI_BADDYHURT (16).
 
   Not reproduced: the sounds, hunting other players (only this player is
@@ -155,20 +155,20 @@ implementation
 const
   VecX: array[0..3] of Double = (0, -0.25, 0, 0.25);
   VecY: array[0..3] of Double = (-0.25, 0, 0.25, 0);
-  { three points 0.5 tile ahead of the 2 x 2 body, by direction (0x54a7a4) }
+  { three points 0.5 tile ahead of the 2 x 2 body, by direction }
   AheadX: array[0..3, 0..2] of Double = ((0.1, 1.0, 1.9), (-0.5, -0.5, -0.5),
     (0.1, 1.0, 1.9), (2.5, 2.5, 2.5));
   AheadY: array[0..3, 0..2] of Double = ((-0.5, -0.5, -0.5), (0.1, 1.0, 1.9),
     (2.5, 2.5, 2.5), (0.1, 1.0, 1.9));
-  { head turns while looking about, by counter div 4 (0x54a964) }
+  { head turns while looking about, by counter div 4 }
   LookTurn: array[0..10] of Integer = (1, 1, 0, -1, -1, 0, 1, 1, 0, -1, -1);
-  { where an archer stands, from the player's middle (0x54a9d0, 0x54a9e0) }
+  { where an archer stands, from the player's middle }
   AimX: array[0..3] of Integer = (-1, 11, 0, 11);
   AimY: array[0..3] of Integer = (11, 1, -11, 1);
-  { where an arrow starts, eighths of a tile (0x54a9f0) }
+  { where an arrow starts, eighths of a tile }
   ArrowX: array[0..3] of Integer = (12, -10, 4, 11);
   ArrowY: array[0..3] of Integer = (-12, 0, 3, 0);
-  { where the ink starts (0x54a990) }
+  { where the ink starts, eighths of a tile }
   InkX: array[0..3] of Integer = (4, -8, 4, 17);
   InkY: array[0..3] of Integer = (-3, 5, 12, 5);
 
@@ -531,7 +531,7 @@ begin
   else Result := 2;
 end;
 
-{ 0x4f7b64: the player in the cone D faces, within 20, nothing in between }
+{ sight: the player in the cone D faces, within 20, nothing in between }
 function TBaddyManager.Sees(B: TBaddy; D: Integer): Boolean;
 var
   BX, BY, PX, PY, ADX, ADY, L: Double;
@@ -567,7 +567,7 @@ begin
   Result := True;
 end;
 
-{ 0x4d6218: can be hit and can hurt }
+{ can be hit and can hurt }
 function TBaddyManager.Active(B: TBaddy): Boolean;
 begin
   case B.Mode of
@@ -773,7 +773,7 @@ begin
     ShootArrow(B);
 end;
 
-{ 0x4d8594: modes 3 and 4 }
+{ modes 3 and 4: knocked back, then hunt again or die }
 procedure TBaddyManager.Knocked(B: TBaddy);
 begin
   if B.Counter > 2 then
@@ -815,7 +815,7 @@ begin
   end;
 end;
 
-{ 0x4d6c70 }
+{ the AI step, by mode }
 procedure TBaddyManager.Think(B: TBaddy);
 var
   R: Integer;
@@ -962,7 +962,7 @@ begin
   end;
 end;
 
-{ 0x4d6ab0 }
+{ touching the player hurts it }
 procedure TBaddyManager.Touch(B: TBaddy);
 var
   Hearts: Double;
@@ -989,7 +989,7 @@ begin
   if Baddies.Count = 0 then World.AllDied;
 end;
 
-{ 0x4d6bd8, every second tick }
+{ one step of every baddy, every second tick }
 procedure TBaddyManager.Tick;
 var
   I: Integer;
@@ -1018,7 +1018,7 @@ begin
   end;
 end;
 
-{ 0x4d6810 }
+{ a hit or a shield block: power, mode and knockback }
 procedure TBaddyManager.Hurt(B: TBaddy; Hit, Shield: Boolean; Power: Integer; DX, DY: Double);
 var
   L, N: Double;
@@ -1071,7 +1071,7 @@ begin
   end;
 end;
 
-{ 0x4d6268: the swing's reach by the player's direction }
+{ the sword: the swing's reach by the player's direction }
 procedure TBaddyManager.SwordHit(Power: Integer);
 var
   I, D: Integer;
@@ -1111,7 +1111,7 @@ begin
   end;
 end;
 
-{ 0x4d668c: a point over the baddy's body (a tile each side of its middle,
+{ a point over the baddy's body (a tile each side of its middle,
   two above and one below) }
 function TBaddyManager.PointHit(X, Y: Double; Power: Integer): Boolean;
 var
@@ -1133,7 +1133,7 @@ begin
   end;
 end;
 
-{ ---- drawing (TComputer.virt_002) ---- }
+{ ---- drawing ---- }
 
 procedure TBaddyManager.Draw(Screen: TGSurface; CamX, CamY: Integer);
 var
