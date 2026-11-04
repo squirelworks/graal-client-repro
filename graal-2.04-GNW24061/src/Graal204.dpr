@@ -1,4 +1,4 @@
-{ Graal 2.04 (GNW03081), rebuilt.
+{ Graal 2.04 (GNW24061), rebuilt.
 
   Command line:
     Graal204 --server HOST:PORT --account NAME [--password-env VAR]

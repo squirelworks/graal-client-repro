@@ -82,7 +82,7 @@ begin
   end;
 end;
 
-{ A real 2.04 session against a lab GServer (graal_analysis lab run 2,
+{ A real 2.05 rev 2 session (the cipher is the same in 2.04) against a lab GServer (graal_analysis lab run 2,
   key 98): the junk byte of each message after the login line sat at these
   0-based indexes. }
 procedure TestGen3Capture;
