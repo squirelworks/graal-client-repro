@@ -62,12 +62,24 @@ jobs:
       - name: Install Free Pascal (macOS)
         if: runner.os == 'macOS'
         run: brew install fpc
+      - name: Stamp the version into the Windows resources
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          # v0.0.1 -> FILEVERSION 0,0,1,0 and "0.0.1" in each src/*.rc
+          N="${VERSION#v}"; IFS=. read -r A B C <<< "$N"
+          for R in "$BUILD"/src/*.rc; do
+            sed -i -e "s/^\(FILEVERSION\|PRODUCTVERSION\) 0,0,0,0/\1 ${A:-0},${B:-0},${C:-0},0/" \
+                   -e "s/\"0\.0\.0-dev\"/\"$N\"/" "$R"
+            grep -E 'VERSION |Version"' "$R"
+          done
       - name: Build and test
         shell: bash
         run: |
           if [ "$RUNNER_OS" = Windows ]; then
             export PATH="$(ls -d /c/tools/freepascal/bin/* | head -1):$PATH"
-            export FPCFLAGS='-O2 -FuC:\tools\freepascal\units\i386-win32\*'
+            # -WR: relocations, so the exe can carry the ASLR flag
+            export FPCFLAGS='-O2 -WR -FuC:\tools\freepascal\units\i386-win32\*'
           fi
           scripts/build.sh "$BUILD"
           scripts/test.sh
@@ -76,11 +88,30 @@ jobs:
         run: |
           OUT="$BUILD-$VERSION-${RUNNER_OS,,}"
           mkdir -p "dist/$OUT"
-          for F in build/"$BUILD"/*; do
-            case "$F" in *.o|*.ppu|*.a|*.bmp|*.heap) ;; *) [ -f "$F" ] && [ -x "$F" -o "${F##*.}" = exe ] && cp "$F" "dist/$OUT/";; esac
+          # Only the programs in src/ ship. The test programs stay out:
+          # players do not run them, and every extra unsigned exe in the
+          # zip is one more file for SmartScreen and antivirus to judge.
+          for P in "$BUILD"/src/*.dpr; do
+            N=$(basename "$P" .dpr)
+            for F in "build/$BUILD/$N" "build/$BUILD/$N.exe"; do
+              [ -f "$F" ] && cp "$F" "dist/$OUT/"
+            done
           done
+          test -n "$(ls "dist/$OUT")"
           cp "$BUILD/README.md" "$BUILD/RELEASE_NOTES.md" "dist/$OUT/"
           cd dist && 7z a "$OUT.zip" "$OUT" > /dev/null
+      - name: Check the Windows exes carry version info and a manifest
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $dir = "dist/$env:BUILD-$env:VERSION-windows"
+          foreach ($exe in Get-ChildItem "$dir/*.exe") {
+            $v = $exe.VersionInfo
+            "{0}: {1} {2} / {3}" -f $exe.Name, $v.ProductName, $v.ProductVersion, $v.FileDescription
+            if ($v.ProductName -ne 'graal-delphi' -or $v.CompanyName -ne 'squirelworks') { throw "$($exe.Name): no version info" }
+            $bytes = [IO.File]::ReadAllBytes($exe.FullName)
+            if ([Text.Encoding]::ASCII.GetString($bytes).IndexOf('requestedExecutionLevel') -lt 0) { throw "$($exe.Name): no manifest" }
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ runner.os }}
