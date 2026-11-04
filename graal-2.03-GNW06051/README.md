@@ -59,9 +59,10 @@ decompiled code:
 
 ## What works
 
-- Login exactly as 2.05 sends it: type 0, gen-3 key, `GNW03081`, account,
+- Login as 2.03 sends it: type 0, gen-3 key, `GNW06051`, account,
   password, then `PLI_LANGUAGE`. Every message after the login line carries
-  the gen-3 byte. The junk positions match a real 2.05 capture (test).
+  the gen-3 byte. The junk positions match a real 2.05 rev 2 capture (test;
+  the cipher is the same).
 - Server frames: u16be + zlib, split on LF, `PLO_RAWDATA` blocks across
   frame boundaries.
 - Handlers for the login burst: player props (pre-2.1 forms), warp, level
