@@ -69,7 +69,11 @@ decompiled code:
   their head, body colours and pose from their sprite prop, and removed on
   `PCONNECTED` or a level leave. Each prop stream stops at the first id
   2.05 would not accept in it, as the original does (tests).
-- Level links: the player's own walk is tested against the level's links.
+- Level links: the player's own walk is tested against the level's links,
+  at one point: the body's centre (x + 1.5, y + 2) pushed 1.25 tiles ahead
+  in the walking direction. That point was measured on the real 2.05 under
+  Wine (1 to 1.5 tiles ahead, on the centre line across the walk, so a 1x1
+  link off that line is walked past); the tests repeat those runs.
   Online, a link sends `PLI_LEVELWARP` (arrival x, y and the level name), and
   the client completes the warp itself when the new level arrives, since
   the server sends no `PLAYERWARP` for it. Offline, the level is loaded from
@@ -128,8 +132,8 @@ Hardening checks, all in CI:
 
 ## Not yet
 
-- The link test point: the body's centre (x + 1.5, y + 2) is used, as for
-  the liquid test in the notes. The notes do not give the point 2.05 tests.
+- The link test point while walking diagonally, standing on a link, and at
+  the level edge was not measured; diagonally the two offsets add.
 - `PLI_LEVELWARPMOD` for cached levels; every link sends `PLI_LEVELWARP`.
 - UDP peer traffic.
 - Other players' poses beyond idle and walk, chat bubbles and names.

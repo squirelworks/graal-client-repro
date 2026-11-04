@@ -505,6 +505,84 @@ begin
   end;
 end;
 
+{ The link point, as measured on the real 2.05 under Wine: walking right
+  from y 30.5, a 1x1 link at row 32 warps while rows 31 and 33 are walked
+  past; walking down from x 30, column 31 warps and column 32 does not. }
+function WalkInto(const Dir, Link: string; X, Y: Double; Key: Integer;
+  out PreX, PreY: Double): Boolean; overload;
+var
+  G: TAdventure;
+  I: Integer;
+begin
+  WriteText(Dir + 'c.nw', 'GLEVNW01'#10'LINK d.nw ' + Link + ' 5 5'#10);
+  WriteText(Dir + 'd.nw', 'GLEVNW01'#10);
+  G := TAdventure.Create;
+  try
+    G.Arrays.LoadFromString(MakeArrays([0]));
+    G.LoadLevelFile(Dir + 'c.nw');
+    G.Player.X := X;
+    G.Player.Y := Y;
+    PreX := X;
+    PreY := Y;
+    for I := 1 to 40 do
+      if G.Level.Name = 'c.nw' then
+      begin
+        PreX := G.Player.X;
+        PreY := G.Player.Y;
+        G.Keys[Key] := True;
+        G.Tick;
+      end;
+    Result := G.Level.Name = 'd.nw';
+  finally
+    G.Free;
+    DeleteFile(Dir + 'c.nw');
+    DeleteFile(Dir + 'd.nw');
+  end;
+end;
+
+function WalkInto(const Dir, Link: string; X, Y: Double; Key: Integer): Boolean; overload;
+var
+  PreX, PreY: Double;
+begin
+  Result := WalkInto(Dir, Link, X, Y, Key, PreX, PreY);
+end;
+
+procedure TestLinkPoint;
+var
+  Dir: string;
+  PX, PY: Double;
+begin
+  Dir := IncludeTrailingPathDelimiter(GetTempDir(False)) + 'g205point' + PathDelim;
+  ForceDirectories(Dir);
+  try
+    Check(WalkInto(Dir, '45 32 1 1', 30, 30.5, DirRight),
+      'link point: walking right from y 30.5, the row 32 link warps');
+    Check(not WalkInto(Dir, '45 31 1 1', 30, 30.5, DirRight) and
+      not WalkInto(Dir, '45 33 1 1', 30, 30.5, DirRight),
+      'link point: rows 31 and 33 are walked past');
+    Check(WalkInto(Dir, '45 31 1 2', 30, 30.5, DirRight),
+      'link point: a link over rows 31-32 warps');
+    Check(WalkInto(Dir, '45 32 1 1', 30, 30, DirRight),
+      'link point: from y 30.0 row 32 still warps');
+    Check(WalkInto(Dir, '31 45 1 1', 30, 30, DirDown) and
+      not WalkInto(Dir, '32 45 1 1', 30, 30, DirDown),
+      'link point: walking down from x 30, column 31 warps, column 32 not');
+    Check(WalkInto(Dir, '32 45 1 1', 30.5, 30, DirDown),
+      'link point: from x 30.5 column 32 warps');
+    Check(WalkInto(Dir, '20 32 1 1', 30, 30.5, DirLeft) and
+      WalkInto(Dir, '31 20 1 1', 30, 30, DirUp),
+      'link point: left and up links warp');
+    { the point runs 1 to 1.5 tiles ahead of the centre, so the warp comes
+      before the centre itself reaches the link }
+    Check(WalkInto(Dir, '45 32 1 1', 30, 30.5, DirRight, PX, PY) and (PX + 1.5 < 44),
+      'link point: walking right, the link fires ahead of the centre');
+    Check(WalkInto(Dir, '31 20 1 1', 30, 30, DirUp, PX, PY) and (PY + 2 >= 22),
+      'link point: walking up, the link fires ahead of the centre');
+  finally
+    RemoveDir(Dir);
+  end;
+end;
+
 { ---- fuzzing the receive path ----
   Random and mangled server input must never raise (this program is built
   with range and overflow checks, so a bad index raises here) and must not
@@ -718,6 +796,7 @@ begin
   TestWalking;
   TestSpriteAndOthers;
   TestLinks;
+  TestLinkPoint;
   TestFuzz;
   TestReceiveLimits;
   TestTutorials;

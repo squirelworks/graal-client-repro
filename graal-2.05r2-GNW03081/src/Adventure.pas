@@ -1046,10 +1046,20 @@ end;
 
 { ---- the frame ---- }
 
+{ How far ahead of the body's centre 2.05 tests for a link. Measured
+  against the real client: the point lies 1 to 1.5 tiles ahead (it moves in
+  half tiles, so each test is a 0.5 tile range), and across the walk it
+  stays on the centre line, so a 1x1 link off that line is walked past.
+  1.25 falls inside every measured range. Diagonal walking was not
+  measured; here the two offsets add. }
+const
+  LinkAhead = 1.25;
+
 procedure TAdventure.Tick;
 var
   D: Integer;
   Moved: Boolean;
+  AX, AY: Double;
 begin
   Inc(Frame);
   if FClient.Connected then
@@ -1061,15 +1071,25 @@ begin
   { keys run in the order up, left, down, right, each from where the
     earlier ones left the player }
   Moved := False;
+  AX := 0;
+  AY := 0;
   for D := 0 to 3 do
     if Keys[D] then
     begin
       WalkStep(D);
       Moved := True;
+      case D of
+        DirUp: AY := AY - LinkAhead;
+        DirLeft: AX := AX - LinkAhead;
+        DirDown: AY := AY + LinkAhead;
+        DirRight: AX := AX + LinkAhead;
+      end;
     end;
   if Moved then Player.SetAni('walk', Frame) else Player.SetAni('idle', Frame);
-  { links are tested on the player's own walk, at the body's centre }
-  if Moved then FollowLink(LinkAt(Player.X + 1.5, Player.Y + 2));
+  { links are tested on the player's own walk, at one point: the body's
+    centre pushed ahead in the walking direction (measured on the real
+    client, see LinkAhead) }
+  if Moved then FollowLink(LinkAt(Player.X + 1.5 + AX, Player.Y + 2 + AY));
   SendMovedProps;
   FClient.Flush;
   if not Headless then Draw;
