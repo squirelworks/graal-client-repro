@@ -93,7 +93,8 @@ From the folder the program is in, or `--data DIR`, then
 `graal-assets/b11/` and `graal-assets/common/`: `pics1.gif`, `arrays.dat`,
 `levels/*.graal`, `sounds/*.wav`, `map.gif`. 1.1 shipped the same files as
 1.1.9 except `pics1.gif` and `objects.dat`, so `graal-assets/1.1/` holds
-only those two. Nothing above the program's folder is read.
+only those two. Through `b15/` the build also sees the 98 files 15th
+Graal had that 1.1 did not. Nothing above the program's folder is read.
 
 ## Build and run
 
