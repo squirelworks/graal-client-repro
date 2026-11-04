@@ -418,6 +418,7 @@ const
   { a thrown object's top over its box on the ground, by ticks in the air }
   ThrowHeight: array[0..6] of Integer = (-14, -9, -7, -4, -1, 3, 6);
   ThrowShadowSprite = 0;
+  HeartSprite = 139;
   BreakFrames = 4;
   StonePieceSprites: array[0..3] of Integer = (96, 97, 98, 99);
   PotPieceSprites: array[0..3] of Integer = (100, 101, 102, 103);
@@ -3130,6 +3131,25 @@ procedure TAdventure.DrawNames(CamX, CamY: Integer);
     DrawText(Screen, TX, TY, Text, $FFFFFFFF, 2);
   end;
 
+  { the hearts over a character that was just hurt: a heart, then the
+    count under it (measured side by side with 2.05) }
+  procedure Hearts(Power: Integer; X, Y: Double);
+  var
+    T: string;
+    CX, CY, SX, SY, SW, SH: Integer;
+    Img: TGSurface;
+  begin
+    if Power mod 2 = 0 then T := IntToStr(Power div 2)
+    else T := IntToStr(Power div 2) + '.5';
+    CX := Round(X * TileSize) - CamX + 24;
+    CY := Round(Y * TileSize) - CamY;
+    Img := Assets.Image('sprites.png', '');
+    if (Img <> nil) and Arrays.SpriteRect(HeartSprite, SX, SY, SW, SH) then
+      Screen.Blit(Img, SX, SY, SW, SH, CX - SW div 2, CY - 31);
+    DrawText(Screen, CX - TextWidth(T, 2) div 2 + 1, CY - 10, T, $FF0000FF, 2);
+    DrawText(Screen, CX - TextWidth(T, 2) div 2, CY - 11, T, $FFFFFFFF, 2);
+  end;
+
 var
   I: Integer;
   N: TNpc;
@@ -3139,6 +3159,7 @@ begin
     N := Npcs.Npc(I);
     if N.Gone or not N.Visible or not N.Character then Continue;
     One(N.Nickname, N.X, N.Y);
+    if N.PowerShown > 0 then Hearts(N.Power, N.X, N.Y);
   end;
   for I := 0 to FOthers.Count - 1 do
     One(Others[I].Nickname, Others[I].X, Others[I].Y);

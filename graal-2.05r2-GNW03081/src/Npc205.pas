@@ -101,6 +101,9 @@ type
     Power, Rupees, Arrows, Bombs, GlovePower, BombPower, SwordPower,
     ShieldPower, AP: Integer;
     HurtDX, HurtDY: Double;
+    { ticks left to show the hearts over a character after they went down
+      (60, 3 s, measured on the real 2.05) }
+    PowerShown: Integer;
     Save: array[0..9] of Integer;
     { setshape: a fixed blocking rectangle in pixels }
     ShapeW, ShapeH: Integer;
@@ -915,7 +918,12 @@ begin
   else if Name = 'rupees' then begin N.Rupees := Trunc(V); N.MarkDirty(NPCPROP_RUPEES); end
   else if Name = 'darts' then begin N.Arrows := Trunc(V); N.MarkDirty(NPCPROP_ARROWS); end
   else if Name = 'bombs' then begin N.Bombs := Trunc(V); N.MarkDirty(NPCPROP_BOMBS); end
-  else if Name = 'hearts' then begin N.Power := Round(V * 2); N.MarkDirty(NPCPROP_POWER); end
+  else if Name = 'hearts' then
+  begin
+    if Round(V * 2) < N.Power then N.PowerShown := 60;
+    N.Power := Round(V * 2);
+    N.MarkDirty(NPCPROP_POWER);
+  end
   else if Name = 'glovepower' then begin N.GlovePower := Trunc(V); N.MarkDirty(NPCPROP_GLOVEPOWER); end
   else if Name = 'swordpower' then begin N.SwordPower := Trunc(V); N.MarkDirty(NPCPROP_SWORDIMAGE); end
   else if Name = 'shieldpower' then begin N.ShieldPower := Trunc(V); N.MarkDirty(NPCPROP_SHIELDIMAGE); end
@@ -1271,6 +1279,7 @@ begin
     N := Npc(I);
     Inc(I);
     if N.Gone then Continue;
+    if N.PowerShown > 0 then Dec(N.PowerShown);
     if N.MoveTicks > 0 then
     begin
       N.X := N.X + N.MoveDX;
