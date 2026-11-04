@@ -8,7 +8,9 @@
                       bodies, swords, shields, hats
     --window          show the game in a window and read the keyboard
                       (arrows or IJKL walk, S sword, A lift,
-                      throw or open, Esc quits)
+                      throw or open, M map, Esc quits); with a window,
+                      sound effects play unless --nosound
+    --nosound         no sound or music
     --headless        no drawing at all (stress runs)
     --frames N        stop after N frames; 0 = until stopped (default: 100
                       without a window or --seconds, no limit in a window)
@@ -57,6 +59,9 @@ uses
   Protocol205 in 'Protocol205.pas',
   GraalClient in 'GraalClient.pas',
   Adventure in 'Adventure.pas',
+  GSound in '../../common/GSound.pas',
+  Sound205 in 'Sound205.pas',
+  Map205 in 'Map205.pas',
   GStartScreen in '../../common/GStartScreen.pas',
   StartScreen205 in 'StartScreen205.pas',
   RunMode in 'RunMode.pas';
@@ -110,7 +115,7 @@ begin
   WriteLn('  common: [--data DIR] [--window | --headless] [--frames N] [--seconds N]');
   WriteLn('          [--keys SCRIPT] [--walk script|idle|random] [--walk-ms N] [--seed N]');
   WriteLn('          [--link-every N] [--nodelay] [--stats-every N]');
-  WriteLn('          [--dump FRAME.bmp] [--sheet FILE]');
+  WriteLn('          [--dump FRAME.bmp] [--sheet FILE] [--nosound]');
 end;
 
 const
@@ -251,13 +256,14 @@ var
   Port, Frames, I, C, D, Seconds, StatsEvery, ExitCode_: Integer;
   OK, Online, UseWindow, NoDelay, Dropped, Crashed: Boolean;
   StartUs, GateUs, NowUs, T0, NextStatsUs: Int64;
-  WasHeld: array[0..2] of Boolean;
+  WasHeld: array[0..3] of Boolean;
 
 begin
   Result := 64;
   WasHeld[0] := False;
   WasHeld[1] := False;
   WasHeld[2] := False;
+  WasHeld[3] := False;
   ExitCode_ := 64;
   Server := Arg('--server', '');
   if (Server = '') and (Arg('--level', '') = '') then
@@ -341,6 +347,9 @@ begin
     else
     begin
       OK := G.LoadLevelFile(Arg('--level', ''));
+      { offline on the tutorial, 2.05 switches to the tutorial maps }
+      if Copy(LowerCase(ExtractFileName(Arg('--level', ''))), 1, 9) = 'tutorial_' then
+        UseTutorialMaps;
       if OK then
       begin
         G.Player.X := StrToFloatDef(Arg('--x', '30'), 30);
@@ -366,6 +375,9 @@ begin
         FreeAndNil(Win);
       end;
     end;
+
+    { sound only in a window: stress runs and tests open no device }
+    SoundEnabled := (Win <> nil) and not HasArg('--nosound');
 
     { the frame loop: a 50 ms gate; a late frame is not made up }
     StartUs := MonoUs;
@@ -394,9 +406,11 @@ begin
           G.ActionKey := Win.Held[gkAction] and not WasHeld[0];
           G.AttackKey := Win.Held[gkAttack] and not WasHeld[1];
           G.ItemKey := Win.Held[gkItem] and not WasHeld[2];
+          G.MapKey := Win.Held[gkMap] and not WasHeld[3];
           WasHeld[0] := Win.Held[gkAction];
           WasHeld[1] := Win.Held[gkAttack];
           WasHeld[2] := Win.Held[gkItem];
+          WasHeld[3] := Win.Held[gkMap];
         end;
         if Walker.Mode = wmScript then D := Script.DirAt(I)
         else D := Walker.DirAt(I, G.Level, G.Player.X, G.Player.Y);
@@ -481,6 +495,10 @@ begin
     else if OK and not Crashed then ExitCode_ := 0
     else ExitCode_ := 1;
   finally
+    SoundShutdown;
+    SoundEnabled := False;
+    MapOpen := False;
+    UseDefaultMaps;
     if Win <> GuiWin then Win.Free;
     Script.Free;
     Walker.Free;

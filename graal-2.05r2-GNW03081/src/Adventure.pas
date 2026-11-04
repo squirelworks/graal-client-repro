@@ -71,6 +71,7 @@ type
     Gone: Boolean;      { PCONNECTED or a level leave seen }
     HitSecond: Integer; { second of the day this player's swing last hit us }
     BodyCache: TGSurface; { the body recoloured for this player }
+    SoundKey: string;   { the gani step whose sound was played (Sound205) }
     BodyKey: string;
     constructor Create;
     destructor Destroy; override;
@@ -167,7 +168,8 @@ type
     Echo: Boolean;
     { The status display (HUD): which parts show, as 2.05's showstats bits
       (0x01 buttons, 0x02 icons, 0x04 rupees, 0x08 bombs, 0x10 arrows,
-      0x20 hearts, 0x40 alignment, 0x80 magic), and whether weapons are on
+      0x20 hearts, 0x40 alignment, 0x80 magic, 0x100 the minimap and its
+      player heads: Map205), and whether weapons are on
       (off: only the first button and the alignment bar). }
     ShowStats: Integer;
     WeaponsOn: Boolean;
@@ -186,6 +188,8 @@ type
     { Game keys pressed this tick (down edges): A action (lift, throw,
       open), S attack (sword, throw), D item. }
     ActionKey, AttackKey, ItemKey: Boolean;
+    { The map key (M) pressed this tick: opens or closes the big map. }
+    MapKey: Boolean;
     { What the player is doing: ModeFree, ModeSword, ModeLift, ModeCarry. }
     Mode: Integer;
     { The lift table entry carried (0 bush, 1 sign, 2 pot, 3 stone,
@@ -306,7 +310,7 @@ procedure MakeIndexSheet(Sheet: TGSurface);
 implementation
 
 uses
-  SysUtils, Math, GFont;
+  SysUtils, Math, GFont, GSound, Sound205, Map205;
 
 procedure MakeIndexSheet(Sheet: TGSurface);
 var
@@ -705,7 +709,7 @@ begin
   Player.SwordPower := 1;
   CarryKind := -1;
   AP := 50;
-  ShowStats := $FF;
+  ShowStats := $1FF;
   WeaponsOn := True;
   UseBuiltins;
 end;
@@ -1040,6 +1044,7 @@ begin
       (PY <= Level.Chests[I].Y + 2) then
     begin
       Level.Chests[I].Opened := True;
+      PlaySound('chest.wav');
       PutObject(Level.Chests[I].X, Level.Chests[I].Y, 14, 0, False);
       { the item shows over the chest (a life below 100: not taken) and is
         given at once }
@@ -1153,6 +1158,7 @@ begin
     if not It.Permanent and (It.Life < ItemLife - 4) and
       (Abs(Player.X + 1.5 - (It.X + 1)) < 2) and (Abs(Player.Y + 2 - (It.Y + 1)) < 2) then
     begin
+      PlaySound('extra.wav');
       { online the server gives the item with props; offline it is ours }
       if FClient.Connected then
         FClient.SendPacket(PLI_ITEMTAKE, GChar(Round(It.X * 2)) + GChar(Round(It.Y * 2)) +
@@ -1172,6 +1178,7 @@ begin
     Inc(Thrown[I].Age);
     if Thrown[I].Age >= 8 then
     begin
+      PlaySoundAt('crush.wav', Thrown[I].X + 1, Thrown[I].Y + 1);
       Thrown[I] := Thrown[High(Thrown)];
       SetLength(Thrown, Length(Thrown) - 1);
       Continue;
@@ -1223,6 +1230,7 @@ begin
     Player.Power := 0;
     Mode := ModeDead;
     FHurtCount := 0;
+    PlaySound('dead.wav');
     Player.SetAni('dead', Frame);
   end
   else
@@ -1325,6 +1333,7 @@ begin
   Bombs[N].Power := 1;
   Bombs[N].Fuse := 60;
   Bombs[N].Mine := True;
+  PlaySound('put.wav');
   if FClient.Connected then
     FClient.SendPacket(PLI_BOMBADD, GChar(Round(Bombs[N].X * 2)) + GChar(Round(Bombs[N].Y * 2)) +
       GChar(1 + 8) + GChar(60));
@@ -1347,6 +1356,7 @@ begin
   Blasts[N].Kind := Kind;
   Blasts[N].Age := 0;
   Blasts[N].Mine := Mine;
+  PlaySoundAt('bomb.wav', X + 1, Y + 1);
   if Assigned(OnBombBlast) then OnBombBlast(X + 1, Y + 1, Reach);
   { only the owner changes the board: bushes (cut entry 0) and the sign,
     pot and stone (lift entries 1 to 3) under each piece, at four points }
@@ -1954,6 +1964,8 @@ begin
     ActionKey := False;
     ItemKey := False;
   end;
+  { the big map, when open, takes the keys (Map205) }
+  MapTick(Self);
   { the game keys first: a swing or a lift holds the player still }
   if AttackKey then Attack;
   if ActionKey then Action;
@@ -1995,6 +2007,7 @@ begin
   if Moved then FollowLink(LinkAt(Player.X + 1.5 + AX, Player.Y + 2 + AY));
   SendMovedProps;
   FClient.Flush;
+  TickSounds(Self);
   if not Headless then Draw;
 end;
 
@@ -2319,6 +2332,7 @@ begin
     DrawCarried(Thrown[I].Kind, Round(Thrown[I].X * TileSize) - CamX,
       Round(Thrown[I].Y * TileSize) - CamY);
   DrawStatus;
+  DrawMaps(Self);
 end;
 
 end.
