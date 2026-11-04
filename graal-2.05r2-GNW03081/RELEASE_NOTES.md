@@ -20,12 +20,9 @@ bodies.
 |---|---|---|
 | `…-linux.zip` | Linux x86-64 | X11 |
 | `…-windows.zip` | Windows, 32-bit (as 2.05 itself was) | GDI |
-| `…-macos.zip` | macOS on Apple silicon, when the release has one | none yet: headless, or `--dump` frames to a file |
 
 Each zip has `Graal205` (the client), `Test205` (its test suite) and the
-build's README. On macOS the binaries are not signed: after unzipping, run
-`xattr -d com.apple.quarantine Graal205 Test205` once, or allow them under
-System Settings > Privacy & Security.
+build's README.
 
 ## What works
 
@@ -67,7 +64,7 @@ every flag.
 
 ## Not yet
 
-Chat bubbles; the Options page; UDP peer traffic; a macOS window; parts of
+Chat bubbles; the Options page; UDP peer traffic; parts of
 GS1 that print "not modelled" in the log. See the build's README for the full list.
 
 ## Checks behind this release

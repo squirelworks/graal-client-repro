@@ -3,7 +3,7 @@ name: release
 # One release per version of a rebuilt client. The tag is the build folder
 # and the version, e.g. graal-2.05r2-GNW03081-v0.0.1, so a build can be
 # recompiled and released again as it learns more. This builds that folder
-# on Linux, Windows and macOS and makes a DRAFT release with the binaries
+# on Linux and Windows and makes a DRAFT release with the binaries
 # attached and the folder's RELEASE_NOTES.md as its text; Squirrel reviews
 # it and presses Publish (the suite-wide rule in seihai RELEASES.md).
 # Start it from the Actions tab with the folder name and version, or by
@@ -21,10 +21,10 @@ on:
         required: true
         default: v0.0.1
       macos:
-        description: Build macOS too (it waits for a GitHub macOS runner)
+        description: Build macOS too (off; macOS is dropped for now)
         type: choice
         options: ['yes', 'no']
-        default: 'yes'
+        default: 'no'
 
 permissions:
   contents: write
@@ -34,8 +34,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # a tag push always builds all three; a manual run can leave macOS out
-        os: ${{ fromJSON(inputs.macos == 'no' && '["ubuntu-latest","windows-latest"]' || '["ubuntu-latest","windows-latest","macos-latest"]') }}
+        # Linux and Windows; macOS only when a manual run asks for it, so a
+        # macOS runner that never comes cannot hold up a release
+        os: ${{ fromJSON(inputs.macos == 'yes' && '["ubuntu-latest","windows-latest","macos-latest"]' || '["ubuntu-latest","windows-latest"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
