@@ -8,15 +8,29 @@
                       bodies, swords, shields, hats
     --window          show the game in a window and read the keyboard
                       (arrows or IJKL walk, Esc quits)
-    --frames N        stop after N frames (default: 100 headless, no limit
-                      in a window)
+    --headless        no drawing at all (stress runs)
+    --frames N        stop after N frames; 0 = until stopped (default: 100
+                      without a window or --seconds, no limit in a window)
+    --seconds N       stop after N seconds
     --keys SCRIPT     scripted keys, e.g. "right*10,down*4,wait*5"; each
                       entry holds one direction for that many frames
+    --walk MODE       script (default with --keys), idle (default without),
+                      or random
+    --walk-ms N       random walk: a new direction every N ms (default 100)
+    --seed N          random walk seed
+    --link-every N    random walk: every N seconds head for the nearest link
+    --nodelay         set TCP_NODELAY (2.05 leaves it off)
+    --stats-every N   a JSON stats line on stdout every N seconds
     --dump FRAME.bmp  write the last frame
     --sheet FILE      a tile sheet other than the install's pics1
 
-  Exit code 0 when the run reached its goal: online, logged in and the board
-  loaded; offline, the level parsed. }
+  Log lines go to stderr as they happen. Online, one JSON summary line goes
+  to stdout at the end. SIGTERM / SIGINT (Ctrl+Break / Ctrl+C on Windows)
+  end the run cleanly.
+
+  Exit codes, online: 0 logged in and ended cleanly, 1 error, 2 never
+  logged in, 3 the link dropped after login. Offline: 0 the level parsed,
+  1 it did not. 64: bad command line. }
 program Graal205;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
@@ -34,7 +48,8 @@ uses
   GWindow in '../../common/GWindow.pas',
   Protocol205 in 'Protocol205.pas',
   GraalClient in 'GraalClient.pas',
-  Adventure in 'Adventure.pas';
+  Adventure in 'Adventure.pas',
+  RunMode in 'RunMode.pas';
 
 function Arg(const Name, Default: string): string;
 var
@@ -63,7 +78,9 @@ begin
   WriteLn('Graal ', ClientBuildLabel, ' (', ClientVersionToken, ') rebuild');
   WriteLn('  --server HOST:PORT --account NAME [--password-env VAR]');
   WriteLn('  --level FILE [--x X --y Y]');
-  WriteLn('  common: [--data DIR] [--window] [--frames N] [--keys SCRIPT]');
+  WriteLn('  common: [--data DIR] [--window | --headless] [--frames N] [--seconds N]');
+  WriteLn('          [--keys SCRIPT] [--walk script|idle|random] [--walk-ms N] [--seed N]');
+  WriteLn('          [--link-every N] [--nodelay] [--stats-every N]');
   WriteLn('          [--dump FRAME.bmp] [--sheet FILE]');
 end;
 
@@ -119,14 +136,79 @@ begin
   else Result := -1;
 end;
 
+{ The middle and largest of the first N warp times. }
+procedure WarpStats(G: TAdventure; out P50, Max: Integer);
+var
+  A: array of Integer;
+  I, J, T: Integer;
+begin
+  P50 := 0;
+  Max := 0;
+  if G.WarpCount = 0 then Exit;
+  SetLength(A, G.WarpCount);
+  for I := 0 to G.WarpCount - 1 do A[I] := G.WarpTimes[I];
+  for I := 1 to High(A) do
+  begin
+    T := A[I];
+    J := I - 1;
+    while (J >= 0) and (A[J] > T) do
+    begin
+      A[J + 1] := A[J];
+      Dec(J);
+    end;
+    A[J + 1] := T;
+  end;
+  P50 := A[High(A) div 2];
+  Max := A[High(A)];
+end;
+
+function StatsJson(const Kind, EndState, Error, Account: string; G: TAdventure;
+  H: TTickHistogram; Ticks: Integer; RunUs: Int64; NoDelay: Boolean): string;
+var
+  WP50, WMax: Integer;
+  Login: string;
+begin
+  WarpStats(G, WP50, WMax);
+  if G.LoginMs >= 0 then Login := IntToStr(G.LoginMs) else Login := 'null';
+  Result := '{"kind":' + JsonStr(Kind) +
+    ',"version":' + JsonStr(ClientBuildLabel) +
+    ',"token":' + JsonStr(ClientVersionToken) +
+    ',"account":' + JsonStr(Account);
+  if EndState <> '' then
+    Result := Result + ',"end":' + JsonStr(EndState) + ',"error":' + JsonStr(Error);
+  Result := Result +
+    ',"login_ms":' + Login +
+    ',"run_s":' + JsonMs(RunUs / 1000000.0) +
+    ',"ticks":' + IntToStr(Ticks) +
+    ',"frames_in":' + IntToStr(G.Client.FramesIn) +
+    ',"frames_out":' + IntToStr(G.Client.FramesOut) +
+    ',"msgs_in":' + IntToStr(G.Client.MessagesIn) +
+    ',"msgs_out":' + IntToStr(G.Client.MessagesOut) +
+    ',"bytes_in":' + IntToStr(G.Client.BytesIn) +
+    ',"bytes_out":' + IntToStr(G.Client.BytesOut) +
+    ',"warps":' + IntToStr(G.WarpsSent) +
+    ',"warps_done":' + IntToStr(G.WarpCount) +
+    ',"warp_ms_p50":' + IntToStr(WP50) +
+    ',"warp_ms_max":' + IntToStr(WMax) +
+    ',"tick_ms_p50":' + JsonMs(H.QuantileMs(0.5)) +
+    ',"tick_ms_p99":' + JsonMs(H.QuantileMs(0.99)) +
+    ',"tick_ms_max":' + JsonMs(H.MaxMs) +
+    ',"rss_peak_kib":';
+  if PeakRssKiB >= 0 then Result := Result + IntToStr(PeakRssKiB)
+  else Result := Result + 'null';
+  Result := Result + ',"nodelay":' + LowerCase(BoolToStr(NoDelay, True)) + '}';
+end;
+
 var
   G: TAdventure;
   Win: TGWindow;
   Script: TKeyScript;
-  Server, Host, Sheet, Dump, Pw, Data: string;
-  Port, Frames, I, C, D: Integer;
-  OK, Online, UseWindow: Boolean;
-  Start, Now_, Due: TDateTime;
+  Walker: TWalker;
+  Hist: TTickHistogram;
+  Server, Host, Sheet, Dump, Pw, Data, Account, WalkName, EndState, Error: string;
+  Port, Frames, I, C, D, Seconds, StatsEvery, ExitCode_: Integer;
+  OK, Online, UseWindow, NoDelay, Dropped, Crashed: Boolean;
+  StartUs, GateUs, NowUs, T0, NextStatsUs: Int64;
 
 begin
   Randomize;
@@ -134,24 +216,48 @@ begin
   if (Server = '') and (Arg('--level', '') = '') then
   begin
     Usage;
-    Halt(2);
+    Halt(64);
   end;
   Online := Server <> '';
-  UseWindow := HasArg('--window');
+  UseWindow := HasArg('--window') and not HasArg('--headless');
+  NoDelay := HasArg('--nodelay');
+  Account := Arg('--account', '');
+  InstallStopHandlers;
   G := TAdventure.Create;
+  G.Echo := True;
+  G.Headless := HasArg('--headless');
   Win := nil;
   Script := TKeyScript.Create;
+  Walker := TWalker.Create(Cardinal(StrToIntDef(Arg('--seed', '1'), 1)));
+  Hist := TTickHistogram.Create;
+  Dropped := False;
+  Crashed := False;
+  Error := '';
+  I := 0;
+  StartUs := MonoUs;
   try
     Sheet := Arg('--sheet', '');
     if Sheet <> '' then
       if not LoadImageFile(Sheet, G.Sheet) then
-        WriteLn('warning: cannot load tile sheet ', Sheet, '; using index colours');
+        G.Log('warning: cannot load tile sheet ' + Sheet + '; using index colours');
     Data := Arg('--data', '');
     if Data <> '' then G.UseInstall(Data);
     Script.Parse(Arg('--keys', ''));
+    if Arg('--keys', '') <> '' then WalkName := Arg('--walk', 'script')
+    else WalkName := Arg('--walk', 'idle');
+    WalkName := LowerCase(WalkName);
+    if WalkName = 'random' then Walker.Mode := wmRandom
+    else if WalkName = 'idle' then Walker.Mode := wmIdle
+    else Walker.Mode := wmScript;
+    Walker.WalkTicks := StrToIntDef(Arg('--walk-ms', '100'), 100) div TickMs;
+    if Walker.WalkTicks < 1 then Walker.WalkTicks := 1;
+    Walker.LinkEveryTicks := StrToIntDef(Arg('--link-every', '0'), 0) * 1000 div TickMs;
     Dump := Arg('--dump', '');
-    if UseWindow then Frames := StrToIntDef(Arg('--frames', '0'), 0)
-    else Frames := StrToIntDef(Arg('--frames', '100'), 100);
+    Seconds := StrToIntDef(Arg('--seconds', '0'), 0);
+    StatsEvery := StrToIntDef(Arg('--stats-every', '0'), 0);
+    if HasArg('--frames') then Frames := StrToIntDef(Arg('--frames', '0'), 0)
+    else if UseWindow or (Seconds > 0) then Frames := 0
+    else Frames := 100;
     OK := False;
 
     if Online then
@@ -168,8 +274,16 @@ begin
         Port := 14802;
       end;
       Pw := GetEnvironmentVariable(Arg('--password-env', 'GRAAL_PW'));
-      if not G.ConnectServer(Host, Port, Arg('--account', ''), Pw) then
+      if G.ConnectServer(Host, Port, Account, Pw) then
+      begin
+        if NoDelay and not G.Client.Socket.SetNoDelay(True) then
+          G.Log('warning: TCP_NODELAY could not be set');
+      end
+      else
+      begin
+        Error := G.Client.LastError;
         Frames := -1;
+      end;
     end
     else
     begin
@@ -200,41 +314,70 @@ begin
       end;
     end;
 
-    { the frame loop: a 50 ms gate, a late frame is not made up }
-    I := 0;
-    Start := Now;
-    while (Frames >= 0) and ((Frames = 0) or (I < Frames)) do
-    begin
-      if Win <> nil then
+    { the frame loop: a 50 ms gate; a late frame is not made up }
+    StartUs := MonoUs;
+    GateUs := StartUs;
+    NextStatsUs := StartUs + Int64(StatsEvery) * 1000000;
+    try
+      while Frames >= 0 do
       begin
-        Win.Pump;
-        if Win.Closed or Win.Held[gkEscape] then Break;
-        G.Keys[DirUp] := Win.Held[gkUp];
-        G.Keys[DirLeft] := Win.Held[gkLeft];
-        G.Keys[DirDown] := Win.Held[gkDown];
-        G.Keys[DirRight] := Win.Held[gkRight];
-      end
-      else
-      begin
-        if (Frames = 0) then Frames := 100;
+        if StopRequested then
+        begin
+          G.Log('stop requested');
+          Break;
+        end;
+        if (Frames > 0) and (I >= Frames) then Break;
+        if (Seconds > 0) and (MonoUs - StartUs >= Int64(Seconds) * 1000000) then Break;
         for D := 0 to 3 do G.Keys[D] := False;
+        if Win <> nil then
+        begin
+          Win.Pump;
+          if Win.Closed or Win.Held[gkEscape] then Break;
+          G.Keys[DirUp] := Win.Held[gkUp];
+          G.Keys[DirLeft] := Win.Held[gkLeft];
+          G.Keys[DirDown] := Win.Held[gkDown];
+          G.Keys[DirRight] := Win.Held[gkRight];
+        end;
+        if Walker.Mode = wmScript then D := Script.DirAt(I)
+        else D := Walker.DirAt(I, G.Level, G.Player.X, G.Player.Y);
+        if D >= 0 then G.Keys[D] := True;
+        T0 := MonoUs;
+        G.Tick;
+        Hist.Add(MonoUs - T0);
+        if Win <> nil then Win.Present(G.Screen);
+        Inc(I);
+        if Online and not G.Client.Connected then
+        begin
+          Dropped := True;
+          Error := G.Client.LastError;
+          if Error = '' then Error := G.DisconnectReason;
+          Break;
+        end;
+        NowUs := MonoUs;
+        if (StatsEvery > 0) and (NowUs >= NextStatsUs) then
+        begin
+          WriteLn(StatsJson('stats', '', '', Account, G, Hist, I, NowUs - StartUs, NoDelay));
+          Flush(Output);
+          Inc(NextStatsUs, Int64(StatsEvery) * 1000000);
+        end;
+        Inc(GateUs, TickMs * 1000);
+        if GateUs > NowUs then
+          Sleep((GateUs - NowUs) div 1000)
+        else if NowUs - GateUs > 1000000 then
+          GateUs := NowUs; { a stall is one frame }
       end;
-      D := Script.DirAt(I);
-      if D >= 0 then G.Keys[D] := True;
-      G.Tick;
-      if Win <> nil then Win.Present(G.Screen);
-      Inc(I);
-      if Online and not G.Client.Connected then Break;
-      Due := Start + (I * TickMs) / (24.0 * 3600 * 1000);
-      Now_ := Now;
-      if Due > Now_ then
-        Sleep(Round((Due - Now_) * 24 * 3600 * 1000))
-      else if Now_ - Due > 1 / (24.0 * 3600) then
-        Start := Now_ - (I * TickMs) / (24.0 * 3600 * 1000); { a stall is one frame }
+    except
+      on E: Exception do
+      begin
+        Crashed := True;
+        Error := E.ClassName + ': ' + E.Message;
+        G.Log('error: ' + Error);
+      end;
     end;
 
     if Online then
     begin
+      { a clean logout: what is queued goes out, then the link closes }
       G.Client.Flush;
       G.Client.Disconnect;
       OK := G.LoggedIn and G.BoardLoaded;
@@ -242,13 +385,13 @@ begin
         [G.Client.FramesIn, G.Client.MessagesIn, G.Client.FramesOut,
          G.Client.MessagesOut, BoolToStr(G.LoggedIn, True),
          BoolToStr(G.BoardLoaded, True)]));
-    end
-    else if I = 0 then
+    end;
+    if (Dump <> '') or ((I = 0) and not Online) then
       G.Draw;
     G.Log(Format('player at %.2f,%.2f facing %d', [G.Player.X, G.Player.Y, G.Player.Dir]));
-    for I := 0 to G.OtherCount - 1 do
-      G.Log(Format('other player %d %s at %.1f,%.1f sprite %d', [G.Others[I].Id,
-        G.Others[I].Nickname, G.Others[I].X, G.Others[I].Y, G.Others[I].Sprite]));
+    for C := 0 to G.OtherCount - 1 do
+      G.Log(Format('other player %d %s at %.1f,%.1f sprite %d', [G.Others[C].Id,
+        G.Others[C].Nickname, G.Others[C].X, G.Others[C].Y, G.Others[C].Sprite]));
     if G.Assets.Missing.Count > 0 then
       G.Log('not found in the install: ' + G.Assets.Missing.CommaText);
     if Dump <> '' then
@@ -256,12 +399,24 @@ begin
       G.Screen.SaveBMP(Dump);
       G.Log('frame written to ' + Dump);
     end;
-    for I := 0 to G.LogLines.Count - 1 do
-      WriteLn(G.LogLines[I]);
+
+    if Online then
+    begin
+      if Crashed then begin EndState := 'error'; ExitCode_ := 1; end
+      else if not OK then begin EndState := 'nologin'; ExitCode_ := 2; end
+      else if Dropped then begin EndState := 'dropped'; ExitCode_ := 3; end
+      else begin EndState := 'clean'; ExitCode_ := 0; end;
+      WriteLn(StatsJson('summary', EndState, Error, Account, G, Hist, I,
+        MonoUs - StartUs, NoDelay));
+    end
+    else if OK and not Crashed then ExitCode_ := 0
+    else ExitCode_ := 1;
   finally
     Win.Free;
     Script.Free;
+    Walker.Free;
+    Hist.Free;
     G.Free;
   end;
-  if OK then Halt(0) else Halt(1);
+  Halt(ExitCode_);
 end.

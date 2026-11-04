@@ -37,11 +37,14 @@ type
     FOnMessage: TMessageEvent;
     FOnLog: TLogEvent;
     FFramesIn, FFramesOut, FMessagesIn, FMessagesOut: Integer;
+    FBytesIn, FBytesOut: Int64;
     procedure Log(const S: string);
     { Hook for the gen-3 step; the base class sends messages unchanged. }
     function EncodeMessage(const Msg: string): string; virtual;
     procedure SplitMessages;
     procedure DeliverMessage(const Msg: string);
+    { Logs Why, drops the link and the receive buffers. }
+    procedure Fail(const Why: string);
   public
     LastError: string;
     constructor Create;
@@ -54,12 +57,19 @@ type
     procedure Flush;
     { Called from the tick: read the socket, unpack frames, dispatch. }
     procedure Poll;
+    { Takes bytes as if they came from the socket: frames, then messages.
+      Poll uses it; tests and the fuzzer call it directly. }
+    procedure FeedRaw(const Bytes: string);
     property OnMessage: TMessageEvent read FOnMessage write FOnMessage;
     property OnLog: TLogEvent read FOnLog write FOnLog;
     property FramesIn: Integer read FFramesIn;
     property FramesOut: Integer read FFramesOut;
     property MessagesIn: Integer read FMessagesIn;
     property MessagesOut: Integer read FMessagesOut;
+    { bytes on the wire, frame headers included }
+    property BytesIn: Int64 read FBytesIn;
+    property BytesOut: Int64 read FBytesOut;
+    property Socket: TGSocket read FSocket;
   end;
 
   TAdventureClient = class(TGraalClient)
@@ -89,12 +99,15 @@ implementation
 uses
   SysUtils, GTypes, GZlib, Protocol205;
 
+{ the iterator wraps at 32 bits on purpose }
 {$IFOPT Q+}{$DEFINE OVERFLOW_WAS_ON}{$Q-}{$ENDIF}
+{$IFOPT R+}{$DEFINE RANGE_WAS_ON}{$R-}{$ENDIF}
 function Gen3Step(var It: Cardinal; Key: Byte): Cardinal;
 begin
   It := It * Gen3Mul + Key;
   Result := It;
 end;
+{$IFDEF RANGE_WAS_ON}{$R+}{$ENDIF}
 {$IFDEF OVERFLOW_WAS_ON}{$Q+}{$ENDIF}
 
 function Gen3Insert(var It: Cardinal; Key: Byte; const Msg: string): string;
@@ -190,32 +203,64 @@ begin
   FOut := '';
   FSocket.Send(Chr((Length(Z) shr 8) and $FF) + Chr(Length(Z) and $FF) + Z);
   Inc(FFramesOut);
+  Inc(FBytesOut, Length(Z) + 2);
 end;
 
 procedure TGraalClient.Poll;
 var
-  Len: Integer;
-  Body: string;
+  Got: string;
 begin
   if not Connected then Exit;
-  if not FSocket.Poll(FInRaw) then
+  Got := '';
+  if not FSocket.Poll(Got) then
     LastError := FSocket.LastError;
-  while Length(FInRaw) >= 2 do
+  if Got <> '' then
   begin
-    Len := (Ord(FInRaw[1]) shl 8) or Ord(FInRaw[2]);
-    if Length(FInRaw) < Len + 2 then Break;
-    if not ZDecompress(Copy(FInRaw, 3, Len), Body) then
+    Inc(FBytesIn, Length(Got));
+    FeedRaw(Got);
+  end;
+end;
+
+procedure TGraalClient.FeedRaw(const Bytes: string);
+var
+  P, Len: Integer;
+  Body: string;
+begin
+  FInRaw := FInRaw + Bytes;
+  { frames are read by position and the used bytes dropped once, so a burst
+    of many frames is linear, not quadratic }
+  P := 1;
+  while Length(FInRaw) - P + 1 >= 2 do
+  begin
+    Len := (Ord(FInRaw[P]) shl 8) or Ord(FInRaw[P + 1]);
+    if Length(FInRaw) - P + 1 < Len + 2 then Break;
+    if not ZDecompress(Copy(FInRaw, P + 2, Len), Body) then
     begin
-      LastError := 'bad zlib frame from the server';
-      Log(LastError);
-      Disconnect;
+      Fail('bad zlib frame from the server');
       Exit;
     end;
-    Delete(FInRaw, 1, Len + 2);
+    if Length(Body) > InFrameMax then
+    begin
+      Fail('frame from the server inflates past the limit');
+      Exit;
+    end;
+    Inc(P, Len + 2);
     Inc(FFramesIn);
     FInPlain := FInPlain + Body;
     SplitMessages;
+    if FInRaw = '' then Exit; { Fail cleared the buffers }
   end;
+  if P > 1 then Delete(FInRaw, 1, P - 1);
+end;
+
+procedure TGraalClient.Fail(const Why: string);
+begin
+  LastError := Why;
+  Log(Why);
+  Disconnect;
+  FInRaw := '';
+  FInPlain := '';
+  FRawPending := 0;
 end;
 
 procedure TGraalClient.DeliverMessage(const Msg: string);
@@ -231,27 +276,30 @@ end;
 
 procedure TGraalClient.SplitMessages;
 var
-  E: Integer;
+  P, E, N: Integer;
   Msg: string;
   R: TGReader;
 begin
-  while FInPlain <> '' do
+  P := 1;
+  N := Length(FInPlain);
+  while P <= N do
   begin
     if FRawPending > 0 then
     begin
-      if Length(FInPlain) < FRawPending then Exit;
-      Msg := Copy(FInPlain, 1, FRawPending);
-      Delete(FInPlain, 1, FRawPending);
+      if N - P + 1 < FRawPending then Break;
+      Msg := Copy(FInPlain, P, FRawPending);
+      Inc(P, FRawPending);
       FRawPending := 0;
       if (Msg <> '') and (Msg[Length(Msg)] = #10) then
         SetLength(Msg, Length(Msg) - 1);
       DeliverMessage(Msg);
       Continue;
     end;
-    E := Pos(#10, FInPlain);
-    if E = 0 then Exit;
-    Msg := Copy(FInPlain, 1, E - 1);
-    Delete(FInPlain, 1, E);
+    E := P;
+    while (E <= N) and (FInPlain[E] <> #10) do Inc(E);
+    if E > N then Break;
+    Msg := Copy(FInPlain, P, E - P);
+    P := E + 1;
     if (Msg <> '') and (Ord(Msg[1]) - $20 = PLO_RAWDATA) then
     begin
       R := TGReader.Create(Copy(Msg, 2, MaxInt));
@@ -260,10 +308,14 @@ begin
       finally
         R.Free;
       end;
+      { a GINT3 length is at most 3670015, under InPendingMax }
       Continue;
     end;
     DeliverMessage(Msg);
   end;
+  if P > 1 then Delete(FInPlain, 1, P - 1);
+  if Length(FInPlain) > InPendingMax then
+    Fail('unfinished message from the server is past the limit');
 end;
 
 { TAdventureClient }

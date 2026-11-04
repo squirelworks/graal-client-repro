@@ -505,6 +505,206 @@ begin
   end;
 end;
 
+{ ---- fuzzing the receive path ----
+  Random and mangled server input must never raise (this program is built
+  with range and overflow checks, so a bad index raises here) and must not
+  leak (the heap tracer checks at exit). }
+
+const
+  FuzzIds: array[0..21] of Integer = (PLO_LEVELLINK, PLO_LEVELCHEST, PLO_LEVELSIGN,
+    PLO_LEVELNAME, PLO_OTHERPLPROPS, PLO_PLAYERPROPS, PLO_PLAYERWARP, PLO_WARPFAILED,
+    PLO_DISCMESSAGE, PLO_SIGNATURE, PLO_NEWWORLDTIME, PLO_STARTMESSAGE, PLO_BOARDPACKET,
+    PLO_SETACTIVELEVEL, PLO_TOALL, PLO_LEVELBOARD, PLO_BOARDMODIFY, PLO_NPCPROPS,
+    PLO_BADDYPROPS, PLO_LEVELMODTIME, PLO_FILE, PLO_RAWDATA);
+
+function RandomBytes(N: Integer; Printable: Boolean): string;
+var
+  I: Integer;
+begin
+  SetLength(Result, N);
+  for I := 1 to N do
+    if Printable then Result[I] := Chr(32 + Random(96))
+    else Result[I] := Chr(Random(256));
+end;
+
+{ A prop stream of real ids with random values, sometimes cut short. }
+function RandomProps: string;
+var
+  I, N: Integer;
+begin
+  Result := '';
+  N := Random(12);
+  for I := 1 to N do
+  begin
+    Result := Result + GChar(Random(56));
+    case Random(4) of
+      0: Result := Result + GChar(Random(224) - 32);
+      1: Result := Result + GString(RandomBytes(Random(12), True));
+      2: Result := Result + RandomBytes(Random(6), False);
+    else
+      Result := Result + Chr(Random(256));
+    end;
+  end;
+  if (Result <> '') and (Random(3) = 0) then
+    SetLength(Result, Random(Length(Result)));
+end;
+
+function RandomMessage(out Id: Integer): string;
+begin
+  if Random(5) = 0 then Id := Random(256) else Id := FuzzIds[Random(Length(FuzzIds))];
+  case Id of
+    PLO_PLAYERPROPS: Result := RandomProps;
+    PLO_OTHERPLPROPS: Result := GShort(Random(8)) + RandomProps;
+    PLO_BOARDPACKET:
+      case Random(3) of
+        0: Result := RandomBytes(8192, False);
+        1: Result := RandomBytes(Random(9000), False);
+      else
+        Result := '';
+      end;
+    PLO_LEVELLINK:
+      Result := RandomBytes(Random(10), True) + ' ' + IntToStr(Random(80) - 8) + ' ' +
+        IntToStr(Random(80) - 8) + ' ' + IntToStr(Random(70)) + ' ' + IntToStr(Random(70)) +
+        ' ' + RandomBytes(Random(5), True) + ' ' + RandomBytes(Random(5), True);
+  else
+    Result := RandomBytes(Random(48), Random(2) = 0);
+  end;
+end;
+
+function Frame(const Plain: string): string;
+var
+  Z: string;
+begin
+  Z := ZCompress(Plain);
+  Result := Chr(Length(Z) shr 8) + Chr(Length(Z) and $FF) + Z;
+end;
+
+procedure TestFuzz;
+var
+  G: TAdventure;
+  I, J, Id, Raised: Integer;
+  Data, Plain, LastErr: string;
+begin
+  RandSeed := 205;
+  Raised := 0;
+  LastErr := '';
+  G := TAdventure.Create;
+  try
+    G.Arrays.LoadFromString(MakeArrays([0]));
+    { with an install, the drawing of fuzzed players (heads, bodies,
+      colours, poses) is covered too }
+    if GetEnvironmentVariable('GRAAL205_DATA') <> '' then
+      G.UseInstall(GetEnvironmentVariable('GRAAL205_DATA'));
+    { messages straight into the dispatcher, with ticks between }
+    for I := 1 to 20000 do
+    begin
+      Data := RandomMessage(Id);
+      try
+        G.Receive(Id, Data);
+        if I mod 50 = 0 then
+        begin
+          for J := 0 to 3 do G.Keys[J] := Random(2) = 0;
+          G.Tick;
+        end;
+      except
+        on E: Exception do
+        begin
+          Inc(Raised);
+          if LastErr = '' then
+          begin
+            LastErr := Format('id %d, %d bytes: %s: %s', [Id, Length(Data), E.ClassName, E.Message]);
+{$IFDEF FPC}
+            DumpExceptionBackTrace(Output);
+{$ENDIF}
+          end;
+        end;
+      end;
+    end;
+    if LastErr <> '' then WriteLn('  first: ', LastErr);
+    Check(Raised = 0, Format('fuzz: 20000 random messages, %d raised', [Raised]));
+
+    { frames: valid zlib around random messages and RAWDATA headers, and
+      raw garbage }
+    Raised := 0;
+    LastErr := '';
+    for I := 1 to 3000 do
+    begin
+      try
+        if Random(4) = 0 then
+          G.Client.FeedRaw(RandomBytes(Random(64), False))
+        else
+        begin
+          Plain := '';
+          for J := 1 to 1 + Random(6) do
+          begin
+            Data := RandomMessage(Id);
+            if Random(8) = 0 then
+              Plain := Plain + Chr(PLO_RAWDATA + 32) + GInt3(Length(Data) + 2) + #10 +
+                Chr((Id + 32) and $FF) + Data + #10
+            else
+              Plain := Plain + Chr((Id + 32) and $FF) + StringReplace(Data, #10, ' ',
+                [rfReplaceAll]) + #10;
+          end;
+          Data := Frame(Plain);
+          { sometimes in two pieces, as TCP may deliver it }
+          J := Random(Length(Data) + 1);
+          G.Client.FeedRaw(Copy(Data, 1, J));
+          G.Client.FeedRaw(Copy(Data, J + 1, MaxInt));
+        end;
+        if I mod 20 = 0 then G.Tick;
+      except
+        on E: Exception do
+        begin
+          Inc(Raised);
+          if LastErr = '' then
+          begin
+            LastErr := E.ClassName + ': ' + E.Message;
+{$IFDEF FPC}
+            DumpExceptionBackTrace(Output);
+{$ENDIF}
+          end;
+        end;
+      end;
+    end;
+    if LastErr <> '' then WriteLn('  first: ', LastErr);
+    Check(Raised = 0, Format('fuzz: 3000 random frames, %d raised', [Raised]));
+  finally
+    G.Free;
+  end;
+end;
+
+procedure TestReceiveLimits;
+var
+  G: TAdventure;
+  I: Integer;
+  Plain: string;
+  T0: TDateTime;
+begin
+  G := TAdventure.Create;
+  try
+    { a burst of 20000 small messages in one frame is handled in one pass }
+    Plain := '';
+    for I := 1 to 20000 do Plain := Plain + Chr(PLO_TOALL + 32) + 'x' + #10;
+    T0 := Now;
+    G.Client.FeedRaw(Frame(Plain));
+    Check(G.Handled[PLO_TOALL] = 20000, 'receive: 20000 messages in one frame');
+    Check((Now - T0) * 86400 < 2, 'receive: a big burst takes well under 2 s');
+    { a message with no end (no LF) longer than the limit; it compresses to
+      a few KB, so it fits one frame }
+    G.Client.FeedRaw(Frame(StringOfChar('a', InPendingMax + 1)));
+    Check(Pos('unfinished', G.Client.LastError) > 0,
+      'receive: an unfinished message past the limit drops the link');
+    G.Client.LastError := '';
+    G.Client.FeedRaw(#0#5'xxxxx');
+    Check(Pos('zlib', G.Client.LastError) > 0, 'receive: a bad zlib frame drops the link');
+    G.Client.LastError := '';
+    G.Client.FeedRaw(Frame(Chr(PLO_TOALL + 32) + 'y' + #10));
+    Check(G.Handled[PLO_TOALL] = 20001, 'receive: buffers are clean after a dropped link');
+  finally
+    G.Free;
+  end;
+end;
+
 begin
   TestGTypes;
   TestGen3Capture;
@@ -518,6 +718,8 @@ begin
   TestWalking;
   TestSpriteAndOthers;
   TestLinks;
+  TestFuzz;
+  TestReceiveLimits;
   TestTutorials;
   WriteLn(Format('%d passed, %d failed, %d skipped', [Passed, Failed, Skipped]));
   if Failed > 0 then Halt(1);

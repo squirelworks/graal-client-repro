@@ -94,6 +94,8 @@ type
     FWarpPending: Boolean; { a link warp was asked of the server }
     FWarpX, FWarpY: Double;
     FWarpLevel: string;
+    FWarpTimed: string;    { the level a timed warp waits for }
+    FWarpT0: Int64;
     procedure HandleMessage(Id: Integer; const Data: string);
     procedure ClientLog(const Line: string);
     function PointBlocked(PX, PY: Double): Boolean;
@@ -114,6 +116,18 @@ type
     WorldTime: Cardinal;
     ServerMessage, DisconnectReason: string;
     LoggedIn, BoardLoaded: Boolean;
+    { No drawing in the tick: for stress runs. }
+    Headless: Boolean;
+    { Log lines also go to stderr as they happen. The in-memory log keeps
+      the last LogKeep lines either way. }
+    Echo: Boolean;
+    { Timings, in ms: connect to the first board (-1 until then), and
+      each link warp from the request to the new board. }
+    ConnectAtMs: Int64;
+    LoginMs: Integer;
+    WarpsSent: Integer;
+    WarpTimes: array of Integer; { the first WarpCount entries are used }
+    WarpCount: Integer;
     Handled, Ignored: array[0..255] of Integer;
     { Held direction keys for this tick: up, left, down, right. }
     Keys: array[0..3] of Boolean;
@@ -137,6 +151,8 @@ type
     { Takes link I: online, asks the server for the level; offline, loads
       it. Returns False when the level cannot be had. }
     function FollowLink(I: Integer): Boolean;
+    { One message from the server, as the client's dispatcher hands it on. }
+    procedure Receive(Id: Integer; const Data: string);
     { The player's own wire sprite: direction + 4 x the 2.05 sprite number
       for the current animation step. }
     function OwnSprite: Integer;
@@ -154,6 +170,8 @@ type
 { The 2.05 animation step for a gani name and frame, and the sprite prop
   value (direction + 4 x sprite number) that goes with it. }
 function AniStepNumber(const AniName: string; Frame: Integer): Integer;
+{ Wall-clock milliseconds, for login and warp timings. }
+function NowMs: Int64;
 function WireSprite(const AniName: string; Frame, Dir: Integer): Integer;
 procedure MakeIndexSheet(Sheet: TGSurface);
 
@@ -171,9 +189,8 @@ begin
   for T := 0 to 4095 do
   begin
     TileSheetPos(T, SX, SY);
-{$IFOPT Q+}{$DEFINE QWAS}{$Q-}{$ENDIF}
-    H := Cardinal(T) * 2654435761;
-{$IFDEF QWAS}{$Q+}{$ENDIF}
+    { Knuth's multiplicative hash, kept in 32 bits without overflowing }
+    H := Cardinal((Int64(T) * 2654435761) and $FFFFFFFF);
     Sheet.FillRect(SX, SY, TileSize, TileSize, $FF000000 or (H shr 8));
     Sheet.FillRect(SX, SY, TileSize, 1, $FF202020);
     Sheet.FillRect(SX, SY, 1, TileSize, $FF202020);
@@ -519,6 +536,7 @@ constructor TAdventure.Create;
 begin
   inherited Create;
   FLog := TStringList.Create;
+  LoginMs := -1;
   FClient := TAdventureClient.Create;
   FClient.OnMessage := HandleMessage;
   FClient.OnLog := ClientLog;
@@ -548,9 +566,30 @@ begin
   inherited Destroy;
 end;
 
-procedure TAdventure.Log(const S: string);
+function NowMs: Int64;
 begin
-  FLog.Add(Format('[%5d] %s', [Frame, S]));
+  Result := Trunc(Now * 86400000.0);
+end;
+
+{ A duration in ms that fits an Integer, whatever the clock did. }
+function ClampMs(V: Int64): Integer;
+begin
+  if V < 0 then Result := 0
+  else if V > MaxInt then Result := MaxInt
+  else Result := V;
+end;
+
+const
+  LogKeep = 1000;
+
+procedure TAdventure.Log(const S: string);
+var
+  Line: string;
+begin
+  Line := Format('[%5d] %s', [Frame, S]);
+  if Echo then WriteLn(ErrOutput, Line);
+  if FLog.Count >= LogKeep then FLog.Delete(0);
+  FLog.Add(Line);
 end;
 
 procedure TAdventure.ClientLog(const Line: string);
@@ -575,6 +614,8 @@ end;
 function TAdventure.ConnectServer(const Host: string; Port: Word;
   const Account, Password: string): Boolean;
 begin
+  ConnectAtMs := NowMs;
+  LoginMs := -1;
   Result := FClient.Connect(Host, Port);
   if not Result then
   begin
@@ -768,6 +809,9 @@ begin
     FWarpX := NX;
     FWarpY := NY;
     FWarpLevel := L.Dest;
+    Inc(WarpsSent);
+    FWarpTimed := L.Dest;
+    FWarpT0 := NowMs;
     Log(Format('LEVELWARP %s %.1f,%.1f', [L.Dest, NX, NY]));
     Result := True;
     Exit;
@@ -847,6 +891,11 @@ end;
 
 { ---- messages from the server ---- }
 
+procedure TAdventure.Receive(Id: Integer; const Data: string);
+begin
+  HandleMessage(Id, Data);
+end;
+
 procedure TAdventure.HandleMessage(Id: Integer; const Data: string);
 var
   R: TGReader;
@@ -909,6 +958,16 @@ begin
       PLO_BOARDPACKET:
         begin
           BoardLoaded := Level.LoadBoardPacket(Data);
+          if BoardLoaded and LoggedIn and (LoginMs < 0) and (ConnectAtMs > 0) then
+            LoginMs := ClampMs(NowMs - ConnectAtMs);
+          if BoardLoaded and (FWarpTimed <> '') and (Level.Name = FWarpTimed) then
+          begin
+            if WarpCount = Length(WarpTimes) then
+              SetLength(WarpTimes, 2 * WarpCount + 16);
+            WarpTimes[WarpCount] := ClampMs(NowMs - FWarpT0);
+            Inc(WarpCount);
+            FWarpTimed := '';
+          end;
           if BoardLoaded then
             Log('BOARDPACKET ' + Level.Name + ' loaded')
           else
@@ -1013,7 +1072,14 @@ begin
   if Moved then FollowLink(LinkAt(Player.X + 1.5, Player.Y + 2));
   SendMovedProps;
   FClient.Flush;
-  Draw;
+  if not Headless then Draw;
+end;
+
+{ A colour prop as an index into the 20 colours; a hostile or garbled
+  value (below 0, above 19) wraps instead of indexing out of the table. }
+function ColorIndex(C: Integer): Integer;
+begin
+  Result := ((C mod 20) + 20) mod 20;
 end;
 
 function TAdventure.BodyFor(P: TServerPlayer): TGSurface;
@@ -1041,9 +1107,9 @@ begin
     { entry 5 skin, 6 coat, 4 sleeves, 3 shoes, 1 belt; 0 the outline (18);
       2 is the clear colour }
     P.BodyCache.Recolor([5, 6, 4, 3, 1, 0, 2],
-      [ColorTable[P.Colors[0] mod 20], ColorTable[P.Colors[1] mod 20],
-       ColorTable[P.Colors[2] mod 20], ColorTable[P.Colors[3] mod 20],
-       ColorTable[P.Colors[4] mod 20], ColorTable[18], 0]);
+      [ColorTable[ColorIndex(P.Colors[0])], ColorTable[ColorIndex(P.Colors[1])],
+       ColorTable[ColorIndex(P.Colors[2])], ColorTable[ColorIndex(P.Colors[3])],
+       ColorTable[ColorIndex(P.Colors[4])], ColorTable[18], 0]);
     P.BodyKey := Key;
   end;
   Result := P.BodyCache;

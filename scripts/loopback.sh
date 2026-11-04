@@ -55,6 +55,11 @@ fi
 if ! grep -q "other player .* loop1" "$WORK/loop2.log"; then
   echo "loop2 did not see loop1"; exit 1
 fi
+for L in loop1 loop2 link; do
+  if ! grep -q '"kind":"summary".*"end":"clean"' "$WORK/$L.log"; then
+    echo "$L: no clean JSON summary"; exit 1
+  fi
+done
 if ! grep -q "BOARDPACKET linked.nw loaded" "$WORK/link.log"; then
   echo "the link did not take loop1 to linked.nw"; exit 1
 fi

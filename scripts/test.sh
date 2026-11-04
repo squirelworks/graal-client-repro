@@ -6,6 +6,11 @@ FAIL=0
 for T in "$ROOT"/build/*/Test*; do
   [ -x "$T" ] || continue
   echo "== $T"
-  "$T" || FAIL=1
+  # the tests are built with the heap tracer; it reports on stderr at exit
+  "$T" 2> "$T.heap" || FAIL=1
+  cat "$T.heap" >&2
+  if ! grep -q "^0 unfreed memory blocks" "$T.heap"; then
+    echo "leak: $T left memory unfreed"; FAIL=1
+  fi
 done
 exit $FAIL

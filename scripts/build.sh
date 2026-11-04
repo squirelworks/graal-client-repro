@@ -15,12 +15,19 @@ if [ $# -gt 0 ]; then BUILDS="$*"; else BUILDS=$(ls -d graal-*/ | tr -d /); fi
 for B in $BUILDS; do
   OUT="$ROOT/build/$B"
   mkdir -p "$OUT"
+  mkdir -p "$OUT/checked"
   for P in "$B"/src/*.dpr "$B"/tests/*.dpr; do
     [ -f "$P" ] || continue
     echo "== $P"
+    # Tests are built with range and overflow checks and the heap tracer
+    # (-gh), into their own unit folder so the client's units stay -O2.
+    case "$P" in
+      */tests/*) EXTRA="-Cr -Co -gh -gl"; UNITS="../../build/$B/checked" ;;
+      *) EXTRA=""; UNITS="../../build/$B" ;;
+    esac
     # set -f: FPCFLAGS may hold FPC's own * wildcard, not a shell glob
-    (set -f; cd "$(dirname "$P")" && "$FPC" -Mdelphi -Sh -vew $FLAGS \
-      -Fu../../common -Fu../src -FE"../../build/$B" -FU"../../build/$B" \
+    (set -f; cd "$(dirname "$P")" && "$FPC" -Mdelphi -Sh -vew $FLAGS $EXTRA \
+      -Fu../../common -Fu../src -FE"../../build/$B" -FU"$UNITS" \
       "$(basename "$P")")
   done
 done

@@ -22,6 +22,10 @@ const
 
   OutFlushAt = $1000;   { the out buffer is compressed and sent at 4 KB }
   OutDropAt = $40000;   { more than 256 KB queued drops the link }
+  { Receive limits. These are the rebuild's, not 2.05's: they keep a hostile
+    server from growing the client without bound. }
+  InFrameMax = 16 * 1024 * 1024;  { one inflated frame }
+  InPendingMax = 4 * 1024 * 1024; { an unfinished message }
   TickMs = 50;          { the idle handler's frame gate }
 
   { client -> server }
