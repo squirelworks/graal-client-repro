@@ -63,7 +63,7 @@ procedure TListFetch222.Start(const Host: string; Port: Integer;
   const Account, Password: string);
 var
   I: Integer;
-  Used: string;
+  Used, Errors: string;
 begin
   FreeAndNil(Client);
   SetLength(Servers, 0);
@@ -75,16 +75,20 @@ begin
   Status := Format('asking %s:%d for the server list...', [Host, Port]);
   if not Client.Connect(Host, Port) then
   begin
+    { each host that failed is named with its own reason }
+    Errors := Format('%s: %s', [Host, Client.LastError]);
     Used := '';
     for I := 0 to High(Fallbacks) do
       if Client.Connect(Fallbacks[I], Port) then
       begin
         Used := Fallbacks[I];
         Break;
-      end;
+      end
+      else
+        Errors := Errors + Format('; %s: %s', [Fallbacks[I], Client.LastError]);
     if Used = '' then
     begin
-      Status := Format('no listserver at %s:%d (%s)', [Host, Port, Client.LastError]);
+      Status := Format('no listserver on port %d (%s)', [Port, Errors]);
       Failed := True;
       Exit;
     end;

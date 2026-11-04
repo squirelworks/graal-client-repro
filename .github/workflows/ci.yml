@@ -72,6 +72,11 @@ jobs:
           ls /c/tools/freepascal/units/i386-win32 | head -5
           scripts/build.sh
           scripts/test.sh
+      # the Windows programs of this run, for trying a PR on a Windows PC
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-programs
+          path: build/*/*.exe
 
   macos:
     # macOS runners can wait for hours; it is built for releases only (a

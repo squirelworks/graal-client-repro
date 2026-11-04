@@ -15,6 +15,7 @@ uses
   GZlib in '../../common/GZlib.pas',
   GBzip2 in '../../common/GBzip2.pas',
   GSocket in '../../common/GSocket.pas',
+  GAssetDirs in '../../common/GAssetDirs.pas',
   GLevel in '../../common/GLevel.pas',
   GSurface in '../../common/GSurface.pas',
   GArrays in '../../common/GArrays.pas',
@@ -302,6 +303,41 @@ begin
     C.Free;
     Codec.Free;
   end;
+end;
+
+procedure PutText(const Path, Text: string);
+var
+  L: TStringList;
+begin
+  ForceDirectories(ExtractFilePath(Path));
+  L := TStringList.Create;
+  try
+    L.Text := Text;
+    L.SaveToFile(Path);
+  finally
+    L.Free;
+  end;
+end;
+
+{ The program's folder and the graal-assets next to it come first; the
+  folder given with --data is searched last. }
+procedure TestAssetOrder;
+var
+  Root, Exe, Data: string;
+begin
+  Root := IncludeTrailingPathDelimiter(GetTempDir) + 'assetorder-' + IntToStr(Random(1000000)) + PathDelim;
+  Exe := Root + 'exe' + PathDelim;
+  Data := Root + 'data' + PathDelim;
+  PutText(Exe + 'a.txt', 'exe');
+  PutText(Exe + 'graal-assets' + PathDelim + '2.22' + PathDelim + 'b.txt', 'assets');
+  PutText(Data + 'a.txt', 'data');
+  PutText(Data + 'b.txt', 'data');
+  PutText(Data + 'c.txt', 'data');
+  SetAssetRootsFor(Exe, Data, '2.22');
+  Check(AssetPath('a.txt') = Exe + 'a.txt', 'assets: the program folder wins over --data');
+  Check(Pos('graal-assets', AssetPath('b.txt')) > 0, 'assets: graal-assets next to the program wins over --data');
+  Check(AssetPath('c.txt') = Data + 'c.txt', 'assets: --data is still searched, last');
+  SetAssetRootsFor('', '', '');
 end;
 
 { The HEIGHTS blocks of a generator gmap, and the height between points. }
@@ -1633,6 +1669,7 @@ begin
   TestListServer;
   TestResolveName;
   TestTerrainHeights;
+  TestAssetOrder;
   TestListTrailingNuls;
   TestBuiltins;
   TestLoginBurst;
