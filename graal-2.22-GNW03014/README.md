@@ -50,7 +50,10 @@ captures of the real 2.22 client, not from decompiled code:
   sheet, body, head, ganis, two levels; `common/builtin/`), so it runs
   with nothing next to it. Files from a 2.22 install next to it, or under
   `--data`, replace them, and `screenimg1.jpg` (also looked for in
-  `builtin/`) replaces the drawn start-screen backdrop.
+  `embedded/images/`) brings up the original 2.22 start window.
+  The shared `graal-assets/` folder (beside the program or one level up)
+  works too: `graal-assets/2.22/`, then `graal-assets/common/`
+  (`common/GAssetDirs.pas`).
 - **The listserver step**: hosts from `arrays2.dat` (line 0, then the
   fallbacks on lines 5 and 6), `listserver.txt` next to the program wins
   over it; id 7 (key, `GNW30123`, `newmain`) in a plain zlib frame, then

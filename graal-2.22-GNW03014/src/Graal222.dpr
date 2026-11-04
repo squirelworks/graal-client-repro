@@ -49,6 +49,7 @@ uses
   GArrays in '../../common/GArrays.pas',
   GBzip2 in '../../common/GBzip2.pas',
   GBuiltin in '../../common/GBuiltin.pas',
+  GAssetDirs in '../../common/GAssetDirs.pas',
   GAni in '../../common/GAni.pas',
   GFont in '../../common/GFont.pas',
   GWindow in '../../common/GWindow.pas',
@@ -277,7 +278,9 @@ begin
       else
         G.Log('warning: cannot load tile sheet ' + Sheet + '; using the built-in one');
     Data := Arg('--data', '');
-    if Data <> '' then G.UseInstall(Data);
+    { no --data: the program's folder (and a graal-assets beside it) }
+    if Data = '' then Data := ExtractFilePath(ParamStr(0));
+    G.UseInstall(Data);
     Script.Parse(Arg('--keys', ''));
     if Arg('--keys', '') <> '' then WalkName := Arg('--walk', 'script')
     else WalkName := Arg('--walk', 'idle');
@@ -513,7 +516,11 @@ begin
       wins over it, and with neither, a Seihai listserver on this machine }
     { SIGTERM / Ctrl+C end the program on the start screen too }
     InstallStopHandlers;
-    Hosts := LoadListHosts(Dir + 'arrays2.dat');
+    SetAssetRoots(Dir, ClientBuildLabel);
+    if AssetPath('arrays2.dat') <> '' then
+      Hosts := LoadListHosts(AssetPath('arrays2.dat'))
+    else
+      Hosts := LoadListHosts(Dir + 'arrays2.dat');
     ArrHost := '127.0.0.1';
     if Length(Hosts.Hosts) > 0 then ArrHost := Hosts.Hosts[0];
     ReadListServer(Dir, ArrHost, Hosts.Port, ListHost, ListPort);
