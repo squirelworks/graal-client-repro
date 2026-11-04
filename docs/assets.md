@@ -49,6 +49,8 @@ that has it:
 | 4.04r2 (PR #35) | `4.04r2` | `4.04r2/` |
 | 4.20r8 (PR #38) | `4.20r8` | `4.20r8/` |
 | 4.20r6 (PR #40) | `4.20r6;4.20r8` | `4.20r6/` (none shipped), then `4.20r8/`: its install's files are 4.20r8's byte for byte |
+| 1998-99 betas b1 to b15, b4a, b5a, b9a (PRs #51 to #69) | `bN` (own folder only) | `bN/` |
+| Graal3D (PR #70) | `3d` | `3d/` |
 | Zelda Online 1 (Java, `ZeldaOnline1.jar`) | its own `Assets` class, same order | `zelda-online1/` |
 
 `--data DIR` today replaces the program's folder: with it, the root and a
@@ -130,6 +132,24 @@ scripts/assets/needed_assets.py /tmp/graal-assets graal-assets.zip \
 The zip is deterministic (sorted names, fixed times) and extracts as
 `graal-assets/`. It lives with Squirrel's project files, never here.
 
+**The 1998-99 betas** keep their levels and the pictures their levels
+name next to the exe (1st to 3rd Graal and the 4th alpha have no
+`levels/` at all), and their builds look a name up in the folder and in
+`levels/`. So a beta folder keeps `arrays.dat` and every level file
+(`.graal`, `.zelda`, `.editor`, `.forest`) and picture (`.gif`, `.png`),
+in `levels/` or at the top. Sounds, music (`.wav`, `.mid`) and `.lost`
+files are cut: the beta builds play none. **Graal3D** keeps the 20
+meshes and textures its build opens (`level1.x`, the body-part `.x`
+files and the `.bmp` textures); `startlevel.x` is the server's.
+
+**Fallback labels.** `needed_assets.py --fallback VERSION=OTHER` leaves
+out of VERSION's folder what OTHER has byte for byte, for a build
+labelled `VERSION;OTHER`. It refuses when OTHER has any file VERSION's
+install lacks. The betas that qualify, one level deep: b12, b13, b14 and
+b15 on b11 (b12's kept files are b11's exactly), and b8 on b7. With
+those labels the zip goes from 35 MB to 23 MB; until the beta builds
+carry them, every beta has its full folder.
+
 ### Known gaps
 
 - No install in hand has 2.22's `arrays2.dat`; Graal222 falls back to
@@ -163,21 +183,21 @@ would save.
 
 | Line | Install root holds | Runtime files | KB | Same as previous | Rebuilt |
 |---|---|---:|---:|---:|---|
-| 1st Graal (1998) | levels as `level*.graal`/`house*.graal` beside the exe; `pics1.gif`, `link.gif`, `letters.gif`, `state.gif`, `opps.gif`, `map.gif`, `arrays.dat`, `objects.dat` | 24 | 264 | 0 | no |
-| 2nd Graal | `.zelda`/`.editor` levels and gifs beside the exe | 158 | 513 | 11 | no |
-| 3rd Graal | as 2nd, plus `.graal` levels and `.WAV` sounds at the top | 262 | 864 | 117 | no |
-| 4th alpha | as 3rd, `.forest` levels | 696 | 2162 | 170 | no |
-| 4th Graal | first `levels/` folder; `heads.gif` and gif sheets at the top | 267 | 871 | 4 | no |
-| 5th alpha | top-level gif sheets only | 10 | 304 | 1 | no |
-| 5th Graal | `levels/`, `sounds/`, gif sheets (`pics1`, `sprites`, `state`, `letters`, `heads`, `opps`, `map`) | 719 | 2507 | 6 | no |
-| 6th Graal | as 5th, `map2.gif` | 813 | 2878 | 47 | no |
-| 7th Graal | as 6th | 1014 | 3443 | 651 | no |
-| 8th Graal | as 7th | 1025 | 3370 | 1005 | no |
-| 9th alpha | sheets only | 5 | 101 | 0 | no |
-| 9th Graal | sheets and `sounds/`, no levels | 39 | 797 | 4 | no |
-| 10th Graal | as 8th | 1538 | 5803 | 36 | no |
-| 11th to 14th | as 10th | 1557 | 5945 | 1499 to 1557 | no |
-| 15th Graal | as 14th, `map3.gif` | 1741 | 6962 | 1530 | no |
+| 1st Graal (1998) | levels as `level*.graal`/`house*.graal` beside the exe; `pics1.gif`, `link.gif`, `letters.gif`, `state.gif`, `opps.gif`, `map.gif`, `arrays.dat`, `objects.dat` | 24 | 264 | 0 | **yes** (`b1/`) |
+| 2nd Graal | `.zelda`/`.editor` levels and gifs beside the exe | 158 | 513 | 11 | **yes** (`b2/`) |
+| 3rd Graal | as 2nd, plus `.graal` levels and `.WAV` sounds at the top | 262 | 864 | 117 | **yes** (`b3/`) |
+| 4th alpha | as 3rd, `.forest` levels | 696 | 2162 | 170 | **yes** (`b4a/`) |
+| 4th Graal | first `levels/` folder; `heads.gif` and gif sheets at the top | 267 | 871 | 4 | **yes** (`b4/`) |
+| 5th alpha | top-level gif sheets only | 10 | 304 | 1 | **yes** (`b5a/`) |
+| 5th Graal | `levels/`, `sounds/`, gif sheets (`pics1`, `sprites`, `state`, `letters`, `heads`, `opps`, `map`) | 719 | 2507 | 6 | **yes** (`b5/`) |
+| 6th Graal | as 5th, `map2.gif` | 813 | 2878 | 47 | **yes** (`b6/`) |
+| 7th Graal | as 6th | 1014 | 3443 | 651 | **yes** (`b7/`) |
+| 8th Graal | as 7th | 1025 | 3370 | 1005 | **yes** (`b8/`) |
+| 9th alpha | sheets only | 5 | 101 | 0 | **yes** (`b9a/`) |
+| 9th Graal | sheets and `sounds/`, no levels | 39 | 797 | 4 | **yes** (`b9/`) |
+| 10th Graal | as 8th | 1538 | 5803 | 36 | **yes** (`b10/`) |
+| 11th to 14th | as 10th | 1557 | 5945 | 1499 to 1557 | **yes** (`b11/` `b12/` `b13/` `b14/`) |
+| 15th Graal | as 14th, `map3.gif` | 1741 | 6962 | 1530 | **yes** (`b15/`) |
 | 1.1 / 1.1.9 | as 15th | 1643 | 5065 | 1503 / 1641 | no |
 | 1.21 | InstallShield setup only, not unpacked | 0 | 0 | | no |
 | 1.28b2, 1.3 test, 1.31, 1.32 | gif sheets; `bigmap.txt`, `minimap.txt`, `zeldamap.txt`, `ccbig`/`ccsmall` | 435 to 440 | 1800 | 434 to 435 | no |
@@ -197,7 +217,7 @@ would save.
 | 4.20r6 | Linux installer 4.206 (Drive "Graal v4.20r6[Linux][Installer][2007-01-10].bin"); the rebuild is of the Mac 4.20r6, whose dmg is not unpacked. Same files as 4.20r8 byte for byte except `license/sig.graal` | 130 | | | **yes** (reads `4.20r8/`) |
 | 3.153 (Mac) | install in `graal-decompile/torque/mac3153`; not inventoried until a build lands | | | | no |
 | 5.x, 6.x | unpacked Windows clients in `graal-decompile/unpacked-installers/` (5.12 to 6.03r7) | | | | 5.00r7 in flight (PR #39) |
-| Graal3D (2000) | DirectX `.x` meshes and `.bmp` textures at the top | 21 | 455 | | no |
+| Graal3D (2000) | DirectX `.x` meshes and `.bmp` textures at the top | 21 | 455 | | **yes** (`3d/`) |
 | Zelda Online 1 | applet: `pics1.gif`, `arrays.dat`, 36 `level*.zelda` (`Z3-V1.03`), `link.gif`, `state.gif`, `hit.au`, classes (from Drive `zeldaonline1.7z`) | 38 kept | 130 | | **yes** (`zelda-online1/`: `pics1.gif`, `arrays.dat`, `levels/*.zelda`) |
 | Zelda Online 2 | Java classes and levels under `game/` (author source alongside: never copied) | 90 | 535 | | no |
 | Java Graal, Game Boy demo | not in `graal clients.zip` (`javagraal_rip.rar`, `graalgb.rar` on Drive) | | | | no |
