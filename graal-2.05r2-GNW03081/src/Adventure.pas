@@ -16,7 +16,7 @@ interface
 
 uses
   Classes, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GAssetDirs, GraalClient, Protocol205,
-  Npc205;
+  Npc205, Baddy205;
 
 const
   { The game view. 2.05's window size is not yet read from the binary;
@@ -164,7 +164,6 @@ type
     procedure DrawCombat(CamX, CamY: Integer);
     procedure HandleMessage(Id: Integer; const Data: string);
     procedure ClientLog(const Line: string);
-    function PointBlocked(PX, PY: Double): Boolean;
     procedure SendInitialProps;
     procedure SendMovedProps;
     function BodyFor(P: TServerPlayer): TGSurface;
@@ -340,6 +339,10 @@ type
   public
     { NPCs and their scripts (Npc205, NpcBridge205) }
     Npcs: TNpcManager;
+    { baddies (Baddy205): from the level offline, from the server online }
+    Baddies: TBaddyManager;
+    { walls, chests and blocking NPCs at a point, in tiles }
+    function PointBlocked(PX, PY: Double): Boolean;
     function IsOnline: Boolean;
     procedure SendPacket(Id: Integer; const Data: string);
     property Client: TAdventureClient read FClient;
@@ -783,6 +786,7 @@ begin
   AddDefaultWeapon(8);
   UseBuiltins;
   Npcs := CreateNpcManager(Self);
+  Baddies := CreateBaddyManager(Self);
 end;
 
 function TAdventure.IsOnline: Boolean;
@@ -808,7 +812,8 @@ destructor TAdventure.Destroy;
 var
   I: Integer;
 begin
-  Npcs.Free;
+  FreeAndNil(Baddies);
+  FreeAndNil(Npcs);
   FClient.Free;
   Level.Free;
   Player.Free;
@@ -2193,11 +2198,13 @@ begin
     Level.Name := ExtractFileName(FileName);
     if Result then FLevelDir := '';
     if Result then Npcs.LoadLevel(Level);
+    if Result then Baddies.LoadLevel(Level);
     Exit;
   end;
   Result := Level.LoadFromFile(FileName);
   if Result then FLevelDir := ExtractFilePath(FileName);
   if Result then Npcs.LoadLevel(Level);
+  if Result then Baddies.LoadLevel(Level);
 end;
 
 function TAdventure.LinkAt(PX, PY: Double): Integer;
@@ -2346,7 +2353,7 @@ var
   I, J, BX, BY, BW, BH: Integer;
   FX, FY: Double;
 begin
-  if Npcs.Receive(Id, Data) then
+  if Npcs.Receive(Id, Data) or Baddies.Receive(Id, Data) then
   begin
     if (Id >= 0) and (Id <= 255) then Inc(Handled[Id]);
     Exit;
@@ -2385,6 +2392,7 @@ begin
       PLO_LEVELNAME:
         begin
           Npcs.Clear;
+          Baddies.Clear;
           while FOthers.Count > 0 do RemoveOther(Others[0].Id);
           SetLength(Items, 0);
           SetLength(Thrown, 0);
@@ -2721,6 +2729,7 @@ begin
       Npcs.PlayerPush(D, Player.X, Player.Y);
   if Moved then Npcs.PlayerMoved(Player.X, Player.Y);
   Npcs.Tick;
+  Baddies.Tick;
   { links are tested on the player's own walk, at one point: the body's
     centre pushed ahead in the walking direction (measured on the real
     client, see LinkAhead) }
@@ -3061,6 +3070,7 @@ begin
     player, then anything in the air }
   DrawItems(CamX, CamY);
   Npcs.Draw(Screen, CamX, CamY, False);
+  Baddies.Draw(Screen, CamX, CamY);
   for I := 0 to FOthers.Count - 1 do
     DrawPlayer(Others[I], CamX, CamY);
   DrawPlayer(Player, CamX, CamY);

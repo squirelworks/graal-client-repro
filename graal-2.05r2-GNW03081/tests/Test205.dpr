@@ -25,12 +25,14 @@ uses
   GraalClient in '../src/GraalClient.pas',
   Gs1205 in '../src/Gs1205.pas',
   Npc205 in '../src/Npc205.pas',
+  Baddy205 in '../src/Baddy205.pas',
   NpcBridge205 in '../src/NpcBridge205.pas',
   Adventure in '../src/Adventure.pas',
   GFont in '../../common/GFont.pas',
   GWindow in '../../common/GWindow.pas',
   GStartScreen in '../../common/GStartScreen.pas',
-  TestNpc205 in 'TestNpc205.pas';
+  TestNpc205 in 'TestNpc205.pas',
+  TestBaddy205 in 'TestBaddy205.pas';
 
 var
   Passed, Failed, Skipped, NpcSkipped: Integer;
@@ -1307,6 +1309,7 @@ begin
   TestActions;
   RunNpcTests(Check, NpcSkipped);
   Inc(Skipped, NpcSkipped);
+  RunBaddyTests(Check);
   TestCombat;
   TestSigns;
   TestWeapons;
