@@ -62,3 +62,17 @@ jobs:
           ls /c/tools/freepascal/units/i386-win32 | head -5
           scripts/build.sh
           scripts/test.sh
+
+  macos:
+    # Homebrew's Free Pascal (aarch64-darwin). There is no window back end
+    # on macOS yet, so the client runs headless or writes frames (--dump).
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Free Pascal
+        run: brew install fpc
+      - name: Build and test
+        run: |
+          fpc -iV; fpc -iTP; fpc -iTO
+          scripts/build.sh
+          scripts/test.sh

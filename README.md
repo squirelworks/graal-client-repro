@@ -77,7 +77,7 @@ common unit, it gets its own copy in its folder rather than a flag in
 ## Toolchain
 
 - **Free Pascal 3.2** in Delphi mode (`-Mdelphi`) is the build used here and
-  in CI, on Linux and Windows.
+  in CI, on Linux, Windows and macOS.
 - **Delphi**: the units avoid anything newer than Delphi 5 (no generics, no
   inline variables, `string` used as a byte buffer as in 2001-era code), and
   take the Delphi path under `{$IFNDEF FPC}` (WinSock, the Borland `ZLib`
@@ -85,7 +85,9 @@ common unit, it gets its own copy in its folder rather than a flag in
   or 7 build has not been tried yet; it is the next toolchain check.
 - DelphiX (DirectDraw) does not build outside Windows or under Free Pascal,
   so the rebuilds draw into a software surface (`GSurface`) and a front end
-  shows it: a window (`--window`), or a `.bmp` (`--dump`).
+  shows it: a window (`--window`), or a `.bmp` (`--dump`). The window is
+  X11 on Linux and GDI on Windows; macOS has none yet, so there the client
+  runs headless or with `--dump`.
 
 ## Build, test, run
 
@@ -98,6 +100,11 @@ scripts/test.sh
 # Windows: install Free Pascal (e.g. `choco install freepascal`), put its
 # bin\i386-win32 folder on PATH, then run the same scripts from Git Bash.
 # build.sh hands the compiler native paths through cygpath.
+
+# macOS
+brew install fpc
+scripts/build.sh
+scripts/test.sh
 
 # offline: walk around a level in a window, with assets from your own install
 build/graal-2.05r2-GNW03081/Graal205 --level some.graal --data path/to/graal --window
@@ -128,17 +135,20 @@ steps and are required before a build counts as done.
    The build then joins the Seihai 1000-player stress runs as one of the
    client mixes.
 5. **Release.** Once phase 4 is merged, the build gets its own GitHub
-   release. The tag is the folder name (`graal-2.05r2-GNW03081`), and the
-   release carries the built Linux and Windows binaries.
-   `.github/workflows/release.yml` (run from the Actions tab with the
-   folder name, or by pushing the tag) builds that one folder and makes a
-   draft release; Squirrel reviews it and presses Publish.
+   release, versioned so it can be recompiled and released again as more
+   is learned about it. The tag is the folder name and the version
+   (`graal-2.05r2-GNW03081-v0.0.1`). The release text is the folder's
+   `RELEASE_NOTES.md`, and it carries the built Linux, Windows and macOS
+   binaries. `.github/workflows/release.yml` (run from the Actions tab with
+   the folder name and version, or by pushing the tag) builds that one
+   folder and makes a draft release; Squirrel reviews it and presses
+   Publish.
 
 ## Status
 
 | Build | Token | Wire | World | Play | Harden | Release |
 |---|---|---|---|---|---|---|
-| [2.05 rev 2](graal-2.05r2-GNW03081/) | `GNW03081` | done | board, player from ganis, window | walking and collision; props out; other players; level links | headless stress mode, fuzzed receive path, leak checks | not yet |
+| [2.05 rev 2](graal-2.05r2-GNW03081/) | `GNW03081` | done | board, player from ganis, window | walking and collision; props out; other players; level links | headless stress mode, fuzzed receive path, leak checks | v0.0.1 draft |
 
 ## Licence
 
