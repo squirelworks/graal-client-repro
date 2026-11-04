@@ -1,0 +1,55 @@
+# Graal 1.33 (GNW20020), 0.0.1
+
+A first rebuild of the Graal 1.33 client in Delphi (Object Pascal),
+for Linux and Windows. It logs in the way 1.33 did and plays a level
+offline. It is early and many parts still behave like a later Graal: see
+"Not yet".
+
+> **Not affiliated.** graal-delphi is an independent fan project. It is not
+> affiliated with, endorsed by, or connected to GraalOnline or
+> graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").
+
+The zips hold no original Graal code, graphics, sounds or levels. The
+client carries simple graphics of its own.
+
+## Downloads
+
+| Zip | Runs on | Window |
+|---|---|---|
+| `…-linux.zip` | Linux x86-64 | X11 |
+| `…-windows.zip` | Windows, 32-bit | GDI |
+
+Each zip has `Graal133` (the client), its test programs and the README.
+
+## Where to put your Graal files
+
+Put `Graal133` in a folder and copy the contents of your own 1.33 install
+next to it: `levels/`, `pics1.png` and the rest, as the install has them.
+The program reads only that folder. Without them it uses its own graphics
+and starter level.
+
+## What works
+
+- The login line: id 0, `GNW20020`, account and password, sent as one
+  zlib frame with no cipher.
+- The level the server sends (the board first, then its name), other
+  players, walking, links and warps.
+- A start screen: Training plays `levels/start1.graal` from your install
+  (or the built-in level), and Start offers one server address to connect
+  to, as 1.33 had no server list. It is `listserver.graal.in:14923`
+  until you set `serveraddr=` and `serverport=` in `graalconfig.txt` next
+  to the program.
+
+## Not yet
+
+Most of the game still follows a later Graal: the script commands, the
+item list, sound and the editor have not been checked against 1.33.
+No local 2 to 4 player modes, no UDP, no options page.
+
+## Checks behind this release
+
+The test programs run with range and overflow checks and the heap tracer
+and must end with no unfreed memory; they include a fuzz run of the
+receive path. CI also logs two of these clients into seihai-gserver on
+loopback, has the second see the first, and walks one through a level
+link.

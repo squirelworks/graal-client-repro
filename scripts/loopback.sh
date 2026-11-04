@@ -9,6 +9,10 @@ set -eu
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 GS=$1
 B=${2:-graal-2.05r2-GNW03081}
+# the 1998 builds (gen 1) talk to a relay, not to a gserver
+if grep -qs "ClientGeneration = 1;" "$ROOT/$B"/src/Protocol*.pas; then
+  exec "$ROOT/scripts/loopback-relay.sh" "$B"
+fi
 GSDIR=$(cd "$(dirname "$GS")/../.." && pwd)
 WORK=$(mktemp -d)
 trap 'kill $PID 2>/dev/null || true; rm -rf "$WORK"' EXIT
@@ -16,6 +20,9 @@ PORT=${LOOPBACK_PORT:-14862}
 cp -r "$GSDIR/world" "$WORK/world"
 # a port of its own, so a gserver left running on 14802 does not answer
 sed -i "s/14802/$PORT/" "$WORK/world/config/server.txt"
+# the build's own token too (the folder name ends with it), for builds
+# seihai-core has no profile for
+printf '\n%s\n' "${B##*-}" >> "$WORK/world/config/allowedversions.txt"
 # two levels joined by a link at x 36 of the start level
 mkdir -p "$WORK/world/levels"
 printf 'GLEVNW01\nLINK linked.nw 36 0 1 64 2 playery\n' > "$WORK/world/levels/onlinestartlocal.nw"
