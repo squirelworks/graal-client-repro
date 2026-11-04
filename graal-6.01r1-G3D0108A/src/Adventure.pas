@@ -400,7 +400,8 @@ begin
   else if Kind = 'sword' then F := FindFile(Name, ['levels/swords/', 'levels/', ''])
   else if Kind = 'shield' then F := FindFile(Name, ['levels/shields/', 'levels/', ''])
   else if Kind = 'hat' then F := FindFile(Name, ['levels/hats/', 'levels/', ''])
-  else F := FindFile(Name, ['', 'levels/', 'levels/images/']);
+  else F := FindFile(Name, ['', 'levels/', 'levels/images/', 'levels/tiles/',
+    'levels/images/downloads/']);
   S := nil;
   if F <> '' then
   begin
@@ -853,6 +854,19 @@ begin
   FLevels.AddObject(LowerCase(Name), Result);
 end;
 
+{ The first of Rels found under the asset roots, or ''. }
+function FirstAssetPath(const Rels: array of string): string;
+var
+  I: Integer;
+begin
+  Result := '';
+  for I := 0 to High(Rels) do
+  begin
+    Result := AssetPath(Rels[I]);
+    if Result <> '' then Exit;
+  end;
+end;
+
 procedure TAdventure.UseInstall(const Dir: string);
 var
   P: string;
@@ -865,8 +879,9 @@ begin
     not a sheet given with --sheet }
   if (Sheet.Width = 0) or SheetBuiltin then
   begin
-    P := AssetPath('pics1.png');
-    if P = '' then P := AssetPath('pics1.gif');
+    { a 5.x/6.x install keeps its tile sheet in levels/tiles/ }
+    P := FirstAssetPath(['pics1.png', 'pics1.gif', 'levels/tiles/pics1.png',
+      'levels/tiles/pics1.gif']);
     if (P <> '') and LoadImageFile(P, Sheet) then SheetBuiltin := False;
   end;
   P := AssetPath('arrays.dat');
