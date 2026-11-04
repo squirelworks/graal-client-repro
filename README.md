@@ -138,7 +138,7 @@ steps and are required before a build counts as done.
 
 | Build | Token | Wire | World | Play | Harden | Release |
 |---|---|---|---|---|---|---|
-| [2.05 rev 2](graal-2.05r2-GNW03081/) | `GNW03081` | done | board, player from ganis, window | walking and collision; props out; other players | not started | not yet |
+| [2.05 rev 2](graal-2.05r2-GNW03081/) | `GNW03081` | done | board, player from ganis, window | walking and collision; props out; other players; level links | not started | not yet |
 
 ## Licence
 

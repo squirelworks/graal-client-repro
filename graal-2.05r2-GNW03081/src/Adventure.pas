@@ -90,6 +90,10 @@ type
     FSentSprite: Integer;
     FPropsSent: Boolean;
     FOthers: TList;
+    FLevelDir: string;     { folder of the level file played offline }
+    FWarpPending: Boolean; { a link warp was asked of the server }
+    FWarpX, FWarpY: Double;
+    FWarpLevel: string;
     procedure HandleMessage(Id: Integer; const Data: string);
     procedure ClientLog(const Line: string);
     function PointBlocked(PX, PY: Double): Boolean;
@@ -125,6 +129,14 @@ type
     { One frame: network in, game step, network out, draw. }
     procedure Tick;
     procedure Draw;
+    { Loads a level from disk for offline play; links then look for their
+      levels next to it, then in the install. }
+    function LoadLevelFile(const FileName: string): Boolean;
+    { The link under the player, or -1. }
+    function LinkAt(PX, PY: Double): Integer;
+    { Takes link I: online, asks the server for the level; offline, loads
+      it. Returns False when the level cannot be had. }
+    function FollowLink(I: Integer): Boolean;
     { The player's own wire sprite: direction + 4 x the 2.05 sprite number
       for the current animation step. }
     function OwnSprite: Integer;
@@ -698,6 +710,92 @@ begin
   P.Free;
 end;
 
+{ ---- level links ---- }
+
+function TAdventure.LoadLevelFile(const FileName: string): Boolean;
+begin
+  Result := Level.LoadFromFile(FileName);
+  if Result then FLevelDir := ExtractFilePath(FileName);
+end;
+
+function TAdventure.LinkAt(PX, PY: Double): Integer;
+var
+  I: Integer;
+  L: TLevelLink;
+begin
+  for I := 0 to High(Level.Links) do
+  begin
+    L := Level.Links[I];
+    if (PX >= L.X) and (PX < L.X + L.W) and (PY >= L.Y) and (PY < L.Y + L.H) then
+    begin
+      Result := I;
+      Exit;
+    end;
+  end;
+  Result := -1;
+end;
+
+{ An arrival is a number, or playerx / playery (or a negative number) for
+  "keep the player's coordinate". }
+function Arrival(const S: string; Keep: Double): Double;
+var
+  V: Double;
+begin
+  Result := Keep;
+  if (S = '') or (LowerCase(Copy(S, 1, 6)) = 'player') then Exit;
+  if not TryStrToFloat(S, V) then Exit;
+  if V >= 0 then Result := V;
+end;
+
+function TAdventure.FollowLink(I: Integer): Boolean;
+var
+  L: TLevelLink;
+  NX, NY: Double;
+  Path: string;
+begin
+  Result := False;
+  if (I < 0) or (I > High(Level.Links)) then Exit;
+  L := Level.Links[I];
+  NX := Arrival(L.NewX, Player.X);
+  NY := Arrival(L.NewY, Player.Y);
+  if FClient.Connected then
+  begin
+    if FWarpPending then Exit;
+    { c x*2, c y*2, then the level name; the server answers with the
+      warp, the level name and the board }
+    FClient.SendPacket(PLI_LEVELWARP, GChar(Round(NX * 2)) + GChar(Round(NY * 2)) + L.Dest);
+    FWarpPending := True;
+    FWarpX := NX;
+    FWarpY := NY;
+    FWarpLevel := L.Dest;
+    Log(Format('LEVELWARP %s %.1f,%.1f', [L.Dest, NX, NY]));
+    Result := True;
+    Exit;
+  end;
+  Path := '';
+  if (FLevelDir <> '') and FileExists(FLevelDir + L.Dest) then
+    Path := FLevelDir + L.Dest
+  else if (Assets.Dir <> '') and FileExists(IncludeTrailingPathDelimiter(Assets.Dir) + 'levels' + PathDelim + L.Dest) then
+    Path := IncludeTrailingPathDelimiter(Assets.Dir) + 'levels' + PathDelim + L.Dest
+  else if (Assets.Dir <> '') and FileExists(IncludeTrailingPathDelimiter(Assets.Dir) + L.Dest) then
+    Path := IncludeTrailingPathDelimiter(Assets.Dir) + L.Dest;
+  if Path = '' then
+  begin
+    Log('link to ' + L.Dest + ': level not found');
+    Exit;
+  end;
+  if not LoadLevelFile(Path) then
+  begin
+    Log('link to ' + L.Dest + ': ' + Level.LastError);
+    Exit;
+  end;
+  Player.X := NX;
+  Player.Y := NY;
+  Player.Level := Level.Name;
+  Log(Format('link to %s at %.1f,%.1f', [Level.Name, NX, NY]));
+  Result := True;
+end;
+
 { ---- props to the server ---- }
 
 function TAdventure.OwnSprite: Integer;
@@ -786,6 +884,7 @@ begin
           Player.X := R.ReadGChar / 2;
           Player.Y := R.ReadGChar / 2;
           Player.Level := R.ReadRest;
+          FWarpPending := False;
           FSentX := Player.X;
           FSentY := Player.Y;
           Log(Format('PLAYERWARP %s %.1f,%.1f', [Player.Level, Player.X, Player.Y]));
@@ -793,6 +892,15 @@ begin
       PLO_LEVELNAME:
         begin
           while FOthers.Count > 0 do RemoveOther(Others[0].Id);
+          if FWarpPending and (Data = FWarpLevel) then
+          begin
+            { the server sends no PLAYERWARP for a link: the client
+              completes its own pending warp when the level arrives }
+            Player.X := FWarpX;
+            Player.Y := FWarpY;
+            Player.Level := Data;
+          end;
+          FWarpPending := False;
           Level.Clear;
           Level.Name := Data;
           BoardLoaded := False;
@@ -857,7 +965,11 @@ begin
           DisconnectReason := Data;
           Log('DISCMESSAGE ' + Data);
         end;
-      PLO_WARPFAILED: Log('WARPFAILED ' + Data);
+      PLO_WARPFAILED:
+        begin
+          FWarpPending := False;
+          Log('WARPFAILED ' + Data);
+        end;
       PLO_TOALL: Log('TOALL ' + Data);
       PLO_SETACTIVELEVEL: Log('SETACTIVELEVEL ' + Data);
       PLO_LEVELMODTIME, PLO_ISLEADER, PLO_DEFAULTWEAPON, PLO_UNKNOWN168,
@@ -897,6 +1009,8 @@ begin
       Moved := True;
     end;
   if Moved then Player.SetAni('walk', Frame) else Player.SetAni('idle', Frame);
+  { links are tested on the player's own walk, at the body's centre }
+  if Moved then FollowLink(LinkAt(Player.X + 1.5, Player.Y + 2));
   SendMovedProps;
   FClient.Flush;
   Draw;

@@ -173,7 +173,7 @@ begin
     end
     else
     begin
-      OK := G.Level.LoadFromFile(Arg('--level', ''));
+      OK := G.LoadLevelFile(Arg('--level', ''));
       if OK then
       begin
         G.Player.X := StrToFloatDef(Arg('--x', '30'), 30);

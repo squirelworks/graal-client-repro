@@ -1,7 +1,7 @@
 #!/bin/sh
 # Loopback acceptance check: log two copies of a rebuilt client into
 # seihai-gserver. Both must log in and load the board, and the second must
-# see the first in its level.
+# see the first in its level. Then one walks through a level link.
 #   scripts/loopback.sh GSERVER_BIN [BUILD]
 # GSERVER_BIN: a built seihai-gserver (https://github.com/squirelworks/seihai-gserver).
 # BUILD: folder name, default graal-2.05r2-GNW03081.
@@ -16,6 +16,10 @@ PORT=${LOOPBACK_PORT:-14862}
 cp -r "$GSDIR/world" "$WORK/world"
 # a port of its own, so a gserver left running on 14802 does not answer
 sed -i "s/14802/$PORT/" "$WORK/world/config/server.txt"
+# two levels joined by a link at x 36 of the start level
+mkdir -p "$WORK/world/levels"
+printf 'GLEVNW01\nLINK linked.nw 36 0 1 64 2 playery\n' > "$WORK/world/levels/onlinestartlocal.nw"
+printf 'GLEVNW01\nLINK onlinestartlocal.nw 0 0 1 64 33 playery\n' > "$WORK/world/levels/linked.nw"
 for A in loop1 loop2; do
   GRAAL_PW=loopbackpw "$GS" account $A --password-env GRAAL_PW --world "$WORK/world"
 done
@@ -35,9 +39,14 @@ GRAAL_PW=loopbackpw "$CLIENT" --server 127.0.0.1:$PORT --account loop2 \
 RC2=$?
 wait $C1
 RC=$?
+# loop1 again, walking right into the link
+GRAAL_PW=loopbackpw "$CLIENT" --server 127.0.0.1:$PORT --account loop1 \
+  --frames 50 --keys "wait*5,right*14,wait*10" > "$WORK/link.log" 2>&1
+RC3=$?
 set -e
 echo "--- loop1"; cat "$WORK/loop1.log"
 echo "--- loop2"; cat "$WORK/loop2.log"
+echo "--- loop1, link"; cat "$WORK/link.log"
 echo "--- gserver log"
 cat "$WORK/gserver.log"
 if [ "$(grep -c "logged in as" "$WORK/gserver.log")" -lt 2 ]; then
@@ -46,5 +55,9 @@ fi
 if ! grep -q "other player .* loop1" "$WORK/loop2.log"; then
   echo "loop2 did not see loop1"; exit 1
 fi
+if ! grep -q "BOARDPACKET linked.nw loaded" "$WORK/link.log"; then
+  echo "the link did not take loop1 to linked.nw"; exit 1
+fi
 [ $RC2 -eq 0 ] || exit $RC2
+[ $RC3 -eq 0 ] || exit $RC3
 exit $RC
