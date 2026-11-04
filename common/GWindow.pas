@@ -37,7 +37,12 @@ type
 {$ENDIF}{$ENDIF}
     FWidth, FHeight: Integer;
     FPressed: array[TGKey] of Boolean; { pressed since the last tick }
+    FClicked: Boolean;
+    FClickX, FClickY: Integer;
+    FChars: string;
+    procedure AddClick(X, Y: Integer);
   public
+    MouseX, MouseY: Integer;
     Held: array[TGKey] of Boolean;
     Closed: Boolean;
     constructor Create(const Title: string; AWidth, AHeight: Integer);
@@ -49,6 +54,12 @@ type
     { True once for each press since the last call (for one-shot keys). }
     function WasPressed(K: TGKey): Boolean;
     procedure SetKey(K: TGKey; Down: Boolean);
+    { The last left click since the last call, in window pixels. }
+    function TakeClick(out X, Y: Integer): Boolean;
+    { Characters typed since the last call: printable ones, #8 backspace,
+      #9 tab, #13 enter, #27 escape. }
+    function TakeChars: string;
+    procedure AddChar(C: Char);
   end;
 
 implementation
@@ -67,6 +78,34 @@ begin
   if K = gkNone then Exit;
   if Down and not Held[K] then FPressed[K] := True;
   Held[K] := Down;
+end;
+
+procedure TGWindow.AddClick(X, Y: Integer);
+begin
+  FClicked := True;
+  FClickX := X;
+  FClickY := Y;
+  MouseX := X;
+  MouseY := Y;
+end;
+
+function TGWindow.TakeClick(out X, Y: Integer): Boolean;
+begin
+  Result := FClicked;
+  X := FClickX;
+  Y := FClickY;
+  FClicked := False;
+end;
+
+procedure TGWindow.AddChar(C: Char);
+begin
+  if Length(FChars) < 256 then FChars := FChars + C;
+end;
+
+function TGWindow.TakeChars: string;
+begin
+  Result := FChars;
+  FChars := '';
 end;
 
 function TGWindow.WasPressed(K: TGKey): Boolean;
@@ -105,6 +144,18 @@ begin
     case Msg of
       WM_KEYDOWN: begin ActiveWindow.SetKey(VKToKey(WP), True); Exit; end;
       WM_KEYUP: begin ActiveWindow.SetKey(VKToKey(WP), False); Exit; end;
+      WM_CHAR: begin ActiveWindow.AddChar(Chr(WP and $FF)); Exit; end;
+      WM_LBUTTONDOWN:
+        begin
+          ActiveWindow.AddClick(SmallInt(LP and $FFFF), SmallInt((LP shr 16) and $FFFF));
+          Exit;
+        end;
+      WM_MOUSEMOVE:
+        begin
+          ActiveWindow.MouseX := SmallInt(LP and $FFFF);
+          ActiveWindow.MouseY := SmallInt((LP shr 16) and $FFFF);
+          Exit;
+        end;
       WM_CLOSE: begin ActiveWindow.Closed := True; Exit; end;
     end;
   Result := DefWindowProc(Wnd, Msg, WP, LP);
@@ -252,7 +303,7 @@ begin
   XSetWMNormalHints(D, FWin, Hints);
   XFree(Hints);
   XSelectInput(D, FWin, KeyPressMask or KeyReleaseMask or ExposureMask or
-    StructureNotifyMask);
+    StructureNotifyMask or ButtonPressMask or PointerMotionMask);
   Atom := XInternAtom(D, 'WM_DELETE_WINDOW', False);
   FWmDelete := Atom;
   XSetWMProtocols(D, FWin, @Atom, 1);
@@ -295,6 +346,9 @@ procedure TGWindow.Pump;
 var
   D: PDisplay;
   E: TXEvent;
+  Buf: array[0..15] of Char;
+  N, I: Integer;
+  Sym: TKeySym;
 begin
   D := FDisplay;
   if D = nil then Exit;
@@ -302,7 +356,28 @@ begin
   begin
     XNextEvent(D, @E);
     case E._type of
-      KeyPress: SetKey(KeySymToKey(XLookupKeysym(@E.xkey, 0)), True);
+      KeyPress:
+        begin
+          Sym := XLookupKeysym(@E.xkey, 0);
+          SetKey(KeySymToKey(Sym), True);
+          if Sym = XK_BackSpace then AddChar(#8)
+          else if (Sym = XK_Return) or (Sym = XK_KP_Enter) then AddChar(#13)
+          else if Sym = XK_Tab then AddChar(#9)
+          else if Sym = XK_Escape then AddChar(#27)
+          else
+          begin
+            N := XLookupString(@E.xkey, @Buf[0], SizeOf(Buf), nil, nil);
+            for I := 0 to N - 1 do
+              if (Buf[I] >= ' ') and (Buf[I] <= '~') then AddChar(Buf[I]);
+          end;
+        end;
+      ButtonPress:
+        if E.xbutton.button = 1 then AddClick(E.xbutton.x, E.xbutton.y);
+      MotionNotify:
+        begin
+          MouseX := E.xmotion.x;
+          MouseY := E.xmotion.y;
+        end;
       KeyRelease: SetKey(KeySymToKey(XLookupKeysym(@E.xkey, 0)), False);
       ClientMessage:
         if Cardinal(E.xclient.data.l[0]) = FWmDelete then Closed := True;
