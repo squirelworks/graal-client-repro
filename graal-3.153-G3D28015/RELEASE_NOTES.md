@@ -1,0 +1,56 @@
+# Graal 3.153 (G3D28015)
+
+The first rebuild of the Graal 3.153 client, in Delphi (Object Pascal).
+The original 3.153 is a Mac OS X program built on the Torque engine; this
+rebuild runs on Linux and Windows. On the wire 3.153 talks the same
+protocol as the Windows 2.31 client. It is an early version: most of the
+game (NPCs, items, weapons, the script engine, the 3D mode) is not there
+yet.
+
+> **Not affiliated.** graal-delphi is an independent fan project. It is not
+> affiliated with, endorsed by, or connected to GraalOnline or
+> graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").
+
+These zips hold no original Graal code, graphics, sounds or levels. The
+program carries small original default graphics and a starter level of its
+own, so it runs as it is. Put it in the root of a 3.153 install you own (or
+point it at one with `--data DIR`) and the install's tiles, ganis, heads and
+bodies take their place. The shared `graal-assets/` folder next to the
+program works too (`graal-assets/3.153/`, then `graal-assets/common/`).
+
+## Downloads
+
+| Zip | Runs on | Window |
+|---|---|---|
+| `…-linux.zip` | Linux x86-64 | X11 |
+| `…-windows.zip` | Windows, 32-bit | GDI |
+
+Each zip has `Graal3153` (the client), `Test3153` (its test suite) and the
+build's README.
+
+## What works
+
+- The start screen: nick name, Training, Start. Start fetches the server
+  list from the host in the install's `license/license.graal`, or
+  `listserver.txt` next to the program, or else `listserver.graal.in` on
+  port 14922. Then account, password and Connect.
+- The listserver login (`G3D30123newmain` and the account in one frame).
+- Login to a server with `G3D28015`, with no tamper check.
+- The first props, with `mac` as the system name.
+- The board, the player and other players drawn from the install's tiles
+  and ganis; walking and collision; level links; gmaps and their edges.
+- A headless mode for stress runs, with JSON stats.
+
+## Not yet
+
+NPCs, baddies, items and weapons; the GS1 script engine; chat; the 3D
+mode; the RC file browser and script uploads; server text, class scripts
+and gani scripts; precise movement; Options; the UDP channel between
+players. See the build's README for the full list.
+
+## Checks behind this release
+
+The test suite (87 checks) runs with range and overflow checks and the heap
+tracer, and must end with no unfreed memory. CI also logs two of these
+clients into seihai-gserver, has the second see the first, and walks one
+through a level link.
