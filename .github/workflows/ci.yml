@@ -56,5 +56,9 @@ jobs:
         shell: bash
         run: |
           export PATH="$(ls -d /c/tools/freepascal/bin/* | head -1):$PATH"
+          # The Chocolatey install has no fpc.cfg naming the unit folders,
+          # so name them here (Windows path form, with FPC's * wildcard).
+          export FPCFLAGS='-O2 -FuC:\tools\freepascal\units\i386-win32\*'
+          ls /c/tools/freepascal/units/i386-win32 | head -5
           scripts/build.sh
           scripts/test.sh

@@ -30,7 +30,10 @@ jobs:
       - name: Build and test
         shell: bash
         run: |
-          if [ "$RUNNER_OS" = Windows ]; then export PATH="$(ls -d /c/tools/freepascal/bin/* | head -1):$PATH"; fi
+          if [ "$RUNNER_OS" = Windows ]; then
+            export PATH="$(ls -d /c/tools/freepascal/bin/* | head -1):$PATH"
+            export FPCFLAGS='-O2 -FuC:\tools\freepascal\units\i386-win32\*'
+          fi
           scripts/build.sh "$GITHUB_REF_NAME"
           scripts/test.sh
       - name: Pack

@@ -18,7 +18,8 @@ for B in $BUILDS; do
   for P in "$B"/src/*.dpr "$B"/tests/*.dpr; do
     [ -f "$P" ] || continue
     echo "== $P"
-    (cd "$(dirname "$P")" && "$FPC" -Mdelphi -Sh -vew $FLAGS \
+    # set -f: FPCFLAGS may hold FPC's own * wildcard, not a shell glob
+    (set -f; cd "$(dirname "$P")" && "$FPC" -Mdelphi -Sh -vew $FLAGS \
       -Fu../../common -Fu../src -FE"../../build/$B" -FU"../../build/$B" \
       "$(basename "$P")")
   done
