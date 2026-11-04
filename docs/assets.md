@@ -12,12 +12,13 @@ client line's own install held.
   Graal205(.exe)        every rebuilt client sits at the top
   Graal217(.exe)
   Graal222(.exe)
-  Graal304              (Linux only, as the original)
+  Graal304              3.04 (Linux, as the original)
   graal-assets/         graal-assets.zip extracted here
     README.txt
     common/             byte for byte the same in every version that has it
     2.05r2/             one folder per version line, named by the build's
     2.22/               version label (ClientBuildLabel)
+    3.04/
 ```
 
 Nothing above the root is read. A real install dropped into the root, laid
@@ -41,7 +42,7 @@ that has it:
 | 2.05, 2.05 rev 1 (2.0-line thread) | own label, then `2.05r2` | own folder if any, then `2.05r2/` |
 | 2.17.1 | `2.17.1;2.22` | `2.17.1/` (none shipped), then `2.22/`: 2.17.1 came in the same folder as 2.22 |
 | 2.22 | `2.22` | `2.22/` |
-| 3.04 | `3.04` | `3.04/` (not in the zip yet: no 3.04 install in hand) |
+| 3.04 | `3.04` | `3.04/` (the Linux install, `graal-decompile/torque/lin304`) |
 
 `--data DIR` today replaces the program's folder: with it, the root and a
 `graal-assets/` beside the program are not read, only `DIR` (or
@@ -68,6 +69,17 @@ Only what a rebuilt client opens. The rule, applied by
   name (`mappw`, `mapmantara`, `ccbig`, `ccsmall`).
 - **The start-window art the start screens open:**
   `embedded/images/screenimg1.jpg`, `button1.bmp`, `button2.bmp`.
+- **3.04's `license/license.graal`** (its listserver host and port).
+
+**Start-window art belongs to its own version.** `embedded/images/` holds
+the pictures taken out of one version's exe. A build may only draw start
+art from its own version's folder, never through a fallback: the real
+Graal 2.17.1 exe carries its own small 160x115 skin, not 2.22's 577x416
+pictures. So 2.17.1 draws its built-in start screen unless
+`graal-assets/2.17.1/embedded/images/` exists, even though it reads
+`2.22/` for ordinary game files. (Graal217 on main opens no start art;
+some start-screen branches list `embedded/images/...` through
+`AssetPath`, which would follow the fallback to `2.22/`.)
 
 Cut, because no rebuilt client opens them: readmes, `newfeatures*`,
 `commands.rtf`, `npcprogramming.doc`, `DINPUTDLL-bug.txt`, language files,
@@ -86,11 +98,14 @@ the Graal NewMain 2.6 install) because the 2.05 rev 2 install has no
 ganis; Graal NW ganis (36 px cells for the NW bodies) broke 2.05 bodies
 and must not be used for the 2.0 line.
 
-**Deduplication.** `merge_assets.py` moves a file that is byte for byte the
-same at the same path in two or more versions to `common/`. The 2.05 rev 2
-and 2.22 sets share almost nothing byte for byte (2.22 re-saved its art);
-the 13 identical files sit at different paths (`emotions/` against
-`emoticons/`), so they stay in their version folders. A version that
+**Deduplication.** `merge_assets.py` moves a file to `common/` only when
+every set has it, byte for byte, at the same path. Every build reads
+`common/`, so a file shared by only some sets stays in their own folders;
+in `common/` it would hand the other builds a file their install never
+had. Today that leaves 5 files in `common/`. 2.22 and 3.04 share 110
+files byte for byte (ganis, emoticons, smilies) that 2.05 rev 2 lacks;
+they stay in both folders. The 2.05 rev 2 and 2.22 sets share almost
+nothing byte for byte (2.22 re-saved its art). A version that
 shipped with another version's files (2.17.1, 2.05, 2.05 rev 1) gets no
 folder of its own and reads the other's through its label.
 
@@ -115,8 +130,13 @@ The zip is deterministic (sorted names, fixed times) and extracts as
   `tutorial_b-4` names; 2.22's lacks `g2k2master[0].gani` and
   `petzzz.mng`, which `offlinetutorial_b-2` names. Older installs have
   `gate1.gif` (`levels/gifs/`), but it is not copied across versions.
-- Graal304 has no `3.04/` folder: no 3.04 install is in the project
-  files. It runs on its built-in art until one is supplied.
+- 3.04 keeps its files where its install had them: `levels/tiles/pics1.png`
+  and `picso.png`, `levels/images/sprites.png`, `state.png`, `bomb1/2.png`,
+  `levels/letters/letters.png`, `levels/tutorial/offlinetutorial_*.graal`,
+  and no `arrays.dat`. Graal304 on main looks for `pics1.png`, `picso.png`
+  and the tutorial at the top and in `levels/`, so with only the zip it
+  draws the built-in tiles and does not find Training; it needs the
+  build to search 3.04's own folders.
 - 2.17.1 reads 2.22's start-window art and has no `objects.dat` (2.22
   shipped `tileobjects/` instead), as the shared install had it.
 
@@ -159,8 +179,9 @@ would save.
 | 2.17.1 | shipped inside the 2.22 folder | | | | **yes** (reads `2.22/`) |
 | 2.22 | full install: `picso.png`, `levels/` with ganis, bomys, emoticons, midis, offline tutorial (from `graal-delphi-assets/2.22-src`, not in `graal clients.zip`) | 732 | 10348 | | **yes** (`2.22/`) |
 | 2.3, 2.31 | install not in project files | | | | no |
-| 3.04 (Linux) | install not in project files; the build reads `license/license.graal` for its listserver | | | | **yes** (`3.04/`, empty until an install is supplied) |
-| 3.153, 4.x to 6.x | installs not in project files | | | | no |
+| 3.04 (Linux) | Torque install (`graal-decompile/torque/lin304`, from Drive "Graal v3.04[Linux][Obsolete].sh"): `levels/` with `tiles/`, `tutorial/`, `images/`; `sounds/`, `maps/`, `license/`; Torque scripts in `common/`, `graaldata/` (cut) | 414 | 5600 | 110 same as 2.22 | **yes** (`3.04/`) |
+| 3.153 (Mac) | install in `graal-decompile/torque/mac3153`; not inventoried until a build lands | | | | no |
+| 4.x to 6.x | installs on Drive, not unpacked in project files | | | | no |
 | Graal3D (2000) | DirectX `.x` meshes and `.bmp` textures at the top | 21 | 455 | | no |
 | Zelda Online 2 | Java classes and levels under `game/` (author source alongside: never copied) | 90 | 535 | | no |
 | Java Graal, Game Boy demo | not in `graal clients.zip` (`javagraal_rip.rar`, `graalgb.rar` on Drive) | | | | no |

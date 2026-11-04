@@ -16,7 +16,8 @@ it (docs/assets.md has the reasons):
     arrays, sprites, the default player pictures and weapons) and the map
     grids with their pictures (bigmap.txt, setmap names);
   - the start-window background and buttons the start screens open
-    (embedded/images/screenimg1.jpg, button1.bmp, button2.bmp).
+    (embedded/images/screenimg1.jpg, button1.bmp, button2.bmp);
+  - 3.04's license/license.graal (its listserver).
 
 Everything else is cut: readmes, release notes, help files, language
 files, fonts, the rest of the resources taken out of the exe, the editor's
@@ -47,6 +48,8 @@ KEEP_PATHS = {
     'embedded/images/screenimg1.jpg',
     'embedded/images/button1.bmp',
     'embedded/images/button2.bmp',
+    # 3.04: the listserver host and port
+    'license/license.graal',
 }
 
 # builds with an editor of its own (objects.dat): the others cut it
