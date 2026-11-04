@@ -87,9 +87,12 @@ decompiled code:
 From the folder the program is in, or `--data DIR`, then
 `graal-assets/1.1.9/`, `graal-assets/b15/`, `graal-assets/b11/` and
 `graal-assets/common/`: `pics1.gif`, `arrays.dat`, `levels/*.graal`,
-`sounds/*.wav`, `map.gif`. 1.1.9 shipped 1,501 of its 1,649 files exactly
-as 15th Graal had them, so `graal-assets/1.1.9/` only needs the 148 that
-differ. Nothing above the program's folder is read.
+`sounds/*.wav`, `map.gif`. Most of 1.1.9's levels and pictures are the
+same files 15th Graal shipped, so `graal-assets/1.1.9/` holds 187 files:
+the 138 levels, pictures and `objects.dat` that differ from 15th Graal's,
+and the 48 sounds (`b15/` and `b11/` carry none). Through `b15/` the build
+also sees the 98 files 15th Graal had that 1.1.9 did not. Nothing above
+the program's folder is read.
 
 ## Build and run
 
