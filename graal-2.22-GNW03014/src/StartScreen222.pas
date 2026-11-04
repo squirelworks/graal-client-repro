@@ -56,8 +56,8 @@ type
 procedure Classic222(var L: TClassicLayout);
 
 const
-  Backgrounds222 = 'screenimg1.jpg;builtin/screenimg1.jpg;screenimg2.jpg;' +
-    'builtin/screenimg2.jpg;images/screenimg1.jpg';
+  Backgrounds222 = 'screenimg1.jpg;embedded/images/screenimg1.jpg;builtin/screenimg1.jpg;' +
+    'images/screenimg1.jpg';
 
 implementation
 
@@ -156,7 +156,7 @@ begin
   L.Used := True;
   L.FormW := 577;
   L.FormH := 416;
-  L.ButtonImages := 'button1.bmp;builtin/button1.bmp;images/button1.bmp';
+  L.ButtonImages := 'button1.bmp;embedded/images/button1.bmp;builtin/button1.bmp;images/button1.bmp';
   L.Training := StartRect(423, 215, 105, 26);
   L.Options := StartRect(423, 245, 105, 26);
   L.Start := StartRect(423, 345, 105, 26);
@@ -174,7 +174,7 @@ begin
   L.WelcomeCentered := True;
   L.Extra := StartRect(408, 275, 145, 26);
   L.ExtraText := 'Get an account';
-  L.ExtraImages := 'button2.bmp;builtin/button2.bmp;images/button2.bmp';
+  L.ExtraImages := 'button2.bmp;embedded/images/button2.bmp;builtin/button2.bmp;images/button2.bmp';
   L.AccountLabel := StartRect(76, 332, 60, 16);
   L.PasswordLabel := StartRect(76, 364, 73, 16);
   L.AccountField := StartRect(204, 329, 173, 24);
