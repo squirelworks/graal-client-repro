@@ -15,7 +15,8 @@ unit Adventure;
 interface
 
 uses
-  Classes, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GAssetDirs, GraalClient, Protocol205;
+  Classes, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GAssetDirs, GraalClient, Protocol205,
+  Npc205;
 
 const
   { The game view. 2.05's window size is not yet read from the binary;
@@ -334,6 +335,11 @@ type
     procedure DrawSign(CamTop: Integer);
     property Others[I: Integer]: TServerPlayer read GetOther;
     property OtherCount: Integer read GetOtherCount;
+  public
+    { NPCs and their scripts (Npc205, NpcBridge205) }
+    Npcs: TNpcManager;
+    function IsOnline: Boolean;
+    procedure SendPacket(Id: Integer; const Data: string);
     property Client: TAdventureClient read FClient;
     property LogLines: TStrings read FLog;
   end;
@@ -367,7 +373,7 @@ procedure MakeIndexSheet(Sheet: TGSurface);
 implementation
 
 uses
-  SysUtils, Math, GFont, GSound, Sound205, Map205;
+  SysUtils, Math, GFont, GSound, Sound205, Map205, NpcBridge205;
 
 procedure MakeIndexSheet(Sheet: TGSurface);
 var
@@ -774,6 +780,17 @@ begin
   Selected := -1;
   AddDefaultWeapon(8);
   UseBuiltins;
+  Npcs := CreateNpcManager(Self);
+end;
+
+function TAdventure.IsOnline: Boolean;
+begin
+  Result := FClient.Connected;
+end;
+
+procedure TAdventure.SendPacket(Id: Integer; const Data: string);
+begin
+  if FClient.Connected then FClient.SendPacket(Id, Data);
 end;
 
 procedure TAdventure.UseBuiltins;
@@ -789,6 +806,7 @@ destructor TAdventure.Destroy;
 var
   I: Integer;
 begin
+  Npcs.Free;
   FClient.Free;
   Level.Free;
   Player.Free;
@@ -886,7 +904,8 @@ function TAdventure.PointBlocked(PX, PY: Double): Boolean;
 var
   TX, TY, I: Integer;
 begin
-  Result := False;
+  Result := Npcs.PointBlocked(PX, PY);
+  if Result then Exit;
   { chests: x, y to x + 2, y + 2, edges included, opened or not }
   for I := 0 to High(Level.Chests) do
     if (PX >= Level.Chests[I].X) and (PX <= Level.Chests[I].X + 2) and
@@ -2171,10 +2190,12 @@ begin
     Result := Level.LoadFromString(D);
     Level.Name := ExtractFileName(FileName);
     if Result then FLevelDir := '';
+    if Result then Npcs.LoadLevel(Level);
     Exit;
   end;
   Result := Level.LoadFromFile(FileName);
   if Result then FLevelDir := ExtractFilePath(FileName);
+  if Result then Npcs.LoadLevel(Level);
 end;
 
 function TAdventure.LinkAt(PX, PY: Double): Integer;
@@ -2323,6 +2344,11 @@ var
   I, J, BX, BY, BW, BH: Integer;
   FX, FY: Double;
 begin
+  if Npcs.Receive(Id, Data) then
+  begin
+    if (Id >= 0) and (Id <= 255) then Inc(Handled[Id]);
+    Exit;
+  end;
   R := TGReader.Create(Data);
   try
     case Id of
@@ -2356,6 +2382,7 @@ begin
         end;
       PLO_LEVELNAME:
         begin
+          Npcs.Clear;
           while FOthers.Count > 0 do RemoveOther(Others[0].Id);
           SetLength(Items, 0);
           SetLength(Thrown, 0);
@@ -2686,6 +2713,12 @@ begin
   TickItems;
   TickShots;
   TickCombat;
+  { NPCs: pushing into one, walking over one, then timeouts }
+  for D := 0 to 3 do
+    if Keys[D] and ((Mode = ModeFree) or (Mode = ModeCarry)) then
+      Npcs.PlayerPush(D, Player.X, Player.Y);
+  if Moved then Npcs.PlayerMoved(Player.X, Player.Y);
+  Npcs.Tick;
   { links are tested on the player's own walk, at one point: the body's
     centre pushed ahead in the walking direction (measured on the real
     client, see LinkAhead) }
@@ -3025,11 +3058,13 @@ begin
   { items under the players (2.05's order is not known), others, then the
     player, then anything in the air }
   DrawItems(CamX, CamY);
+  Npcs.Draw(Screen, CamX, CamY, False);
   for I := 0 to FOthers.Count - 1 do
     DrawPlayer(Others[I], CamX, CamY);
   DrawPlayer(Player, CamX, CamY);
   DrawCombat(CamX, CamY);
   DrawShots(CamX, CamY);
+  Npcs.Draw(Screen, CamX, CamY, True);
   for I := 0 to High(Thrown) do
     DrawCarried(Thrown[I].Kind, Round(Thrown[I].X * TileSize) - CamX,
       Round(Thrown[I].Y * TileSize) - CamY);

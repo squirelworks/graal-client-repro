@@ -23,13 +23,17 @@ uses
   GAni in '../../common/GAni.pas',
   Protocol205 in '../src/Protocol205.pas',
   GraalClient in '../src/GraalClient.pas',
+  Gs1205 in '../src/Gs1205.pas',
+  Npc205 in '../src/Npc205.pas',
+  NpcBridge205 in '../src/NpcBridge205.pas',
   Adventure in '../src/Adventure.pas',
   GFont in '../../common/GFont.pas',
   GWindow in '../../common/GWindow.pas',
-  GStartScreen in '../../common/GStartScreen.pas';
+  GStartScreen in '../../common/GStartScreen.pas',
+  TestNpc205 in 'TestNpc205.pas';
 
 var
-  Passed, Failed, Skipped: Integer;
+  Passed, Failed, Skipped, NpcSkipped: Integer;
 
 procedure Check(Cond: Boolean; const What: string);
 begin
@@ -1301,6 +1305,8 @@ begin
   TestBuiltins;
   TestStatus;
   TestActions;
+  RunNpcTests(Check, NpcSkipped);
+  Inc(Skipped, NpcSkipped);
   TestCombat;
   TestSigns;
   TestWeapons;
