@@ -189,7 +189,7 @@ begin
   finally
     L.Free;
   end;
-  SetAssetRoots(Root, '2.22');
+  SetAssetRootsFor('', Root, '2.22');
   G := TAdventure.Create;
   try
     G.Headless := True;
@@ -230,7 +230,7 @@ begin
     UseDefaultMaps;
   finally
     G.Free;
-    SetAssetRoots('', '');
+    SetAssetRootsFor('', '', '');
     DeleteFile(Root + 'bigmap.txt');
     DeleteFile(Root + 'tutorialmap.txt');
     RemoveDir(Root);
