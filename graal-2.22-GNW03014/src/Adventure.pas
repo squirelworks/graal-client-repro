@@ -1083,7 +1083,13 @@ var
   Line: string;
 begin
   Line := Format('[%5d] %s', [Frame, S]);
-  if Echo then WriteLn(ErrOutput, Line);
+  if Echo then
+  begin
+    WriteLn(ErrOutput, Line);
+    { a redirected stderr is buffered: flushed per line, so a log read with
+      stdout in the same file is never cut by the JSON summary }
+    Flush(ErrOutput);
+  end;
   if FLog.Count >= LogKeep then FLog.Delete(0);
   FLog.Add(Line);
 end;
