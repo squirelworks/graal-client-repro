@@ -27,7 +27,7 @@ decompiled code:
 |---|---|---|
 | Game token | `GNW03014` | `G3D03014` |
 | Listserver | id 7 `GNW30123newmain` in a plain frame, then id 1 in gen 5 | id 7 `G3D30123newmain` and id 1 together in one plain zlib frame |
-| Listserver hosts | `arrays2.dat` | `license/license.graal` (line 0 host, line 1 port, lines 5 and 6 fallbacks); default `listserver.graal.in:14922` |
+| Listserver hosts | `arrays2.dat` | `listserver.graal.in:14922` first, always; then the hosts of `license/license.graal` (lines 0, 5 and 6) |
 | Login frame | 5 alone, then 37 + 39 in gen 5 | 5, 37, 34 `bigmap.txt`, 34 `minimap.txt`, all in the plain login frame |
 | Tamper check (39) | at login, after every warp and gmap crossing | never |
 | 24 every 5.1 s over TCP | with another player in the level | never (3.04 sends it to players over UDP) |
@@ -53,6 +53,12 @@ Put `Graal304` in the root of a 3.04 install (where the original
 finds the install's files from there, or from `graal-assets/3.04/` and
 `graal-assets/common/` next to it.
 
+It reads the 3.04 install's own layout: tile sheets in `levels/tiles/`
+(`pics1.png`, `picso.png`), the offline tutorial in `levels/tutorial/`,
+`levels/tiledefs/tiledefsOffline.txt` (which gives the tutorial levels the
+`picso.png` sheet), and `license/license.graal`. 3.04 ships no
+`arrays.dat`, so the built-in tile types are used.
+
 ```
 GRAAL_PW=... Graal304 --server HOST:PORT --account NAME
 Graal304 --level some.nw                  # offline
@@ -73,5 +79,6 @@ Graal304 --server HOST:PORT --account NAME --headless --seconds 600 \
 - Everything still missing from the 2.22 rebuild: NPCs, baddies, items,
   weapons, GS1, chat bubbles, Options.
 - Which offline tutorial level the Tutorial button opens, and where: the
-  rebuild tries `offlinetutorial_b-2` at (30, 30), else its starter level.
+  rebuild opens `levels/tutorial/offlinetutorial_b-2.graal` at (30, 30),
+  else its starter level.
 - No side-by-side run against the real 3.04 yet; that is 0.0.2 work.
