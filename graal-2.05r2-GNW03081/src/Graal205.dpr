@@ -3,6 +3,7 @@
   Command line:
     Graal205 --server HOST:PORT --account NAME [--password-env VAR]
     Graal205 --level FILE.graal|FILE.nw [--x X --y Y]
+    Graal205 FILE.graal|FILE.nw   open the level in the built-in editor
   common options:
     --data DIR        a Graal install: pics1, arrays.dat, levels/ganis, heads,
                       bodies, swords, shields, hats
@@ -59,7 +60,12 @@ uses
   Adventure in 'Adventure.pas',
   GStartScreen in '../../common/GStartScreen.pas',
   StartScreen205 in 'StartScreen205.pas',
-  RunMode in 'RunMode.pas';
+  RunMode in 'RunMode.pas',
+  GLevelWrite in '../../common/GLevelWrite.pas',
+  EditorDoc in 'editor/EditorDoc.pas',
+  EditorUI in 'editor/EditorUI.pas',
+  EditorView in 'editor/EditorView.pas',
+  EditorMain in 'editor/EditorMain.pas';
 
 var
   { Set while the start screen runs a game: the arguments it chose, read
@@ -249,7 +255,7 @@ var
   Hist: TTickHistogram;
   Server, Host, Sheet, Dump, Pw, Data, Account, WalkName, EndState, Error: string;
   Port, Frames, I, C, D, Seconds, StatsEvery, ExitCode_: Integer;
-  OK, Online, UseWindow, NoDelay, Dropped, Crashed: Boolean;
+  OK, Online, UseWindow, NoDelay, Dropped, Crashed, EditorFirst: Boolean;
   StartUs, GateUs, NowUs, T0, NextStatsUs: Int64;
   WasHeld: array[0..2] of Boolean;
 
@@ -268,6 +274,7 @@ begin
   Online := Server <> '';
   UseWindow := HasArg('--window') and not HasArg('--headless');
   NoDelay := HasArg('--nodelay');
+  EditorFirst := HasArg('--editor');
   Account := Arg('--account', '');
   InstallStopHandlers;
   G := TAdventure.Create;
@@ -386,6 +393,13 @@ begin
         begin
           Win.Pump;
           if Win.Closed or Win.Held[gkEscape] then Break;
+          { F4: the built-in level editor (offline only) }
+          if Win.WasPressed(gkEditor) or EditorFirst then
+          begin
+            EditorFirst := False;
+            EditorKey(Win, G, Online);
+            if Win.Closed then Break;
+          end;
           G.Keys[DirUp] := Win.Held[gkUp];
           G.Keys[DirLeft] := Win.Held[gkLeft];
           G.Keys[DirDown] := Win.Held[gkDown];
@@ -599,10 +613,54 @@ begin
   end;
 end;
 
+{ Graal205 level.graal: like 2.05, open the file in the editor in the
+  file's folder, with the local player at 30, 30.5. }
+function RunEditorFile(const FileName: string): Integer;
+var
+  Win: TGWindow;
+  Dir, Path: string;
+begin
+  Dir := ExtractFilePath(ParamStr(0));
+  Path := ExpandFileName(FileName);
+  Win := TGWindow.Create('Graal ' + ClientBuildLabel + ' (' + ClientVersionToken + ')',
+    ScreenW, ScreenH);
+  try
+    if not Win.Ok then
+    begin
+      OpenConsoleIO;
+      WriteLn(ErrOutput, 'no display for the editor');
+      Result := 64;
+      Exit;
+    end;
+    SetAssetRoots(Dir, ClientBuildLabel);
+    if ExtractFilePath(Path) <> '' then SetCurrentDir(ExtractFilePath(Path));
+    GuiArgs := TStringList.Create;
+    try
+      GuiArgs.Add('--window');
+      GuiArgs.Add('--data');
+      GuiArgs.Add(Dir);
+      GuiArgs.Add('--level');
+      GuiArgs.Add(Path);
+      GuiArgs.Add('--x');
+      GuiArgs.Add('30');
+      GuiArgs.Add('--y');
+      GuiArgs.Add('30.5');
+      GuiArgs.Add('--editor');
+      Result := RunGame(Win, '', '');
+    finally
+      FreeAndNil(GuiArgs);
+    end;
+  finally
+    Win.Free;
+  end;
+end;
+
 begin
   Randomize;
   if ParamCount = 0 then
     Halt(RunGui);
+  if (ParamCount = 1) and (Copy(ParamStr(1), 1, 1) <> '-') and FileExists(ParamStr(1)) then
+    Halt(RunEditorFile(ParamStr(1)));
   OpenConsoleIO;
   Halt(RunGame(nil, '', ''));
 end.

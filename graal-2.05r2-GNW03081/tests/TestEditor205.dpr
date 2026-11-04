@@ -15,7 +15,11 @@ uses
   SysUtils, Classes,
   GLevel in '../../common/GLevel.pas',
   GLevelWrite in '../../common/GLevelWrite.pas',
-  EditorDoc in '../src/editor/EditorDoc.pas';
+  EditorDoc in '../src/editor/EditorDoc.pas',
+  GSurface in '../../common/GSurface.pas',
+  GFont in '../../common/GFont.pas',
+  EditorUI in '../src/editor/EditorUI.pas',
+  EditorView in '../src/editor/EditorView.pas';
 
 var
   Passed, Failed, Skipped: Integer;
@@ -424,6 +428,157 @@ begin
   end;
 end;
 
+var
+  Clock: Int64 = 100000;
+
+{ One frame of input: the mouse at (X, Y), optionally a press. }
+var
+  NoInput: TEditorInput;
+
+function Inp(X, Y: Integer; Press, Held: Boolean; const Chars: string): TEditorInput;
+begin
+  Result := NoInput;
+  Result.MouseX := X;
+  Result.MouseY := Y;
+  Result.LeftPress := Press;
+  Result.Left := Held or Press;
+  Result.PressX := X;
+  Result.PressY := Y;
+  Result.Chars := Chars;
+  Inc(Clock, 1000);
+  Result.NowMs := Clock;
+end;
+
+{ The screen point of board tile (TX, TY) with the view unscrolled. }
+function BX(TX: Integer): Integer;
+begin
+  Result := BoardX + TX * 16 + 8;
+end;
+
+function BY(TY: Integer): Integer;
+begin
+  Result := BoardY + TY * 16 + 8;
+end;
+
+procedure Click(V: TEditorView; X, Y: Integer);
+begin
+  V.Step(Inp(X, Y, True, True, ''));
+  V.Step(Inp(X, Y, False, False, ''));
+end;
+
+procedure TestEditorView;
+var
+  Sheet, Screen: TGSurface;
+  V: TEditorView;
+  D: TEditorDoc;
+  R: TRectI;
+  I: TEditorInput;
+  F: string;
+begin
+  Sheet := TGSurface.Create(2048, 512);
+  Screen := TGSurface.Create(640, 480);
+  V := TEditorView.Create(Sheet);
+  try
+    Check(SheetTileAt(0, 0) = 0, 'view: sheet tile 0 top left');
+    Check(SheetTileAt(16, 16) = 17, 'view: sheet tile 17 is row 1 col 1');
+    Check(SheetTileAt(256, 0) = 512, 'view: the second sheet block starts at 512');
+    V.Step(Inp(0, 0, False, False, ''));
+    D := V.Editor.Doc;
+    Check((D <> nil) and (V.Editor.DocCount = 1), 'view: opens with a (new) tab');
+
+    { pick tile 17 in the palette, paint by dragging }
+    Click(V, PalX0 + 16 + 4, PalY0 + 16 + 4);
+    Check((V.Pen.W = 1) and (V.Pen.Tiles[0] = 17) and V.PenPaints and D.Floating,
+      'view: a palette click picks one tile');
+    V.Step(Inp(BX(5), BY(5), True, True, ''));
+    V.Step(Inp(BX(6), BY(5), False, True, ''));
+    V.Step(Inp(BX(7), BY(5), False, True, ''));
+    V.Step(Inp(BX(7), BY(5), False, False, ''));
+    Check((D.Level.Tile(5, 5) = 17) and (D.Level.Tile(6, 5) = 17) and (D.Level.Tile(7, 5) = 17) and
+      (D.Level.Tile(8, 5) = 0), 'view: dragging paints the picked tile');
+    V.Step(Inp(BX(1), BY(1), False, False, #27));
+    Check(not D.Floating and (V.ExitCode = eeNone), 'view: Esc drops the pen first');
+
+    { select by dragging, copy, undo }
+    V.Step(Inp(BX(5), BY(5), True, True, ''));
+    V.Step(Inp(BX(7), BY(6), False, True, ''));
+    V.Step(Inp(BX(7), BY(6), False, False, ''));
+    Check(D.HasSel and (D.SelX = 5) and (D.SelW = 3) and (D.SelH = 2), 'view: drag selects');
+    V.Step(Inp(BX(7), BY(6), False, False, #3));
+    Check(D.Floating and (V.Editor.Clipboard.W = 3), 'view: Ctrl+C copies');
+    V.Step(Inp(BX(5), BY(5), True, True, ''));
+    V.Step(Inp(BX(5), BY(10), False, True, ''));
+    V.Step(Inp(BX(5), BY(10), False, False, ''));
+    Check((D.Level.Tile(5, 10) = 17) and (D.Level.Tile(7, 10) = 17) and (D.Level.Tile(5, 5) = 17),
+      'view: drag the copy and drop it');
+    V.Step(Inp(BX(1), BY(1), False, False, #26));
+    Check(D.Level.Tile(5, 10) = 0, 'view: Ctrl+Z undoes the drop');
+
+    { Delete fills with the background }
+    V.Editor.Background := 9;
+    D.Select(5, 5, 5, 5);
+    I := Inp(BX(1), BY(1), False, False, '');
+    I.Del := True;
+    V.Step(I);
+    Check(D.Level.Tile(5, 5) = 9, 'view: Del fills the selection with the background tile');
+
+    { place a chest from the things palette }
+    Click(V, 434 + 4, 89 + 4);
+    Check(V.Mode = pmThings, 'view: Baddies,Npcs,Chests mode');
+    Click(V, PalX0 + 10, PalY0 + 2 + ThingChest * LineH + 4);
+    Check(V.Placing and (V.Thing = ThingChest), 'view: pick the chest');
+    Click(V, BX(20), BY(20));
+    Check((Length(D.Level.Chests) = 1) and (D.Level.Chests[0].X = 20), 'view: click places it');
+    { drag it }
+    V.Step(Inp(BX(20), BY(20), True, True, ''));
+    V.Step(Inp(BX(22), BY(18), False, True, ''));
+    V.Step(Inp(BX(22), BY(18), False, False, ''));
+    Check((D.Level.Chests[0].X = 22) and (D.Level.Chests[0].Y = 18), 'view: drag an object');
+    { right button copies it }
+    I := Inp(BX(22), BY(18), False, False, '');
+    I.RightPress := True;
+    I.Right := True;
+    I.RightX := I.MouseX;
+    I.RightY := I.MouseY;
+    V.Step(I);
+    V.Step(Inp(BX(30), BY(18), False, False, ''));
+    Check(Length(D.Level.Chests) = 2, 'view: the right button copies a chest');
+
+    { toolbar }
+    R := ToolRect(taNew);
+    Click(V, R.X + 5, R.Y + 5);
+    Check(V.Editor.DocCount = 2, 'view: New opens a tab');
+    R := ToolRect(taPlay);
+    Click(V, R.X + 5, R.Y + 5);
+    Check((V.Dialog is TMessageDialog) and (V.ExitCode = eeNone),
+      'view: Play asks for a name first');
+    V.Step(Inp(0, 0, False, False, #13));
+    Check(V.Dialog = nil, 'view: Enter closes the message');
+    V.Editor.Current := 0;
+    F := GetTempDir + 'testeditor205-view.graal';
+    V.Step(Inp(0, 0, False, False, #19));
+    Check(V.Dialog is TPromptDialog, 'view: Ctrl+S on a new level asks for a name');
+    V.Step(Inp(0, 0, False, False, F + #13));
+    Check((V.Dialog = nil) and FileExists(F) and not V.Editor.Doc.Modified, 'view: saved');
+    D.SetTile(0, 0, 3);
+    Click(V, ToolRect(taPlay).X + 5, ToolRect(taPlay).Y + 5);
+    Check((V.ExitCode = eePlay) and (V.PlayFile = F) and not D.Modified,
+      'view: Play saves the modified level and plays it');
+    V.ExitCode := eeNone;
+    V.Draw(Screen);
+    Check(Screen.GetPixel(1, 1) <> 0, 'view: draws');
+    if GetEnvironmentVariable('EDITOR205_DUMP') <> '' then
+      Screen.SaveBMP(GetEnvironmentVariable('EDITOR205_DUMP'));
+    V.Step(Inp(0, 0, False, False, #27));
+    Check(V.ExitCode = eeLeave, 'view: Esc leaves the editor');
+    DeleteFile(F);
+  finally
+    V.Free;
+    Screen.Free;
+    Sheet.Free;
+  end;
+end;
+
 procedure TestTutorials;
 const
   Names: array[0..12] of string = ('a-1', 'a-2', 'a-3', 'a-4', 'b-1', 'b-2',
@@ -469,6 +624,7 @@ begin
   TestSaveFile;
   TestEditorBoard;
   TestEditorObjects;
+  TestEditorView;
   TestTutorials;
   WriteLn(Format('%d passed, %d failed, %d skipped', [Passed, Failed, Skipped]));
   if Failed > 0 then Halt(1);

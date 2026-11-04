@@ -220,6 +220,8 @@ type
     { Loads a level from disk for offline play; links then look for their
       levels next to it, then in the install. }
     function LoadLevelFile(const FileName: string): Boolean;
+    { The folder the current level was read from ('' for a built-in one). }
+    property LevelDir: string read FLevelDir;
     { The link under the player, or -1. }
     function LinkAt(PX, PY: Double): Integer;
     { Takes link I: online, asks the server for the level; offline, loads
