@@ -826,7 +826,59 @@ begin
   Check(AssetPath('nothere.txt') = '', 'assets: a missing file gives no path');
   SetAssetRoots(Root + 'graal-assets', '2.05r2');
   Check(Pos('2.05r2', AssetPath('b.txt')) > 0, 'assets: --data may point at graal-assets itself');
+  PutFile(Root + 'graal-assets' + PathDelim + '2.22' + PathDelim + 'd.txt', 'fallback');
+  PutFile(Root + 'graal-assets' + PathDelim + '2.22' + PathDelim + 'b.txt', 'fallback');
+  SetAssetRoots(Root + 'graal-assets', '2.05r2;2.22');
+  Check(AssetRootCount = 3, 'assets: a fallback version adds its folder');
+  Check(Pos('2.22', AssetPath('d.txt')) > 0, 'assets: a file only in the fallback version is found');
+  Check(Pos('2.05r2', AssetPath('b.txt')) > 0, 'assets: the own version wins over the fallback');
   SetAssetRoots('', '');
+end;
+
+procedure TestStatus;
+var
+  G: TAdventure;
+
+  function Lit(X, Y, W, H: Integer): Boolean;
+  var
+    I, J: Integer;
+  begin
+    Result := False;
+    for J := Y to Y + H - 1 do
+      for I := X to X + W - 1 do
+        if G.Screen.GetPixel(I, J) and $FFFFFF <> 0 then
+        begin
+          Result := True;
+          Exit;
+        end;
+  end;
+
+begin
+  G := TAdventure.Create;
+  try
+    G.Headless := True;
+    Check((G.Player.MaxPower = 3) and (G.Player.Power = 6) and (G.Player.Bombs = 10) and
+      (G.Player.Arrows = 5) and (G.AP = 50), 'status: a new account starts at 3 hearts, 10 bombs, 5 arrows');
+    G.Screen.Fill($FF000000);
+    G.DrawStatus;
+    Check(Lit(ScreenW - 198, 24, 40, 44), 'status: the first big heart is drawn');
+    Check(Lit(ScreenW - 198 + 90, 24, 40, 44), 'status: the third big heart is drawn');
+    Check(not Lit(ScreenW - 198 + 135, 24, 40, 44), 'status: no fourth heart with three containers');
+    Check(Lit(15, 30, 22, 33) and Lit(145, 30, 22, 33), 'status: the A and D buttons');
+    Check(Lit(326, 48, 26, 16), 'status: the bomb count');
+    G.Screen.Fill($FF000000);
+    G.Player.MaxPower := 6;
+    G.Player.Power := 3;
+    G.DrawStatus;
+    Check(Lit(ScreenW - 198, 34, 31, 33) and not Lit(ScreenW - 198 + 70, 34, 31, 33),
+      'status: small hearts past four containers, only while power remains');
+    G.Screen.Fill($FF000000);
+    G.ShowStats := 0;
+    G.DrawStatus;
+    Check(not Lit(0, 0, ScreenW, 120), 'status: showstats 0 hides everything');
+  finally
+    G.Free;
+  end;
 end;
 
 procedure TestServerList;
@@ -893,6 +945,7 @@ begin
   TestServerList;
   TestAssetDirs;
   TestBuiltins;
+  TestStatus;
   WriteLn(Format('%d passed, %d failed, %d skipped', [Passed, Failed, Skipped]));
   if Failed > 0 then Halt(1);
 end.

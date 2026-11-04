@@ -11,8 +11,11 @@
   A file is looked for in order:
     1. the data folder itself (the program's folder, or --data): a real
        install dropped there still wins;
-    2. graal-assets/<version>/;
+    2. graal-assets/<version>/, then any fallback versions;
     3. graal-assets/common/.
+  A build that shipped with another version's files names that version as
+  a fallback: 2.17.1 came in the same folder as 2.22, so its label is
+  '2.17.1;2.22' and it reads graal-assets/2.22/ with no second copy.
   graal-assets is found in the data folder, one folder up from it, or is
   the data folder itself (when it holds a common/ folder). Nothing found:
   the build's built-in assets fill in. }
@@ -23,7 +26,8 @@ unit GAssetDirs;
 interface
 
 { Sets the folders searched, from the data folder and the build's version
-  label (its folder under graal-assets, e.g. '2.05r2'). }
+  label (its folder under graal-assets, e.g. '2.05r2'). Version may list
+  fallback folders after it, separated by ';' (e.g. '2.17.1;2.22'). }
 procedure SetAssetRoots(const DataDir, Version: string);
 { The folders searched, in order, each ending in a path delimiter. }
 function AssetRootCount: Integer;
@@ -57,7 +61,8 @@ end;
 
 procedure SetAssetRoots(const DataDir, Version: string);
 var
-  D, Up: string;
+  D, Up, Rest, V: string;
+  P: Integer;
 begin
   SetLength(Roots, 0);
   Folder := '';
@@ -75,7 +80,15 @@ begin
   end;
   if Folder <> '' then
   begin
-    if Version <> '' then AddRoot(Folder + Version);
+    Rest := Version;
+    while Rest <> '' do
+    begin
+      P := Pos(';', Rest);
+      if P = 0 then P := Length(Rest) + 1;
+      V := Trim(Copy(Rest, 1, P - 1));
+      Delete(Rest, 1, P);
+      if V <> '' then AddRoot(Folder + V);
+    end;
     AddRoot(Folder + 'common');
   end;
 end;

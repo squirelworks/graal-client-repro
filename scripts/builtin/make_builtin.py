@@ -199,6 +199,64 @@ def draw_sprites():
     return im
 
 
+# ---------------------------------------------------------------- status sheet
+# Same geometry as the state sheet the 2.05 status routine reads (224 x 145;
+# see graal_analysis client-internals/status-display.md), new art.
+def heart(d, x, y, w, h, half):
+    # a round shield-heart: full is red in a gold rim, half has its right side dark
+    d.ellipse((x + 2, y + 2, x + w - 3, y + h - 3), fill=(40, 20, 10, 255))
+    d.ellipse((x + 4, y + 4, x + w - 5, y + h - 5), fill=(236, 196, 72, 255))
+    d.ellipse((x + 7, y + 7, x + w - 8, y + h - 8), fill=(200, 30, 40, 255))
+    if half:
+        d.pieslice((x + 7, y + 7, x + w - 8, y + h - 8), -90, 90, fill=(70, 30, 36, 255))
+    d.ellipse((x + 10, y + 10, x + 10 + w // 6, y + 10 + h // 7), fill=(255, 200, 200, 255))
+
+
+def draw_state():
+    import font5x7
+    im = Image.new('RGBA', (224, 145), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    heart(d, 0, 0, 40, 44, False)       # big full
+    heart(d, 40, 0, 40, 44, True)       # big half
+    heart(d, 80, 0, 31, 33, False)      # small full
+    heart(d, 111, 0, 31, 33, True)      # small half
+    # button (202, 0, 22, 33)
+    d.rounded_rectangle((202, 0, 223, 32), 6, fill=(30, 60, 120, 255), outline=(10, 20, 40, 255))
+    d.rounded_rectangle((204, 2, 221, 16), 4, fill=(70, 110, 190, 255))
+    # icon strip (80, 33, 120, 16): gem at 0, bomb at 50, arrow at 100
+    d.polygon([(88, 33), (95, 40), (88, 48), (81, 40)], fill=(40, 200, 90, 255), outline=(10, 60, 30, 255))
+    d.ellipse((131, 35, 144, 48), fill=(30, 40, 90, 255), outline=(5, 5, 20, 255))
+    d.line((140, 35, 144, 33), fill=(240, 200, 60, 255), width=2)
+    d.line((181, 46, 195, 34), fill=(150, 100, 50, 255), width=2)
+    d.polygon([(193, 33), (198, 33), (198, 38)], fill=(220, 220, 230, 255))
+    # magic frame (0, 49, 130, 22) and fill (0, 71, 130, 10)
+    d.rounded_rectangle((0, 49, 129, 70), 5, fill=(40, 30, 90, 255), outline=(10, 5, 30, 255))
+    d.rectangle((20, 55, 125, 64), fill=(0, 0, 0, 0))
+    for i in range(130):
+        d.line((i, 71, i, 80), fill=(60 + i, 120, 230, 255))
+    # digits d at (14 d, 81, 14, 16): the built-in font at 2x, black outline
+    for n in range(10):
+        rows = font5x7.G[str(n)]
+        for ry, row in enumerate(rows):
+            for rx, c in enumerate(row):
+                if c == '#':
+                    x, y = 14 * n + 2 + rx * 2, 81 + 1 + ry * 2
+                    d.rectangle((x - 1, y - 1, x + 2, y + 2), fill=(0, 0, 0, 255))
+        for ry, row in enumerate(rows):
+            for rx, c in enumerate(row):
+                if c == '#':
+                    x, y = 14 * n + 2 + rx * 2, 81 + 1 + ry * 2
+                    d.rectangle((x, y, x + 1, y + 1), fill=(255, 255, 255, 255))
+    # alignment frame (0, 97, 130, 22) and fill (0, 119, 130, 10)
+    d.rounded_rectangle((0, 97, 129, 118), 5, fill=(110, 30, 30, 255), outline=(30, 5, 5, 255))
+    d.rectangle((20, 103, 125, 112), fill=(0, 0, 0, 0))
+    d.ellipse((4, 101, 16, 113), fill=(250, 250, 250, 255), outline=(0, 0, 0, 255))
+    for i in range(130):
+        r = max(0, 220 - i * 2); g = min(220, i * 2); b = 60
+        d.line((i, 119, i, 128), fill=(r, g, b, 255))
+    return im
+
+
 # ---------------------------------------------------------------- ganis
 GANI_HEAD = '\n'.join('SPRITE  %3d HEAD      0 %4d  32  32 head %s' % (100 + i, i * 32, n)
                       for i, n in enumerate(('up', 'left', 'down', 'right')))
@@ -323,6 +381,7 @@ def main():
         ('body.png', png_bytes(draw_body())),
         ('head0.png', png_bytes(draw_head())),
         ('sprites.png', png_bytes(draw_sprites())),
+        ('state.png', png_bytes(draw_state())),
         ('idle.gani', gani([0], False).encode()),
         ('walk.gani', gani([1, 2, 3, 4], True).encode()),
         ('arrays.dat', arrays_dat(PASSABLE)),

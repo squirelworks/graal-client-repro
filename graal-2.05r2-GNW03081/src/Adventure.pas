@@ -121,6 +121,14 @@ type
     { Log lines also go to stderr as they happen. The in-memory log keeps
       the last LogKeep lines either way. }
     Echo: Boolean;
+    { The status display (HUD): which parts show, as 2.05's showstats bits
+      (0x01 buttons, 0x02 icons, 0x04 rupees, 0x08 bombs, 0x10 arrows,
+      0x20 hearts, 0x40 alignment, 0x80 magic), and whether weapons are on
+      (off: only the first button and the alignment bar). }
+    ShowStats: Integer;
+    WeaponsOn: Boolean;
+    { alignment points, 0 to 100 }
+    AP: Integer;
     { Timings, in ms: connect to the first board (-1 until then), and
       each link warp from the request to the new board. }
     ConnectAtMs: Int64;
@@ -139,6 +147,8 @@ type
     { Draws P with the camera at (CamX, CamY) pixels; also used for the
       character on the start screen. }
     procedure DrawPlayer(P: TServerPlayer; CamX, CamY: Integer);
+    { The status display over the board: buttons, counts, hearts, bars. }
+    procedure DrawStatus;
     { The built-in tile sheet and tile types (done by Create). }
     procedure UseBuiltins;
     function ConnectServer(const Host: string; Port: Word;
@@ -183,7 +193,7 @@ procedure MakeIndexSheet(Sheet: TGSurface);
 implementation
 
 uses
-  SysUtils, Math;
+  SysUtils, Math, GFont;
 
 procedure MakeIndexSheet(Sheet: TGSurface);
 var
@@ -565,6 +575,16 @@ begin
   Arrays := TGArrays.Create;
   Assets := TAssets.Create;
   FOthers := TList.Create;
+  { a new 2.05 account: 3 of 3 hearts, no rupees, 10 bombs, 5 arrows }
+  Player.MaxPower := 3;
+  Player.Power := 6;      { half hearts, as PLPROP_CURPOWER }
+  Player.Bombs := 10;
+  Player.Arrows := 5;
+  Player.GlovePower := 1;
+  Player.SwordPower := 1;
+  AP := 50;
+  ShowStats := $FF;
+  WeaponsOn := True;
   UseBuiltins;
 end;
 
@@ -1236,6 +1256,118 @@ begin
   end;
 end;
 
+{ ---- status display (client-internals/status-display.md) ---- }
+
+procedure TAdventure.DrawStatus;
+const
+  RowStart: array[0..5] of Integer = (0, 5, 11, 16, 22, 27);
+var
+  St: TGSurface;
+  I, N, Row, Col, X, Half, HX, HY, Hearts2, Down: Integer;
+
+  procedure Part(SX, SY, W, H, DX, DY: Integer);
+  begin
+    Screen.Blit(St, SX, SY, W, H, DX, DY);
+  end;
+
+  procedure Digits(V, CX, Y: Integer; Centred: Boolean);
+  var
+    D: string;
+    J, X0: Integer;
+  begin
+    D := IntToStr(V);
+    if Centred then X0 := CX - (Length(D) * 12) div 2 else X0 := CX;
+    for J := 1 to Length(D) do
+      Part(14 * (Ord(D[J]) - Ord('0')), 81, 14, 16, X0 + (J - 1) * 12, Y);
+  end;
+
+  procedure KeyName(const K: string; BX, BY: Integer);
+  var
+    TX: Integer;
+  begin
+    TX := BX + (22 - TextWidth(K, 2)) div 2;
+    DrawText(Screen, TX + 1, BY + 9 + 1, K, $FF000000, 2);
+    DrawText(Screen, TX, BY + 9, K, $FFFFFFFF, 2);
+  end;
+
+begin
+  St := Assets.Image('state.png', '');
+  if St = nil then Exit;
+  { buttons with their keys; with weapons off only the first }
+  if ShowStats and $01 <> 0 then
+  begin
+    Part(202, 0, 22, 33, 15, 30);
+    KeyName('A', 15, 30);
+    if WeaponsOn then
+    begin
+      Part(202, 0, 22, 33, 80, 30);
+      KeyName('S', 80, 30);
+      Part(202, 0, 22, 33, 145, 30);
+      KeyName('D', 145, 30);
+      if Player.GlovePower >= 2 then
+        DrawText(Screen, 60, 31, IntToStr(Player.GlovePower), $FFFFFFFF, 1);
+      DrawText(Screen, 125, 31, IntToStr(Player.SwordPower), $FFFFFFFF, 1);
+    end;
+  end;
+  if WeaponsOn then
+  begin
+    if ShowStats and $02 <> 0 then Part(80, 33, 120, 16, 274, 30);
+    if ShowStats and $04 <> 0 then Digits(Player.Rupees, 280, 48, True);
+    if ShowStats and $08 <> 0 then
+    begin
+      Part(14 * ((Player.Bombs div 10) mod 10), 81, 14, 16, 326, 48);
+      Part(14 * (Player.Bombs mod 10), 81, 14, 16, 338, 48);
+    end;
+    if ShowStats and $10 <> 0 then
+    begin
+      Part(14 * ((Player.Arrows div 10) mod 10), 81, 14, 16, 374, 48);
+      Part(14 * (Player.Arrows mod 10), 81, 14, 16, 386, 48);
+    end;
+  end;
+  { hearts: one per container while power remains }
+  if ShowStats and $20 <> 0 then
+  begin
+    Hearts2 := Player.Power;  { half hearts }
+    N := Min(Player.MaxPower, 30);
+    if N <= 4 then
+    begin
+      for I := 0 to N - 1 do
+      begin
+        if Hearts2 <= 2 * I then Break;
+        if Hearts2 >= 2 * I + 2 then Half := 0 else Half := 1;
+        Part(40 * Half, 0, 40, 44, ScreenW - 198 + 45 * I, 24);
+      end;
+    end
+    else
+    begin
+      if Hearts2 < 12 then Down := 10 else Down := 0;
+      for I := 0 to N - 1 do
+      begin
+        if Hearts2 <= 2 * I then Break;
+        if Hearts2 >= 2 * I + 2 then Half := 0 else Half := 1;
+        Row := 0;
+        while (Row < 5) and (I >= RowStart[Row + 1]) do Inc(Row);
+        Col := I - RowStart[Row];
+        HX := ScreenW - 198 + 35 * Col;
+        HY := 24 + Down;
+        if Row > 0 then
+        begin
+          Inc(HX, Round(17.5 * Row) - 35);
+          Inc(HY, 20 * Row);
+        end;
+        Part(80 + 31 * Half, 0, 31, 33, HX, HY);
+      end;
+    end;
+  end;
+  { alignment bar }
+  if ShowStats and $40 <> 0 then
+  begin
+    Part(0, 97, 130, 22, 15, 65);
+    X := Max(0, Min(AP, 100));
+    if X > 0 then Part(0, 119, X, 10, 15 + 22, 65 + 6);
+  end;
+end;
+
 procedure TAdventure.Draw;
 var
   CamX, CamY, TX, TY, X0, Y0, I: Integer;
@@ -1260,6 +1392,7 @@ begin
   for I := 0 to FOthers.Count - 1 do
     DrawPlayer(Others[I], CamX, CamY);
   DrawPlayer(Player, CamX, CamY);
+  DrawStatus;
 end;
 
 end.
