@@ -48,7 +48,7 @@ const
 implementation
 
 uses
-  SysUtils, Classes, GTypes;
+  SysUtils, Classes, GTypes, GAssetDirs;
 
 procedure TListFetch217.Message(Id: Integer; const Data: string);
 begin
@@ -132,11 +132,14 @@ end;
 procedure ReadArrays2(const Dir: string; var Host: string; var Port: Integer);
 var
   L: TStringList;
+  P: string;
 begin
-  if not FileExists(Dir + 'arrays2.dat') then Exit;
+  P := AssetPath('arrays2.dat');
+  if P = '' then P := Dir + 'arrays2.dat';
+  if not FileExists(P) then Exit;
   L := TStringList.Create;
   try
-    L.LoadFromFile(Dir + 'arrays2.dat');
+    L.LoadFromFile(P);
     if (L.Count > 0) and (Trim(L[0]) <> '') then Host := Trim(L[0]);
     if L.Count > 1 then Port := StrToIntDef(Trim(L[1]), Port);
   finally

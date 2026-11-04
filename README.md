@@ -41,6 +41,7 @@ common/                     code that is the same across builds
   GFont.pas                 an original 5x7 font for the window
   GStartScreen.pas          the start screen and server list every build opens with
   GBuiltin.pas              built-in original assets, compiled in (generated)
+  GAssetDirs.pas            where a build finds the player's own Graal files (graal-assets/)
   builtin/                  those assets as files (scripts/builtin/make_builtin.py)
 graal-2.05r2-GNW03081/      Graal 2.05 rev 2
   src/                      the client (Graal205.dpr and its units)
@@ -55,6 +56,7 @@ scripts/
   build.sh                  build every rebuild and its tests
   test.sh                   run every test program
   builtin/                  draws the built-in assets and writes GBuiltin.pas / GFont.pas
+  assets/merge_assets.py    merges per-version sets of original files into one graal-assets/
   loopback.sh               log a rebuild into seihai-gserver (acceptance check)
 ```
 
@@ -186,3 +188,22 @@ A build plugs into `common/GStartScreen.pas` with:
   to the program, and a callback that draws the character;
 - its own front end, which picks the Training level and runs the game
   (see `RunGui` in `graal-2.05r2-GNW03081/src/Graal205.dpr`).
+
+## One assets folder for every build
+
+The original Graal files never go in this repository. A player keeps one
+folder of them, `graal-assets/`, for all the rebuilt clients:
+
+```
+graal-assets/
+  common/     files the same in every version that has them
+  2.05r2/     one folder per version, named by the build's version label
+  2.17.1/
+  2.22/
+```
+
+A build looks for a file in its own folder (or `--data`), then in
+`graal-assets/<version>/`, then in `graal-assets/common/`, and else uses
+its built-in assets (`common/GAssetDirs.pas`). `graal-assets` is found next
+to the program or one folder up, so several clients can share one copy.
+`scripts/assets/merge_assets.py` builds the folder from per-version sets.

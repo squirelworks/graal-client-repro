@@ -21,7 +21,7 @@ unit Adventure;
 interface
 
 uses
-  Classes, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GraalClient, Protocol217;
+  Classes, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GAssetDirs, GraalClient, Protocol217;
 
 const
   { The game view. 2.05's window size is not yet read from the binary;
@@ -245,27 +245,29 @@ end;
 
 function TAssets.FindFile(const Name: string; const Dirs: array of string): string;
 var
-  I, J: Integer;
+  I, J, K: Integer;
   Base, Cand: string;
   Exts: array[0..2] of string;
 begin
+  { the asset roots (GAssetDirs), set by UseInstall }
   Result := '';
-  if (Dir = '') or (Name = '') then Exit;
+  if (AssetRootCount = 0) or (Name = '') then Exit;
   Base := ChangeFileExt(Name, '');
   Exts[0] := ExtractFileExt(Name);
   Exts[1] := '.png';
   Exts[2] := '.gif';
-  for I := 0 to High(Dirs) do
-    for J := 0 to 2 do
-    begin
-      if Exts[J] = '' then Continue;
-      Cand := IncludeTrailingPathDelimiter(Dir) + Dirs[I] + Base + Exts[J];
-      if FileExists(Cand) then
+  for K := 0 to AssetRootCount - 1 do
+    for I := 0 to High(Dirs) do
+      for J := 0 to 2 do
       begin
-        Result := Cand;
-        Exit;
+        if Exts[J] = '' then Continue;
+        Cand := AssetRoot(K) + Dirs[I] + Base + Exts[J];
+        if FileExists(Cand) then
+        begin
+          Result := Cand;
+          Exit;
+        end;
       end;
-    end;
 end;
 
 function TAssets.Image(const Name, Kind: string): TGSurface;
@@ -568,13 +570,19 @@ var
   P: string;
 begin
   Assets.Dir := Dir;
-  P := IncludeTrailingPathDelimiter(Dir);
+  { the folder itself, then graal-assets/<version>/ and graal-assets/common/ }
+  SetAssetRoots(Dir, ClientBuildLabel);
+  if AssetsFolder <> '' then Log('assets: ' + AssetsFolder);
   { the install's tile sheet and tile types replace the built-in ones, but
     not a sheet given with --sheet }
   if (Sheet.Width = 0) or SheetBuiltin then
-    if LoadImageFile(P + 'pics1.png', Sheet) or LoadImageFile(P + 'pics1.gif', Sheet) then
-      SheetBuiltin := False;
-  if FileExists(P + 'arrays.dat') and Arrays.LoadFromFile(P + 'arrays.dat') then
+  begin
+    P := AssetPath('pics1.png');
+    if P = '' then P := AssetPath('pics1.gif');
+    if (P <> '') and LoadImageFile(P, Sheet) then SheetBuiltin := False;
+  end;
+  P := AssetPath('arrays.dat');
+  if (P <> '') and Arrays.LoadFromFile(P) then
     Log('arrays.dat loaded')
   else
     Log('arrays.dat not found in ' + Dir + ': using the built-in tile types');
@@ -799,10 +807,10 @@ begin
   Path := '';
   if (FLevelDir <> '') and FileExists(FLevelDir + L.Dest) then
     Path := FLevelDir + L.Dest
-  else if (Assets.Dir <> '') and FileExists(IncludeTrailingPathDelimiter(Assets.Dir) + 'levels' + PathDelim + L.Dest) then
-    Path := IncludeTrailingPathDelimiter(Assets.Dir) + 'levels' + PathDelim + L.Dest
-  else if (Assets.Dir <> '') and FileExists(IncludeTrailingPathDelimiter(Assets.Dir) + L.Dest) then
-    Path := IncludeTrailingPathDelimiter(Assets.Dir) + L.Dest;
+  else if AssetPath('levels/' + L.Dest) <> '' then
+    Path := AssetPath('levels/' + L.Dest)
+  else if AssetPath(L.Dest) <> '' then
+    Path := AssetPath(L.Dest);
   if Path = '' then Path := L.Dest; { LoadLevelFile tries the built-in ones }
   if not LoadLevelFile(Path) then
   begin

@@ -20,6 +20,7 @@ uses
   GSurface in '../../common/GSurface.pas',
   GArrays in '../../common/GArrays.pas',
   GBuiltin in '../../common/GBuiltin.pas',
+  GAssetDirs in '../../common/GAssetDirs.pas',
   GAni in '../../common/GAni.pas',
   Protocol217 in '../src/Protocol217.pas',
   GraalClient in '../src/GraalClient.pas',

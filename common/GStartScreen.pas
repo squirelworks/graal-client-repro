@@ -126,7 +126,8 @@ function RunStartScreen(Win: TGWindow; S: TGSurface; Fetch: TListFetch;
   DefHost / DefPort. }
 procedure ReadListServer(const Dir, DefHost: string; DefPort: Integer;
   out Host: string; out Port: Integer);
-{ The first of Names (';' between them, relative to Dir) that exists, or ''. }
+{ The first of Names (';' between them) found under the asset roots
+  (GAssetDirs) or else in Dir, or ''. }
 function FirstFileIn(const Dir, Names: string): string;
 { Windows GUI programs have no standard output open: with arguments, use
   the handles they were given or the console that started them. Elsewhere
@@ -140,7 +141,7 @@ uses
 {$IFDEF MSWINDOWS}
   Windows,
 {$ENDIF}
-  SysUtils, GTypes, GFont;
+  SysUtils, GTypes, GFont, GAssetDirs;
 
 const
   ColBack = $FF101828;
@@ -338,13 +339,13 @@ var
   P: string;
 begin
   Result := False;
-  if DataDir = '' then Exit;
-  P := IncludeTrailingPathDelimiter(DataDir);
+  if DataDir = '' then P := '' else P := IncludeTrailingPathDelimiter(DataDir);
   L := TStringList.Create;
   try
     ExtractStrings([';'], [], PChar(Names), L);
     for I := 0 to L.Count - 1 do
-      if LoadImageFile(P + StringReplace(L[I], '/', PathDelim, [rfReplaceAll]), S) then
+      if LoadImageFile(AssetPath(L[I]), S) or
+        LoadImageFile(P + StringReplace(L[I], '/', PathDelim, [rfReplaceAll]), S) then
       begin
         Result := True;
         Exit;
@@ -709,7 +710,8 @@ begin
     ExtractStrings([';'], [], PChar(Names), L);
     for I := 0 to L.Count - 1 do
     begin
-      P := Dir + StringReplace(L[I], '/', PathDelim, [rfReplaceAll]);
+      P := AssetPath(L[I]);
+      if P = '' then P := Dir + StringReplace(L[I], '/', PathDelim, [rfReplaceAll]);
       if FileExists(P) then
       begin
         Result := P;
