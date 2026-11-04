@@ -1,30 +1,30 @@
 { Map205: the big map (the M key) and the minimap of 2.05 rev 2.
 
-  Read from the 2.05 rev 2 decompile (graal_analysis formats/gmap.md has
-  the file format):
+  As 2.05 rev 2 does it (graal_analysis formats/gmap.md has the file
+  format, client-internals/offline-tutorial-205.md the tutorial set):
 
   - Two maps, each a text grid of level names and a picture:
       big map  bigmap.txt + map.png
       minimap  minimap.txt + map2.png
     Offline on the tutorial both switch to tutorialmap.txt, with
-    tutorialmap.png (big) and tutorialmap2.png (mini) (decompile 00535c34).
+    tutorialmap.png (big) and tutorialmap2.png (mini).
     A text line is a comma list (quotes allowed); the columns are the cells
     of the first line, the rows the cell count over that.
   - A player's place on a map is in half tiles: column * 128 + 2x, row *
     128 + 2y, with x, y the player's own position (the top-left of the
-    3x3 box, no centring), when its level is in the grid (0052fd6c).
+    3x3 box, no centring), when its level is in the grid.
   - Big map: 56 px a level whatever the picture's size. The map key
     (M) opens it; it centres on the player's head, or on the whole map when
     the player's level is not on it, then is kept inside the map, and a map
-    smaller than the view is centred (004fc39c, 004ff314). While it is open
+    smaller than the view is centred. While it is open
     each held arrow scrolls it 8 px a tick and the player does not move;
     the map key closes it. The view is cleared to black, the picture drawn,
     then a 16 px head icon of every player on the map, centred on its
-    place, and the player's own name under its head (00502ecc).
+    place, and the player's own name under its head.
   - Minimap: drawn with the status display, its picture at x 10 with its
     bottom 18 px above the view's bottom, a level being the picture's width
     over the columns; heads as on the big map, kept above that bottom line
-    (00501a28, showstats bit 0x100).
+    (showstats bit 0x100).
 
   Not yet: the text 2.05 writes at (20, 20) on the big map, names of the
   players under the mouse, the small (12 px) head icons, chat marks on the
