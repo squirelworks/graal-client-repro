@@ -56,6 +56,18 @@ decompiled code:
   player, into a 640x480 frame. The player is drawn from the install's ganis
   (`idle`, `walk`) with head, body, sword and shield images, and the body is
   recoloured from the five colour props.
+- Actions, from the 2.05 cut, lift and chest code: S swings the sword and
+  cuts a bush or tall grass at the tip; A lifts a bush, sign or pot (a glove
+  adds stones), carries it overhead and throws it (S or A); A on a chest
+  opens it and gives its item. Online the board change goes out as
+  `PLI_BOARDMODIFY` and the open as `PLI_OPENCHEST`. Server board changes
+  (`PLO_BOARDMODIFY`) are applied. The throw's flight is not read from 2.05
+  yet: it flies four tiles and goes.
+- Items on the floor (`PLO_ITEMADD` / `PLO_ITEMDEL`), drawn with their
+  shadow, bounce and last-moments blink; walked over after the first four
+  ticks they are taken (`PLI_ITEMTAKE` online, given at once offline), and
+  after 8.2 s they go (`PLI_ITEMDEL` online). Offline nothing drops, as in
+  2.05 (tests).
 - The status display, laid out as 2.05 draws it from `state.png`: the A/S/D
   buttons, the item icons with rupee, bomb and arrow counts, big hearts up
   to four containers and small hearts in rows past that, and the alignment

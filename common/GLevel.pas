@@ -39,6 +39,7 @@ type
 
   TLevelChest = record
     X, Y, Item, Sign: Integer;
+    Opened: Boolean;
   end;
 
   TLevelNPC = record
@@ -76,6 +77,17 @@ type
     function LoadNW(const Data: string): Boolean;
   end;
 
+const
+  { The 2.05 item list, in index order: chest items, floor items and
+    PLO_ITEMADD numbers (client-internals/level-editor-205.md). }
+  ItemNames: array[0..24] of string = ('greenrupee', 'bluerupee', 'redrupee',
+    'bombs', 'darts', 'heart', 'glove1', 'bow', 'bomb', 'shield', 'sword',
+    'fullheart', 'superbomb', 'battleaxe', 'goldensword', 'mirrorshield',
+    'glove2', 'lizardshield', 'lizardsword', 'goldrupee', 'fireball',
+    'fireblast', 'nukeshot', 'joltbomb', 'spinattack');
+
+{ An item name (any case) or number as its index in ItemNames, or -1. }
+function ItemIndex(const S: string): Integer;
 function GRVCodeWidth(const Magic: string): Integer;
 { The 2.05 board writer: 13-bit codes, single and double runs. }
 function WriteBoard13(const Tiles: TBoardTiles): string;
@@ -146,6 +158,21 @@ begin
 end;
 
 { Board writer }
+
+function ItemIndex(const S: string): Integer;
+var
+  I: Integer;
+begin
+  Result := StrToIntDef(S, -1);
+  if (Result >= 0) and (Result <= High(ItemNames)) then Exit;
+  Result := -1;
+  for I := 0 to High(ItemNames) do
+    if LowerCase(S) = ItemNames[I] then
+    begin
+      Result := I;
+      Exit;
+    end;
+end;
 
 function WriteBoard13(const Tiles: TBoardTiles): string;
 var
@@ -484,6 +511,7 @@ begin
     while ReadLine(S) and (S <> '') and (S <> '#') do
     begin
       if Length(S) < 4 then Continue;
+      C.Opened := False;
       C.X := Ord(S[1]) - 32;
       C.Y := Ord(S[2]) - 32;
       C.Item := Ord(S[3]) - 32;
@@ -617,9 +645,10 @@ begin
       end
       else if (T = 'CHEST') and (Tok.Count >= 5) then
       begin
+        CH.Opened := False;
         CH.X := StrToIntDef(Tok[1], 0);
         CH.Y := StrToIntDef(Tok[2], 0);
-        CH.Item := StrToIntDef(Tok[3], -1); { item names resolve in TAdventure }
+        CH.Item := ItemIndex(Tok[3]);
         CH.Sign := StrToIntDef(Tok[4], 0);
         SetLength(Chests, Length(Chests) + 1);
         Chests[High(Chests)] := CH;
