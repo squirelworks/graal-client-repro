@@ -30,6 +30,7 @@ const
   ColHighlight = $FF000080; { clHighlight }
   ColHighlightText = $FFFFFFFF;
   ColTitle = $FF000080;   { active caption }
+  ColYellow = $FFFFFF00;  { clYellow }
 
   CharW = 6;
   LineH = 16;            { row height of lists and edits }
