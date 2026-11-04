@@ -50,6 +50,8 @@ that has it:
 | 4.20r8 (PR #38) | `4.20r8` | `4.20r8/` |
 | 4.20r6 (PR #40) | `4.20r6;4.20r8` | `4.20r6/` (none shipped), then `4.20r8/`: its install's files are 4.20r8's byte for byte |
 | 5.00r7 | `5.00r7` | `5.00r7/` |
+| 1.1.9 (1999-02-11, `graal-1.1.9-19990211`) | `1.1.9;b15;b11` | `1.1.9/`, then `b15/`, `b11/` |
+| 1.1 (1999-02-14, `graal-1.1-19990214`) | `1.1;1.1.9;b15;b11` | `1.1/`, then `1.1.9/`, `b15/`, `b11/` |
 | Game Boy Color demo 1.10 (PR #80, `graalgb-1.10`) | `gb-1.10` | `gb-1.10/graal.gbc` |
 | 1998-99 betas b1 to b15, b4a, b5a, b9a (PRs #51 to #69) | `bN`; b12 to b15 `bN;b11`, b8 `b8;b7` | `bN/`, then `b11/` or `b7/` |
 | Graal3D (PR #70) | `3d` | `3d/` |
@@ -146,6 +148,17 @@ files and the `.bmp` textures); `startlevel.x` is the server's. **Game Boy** (`g
 demo ROM `graal.gbc` (262,144 bytes, MD5 `2b2fef91df11f9fbae3e1ece2366fdd3`,
 from `graal-decompile/gameboy-demo/rom/`).
 
+**1.1.9 and 1.1** (February 1999, from `graal clients.zip`) shipped
+mostly 15th Graal's files, and their labels read `b15/` and `b11/` after
+their own folder. So `1.1.9/` holds each level, picture, `.dat` and
+sound whose first hit along `b15;b11` in the zip is missing or not byte
+for byte 1.1.9's: the 138 levels, pictures and `objects.dat` that differ
+from 15th Graal, plus its 48 `.wav` files, because the beta folders carry
+no sounds (187 files). `1.1/` holds the two files whose first hit along
+`1.1.9;b15;b11` is wrong for 1.1: `pics1.gif` and `objects.dat`, which
+1.1 shares with 15th Graal rather than 1.1.9. Through `b15/` the two
+builds also see the 98 files 15th Graal had and they did not.
+
 **Fallback labels.** `needed_assets.py --fallback VERSION=OTHER` leaves
 out of VERSION's folder what OTHER has byte for byte, for a build
 labelled `VERSION;OTHER`. It refuses when OTHER has any file VERSION's
@@ -236,6 +249,7 @@ would save.
 | Zelda Online 1 | applet: `pics1.gif`, `arrays.dat`, 36 `level*.zelda` (`Z3-V1.03`), `link.gif`, `state.gif`, `hit.au`, classes (from Drive `zeldaonline1.7z`) | 38 kept | 130 | | **yes** (`zelda-online1/`: `pics1.gif`, `arrays.dat`, `levels/*.zelda`) |
 | Zelda Online 2 | Java classes and levels under `game/` (author source alongside: never copied) | 90 | 535 | | no |
 | Java Graal | not in `graal clients.zip` (`javagraal_rip.rar` on Drive) | | | | no |
+| 1.1.9, 1.1 (Feb 1999) | `graal1.1.9/`, `graal1.1/` in `graal clients.zip` | 1648 each | | 1501 same as 15th | **yes** (`1.1.9/` 187, `1.1/` 2) |
 | Game Boy Color demo | `graal-decompile/gameboy-demo/rom/graal.gbc` | 1 | 256 KB | | **yes** (`gb-1.10/graal.gbc`) |
 
 When a new build lands, its thread lists the files its build opens; its

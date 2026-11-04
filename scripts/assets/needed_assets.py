@@ -24,6 +24,8 @@ it (docs/assets.md has the reasons):
     kept them (no sound or music: the beta builds play none);
   - for Graal3D (3d): the 20 meshes and textures its build opens.
   - for the Game Boy builds (gb-1.10): the demo ROM graal.gbc only.
+  - for 1.1.9 and 1.1: everything given; those folders are made by hand
+    as the files the build's label chain would not supply byte for byte.
 
 --fallback VERSION=OTHER is for a build whose label reads OTHER's folder
 after its own (e.g. 'b12;b11'): VERSION's kept files that OTHER has byte
@@ -112,6 +114,10 @@ def keep(version, rel, full, folder):
         return False  # Windows Explorer's thumbnail cache, never opened
     if version == '3d':
         return low in GRAAL3D
+    if version in ('1.1', '1.1.9'):
+        # already cut to what the build's chain does not supply
+        # ('1.1.9;b15;b11', '1.1;1.1.9;b15;b11'): see docs/assets.md
+        return True
     if version.startswith('gb-'):
         return low == 'graal.gbc'  # the Game Boy Color demo ROM
     if BETA.match(version):
