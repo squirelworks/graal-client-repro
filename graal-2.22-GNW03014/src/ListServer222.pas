@@ -28,6 +28,10 @@ const
   LSO_SITEURL = 3;
   LSO_ERROR = 4;
   LSO_UPGURL = 5;
+  { With no arrays2.dat and no listserver.txt: listserver.graal.in on its
+    supported port, 14922 (14923 is its legacy port). The original 2.22
+    pointed at the GraalOnline listserver, which is gone. }
+  DefaultListHost = 'listserver.graal.in';
   DefaultListPort = 14922;
 
 type
@@ -43,6 +47,8 @@ type
     FGotList: Boolean;
     procedure HandleMessage(Id: Integer; const Data: string);
     procedure ReadList(const Data: string);
+  protected
+    function DecodeFrame(const Body: string; out Plain: string): Boolean; override;
   public
     constructor Create;
     { Queue and send id 7 then id 1. Call after Connect (or StartOffline). }
@@ -121,6 +127,21 @@ constructor TListServerClient.Create;
 begin
   inherited Create;
   OnMessage := HandleMessage;
+end;
+
+{ The public listserver ends each gen-5 frame with two NUL bytes after the
+  last LF (graal_analysis protocol/public-listserver-2026-10-25.md). Left
+  in, they would start the next frame's first message and hide its id, so
+  the status line after the list was lost. }
+function TListServerClient.DecodeFrame(const Body: string; out Plain: string): Boolean;
+var
+  N: Integer;
+begin
+  Result := inherited DecodeFrame(Body, Plain);
+  if not Result then Exit;
+  N := Length(Plain);
+  while (N > 0) and (Plain[N] = #0) do Dec(N);
+  if N < Length(Plain) then SetLength(Plain, N);
 end;
 
 procedure TListServerClient.SendRequest(const Account, Password: string);

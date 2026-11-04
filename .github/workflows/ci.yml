@@ -48,6 +48,8 @@ jobs:
       - name: Log each rebuild into seihai-gserver
         run: |
           for B in $(ls -d graal-*/ | tr -d /); do
+            # Graal3D has its own server; graal-3d.yml logs it into that
+            case "$B" in graal-3d-*) continue ;; esac
             scripts/loopback.sh seihai-gserver/target/release/seihai-gserver "$B"
           done
 

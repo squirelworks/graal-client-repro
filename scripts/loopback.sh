@@ -31,22 +31,24 @@ set +e
 # loop1 logs in and walks; loop2 joins while loop1 is there and must see it
 GRAAL_PW=loopbackpw "$CLIENT" --server 127.0.0.1:$PORT --account loop1 \
   --frames 80 --keys "right*6,down*4,wait*5" --dump "$ROOT/build/$B/loopback.bmp" \
-  > "$WORK/loop1.log" 2>&1 &
+  > "$WORK/loop1.json" 2> "$WORK/loop1.log" &
 C1=$!
 sleep 1
 GRAAL_PW=loopbackpw "$CLIENT" --server 127.0.0.1:$PORT --account loop2 \
-  --frames 40 --keys "wait*10,down*2" > "$WORK/loop2.log" 2>&1
+  --frames 40 --keys "wait*10,down*2" > "$WORK/loop2.json" 2> "$WORK/loop2.log"
 RC2=$?
 wait $C1
 RC=$?
 # loop1 again, walking right into the link
 GRAAL_PW=loopbackpw "$CLIENT" --server 127.0.0.1:$PORT --account loop1 \
-  --frames 50 --keys "wait*5,right*14,wait*10" > "$WORK/link.log" 2>&1
+  --frames 50 --keys "wait*5,right*14,wait*10" > "$WORK/link.json" 2> "$WORK/link.log"
 RC3=$?
 set -e
-echo "--- loop1"; cat "$WORK/loop1.log"
-echo "--- loop2"; cat "$WORK/loop2.log"
-echo "--- loop1, link"; cat "$WORK/link.log"
+# the log (stderr) and the JSON summary (stdout) go to separate files: in
+# one file a buffered log line can be cut by the summary
+echo "--- loop1"; cat "$WORK/loop1.log" "$WORK/loop1.json"
+echo "--- loop2"; cat "$WORK/loop2.log" "$WORK/loop2.json"
+echo "--- loop1, link"; cat "$WORK/link.log" "$WORK/link.json"
 echo "--- gserver log"
 cat "$WORK/gserver.log"
 if [ "$(grep -c "logged in as" "$WORK/gserver.log")" -lt 2 ]; then
@@ -56,7 +58,7 @@ if ! grep -q "other player .* loop1" "$WORK/loop2.log"; then
   echo "loop2 did not see loop1"; exit 1
 fi
 for L in loop1 loop2 link; do
-  if ! grep -q '"kind":"summary".*"end":"clean"' "$WORK/$L.log"; then
+  if ! grep -q '"kind":"summary".*"end":"clean"' "$WORK/$L.json"; then
     echo "$L: no clean JSON summary"; exit 1
   fi
 done
