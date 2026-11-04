@@ -27,6 +27,8 @@ type
     { Appends whatever is waiting to Buffer. Returns False when the peer
       closed the link or an error happened. }
     function Poll(var Buffer: string): Boolean;
+    { TCP_NODELAY on the connected socket (off by default, as in WinSock). }
+    function SetNoDelay(On: Boolean): Boolean;
     property Connected: Boolean read FConnected;
     property LastError: string read FLastError;
   end;
@@ -237,6 +239,23 @@ begin
     end;
   end;
   Result := True;
+end;
+
+function TGSocket.SetNoDelay(On: Boolean): Boolean;
+const
+  IPPROTO_TCP_ = 6; { the same on Linux and Windows }
+  TCP_NODELAY_ = 1;
+var
+  V: Integer;
+begin
+  Result := False;
+  if not FConnected then Exit;
+  V := Ord(On);
+{$IFDEF FPC}
+  Result := fpSetSockOpt(FHandle, IPPROTO_TCP_, TCP_NODELAY_, @V, SizeOf(V)) = 0;
+{$ELSE}
+  Result := setsockopt(FHandle, IPPROTO_TCP_, TCP_NODELAY_, PChar(@V), SizeOf(V)) = 0;
+{$ENDIF}
 end;
 
 function TGSocket.Poll(var Buffer: string): Boolean;

@@ -94,6 +94,8 @@ type
     FWarpPending: Boolean; { a link warp was asked of the server }
     FWarpX, FWarpY: Double;
     FWarpLevel: string;
+    FWarpTimed: string;    { the level a timed warp waits for }
+    FWarpT0: Int64;
     procedure HandleMessage(Id: Integer; const Data: string);
     procedure ClientLog(const Line: string);
     function PointBlocked(PX, PY: Double): Boolean;
@@ -114,6 +116,18 @@ type
     WorldTime: Cardinal;
     ServerMessage, DisconnectReason: string;
     LoggedIn, BoardLoaded: Boolean;
+    { No drawing in the tick: for stress runs. }
+    Headless: Boolean;
+    { Log lines also go to stderr as they happen. The in-memory log keeps
+      the last LogKeep lines either way. }
+    Echo: Boolean;
+    { Timings, in ms: connect to the first board (-1 until then), and
+      each link warp from the request to the new board. }
+    ConnectAtMs: Int64;
+    LoginMs: Integer;
+    WarpsSent: Integer;
+    WarpTimes: array of Integer; { the first WarpCount entries are used }
+    WarpCount: Integer;
     Handled, Ignored: array[0..255] of Integer;
     { Held direction keys for this tick: up, left, down, right. }
     Keys: array[0..3] of Boolean;
@@ -156,6 +170,8 @@ type
 { The 2.05 animation step for a gani name and frame, and the sprite prop
   value (direction + 4 x sprite number) that goes with it. }
 function AniStepNumber(const AniName: string; Frame: Integer): Integer;
+{ Wall-clock milliseconds, for login and warp timings. }
+function NowMs: Int64;
 function WireSprite(const AniName: string; Frame, Dir: Integer): Integer;
 procedure MakeIndexSheet(Sheet: TGSurface);
 
@@ -520,6 +536,7 @@ constructor TAdventure.Create;
 begin
   inherited Create;
   FLog := TStringList.Create;
+  LoginMs := -1;
   FClient := TAdventureClient.Create;
   FClient.OnMessage := HandleMessage;
   FClient.OnLog := ClientLog;
@@ -549,9 +566,30 @@ begin
   inherited Destroy;
 end;
 
-procedure TAdventure.Log(const S: string);
+function NowMs: Int64;
 begin
-  FLog.Add(Format('[%5d] %s', [Frame, S]));
+  Result := Trunc(Now * 86400000.0);
+end;
+
+{ A duration in ms that fits an Integer, whatever the clock did. }
+function ClampMs(V: Int64): Integer;
+begin
+  if V < 0 then Result := 0
+  else if V > MaxInt then Result := MaxInt
+  else Result := V;
+end;
+
+const
+  LogKeep = 1000;
+
+procedure TAdventure.Log(const S: string);
+var
+  Line: string;
+begin
+  Line := Format('[%5d] %s', [Frame, S]);
+  if Echo then WriteLn(ErrOutput, Line);
+  if FLog.Count >= LogKeep then FLog.Delete(0);
+  FLog.Add(Line);
 end;
 
 procedure TAdventure.ClientLog(const Line: string);
@@ -576,6 +614,8 @@ end;
 function TAdventure.ConnectServer(const Host: string; Port: Word;
   const Account, Password: string): Boolean;
 begin
+  ConnectAtMs := NowMs;
+  LoginMs := -1;
   Result := FClient.Connect(Host, Port);
   if not Result then
   begin
@@ -769,6 +809,9 @@ begin
     FWarpX := NX;
     FWarpY := NY;
     FWarpLevel := L.Dest;
+    Inc(WarpsSent);
+    FWarpTimed := L.Dest;
+    FWarpT0 := NowMs;
     Log(Format('LEVELWARP %s %.1f,%.1f', [L.Dest, NX, NY]));
     Result := True;
     Exit;
@@ -915,6 +958,16 @@ begin
       PLO_BOARDPACKET:
         begin
           BoardLoaded := Level.LoadBoardPacket(Data);
+          if BoardLoaded and LoggedIn and (LoginMs < 0) and (ConnectAtMs > 0) then
+            LoginMs := ClampMs(NowMs - ConnectAtMs);
+          if BoardLoaded and (FWarpTimed <> '') and (Level.Name = FWarpTimed) then
+          begin
+            if WarpCount = Length(WarpTimes) then
+              SetLength(WarpTimes, 2 * WarpCount + 16);
+            WarpTimes[WarpCount] := ClampMs(NowMs - FWarpT0);
+            Inc(WarpCount);
+            FWarpTimed := '';
+          end;
           if BoardLoaded then
             Log('BOARDPACKET ' + Level.Name + ' loaded')
           else
@@ -1019,7 +1072,7 @@ begin
   if Moved then FollowLink(LinkAt(Player.X + 1.5, Player.Y + 2));
   SendMovedProps;
   FClient.Flush;
-  Draw;
+  if not Headless then Draw;
 end;
 
 { A colour prop as an index into the 20 colours; a hostile or garbled

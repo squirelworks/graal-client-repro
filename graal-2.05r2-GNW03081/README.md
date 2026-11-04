@@ -34,7 +34,8 @@ decompiled code:
 | `src/Protocol205.pas` | | ids, token, cipher constants, buffer limits |
 | `src/GraalClient.pas` | `TGraalClient`, `TAdventureClient` | out buffer, zlib frames, gen-3 insertion, login, receive split with `PLO_RAWDATA` |
 | `src/Adventure.pas` | `TAdventure`, `TServerPlayer` | game state, message handlers, 50 ms tick, drawing |
-| `src/Graal205.dpr` | | command line front end: window, scripted keys, frame dump |
+| `src/Graal205.dpr` | | command line front end: window, scripted keys, frame dump, stress runs |
+| `src/RunMode.pas` | | stress-run support: clock, stop signals, tick histogram, random walker, JSON |
 
 ## What works
 
@@ -78,6 +79,53 @@ decompiled code:
   the second must see the first. Then one walks through a level link
   (`scripts/loopback.sh`, run in CI).
 
+## Stress runs (phase 4)
+
+The same client runs headless for the Seihai stress runs, one process per
+client:
+
+```
+GRAAL_PW=... Graal205 --server 127.0.0.1:14802 --account bot17 --headless \
+  --seconds 600 --walk random --walk-ms 100 --seed 17 --link-every 5 \
+  --stats-every 10
+```
+
+- `--headless` skips drawing; the 50 ms frame gate sleeps, so an idle
+  client costs almost nothing. 50 clients walking at random and taking a
+  link every 3 s used 7.7% of one core in total, about 4.6 MB RSS each,
+  tick p99 under 0.7 ms.
+- `--seconds N`, or `--frames 0` to run until stopped. SIGTERM / SIGINT
+  (Ctrl+Break / Ctrl+C on Windows) flush, close the link and end cleanly.
+- `--walk random|idle|script`, `--walk-ms`, `--seed`, `--link-every N`
+  (head for the nearest link every N seconds). The walk has its own random
+  generator, so the seed does not change the gen-3 key.
+- `--nodelay` sets `TCP_NODELAY`. It is off by default, which is WinSock's
+  default and so presumably the original's (not traced).
+- Logs go to stderr. Stdout gets one JSON line at the end
+  (`"kind":"summary"`), and with `--stats-every N` a `"kind":"stats"` line
+  every N seconds with the same fields: version, token, account, end
+  (`clean`, `nologin`, `dropped`, `error`), error, login_ms (connect to the
+  first board), run_s, ticks, frames and messages in and out, bytes in and
+  out, warps sent and completed, warp_ms p50 and max (link request to the
+  new board, so a multiple of the 50 ms tick), tick_ms p50, p99 and max,
+  rss_peak_kib (Linux only; null elsewhere), nodelay.
+- Exit codes: 0 clean, 1 error, 2 never logged in, 3 dropped after login,
+  64 bad command line.
+
+Hardening checks, all in CI:
+
+- The test program is built with range and overflow checks and the heap
+  tracer; `scripts/test.sh` fails on any unfreed memory.
+- A fuzz test sends 20000 random and mangled messages and 3000 random frames
+  (valid zlib around random messages, `RAWDATA` blocks, split deliveries,
+  garbage) through the receive path. With `GRAAL205_DATA` set to an install,
+  the drawing of the fuzzed players is covered too.
+- The receive path is linear in the input (frames and messages are read by
+  position) and has limits of its own (an inflated frame over 16 MB or an
+  unfinished message over 4 MB drops the link); 2.05's own limits are not
+  known.
+- The loopback check needs a clean JSON summary from each client.
+
 ## Not yet
 
 - The link test point: the body's centre (x + 1.5, y + 2) is used, as for
@@ -91,4 +139,5 @@ decompiled code:
 - The listserver link (DES-hidden host, `newmain`).
 - The window size (640x480 is assumed, not read from the binary). The
   board edge is treated as open.
-- Phase 4 hardening (see the top-level README).
+- Several clients in one process (one per process for now).
+- The listserver step before the game server.

@@ -37,6 +37,7 @@ type
     FOnMessage: TMessageEvent;
     FOnLog: TLogEvent;
     FFramesIn, FFramesOut, FMessagesIn, FMessagesOut: Integer;
+    FBytesIn, FBytesOut: Int64;
     procedure Log(const S: string);
     { Hook for the gen-3 step; the base class sends messages unchanged. }
     function EncodeMessage(const Msg: string): string; virtual;
@@ -65,6 +66,10 @@ type
     property FramesOut: Integer read FFramesOut;
     property MessagesIn: Integer read FMessagesIn;
     property MessagesOut: Integer read FMessagesOut;
+    { bytes on the wire, frame headers included }
+    property BytesIn: Int64 read FBytesIn;
+    property BytesOut: Int64 read FBytesOut;
+    property Socket: TGSocket read FSocket;
   end;
 
   TAdventureClient = class(TGraalClient)
@@ -198,6 +203,7 @@ begin
   FOut := '';
   FSocket.Send(Chr((Length(Z) shr 8) and $FF) + Chr(Length(Z) and $FF) + Z);
   Inc(FFramesOut);
+  Inc(FBytesOut, Length(Z) + 2);
 end;
 
 procedure TGraalClient.Poll;
@@ -208,7 +214,11 @@ begin
   Got := '';
   if not FSocket.Poll(Got) then
     LastError := FSocket.LastError;
-  if Got <> '' then FeedRaw(Got);
+  if Got <> '' then
+  begin
+    Inc(FBytesIn, Length(Got));
+    FeedRaw(Got);
+  end;
 end;
 
 procedure TGraalClient.FeedRaw(const Bytes: string);
