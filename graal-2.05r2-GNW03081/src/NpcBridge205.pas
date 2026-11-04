@@ -13,7 +13,7 @@ unit NpcBridge205;
 interface
 
 uses
-  Classes, SysUtils, Math, GTypes, GLevel, GSurface, GArrays, GFont, Gs1205, Npc205,
+  Classes, SysUtils, Math, GTypes, GLevel, GSurface, GArrays, GFont, GGs1, Npc205,
   Baddy205, Adventure;
 
 type

@@ -215,7 +215,7 @@ function LinkFromFields(const Dest, X, Y, W, H, NewX, NewY: string; out L: TLeve
 implementation
 
 uses
-  SysUtils, GFont, GLevelWrite, Gs1205;
+  SysUtils, GFont, GLevelWrite, GGs1;
 
 const
   SignCodes: array[0..13] of string = ('#A  A button', '#B  B button', '#X  X button',
