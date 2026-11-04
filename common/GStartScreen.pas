@@ -1,17 +1,15 @@
 { GStartScreen: the start screen and server list every build opens with.
 
-  The Graal clients open on a small dialog before the game (2.05:
-  TConnectFrame, caption "Graal 2001"): the nick name, the character, and
+  The Graal clients open on a small dialog before the game: the nick name, the character, and
   Training, Options and Start. Start opens the server list: account,
   password, the servers the listserver sends, and Connect.
 
   This unit draws both into the game's own surface with the built-in font,
-  so it needs no widget toolkit. Layout and wording are its own; only the
-  flow follows the originals. What differs per build comes in from the
+  so it needs no widget toolkit. Layout, wording and art are its own; it
+  never draws an original start window or its images, even when an
+  install is next to the program. Only the flow follows the originals. What differs per build comes in from the
   build:
-    - TStartInfo: title lines, the background images looked for next to
-      the program (2.05: screenimg1.jpg), and a callback that draws the
-      character;
+    - TStartInfo: title lines and a callback that draws the character;
     - a TListFetch subclass: how that build asks its listserver for the
       list (2.05: plain zlib, id 0 "newmain") and reads the answer;
     - the build's own front end picks the Training level and runs the game.
@@ -62,43 +60,11 @@ type
     X, Y, W, H: Integer;
   end;
 
-  { The original start window of a build, drawn when its art lies next to
-    the program: positions inside a FormW x FormH window, which is centred
-    in the game screen. The numbers come from the build's own forms and
-    code; the images are not part of this project. }
-  TClassicLayout = record
-    Used: Boolean;
-    FormW, FormH: Integer;
-    { the button face: two states side by side (up, down); ';' between
-      names tried }
-    ButtonImages: string;
-    Training, Options, Start: TStartRect;
-    TrainingText, OptionsText, StartText: string;
-    Welcome: TStartRect;
-    WelcomeText: string;
-    WelcomeCentered: Boolean;
-    LanguageLabel, NickLabel: TStartRect;
-    LanguageField, NickField: TStartRect;
-    { button caption colour, $RRGGBB; 0 is black }
-    CaptionColor: Cardinal;
-    { an optional fourth button with its own face (2.22: "Get an
-      account"); W = 0 leaves it out }
-    Extra: TStartRect;
-    ExtraText, ExtraImages: string;
-    { optional account and password fields on the start window itself
-      (2.22); W = 0 leaves them out }
-    AccountLabel, PasswordLabel, AccountField, PasswordField: TStartRect;
-  end;
-
   { True once the program was asked to stop (SIGTERM, Ctrl+C). }
   TStopCheck = function: Boolean;
 
   TStartInfo = record
     Title, Subtitle: string;
-    Classic: TClassicLayout;
-    { image files tried, in order, relative to the program's folder;
-      ';' between names. None found: a drawn backdrop with the titles. }
-    Backgrounds: string;
     DrawCharacter: TDrawCharacter;
     { nil: never; else the screen gives up (as Quit) when it turns True }
     StopRequested: TStopCheck;
@@ -332,110 +298,12 @@ end;
 
 { ---- the two screens ---- }
 
-function LoadBackground(const DataDir, Names: string; S: TGSurface): Boolean;
-var
-  L: TStringList;
-  I: Integer;
-  P: string;
-begin
-  Result := False;
-  if DataDir = '' then P := '' else P := IncludeTrailingPathDelimiter(DataDir);
-  L := TStringList.Create;
-  try
-    ExtractStrings([';'], [], PChar(Names), L);
-    for I := 0 to L.Count - 1 do
-      if LoadImageFile(AssetPath(L[I]), S) or
-        LoadImageFile(P + StringReplace(L[I], '/', PathDelim, [rfReplaceAll]), S) then
-      begin
-        Result := True;
-        Exit;
-      end;
-  finally
-    L.Free;
-  end;
-end;
-
-{ The original start window: the background at the window's size, the
-  labels and fields where its form puts them, and the buttons drawn from
-  the two-state face. }
-procedure ClassicButton(S, Face: TGSurface; const R: TRectI; const Caption: string;
-  Down: Boolean; Color: Cardinal);
-var
-  FW: Integer;
-begin
-  Color := Color or $FF000000;
-  FW := Face.Width div 2;
-  if Down then
-    S.Blit(Face, FW, 0, FW, Face.Height, R.X, R.Y)
-  else
-    S.Blit(Face, 0, 0, FW, Face.Height, R.X, R.Y);
-  DrawText(S, R.X + (R.W - TextWidth(Caption, 1)) div 2 + Ord(Down),
-    R.Y + (R.H - GlyphH) div 2 + Ord(Down), Caption, Color, 1);
-  DrawText(S, R.X + (R.W - TextWidth(Caption, 1)) div 2 + 1 + Ord(Down),
-    R.Y + (R.H - GlyphH) div 2 + Ord(Down), Caption, Color, 1);
-end;
-
-procedure ClassicField(S: TGSurface; const R: TRectI; const Text: string; Caret: Boolean;
-  Masked: Boolean);
-var
-  T: string;
-begin
-  S.FillRect(R.X, R.Y, R.W, R.H, $FF404040);
-  S.FillRect(R.X + 1, R.Y + 1, R.W - 1, R.H - 1, $FFFFFFFF);
-  S.FillRect(R.X + 2, R.Y + 2, R.W - 3, R.H - 3, $FF008000);
-  if Masked then T := StringOfChar('*', Length(Text)) else T := Text;
-  while (T <> '') and (TextWidth(T + '_', 1) > R.W - 8) do Delete(T, 1, 1);
-  if Caret and ((NowMs div 400) mod 2 = 0) then T := T + '_';
-  DrawText(S, R.X + 4, R.Y + (R.H - GlyphH) div 2, T, $FF00FF00, 1);
-end;
-
-type
-  TClassicRects = record
-    Training, Options, Start, Extra, Nick, Lang, Account, Password, Welcome: TRectI;
-  end;
-
-function OffsetRect(const R: TStartRect; OX, OY: Integer): TRectI;
-begin
-  Result := RectI(OX + R.X, OY + R.Y, R.W, R.H);
-end;
-
-procedure DrawClassic(S, Back, Face, ExtraFace: TGSurface; const L: TClassicLayout;
-  OX, OY: Integer; const C: TClassicRects; const R: TStartResult; Focus: Integer;
-  const Note: string);
-begin
-  S.Fill($FF000000);
-  S.Blit(Back, 0, 0, Back.Width, Back.Height, OX, OY);
-  WrappedEx(S, C.Welcome.X + 4, C.Welcome.Y, C.Welcome.W - 8, L.WelcomeText, $FF00FF00, 1,
-    L.WelcomeCentered);
-  DrawText(S, OX + L.LanguageLabel.X, OY + L.LanguageLabel.Y + 4, 'Language:', $FF00FF00, 1);
-  DrawText(S, OX + L.NickLabel.X, OY + L.NickLabel.Y + 4, 'Nick Name:', $FF00FF00, 1);
-  ClassicField(S, C.Lang, 'English', False, False);
-  ClassicField(S, C.Nick, R.Nickname, Focus = 0, False);
-  if L.AccountField.W > 0 then
-  begin
-    DrawText(S, OX + L.AccountLabel.X, OY + L.AccountLabel.Y + 4, 'Account:', $FF00FF00, 1);
-    DrawText(S, OX + L.PasswordLabel.X, OY + L.PasswordLabel.Y + 4, 'Password:', $FF00FF00, 1);
-    ClassicField(S, C.Account, R.Account, Focus = 1, False);
-    ClassicField(S, C.Password, R.Password, Focus = 2, True);
-  end;
-  ClassicButton(S, Face, C.Training, L.TrainingText, False, L.CaptionColor);
-  ClassicButton(S, Face, C.Options, L.OptionsText, False, L.CaptionColor);
-  ClassicButton(S, Face, C.Start, L.StartText, False, L.CaptionColor);
-  if (L.Extra.W > 0) and (ExtraFace.Width >= 2) then
-    ClassicButton(S, ExtraFace, C.Extra, L.ExtraText, False, L.CaptionColor);
-  if Note <> '' then DrawText(S, OX + 8, OY + L.FormH + 6, Note, ColFocus, 1);
-end;
-
 function RunStartScreen(Win: TGWindow; S: TGSurface; Fetch: TListFetch;
   const Info: TStartInfo; const DataDir, ListHost: string; ListPort: Integer;
   const Message: string; var R: TStartResult): Boolean;
 type
   TPage = (pgStart, pgList);
 var
-  Back, BtnFace, ExtraFace: TGSurface;
-  HasBack, Classic: Boolean;
-  OX, OY, CFocus: Integer;
-  CR: TClassicRects;
   Page: TPage;
   Focus, Sel, I, CX, CY, Y, Top: Integer;
   Clicked: Boolean;
@@ -447,11 +315,7 @@ const
   Rows = 8;
 begin
   Result := False;
-  Back := TGSurface.Create(0, 0);
-  BtnFace := TGSurface.Create(0, 0);
-  ExtraFace := TGSurface.Create(0, 0);
-  try
-    HasBack := LoadBackground(DataDir, Info.Backgrounds, Back);
+  begin
     Page := pgStart;
     Focus := 0;
     Sel := -1;
@@ -468,31 +332,6 @@ begin
     BConnect := RectI(400, 420, 220, 36);
     BRefresh := RectI(210, 420, 170, 36);
     BBack := RectI(20, 420, 170, 36);
-    { the original window, when its background and buttons are here }
-    Classic := Info.Classic.Used and HasBack and (Back.Width = Info.Classic.FormW) and
-      (Back.Height = Info.Classic.FormH) and
-      LoadBackground(DataDir, Info.Classic.ButtonImages, BtnFace) and (BtnFace.Width >= 2);
-    OX := (S.Width - Info.Classic.FormW) div 2;
-    OY := (S.Height - Info.Classic.FormH) div 2;
-    CFocus := 0;
-    if Classic then
-      with Info.Classic do
-      begin
-        CR.Training := OffsetRect(Training, OX, OY);
-        CR.Options := OffsetRect(Options, OX, OY);
-        CR.Start := OffsetRect(Start, OX, OY);
-        CR.Extra := OffsetRect(Extra, OX, OY);
-        CR.Nick := OffsetRect(NickField, OX, OY);
-        CR.Lang := OffsetRect(LanguageField, OX, OY);
-        CR.Account := OffsetRect(AccountField, OX, OY);
-        CR.Password := OffsetRect(PasswordField, OX, OY);
-        CR.Welcome := OffsetRect(Welcome, OX, OY);
-        BTraining := CR.Training;
-        BOptions := CR.Options;
-        BStart := CR.Start;
-        if (Extra.W > 0) and not LoadBackground(DataDir, ExtraImages, ExtraFace) then
-          LoadBackground(DataDir, ButtonImages, ExtraFace);
-      end;
     while True do
     begin
       Win.Pump;
@@ -513,29 +352,9 @@ begin
           R.Choice := scQuit;
           Exit;
         end;
-        if Classic and (Info.Classic.AccountField.W > 0) then
-        begin
-          { nick, account and password on one page: Tab or a click moves }
-          if Pos(#9, Chars) > 0 then CFocus := (CFocus + 1) mod 3;
-          if Clicked then
-          begin
-            if Inside(CR.Nick, CX, CY) then CFocus := 0;
-            if Inside(CR.Account, CX, CY) then CFocus := 1;
-            if Inside(CR.Password, CX, CY) then CFocus := 2;
-          end;
-          case CFocus of
-            0: EditText(R.Nickname, Chars, 20);
-            1: EditText(R.Account, Chars, 30);
-          else
-            EditText(R.Password, Chars, 30);
-          end;
-        end
-        else
-          EditText(R.Nickname, Chars, 20);
+        EditText(R.Nickname, Chars, 20);
         if Clicked then
         begin
-          if Classic and (Info.Classic.Extra.W > 0) and Inside(CR.Extra, CX, CY) then
-            Note := Info.Classic.ExtraText + ': not built yet.';
           if Inside(BTraining, CX, CY) then
           begin
             R.Choice := scTraining;
@@ -553,17 +372,7 @@ begin
           end;
         end;
         { drawing }
-        if Classic then
-        begin
-          DrawClassic(S, Back, BtnFace, ExtraFace, Info.Classic, OX, OY, CR, R, CFocus, Note);
-          Win.Present(S);
-          Sleep(20);
-          Continue;
-        end;
         S.Fill(ColBack);
-        if HasBack then
-          S.Blit(Back, 0, 0, Back.Width, Back.Height, (S.Width - Back.Width) div 2, 8)
-        else
         begin
           for Y := 0 to 299 do
             S.FillRect(0, Y, S.Width, 1, $FF000000 or Cardinal((16 + Y div 12) shl 16) or
@@ -670,10 +479,6 @@ begin
       Win.Present(S);
       Sleep(20);
     end;
-  finally
-    ExtraFace.Free;
-    BtnFace.Free;
-    Back.Free;
   end;
 end;
 

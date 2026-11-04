@@ -537,9 +537,7 @@ begin
         Who.G := G;
         Info.Title := 'graal-delphi';
         Info.Subtitle := '2.22 rebuilt';
-        Info.Backgrounds := Backgrounds222;
         Info.DrawCharacter := Who.Draw;
-        Classic222(Info.Classic);
         Info.StopRequested := StopRequested;
         Picked := RunStartScreen(Win, G.Screen, Fetch, Info, Dir, ListHost, ListPort, Msg, R);
       finally

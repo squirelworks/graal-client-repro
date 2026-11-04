@@ -10,6 +10,10 @@ unit Protocol205;
 interface
 
 const
+  { the listserver used when listserver.txt names none }
+  DefaultListHost = 'listserver.graal.in';
+  DefaultListPort = 14923;
+
   { The 8-byte version token in the login line. 2.05, 2.05 rev 1 and
     2.05 rev 2 (and the 2.1 test builds) all send this one. }
   ClientVersionToken = 'GNW03081';

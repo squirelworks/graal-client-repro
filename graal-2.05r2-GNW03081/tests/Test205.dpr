@@ -819,6 +819,11 @@ var
 begin
   Root := IncludeTrailingPathDelimiter(GetTempDir) + 'assetdirs-' + IntToStr(Random(1000000)) + PathDelim;
   Exe := Root + 'clients' + PathDelim;
+  { graal-assets one folder above the program is not used }
+  PutFile(Root + 'graal-assets' + PathDelim + 'common' + PathDelim + 'z.txt', 'above');
+  SetAssetRoots(Exe, '2.05r2');
+  Check(AssetPath('z.txt') = '', 'assets: nothing is read from above the program folder');
+  Root := Exe;
   PutFile(Root + 'graal-assets' + PathDelim + 'common' + PathDelim + 'a.txt', 'common');
   PutFile(Root + 'graal-assets' + PathDelim + 'common' + PathDelim + 'b.txt', 'common');
   PutFile(Root + 'graal-assets' + PathDelim + '2.05r2' + PathDelim + 'b.txt', 'version');

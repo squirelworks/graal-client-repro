@@ -42,9 +42,6 @@ type
   are left as they are otherwise. }
 procedure ReadArrays2(const Dir: string; var Host: string; var Port: Integer);
 
-const
-  Backgrounds217 = 'screenimg1.jpg;embedded/images/screenimg1.jpg;images/screenimg1.jpg';
-
 implementation
 
 uses

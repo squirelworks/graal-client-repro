@@ -49,10 +49,9 @@ captures of the real 2.22 client, not from decompiled code:
 - **Built-in assets**: the program carries small original defaults (tile
   sheet, body, head, ganis, two levels; `common/builtin/`), so it runs
   with nothing next to it. Files from a 2.22 install next to it, or under
-  `--data`, replace them, and `screenimg1.jpg` (also looked for in
-  `embedded/images/`) brings up the original 2.22 start window.
-  The shared `graal-assets/` folder (beside the program or one level up)
-  works too: `graal-assets/2.22/`, then `graal-assets/common/`
+  `--data`, replace them in the game. The start screen is always this
+  project's own; the original start window is not drawn.
+  The shared `graal-assets/` folder inside the program's folder works too: `graal-assets/2.22/`, then `graal-assets/common/`
   (`common/GAssetDirs.pas`).
 - **The listserver step**: hosts from `arrays2.dat` (line 0, then the
   fallbacks on lines 5 and 6), `listserver.txt` next to the program wins
