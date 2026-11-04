@@ -881,6 +881,214 @@ begin
   end;
 end;
 
+procedure TestActions;
+var
+  G: TAdventure;
+  A: TGraalAni;
+  OX, OY, I, R0: Integer;
+  X, Y, W, H: Integer;
+begin
+  { the sprite table packing, against two rectangles the HUD notes give }
+  G := TAdventure.Create;
+  try
+    G.Arrays.Lists[24].Free;
+    G.Arrays.Lists[24] := TGArray.Create;
+    SetLength(G.Arrays.Lists[24].Values, 2);
+    G.Arrays.Lists[24].Values[0] := Integer($0E06A390);
+    G.Arrays.Lists[24].Values[1] := Integer($2F01238E);
+    Check(G.Arrays.SpriteRect(0, X, Y, W, H) and (X = 28) and (Y = 212) and (W = 28) and (H = 32),
+      'sprites: table entry 145 is (28, 212, 28, 32)');
+    Check(G.Arrays.SpriteRect(1, X, Y, W, H) and (X = 94) and (Y = 36) and (W = 28) and (H = 28),
+      'sprites: table entry 17 is (94, 36, 28, 28)');
+  finally
+    G.Free;
+  end;
+  { PARAM placements keep their row (the carry ganis have one per row) }
+  A := TGraalAni.Create;
+  try
+    Check(A.LoadFromString('SPRITE 1 BODY 0 0 36 36 b'#10'DEFAULTPARAM1 20'#10'ANI'#10 +
+      ' 1 0 0, PARAM1 8 -18'#10' 1 0 0'#10' 1 0 0'#10' 1 0 0, PARAM1 8 -18'#10'ANIEND'#10) and
+      (Length(A.Steps) = 1) and (Length(A.Steps[0].Dirs[3]) = 2) and
+      (A.Steps[0].Dirs[3][1].Sprite = ParamSprite - 1) and (A.DefaultParam[1] = '20'),
+      'gani: a PARAM1 placement is read, not dropped');
+  finally
+    A.Free;
+  end;
+  G := TAdventure.Create;
+  try
+    G.Headless := True;
+    Check(G.LoadLevelFile('start.nw'), 'actions: the built-in level loads');
+    { the sword cuts the bush below: built-in bush 36, 26 }
+    G.Player.X := 35;
+    G.Player.Y := 22;
+    G.Player.Dir := DirDown;
+    Check(G.MatchObject(9, 99, 36.5, 26, OX, OY) = 0, 'actions: the bush matches the cut table');
+    G.Attack;
+    Check((G.Mode = ModeSword) and (G.Level.Tile(36, 26) = G.Arrays.ObjectTile(10, 0, 0, 0)),
+      'actions: a swing cuts the bush at the tip');
+    G.Mode := ModeFree;
+    { the pot lifts with glove 1, the stone needs glove 2 }
+    G.Player.X := 24.5;
+    G.Player.Y := 32;
+    G.Action;
+    Check((G.Mode = ModeLift) and (G.CarryKind = 2) and
+      (G.Level.Tile(26, 36) = G.Arrays.ObjectTile(12, 2, 0, 0)), 'actions: A lifts the pot');
+    for I := 1 to 10 do G.Tick;
+    Check(G.Mode = ModeCarry, 'actions: the lift ends in carrying');
+    G.AttackKey := True;
+    G.Tick;
+    Check((G.Mode = ModeFree) and (G.CarryKind = -1) and (Length(G.Thrown) = 1),
+      'actions: S throws what is carried');
+    for I := 1 to 10 do G.Tick;
+    Check(Length(G.Thrown) = 0, 'actions: the thrown pot lands');
+    G.Player.X := 34.5;
+    G.Player.Y := 33;
+    G.Action;
+    Check(G.Mode = ModeFree, 'actions: glove 1 does not lift a stone');
+    G.Player.GlovePower := 2;
+    G.Action;
+    Check((G.Mode = ModeLift) and (G.CarryKind = 3), 'actions: glove 2 lifts it');
+    G.Mode := ModeFree;
+    G.CarryKind := -1;
+    { the chest gives its red rupee once }
+    G.Player.X := 25;
+    G.Player.Y := 27;
+    G.Player.Dir := DirUp;
+    R0 := G.Player.Rupees;
+    G.Action;
+    Check((G.Player.Rupees = R0 + 30) and G.Level.Chests[0].Opened, 'actions: the chest gives 30 rupees');
+    G.Action;
+    Check(G.Player.Rupees = R0 + 30, 'actions: an open chest gives nothing more');
+    { floor items: taken after the first four ticks, offline given at once }
+    SetLength(G.Items, 0);
+    G.AddItem(G.Player.X + 0.5, G.Player.Y + 1, 5, ItemLife);
+    G.Player.Power := 2;
+    G.Tick;
+    Check(Length(G.Items) = 1, 'items: not taken in the first ticks');
+    for I := 1 to 4 do G.Tick;
+    Check((Length(G.Items) = 0) and (G.Player.Power = 4), 'items: a heart is taken and gives a heart');
+    G.AddItem(10, 10, 0, ItemLife);
+    for I := 1 to ItemLife do G.Tick;
+    Check(Length(G.Items) = 1, 'items: still there at life 0');
+    G.Tick;
+    Check(Length(G.Items) = 0, 'items: gone when the life runs out');
+    { from the server }
+    G.Receive(PLO_ITEMADD, GChar(20) + GChar(20) + GChar(3));
+    G.Receive(PLO_ITEMADD, GChar(22) + GChar(20) + GChar(6));
+    Check((Length(G.Items) = 1) and (G.Items[0].X = 10) and (G.Items[0].Item = 3),
+      'items: ITEMADD makes floor items only');
+    G.Receive(PLO_ITEMDEL, GChar(20) + GChar(20));
+    Check(Length(G.Items) = 0, 'items: ITEMDEL removes it');
+    G.Receive(PLO_BOARDMODIFY, GChar(5) + GChar(6) + GChar(2) + GChar(1) + GShort(100) + GShort(101));
+    Check((G.Level.Tile(5, 6) = 100) and (G.Level.Tile(6, 6) = 101), 'board: BOARDMODIFY writes its tiles');
+  finally
+    G.Free;
+  end;
+end;
+
+procedure TestCombat;
+var
+  G: TAdventure;
+  P: TServerPlayer;
+  I, T0: Integer;
+  X0, Y0: Double;
+begin
+  G := TAdventure.Create;
+  try
+    G.Headless := True;
+    Check(G.LoadLevelFile('start.nw'), 'combat: the built-in level loads');
+    G.Tick;
+    G.Player.X := 30;
+    G.Player.Y := 30;
+    { a hit clamps CURPOWER to the maximum first, then takes half hearts }
+    G.Player.MaxPower := 3;
+    G.Player.Power := 9;
+    X0 := G.Player.X;
+    G.HurtPlayer(1, 1, 0);
+    Check(G.Player.Power = 4, 'combat: power is clamped to the maximum before the hit');
+    Check(not G.Hurtable, 'combat: hurt mode after a hit');
+    G.HurtPlayer(1, 1, 0);
+    Check(G.Player.Power = 4, 'combat: no second hit in hurt mode');
+    for I := 1 to 5 do G.Tick;
+    Check(Abs(G.Player.X - (X0 + 5)) < 0.01, 'combat: five ticks of knockback, a tile each');
+    for I := 1 to 10 do G.Tick;
+    Check(Abs(G.Player.X - (X0 + 5)) < 0.01, 'combat: no knockback after the fifth tick');
+    for I := 1 to 25 do G.Tick;
+    Check(G.Hurtable, 'combat: hurt mode ends after 40 ticks');
+    { death, then a direction key respawns at the entry point }
+    G.AP := 10;
+    G.HurtPlayer(2, 0, 1);
+    Check((G.Mode = ModeDead) and (G.Player.Power = 0), 'combat: no hearts left is death');
+    G.Player.MaxPower := 5;
+    G.Respawn;
+    Check((G.Mode = ModeFree) and (G.Player.Power = 6), 'combat: AP under 20 respawns with three hearts');
+    G.AP := 30;
+    G.Mode := ModeDead;
+    G.Respawn;
+    Check(G.Player.Power = 10, 'combat: AP under 40 respawns with five hearts');
+    G.AP := 50;
+    G.Respawn;
+    Check(G.Player.Power = 10, 'combat: else all hearts (5)');
+    { PLO_HURTPLAYER: known attackers within 10 tiles, players only }
+    G.Player.X := 30;
+    G.Player.Y := 30;
+    P := G.FindOther(7, True);
+    P.X := 33;
+    P.Y := 30;
+    G.Receive(PLO_HURTPLAYER, GShort(7) + GChar($60 - 32 + 16) + GChar($60 - 32) + GChar(5) +
+      GChar(0) + GChar(0) + GChar(0));
+    Check(G.Player.Power = 10, 'combat: HURTPLAYER with the NPC field is refused');
+    G.Receive(PLO_HURTPLAYER, GShort(8) + GChar($60 - 32 + 16) + GChar($60 - 32) + GChar(2));
+    Check(G.Player.Power = 10, 'combat: HURTPLAYER from an unknown player is refused');
+    P.X := 41;
+    G.Receive(PLO_HURTPLAYER, GShort(7) + GChar($60 - 32 + 16) + GChar($60 - 32) + GChar(2));
+    Check(G.Player.Power = 10, 'combat: HURTPLAYER from over 10 tiles is refused');
+    P.X := 33;
+    G.Receive(PLO_HURTPLAYER, GShort(7) + GChar($60 - 32 + 16) + GChar($60 - 32) + GChar(5));
+    Check(G.Player.Power = 8, 'combat: HURTPLAYER power is capped at two half hearts');
+    for I := 1 to 40 do G.Tick;
+    { another player's swing: facing the player, two tiles off }
+    G.Player.X := 30;
+    G.Player.Y := 30;
+    P.X := 28;
+    P.Y := 30;
+    P.Dir := DirRight;
+    P.SwordPower := 2;
+    P.Sprite := 6 * 4 + DirRight;
+    G.Tick;
+    Check(G.Player.Power = 6, 'combat: a swing from another player takes SwordPower / 2 hearts');
+    P.Sprite := 0;
+    for I := 1 to 40 do G.Tick;
+    P.Dir := DirLeft;
+    P.Sprite := 6 * 4 + DirLeft;
+    G.Tick;
+    Check(G.Player.Power = 6, 'combat: a swing facing away misses');
+    G.RemoveOther(7);
+    { a bomb: laid ahead, goes off after 60 ticks, cuts the bush and hurts }
+    G.Player.X := 35;
+    G.Player.Y := 22;
+    G.Player.Dir := DirDown;
+    G.Player.Bombs := 3;
+    G.WeaponsOn := True;
+    G.LayBomb;
+    Check((Length(G.Bombs) = 1) and (G.Player.Bombs = 2), 'bombs: D lays a bomb');
+    T0 := G.Player.Power;
+    G.Bombs[0].X := 36;
+    G.Bombs[0].Y := 24;
+    G.Player.Y := 23;
+    for I := 1 to 59 do G.Tick;
+    Check((Length(G.Bombs) = 1) and (Length(G.Blasts) = 0), 'bombs: the fuse is 60 ticks');
+    G.Tick;
+    Check((Length(G.Bombs) = 0) and (Length(G.Blasts) = 1), 'bombs: then it explodes');
+    Check(G.Level.Tile(36, 26) = G.Arrays.ObjectTile(10, 0, 0, 0), 'bombs: the blast destroys the bush');
+    Check(G.Player.Power = T0 - 1, 'bombs: the blast hurts the player half a heart');
+    for I := 1 to 12 do G.Tick;
+    Check(Length(G.Blasts) = 0, 'bombs: the blast is gone after 11 ticks');
+  finally
+    G.Free;
+  end;
+end;
+
 procedure TestServerList;
 var
   L: TListServers;
@@ -946,6 +1154,8 @@ begin
   TestAssetDirs;
   TestBuiltins;
   TestStatus;
+  TestActions;
+  TestCombat;
   WriteLn(Format('%d passed, %d failed, %d skipped', [Passed, Failed, Skipped]));
   if Failed > 0 then Halt(1);
 end.

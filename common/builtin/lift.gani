@@ -1,0 +1,47 @@
+GANI0001
+SPRITE    0 SPRITES   0    0  24  12 shadow
+SPRITE  100 HEAD      0    0  32  32 head up
+SPRITE  101 HEAD      0   32  32  32 head left
+SPRITE  102 HEAD      0   64  32  32 head down
+SPRITE  103 HEAD      0   96  32  32 head right
+SPRITE  200 BODY      0    0  36  36 body up 0
+SPRITE  201 BODY     36    0  36  36 body left 0
+SPRITE  202 BODY     72    0  36  36 body down 0
+SPRITE  203 BODY    108    0  36  36 body right 0
+SPRITE  204 BODY      0   36  36  36 body up 1
+SPRITE  205 BODY     36   36  36  36 body left 1
+SPRITE  206 BODY     72   36  36  36 body down 1
+SPRITE  207 BODY    108   36  36  36 body right 1
+SPRITE  208 BODY      0   72  36  36 body up 2
+SPRITE  209 BODY     36   72  36  36 body left 2
+SPRITE  210 BODY     72   72  36  36 body down 2
+SPRITE  211 BODY    108   72  36  36 body right 2
+SPRITE  212 BODY      0  108  36  36 body up 3
+SPRITE  213 BODY     36  108  36  36 body left 3
+SPRITE  214 BODY     72  108  36  36 body down 3
+SPRITE  215 BODY    108  108  36  36 body right 3
+SPRITE  216 BODY      0  144  36  36 body up 4
+SPRITE  217 BODY     36  144  36  36 body left 4
+SPRITE  218 BODY     72  144  36  36 body down 4
+SPRITE  219 BODY    108  144  36  36 body right 4
+SPRITE   20 PARAM1     0    0  32  32 sword up
+SPRITE   21 PARAM1    32    0  32  32 sword left
+SPRITE   22 PARAM1    64    0  32  32 sword down
+SPRITE   23 PARAM1    96    0  32  32 sword right
+DEFAULTHEAD head0.png
+DEFAULTBODY body.png
+
+ANI
+   0  12  34, PARAM1   8 -6,  200   6  10,  100   8  -4
+   0  12  34,  201   6  10,  101   8  -4, PARAM1   8 -6
+   0  12  34,  202   6  10,  102   8  -4, PARAM1   8 -6
+   0  12  34,  203   6  10,  103   8  -4, PARAM1   8 -6
+WAIT 1
+
+   0  12  34, PARAM1   8 -16,  200   6  10,  100   8  -4
+   0  12  34,  201   6  10,  101   8  -4, PARAM1   8 -16
+   0  12  34,  202   6  10,  102   8  -4, PARAM1   8 -16
+   0  12  34,  203   6  10,  103   8  -4, PARAM1   8 -16
+WAIT 1
+
+ANIEND

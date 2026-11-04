@@ -1009,6 +1009,7 @@ begin
       PLO_LEVELCHEST: { c opened, c x, c y, c item, c sign }
         begin
           R.ReadGChar;
+          CH.Opened := False;
           CH.X := R.ReadGChar;
           CH.Y := R.ReadGChar;
           CH.Item := R.ReadGChar;

@@ -69,6 +69,7 @@ type
       other players, whose pose comes from their sprite prop. }
     FixedStep: Integer;
     Gone: Boolean;      { PCONNECTED or a level leave seen }
+    HitSecond: Integer; { second of the day this player's swing last hit us }
     BodyCache: TGSurface; { the body recoloured for this player }
     BodyKey: string;
     constructor Create;
@@ -82,8 +83,47 @@ type
     procedure SetAni(const Name: string; Frame: Integer);
   end;
 
+  { An item lying on the board (2.05's TAdventureExtra; see
+    client-internals/item-drops.md). }
+  TFloorItem = record
+    X, Y: Double;     { tiles, top-left }
+    Item: Integer;    { index into ItemNames }
+    Life: Integer;    { counts down one per 50 ms tick from 164 }
+    Permanent: Boolean; { made with a life below 100: shown, never taken }
+  end;
+
+  { An object in flight after a throw. }
+  TThrownObject = record
+    X, Y, DX, DY: Double; { top-left of the 2 x 2 object, tiles per tick }
+    Kind, Age: Integer;   { lift table entry; ticks in the air }
+  end;
+
+  TBomb = record
+    X, Y: Double;          { top-left of the 2 x 2 bomb }
+    Power, Fuse: Integer;  { power 1 to 3; ticks left }
+    Mine: Boolean;         { laid by this player }
+  end;
+
+  { An explosion: a cross of 2 x 2 pieces, Reach pieces each way. }
+  TBlast = record
+    X, Y: Double;
+    Reach, Kind, Age: Integer;
+    Mine: Boolean;
+  end;
+
+  { Hooks for what the NPC and baddy code answers to, in tiles: a sword
+    swing's hit box, a bomb blast's centre and reach, an arrow's tip. }
+  TSwordHitEvent = procedure(X, Y, W, H: Double; Power: Integer) of object;
+  TBombBlastEvent = procedure(X, Y: Double; Radius: Integer) of object;
+  TArrowHitEvent = procedure(X, Y: Double; Power: Integer) of object;
+
   TAdventure = class
   private
+    FModeUntil: Integer;   { frame the sword swing or lift ends }
+    FHurtCount: Integer;   { hurt mode: ticks left of 40 }
+    FKnockX, FKnockY: Double;
+    FEntryX, FEntryY: Double; { where the player came into this level }
+    FEntryLevel: string;
     FClient: TAdventureClient;
     FLog: TStrings;
     FSentX, FSentY: Double;
@@ -96,6 +136,10 @@ type
     FWarpLevel: string;
     FWarpTimed: string;    { the level a timed warp waits for }
     FWarpT0: Int64;
+    procedure KnockStep;
+    procedure CheckSwordHits;
+    procedure TickCombat;
+    procedure DrawCombat(CamX, CamY: Integer);
     procedure HandleMessage(Id: Integer; const Data: string);
     procedure ClientLog(const Line: string);
     function PointBlocked(PX, PY: Double): Boolean;
@@ -139,6 +183,21 @@ type
     Handled, Ignored: array[0..255] of Integer;
     { Held direction keys for this tick: up, left, down, right. }
     Keys: array[0..3] of Boolean;
+    { Game keys pressed this tick (down edges): A action (lift, throw,
+      open), S attack (sword, throw), D item. }
+    ActionKey, AttackKey, ItemKey: Boolean;
+    { What the player is doing: ModeFree, ModeSword, ModeLift, ModeCarry. }
+    Mode: Integer;
+    { The lift table entry carried (0 bush, 1 sign, 2 pot, 3 stone,
+      4 black stone), or -1. }
+    CarryKind: Integer;
+    Items: array of TFloorItem;
+    Thrown: array of TThrownObject;
+    Bombs: array of TBomb;
+    Blasts: array of TBlast;
+    OnSwordHit: TSwordHitEvent;
+    OnBombBlast: TBombBlastEvent;
+    OnArrowHit: TArrowHitEvent;
     constructor Create;
     destructor Destroy; override;
     procedure Log(const S: string);
@@ -174,6 +233,44 @@ type
     { Another player by id; Make adds it when it is not known yet. }
     function FindOther(Id: Integer; Make: Boolean): TServerPlayer;
     procedure RemoveOther(Id: Integer);
+    { The A-key probe: one tile beyond the middle of the leading edge. }
+    procedure ProbePoint(out PX, PY: Double);
+    { The first of the first MaxCount objects of table List (9 cut, 11
+      lift) whose 2 x 2 tiles lie on the board around (PX, PY), with its
+      top-left in OX, OY; -1 when none. }
+    function MatchObject(List, MaxCount: Integer; PX, PY: Double;
+      out OX, OY: Integer): Integer;
+    { Writes object I of table List over the 2 x 2 at X, Y; online, sends
+      the change when a tile differs. }
+    procedure PutObject(X, Y, List, I: Integer; Send: Boolean);
+    { The S key: throws what is carried, or swings the sword and cuts. }
+    procedure Attack;
+    { The A key: throws, lifts, or opens a chest. }
+    procedure Action;
+    procedure Throw;
+    { A floor item at X, Y (tiles); Life 164 for a dropped item. }
+    procedure AddItem(X, Y: Double; Item, Life: Integer);
+    procedure RemoveItem(I: Integer);
+    { What taking item I gives offline (and from a chest). }
+    procedure GiveItem(Item: Integer);
+    procedure TickItems;
+    procedure DrawItems(CamX, CamY: Integer);
+    { The 2 x 2 tiles of object I of table List at screen point X, Y. }
+    procedure DrawObjectTiles(List, I, X, Y: Integer);
+    { A carried or thrown object (lift table entry Kind) at X, Y. }
+    procedure DrawCarried(Kind, X, Y: Integer);
+    { Not in hurt mode and not dead. }
+    function Hurtable: Boolean;
+    { The shared hurt routine: Hearts off (clamped to the maximum first),
+      hurt mode with a five-tile knockback along (KX, KY), or death. }
+    procedure HurtPlayer(Hearts, KX, KY: Double);
+    { HurtPlayer with the knockback pointing away from (FromX, FromY). }
+    procedure HurtFrom(Hearts, FromX, FromY: Double);
+    { After death, on a direction key: hearts by AP, at the level's entry. }
+    procedure Respawn;
+    { The D key with the bomb: a bomb with a 60-tick fuse. }
+    procedure LayBomb;
+    procedure AddBlast(X, Y: Double; Reach, Kind: Integer; Mine: Boolean);
     property Others[I: Integer]: TServerPlayer read GetOther;
     property OtherCount: Integer read GetOtherCount;
     property Client: TAdventureClient read FClient;
@@ -187,6 +284,22 @@ type
 function AniStepNumber(const AniName: string; Frame: Integer): Integer;
 { Wall-clock milliseconds, for login and warp timings. }
 function NowMs: Int64;
+const
+  ModeFree = 0;
+  ModeSword = 1;
+  ModeLift = 2;
+  ModeCarry = 3;
+  ModeDead = 5;
+  { The sprite of each item (arrays.dat array 24), by item number. }
+  ItemSprites: array[0..24] of Integer = (136, 137, 138, 67, 143, 139, 145,
+    351, 65, 350, 314, 315, 321, 323, 322, 324, 325, 328, 329, 330, 331, 332,
+    333, 334, 349);
+  ItemShadowSprite = 42;
+  { the carry sprite of each lift table entry }
+  CarrySprites: array[0..4] of Integer = (261, 267, 265, 263, 239);
+  ItemLife = 164;
+{ The items that can lie on the floor (PLO_ITEMADD makes only these). }
+function FloorItem(Item: Integer): Boolean;
 function WireSprite(const AniName: string; Frame, Dir: Integer): Integer;
 procedure MakeIndexSheet(Sheet: TGSurface);
 
@@ -376,12 +489,18 @@ begin
     Exit;
   end;
   A := nil;
-  if Dir <> '' then
+  { the install's ganis, through the asset folders (graal-assets/<version>
+    and common), as the images are found }
+  F := AssetPath('levels/ganis/' + Name + '.gani');
+  if F = '' then F := AssetPath('ganis/' + Name + '.gani');
+  if (F = '') and (Dir <> '') then
   begin
     F := IncludeTrailingPathDelimiter(Dir) + 'levels/ganis/' + Name + '.gani';
     if not FileExists(F) then
       F := IncludeTrailingPathDelimiter(Dir) + 'ganis/' + Name + '.gani';
-    if FileExists(F) then
+  end;
+  begin
+    if (F <> '') and FileExists(F) then
     begin
       A := TGraalAni.Create;
       if not A.LoadFromFile(F) then FreeAndNil(A);
@@ -410,6 +529,8 @@ begin
   Colors[4] := 18;
   BodyImage := 'body.png';
   HeadImage := 'head0.gif';
+  SwordImage := 'sword1.gif';
+  ShieldImage := 'shield1.gif';
   Dir := DirDown;
   AniName := 'idle';
   FixedStep := -1;
@@ -582,6 +703,7 @@ begin
   Player.Arrows := 5;
   Player.GlovePower := 1;
   Player.SwordPower := 1;
+  CarryKind := -1;
   AP := 50;
   ShowStats := $FF;
   WeaponsOn := True;
@@ -769,6 +891,579 @@ begin
   Player.Y := NY;
 end;
 
+{ ---- actions: sword cut, lift and throw, chests, floor items
+  (client-internals/decomp-findings-2026-10-25-l/03-cut-lift-chest.md,
+  board-respawn.md, item-drops.md, carry-hide-and-glove.md) ---- }
+
+function FloorItem(Item: Integer): Boolean;
+begin
+  Result := ((Item >= 0) and (Item <= 5)) or (Item = 7) or (Item = 8) or
+    (Item = 19) or (Item = 24);
+end;
+
+procedure TAdventure.ProbePoint(out PX, PY: Double);
+begin
+  case Player.Dir and 3 of
+    DirUp: begin PX := Player.X + 1.5; PY := Player.Y; end;
+    DirLeft: begin PX := Player.X - 0.5; PY := Player.Y + 2; end;
+    DirDown: begin PX := Player.X + 1.5; PY := Player.Y + 4; end;
+  else
+    begin PX := Player.X + 3.5; PY := Player.Y + 2; end;
+  end;
+end;
+
+function TAdventure.MatchObject(List, MaxCount: Integer; PX, PY: Double;
+  out OX, OY: Integer): Integer;
+var
+  TX, TY, T, E, C, R, C2, R2: Integer;
+  Ok: Boolean;
+begin
+  Result := -1;
+  OX := 0;
+  OY := 0;
+  TX := TileOf(PX);
+  TY := TileOf(PY);
+  if (TX < 0) or (TY < 0) or (TX >= BoardW) or (TY >= BoardH) then Exit;
+  T := Level.Tile(TX, TY);
+  if MaxCount > Arrays.ObjectCount(List) then MaxCount := Arrays.ObjectCount(List);
+  { each entry in order; for each of its tiles equal to the one under the
+    point, the object's corner is the point less that tile's place; the
+    first whole match wins }
+  for E := 0 to MaxCount - 1 do
+    for C := 0 to 1 do
+      for R := 0 to 1 do
+        if Arrays.ObjectTile(List, E, C, R) = T then
+        begin
+          Ok := (TX - C >= 0) and (TY - R >= 0) and (TX - C + 1 < BoardW) and
+            (TY - R + 1 < BoardH);
+          if Ok then
+            for C2 := 0 to 1 do
+              for R2 := 0 to 1 do
+                if Level.Tile(TX - C + C2, TY - R + R2) <>
+                  Arrays.ObjectTile(List, E, C2, R2) then Ok := False;
+          if Ok then
+          begin
+            OX := TX - C;
+            OY := TY - R;
+            Result := E;
+            Exit;
+          end;
+        end;
+end;
+
+procedure TAdventure.PutObject(X, Y, List, I: Integer; Send: Boolean);
+var
+  C, R, T: Integer;
+  Changed: Boolean;
+  S: string;
+begin
+  Changed := False;
+  S := GChar(X) + GChar(Y) + GChar(2) + GChar(2);
+  for R := 0 to 1 do
+    for C := 0 to 1 do
+    begin
+      if List = 14 then
+      begin
+        { the open chest is one object, not a list of them }
+        T := -1;
+        if (Arrays.Lists[14] <> nil) and (C <= High(Arrays.Lists[14].Items)) and
+          (R <= High(Arrays.Lists[14].Items[C].Values)) then
+          T := Arrays.Lists[14].Items[C].Values[R];
+      end
+      else
+        T := Arrays.ObjectTile(List, I, C, R);
+      if (T < 0) or (X + C < 0) or (Y + R < 0) or (X + C >= BoardW) or
+        (Y + R >= BoardH) then Exit;
+      if Level.Tiles[X + C + (Y + R) * BoardW] <> T then Changed := True;
+      Level.Tiles[X + C + (Y + R) * BoardW] := T;
+      S := S + GShort(T);
+    end;
+  { 2.05 sends one run, and nothing when the tiles were already so }
+  if Send and Changed and FClient.Connected then
+    FClient.SendPacket(PLI_BOARDMODIFY, S);
+end;
+
+procedure TAdventure.Attack;
+var
+  A: TGraalAni;
+  PX, PY: Double;
+  OX, OY, E: Integer;
+begin
+  if Mode = ModeCarry then
+  begin
+    Throw;
+    Exit;
+  end;
+  if (Mode <> ModeFree) or not WeaponsOn or (Player.SwordPower <= 0) then Exit;
+  Mode := ModeSword;
+  Player.AniName := '';
+  Player.SetAni('sword', Frame);
+  A := Assets.Ani('sword');
+  if A <> nil then FModeUntil := Frame + A.TotalTicks else FModeUntil := Frame + 5;
+  { a bush or tall grass at the tip is cut at the start of the swing }
+  ProbePoint(PX, PY);
+  E := MatchObject(9, MaxInt, PX, PY, OX, OY);
+  if E >= 0 then PutObject(OX, OY, 10, E, True);
+  { NPCs and baddies hit by the blade: a 2 x 2 box centred on the tip }
+  if Assigned(OnSwordHit) then OnSwordHit(PX - 1, PY - 1, 2, 2, Player.SwordPower);
+end;
+
+procedure TAdventure.Action;
+var
+  A: TGraalAni;
+  PX, PY: Double;
+  OX, OY, E, I: Integer;
+begin
+  if Mode = ModeCarry then
+  begin
+    Throw;
+    Exit;
+  end;
+  if Mode <> ModeFree then Exit;
+  ProbePoint(PX, PY);
+  { lift first: glove power g allows the first g + 2 entries }
+  E := MatchObject(11, Player.GlovePower + 2, PX, PY, OX, OY);
+  if E >= 0 then
+  begin
+    PutObject(OX, OY, 12, E, True);
+    CarryKind := E;
+    Mode := ModeLift;
+    Player.SetAni('lift', Frame);
+    A := Assets.Ani('lift');
+    if A <> nil then FModeUntil := Frame + A.TotalTicks else FModeUntil := Frame + 4;
+    Exit;
+  end;
+  { a chest record at the probe, not yet opened }
+  for I := 0 to High(Level.Chests) do
+    if not Level.Chests[I].Opened and (PX >= Level.Chests[I].X) and
+      (PX <= Level.Chests[I].X + 2) and (PY >= Level.Chests[I].Y) and
+      (PY <= Level.Chests[I].Y + 2) then
+    begin
+      Level.Chests[I].Opened := True;
+      PutObject(Level.Chests[I].X, Level.Chests[I].Y, 14, 0, False);
+      { the item shows over the chest (a life below 100: not taken) and is
+        given at once }
+      if (Level.Chests[I].Item >= 0) and (Level.Chests[I].Item <= High(ItemNames)) then
+      begin
+        AddItem(Level.Chests[I].X, Level.Chests[I].Y - 1, Level.Chests[I].Item, 24);
+        GiveItem(Level.Chests[I].Item);
+      end;
+      if FClient.Connected then
+        FClient.SendPacket(PLI_OPENCHEST, GChar(Level.Chests[I].X) + GChar(Level.Chests[I].Y));
+      Exit;
+    end;
+end;
+
+procedure TAdventure.Throw;
+const
+  DX: array[0..3] of Double = (0, -1, 0, 1);
+  DY: array[0..3] of Double = (-1, 0, 1, 0);
+var
+  N: Integer;
+begin
+  if CarryKind < 0 then Exit;
+  { it leaves from above the head; the flight itself was not read from
+    2.05: here it travels 0.5 tile a tick for 8 ticks and breaks }
+  N := Length(Thrown);
+  SetLength(Thrown, N + 1);
+  Thrown[N].X := Player.X + 0.5;
+  Thrown[N].Y := Player.Y;
+  Thrown[N].DX := DX[Player.Dir and 3] * 0.5;
+  Thrown[N].DY := DY[Player.Dir and 3] * 0.5;
+  Thrown[N].Kind := CarryKind;
+  Thrown[N].Age := 0;
+  CarryKind := -1;
+  Mode := ModeFree;
+  Player.SetAni('idle', Frame);
+end;
+
+procedure TAdventure.AddItem(X, Y: Double; Item, Life: Integer);
+var
+  N: Integer;
+begin
+  N := Length(Items);
+  SetLength(Items, N + 1);
+  Items[N].X := X;
+  Items[N].Y := Y;
+  Items[N].Item := Item;
+  Items[N].Life := Life;
+  Items[N].Permanent := Life < 100;
+end;
+
+procedure TAdventure.RemoveItem(I: Integer);
+var
+  J: Integer;
+begin
+  if (I < 0) or (I > High(Items)) then Exit;
+  for J := I to High(Items) - 1 do Items[J] := Items[J + 1];
+  SetLength(Items, Length(Items) - 1);
+end;
+
+procedure TAdventure.GiveItem(Item: Integer);
+
+  procedure Rupees(N: Integer);
+  begin
+    Player.Rupees := Min(Player.Rupees + N, 9999999);
+  end;
+
+begin
+  case Item of
+    0: Rupees(1);
+    1: Rupees(5);
+    2: Rupees(30);
+    19: Rupees(100);
+    3: Player.Bombs := Min(Player.Bombs + 5, 99);
+    4: Player.Arrows := Min(Player.Arrows + 5, 99);
+    5: Player.Power := Min(Player.Power + 2, Player.MaxPower * 2);
+    6: Player.GlovePower := Max(Player.GlovePower, 2);
+    16: Player.GlovePower := Max(Player.GlovePower, 3);
+    9: Player.ShieldPower := Max(Player.ShieldPower, 1);
+    15: Player.ShieldPower := Max(Player.ShieldPower, 2);
+    17: Player.ShieldPower := Max(Player.ShieldPower, 3);
+    10: Player.SwordPower := Max(Player.SwordPower, 1);
+    13: Player.SwordPower := Max(Player.SwordPower, 2);
+    18: Player.SwordPower := Max(Player.SwordPower, 3);
+    14: Player.SwordPower := Max(Player.SwordPower, 4);
+    11:
+      begin
+        Player.MaxPower := Min(Player.MaxPower + 1, 20);
+        Player.Power := Player.MaxPower * 2;
+      end;
+  end;
+end;
+
+{ The per-tick work of items and thrown objects. }
+procedure TAdventure.TickItems;
+var
+  I: Integer;
+  It: TFloorItem;
+begin
+  I := 0;
+  while I <= High(Items) do
+  begin
+    Dec(Items[I].Life);
+    It := Items[I];
+    if It.Life < 0 then
+    begin
+      if not It.Permanent and FClient.Connected then
+        FClient.SendPacket(PLI_ITEMDEL, GChar(Round(It.X * 2)) + GChar(Round(It.Y * 2)));
+      RemoveItem(I);
+      Continue;
+    end;
+    if not It.Permanent and (It.Life < ItemLife - 4) and
+      (Abs(Player.X + 1.5 - (It.X + 1)) < 2) and (Abs(Player.Y + 2 - (It.Y + 1)) < 2) then
+    begin
+      { online the server gives the item with props; offline it is ours }
+      if FClient.Connected then
+        FClient.SendPacket(PLI_ITEMTAKE, GChar(Round(It.X * 2)) + GChar(Round(It.Y * 2)) +
+          GChar(It.Item))
+      else
+        GiveItem(It.Item);
+      RemoveItem(I);
+      Continue;
+    end;
+    Inc(I);
+  end;
+  I := 0;
+  while I <= High(Thrown) do
+  begin
+    Thrown[I].X := Thrown[I].X + Thrown[I].DX;
+    Thrown[I].Y := Thrown[I].Y + Thrown[I].DY;
+    Inc(Thrown[I].Age);
+    if Thrown[I].Age >= 8 then
+    begin
+      Thrown[I] := Thrown[High(Thrown)];
+      SetLength(Thrown, Length(Thrown) - 1);
+      Continue;
+    end;
+    Inc(I);
+  end;
+end;
+
+{ ---- combat: being hurt, knockback, dying, other players' swings,
+  bombs (decomp-findings-2026-10-24-d/01-sword-damage.md,
+  decomp-findings-2026-10-25-k/01-knockback-and-packet-hits.md,
+  damage-sources.md, lab-captures-2026-10-25/01-...md) ---- }
+
+function TAdventure.Hurtable: Boolean;
+begin
+  Result := (FHurtCount = 0) and (Mode <> ModeDead);
+end;
+
+procedure TAdventure.HurtPlayer(Hearts, KX, KY: Double);
+var
+  L: Double;
+begin
+  if not Hurtable then Exit;
+  { CURPOWER is in half hearts, clamped to the maximum before the hit }
+  Player.Power := Min(Player.Power, Player.MaxPower * 2) - Round(Hearts * 2);
+  if Player.Power > Player.MaxPower * 2 then Player.Power := Player.MaxPower * 2;
+  { hurt mode: 40 ticks; the first five push the player a tile each along
+    the knockback, scaled to one tile (a zero vector pushes east) }
+  L := Sqrt(KX * KX + KY * KY);
+  if L < 0.0001 then
+  begin
+    FKnockX := 1;
+    FKnockY := 0;
+  end
+  else
+  begin
+    FKnockX := KX / L;
+    FKnockY := KY / L;
+  end;
+  FHurtCount := 40;
+  if (Mode = ModeSword) or (Mode = ModeLift) or (Mode = ModeCarry) then
+  begin
+    { what happens to a carried object on a hit was not read: it is lost }
+    CarryKind := -1;
+    Mode := ModeFree;
+  end;
+  if Player.Power <= 0 then
+  begin
+    Player.Power := 0;
+    Mode := ModeDead;
+    FHurtCount := 0;
+    Player.SetAni('dead', Frame);
+  end
+  else
+    Player.SetAni('hurt', Frame);
+  if FClient.Connected then
+    FClient.SendPacket(PLI_PLAYERPROPS, GChar(PLPROP_CURPOWER) + GChar(Player.Power));
+end;
+
+procedure TAdventure.HurtFrom(Hearts, FromX, FromY: Double);
+begin
+  HurtPlayer(Hearts, Player.X + 1.5 - FromX, Player.Y + 2 - FromY);
+end;
+
+procedure TAdventure.Respawn;
+begin
+  { hearts by alignment (measured on 2.22): AP below 20 three, below 40
+    five, else all; back at the point the level was entered }
+  if AP < 20 then Player.Power := 6
+  else if AP < 40 then Player.Power := 10
+  else Player.Power := Player.MaxPower * 2;
+  if Player.Power > Player.MaxPower * 2 then Player.Power := Player.MaxPower * 2;
+  Player.X := FEntryX;
+  Player.Y := FEntryY;
+  Mode := ModeFree;
+  Player.SetAni('idle', Frame);
+  if FClient.Connected then
+  begin
+    FClient.SendPacket(PLI_PLAYERPROPS, GChar(PLPROP_CURPOWER) + GChar(Player.Power));
+    FClient.SendPacket(PLI_LEVELWARP, GChar(Round(Player.X * 2)) + GChar(Round(Player.Y * 2)) +
+      Level.Name);
+  end;
+end;
+
+{ One tick of knockback: a tile along the stored vector, undone when any of
+  the twelve body points (0.6 to 2.4 across, 1.1 to 2.9 down) is blocked. }
+procedure TAdventure.KnockStep;
+const
+  PX: array[0..11] of Double = (0.6, 1.5, 2.4, 0.6, 0.6, 0.6, 0.6, 1.5, 2.4, 2.4, 2.4, 2.4);
+  PY: array[0..11] of Double = (1.1, 1.1, 1.1, 1.1, 2.0, 2.9, 2.9, 2.9, 2.9, 1.1, 2.0, 2.9);
+var
+  NX, NY: Double;
+  I: Integer;
+begin
+  NX := Player.X + FKnockX;
+  NY := Player.Y + FKnockY;
+  for I := 0 to 11 do
+    if PointBlocked(NX + PX[I], NY + PY[I]) then Exit;
+  Player.X := NX;
+  Player.Y := NY;
+end;
+
+{ Others' swings, judged here as 2.05 does on the victim's side: the
+  attacker on swing sprites 6 to 10, the victim 0 to 4 tiles ahead and
+  under 2 tiles to the side, AP not 100, once a second per attacker. }
+procedure TAdventure.CheckSwordHits;
+var
+  I, S, Sec: Integer;
+  P: TServerPlayer;
+  DX, DY, Ahead, Side: Double;
+begin
+  if not Hurtable or (AP = 100) or (Mode = ModeDead) then Exit;
+  Sec := Round(Frac(Now) * 86400);
+  for I := 0 to FOthers.Count - 1 do
+  begin
+    P := Others[I];
+    S := P.Sprite div 4;
+    if (S < 6) or (S > 10) then Continue;
+    DX := Player.X - P.X;
+    DY := Player.Y - P.Y;
+    case P.Dir and 3 of
+      DirUp: begin Ahead := -DY; Side := DX; end;
+      DirLeft: begin Ahead := -DX; Side := DY; end;
+      DirDown: begin Ahead := DY; Side := DX; end;
+    else
+      begin Ahead := DX; Side := DY; end;
+    end;
+    if (Ahead < 0) or (Ahead > 4) or (Abs(Side) >= 2) then Continue;
+    if P.HitSecond = Sec then Continue;
+    P.HitSecond := Sec;
+    HurtPlayer(Max(-20, Min(20, P.SwordPower)) / 2, DX, DY);
+    Exit;
+  end;
+end;
+
+procedure TAdventure.LayBomb;
+const
+  DX: array[0..3] of Double = (0, -1.5, 0, 1.5);
+  DY: array[0..3] of Double = (-1.5, 0, 1.5, 0);
+var
+  N: Integer;
+begin
+  if (Mode <> ModeFree) or not WeaponsOn or (Player.Bombs <= 0) then Exit;
+  Dec(Player.Bombs);
+  N := Length(Bombs);
+  SetLength(Bombs, N + 1);
+  { where 2.05 puts the bomb was not read: a tile and a half ahead of the
+    body }
+  Bombs[N].X := Round((Player.X + 0.5 + DX[Player.Dir and 3]) * 2) / 2;
+  Bombs[N].Y := Round((Player.Y + 1 + DY[Player.Dir and 3]) * 2) / 2;
+  Bombs[N].Power := 1;
+  Bombs[N].Fuse := 60;
+  Bombs[N].Mine := True;
+  if FClient.Connected then
+    FClient.SendPacket(PLI_BOMBADD, GChar(Round(Bombs[N].X * 2)) + GChar(Round(Bombs[N].Y * 2)) +
+      GChar(1 + 8) + GChar(60));
+end;
+
+procedure TAdventure.AddBlast(X, Y: Double; Reach, Kind: Integer; Mine: Boolean);
+var
+  N, D, K, E, OX, OY, C: Integer;
+  PX, PY, QX, QY: Double;
+const
+  DX: array[0..4] of Integer = (0, 0, -1, 0, 1);
+  DY: array[0..4] of Integer = (0, -1, 0, 1, 0);
+begin
+  if Reach > 15 then Reach := 15;
+  N := Length(Blasts);
+  SetLength(Blasts, N + 1);
+  Blasts[N].X := X;
+  Blasts[N].Y := Y;
+  Blasts[N].Reach := Reach;
+  Blasts[N].Kind := Kind;
+  Blasts[N].Age := 0;
+  Blasts[N].Mine := Mine;
+  if Assigned(OnBombBlast) then OnBombBlast(X + 1, Y + 1, Reach);
+  { only the owner changes the board: bushes (cut entry 0) and the sign,
+    pot and stone (lift entries 1 to 3) under each piece, at four points }
+  if not Mine then Exit;
+  for D := 0 to 4 do
+    for K := 0 to Reach do
+    begin
+      if (D = 0) and (K > 0) then Break;
+      if (D > 0) and (K = 0) then Continue;
+      PX := X + DX[D] * 2 * K;
+      PY := Y + DY[D] * 2 * K;
+      for C := 0 to 3 do
+      begin
+        QX := PX + 0.5 + (C and 1);
+        QY := PY + 0.5 + (C shr 1);
+        E := MatchObject(9, 1, QX, QY, OX, OY);
+        if E = 0 then PutObject(OX, OY, 10, 0, True)
+        else
+        begin
+          E := MatchObject(11, 4, QX, QY, OX, OY);
+          if E >= 1 then PutObject(OX, OY, 12, E, True);
+        end;
+      end;
+    end;
+end;
+
+procedure TAdventure.TickCombat;
+var
+  I, D, K: Integer;
+  PX, PY: Double;
+const
+  DX: array[0..4] of Integer = (0, 0, -1, 0, 1);
+  DY: array[0..4] of Integer = (0, -1, 0, 1, 0);
+  KX: array[0..4] of Double = (0, 0, -1, 0, 1);
+  KY: array[0..4] of Double = (0, -1, 0, 1, 0);
+begin
+  if FHurtCount > 0 then
+  begin
+    Dec(FHurtCount);
+    if FHurtCount >= 35 then KnockStep;
+    if (FHurtCount = 0) and (Mode = ModeFree) then Player.SetAni('idle', Frame);
+  end;
+  CheckSwordHits;
+  { bombs burn down and go off as a blast of reach 2 }
+  I := 0;
+  while I <= High(Bombs) do
+  begin
+    Dec(Bombs[I].Fuse);
+    if Bombs[I].Fuse <= 0 then
+    begin
+      if Bombs[I].Mine and FClient.Connected then
+        FClient.SendPacket(PLI_EXPLOSION, GChar(2) + GChar(Round(Bombs[I].X * 2)) +
+          GChar(Round(Bombs[I].Y * 2)) + GChar(Bombs[I].Power + 8));
+      AddBlast(Bombs[I].X, Bombs[I].Y, 2, Bombs[I].Power, Bombs[I].Mine);
+      Bombs[I] := Bombs[High(Bombs)];
+      SetLength(Bombs, Length(Bombs) - 1);
+      Continue;
+    end;
+    Inc(I);
+  end;
+  { each blast lives 11 ticks; a piece hurts when its centre (one tile in)
+    is under a tile from the player's centre on both axes }
+  I := 0;
+  while I <= High(Blasts) do
+  begin
+    Inc(Blasts[I].Age);
+    if Blasts[I].Age > 11 then
+    begin
+      Blasts[I] := Blasts[High(Blasts)];
+      SetLength(Blasts, Length(Blasts) - 1);
+      Continue;
+    end;
+    for D := 0 to 4 do
+      for K := 0 to Blasts[I].Reach do
+      begin
+        if (D = 0) and (K > 0) then Break;
+        if (D > 0) and (K = 0) then Continue;
+        PX := Blasts[I].X + DX[D] * 2 * K + 1;
+        PY := Blasts[I].Y + DY[D] * 2 * K + 1;
+        if Hurtable and (Abs(PX - (Player.X + 1.5)) < 1) and (Abs(PY - (Player.Y + 2)) < 1) then
+        begin
+          if Blasts[I].Kind = 3 then HurtPlayer(1, KX[D], KY[D])
+          else HurtPlayer(0.5, KX[D], KY[D]);
+        end;
+      end;
+    Inc(I);
+  end;
+end;
+
+procedure TAdventure.DrawCombat(CamX, CamY: Integer);
+var
+  I, Stage, SX, SY: Integer;
+  Img: TGSurface;
+begin
+  Img := Assets.Image('bomb1.png', '');
+  if Img = nil then Exit;
+  for I := 0 to High(Bombs) do
+  begin
+    { blue, white, red for powers 1 to 3; it flashes near the end }
+    if (Bombs[I].Fuse < 15) and Odd(Bombs[I].Fuse div 2) then Continue;
+    Screen.Blit(Img, 32 * ((Bombs[I].Power - 1) mod 3), 0, 32, 32,
+      Round(Bombs[I].X * TileSize) - CamX, Round(Bombs[I].Y * TileSize) - CamY);
+  end;
+  for I := 0 to High(Blasts) do
+  begin
+    { the explosion pictures in bomb1.png: four vertical arms (32 x 160 at
+      x 0, 32, 64, 96) and four horizontal (128 x 32 from y 192), from
+      fat to thin as the blast dies; which part 2.05 cuts for each piece
+      was not read, so the arms are drawn whole for a reach-2 blast }
+    Stage := Min(3, Blasts[I].Age div 3);
+    SX := Round((Blasts[I].X + 1) * TileSize) - CamX;
+    SY := Round((Blasts[I].Y + 1) * TileSize) - CamY;
+    Screen.Blit(Img, 32 * Stage, 32, 32, 160, SX - 16, SY - 80);
+    Screen.Blit(Img, 0, 192 + 32 * Stage, 128, 32, SX - 64, SY - 16);
+  end;
+end;
+
 { ---- other players ---- }
 
 function TAdventure.GetOther(I: Integer): TServerPlayer;
@@ -814,6 +1509,8 @@ function TAdventure.LoadLevelFile(const FileName: string): Boolean;
 var
   D: string;
 begin
+  SetLength(Items, 0);
+  SetLength(Thrown, 0);
   if not FileExists(FileName) and BuiltinFile(ExtractFileName(FileName), D) and
     (LowerCase(ExtractFileExt(FileName)) <> '.png') then
   begin
@@ -970,6 +1667,8 @@ var
   CH: TLevelChest;
   W: TStringList;
   OP: TServerPlayer;
+  I, J, BX, BY, BW, BH: Integer;
+  FX, FY: Double;
 begin
   R := TGReader.Create(Data);
   try
@@ -1005,6 +1704,8 @@ begin
       PLO_LEVELNAME:
         begin
           while FOthers.Count > 0 do RemoveOther(Others[0].Id);
+          SetLength(Items, 0);
+          SetLength(Thrown, 0);
           if FWarpPending and (Data = FWarpLevel) then
           begin
             { the server sends no PLAYERWARP for a link: the client
@@ -1066,15 +1767,119 @@ begin
           SetLength(Level.Signs, Length(Level.Signs) + 1);
           Level.Signs[High(Level.Signs)] := SG;
         end;
-      PLO_LEVELCHEST: { c opened, c x, c y, c item, c sign }
+      PLO_LEVELCHEST: { c opened, c x, c y; if not opened, c item, c sign }
         begin
-          R.ReadGChar;
+          if Length(Data) < 3 then Exit;
+          CH.Opened := R.ReadGChar <> 0;
           CH.X := R.ReadGChar;
           CH.Y := R.ReadGChar;
-          CH.Item := R.ReadGChar;
-          CH.Sign := R.ReadGChar;
-          SetLength(Level.Chests, Length(Level.Chests) + 1);
-          Level.Chests[High(Level.Chests)] := CH;
+          CH.Item := -1;
+          CH.Sign := -1;
+          if not CH.Opened then
+          begin
+            if Length(Data) < 5 then Exit;
+            CH.Item := R.ReadGChar;
+            CH.Sign := R.ReadGChar;
+          end;
+          { the server's answer to an open, or a chest already opened }
+          V := -1;
+          for I := 0 to High(Level.Chests) do
+            if (Level.Chests[I].X = CH.X) and (Level.Chests[I].Y = CH.Y) then V := I;
+          if V < 0 then
+          begin
+            SetLength(Level.Chests, Length(Level.Chests) + 1);
+            V := High(Level.Chests);
+            Level.Chests[V] := CH;
+          end
+          else if CH.Opened then
+            Level.Chests[V].Opened := True;
+        end;
+      PLO_BOARDMODIFY: { c x, c y, c w, c h, then w x h s tiles, row-major }
+        begin
+          if Length(Data) < 4 then Exit;
+          BX := R.ReadGChar;
+          BY := R.ReadGChar;
+          BW := R.ReadGChar;
+          BH := R.ReadGChar;
+          if Length(Data) < 4 + 2 * BW * BH then Exit;
+          for J := 0 to BH - 1 do
+            for I := 0 to BW - 1 do
+            begin
+              V := R.ReadGShort;
+              if (BX + I >= 0) and (BX + I < BoardW) and (BY + J >= 0) and (BY + J < BoardH) then
+                Level.Tiles[BX + I + (BY + J) * BoardW] := V and 4095;
+            end;
+        end;
+      PLO_ITEMADD: { c x*2, c y*2, c item; only floor items are made }
+        begin
+          if Length(Data) < 3 then Exit;
+          FX := R.ReadGChar / 2;
+          FY := R.ReadGChar / 2;
+          V := R.ReadGChar;
+          if FloorItem(V) then AddItem(FX, FY, V, ItemLife);
+        end;
+      PLO_BOMBADD: { s player, c x*2, c y*2, c power (+8 theirs), c fuse }
+        begin
+          if Length(Data) < 6 then Exit;
+          R.ReadGShort;
+          FX := R.ReadGChar / 2;
+          FY := R.ReadGChar / 2;
+          V := R.ReadGChar and 7;
+          I := R.ReadGChar;
+          J := Length(Bombs);
+          SetLength(Bombs, J + 1);
+          Bombs[J].X := FX;
+          Bombs[J].Y := FY;
+          Bombs[J].Power := Max(1, Min(3, V));
+          { the sender's copy burns five ticks shorter }
+          Bombs[J].Fuse := Max(1, I - 5);
+          Bombs[J].Mine := False;
+        end;
+      PLO_BOMBDEL: { c x*2, c y*2, no player id }
+        begin
+          if Length(Data) < 2 then Exit;
+          FX := R.ReadGChar / 2;
+          FY := R.ReadGChar / 2;
+          for I := High(Bombs) downto 0 do
+            if (Bombs[I].X = FX) and (Bombs[I].Y = FY) then
+            begin
+              Bombs[I] := Bombs[High(Bombs)];
+              SetLength(Bombs, Length(Bombs) - 1);
+            end;
+        end;
+      PLO_EXPLOSION: { s player, c reach, c x*2, c y*2, c power }
+        begin
+          if Length(Data) < 6 then Exit;
+          R.ReadGShort;
+          I := R.ReadGChar;
+          FX := R.ReadGChar / 2;
+          FY := R.ReadGChar / 2;
+          V := R.ReadGChar and 7;
+          if V = 0 then V := 1;
+          if V > 3 then V := 3;
+          AddBlast(FX, FY, I, V, False);
+        end;
+      PLO_HURTPLAYER: { s attacker, c dx, c dy, c power [+ i3 npc] }
+        begin
+          if Length(Data) < 5 then Exit;
+          V := R.ReadGShort;
+          OP := FindOther(V, False);
+          { a hit from an NPC (six or more bytes after the id) or from an
+            unknown player is refused, as are attackers over 10 tiles off }
+          if (OP = nil) or (Length(Data) - 2 >= 6) or not Hurtable or (AP = 100) then Exit;
+          if Sqr(OP.X - Player.X) + Sqr(OP.Y - Player.Y) > 100 then Exit;
+          FX := (R.ReadGChar + 32 - $60) / 16;
+          FY := (R.ReadGChar + 32 - $60) / 16;
+          I := Min(2, Max(0, R.ReadGChar));
+          HurtPlayer(I / 2, FX, FY);
+        end;
+      PLO_ITEMDEL: { c x*2, c y*2: the item at exactly that point }
+        begin
+          if Length(Data) < 2 then Exit;
+          FX := R.ReadGChar / 2;
+          FY := R.ReadGChar / 2;
+          for I := High(Items) downto 0 do
+            if (Items[I].X = FX) and (Items[I].Y = FY) then RemoveItem(I);
         end;
       PLO_SIGNATURE: { 1: quit; 0: quit unless the host is loopback }
         begin
@@ -1132,13 +1937,39 @@ begin
     if not FClient.Connected then
       Log('link closed: ' + FClient.LastError);
   end;
+  { a new level: its entry point is where a death sends the player back }
+  if Level.Name <> FEntryLevel then
+  begin
+    FEntryLevel := Level.Name;
+    FEntryX := Player.X;
+    FEntryY := Player.Y;
+    SetLength(Bombs, 0);
+    SetLength(Blasts, 0);
+  end;
+  if Mode = ModeDead then
+  begin
+    if Keys[0] or Keys[1] or Keys[2] or Keys[3] then Respawn;
+    for D := 0 to 3 do Keys[D] := False;
+    AttackKey := False;
+    ActionKey := False;
+    ItemKey := False;
+  end;
+  { the game keys first: a swing or a lift holds the player still }
+  if AttackKey then Attack;
+  if ActionKey then Action;
+  if ItemKey then LayBomb;
+  AttackKey := False;
+  ActionKey := False;
+  ItemKey := False;
+  if ((Mode = ModeSword) or (Mode = ModeLift)) and (Frame >= FModeUntil) then
+    if Mode = ModeLift then Mode := ModeCarry else Mode := ModeFree;
   { keys run in the order up, left, down, right, each from where the
     earlier ones left the player }
   Moved := False;
   AX := 0;
   AY := 0;
   for D := 0 to 3 do
-    if Keys[D] then
+    if Keys[D] and ((Mode = ModeFree) or (Mode = ModeCarry)) and (FHurtCount < 35) then
     begin
       WalkStep(D);
       Moved := True;
@@ -1149,7 +1980,15 @@ begin
         DirRight: AX := AX + LinkAhead;
       end;
     end;
-  if Moved then Player.SetAni('walk', Frame) else Player.SetAni('idle', Frame);
+  case Mode of
+    ModeFree:
+      if FHurtCount > 0 then
+        { the hurt pose holds while the hurt mode runs }
+      else if Moved then Player.SetAni('walk', Frame) else Player.SetAni('idle', Frame);
+    ModeCarry: if Moved then Player.SetAni('carry', Frame) else Player.SetAni('carrystill', Frame);
+  end;
+  TickItems;
+  TickCombat;
   { links are tested on the player's own walk, at one point: the body's
     centre pushed ahead in the walking direction (measured on the real
     client, see LinkAhead) }
@@ -1231,13 +2070,35 @@ begin
   Parts := A.Steps[St].Dirs[P.Dir and 3];
   for I := 0 to High(Parts) do
   begin
+    if Parts[I].Sprite = ParamSprite - 1 then
+    begin
+      { PARAM1 of the lift and carry ganis: the carried object, drawn with
+        its carry sprite from the sprite table (bush 261, sign 267, pot
+        265, stone 263, black stone 239: carry-hide-and-glove.md), or from
+        its board tiles when there is no table }
+      if (P = Player) and (CarryKind >= 0) then
+        DrawCarried(CarryKind, BX + Parts[I].X, BY + Parts[I].Y);
+      Continue;
+    end;
     if not A.FindSprite(Parts[I].Sprite, Spr) then Continue;
     SheetName := UpperCase(Spr.Sheet);
     if SheetName = 'SPRITES' then Img := Assets.Image('sprites.png', '')
-    else if SheetName = 'HEAD' then Img := Assets.Image(P.HeadImage, 'head')
+    else if SheetName = 'HEAD' then
+    begin
+      Img := Assets.Image(P.HeadImage, 'head');
+      { a short head picture (2.05's are 560 high) has no row for the
+        later poses: the plain head of that direction stands in }
+      if (Img <> nil) and (Spr.Y + Spr.H > Img.Height) then
+      begin
+        Spr.X := 0;
+        Spr.Y := (P.Dir and 3) * 32;
+      end;
+    end
+    else if SheetName = 'PARAM1' then Img := Assets.Image(P.SwordImage, 'sword')
     else if SheetName = 'BODY' then Img := BodyFor(P)
     else if SheetName = 'SWORD' then Img := Assets.Image(P.SwordImage, 'sword')
     else if SheetName = 'SHIELD' then Img := Assets.Image(P.ShieldImage, 'shield')
+    else if SheetName = 'PICS' then Img := Sheet
     else if Copy(SheetName, 1, 4) = 'ATTR' then
     begin
       K := StrToIntDef(Copy(SheetName, 5, 1), 0);
@@ -1253,6 +2114,65 @@ begin
       Img := Assets.Image(Spr.Sheet, '');
     if Img <> nil then
       Screen.Blit(Img, Spr.X, Spr.Y, Spr.W, Spr.H, BX + Parts[I].X, BY + Parts[I].Y);
+  end;
+end;
+
+procedure TAdventure.DrawObjectTiles(List, I, X, Y: Integer);
+var
+  C, R, T: Integer;
+begin
+  for C := 0 to 1 do
+    for R := 0 to 1 do
+    begin
+      T := Arrays.ObjectTile(List, I, C, R);
+      if T >= 0 then DrawTile(Screen, Sheet, T, X + C * TileSize, Y + R * TileSize);
+    end;
+end;
+
+procedure TAdventure.DrawCarried(Kind, X, Y: Integer);
+var
+  Img: TGSurface;
+  SX, SY, SW, SH: Integer;
+begin
+  if (Kind < 0) or (Kind > High(CarrySprites)) then Exit;
+  Img := Assets.Image('sprites.png', '');
+  if (Img <> nil) and Arrays.SpriteRect(CarrySprites[Kind], SX, SY, SW, SH) then
+    Screen.Blit(Img, SX, SY, SW, SH, X, Y)
+  else
+    DrawObjectTiles(11, Kind, X, Y);
+end;
+
+procedure TAdventure.DrawItems(CamX, CamY: Integer);
+var
+  I, SX, SY, SW, SH, HX, HY, HW, HH: Integer;
+  Img: TGSurface;
+  It: TFloorItem;
+  Lift: Double;
+begin
+  Img := Assets.Image('sprites.png', '');
+  for I := 0 to High(Items) do
+  begin
+    It := Items[I];
+    { blinks out in its last moments }
+    if (It.Life < 37) and Odd(It.Life) then Continue;
+    if (Img = nil) or not Arrays.SpriteRect(ItemSprites[It.Item], SX, SY, SW, SH) then
+    begin
+      { no sprite table: a marker the size of a rupee }
+      Screen.FillRect(Round((It.X + 1) * TileSize) - CamX - 4,
+        Round((It.Y + 1) * TileSize) - CamY - 8, 8, 16, $FFFFE060);
+      Continue;
+    end;
+    { bounces as it lands: |sin(life / 3)| (life / 164)^16 3 tiles }
+    Lift := 0;
+    if It.Life >= ItemLife - 7 * Pi then
+      Lift := Abs(Sin(It.Life / 3)) * Power(It.Life / ItemLife, 16) * 3;
+    { the shadow at (x + 0.5, y + 1 + h / 2 - 0.5), h the item's height in
+      tiles; the item centred on (x + 1, y + 1) }
+    if Arrays.SpriteRect(ItemShadowSprite, HX, HY, HW, HH) then
+      Screen.Blit(Img, HX, HY, HW, HH, Round((It.X + 0.5) * TileSize) - CamX,
+        Round((It.Y + 1 + SH / TileSize / 2 - 0.5) * TileSize) - CamY);
+    Screen.Blit(Img, SX, SY, SW, SH, Round((It.X + 1) * TileSize) - SW div 2 - CamX,
+      Round((It.Y + 1 - Lift) * TileSize) - SH div 2 - CamY);
   end;
 end;
 
@@ -1388,10 +2308,16 @@ begin
       if (TX < BoardW) and (TY < BoardH) then
         DrawTile(Screen, Sheet, Level.Tile(TX, TY), TX * TileSize - CamX,
           TY * TileSize - CamY);
-  { others first, then the player on top }
+  { items under the players (2.05's order is not known), others, then the
+    player, then anything in the air }
+  DrawItems(CamX, CamY);
   for I := 0 to FOthers.Count - 1 do
     DrawPlayer(Others[I], CamX, CamY);
   DrawPlayer(Player, CamX, CamY);
+  DrawCombat(CamX, CamY);
+  for I := 0 to High(Thrown) do
+    DrawCarried(Thrown[I].Kind, Round(Thrown[I].X * TileSize) - CamX,
+      Round(Thrown[I].Y * TileSize) - CamY);
   DrawStatus;
 end;
 

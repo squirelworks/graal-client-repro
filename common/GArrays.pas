@@ -33,6 +33,16 @@ type
     function LoadFromString(const Data: string): Boolean;
     { Walking test: a tile is free when it is in array 0 or array 1. }
     function TilePassable(Tile: Integer): Boolean;
+    { A table of 2 x 2 objects (9 cut, 10 what a cut leaves, 11 lift, 12
+      what a lift leaves, 14 the open chest): the number of objects, and
+      tile (Col, Row) of object I, or -1 when the table lacks it. }
+    function ObjectCount(List: Integer): Integer;
+    function ObjectTile(List, I, Col, Row: Integer): Integer;
+    { Sprite I of the sprite table (array 24): its rectangle in pixels.
+      Each entry packs h / 2 in bits 0-5, w / 2 in 6-11, y / 2 in 12-21
+      and x in 23-31 (the HUD's sprites 17, 145 and 325 and the item
+      sprites read back to the rectangles the client draws). }
+    function SpriteRect(I: Integer; out X, Y, W, H: Integer): Boolean;
   end;
 
 implementation
@@ -140,6 +150,44 @@ begin
         if (Lists[I].Values[J] >= 0) and (Lists[I].Values[J] < 4096) then
           FPassable[Lists[I].Values[J]] := True;
   Result := Loaded;
+end;
+
+function TGArrays.ObjectCount(List: Integer): Integer;
+begin
+  Result := 0;
+  if (List >= 0) and (List <= 24) and (Lists[List] <> nil) then
+    Result := Length(Lists[List].Items);
+end;
+
+function TGArrays.ObjectTile(List, I, Col, Row: Integer): Integer;
+var
+  A: TGArray;
+begin
+  Result := -1;
+  if (I < 0) or (I >= ObjectCount(List)) then Exit;
+  A := Lists[List].Items[I];
+  if (Col < 0) or (Col > High(A.Items)) then Exit;
+  A := A.Items[Col];
+  if (Row < 0) or (Row > High(A.Values)) then Exit;
+  Result := A.Values[Row];
+end;
+
+function TGArrays.SpriteRect(I: Integer; out X, Y, W, H: Integer): Boolean;
+var
+  V: Cardinal;
+begin
+  X := 0;
+  Y := 0;
+  W := 0;
+  H := 0;
+  Result := False;
+  if (Lists[24] = nil) or (I < 0) or (I > High(Lists[24].Values)) then Exit;
+  V := Cardinal(Lists[24].Values[I]);
+  H := Integer(V and 63) * 2;
+  W := Integer((V shr 6) and 63) * 2;
+  Y := Integer((V shr 12) and 1023) * 2;
+  X := Integer(V shr 23);
+  Result := (W > 0) and (H > 0);
 end;
 
 function TGArrays.TilePassable(Tile: Integer): Boolean;

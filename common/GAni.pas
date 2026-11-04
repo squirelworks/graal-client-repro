@@ -15,6 +15,9 @@ unit GAni;
 
 interface
 
+const
+  ParamSprite = -1000;
+
 type
   TGraalAniSprite = record
     Id: Integer;
@@ -23,6 +26,8 @@ type
   end;
 
   TGraalAniPart = record
+    { a sprite id, or ParamSprite - n for a PARAMn placement (the sprite
+      the caller passes as parameter n, e.g. the carried object) }
     Sprite: Integer;
     X, Y: Integer;
   end;
@@ -45,6 +50,7 @@ type
     Loop, Continuous, SingleDirection: Boolean;
     SetBackTo, DefaultHead, DefaultBody: string;
     DefaultAttr: array[1..5] of string;
+    DefaultParam: array[1..20] of string;
     function LoadFromString(const Text: string): Boolean;
     function LoadFromFile(const FileName: string): Boolean;
     function FindSprite(Id: Integer; out S: TGraalAniSprite): Boolean;
@@ -115,10 +121,14 @@ begin
       if W.Count < 3 then Exit;
       N := Length(Parts);
       SetLength(Parts, N + 1);
-      Parts[N].Sprite := StrToIntDef(W[0], -1);
+      if (Copy(UpperCase(W[0]), 1, 5) = 'PARAM') and
+        (StrToIntDef(Copy(W[0], 6, 2), 0) >= 1) then
+        Parts[N].Sprite := ParamSprite - StrToIntDef(Copy(W[0], 6, 2), 0)
+      else
+        Parts[N].Sprite := StrToIntDef(W[0], -1);
       Parts[N].X := StrToIntDef(W[1], 0);
       Parts[N].Y := StrToIntDef(W[2], 0);
-      if Parts[N].Sprite < 0 then Exit; { PARAM / ATTR placements: later }
+      if Parts[N].Sprite = -1 then Exit;
     end;
     Result := True;
   finally
@@ -193,6 +203,11 @@ begin
         else if (Key = 'setbackto') and (W.Count > 1) then SetBackTo := W[1]
         else if (Key = 'defaulthead') and (W.Count > 1) then DefaultHead := W[1]
         else if (Key = 'defaultbody') and (W.Count > 1) then DefaultBody := W[1]
+        else if (Copy(Key, 1, 12) = 'defaultparam') and (W.Count > 1) then
+        begin
+          K := StrToIntDef(Copy(Key, 13, 2), 0);
+          if (K >= 1) and (K <= 20) then DefaultParam[K] := W[1];
+        end
         else if (Copy(Key, 1, 11) = 'defaultattr') and (W.Count > 1) then
         begin
           K := StrToIntDef(Copy(Key, 12, 2), 0);

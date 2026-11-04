@@ -7,13 +7,15 @@
     --data DIR        a Graal install: pics1, arrays.dat, levels/ganis, heads,
                       bodies, swords, shields, hats
     --window          show the game in a window and read the keyboard
-                      (arrows or IJKL walk, Esc quits)
+                      (arrows or IJKL walk, S sword, A lift,
+                      throw or open, Esc quits)
     --headless        no drawing at all (stress runs)
     --frames N        stop after N frames; 0 = until stopped (default: 100
                       without a window or --seconds, no limit in a window)
     --seconds N       stop after N seconds
     --keys SCRIPT     scripted keys, e.g. "right*10,down*4,wait*5"; each
-                      entry holds one direction for that many frames
+                      entry holds one direction for that many frames; a, s
+                      and d press that game key for one frame
     --walk MODE       script (default with --keys), idle (default without),
                       or random
     --walk-ms N       random walk: a new direction every N ms (default 100)
@@ -111,6 +113,12 @@ begin
   WriteLn('          [--dump FRAME.bmp] [--sheet FILE]');
 end;
 
+const
+  { game keys in a key script: pressed on that tick }
+  ScriptKeyA = 10;
+  ScriptKeyS = 11;
+  ScriptKeyD = 12;
+
 type
   TKeyScript = class
   public
@@ -145,6 +153,9 @@ begin
       else if Name = 'left' then D := DirLeft
       else if Name = 'down' then D := DirDown
       else if Name = 'right' then D := DirRight
+      else if Name = 'a' then D := ScriptKeyA
+      else if Name = 's' then D := ScriptKeyS
+      else if Name = 'd' then D := ScriptKeyD
       else D := -1;
       for J := 1 to N do
       begin
@@ -240,9 +251,13 @@ var
   Port, Frames, I, C, D, Seconds, StatsEvery, ExitCode_: Integer;
   OK, Online, UseWindow, NoDelay, Dropped, Crashed: Boolean;
   StartUs, GateUs, NowUs, T0, NextStatsUs: Int64;
+  WasHeld: array[0..2] of Boolean;
 
 begin
   Result := 64;
+  WasHeld[0] := False;
+  WasHeld[1] := False;
+  WasHeld[2] := False;
   ExitCode_ := 64;
   Server := Arg('--server', '');
   if (Server = '') and (Arg('--level', '') = '') then
@@ -375,10 +390,22 @@ begin
           G.Keys[DirLeft] := Win.Held[gkLeft];
           G.Keys[DirDown] := Win.Held[gkDown];
           G.Keys[DirRight] := Win.Held[gkRight];
+          { the game keys act on the press, not while held }
+          G.ActionKey := Win.Held[gkAction] and not WasHeld[0];
+          G.AttackKey := Win.Held[gkAttack] and not WasHeld[1];
+          G.ItemKey := Win.Held[gkItem] and not WasHeld[2];
+          WasHeld[0] := Win.Held[gkAction];
+          WasHeld[1] := Win.Held[gkAttack];
+          WasHeld[2] := Win.Held[gkItem];
         end;
         if Walker.Mode = wmScript then D := Script.DirAt(I)
         else D := Walker.DirAt(I, G.Level, G.Player.X, G.Player.Y);
-        if D >= 0 then G.Keys[D] := True;
+        case D of
+          DirUp..DirRight: G.Keys[D] := True;
+          ScriptKeyA: G.ActionKey := True;
+          ScriptKeyS: G.AttackKey := True;
+          ScriptKeyD: G.ItemKey := True;
+        end;
         T0 := MonoUs;
         G.Tick;
         Hist.Add(MonoUs - T0);

@@ -24,6 +24,10 @@ SPRITE  216 BODY      0  144  36  36 body up 4
 SPRITE  217 BODY     36  144  36  36 body left 4
 SPRITE  218 BODY     72  144  36  36 body down 4
 SPRITE  219 BODY    108  144  36  36 body right 4
+SPRITE   20 PARAM1     0    0  32  32 sword up
+SPRITE   21 PARAM1    32    0  32  32 sword left
+SPRITE   22 PARAM1    64    0  32  32 sword down
+SPRITE   23 PARAM1    96    0  32  32 sword right
 DEFAULTHEAD head0.png
 DEFAULTBODY body.png
 LOOP
