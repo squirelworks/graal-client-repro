@@ -366,9 +366,19 @@ begin
           if Inside(BStart, CX, CY) then
           begin
             Page := pgList;
-            Focus := 0;
             Note := '';
-            Fetch.Start(ListHost, ListPort, R.Account, R.Password);
+            { the list is asked for with the account and password, so it
+              waits for them when there is no password yet }
+            if R.Password <> '' then
+            begin
+              Focus := 0;
+              Fetch.Start(ListHost, ListPort, R.Account, R.Password);
+            end
+            else
+            begin
+              Focus := 1;
+              Fetch.Status := 'Type your account and password, then press Enter or Refresh.';
+            end;
           end;
         end;
         { drawing }
@@ -427,7 +437,12 @@ begin
             Clicked := False;
         end
         else
+        begin
+          { Enter with no server picked asks for the list }
+          if (Pos(#13, Chars) > 0) and (Sel < 0) then
+            Fetch.Start(ListHost, ListPort, R.Account, R.Password);
           Clicked := (Pos(#13, Chars) > 0) and (Sel >= 0);
+        end;
         if Clicked and (Sel >= 0) and (Sel < Length(Fetch.Servers)) then
         begin
           Srv := Fetch.Servers[Sel];
