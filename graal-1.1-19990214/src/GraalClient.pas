@@ -282,11 +282,10 @@ begin
         if L = FGame then Deliver(RLO_JOINED, R.Id);
       end;
     rePeerOut, reUnpaired:
-      { a player of the level room went; the relay also tells every link
-        of players it never paired with, and those are not this room's }
-      if (L = FLevel) and (FRoomPeers.IndexOf(R.Id) >= 0) then
       begin
-        FRoomPeers.Delete(FRoomPeers.IndexOf(R.Id));
+        { a player left the game, or its pairing ended: the game drops it
+          (on either link: the relay tells every link when a link closes) }
+        if FRoomPeers.IndexOf(R.Id) >= 0 then FRoomPeers.Delete(FRoomPeers.IndexOf(R.Id));
         Deliver(RLO_PEERLEFT, R.Id);
       end;
     rePaired:
