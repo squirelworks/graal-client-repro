@@ -1,0 +1,83 @@
+name: zelda-online2
+
+# Zelda Online 2 and its GServ lobby (Java). Built and tested on Linux and Windows on every push
+# and pull request that touches it. A tag zelda-online2-Z3V103-v<version>
+# (or a manual run) also makes a DRAFT release with both jars; Squirrel
+# reviews it and presses Publish.
+on:
+  push:
+    branches: [main]
+    tags: ['zelda-online2-Z3V103-v*']
+    paths: ['zelda-online2-Z3V103/**', '.github/workflows/zelda-online2.yml']
+  pull_request:
+    paths: ['zelda-online2-Z3V103/**', '.github/workflows/zelda-online2.yml']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release as a draft, e.g. v0.0.1 (empty = build only)
+        required: false
+        default: ''
+
+concurrency:
+  group: zelda-online2-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Build and test
+        shell: bash
+        run: zelda-online2-Z3V103/build.sh
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Linux'
+        with:
+          name: zelda-online2
+          path: |
+            build/zelda-online2-Z3V103/ZeldaOnline2.jar
+            build/zelda-online2-Z3V103/GServ.jar
+            build/zelda-online2-Z3V103/smoke.png
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/zelda-online2-Z3V103-v') || (github.event_name == 'workflow_dispatch' && inputs.version != '')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: zelda-online2
+          path: dist-in
+      - name: Pack
+        env:
+          IN_VERSION: ${{ inputs.version }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          B=zelda-online2-Z3V103
+          if [ -n "$IN_VERSION" ]; then V="$IN_VERSION"; else V="v${TAG##*-v}"; fi
+          OUT="$B-$V"
+          mkdir -p "dist/$OUT"
+          cp dist-in/ZeldaOnline2.jar dist-in/GServ.jar "$B/README.md" "$B/RELEASE_NOTES.md" "$B/make_assets.py" "dist/$OUT/"
+          (cd dist && zip -qr "$OUT.zip" "$OUT")
+          echo "TAG_NAME=$B-$V" >> "$GITHUB_ENV"
+          echo "TITLE=$(head -1 "$B/RELEASE_NOTES.md" | sed 's/^# *//') $V" >> "$GITHUB_ENV"
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          name: ${{ env.TITLE }}
+          body_path: zelda-online2-Z3V103/RELEASE_NOTES.md
+          target_commitish: ${{ github.sha }}
+          draft: true
+          files: dist/*.zip

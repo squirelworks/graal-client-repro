@@ -64,7 +64,7 @@ uses
   GWindow in '../../common/GWindow.pas',
   Protocol222 in 'Protocol222.pas',
   GraalClient in 'GraalClient.pas',
-  GGs1 in 'GGs1.pas',
+  GGs1 in '../../common/GGs1.pas',
   Npc222 in 'Npc222.pas',
   Baddy222 in 'Baddy222.pas',
   NpcBridge222 in 'NpcBridge222.pas',

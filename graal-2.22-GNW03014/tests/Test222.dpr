@@ -21,7 +21,7 @@ uses
   GAni in '../../common/GAni.pas',
   Protocol222 in '../src/Protocol222.pas',
   GraalClient in '../src/GraalClient.pas',
-  GGs1 in '../src/GGs1.pas',
+  GGs1 in '../../common/GGs1.pas',
   Npc222 in '../src/Npc222.pas',
   Baddy222 in '../src/Baddy222.pas',
   NpcBridge222 in '../src/NpcBridge222.pas',
@@ -300,6 +300,51 @@ begin
   finally
     C.Free;
     Codec.Free;
+  end;
+end;
+
+{ A name, not only a dotted address, is resolved on every platform. The
+  Windows builds once read dotted addresses only, so listserver.graal.in
+  never connected there. Port 1 on this machine is closed: the connect
+  fails, but past the name lookup. }
+procedure TestResolveName;
+var
+  S: TGSocket;
+begin
+  S := TGSocket.Create;
+  try
+    S.Connect('localhost', 1);
+    Check(Pos('cannot resolve', S.LastError) = 0,
+      'socket: the name localhost resolves (' + S.LastError + ')');
+  finally
+    S.Free;
+  end;
+end;
+
+{ The public listserver's frames end in two NULs after the last LF; the
+  status line in the next frame must still read. }
+procedure TestListTrailingNuls;
+var
+  C: TListServerClient;
+  SCodec: TGen5;
+begin
+  C := TListServerClient.Create;
+  SCodec := TGen5.Create(CaptureKey);
+  try
+    C.StartOffline(CaptureKey);
+    C.Sink := True;
+    C.FeedRaw(ServerFrame(SCodec, GChar(0) + GChar(1) + GChar(8) +
+      GString('One') + GString('English') + GString('') + GString('') +
+      GString('2.22') + GString('0') + GString('127.0.0.1') + GString('14802') +
+      #10#0#0));
+    C.FeedRaw(ServerFrame(SCodec, GChar(2) + 'Welcome' + #10 + GChar(3) +
+      'http://site' + #10#0#0));
+    Check(C.GotList and (Length(C.Servers) = 1), 'list: a frame ending in NULs still gives the list');
+    Check((C.Status = 'Welcome') and (C.SiteUrl = 'http://site'),
+      'list: the status after a NUL-ended frame reads (' + C.Status + ')');
+  finally
+    SCodec.Free;
+    C.Free;
   end;
 end;
 
@@ -1557,6 +1602,8 @@ begin
   TestGen5Capture;
   TestLogin;
   TestListServer;
+  TestResolveName;
+  TestListTrailingNuls;
   TestBuiltins;
   TestLoginBurst;
   TestWalkProps;

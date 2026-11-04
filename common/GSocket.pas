@@ -73,17 +73,27 @@ begin
     Result := True;
     Exit;
   end;
-  Result := ResolveHostByName(Host, H);
+  { the hosts file first, as the system resolver does, then DNS }
+  Result := GetHostByName(Host, H) or ResolveHostByName(Host, H);
   if Result then
     Addr := htonl(H.Addr.s_addr);
 end;
 {$ELSE}
+{ Free Pascal on Windows: the sockets unit only reads dotted addresses, so
+  a name (listserver.graal.in) goes to WinSock's resolver. Without this
+  the Windows builds could reach no listserver by name. }
 var
   A: sockets.in_addr;
+  P: WinSock2.PHostEnt;
 begin
   A := StrToNetAddr(Host);
   Addr := A.s_addr;
   Result := Addr <> 0;
+  if Result then Exit;
+  P := WinSock2.gethostbyname(PChar(Host));
+  Result := (P <> nil) and (P^.h_addr_list <> nil) and (P^.h_addr_list^ <> nil);
+  if Result then
+    Addr := PCardinal(P^.h_addr_list^)^;
 end;
 {$ENDIF}
 {$ELSE}

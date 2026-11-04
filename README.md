@@ -61,6 +61,7 @@ scripts/
   test.sh                   run every test program
   builtin/                  draws the built-in assets and writes GBuiltin.pas / GFont.pas
   assets/merge_assets.py    merges per-version sets of original files into one graal-assets/
+  assets/needed_assets.py   cuts it to the files the clients open and zips it (docs/assets.md)
   loopback.sh               log a rebuild into seihai-gserver (acceptance check)
 ```
 
@@ -268,25 +269,29 @@ A build plugs into `common/GStartScreen.pas` with:
 
 ## One assets folder for every build
 
-The original Graal files never go in this repository. A player keeps one
-folder of them, `graal-assets/`, for all the rebuilt clients:
+The original Graal files never go in this repository. Every rebuilt
+program sits at the top of one folder (the root), and the player's
+original files sit next to them in `graal-assets/`, extracted from one
+zip kept outside the repo:
 
 ```
-graal-assets/
-  common/     files the same in every version that has them
-  2.05r2/     one folder per version, named by the build's version label
-  2.22/
+<root>/
+  Graal205  Graal217  Graal222  ...
+  graal-assets/
+    common/     files the same in every version that has them
+    2.05r2/     one folder per version line, named by the build's version label
+    2.22/
 ```
 
-A build looks for a file in its own folder (or `--data`), then in
-`graal-assets/<version>/`, then in `graal-assets/common/`, and else uses
-its built-in assets (`common/GAssetDirs.pas`). The root is the folder the
-program is in: the original files go next to the exe as the original
-install had them (`levels/`, `sounds/`, ...), or in `graal-assets/` inside
-that folder. Nothing above the program's folder is read.
-`scripts/assets/merge_assets.py` builds the folder from per-version sets.
+A build looks for a file in the root (or `--data`), then in
+`graal-assets/<version>/` and its fallback versions, then in
+`graal-assets/common/`, and else uses its built-in assets
+(`common/GAssetDirs.pas`). Nothing above the root is read. Graal 2.17.1
+came in the same folder as 2.22, so its label is `2.17.1;2.22` and it
+reads `graal-assets/2.22/` with no second copy.
 
-A version that shipped with another version's files reads that version's
-folder next. Graal 2.17.1 came in the same folder as 2.22, so the 2.17.1
-build looks in `graal-assets/2.17.1/` (if there is one), then
-`graal-assets/2.22/`, then `common/`. No second copy is needed.
+The zip holds only what the rebuilt clients open, one version's install
+per folder, never mixed across versions. [docs/assets.md](docs/assets.md)
+has the search order per build, the keep/cut rule, how to build the zip
+(`scripts/assets/merge_assets.py`, `scripts/assets/needed_assets.py`) and
+what each client line's install held, from the 1998 betas on.

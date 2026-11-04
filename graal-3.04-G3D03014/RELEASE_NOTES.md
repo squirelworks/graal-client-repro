@@ -38,9 +38,9 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 ## What works
 
 - The start screen: nick name, Training, Start. Start fetches the server
-  list from the host in the install's `license/license.graal`, or
-  `listserver.txt` next to the program, or else `listserver.graal.in` on
-  port 14922. Then account, password and Connect.
+  list from `listserver.graal.in` on port 14922 (or the host in
+  `listserver.txt` next to the program); the hosts in the install's
+  `license/license.graal` are tried after it. Then account, password and Connect.
 - The 3.04 listserver login: id 7 (`G3D30123newmain`) and the account in
   one frame, the list back in gen 5.
 - Login to a server as 3.04 does it: `G3D03014`, then the language and the

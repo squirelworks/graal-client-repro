@@ -4,9 +4,11 @@
   merge_assets.py OUT VERSION=DIR [VERSION=DIR ...]
 
 Each DIR holds one version's files laid out as they sit next to that
-version's EXE. A file that every set holding it has byte for byte, in at
-least two sets, goes to OUT/common/; everything else goes to
-OUT/<VERSION>/. The rebuilt clients look in their version folder, then in
+version's EXE. A file goes to OUT/common/ only when EVERY set has it, byte
+for byte, at the same path; everything else goes to OUT/<VERSION>/. Every
+build reads common/, so a file shared by only some sets must stay in their
+own folders: in common/ it would hand the other builds a file their
+install never had. The rebuilt clients look in their version folder, then in
 common/ (common/GAssetDirs.pas). The output is the player's own Graal
 files: it is never committed.
 """
@@ -50,7 +52,7 @@ def main():
     counts = {'common': 0}
     for key, entries in sorted(seen.items()):
         hashes = {e[2] for e in entries}
-        if len(entries) >= 2 and len(hashes) == 1:
+        if len(sets) >= 2 and len(entries) == len(sets) and len(hashes) == 1:
             dests = [('common', entries[0])]
         else:
             dests = [(e[0], e) for e in entries]
