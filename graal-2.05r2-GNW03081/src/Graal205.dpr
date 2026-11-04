@@ -59,7 +59,7 @@ uses
   GWindow in '../../common/GWindow.pas',
   Protocol205 in 'Protocol205.pas',
   GraalClient in 'GraalClient.pas',
-  Gs1205 in 'Gs1205.pas',
+  GGs1 in '../../common/GGs1.pas',
   Npc205 in 'Npc205.pas',
   Baddy205 in 'Baddy205.pas',
   NpcBridge205 in 'NpcBridge205.pas',
