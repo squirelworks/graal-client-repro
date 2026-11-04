@@ -28,12 +28,9 @@ start-window picture and offline tutorial take their place.
 |---|---|---|
 | `…-linux.zip` | Linux x86-64 | X11 |
 | `…-windows.zip` | Windows, 32-bit (as 2.22 itself was) | GDI |
-| `…-macos.zip` | macOS on Apple silicon | none yet: headless, or `--dump` frames to a file |
 
 Each zip has `Graal222` (the client), `Test222` (its test suite) and the
-build's README. On macOS the binaries are not signed: after unzipping, run
-`xattr -d com.apple.quarantine Graal222 Test222` once, or allow them under
-System Settings > Privacy & Security.
+build's README.
 
 ## What works
 
@@ -87,7 +84,7 @@ when it was started from there). Run `Graal222 --help` for every flag.
 
 2.22's additions to GS1 and its NPC props past 40; NPCs in gmap cells
 other than the player's; the editors; chat bubbles, names and the chat
-bar; Options; UDP peer traffic; a macOS window. See the build's README for the full list.
+bar; Options; UDP peer traffic; macOS. See the build's README for the full list.
 
 ## Checks behind this release
 
