@@ -1334,6 +1334,13 @@ begin
     Check((G.TileSheetFor('start.nw') <> G.Sheet) and (G.TileSheetFor('start.nw').Width = 64),
       '2.1: addtiledef gives levels with that prefix its sheet');
     Check(G.TileSheetFor('other.nw') = G.Sheet, '2.1: other levels keep pics1');
+    { a type 1 sheet answers walls from the tile id, not from arrays.dat }
+    G.Arrays.LoadFromString(MakeArrays([0]));
+    G.Level.Tiles[10 + 10 * 64] := 1265; { new order floor, in no arrays.dat list }
+    G.Level.Tiles[12 + 10 * 64] := 480;  { new order row 30: a wall }
+    Check(G.TileDefKind(G.Level.Name) = 1, '2.1: addtiledef keeps the sheet type');
+    Check(not G.PointBlocked(10.5, 10.5) and G.PointBlocked(12.5, 10.5),
+      '2.1: a type 1 sheet walks by the new tile order');
     G.Player.AniName := 'walk';
     Check(G.OwnAniName = 'human2_walk', '2.1: replaceani swaps the player''s walk');
     G.Player.AniName := 'idle';
