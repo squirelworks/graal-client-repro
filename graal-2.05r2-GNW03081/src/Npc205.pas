@@ -1103,9 +1103,10 @@ end;
 
 function TNpcManager.NpcAt(PX, PY: Double; BlockingOnly: Boolean): TNpc;
 var
-  I: Integer;
+  I, IX, IY: Integer;
   N: TNpc;
   BX, BY, BW, BH: Double;
+  Img: TGSurface;
 begin
   for I := Npcs.Count - 1 downto 0 do
   begin
@@ -1115,6 +1116,24 @@ begin
     Bounds(N, BX, BY, BW, BH);
     if (BW > 0) and (PX >= BX) and (PX < BX + BW) and (PY >= BY) and (PY < BY + BH) then
     begin
+      { a plain image NPC is hit only on a drawn pixel: the open tutorial
+        gate lets the player through between its pillars }
+      if (N.ShapeW <= 0) and not N.Character then
+      begin
+        Img := World.Image(N.Image);
+        if Img <> nil then
+        begin
+          IX := Trunc((PX - BX) * 16);
+          IY := Trunc((PY - BY) * 16);
+          if N.PartSet then
+          begin
+            Inc(IX, N.PX);
+            Inc(IY, N.PY);
+          end;
+          if (IX >= 0) and (IY >= 0) and (IX < Img.Width) and (IY < Img.Height) and
+            (Img.GetPixel(IX, IY) shr 24 = 0) then Continue;
+        end;
+      end;
       Result := N;
       Exit;
     end;

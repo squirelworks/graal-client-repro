@@ -3314,6 +3314,18 @@ begin
       if (TX < BoardW) and (TY < BoardH) then
         DrawTile(Screen, Sheet, Level.Tile(TX, TY), TX * TileSize - CamX,
           TY * TileSize - CamY);
+  { a chest not yet opened shows the closed chest (arrays.dat list 13:
+    1784, 1785, 1800, 1801) at its record; the board under it is not
+    changed. The real 2.05 draws it so on the tutorial, where the board
+    there is plain grass. }
+  if (Arrays.Lists[13] <> nil) and (Length(Arrays.Lists[13].Values) >= 4) then
+    for I := 0 to High(Level.Chests) do
+      if not Level.Chests[I].Opened then
+        for TY := 0 to 1 do
+          for TX := 0 to 1 do
+            DrawTile(Screen, Sheet, Arrays.Lists[13].Values[TY * 2 + TX],
+              (Level.Chests[I].X + TX) * TileSize - CamX,
+              (Level.Chests[I].Y + TY) * TileSize - CamY);
   { items under the players (2.05's order is not known), others, then the
     player, then anything in the air }
   DrawItems(CamX, CamY);
