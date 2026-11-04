@@ -20,6 +20,7 @@ uses
   GFont in '../../common/GFont.pas',
   EditorUI in '../src/editor/EditorUI.pas',
   EditorDialogs in '../src/editor/EditorDialogs.pas',
+  EditorObjSets in '../src/editor/EditorObjSets.pas',
   EditorView in '../src/editor/EditorView.pas';
 
 var
@@ -733,6 +734,85 @@ begin
   end;
 end;
 
+procedure TestObjectSets;
+var
+  St: TObjectSet;
+  Sets: TObjectSets;
+  D: TEditorDoc;
+  Dat, Dir: string;
+  Sheet: TGSurface;
+  V: TEditorView;
+begin
+  St := TObjectSet.Create;
+  try
+    Check(St.LoadGOBJSET('GOBJSET01'#10#10'OBJECT 2 2 Bush'#10'ACAD'#10'ASAT'#10'OBJECTEND'#10 +
+      #10'OBJECT 3 1 Long Fence Part'#10'AAABAC'#10'OBJECTEND'#10), 'stamps: GOBJSET01 loads');
+    Check((St.Count = 2) and (St.Stamps[0].Name = 'Bush') and (St.Stamps[0].Block.Tiles[0] = 2) and
+      (St.Stamps[0].Block.Tiles[3] = 19), 'stamps: Bush is tiles 2 3 18 19');
+    Check(St.Stamps[1].Name = 'Long Fence Part', 'stamps: names may have spaces');
+    Check(St.SaveText = 'GOBJSET01'#10#10'OBJECT 2 2 Bush'#10'ACAD'#10'ASAT'#10'OBJECTEND'#10 +
+      #10'OBJECT 3 1 Long Fence Part'#10'AAABAC'#10'OBJECTEND'#10, 'stamps: GOBJSET01 writes back the same');
+    Dat := 'Dot'#10#1#2 + #5#0#0#0 + #$FF#7#0#0;
+    Check(St.LoadObjectsDat(Dat) and (St.Count = 1) and (St.Stamps[0].Block.H = 2) and
+      (St.Stamps[0].Block.Tiles[0] = 5) and (St.Stamps[0].Block.Tiles[1] = TransparentTile),
+      'stamps: objects.dat with a transparent cell');
+    Check(St.SaveDat = Dat, 'stamps: objects.dat writes back the same');
+  finally
+    St.Free;
+  end;
+  D := TEditorDoc.Create(9);
+  try
+    St := TObjectSet.Create;
+    St.LoadObjectsDat('Dot'#10#1#2 + #5#0#0#0 + #$FF#7#0#0);
+    D.WriteBlock(3, 3, St.Stamps[0].Block);
+    Check((D.Level.Tile(3, 3) = 5) and (D.Level.Tile(3, 4) = 9), 'stamps: a transparent cell keeps the board');
+    St.Free;
+  finally
+    D.Free;
+  end;
+  { the sets in a folder }
+  Dir := GetTempDir + 'testeditor205-objs';
+  ForceDirectories(Dir);
+  WriteText(Dir + PathDelim + 'objectsSnow.txt', 'GOBJSET01'#10'OBJECT 1 1 Snow'#10'AB'#10'OBJECTEND'#10);
+  WriteText(Dir + PathDelim + 'objects.dat', 'Dot'#10#1#1 + #5#0#0#0);
+  Sets := TObjectSets.Create;
+  try
+    Sets.LoadFromFolders([Dir]);
+    Check((Sets.Count = 2) and (Sets.Sets[0].Name = 'Standard') and (Sets.Sets[1].Name = 'Snow'),
+      'stamps: objects.dat is the Standard set, then objects<set>.txt');
+  finally
+    Sets.Free;
+  end;
+  { the side panel: pick a stamp, add the selection }
+  Sheet := TGSurface.Create(2048, 512);
+  V := TEditorView.Create(Sheet);
+  try
+    SetLength(V.ObjFolders, 1);
+    V.ObjFolders[0] := Dir;
+    V.Step(Inp(0, 0, False, False, ''));
+    Click(V, 434 + 4, 41 + 4);
+    Check((V.Mode = pmObjects) and (V.ObjSets.Count = 2), 'stamps: the predefined object mode reads the sets');
+    Click(V, PalX0 + 10, PalY0 + 52 + 2 + 4);
+    Check((V.CurStamp = 0) and V.Editor.Doc.Floating, 'stamps: a click picks the stamp');
+    Click(V, BX(2), BY(2));
+    Check(V.Editor.Doc.Level.Tile(2, 2) = 5, 'stamps: and a board click places it');
+    V.Editor.Doc.Select(0, 0, 1, 0);
+    Click(V, PalX0 + 2 * 44 + 5, PalY0 + 24 + 5);
+    Check(V.Dialog is TPromptDialog, 'stamps: Add asks for a name');
+    V.Step(Inp(0, 0, False, False, 'Pair'#13));
+    Check((V.CurrentSet.Count = 2) and (V.CurrentSet.Stamps[1].Name = 'Pair') and
+      (V.CurrentSet.Stamps[1].Block.W = 2), 'stamps: the selection is added after the picked stamp');
+    Click(V, PalX0 + 3 * 44 + 5, PalY0 + 24 + 5);
+    Check(V.CurrentSet.Count = 1, 'stamps: Delete object');
+  finally
+    V.Free;
+    Sheet.Free;
+  end;
+  DeleteFile(Dir + PathDelim + 'objectsSnow.txt');
+  DeleteFile(Dir + PathDelim + 'objects.dat');
+  RemoveDir(Dir);
+end;
+
 procedure TestTutorials;
 const
   Names: array[0..12] of string = ('a-1', 'a-2', 'a-3', 'a-4', 'b-1', 'b-2',
@@ -780,6 +860,7 @@ begin
   TestEditorObjects;
   TestEditorView;
   TestEditorDialogs;
+  TestObjectSets;
   TestTutorials;
   WriteLn(Format('%d passed, %d failed, %d skipped', [Passed, Failed, Skipped]));
   if Failed > 0 then Halt(1);
