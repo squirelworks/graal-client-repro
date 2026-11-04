@@ -51,7 +51,7 @@ saved passwords; Options. See the build's README for the full list.
 
 ## Checks behind this release
 
-The test suite (102 checks) runs with range and overflow checks and the
+The test suite (105 checks) runs with range and overflow checks and the
 heap tracer, and must end with no unfreed memory. CI also logs two of
 these clients into seihai-gserver, has the second see the first, and
 walks one through a level link.
