@@ -48,9 +48,8 @@ The program sits at the top of its folder and reads only that folder:
 Nothing found: its own built-in graphics and starter level fill in.
 
 Files this build opens beyond the 2.05 rev 2 set, for the assets zip: test 2's
-own `arrays.dat`, `state.png`, `maps/newmainmap.png` and
-`maps/newmainmap2.png`, and its `levels/npcs/`, `levels/smilies/` and
-`levels/webgifs/`. The test 2 archive ships no `pics1.png`, ganis, heads or
+own `arrays.dat`, `state.png` and `maps/newmainmap.png`, and its
+`levels/npcs/`. The test 2 archive ships no `pics1.png`, ganis, heads or
 bodies, so those come from the 2.05 rev 2 set.
 
 ## Checks for 0.0.1
