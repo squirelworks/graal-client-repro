@@ -183,6 +183,7 @@ type
     FSignWasDown: Boolean; { a game key was down on the tick before }
     FListWasDown: Boolean;
     FHurtCount: Integer;   { hurt mode: ticks left of 40 }
+    FPushCount: Integer;   { pushed back by a baddy's shield: ticks left }
     FKnockX, FKnockY: Double;
     FEntryX, FEntryY: Double; { where the player came into this level }
     FEntryLevel: string;
@@ -393,6 +394,8 @@ type
     procedure HurtPlayer(Hearts, KX, KY: Double);
     { HurtPlayer with the knockback pointing away from (FromX, FromY). }
     procedure HurtFrom(Hearts, FromX, FromY: Double);
+    { pushed back along (KX, KY) without harm (a baddy's shield) }
+    procedure PushPlayer(KX, KY: Double);
     { After death, on a direction key: hearts by AP, at the level's entry. }
     procedure Respawn;
     { The D key with the bomb: a bomb with a 60-tick fuse. }
@@ -1638,6 +1641,26 @@ begin
   HurtPlayer(Hearts, Player.X + 1.5 - FromX, Player.Y + 2 - FromY);
 end;
 
+procedure TAdventure.PushPlayer(KX, KY: Double);
+var
+  L: Double;
+begin
+  if (Mode = ModeDead) or (FHurtCount > 0) then Exit;
+  L := Sqrt(KX * KX + KY * KY);
+  if L < 0.0001 then
+  begin
+    FKnockX := 1;
+    FKnockY := 0;
+  end
+  else
+  begin
+    FKnockX := KX / L;
+    FKnockY := KY / L;
+  end;
+  { the push's length was not read from 2.22: two ticks of a tile }
+  FPushCount := 2;
+end;
+
 procedure TAdventure.Respawn;
 begin
   { hearts by alignment (measured on 2.22): AP below 20 three, below 40
@@ -1799,6 +1822,11 @@ begin
     Dec(FHurtCount);
     if FHurtCount >= 35 then KnockStep;
     if (FHurtCount = 0) and (Mode = ModeFree) then Player.SetAni('idle', Frame);
+  end
+  else if FPushCount > 0 then
+  begin
+    Dec(FPushCount);
+    KnockStep;
   end;
   CheckSwordHits;
   { bombs burn down and go off as a blast of reach 2 }

@@ -38,7 +38,7 @@ captures of the real 2.22 client, not from decompiled code:
 | `src/RunMode.pas` | stress-run support (the same as 2.05's) |
 | `../common/GGs1.pas` | the GS1 script engine, shared with 2.05 rev 2 and 2.17.1; 2.22's own additions are not in yet |
 | `src/Npc222.pas`, `src/NpcBridge222.pas` | level NPCs and what their scripts reach in the game (copies of 2.05's) |
-| `src/Baddy222.pas` | baddies (a copy of 2.05's) |
+| `src/Baddy222.pas` | baddies, by the 2.22 spec (client-internals/baddies-222.md in Graal_analysis) |
 | `src/Sound222.pas` | the sounds the game plays by itself (gani `PLAYSOUND`), through `common/GSound.pas` |
 | `src/Map222.pas` | the big map on M and the minimap, from the install's `maps/` |
 | `src/Terrain222.pas` | the height-shaped ground of new-world maps: the gmaps' `HEIGHTS` grids, and tile 0 drawn as water, sand or grass by height, lit by slope |
