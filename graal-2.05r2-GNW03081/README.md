@@ -20,6 +20,10 @@ decompiled code:
 | Levels | `formats/level-binary-client.md`, `formats/glevnw01.txt` |
 | Tile sheet | `client-internals/client-assets.md` |
 | Frame loop | `client-internals/rendering-observations.md` |
+| Walking and collision | `client-internals/decomp-findings-2026-10-25-m/01-walking-rule.md` |
+| Ganis | `formats/gani.txt` |
+| Body colours | `client-internals/body-colours-and-attributes.md` |
+| Tile types | `formats/arrays-and-signatures.md` |
 
 ## Units
 
@@ -28,7 +32,7 @@ decompiled code:
 | `src/Protocol205.pas` | | ids, token, cipher constants, buffer limits |
 | `src/GraalClient.pas` | `TGraalClient`, `TAdventureClient` | out buffer, zlib frames, gen-3 insertion, login, receive split with `PLO_RAWDATA` |
 | `src/Adventure.pas` | `TAdventure`, `TServerPlayer` | game state, message handlers, 50 ms tick, drawing |
-| `src/Graal205.dpr` | | command line front end |
+| `src/Graal205.dpr` | | command line front end: window, scripted keys, frame dump |
 
 ## What works
 
@@ -45,19 +49,30 @@ decompiled code:
   their boards re-encode byte for byte with the 2.05 writer rules (test, with
   the levels supplied locally).
 - Drawing: the board from `pics1` with the 2.05 sheet layout, centred on the
-  player, into a 640x480 frame.
-- Loopback: logs into seihai-gserver, gets the burst, loads the board
-  (`scripts/loopback.sh`, run in CI).
+  player, into a 640x480 frame. The player is drawn from the install's ganis
+  (`idle`, `walk`) with head, body, sword and shield images, and the body is
+  recoloured from the five colour props.
+- A window (X11 on Linux, GDI on Windows) with keyboard input: arrows or
+  IJKL walk, Esc quits. `--keys` drives the same input from a script, so
+  headless runs can walk too.
+- Walking with the 2.05 rule: half-tile steps, six probes per facing, the
+  0.1 corner nudge, keys taken in the order up, left, down, right. Blocking
+  comes from `arrays.dat` tile types and level chests (tests).
+- Props out: the session-start set {0, 11, 13, 18, 31, 33}, then position,
+  direction and sprite whenever they change, at most every 100 ms.
+- Loopback: logs into seihai-gserver, gets the burst, loads the board and
+  walks a few steps (`scripts/loopback.sh`, run in CI).
 
 ## Not yet
 
-- A window and input. The player is drawn as a box; no sprites, ganis,
-  heads or bodies.
-- Sending props (2.05 sends {0, 11, 13, 18, 31, 33} at session start, and
-  position changes per tick), movement, level links, UDP peer traffic.
-- Most of the 59 server ids 2.05 handles: 14 have real handlers so far. NPCs, baddies, other players, items,
-  weapons and the rest of the game.
+- Walk sprite frames on the wire: the `PLPROP_SPRITE` value 2.05 sends while
+  walking is not in the notes yet, so only the direction is sent.
+- Level links (warping by walking off a link), UDP peer traffic, other
+  players' movement.
+- Most of the 59 server ids 2.05 handles. NPCs, baddies, items, weapons
+  and the rest of the game.
 - The GS1 script engine (161 commands), the built-in editors.
 - The listserver link (DES-hidden host, `newmain`).
-- The window size (640x480 is assumed, not read from the binary).
+- The window size (640x480 is assumed, not read from the binary). The
+  board edge is treated as open.
 - Phase 4 hardening (see the top-level README).

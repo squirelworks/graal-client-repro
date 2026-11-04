@@ -19,7 +19,7 @@ sleep 2
 CLIENT=$(ls "$ROOT/build/$B"/Graal* | head -1)
 set +e
 GRAAL_PW=loopbackpw "$CLIENT" --server 127.0.0.1:14802 --account loop1 \
-  --frames 40 --dump "$ROOT/build/$B/loopback.bmp"
+  --frames 40 --keys "right*6,down*4,wait*5" --dump "$ROOT/build/$B/loopback.bmp"
 RC=$?
 set -e
 echo "--- gserver log"
