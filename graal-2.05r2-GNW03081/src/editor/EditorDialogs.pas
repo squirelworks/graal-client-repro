@@ -21,7 +21,8 @@ uses
   Classes, GSurface, GLevel, EditorUI, EditorDoc;
 
 type
-  TCtlKind = (ckLabel, ckEdit, ckMemo, ckButton, ckList, ckCombo, ckGroup);
+  TCtlKind = (ckLabel, ckEdit, ckMemo, ckButton, ckList, ckCombo, ckGroup,
+    ckStatus { read-only yellow line, the 2.05 script editor's ErrorEdit });
 
   TCtl = class
   public
@@ -140,6 +141,9 @@ type
     Doc: TEditorDoc;
     NPCIndex: Integer;
     constructor Create(ADoc: TEditorDoc; AIndex: Integer);
+    { Test: compiles the script and puts the first error, or nothing, in
+      the yellow line. Returns that text. }
+    function TestScript: string;
   end;
 
   TBaddyDialog = class(TFormDialog)
@@ -195,6 +199,7 @@ const
   IdAction = 23;
   IdScript = 24;
   IdTest = 25;
+  IdTestError = 31;
   IdType = 26;
   IdVerse1 = 27;
   IdVerse2 = 28;
@@ -210,7 +215,7 @@ function LinkFromFields(const Dest, X, Y, W, H, NewX, NewY: string; out L: TLeve
 implementation
 
 uses
-  SysUtils, GFont, GLevelWrite;
+  SysUtils, GFont, GLevelWrite, Gs1205;
 
 const
   SignCodes: array[0..13] of string = ('#A  A button', '#B  B button', '#X  X button',
@@ -515,6 +520,12 @@ begin
       ButtonCtl(S, C.R, StringReplace(C.Caption, '&', '', []), False, C.Enabled);
     ckEdit:
       EditCtl(S, C.R, C.Text, Focused, C.Enabled);
+    ckStatus:
+      begin
+        S.FillRect(C.R.X, C.R.Y, C.R.W, C.R.H, ColYellow);
+        Sunken(S, C.R);
+        TextClip(S, C.R.X + 4, C.R.Y + (C.R.H - GlyphH) div 2 + 1, C.R.W - 8, C.Text, ColText);
+      end;
     ckMemo:
       begin
         S.FillRect(C.R.X, C.R.Y, C.R.W, C.R.H, ColWindow);
@@ -1029,8 +1040,9 @@ begin
   Add(ckGroup, 0, 0, 517, 322, 'Npc''s Action', 0);
   Add(ckLabel, 14, 22, 490, 40, 'Specify the actions that should be invoked in special ' +
     'situations. Press the ''Test'' button to check the syntax.', 0);
-  Add(ckMemo, 8, 66, 500, 248, '', IdScript).Text := Doc.Level.NPCs[AIndex].Script;
-  Add(ckButton, 8, 328, 75, 28, '&Test', IdTest);
+  Add(ckMemo, 8, 66, 500, 212, '', IdScript).Text := Doc.Level.NPCs[AIndex].Script;
+  Add(ckButton, 433, 286, 75, 28, '&Test', IdTest);
+  Add(ckStatus, 8, 331, 336, 24, '', IdTestError);
   Add(ckButton, 352, 328, 75, 28, '&OK', IdOK);
   Add(ckButton, 434, 328, 75, 28, '&Cancel', IdCancel);
   DefaultButton := IdOK;
@@ -1050,11 +1062,24 @@ begin
         Close(drOk);
       end;
     IdTest:
-      OpenChild(TMessageDialog.Create('Graal',
-        'The script check is not in this build yet.', 1));
+      TestScript;
   else
     inherited Clicked(Id);
   end;
+end;
+
+function TScriptDialog.TestScript: string;
+var
+  G: TGsScript;
+begin
+  G := TGsScript.Create;
+  try
+    G.Compile(TextOf(IdScript));
+    if G.Errors.Count > 0 then Result := G.Errors[0] else Result := '';
+  finally
+    G.Free;
+  end;
+  Ctl(IdTestError).Text := Result;
 end;
 
 { TBaddyDialog }

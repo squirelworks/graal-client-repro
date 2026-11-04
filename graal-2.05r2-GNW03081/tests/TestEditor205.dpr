@@ -718,10 +718,19 @@ begin
     Check(D.Level.NPCs[0].Image = 'door.png', 'npc: the image');
     PressCtl(V, TFormDialog(Dl), CtlOf(Dl, IdAction), 5, 5);
     V.Step(Inp(0, 0, False, False, 'if (playerenters) {'#13'say 0;'#13'}'));
+    PressCtl(V, TFormDialog(Dl), CtlOf(TFormPeek(Dl).Child, IdTest), 5, 5);
+    Check(CtlOf(TFormPeek(Dl).Child, IdTestError).Text = '', 'npc: Test passes a good script');
     PressCtl(V, TFormDialog(Dl), CtlOf(TFormPeek(Dl).Child, IdOK), 5, 5);
     Check(D.Level.NPCs[0].Script = 'if (playerenters) {'#10'say 0;'#10'}', 'npc: the script');
     V.Step(Inp(0, 0, False, False, #27));
     Check(V.Dialog = nil, 'npc: Esc closes');
+    V.Dialog := TScriptDialog.Create(D, 0);
+    Dl := V.Dialog;
+    V.Step(Inp(0, 0, False, False, #13'if (playerenters'));
+    PressCtl(V, TFormDialog(Dl), CtlOf(Dl, IdTest), 5, 5);
+    Check(Copy(CtlOf(Dl, IdTestError).Text, 1, 7) = 'line 4:', 'npc: Test shows the error line');
+    Check(D.Level.NPCs[0].Script = 'if (playerenters) {'#10'say 0;'#10'}', 'npc: Test leaves the level alone');
+    V.Step(Inp(0, 0, False, False, #27));
 
     { flags }
     V.Dialog := TFlagsDialog.Create(V.Editor.Flags);
