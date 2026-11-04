@@ -68,7 +68,7 @@ jobs:
         shell: bash
         run: |
           export PATH="$(ls -d /c/tools/freepascal/bin/* | head -1):$PATH"
-          export FPCFLAGS='-O2 -FuC:\tools\freepascal\units\i386-win32\*'
+          export FPCFLAGS='-O2 -WR -FuC:\tools\freepascal\units\i386-win32\*'
           scripts/build.sh graal-3d-20000205
           scripts/test.sh
           build/graal-3d-20000205/Graal3D.exe --offline --data "$RUNNER_TEMP" --frames 40 \
