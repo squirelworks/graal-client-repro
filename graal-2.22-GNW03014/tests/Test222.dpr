@@ -21,7 +21,7 @@ uses
   GAni in '../../common/GAni.pas',
   Protocol222 in '../src/Protocol222.pas',
   GraalClient in '../src/GraalClient.pas',
-  Gs1222 in '../src/Gs1222.pas',
+  GGs1 in '../src/GGs1.pas',
   Npc222 in '../src/Npc222.pas',
   Baddy222 in '../src/Baddy222.pas',
   NpcBridge222 in '../src/NpcBridge222.pas',

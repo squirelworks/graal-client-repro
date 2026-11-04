@@ -8,7 +8,7 @@
     GS1 source text and is applied only while the NPC has none. A new NPC
     gets playerenters when the player is in its level.
 
-  The scripts run in Gs1205. TNpcManager is their host: it knows the
+  The scripts run in GGs1. TNpcManager is their host: it knows the
   built-in names (x, y, dir, playerx, ...) and runs the commands. What
   belongs to the rest of the game (hurting the player, sign text, warps,
   items, sound, baddies) goes through TNpcWorld, which the game implements
@@ -27,7 +27,7 @@ unit Npc205;
 interface
 
 uses
-  Classes, SysUtils, Math, GTypes, GLevel, GSurface, Gs1205;
+  Classes, SysUtils, Math, GTypes, GLevel, GSurface, GGs1;
 
 const
   NPCPROP_IMAGE = 0; NPCPROP_SCRIPT = 1; NPCPROP_X = 2; NPCPROP_Y = 3;

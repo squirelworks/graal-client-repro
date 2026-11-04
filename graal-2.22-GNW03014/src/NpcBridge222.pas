@@ -13,7 +13,7 @@ unit NpcBridge222;
 interface
 
 uses
-  Classes, SysUtils, Math, GTypes, GLevel, GSurface, GArrays, GFont, Gs1222, Npc222,
+  Classes, SysUtils, Math, GTypes, GLevel, GSurface, GArrays, GFont, GGs1, Npc222,
   Baddy222, Adventure;
 
 type

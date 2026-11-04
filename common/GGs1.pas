@@ -1,4 +1,7 @@
-{ Gs1205: the GS1 script language as the 2.05 rev 2 client runs it.
+{ GGs1: the GS1 script language, shared by the builds that run GS1 on the
+  client (2.05 rev 2 and 2.17.1 so far). It follows 2.05 rev 2; a later
+  build runs the same language until a difference is found, and then the
+  difference goes in that build's NPC host or in a copy of this unit.
 
   2.05 does not compile GS1 to bytecode. A script arrives as text (the
   level file's NPC block, or NPCPROP_SCRIPT), is compiled once into a flat
@@ -22,7 +25,7 @@
   What the names mean (the NPC's x and y, playerx, flags, the commands
   themselves) belongs to the host: the NPC unit implements TGsHost. Written
   from the notes above, not from the original program. }
-unit Gs1205;
+unit GGs1;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
 

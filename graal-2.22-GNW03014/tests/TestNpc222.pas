@@ -1,4 +1,4 @@
-{ Tests for the 2.05 NPC scripts: Gs1222 (GS1), Npc222 (NPCs, props),
+{ Tests for the 2.05 NPC scripts: GGs1 (GS1), Npc222 (NPCs, props),
   and their hooks in TAdventure. Test222 calls RunNpcTests.
 
   Optional: GRAAL_NPC_LIBRARY = graal_analysis npc-library/scripts; every
@@ -17,7 +17,7 @@ procedure RunNpcTests(Check: TCheckProc; out Skipped: Integer);
 implementation
 
 uses
-  SysUtils, Classes, GTypes, GLevel, GSurface, Gs1222, Npc222, Adventure;
+  SysUtils, Classes, GTypes, GLevel, GSurface, GGs1, Npc222, Adventure;
 
 type
   { A world that records what the scripts asked of it. }
