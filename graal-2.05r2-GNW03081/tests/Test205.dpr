@@ -18,10 +18,15 @@ uses
   GLevel in '../../common/GLevel.pas',
   GSurface in '../../common/GSurface.pas',
   GArrays in '../../common/GArrays.pas',
+  GBuiltin in '../../common/GBuiltin.pas',
+  GAssetDirs in '../../common/GAssetDirs.pas',
   GAni in '../../common/GAni.pas',
   Protocol205 in '../src/Protocol205.pas',
   GraalClient in '../src/GraalClient.pas',
-  Adventure in '../src/Adventure.pas';
+  Adventure in '../src/Adventure.pas',
+  GFont in '../../common/GFont.pas',
+  GWindow in '../../common/GWindow.pas',
+  GStartScreen in '../../common/GStartScreen.pas';
 
 var
   Passed, Failed, Skipped: Integer;
@@ -783,6 +788,91 @@ begin
   end;
 end;
 
+function GS(const S: string): string;
+begin
+  Result := Chr(Length(S) + 32) + S;
+end;
+
+procedure PutFile(const Path, Text: string);
+var
+  L: TStringList;
+begin
+  ForceDirectories(ExtractFilePath(Path));
+  L := TStringList.Create;
+  try
+    L.Text := Text;
+    L.SaveToFile(Path);
+  finally
+    L.Free;
+  end;
+end;
+
+procedure TestAssetDirs;
+var
+  Root, Exe: string;
+begin
+  Root := IncludeTrailingPathDelimiter(GetTempDir) + 'assetdirs-' + IntToStr(Random(1000000)) + PathDelim;
+  Exe := Root + 'clients' + PathDelim;
+  PutFile(Root + 'graal-assets' + PathDelim + 'common' + PathDelim + 'a.txt', 'common');
+  PutFile(Root + 'graal-assets' + PathDelim + 'common' + PathDelim + 'b.txt', 'common');
+  PutFile(Root + 'graal-assets' + PathDelim + '2.05r2' + PathDelim + 'b.txt', 'version');
+  PutFile(Exe + 'c.txt', 'exe');
+  PutFile(Root + 'graal-assets' + PathDelim + 'common' + PathDelim + 'c.txt', 'common');
+  SetAssetRoots(Exe, '2.05r2');
+  Check(AssetRootCount = 3, 'assets: the program folder, the version folder, common');
+  Check(Pos('common', AssetPath('a.txt')) > 0, 'assets: a file only in common is found there');
+  Check(Pos('2.05r2', AssetPath('b.txt')) > 0, 'assets: the version folder wins over common');
+  Check(AssetPath('c.txt') = Exe + 'c.txt', 'assets: the program folder wins over both');
+  Check(AssetPath('nothere.txt') = '', 'assets: a missing file gives no path');
+  SetAssetRoots(Root + 'graal-assets', '2.05r2');
+  Check(Pos('2.05r2', AssetPath('b.txt')) > 0, 'assets: --data may point at graal-assets itself');
+  SetAssetRoots('', '');
+end;
+
+procedure TestServerList;
+var
+  L: TListServers;
+  Data: string;
+begin
+  Data := Chr(2 + 32) +
+    Chr(8 + 32) + GS('P Seihai') + GS('English') + GS('a test') + GS('http://x') +
+      GS('2.05') + GS('7') + GS('10.0.0.1') + GS('14802') +
+    Chr(8 + 32) + GS('Other') + GS('German') + GS('') + GS('') +
+      GS('2.05') + GS('0') + GS('10.0.0.2') + GS('nope');
+  L := ParseServerList(Data);
+  Check(Length(L) = 2, 'server list: two entries');
+  Check((L[0].Host = '10.0.0.1') and (L[0].Port = 14802) and (L[0].Players = '7'),
+    'server list: host, port and players');
+  Check((L[1].Language = 'German') and (L[1].Port = 0), 'server list: a bad port reads as 0');
+  L := ParseServerList(Chr(3 + 32) + Chr(8 + 32) + GS('cut'));
+  Check(Length(L) = 0, 'server list: a cut entry is dropped');
+  Check(Length(ParseServerList('')) = 0, 'server list: empty reply');
+  Check((ServerDisplayName('P Seihai') = 'Seihai') and (ServerDisplayName('Plain') = 'Plain'),
+    'server list: the type letter is taken off the name');
+end;
+
+procedure TestBuiltins;
+var
+  D: string;
+  G: TAdventure;
+begin
+  Check(BuiltinFile('pics1.png', D) and (Copy(D, 2, 3) = 'PNG'), 'built-in: pics1.png');
+  Check(BuiltinFile('PICS1.GIF', D), 'built-in: any image extension and case');
+  Check(BuiltinFile('arrays.dat', D) and BuiltinFile('start.nw', D), 'built-in: arrays and a level');
+  Check(not BuiltinFile('nothere.png', D), 'built-in: unknown names are not found');
+  G := TAdventure.Create;
+  try
+    G.Headless := True;
+    Check(G.SheetBuiltin and (G.Sheet <> nil) and (G.Sheet.Width > 0), 'built-in: the default tile sheet');
+    Check(G.LoadLevelFile('start.nw') and (Length(G.Level.Links) > 0),
+      'built-in: start.nw loads with no install and has a link');
+    Check(G.Assets.Ani('idle') <> nil, 'built-in: idle gani');
+    Check(G.Assets.Image('body.png', 'bodies') <> nil, 'built-in: body image');
+  finally
+    G.Free;
+  end;
+end;
+
 begin
   TestGTypes;
   TestGen3Capture;
@@ -800,6 +890,9 @@ begin
   TestFuzz;
   TestReceiveLimits;
   TestTutorials;
+  TestServerList;
+  TestAssetDirs;
+  TestBuiltins;
   WriteLn(Format('%d passed, %d failed, %d skipped', [Passed, Failed, Skipped]));
   if Failed > 0 then Halt(1);
 end.

@@ -40,6 +40,7 @@ type
     procedure Blit(Src: TGSurface; SX, SY, W, H, DX, DY: Integer);
     procedure SaveBMP(const FileName: string);
     function LoadBMP(const FileName: string): Boolean;
+    function LoadBMPString(const S: string): Boolean;
     { Rebuilds Pixels from Indices with palette entry Slot[i] replaced by
       Color[i]. Needs an indexed image. }
     procedure Recolor(const Slots: array of Integer; const Colors: array of Cardinal);
@@ -52,13 +53,16 @@ procedure DrawTile(Dest, Sheet: TGSurface; Tile, DX, DY: Integer);
 function LoadImageFile(const FileName: string; Dest: TGSurface): Boolean;
 { Same, keeping the palette indices (palette .png / .gif only). }
 function LoadImageIndexed(const FileName: string; Dest: TGSurface): Boolean;
+{ The same two from bytes in memory; Name only gives the format by its
+  extension (.bmp, .png, .gif, .jpg). }
+function LoadImageData(const Data, Name: string; Dest: TGSurface; Indexed: Boolean): Boolean;
 
 implementation
 
 uses
   SysUtils, Classes
 {$IFDEF FPC}
-  , FPImage, FPReadPNG, FPReadGIF, FPReadBMP
+  , FPImage, FPReadPNG, FPReadGIF, FPReadBMP, FPReadJPEG
 {$ENDIF};
 
 procedure TileSheetPos(Tile: Integer; out SX, SY: Integer);
@@ -202,21 +206,30 @@ begin
 end;
 
 { Uncompressed 24- and 32-bit BMP only: enough for test sheets. }
-function TGSurface.LoadBMP(const FileName: string): Boolean;
+function ReadFileBytes(const FileName: string): string;
 var
   F: TFileStream;
-  S: string;
+begin
+  F := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
+  try
+    SetLength(Result, F.Size);
+    if F.Size > 0 then F.ReadBuffer(Result[1], F.Size);
+  finally
+    F.Free;
+  end;
+end;
+
+function TGSurface.LoadBMP(const FileName: string): Boolean;
+begin
+  Result := LoadBMPString(ReadFileBytes(FileName));
+end;
+
+function TGSurface.LoadBMPString(const S: string): Boolean;
+var
   Off, W, H, Bpp, Stride, X, Y, P: Integer;
   BottomUp: Boolean;
 begin
   Result := False;
-  F := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
-  try
-    SetLength(S, F.Size);
-    if F.Size > 0 then F.ReadBuffer(S[1], F.Size);
-  finally
-    F.Free;
-  end;
   if (Length(S) < 54) or (Copy(S, 1, 2) <> 'BM') then Exit;
   Off := GetLE(S, 11, 4);
   W := GetLE(S, 19, 4);
@@ -257,27 +270,45 @@ begin
       Pixels[I] := 0;
 end;
 
-function LoadAny(const FileName: string; Dest: TGSurface; Indexed: Boolean): Boolean;
+function LoadImageData(const Data, Name: string; Dest: TGSurface; Indexed: Boolean): Boolean;
 {$IFDEF FPC}
 var
   Img: TFPMemoryImage;
   X, Y: Integer;
   C: TFPColor;
+  St: TStringStream;
+  Ext: string;
+  Reader: TFPCustomImageReader;
 {$ENDIF}
 begin
   Result := False;
-  if not FileExists(FileName) then Exit;
-  if LowerCase(ExtractFileExt(FileName)) = '.bmp' then
+  if Data = '' then Exit;
+  if Copy(Data, 1, 2) = 'BM' then
   begin
-    Result := Dest.LoadBMP(FileName);
+    { 8 and 24-bit here; other depths (the 4-bit buttons of the old
+      clients) through the FPC reader }
+    Result := Dest.LoadBMPString(Data);
+{$IFNDEF FPC}
     Exit;
+{$ENDIF}
+    if Result then Exit;
   end;
 {$IFDEF FPC}
+  Ext := LowerCase(ExtractFileExt(Name));
+  { pick the reader by the bytes, then by the name }
+  if Copy(Data, 1, 2) = 'BM' then Reader := TFPReaderBMP.Create
+  else if Copy(Data, 2, 3) = 'PNG' then Reader := TFPReaderPNG.Create
+  else if Copy(Data, 1, 3) = 'GIF' then Reader := TFPReaderGIF.Create
+  else if Copy(Data, 1, 2) = #$FF#$D8 then Reader := TFPReaderJPEG.Create
+  else if Ext = '.png' then Reader := TFPReaderPNG.Create
+  else if Ext = '.gif' then Reader := TFPReaderGIF.Create
+  else Exit;
   Img := TFPMemoryImage.Create(0, 0);
+  St := TStringStream.Create(Data);
   try
     Img.UsePalette := Indexed;
     try
-      Img.LoadFromFile(FileName);
+      Img.LoadFromStream(St, Reader);
     except
       Exit;
     end;
@@ -309,9 +340,22 @@ begin
     end;
     Result := True;
   finally
+    St.Free;
     Img.Free;
+    Reader.Free;
   end;
 {$ENDIF}
+end;
+
+function LoadAny(const FileName: string; Dest: TGSurface; Indexed: Boolean): Boolean;
+begin
+  Result := False;
+  if not FileExists(FileName) then Exit;
+  try
+    Result := LoadImageData(ReadFileBytes(FileName), FileName, Dest, Indexed);
+  except
+    Result := False;
+  end;
 end;
 
 function LoadImageFile(const FileName: string; Dest: TGSurface): Boolean;
