@@ -25,12 +25,9 @@ bodies and offline tutorial take their place.
 |---|---|---|
 | `…-linux.zip` | Linux x86-64 | X11 |
 | `…-windows.zip` | Windows, 32-bit (as 2.17.1 itself was) | GDI |
-| `…-macos.zip` | macOS on Apple silicon, when the release has one | none yet: headless, or `--dump` frames to a file |
 
 Each zip has `Graal217` (the client), `Test217` (its test suite) and the
-build's README. On macOS the binaries are not signed: after unzipping, run
-`xattr -d com.apple.quarantine Graal217 Test217` once, or allow them under
-System Settings > Privacy & Security.
+build's README.
 
 ## What works
 
@@ -48,6 +45,7 @@ System Settings > Privacy & Security.
   sword, lift and throw, chests, floor items, signs, weapons and the bow,
   bombs, being hurt, dying and respawning, level NPCs running GS1,
   baddies, sound effects, the big map and minimap, and the F4 editor.
+- Names under NPC characters and other players.
 - A headless mode for stress runs, with a random walker, JSON stats and
   clean shutdown on SIGTERM / Ctrl+C.
 
@@ -69,8 +67,8 @@ weapon, Q the item list, M the map; Esc leaves the game. Run
 
 Gmaps, the ids 169 to 185, large file downloads, the GS1 commands added
 after 2.05 (beyond `addtiledef` and `replaceani`), gani scripts, chat
-bubbles and names, Options, UDP peer traffic, a macOS window, and a
-side-by-side check against the real 2.17.1. See the build's README.
+bubbles, Options, UDP peer traffic, and a side-by-side check against the
+real 2.17.1. See the build's README.
 
 ## Checks behind this release
 
