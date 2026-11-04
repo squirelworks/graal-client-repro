@@ -1,6 +1,7 @@
 #!/bin/sh
-# Loopback acceptance check: log a rebuilt client into seihai-gserver and
-# require login + board.
+# Loopback acceptance check: log two copies of a rebuilt client into
+# seihai-gserver. Both must log in and load the board, and the second must
+# see the first in its level.
 #   scripts/loopback.sh GSERVER_BIN [BUILD]
 # GSERVER_BIN: a built seihai-gserver (https://github.com/squirelworks/seihai-gserver).
 # BUILD: folder name, default graal-2.05r2-GNW03081.
@@ -11,20 +12,39 @@ B=${2:-graal-2.05r2-GNW03081}
 GSDIR=$(cd "$(dirname "$GS")/../.." && pwd)
 WORK=$(mktemp -d)
 trap 'kill $PID 2>/dev/null || true; rm -rf "$WORK"' EXIT
+PORT=${LOOPBACK_PORT:-14862}
 cp -r "$GSDIR/world" "$WORK/world"
-GRAAL_PW=loopbackpw "$GS" account loop1 --password-env GRAAL_PW --world "$WORK/world"
+# a port of its own, so a gserver left running on 14802 does not answer
+sed -i "s/14802/$PORT/" "$WORK/world/config/server.txt"
+for A in loop1 loop2; do
+  GRAAL_PW=loopbackpw "$GS" account $A --password-env GRAAL_PW --world "$WORK/world"
+done
 "$GS" --world "$WORK/world" --verbose > "$WORK/gserver.log" 2>&1 &
 PID=$!
 sleep 2
 CLIENT=$(ls "$ROOT/build/$B"/Graal* | head -1)
 set +e
-GRAAL_PW=loopbackpw "$CLIENT" --server 127.0.0.1:14802 --account loop1 \
-  --frames 40 --keys "right*6,down*4,wait*5" --dump "$ROOT/build/$B/loopback.bmp"
+# loop1 logs in and walks; loop2 joins while loop1 is there and must see it
+GRAAL_PW=loopbackpw "$CLIENT" --server 127.0.0.1:$PORT --account loop1 \
+  --frames 80 --keys "right*6,down*4,wait*5" --dump "$ROOT/build/$B/loopback.bmp" \
+  > "$WORK/loop1.log" 2>&1 &
+C1=$!
+sleep 1
+GRAAL_PW=loopbackpw "$CLIENT" --server 127.0.0.1:$PORT --account loop2 \
+  --frames 40 --keys "wait*10,down*2" > "$WORK/loop2.log" 2>&1
+RC2=$?
+wait $C1
 RC=$?
 set -e
+echo "--- loop1"; cat "$WORK/loop1.log"
+echo "--- loop2"; cat "$WORK/loop2.log"
 echo "--- gserver log"
 cat "$WORK/gserver.log"
-if ! grep -q "logged in" "$WORK/gserver.log"; then
-  echo "gserver did not log the client in"; exit 1
+if [ "$(grep -c "logged in as" "$WORK/gserver.log")" -lt 2 ]; then
+  echo "gserver did not log both clients in"; exit 1
 fi
+if ! grep -q "other player .* loop1" "$WORK/loop2.log"; then
+  echo "loop2 did not see loop1"; exit 1
+fi
+[ $RC2 -eq 0 ] || exit $RC2
 exit $RC

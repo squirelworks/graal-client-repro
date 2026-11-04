@@ -395,6 +395,60 @@ begin
   end;
 end;
 
+{ The 2.05 sprite prop and the other-player prop stream. }
+procedure TestSpriteAndOthers;
+var
+  G: TAdventure;
+  P: TServerPlayer;
+  R: TGReader;
+begin
+  Check(WireSprite('idle', 0, DirDown) = DirDown, 'sprite: idle is sprite 0 plus direction');
+  Check(WireSprite('walk', 0, DirRight) = DirRight + 4 * 4, 'sprite: walk frame 0 is step 1, sprite 4');
+  Check(WireSprite('walk', 4, DirUp) = 4 * 2, 'sprite: walk frame 4 is step 5, sprite 2');
+  Check(WireSprite('sword', 6, DirLeft) = DirLeft + 4 * 7, 'sprite: sword wraps mod 5 from step 9');
+  Check((WireSprite('swim', 3, DirDown) = DirDown) and (WireSprite('lava', 0, 1) = 1),
+    'sprite: swim and lava go out as idle');
+  Check(WireSprite('sleep', 0, 0) = 4 * 29, 'sprite: the last table step (sleep, 38)');
+  G := TAdventure.Create;
+  try
+    P := G.FindOther(7, True);
+    { nickname "bob", sprite walk frame 2 facing left, x 20, then MAXPOWER,
+      which the other-player stream does not take, then y }
+    R := TGReader.Create(GChar(PLPROP_NICKNAME) + GString('bob') +
+      GChar(PLPROP_SPRITE) + GChar(DirLeft + 4 * 4) + GChar(PLPROP_X) + GChar(40) +
+      GChar(PLPROP_MAXPOWER) + GChar(6) + GChar(PLPROP_Y) + GChar(50));
+    try
+      P.ApplyProps(R, True);
+    finally
+      R.Free;
+    end;
+    Check((G.OtherCount = 1) and (P.Nickname = 'bob') and (P.X = 20) and (P.Y = 0),
+      'others: the stream stops at an id 2.05 does not accept from other players');
+    Check((P.Dir = DirLeft) and (P.AniName = 'walk') and (P.FixedStep = 0),
+      'others: the pose comes from the sprite prop');
+    R := TGReader.Create(GChar(PLPROP_PCONNECTED));
+    try
+      P.ApplyProps(R, True);
+    finally
+      R.Free;
+    end;
+    Check(P.Gone, 'others: PCONNECTED marks the player gone');
+    G.RemoveOther(7);
+    Check((G.OtherCount = 0) and (G.FindOther(7, False) = nil), 'others: removed');
+    R := TGReader.Create(GChar(PLPROP_X) + GChar(40) + GChar(PLPROP_JOINLEAVELVL) + GChar(1) +
+      GChar(PLPROP_Y) + GChar(50));
+    try
+      G.Player.ApplyProps(R, False);
+    finally
+      R.Free;
+    end;
+    Check((G.Player.X = 20) and (G.Player.Y <> 25),
+      'self: the own stream stops at ids above 42');
+  finally
+    G.Free;
+  end;
+end;
+
 begin
   TestGTypes;
   TestGen3Capture;
@@ -406,6 +460,7 @@ begin
   TestArrays;
   TestGani;
   TestWalking;
+  TestSpriteAndOthers;
   TestTutorials;
   WriteLn(Format('%d passed, %d failed, %d skipped', [Passed, Failed, Skipped]));
   if Failed > 0 then Halt(1);
