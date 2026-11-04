@@ -436,7 +436,7 @@ begin
       Exit;
     end;
     InstallStopHandlers;
-    SetAssetRoots(Dir, ClientBuildLabel);
+    SetAssetRoots(Dir, ClientAssetFolders);
     { the connect dialog's host: listserver.txt next to the program, else
       the build's default }
     ReadListServer(Dir, DialogHost, DialogPort, Host, Port);
