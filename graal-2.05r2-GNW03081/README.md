@@ -25,6 +25,7 @@ decompiled code:
 | Sprite prop and poses | `client-internals/feature-specs/11-emotes-ganis.md`, `client-internals/decomp-findings-2026-10-24/sprite-step-table.tsv` |
 | Body colours | `client-internals/body-colours-and-attributes.md` |
 | Tile types | `formats/arrays-and-signatures.md` |
+| Level links and warps | `protocol/packet-layouts.md` (LEVELWARP), `client-internals/feature-specs/06-gmap-overworld.md`, `client-internals/decomp-findings-2026-10-25-j/02-links-and-arrivals.md` |
 
 ## Units
 
@@ -67,12 +68,22 @@ decompiled code:
   their head, body colours and pose from their sprite prop, and removed on
   `PCONNECTED` or a level leave. Each prop stream stops at the first id
   2.05 would not accept in it, as the original does (tests).
+- Level links: the player's own walk is tested against the level's links.
+  Online, a link sends `PLI_LEVELWARP` (arrival x, y and the level name), and
+  the client completes the warp itself when the new level arrives, since
+  the server sends no `PLAYERWARP` for it. Offline, the level is loaded from
+  next to the current one or from the install. Arrivals may be decimals, and
+  `playerx` / `playery` or a negative value keep that coordinate (tests).
 - Loopback: two clients log into seihai-gserver, load the board and walk;
-  the second must see the first (`scripts/loopback.sh`, run in CI).
+  the second must see the first. Then one walks through a level link
+  (`scripts/loopback.sh`, run in CI).
 
 ## Not yet
 
-- Level links (warping by walking off a link), UDP peer traffic.
+- The link test point: the body's centre (x + 1.5, y + 2) is used, as for
+  the liquid test in the notes. The notes do not give the point 2.05 tests.
+- `PLI_LEVELWARPMOD` for cached levels; every link sends `PLI_LEVELWARP`.
+- UDP peer traffic.
 - Other players' poses beyond idle and walk, chat bubbles and names.
 - Most of the 59 server ids 2.05 handles. NPCs, baddies, items, weapons
   and the rest of the game.

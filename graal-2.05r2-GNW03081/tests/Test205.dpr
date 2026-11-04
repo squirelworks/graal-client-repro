@@ -449,6 +449,62 @@ begin
   end;
 end;
 
+procedure WriteText(const FileName, Text: string);
+var
+  F: TFileStream;
+begin
+  F := TFileStream.Create(FileName, fmCreate);
+  try
+    if Text <> '' then F.WriteBuffer(Text[1], Length(Text));
+  finally
+    F.Free;
+  end;
+end;
+
+{ Two levels side by side, joined by an edge link. }
+procedure TestLinks;
+var
+  G: TAdventure;
+  Dir: string;
+  I: Integer;
+begin
+  Dir := IncludeTrailingPathDelimiter(GetTempDir(False)) + 'g205links' + PathDelim;
+  ForceDirectories(Dir);
+  WriteText(Dir + 'a.nw', 'GLEVNW01'#10'LINK b.nw 63 0 1 64 0 playery'#10);
+  WriteText(Dir + 'b.nw', 'GLEVNW01'#10'LINK a.nw 0 10 1 10 61 12.5'#10);
+  G := TAdventure.Create;
+  try
+    G.Arrays.LoadFromString(MakeArrays([0]));
+    Check(G.LoadLevelFile(Dir + 'a.nw'), 'links: level a loads');
+    Check((G.LinkAt(63.5, 20) = 0) and (G.LinkAt(62.9, 20) = -1),
+      'links: the link rectangle is a half-open tile box');
+    G.Player.X := 59;
+    G.Player.Y := 20;
+    for I := 1 to 6 do
+      if G.Level.Name = 'a.nw' then
+      begin
+        G.Keys[DirRight] := True;
+        G.Tick;
+      end;
+    if G.Level.Name <> 'b.nw' then
+      WriteLn(Format('  at %.2f,%.2f in %s', [G.Player.X, G.Player.Y, G.Level.Name]));
+    Check((G.Level.Name = 'b.nw') and (G.Player.X = 0) and (G.Player.Y = 20),
+      'links: walking right into the edge link loads b.nw at x 0, keeping y');
+    G.Keys[DirRight] := False;
+    G.Player.Y := 12;
+    Check(G.FollowLink(G.LinkAt(0.5, 14)) and (G.Level.Name = 'a.nw') and
+      (G.Player.X = 61) and (G.Player.Y = 12.5), 'links: a decimal arrival');
+    G.Level.Links[0].Dest := 'missing.nw';
+    Check(not G.FollowLink(0) and (G.Level.Name = 'a.nw'),
+      'links: a missing level leaves the player where they are');
+  finally
+    G.Free;
+    DeleteFile(Dir + 'a.nw');
+    DeleteFile(Dir + 'b.nw');
+    RemoveDir(Dir);
+  end;
+end;
+
 begin
   TestGTypes;
   TestGen3Capture;
@@ -461,6 +517,7 @@ begin
   TestGani;
   TestWalking;
   TestSpriteAndOthers;
+  TestLinks;
   TestTutorials;
   WriteLn(Format('%d passed, %d failed, %d skipped', [Passed, Failed, Skipped]));
   if Failed > 0 then Halt(1);
