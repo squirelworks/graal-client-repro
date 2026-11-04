@@ -20,7 +20,7 @@ bodies.
 |---|---|---|
 | `…-linux.zip` | Linux x86-64 | X11 |
 | `…-windows.zip` | Windows, 32-bit (as 2.05 itself was) | GDI |
-| `…-macos.zip` | macOS on Apple silicon | none yet: headless, or `--dump` frames to a file |
+| `…-macos.zip` | macOS on Apple silicon, when the release has one | none yet: headless, or `--dump` frames to a file |
 
 Each zip has `Graal205` (the client), `Test205` (its test suite) and the
 build's README. On macOS the binaries are not signed: after unzipping, run
