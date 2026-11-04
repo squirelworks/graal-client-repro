@@ -27,7 +27,7 @@ decompiled code:
 |---|---|---|
 | Game token | `GNW03014` | `G3D03014` |
 | Listserver | id 7 `GNW30123newmain` in a plain frame, then id 1 in gen 5 | id 7 `G3D30123newmain` and id 1 together in one plain zlib frame |
-| Listserver hosts | `arrays2.dat` | `license/license.graal` (line 0 host, line 1 port, lines 5 and 6 fallbacks); default `listserver.graal.in:14922` |
+| Listserver hosts | `arrays2.dat` | `listserver.graal.in:14922` first, always; then the hosts of `license/license.graal` (lines 0, 5 and 6) |
 | Login frame | 5 alone, then 37 + 39 in gen 5 | 5, 37, 34 `bigmap.txt`, 34 `minimap.txt`, all in the plain login frame |
 | Tamper check (39) | at login, after every warp and gmap crossing | never |
 | 24 every 5.1 s over TCP | with another player in the level | never (3.04 sends it to players over UDP) |

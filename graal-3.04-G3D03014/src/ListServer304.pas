@@ -6,8 +6,9 @@ unit ListServer304;
   The hosts come from license/license.graal in the game folder, a short
   CRLF text file: line 0 the host, line 1 the port, lines 5 and 6 the
   fallback hosts, tried in that order. The real client checks the file's
-  RSA signature (license/sig.license); the rebuild does not. With no
-  licence file the rebuild asks listserver.graal.in on 14922.
+  RSA signature (license/sig.license); the rebuild does not. The rebuild
+  always asks listserver.graal.in on 14922 first and tries the licence
+  file's hosts after it (the front end, Graal304.dpr).
   The client sends id 7 V2ENCRYPTKEYCL = GCHAR key + 'G3D30123' + 'newmain'
   and id 1 SERVERLIST (account, password) together in one plain zlib frame
   (the lab saw no flush between them); the replies are gen 5, keyed with
