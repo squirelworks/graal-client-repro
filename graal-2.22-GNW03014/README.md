@@ -41,6 +41,7 @@ captures of the real 2.22 client, not from decompiled code:
 | `src/Baddy222.pas` | baddies (a copy of 2.05's) |
 | `src/Sound222.pas` | the sounds the game plays by itself (gani `PLAYSOUND`), through `common/GSound.pas` |
 | `src/Map222.pas` | the big map on M and the minimap, from the install's `maps/` |
+| `src/Terrain222.pas` | the height-shaped ground of new-world maps: the gmaps' `HEIGHTS` grids, and tile 0 drawn as water, sand or grass by height, lit by slope |
 
 ## What works
 
@@ -181,10 +182,15 @@ rebuild on the same files (`--data` pointed at that folder):
 - The same level, path and NPC places: palm trees, cauldron, teacher and
   torches stand where the real client draws them.
 - Different, not done yet:
-  - the board: the tutorial's `addtiledef picso.png,offlinetutorial,1`
-    is a type 1 tile set, which the real client draws in another tile
-    order (sand round the edge, flowered grass); the rebuild still draws
-    it with pics1;
+  - the ground: the tutorial's levels have height grids (the `HEIGHTS`
+    blocks of `maps/offlinetutorial.gmap`), and the real client draws
+    their tile 0 as ground picked by height. The rebuild now does too
+    (`Terrain222`), from what was measured by setting the grid to one
+    height at a time under Wine: water below 0, sand to about 3, sand and
+    grass mixed about 4, grass above, flat ground about 30 darker than
+    `picso.png` and slopes lit from the upper left. Side by side it is
+    close but not the same: the real one blends heights with a seeded
+    displacement and its grass has lighter patches;
   - the player: the tutorial dresses the player with
     `setplayerprop #P1..#P6` and `replaceani idle,human2_idle` (hair, legs,
     arms on the human2 ganis); the rebuild skips both and draws the

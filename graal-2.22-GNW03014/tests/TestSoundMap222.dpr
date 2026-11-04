@@ -15,7 +15,8 @@ uses
   GSound in '../../common/GSound.pas',
   Adventure in '../src/Adventure.pas',
   Sound222 in '../src/Sound222.pas',
-  Map222 in '../src/Map222.pas';
+  Map222 in '../src/Map222.pas',
+  Terrain222 in '../src/Terrain222.pas';
 
 var
   Passed, Failed: Integer;

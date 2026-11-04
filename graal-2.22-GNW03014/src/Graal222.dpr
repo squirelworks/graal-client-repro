@@ -68,6 +68,7 @@ uses
   GSound in '../../common/GSound.pas',
   Sound222 in 'Sound222.pas',
   Map222 in 'Map222.pas',
+  Terrain222 in 'Terrain222.pas',
   GStartScreen in '../../common/GStartScreen.pas',
   ListServer222 in 'ListServer222.pas',
   StartScreen222 in 'StartScreen222.pas',

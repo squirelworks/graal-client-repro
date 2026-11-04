@@ -29,6 +29,7 @@ uses
   GSound in '../../common/GSound.pas',
   Sound222 in '../src/Sound222.pas',
   Map222 in '../src/Map222.pas',
+  Terrain222 in '../src/Terrain222.pas',
   GBuiltin in '../../common/GBuiltin.pas',
   GStartScreen in '../../common/GStartScreen.pas',
   ListServer222 in '../src/ListServer222.pas',
@@ -300,6 +301,34 @@ begin
   finally
     C.Free;
     Codec.Free;
+  end;
+end;
+
+{ The HEIGHTS blocks of a generator gmap, and the height between points. }
+procedure TestTerrainHeights;
+var
+  St: THeightStore;
+  G: THeightGrid;
+  Txt: string;
+  R: Integer;
+begin
+  St := THeightStore.Create;
+  try
+    Txt := 'GRMAP001'#10'WIDTH 1'#10'HEIGHT 1'#10'HEIGHTS lev_a-1.graal 8 8'#10;
+    for R := 0 to 8 do
+      Txt := Txt + Format('%d,%d,0,0,0,0,0,0,%d', [R, R * 2, 8 - R]) + #10;
+    Txt := Txt + 'HEIGHTSEND'#10'HEIGHTS other.graal 8 8'#10'1.5'#10'HEIGHTSEND'#10;
+    Check(St.AddGmap(Txt) = 2, 'terrain: two HEIGHTS blocks read');
+    Check(St.Find('LEV_A-1.graal', G) and (G[3, 0] = 3) and (G[3, 1] = 6) and (G[3, 8] = 5),
+      'terrain: the grid of a level, row by row, found by name in any case');
+    Check(Abs(HeightAt(G, 0, 12) - 1.5) < 1e-6, 'terrain: halfway between rows 1 and 2');
+    Check(Abs(HeightAt(G, 4, 8) - 1.5) < 1e-6, 'terrain: halfway between columns 0 and 1');
+    Check(Abs(HeightAt(G, 64, 64) - 0) < 1e-6, 'terrain: the far corner');
+    Check(St.Find('other.graal', G) and (G[0, 0] = 1.5) and (G[1, 0] = 0),
+      'terrain: a short block keeps the rest at 0');
+    Check(not St.Find('missing.graal', G), 'terrain: no grid for another level');
+  finally
+    St.Free;
   end;
 end;
 
@@ -1603,6 +1632,7 @@ begin
   TestLogin;
   TestListServer;
   TestResolveName;
+  TestTerrainHeights;
   TestListTrailingNuls;
   TestBuiltins;
   TestLoginBurst;

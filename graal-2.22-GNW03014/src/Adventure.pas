@@ -20,7 +20,7 @@ interface
 
 uses
   Classes, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GAssetDirs, GraalClient, Protocol222,
-  Npc222, Baddy222;
+  Npc222, Baddy222, Terrain222;
 
 const
   { The game view. 640x480 is assumed for 2.22 as for 2.05; not read from
@@ -196,6 +196,8 @@ type
     { addtiledef lines seen in level scripts: 'prefix'#9'image', newest
       first; FTileDefLevel is the level last scanned }
     FTileDefs: TStringList;
+    FHeights: THeightStore;
+    FHeightsScanned: Boolean;
     FTileDefLevel: string;
     FLevels: TStringList;  { lower-case name -> TCachedLevel }
     FLevelDir: string;     { folder of the level file played offline }
@@ -325,6 +327,9 @@ type
     { The tile sheet for a level: an addtiledef image whose prefix starts
       the level name, else pics1. }
     function TileSheetFor(const LevelName: string): TGSurface;
+    { The height grid of a level, from the HEIGHTS blocks of the gmaps in
+      the install (maps/) or of the gmap being played. }
+    function LevelHeights(const LevelName: string; out G: THeightGrid): Boolean;
     property TileDefs: TStringList read FTileDefs;
     function ConnectServer(const Host: string; Port: Word;
       const Account, Password: string): Boolean;
@@ -1000,6 +1005,7 @@ begin
   Assets := TAssets.Create;
   FOthers := TList.Create;
   FTileDefs := TStringList.Create;
+  FHeights := THeightStore.Create;
   { a new 2.05 account: 3 of 3 hearts, no rupees, 10 bombs, 5 arrows }
   Player.MaxPower := 3;
   Player.Power := 6;      { half hearts, as PLPROP_CURPOWER }
@@ -1058,6 +1064,7 @@ begin
   for I := 0 to FOthers.Count - 1 do TServerPlayer(FOthers[I]).Free;
   FOthers.Free;
   FTileDefs.Free;
+  FHeights.Free;
   FLog.Free;
   inherited Destroy;
 end;
@@ -2516,6 +2523,7 @@ begin
   begin
     Gmap := TGmap.Create;
     Gmap.Name := Name;
+    FHeights.AddGmap(Data);
     if not Gmap.LoadFromString(Data) then
     begin
       Log('gmap ' + Name + ': not a GRMAP001 file');
@@ -2895,6 +2903,7 @@ begin
     FreeAndNil(Gmap);
     Gmap := TGmap.Create;
     Gmap.Name := Name;
+    FHeights.AddGmap(Body);
     if not Gmap.LoadFromString(Body) then
     begin
       Log('gmap ' + Name + ': not a GRMAP001 file');
@@ -3852,10 +3861,32 @@ begin
   end;
 end;
 
+function TAdventure.LevelHeights(const LevelName: string; out G: THeightGrid): Boolean;
+var
+  I: Integer;
+  R: string;
+begin
+  if not FHeightsScanned then
+  begin
+    FHeightsScanned := True;
+    for I := 0 to AssetRootCount - 1 do
+    begin
+      R := IncludeTrailingPathDelimiter(AssetRoot(I));
+      FHeights.AddDir(R + 'maps');
+      FHeights.AddDir(R + 'levels');
+      FHeights.AddDir(R);
+    end;
+  end;
+  Result := (LevelName <> '') and FHeights.Find(LevelName, G);
+end;
+
 procedure TAdventure.Draw;
 var
   CamX, CamY, LCamX, LCamY, TX, TY, X0, Y0, I, T, WorldW, WorldH, PX, PY: Integer;
   Tiles: TGSurface;
+  CellName, GridName: string;
+  Grid: THeightGrid;
+  HasGrid, GridOk: Boolean;
 begin
   Screen.Fill($FF000000);
   if Sheet.Width = 0 then MakeIndexSheet(Sheet);
@@ -3865,6 +3896,8 @@ begin
     FTileDefLevel := Level.Name;
   end;
   Tiles := TileSheetFor(Level.Name);
+  GridName := #0;
+  GridOk := False;
   { on a gmap the camera works in world tiles: local + 64 x cell }
   PX := 0;
   PY := 0;
@@ -3891,8 +3924,31 @@ begin
       if (TX < WorldW) and (TY < WorldH) then
       begin
         T := WorldTile(TX, TY);
-        if T >= 0 then
+        if T < 0 then Continue;
+        { tile 0 of a level with a height grid, on a swapped-in sheet, is
+          ground picked by height (Terrain222) }
+        HasGrid := False;
+        if Tiles <> Sheet then
+        begin
+          if Gmap <> nil then CellName := Gmap.CellName(TX div BoardW, TY div BoardH)
+          else CellName := Level.Name;
+          if CellName <> GridName then
+          begin
+            GridName := CellName;
+            GridOk := LevelHeights(CellName, Grid);
+          end;
+          HasGrid := GridOk;
+        end;
+        if HasGrid and (T = 0) then
+          DrawTerrainTile(Screen, Tiles, Grid, TX mod BoardW, TY mod BoardH,
+            TX * TileSize - CamX, TY * TileSize - CamY)
+        else
+        begin
           DrawTile(Screen, Tiles, T, TX * TileSize - CamX, TY * TileSize - CamY);
+          if HasGrid then
+            ShadeTile(Screen, Grid, TX mod BoardW, TY mod BoardH,
+              TX * TileSize - CamX, TY * TileSize - CamY);
+        end;
       end;
   { what lives in the player's level (items, NPCs, baddies, shots, things
     thrown) is in that level's tiles: on a gmap its cell is offset }
