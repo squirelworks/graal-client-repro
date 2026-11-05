@@ -1,26 +1,31 @@
 name: release-combine
 
-# Gathers the per-client releases of one version (tags <folder>-<version>,
-# as release-all made them up to v0.0.3) into ONE release, tag <version>,
-# titled "Graal clients <version>", with every zip attached and one notes
+# Gathers the per-client releases of one version (tags <folder>-<from>, as
+# release-all made them up to v0.0.3) into ONE new release, tag <release>
+# (v0.0.3r1 for v0.0.3, since v0.0.3 is already out), titled "Graal
+# clients <release>", with every zip attached as it is and one notes
 # text listing every client (scripts/release/combined_notes.py). Linux
-# zips are left out: releases are Windows only for now. Hide =
-# yes then turns the per-client releases back into drafts, so the releases
+# zips are left out: releases are Windows only for now. The per-client
+# releases are left alone unless hide = yes, which then turns the per-client releases back into drafts, so the releases
 # page shows only the one; that is undone by publishing a draft again, and
 # happens only once the one release holds every zip. Start it from the
 # Actions tab (Run workflow).
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: Version whose per-client releases to gather, e.g. v0.0.3
+      from:
+        description: Version whose per-client releases to gather
         required: true
         default: v0.0.3
+      release:
+        description: Tag and name of the one combined release
+        required: true
+        default: v0.0.3r1
       hide:
-        description: Turn the per-client releases into drafts afterwards
+        description: Also turn the per-client releases into drafts afterwards
         type: choice
-        options: ['yes', 'no']
-        default: 'yes'
+        options: ['no', 'yes']
+        default: 'no'
 
 permissions:
   contents: write
@@ -34,13 +39,16 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}
-      V: ${{ inputs.version }}
+      V: ${{ inputs.from }}
+      R: ${{ inputs.release }}
       HIDE: ${{ inputs.hide }}
     steps:
       - uses: actions/checkout@v4
       - name: Gather the per-client releases
         run: |
-          case "$V" in v[0-9]*) ;; *) echo "version must look like v0.0.3"; exit 1 ;; esac
+          case "$V" in v[0-9]*) ;; *) echo "from must look like v0.0.3"; exit 1 ;; esac
+          case "$R" in v[0-9]*) ;; *) echo "release must look like v0.0.3r1"; exit 1 ;; esac
+          [ "$R" != "$V" ] || { echo "release must differ from from: $V is already out"; exit 1; }
           gh release list --limit 500 --json tagName,isDraft \
             -q '.[] | select(.isDraft | not) | .tagName' | grep -- "-$V\$" | sort > tags.txt || true
           echo "$(wc -l < tags.txt) per-client $V releases"
@@ -60,19 +68,19 @@ jobs:
       - name: Make the one release
         run: |
           F=$(sed "s/-$V\$//" tags.txt)
-          ZIPS="$(ls dist/*)" python3 -I scripts/release/combined_notes.py "$V" $F > notes.md
+          ZIPS="$(ls dist/*)" RELEASE="$R" python3 -I scripts/release/combined_notes.py "$V" $F > notes.md
           TARGET=$(gh api "repos/$GITHUB_REPOSITORY/commits/$(head -1 tags.txt)" -q .sha)
-          if gh release view "$V" > /dev/null 2>&1; then
-            gh release upload "$V" dist/* --clobber
-            gh release edit "$V" --title "Graal clients $V" --notes-file notes.md
+          if gh release view "$R" > /dev/null 2>&1; then
+            gh release upload "$R" dist/* --clobber
+            gh release edit "$R" --title "Graal clients $R" --notes-file notes.md
           else
-            gh release create "$V" dist/* --title "Graal clients $V" \
+            gh release create "$R" dist/* --title "Graal clients $R" \
               --notes-file notes.md --target "$TARGET"
           fi
-          HAVE=$(gh release view "$V" --json assets -q '.assets | length')
-          echo "$V holds $HAVE files (expected $WANT)"
+          HAVE=$(gh release view "$R" --json assets -q '.assets | length')
+          echo "$R holds $HAVE files (expected $WANT)"
           [ "$HAVE" -ge "$WANT" ]
-          gh release view "$V" --json url -q .url
+          gh release view "$R" --json url -q .url
       - name: Hide the per-client releases
         if: inputs.hide == 'yes'
         run: |

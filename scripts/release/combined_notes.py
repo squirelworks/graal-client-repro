@@ -7,7 +7,8 @@ Every client of a version goes out in ONE GitHub release, tagged with the
 version (v0.0.4). Its text is a short common header, then one section per
 folder named: the first heading of the folder's RELEASE_NOTES.md, the
 names of that folder's zips, and the folder's "What's new in <version>"
-section. Folders come in RELEASES.md's order (by era, oldest first), any
+section. RELEASE, if set, names the release in the header when it is not
+the version itself (v0.0.3r1 holds the v0.0.3 zips). Folders come in RELEASES.md's order (by era, oldest first), any
 it does not list after them.
 """
 import os
@@ -17,7 +18,7 @@ import sys
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')
 REPO = 'https://github.com/squirelworks/graal-delphi'
 
-HEADER = """Every Graal client rebuilt in graal-delphi, released together at {version}. \
+HEADER = """Every Graal client rebuilt in graal-delphi, released together at {release}. \
 Each client's zip is attached below and named after its folder: \
 `<folder>-{version}-windows.zip` is the Windows program. \
 [RELEASES.md]({repo}/blob/main/RELEASES.md) has one row per client with what it is and a direct download link.
@@ -49,7 +50,7 @@ def section(text, version):
 
 
 def notes(version, folders, zips):
-    out = [HEADER.format(version=version, repo=REPO)]
+    out = [HEADER.format(version=version, release=os.environ.get('RELEASE') or version, repo=REPO)]
     for f in folders:
         with open(os.path.join(ROOT, f, 'RELEASE_NOTES.md'), encoding='utf-8') as fh:
             text = fh.read()
