@@ -67,6 +67,12 @@ and their cache); the scripted server list and account screens; chat;
 layered levels; update packages; the 3D mode. See the build's README for
 the full list.
 
+The original runs on the Torque engine; this release is still the Delphi
+stand-in that speaks its wire protocol. The Torque layer is not done.
+
+The original's own icon: no copy of the original program to take it from
+is in the project yet, so the Windows program has the default icon.
+
 ## Checks behind this release
 
 The test suite (94 checks) runs with range and overflow checks and the heap

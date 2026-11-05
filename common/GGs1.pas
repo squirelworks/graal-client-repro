@@ -421,6 +421,9 @@ procedure GsSplitArgs(const S: string; N: Integer; Parts: TStrings);
 
 implementation
 
+uses
+  StrUtils;
+
 { ---- helpers ---- }
 
 function GsNameIndex(const Names: array of string; const S: string): Integer;
@@ -598,6 +601,8 @@ type
       Breaks, Continues: array of Integer;
     end;
     FuncDepth: Integer;
+    { the names after "function" anywhere in the source, lower case }
+    Declared: string;
     procedure SkipSpace;
     procedure Next;
     procedure Fail(const Msg: string);
@@ -1402,8 +1407,17 @@ begin
       J.Target := Here;
       Exit;
     end;
-    { name(); is a call of a script function, unless it is a command }
+    { name(); is a call of a script function, unless it is a command; a
+      function the script declares wins over a command of the same name
+      (lamps_wood.gani's setimg(), which the real 2.22 runs as its own
+      function: the lab saw the flame cut from its sheet) }
     Op := GsCommandIndex(Tok);
+    if (Op >= 0) and (Pos(',' + LowerCase(Tok) + ',', Declared) > 0) then
+    begin
+      I := P;
+      while (I <= Length(S)) and (S[I] in [' ', #9]) do Inc(I);
+      if (I < Length(S)) and (S[I] = '(') then Op := -1;
+    end;
     if Op >= 0 then
     begin
       Op := Op + GsFirstOp;
@@ -1440,6 +1454,31 @@ begin
   ExprStatement;
 end;
 
+{ ",name,name," for every "function name(" in Text }
+function DeclaredFunctions(const Text: string): string;
+var
+  L, I, J: Integer;
+  T: string;
+begin
+  Result := ',';
+  T := LowerCase(Text);
+  L := Length(T);
+  I := Pos('function', T);
+  while I > 0 do
+  begin
+    J := I + 8;
+    if ((I = 1) or not (T[I - 1] in ['a'..'z', '0'..'9', '_', '.'])) and (J <= L) and
+      (T[J] in [' ', #9]) then
+    begin
+      while (J <= L) and (T[J] in [' ', #9]) do Inc(J);
+      I := J;
+      while (J <= L) and (T[J] in ['a'..'z', '0'..'9', '_']) do Inc(J);
+      if J > I then Result := Result + Copy(T, I, J - I) + ',';
+    end;
+    I := PosEx('function', T, J);
+  end;
+end;
+
 function TGsCompiler.Compile(AScript: TGsScript; const Text: string): Boolean;
 var
   I: Integer;
@@ -1455,6 +1494,7 @@ begin
   P := 1;
   Line := 1;
   FuncDepth := 0;
+  Declared := DeclaredFunctions(S);
   try
     Next;
     while TokKind <> tkEnd do

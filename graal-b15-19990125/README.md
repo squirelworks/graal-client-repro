@@ -71,12 +71,12 @@ screenshotted side by side and match pixel for pixel.
 
 ## Not yet (0.0.2 and later)
 
-- The player is drawn with the project's built-in stand-in art; this
+- [ ] The player is drawn with the project's built-in stand-in art; this
   build's own `sprites.gif` layout is not written up yet.
-- Chat, items, sword, bombs, arrows, baddies, NPC scripts, signs, saves
+- [ ] Chat, items, sword, bombs, arrows, baddies, NPC scripts, signs, saves
   (Graalsav7 `.gsave`), the local multiplayer modes, web levels over
   HTTP, sound.
-- Comparison with the original under Wine, action by action.
+- [ ] Comparison with the original under Wine, action by action.
 
 ## Assets this build reads
 

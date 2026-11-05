@@ -79,10 +79,10 @@ Files this build opens, for the assets zip: `pics1nw.png`, `arraysnw.dat`,
 
 ## Not yet (0.0.2)
 
-- The NewWorld HUD: 150/150 health and the calendar clock from the world
+- [ ] The NewWorld HUD: 150/150 health and the calendar clock from the world
   time (message 42).
-- The local control NPC (`controlnpc.txt`) that drives movement, file
+- [ ] The local control NPC (`controlnpc.txt`) that drives movement, file
   requests and flags in the original, and the gani prop re-sent every
   100 ms.
-- String arrays and terrain heights in GS1 and levels, back tiles.
-- The NewWorld start window art and the server list theme.
+- [ ] String arrays and terrain heights in GS1 and levels, back tiles.
+- [ ] The NewWorld start window art and the server list theme.

@@ -34,6 +34,11 @@ uses
   GBuiltin in '../../common/GBuiltin.pas',
   GStartScreen in '../../common/GStartScreen.pas',
   ListServer222 in '../src/ListServer222.pas',
+  GPeRes in '../../common/GPeRes.pas',
+  GUiFont in '../../common/GUiFont.pas',
+  GTrueType in '../../common/GTrueType.pas',
+  RealStart222 in '../src/RealStart222.pas',
+  Res222 in '../src/Res222.pas',
   TestNpc222 in 'TestNpc222.pas',
   TestBaddy222 in 'TestBaddy222.pas';
 
@@ -340,12 +345,12 @@ begin
   SetAssetRootsFor('', '', '');
 end;
 
-{ The HEIGHTS blocks of a generator gmap, and the height between points. }
+{ The heights of a generator gmap's levels, built as 2.22 builds them. }
 procedure TestTerrainHeights;
 var
   St: THeightStore;
-  G: THeightGrid;
-  Txt: string;
+  G: PHeightGrid;
+  Txt, D: string;
   R: Integer;
 begin
   St := THeightStore.Create;
@@ -355,14 +360,34 @@ begin
       Txt := Txt + Format('%d,%d,0,0,0,0,0,0,%d', [R, R * 2, 8 - R]) + #10;
     Txt := Txt + 'HEIGHTSEND'#10'HEIGHTS other.graal 8 8'#10'1.5'#10'HEIGHTSEND'#10;
     Check(St.AddGmap(Txt) = 2, 'terrain: two HEIGHTS blocks read');
-    Check(St.Find('LEV_A-1.graal', G) and (G[3, 0] = 3) and (G[3, 1] = 6) and (G[3, 8] = 5),
-      'terrain: the grid of a level, row by row, found by name in any case');
-    Check(Abs(HeightAt(G, 0, 12) - 1.5) < 1e-6, 'terrain: halfway between rows 1 and 2');
-    Check(Abs(HeightAt(G, 4, 8) - 1.5) < 1e-6, 'terrain: halfway between columns 0 and 1');
-    Check(Abs(HeightAt(G, 64, 64) - 0) < 1e-6, 'terrain: the far corner');
-    Check(St.Find('other.graal', G) and (G[0, 0] = 1.5) and (G[1, 0] = 0),
-      'terrain: a short block keeps the rest at 0');
-    Check(not St.Find('missing.graal', G), 'terrain: no grid for another level');
+    G := St.Find('LEV_A-1.graal');
+    Check((G <> nil) and (G^[24, 0] = 3) and (G^[24, 8] = 6) and (G^[24, 64] = 5),
+      'terrain: the surface passes through the HEIGHTS points, found in any case');
+    Check((G <> nil) and (Abs(HeightAt(G^, 0, 12) - 1.5) < 1e-6) and
+      (Abs(HeightAt(G^, 4, 8) - 1.5) < 1e-6) and (Abs(HeightAt(G^, 64, 64)) < 1e-6),
+      'terrain: with no height field, plain blends between the points');
+    G := St.Find('other.graal');
+    Check((G <> nil) and (G^[0, 0] = 1.5) and (G^[8, 0] = 0), 'terrain: a short block keeps the rest at 0');
+    Check(St.Find('missing.graal') = nil, 'terrain: no grid for another level');
+    St.Clear;
+    { the offline tutorial: map edges from GENSEED, the level inside from
+      its seed, then the HEIGHTS correction (values from a model that
+      places the real client's NPCs to the pixel) }
+    if EmbeddedRes('maps/offlinetutorial.gmap', D) then
+    begin
+      Check(St.AddGmap(D) = 9, 'terrain: the tutorial''s nine HEIGHTS blocks');
+      G := St.Find('offlinetutorial_b-2.graal');
+      Check((G <> nil) and (Abs(G^[13, 37] - 4.449629009262084) < 1e-6) and
+        (Abs(G^[35, 20] - 8.210414702604098) < 1e-6) and (G^[0, 0] = -1.75),
+        'terrain: the tutorial level''s heights as 2.22 builds them');
+      Check((G <> nil) and (LiftAt(G^, 28.5, 35) = 142) and (LiftAt(G^, 19.5, 26) = 98),
+        'terrain: the player and the left lamp lifted 142 and 98 px');
+      G := St.Find('offlinetutorial_a-1.graal');
+      Check((G <> nil) and (Abs(G^[5, 7] + 9.96343225675022) < 1e-6) and
+        (LiftAt(G^, 10, 10) = 0), 'terrain: another cell, and water lifts nothing');
+    end
+    else
+      Check(False, 'terrain: the tutorial gmap is built in');
   finally
     St.Free;
   end;
@@ -786,6 +811,9 @@ begin
     Check(G.FollowLink(0), 'links: online, a link asks the server');
     G.Client.Flush;
     ServerReadAll(Codec, G.Client.Sent, Msgs);
+    { requests for pictures this test install lacks go out too }
+    for I := Msgs.Count - 1 downto 0 do
+      if (Msgs[I] <> '') and (Msgs[I][1] = GChar(PLI_WANTFILE)) then Msgs.Delete(I);
     Check((Msgs.Count >= 2) and (Msgs[0] = GChar(PLI_LEVELWARP) + GChar(20) + GChar(22) + 'b.nw') and
       (Msgs[1] = GChar(PLI_TAMPERCHECK) + TamperCheck222),
       'links: LEVELWARP x*2, y*2, level, then 39 in the same frame');
@@ -858,6 +886,11 @@ var
 begin
   M := TGmap.Create;
   try
+    { a generated gmap names no levels: base_<letter>-<row> (the offline
+      tutorial's HEIGHTS blocks) }
+    Check(M.LoadFromString('GRMAP001'#10'WIDTH 3'#10'HEIGHT 3'#10'GENERATED offlinetutorial_c-3.graal'#10) and
+      (M.CellName(0, 0) = 'offlinetutorial_a-1.graal') and (M.CellName(1, 1) = 'offlinetutorial_b-2.graal') and
+      (M.CellName(2, 0) = 'offlinetutorial_c-1.graal'), 'gmap: a generated gmap''s cell names');
     Check(M.LoadFromString(GmapText) and (M.Width = 3) and (M.Height = 2) and
       (M.CellName(2, 1) = 'g_2_1.nw') and (M.CellName(3, 0) = ''),
       'gmap: GRMAP001 WIDTH, HEIGHT and LEVELNAMES');
@@ -934,6 +967,104 @@ begin
     Msgs.Free;
     SrvOut.Free;
     Codec.Free;
+    G.Free;
+  end;
+end;
+
+{ the look of a player: key colours only, replaceani, #P past 5 }
+procedure TestLook;
+const
+  { 2 x 1, palette white (the coat key) and a brown }
+  Png = #$89'PNG'#$0D#$0A#$1A#$0A#$00#$00#$00#$0D'IHDR'#$00#$00#$00#$02#$00#$00#$00#$01#$08#$03#$00#$00#$00#$C3#$FC#$8F#$B8#$00#$00#$00#$06'PLTE'#$FF#$FF#$FF'b'#$3B#$03#$BB#$2A'r'#$B2#$00#$00#$00#$0B'IDATx'#$9C'c'#$60#$60#$04#$00#$00#$04#$00#$02#$BF'z'#$3F'J'#$00#$00#$00#$00'IEND'#$AE'B'#$60#$82;
+var
+  G: TAdventure;
+  B: TGSurface;
+  D: string;
+  TT: TTrueTypeFont;
+  Art: TRealStartArt;
+  GA: TGraalAni;
+  Key: TGaniKey;
+  GS: TGsScript;
+  Found: Boolean;
+  NI: Integer;
+begin
+  G := TAdventure.Create;
+  try
+    G.Assets.AddDownload('kbody.png', Png);
+    G.Player.BodyImage := 'kbody.png';
+    G.Player.Colors[1] := 2;
+    B := G.BodyFor(G.Player);
+    Check((B <> nil) and (B.Width = 2) and (B.GetPixel(0, 0) and $FFFFFF = ColorTable[2] and $FFFFFF) and
+      (B.GetPixel(1, 0) and $FFFFFF = $623B03),
+      'body: the coat key colour takes the coat colour; other colours stay');
+    G.ReplaceAni('idle', 'human2_idle');
+    Check((G.PlayerAniFor('IDLE') = 'human2_idle') and (G.PlayerAniFor('walk') = 'walk'),
+      'replaceani: the player''s idle is drawn as the new gani');
+    G.Player.Attr[6] := 'kmarms100.png';
+    Check(G.Player.Attr[6] = 'kmarms100.png', 'player: #P6 is kept');
+    Check(not PeResourceData('MZ' + StringOfChar(#0, 100), RT_RCDATA, 'TUTORIALB2', D),
+      'resources: a file that is no PE gives none');
+    GA := TGraalAni.Create;
+    try
+      Check(GA.LoadFromString('GANI0002'#10'SPRITE 20 arrow.png 0 0 16 16 arrow'#10 +
+        'FRAMES 40'#10'SCRIPT'#10'if (created) {'#10'  showimg 1,a.png,playerx,playery;'#10'}'#10 +
+        'SCRIPTEND'#10'MOVIE'#10'  ACTOR SPRITE S1'#10'    FRAME 0 dx=16,dy=-29,sprite #=20'#10 +
+        '    FRAME 20 dy=-24'#10'  ACTOREND'#10'  ACTOR TEXT T1'#10 +
+        '    FRAME 0 centered=true,color=FFE080,dx=35,dy=-36,text=Touch to get information,shaded=true'#10 +
+        '  ACTOREND'#10'MOVIEEND'#10) and (Pos('showimg 1', GA.Script) > 0) and
+        (GA.MovieFrames = 40) and (Length(GA.Actors) = 2) and GA.ActorAt(0, 10, Key) and
+        (Abs(Key.DY + 26.5) < 0.01) and (Key.Sprite = 20) and GA.ActorAt(1, 50, Key) and
+        (Key.Text = 'Touch to get information') and (Key.Color = $FFE080) and Key.Shaded,
+        'gani: a SCRIPT block and a GANI0002 movie with sprite and text actors');
+    finally
+      GA.Free;
+    end;
+    GS := TGsScript.Create;
+    try
+      GS.Compile('if (created) { setimg(); }'#10'function setimg() { this.n = 1; }');
+      Found := False;
+      for NI := 0 to GS.Count - 1 do
+        if (GS.Node(NI).Kind = nkCall) and (LowerCase(GS.Node(NI).Name) = 'setimg') then Found := True;
+      Check(Found, 'GS1: a function the script declares wins over the setimg command');
+    finally
+      GS.Free;
+    end;
+    Check((EmbeddedCount > 50) and (EmbeddedPath('PICS1.png') <> '') and
+      FileExists(EmbeddedPath('levels/ganis/idle.gani')) and (EmbeddedPath('nothing.png') = '') and
+      (EmbeddedPath('../pics1.png') = ''),
+      'install files: carried in the program and given as files when the install lacks them');
+    G.SetScreenSize(1024, 768);
+    G.Tick;
+    Check((G.Screen.Width = 1024) and (G.Screen.Height = 768) and (ScreenW = 1024) and
+      (ViewH = 744) and (NpcScreenW = 1024) and (NpcScreenH = 768),
+      'fullscreen: the view is drawn at the fullscreen mode, screenwidth follows');
+    G.SetScreenSize(WindowW, WindowH);
+    Check((G.Screen.Width = 640) and (ViewH = 456) and (NpcScreenH = 480),
+      'fullscreen: back to the 640 x 480 window');
+    Check(EmbeddedRes('tutorialb2', D) and (Copy(D, 1, 8) = 'GR-V1.03') and
+      not EmbeddedRes('TUTORIALD1', D) and (D = ''),
+      'resources: the Training levels are compiled in, by the real exe''s names');
+    Art := TRealStartArt.Create;
+    try
+      Check(Art.Load('', '') and (Art.Back1.Width = 577) and (Art.Back1.Height = 416) and
+        (Art.Text('StartScreen', '') = 'Graal Reborn') and (Art.Text('MainWindow', '') = 'Graal'),
+        'start window: its art and words come from the compiled-in copy, no Graal_222.exe needed');
+    finally
+      Art.Free;
+    end;
+    Check((ServerTab('P Graal the Adventure') = ltGold) and (ServerTab('Doomsday') = ltSilver) and
+      (ServerTab('H Testbed') = ltBronze) and (ServerTab('3 Sharp3D TEST') = ltNone) and
+      (ServerTab('U Login') = ltNone), 'server list: Gold P, Silver plain, Bronze H, no tab for 3 and U');
+    Check((UiTextWidth('Start', ufBold) > UiTextWidth('Start', ufRegular)) and
+      (UiTextWidth('', ufBold) = 0), 'dialog font: bold is wider');
+    TT := TTrueTypeFont.Create;
+    try
+      Check(not TT.LoadFromString('true' + StringOfChar(#0, 40)) and (TT.TextWidth('abc', 16) = 0),
+        'TrueType: a file without its tables is refused and draws nothing');
+    finally
+      TT.Free;
+    end;
+  finally
     G.Free;
   end;
 end;
@@ -1678,6 +1809,7 @@ begin
   TestWalking;
   TestLinks;
   TestGmap;
+  TestLook;
   TestShowImg;
   TestBoardModify;
   TestFuzz;

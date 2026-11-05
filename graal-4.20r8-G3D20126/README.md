@@ -72,9 +72,9 @@ Graal420 --level some.nw                  # offline
 
 ## Not yet, or not known
 
-- Board layers other than 0 (no `GR-V1.05` file format yet either).
-- The 108 answer value; the separate network thread; per-account saved
+- [ ] Board layers other than 0 (no `GR-V1.05` file format yet either).
+- [ ] The 108 answer value; the separate network thread; per-account saved
   passwords (`<account>_pass`).
-- Everything still missing from the 4.04r2 rebuild: the scripted server
+- [ ] Everything still missing from the 4.04r2 rebuild: the scripted server
   list, update packages, the GUI texts after login, the 3D plug-in.
-- No side-by-side run against the real 4.20r8; that is 0.0.2 work.
+- [ ] No side-by-side run against the real 4.20r8; that is 0.0.2 work.
