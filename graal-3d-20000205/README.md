@@ -62,13 +62,18 @@ window unit.
 
 ## What works (0.0.1)
 
-- **Start window.** The original's fields in its order and with its
-  labels: Nickname (empty), Server IP, Port `14901`, Account and Password
-  (`guest` / `guest`), and Start, with `logo.bmp` on top when it is there.
-  Offline (walks `level1.x` with no server) and Quit are this build's.
-  Compared by eye with the real `Graal3D.exe` under Wine: same fields and
-  defaults; the original is a small wood-panel dialog with a drop-down for
-  the server, this build draws its own plain window at 640×480.
+- **Start window.** Graal3D's own (0.0.3): its own window "Graal 3D",
+  433 x 321, on the wood-board picture taken out of `Graal3D.exe`
+  (TConnectFrame's Image1, compiled in from `res/`), with the five fields
+  and the Start button where the form puts them: Nickname (empty), Server
+  IP (a drop-down), Port `14901`, Account and Password (`guest` /
+  `guest`). Compared with the real `Graal3D.exe` under Wine (2026-11-05):
+  same size, picture, fields and places. Under Wine the real one also
+  shows scroll bars, because Wine's thicker frame leaves less room than
+  the form's 441 x 349 outer size; on the Windows of 2000 it did not.
+  `--offline --window` walks `level1.x` with no server.
+- **Game window.** Its own window, "Graal 3D", 640 x 480 (TAdventure), as
+  the original: the start window closes while it is open.
 - **Login.** `GR3DV002`, account and password; the login line and the first
   props line (the full look and the UDP port) go out in one frame, as the
   original does.

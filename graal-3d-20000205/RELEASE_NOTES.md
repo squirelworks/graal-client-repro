@@ -13,6 +13,24 @@ These zips hold no original Graal3D code, meshes, textures or levels. The
 client carries a simple stand-in level and player of its own; put your
 Graal3D files next to it for the real ones.
 
+## What's new in v0.0.3
+
+- Faithfulness pass: compared side by side with the original program it was
+  rebuilt from, and the differences found brought in line with it.
+- Stress tested before release: a long soak with several players walking
+  between levels, others connecting and dropping again and again, and a
+  level with 80 scripted NPCs, with no crash, error or memory growth.
+- [x] Graal3D's own start window: the wood-board picture taken out of the
+  real Graal3D.exe and built into this one, in its own window, "Graal 3D",
+  the size of the picture (433 x 321), as the real one.
+- [x] The five fields where the real window has them, dark red with white
+  text, Server IP as a drop-down box, and one Start button. The Offline
+  and Quit buttons of 0.0.1 are gone, as the real window has neither:
+  close the window to quit, and `--offline` still walks the default level.
+- [x] The game opens in a window of its own, "Graal 3D", 640 x 480, and the
+  start window comes back when it ends, as with the real program.
+- [x] Graal3D.exe's own icon (the torch) in the title bar and the taskbar.
+
 ## Downloads
 
 | Zip | Runs on | Window |
@@ -46,7 +64,7 @@ another folder instead.
 
 Run `Graal3D` with no arguments for the start window: nickname, server
 IP, port (14901), account and password (guest / guest). Start logs into a
-Graal3D server; Offline walks the default level.
+Graal3D server; `Graal3D --offline --window` walks the default level.
 
 - Keypad 8 / 2: forward and back. Keypad 4 / 6: step sideways. The arrow
   keys work too.
@@ -73,9 +91,16 @@ Graal3D --offline --window
 
 ## Not yet
 
-The Hardware options and Player look windows (their settings come from
-`graal3dconfig.txt` for now), full screen, arm and leg swing while walking,
-and saving the nickname and password between runs.
+- [ ] The Hardware options and Player look windows (their settings come
+  from `graal3dconfig.txt` for now).
+- [ ] Full screen.
+- [ ] Arm and leg swing while walking.
+- [ ] Saving the nickname between runs.
+- [ ] Field text in Windows' MS Sans Serif (Liberation Sans is drawn).
+- [ ] The real game window could not be compared: Graal3D.exe needs
+  Direct3D Retained Mode (d3drm.dll), which is not available, so its
+  size and title come from the form (TAdventure, 648 x 508 with the frame,
+  "Graal 3D").
 
 ## Checks behind this release
 

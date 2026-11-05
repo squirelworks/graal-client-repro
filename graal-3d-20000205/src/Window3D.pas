@@ -167,12 +167,17 @@ begin
   WC.lpfnWndProc := @WndProc;
   WC.hInstance := HInstance;
   WC.hCursor := LoadCursor(0, IDC_ARROW);
+  { the program's MAINICON (Graal3D.rc: Graal3D.exe's own icon) }
+  WC.hIcon := LoadIcon(HInstance, 'MAINICON');
   WC.lpszClassName := 'TGraal3DWindow';
   Windows.RegisterClass(WC);
   R.Left := 0; R.Top := 0; R.Right := AWidth; R.Bottom := AHeight;
   AdjustWindowRect(R, WS_OVERLAPPEDWINDOW and not WS_THICKFRAME, False);
+  { centred on the screen, as the original's forms (poScreenCenter) }
   FWnd := CreateWindow('TGraal3DWindow', PChar(Title),
-    WS_OVERLAPPEDWINDOW and not WS_THICKFRAME, Integer(CW_USEDEFAULT), 0,
+    WS_OVERLAPPEDWINDOW and not WS_THICKFRAME,
+    (GetSystemMetrics(SM_CXSCREEN) - (R.Right - R.Left)) div 2,
+    (GetSystemMetrics(SM_CYSCREEN) - (R.Bottom - R.Top)) div 2,
     R.Right - R.Left, R.Bottom - R.Top, 0, 0, HInstance, nil);
   ActiveWindow := Self;
   ShowWindow(FWnd, SW_SHOW);
@@ -285,11 +290,15 @@ begin
   FDisplay := D;
   if D = nil then Exit;
   Scr := DefaultScreen(D);
-  FWin := XCreateSimpleWindow(D, RootWindow(D, Scr), 0, 0, AWidth, AHeight, 0,
+  { centred on the screen, as the original's forms (poScreenCenter) }
+  FWin := XCreateSimpleWindow(D, RootWindow(D, Scr), (DisplayWidth(D, Scr) - AWidth) div 2,
+    (DisplayHeight(D, Scr) - AHeight) div 2, AWidth, AHeight, 0,
     BlackPixel(D, Scr), BlackPixel(D, Scr));
   XStoreName(D, FWin, PChar(Title));
   Hints := XAllocSizeHints;
-  Hints^.flags := PMinSize or PMaxSize;
+  Hints^.flags := PMinSize or PMaxSize or PPosition;
+  Hints^.x := (DisplayWidth(D, Scr) - AWidth) div 2;
+  Hints^.y := (DisplayHeight(D, Scr) - AHeight) div 2;
   Hints^.min_width := AWidth;
   Hints^.max_width := AWidth;
   Hints^.min_height := AHeight;

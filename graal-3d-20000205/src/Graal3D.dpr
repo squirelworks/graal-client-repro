@@ -29,7 +29,7 @@ program Graal3D;
 uses
   SysUtils, Classes, GSurface, GFont, GAssetDirs, GStartScreen,
   Window3D, Codec3D, Config3D, Math3D, XFile3D, Render3D, World3D,
-  Client3D, Connect3D, Builtin3D, Run3D;
+  Client3D, Res3D, GUiFont, Connect3D, Builtin3D, Run3D;
 
 const
   BuildName = 'graal-3d-20000205';
@@ -38,6 +38,9 @@ const
   ScreenW = 640;
   ScreenH = 480;
   ChatLineY = ViewH; { the chat edit line sits under the 3D view }
+  { TAdventure's and TConnectFrame's captions in Graal3D.exe }
+  GameTitle = 'Graal 3D';
+  StartTitle = 'Graal 3D';
 
 type
   TOptions = record
@@ -476,7 +479,7 @@ begin
   try
     if HasArg('--window') then
     begin
-      Win := TWindow3D.Create('Graal3D', ScreenW, ScreenH);
+      Win := TWindow3D.Create(GameTitle, ScreenW, ScreenH);
       if not Win.Ok then FreeAndNil(Win);
     end;
     Result := RunGame(Win, O, Msg);
@@ -486,7 +489,10 @@ begin
 end;
 
 { No arguments: the start window, the game it picks, and back to the
-  start window when the game ends. }
+  start window when the game ends. As in Graal3D.exe, the start window
+  (TConnectFrame, 433 x 321) and the game (TAdventure, 640 x 480) are two
+  windows of their own, both titled "Graal 3D": the start window closes
+  when the game opens and comes back when it ends. }
 function RunGui: Integer;
 var
   Win: TWindow3D;
@@ -502,17 +508,9 @@ begin
   SetAssetRoots(Dir, AssetLabel);
   DefaultConfig(C);
   LoadConfig(Dir + ConfigName, C);
-  Win := TWindow3D.Create('Graal3D', ScreenW, ScreenH);
-  S := TGSurface.Create(ScreenW, ScreenH);
+  S := TGSurface.Create(ConnectW, ConnectH);
+  Win := nil;
   try
-    if not Win.Ok then
-    begin
-      OpenConsoleIO;
-      WriteLn(ErrOutput, 'no display for the start window; run with arguments:');
-      Usage;
-      Result := 64;
-      Exit;
-    end;
     InstallStopHandlers;
     F.Nick := '';
     F.Host := C.ServerAddr;
@@ -520,10 +518,20 @@ begin
     F.Account := C.AccountName;
     F.Password := C.Password;
     F.Message := '';
-    F.LogoPath := AssetPath('logo.bmp');
+    F.LogoPath := '';
     repeat
+      Win := TWindow3D.Create(StartTitle, ConnectW, ConnectH);
+      if not Win.Ok then
+      begin
+        OpenConsoleIO;
+        WriteLn(ErrOutput, 'no display for the start window; run with arguments:');
+        Usage;
+        Result := 64;
+        Exit;
+      end;
       Choice := RunConnect(Win, S, F, StopRequested);
-      if (Choice = ccQuit) or Win.Closed or StopRequested then Break;
+      FreeAndNil(Win);
+      if (Choice = ccQuit) or StopRequested then Break;
       DefaultOptions(O, C);
       O.Nick := F.Nick;
       if Choice = ccConnect then
@@ -537,19 +545,21 @@ begin
         C.ServerPort := O.Port;
         SaveConfig(Dir + ConfigName, C);
       end;
+      Win := TWindow3D.Create(GameTitle, ScreenW, ScreenH);
       Args := TStringList.Create;
       try
         Args.Add('--data');
         Args.Add(Dir);
-        RunGame(Win, O, Msg);
+        if Win.Ok then RunGame(Win, O, Msg);
       finally
         FreeAndNil(Args);
+        FreeAndNil(Win);
       end;
       F.Message := Msg;
-    until Win.Closed or StopRequested;
+    until StopRequested;
   finally
-    S.Free;
     Win.Free;
+    S.Free;
   end;
 end;
 
