@@ -548,6 +548,34 @@ begin
     else Ok := LoadImageFile(F, S);
     if not Ok then FreeAndNil(S);
   end;
+  { 1.1 keeps every head in one picture, heads.gif, 32 pixels wide each:
+    headN.gif is its column N }
+  if (S = nil) and (Kind = 'head') and SameText(Copy(Name, 1, 4), 'head') then
+  begin
+    I := StrToIntDef(Copy(ChangeFileExt(Name, ''), 5, MaxInt), -1);
+    F := FindFile('heads.gif', ['']);
+    if (I >= 0) and (F <> '') then
+    begin
+      D := 'img:heads.gif';
+      if FNames.IndexOf(D) < 0 then
+      begin
+        S := TGSurface.Create(0, 0);
+        if not LoadImageFile(F, S) then FreeAndNil(S);
+        FNames.AddObject(D, S);
+      end;
+      S := TGSurface(FNames.Objects[FNames.IndexOf(D)]);
+      if (S <> nil) and ((I + 1) * 32 <= S.Width) then
+      begin
+        Result := TGSurface.Create(32, S.Height);
+        Result.Fill(0);
+        Result.Blit(S, I * 32, 0, 32, S.Height, 0, 0);
+        S := Result;
+        Result := nil;
+      end
+      else
+        S := nil;
+    end;
+  end;
   { nothing on disk: the built-in default of that name, if there is one }
   if (S = nil) and BuiltinFile(Name, D) then
   begin

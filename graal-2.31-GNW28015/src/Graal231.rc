@@ -5,6 +5,11 @@
    0,0,0,0 and "0.0.0-dev" here. */
 1 24 "../../common/win/graal-delphi.manifest"
 
+/* the Graal head, 32x32, as 2.31's own Graal_231.exe carries it
+   (GROUP_ICON MAINICON; a few pixels differ from 2.22's): the window and
+   the taskbar show it */
+MAINICON ICON "Graal231.ico"
+
 1 VERSIONINFO
 FILEVERSION 0,0,0,0
 PRODUCTVERSION 0,0,0,0

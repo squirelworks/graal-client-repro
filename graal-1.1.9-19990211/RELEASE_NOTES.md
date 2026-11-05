@@ -9,10 +9,9 @@ connect dialog. This is an early, hit-or-miss first release.
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").
 
-These zips hold no original Graal code, game graphics, sounds or levels; the
-program carries only the original's start dialog (its form, pictures and icon,
-taken from the original program). The
-program carries small original default graphics and a starter level of its
+Apart from the start dialog and the icon, which are taken from the real
+Graal.exe and compiled in, these zips hold no original Graal code, graphics,
+sounds or levels. The program carries small original default graphics and a starter level of its
 own, so it runs as it is. Put it at the top of a 1.1.9 install you own (or
 keep a `graal-assets/` folder next to it, or point it at one with
 `--data DIR`) and the install's tiles and levels take their place.
@@ -23,8 +22,15 @@ keep a `graal-assets/` folder next to it, or point it at one with
 
 ## What's new in v0.0.3
 
-- The Windows program carries its original's own icon (the sword, taken from
-  the original exe), so Explorer shows it as the original did.
+- [x] **The real start dialog.** It opens on 1.1.9's own form, "Graal - The Adventure" (TConnectFrame), compiled in from the real Graal.exe with its pictures, labels and controls in their places (`res/ConnectFrame.txt`). There is no bigger window behind it.
+- [x] **The real frame.** The dialog is 441 x 348 outside and centred on the screen. It has a sizable frame with the minimise box and a greyed maximise box, as the form's BorderIcons give it. When the frame leaves the form too small, scroll bars come up, as on Windows 10.
+- [x] **Modes, as the real one switches them.** One Player, One Player Online, Two Players, Three Players, Four Players. One Player shows no panel. One Player Online shows Nick Name, Server and Port. Two or more players show one more character list per player.
+- [x] **The character list.** 23 entries (Fung Si Yan ... Pach Soldier) come from the exe's own table (1.1 has no headsconfig.txt). Each is drawn with its head's front at half size, owner-drawn as the original. Fung Si Yan is the default, and Nick, Mandi and Bad Max are the defaults for players 2 to 4. The pick sets the player's head and five body colours in the game.
+- [x] **Heads from heads.gif.** The heads come from the install's heads.gif, where head N is column N, in the dialog and in the game.
+- [x] **Online defaults.** The server field holds www.graalonline.com and the port is 14802, as the real one fills them. graalconfig.txt (`serveraddr=`, `serverport=`) or listserver.txt fills them instead. www.graalonline.com is gone, so it stands for the community server.
+- [x] **Icon.** The program's icon is MAINICON, taken from the real exe.
+- [x] **Game window.** It is titled "Graal" (TAdventure's caption), with a 640 x 448 client, as the real 1.1.9 opens it. That is checked under Wine.
+- [x] **One Player start level.** One Player opens house1.graal, as the real one does.
 - Stress tested before release: a long soak with several players on one
   relay and others connecting and dropping again and again, with no crash,
   error or memory growth.
@@ -82,11 +88,19 @@ Arrow keys walk, Esc leaves the game.
 
 ## Not yet
 
-- [ ] Linux and macOS keep the shared start screen; the original's dialog is
-      Windows only.
 - [ ] Two to Four Players start the one-player game; the local multiplayer modes
       are not rebuilt.
 - [ ] The character picked in the dialog is not yet drawn in the game.
 
 Smoke-tested only. The original's status bar, sprites and letters sheets,
 Two and Four Players, save games and web levels are not done yet.
+
+- [ ] Two to Four Players on one keyboard. The modes are offered, but they play as One Player.
+- [ ] The status bar as 1.1.9 draws it. The rebuild still draws a later HUD.
+- [ ] One Player's start position and camera.
+- [ ] The other forms in the exe: the F1 options window, More options, and the editor dialogs.
+- [ ] Alt+Enter full screen.
+- [ ] The nick and "Load head/colors from last session" kept in HKCU\Software\Graal\Client.
+- [ ] The dialog's text uses Liberation Sans for MS Sans Serif, so a line can break one word apart from the real one.
+- [ ] The real message boxes (connection failed and the like).
+- [ ] A self-contained exe. The start dialog, icon and character list are compiled in, but the levels, heads, sprites and sounds are still read from the install folder rather than compiled in with the folder as a fallback.

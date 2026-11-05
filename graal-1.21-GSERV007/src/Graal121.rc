@@ -7,6 +7,10 @@
 /* the real client's icon (scripts/realres/extract_res.py) */
 MAINICON ICON "RealRes121.ico"
 
+/* the program's icon, as the real Graal.exe carries it (GROUP_ICON
+   MAINICON): the window and the taskbar show it */
+MAINICON ICON "Graal121.ico"
+
 1 VERSIONINFO
 FILEVERSION 0,0,0,0
 PRODUCTVERSION 0,0,0,0

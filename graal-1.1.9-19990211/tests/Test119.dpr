@@ -36,6 +36,10 @@ uses
   GVclForm in '../../common/GVclForm.pas',
   GBetaStart in '../../common/GBetaStart.pas',
   RealRes119 in '../src/RealRes119.pas',
+  GDfm1x in '../../common/GDfm1x.pas',
+  GUiFont in '../../common/GUiFont.pas',
+  GLaunch1x in '../../common/GLaunch1x.pas',
+  Res119 in '../src/Res119.pas',
   TestNpc119 in 'TestNpc119.pas',
   TestBaddy119 in 'TestBaddy119.pas';
 
@@ -1201,6 +1205,57 @@ begin
   end;
 end;
 
+{ the start dialog: the real form compiled in reads back whole, with its
+  pictures, and the character list gives heads and colours }
+procedure TestLaunchForm;
+var
+  F, M: TDfmObject;
+  C: TCharList;
+  D, Bmp: string;
+  W, H: Integer;
+  L: TStringList;
+begin
+  F := ReadDfm(ResConnectFrame);
+  Check(F <> nil, 'launch: TConnectFrame reads');
+  if F = nil then Exit;
+  try
+    Check(F.Str('Caption', '') = 'Graal - The Adventure', 'launch: caption');
+    Check((F.Int('Width', 0) = 441) and (F.Int('Height', 0) = 348), 'launch: outer size');
+    FormClientSize(F, W, H);
+    Check((W = 433) and (H = 314), 'launch: client size');
+    M := F.Find('ModeSelect');
+    Check(M <> nil, 'launch: mode list');
+    if M <> nil then
+    begin
+      L := M.List('Items.Strings');
+      Check(L.Count >= 3, 'launch: modes');
+      L.Free;
+    end;
+    M := F.Find('Image3');
+    Check((M <> nil) and M.Binary('Picture.Data', D) and DfmPictureBmp(D, Bmp), 'launch: the art is a bitmap');
+    M := F.Find('Button1');
+    Check((M <> nil) and (Pos('Start', M.Str('Caption', '')) > 0), 'launch: Start button');
+  finally
+    F.Free;
+  end;
+  Check(FormCaption(ResAdventure, '') = 'Graal', 'launch: game window caption');
+  Check(ScreenH = 448, 'launch: game window height');
+  C := ParseCharacters(ResCharacters);
+  Check(Length(C) = 23, 'launch: character count');
+  if Length(C) > 0 then
+  begin
+    Check(C[0].Name = 'Fung Si Yan', 'launch: first character');
+    Check(C[0].Head = 'head0.gif', 'launch: first head');
+    Check((C[0].Colors[0] = 2) and (C[0].Colors[1] = 0) and (C[0].Colors[4] = 18),
+      'launch: first colours (orange, white, ..., black)');
+  end;
+  C := ParseCharacters('A=head3.gif,female,red,blue,black,white,green'#13#10'broken'#13#10);
+  Check((Length(C) = 1) and (C[0].Gender = 'female') and (C[0].Colors[0] = 4) and
+    (C[0].Colors[4] = 7), 'launch: headsconfig line');
+  Check(ReadDfm('TPF0'#0) = nil, 'launch: a cut form is refused');
+  Check(ReadDfm('junk') = nil, 'launch: not a form');
+end;
+
 { The start dialog and the game window come from the real client's own
   forms (src/RealRes119.pas, extracted from its exe). }
 procedure TestStartForm;
@@ -1237,6 +1292,7 @@ end;
 begin
   TestStartForm;
   TestGTypes;
+  TestLaunchForm;
   TestRelayCodec;
   TestRelaySession;
   TestBoardWriter;
