@@ -23,7 +23,7 @@ uses
   GRelay in '../../common/GRelay.pas',
   ProtocolB9 in '../src/ProtocolB9.pas',
   Adventure in '../src/Adventure.pas',
-  GDfm in '../../common/GDfm.pas',
+  GDfmObj in '../../common/GDfmObj.pas',
   GVclForm in '../../common/GVclForm.pas',
   GBetaStart in '../../common/GBetaStart.pas',
   RealResB9 in '../src/RealResB9.pas';

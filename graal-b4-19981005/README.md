@@ -32,7 +32,7 @@ decompiled code:
 | `src/Adventure.pas` | game state: level, walking, the two relay connections, partners, drawing |
 | `src/GraalB4.dpr` | front end: the original's start dialog with no arguments (the shared start screen without Win32), or the command line |
 | `src/RealResB4.pas` | the original program's resources (forms, pictures, strings), from `scripts/realres/extract_res.py` |
-| `../common/GDfm.pas`, `../common/GVclForm.pas` | reading Delphi forms and showing them as native windows |
+| `../common/GDfmObj.pas`, `../common/GVclForm.pas` | reading Delphi forms and showing them as native windows |
 | `../common/GBetaStart.pas` | the 1998 start dialog: character lists, modes, what the player picked |
 | `src/StartScreenB4.pas` | the connect dialog as the one row of the shared start screen's list |
 | `src/RunMode.pas` | stress-run support (clock, stop signals, tick histogram, walker, JSON) |

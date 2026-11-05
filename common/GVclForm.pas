@@ -1,4 +1,4 @@
-{ GVclForm: shows a Delphi form, read with GDfm from the real client's own
+{ GVclForm: shows a Delphi form, read with GDfmObj from the real client's own
   resources, the way the Delphi 3 VCL showed it.
 
   The 1998 betas and the 1.x clients up to 1.32 were Delphi 3 programs.
@@ -28,7 +28,7 @@ unit GVclForm;
 interface
 
 uses
-  SysUtils, Classes, GDfm, GSurface;
+  SysUtils, Classes, GDfmObj, GSurface;
 
 type
   TVclKind = (vkForm, vkGroup, vkPanel, vkButton, vkRadio, vkCheck, vkEdit,

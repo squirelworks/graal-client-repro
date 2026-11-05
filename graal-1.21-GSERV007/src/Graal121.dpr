@@ -82,7 +82,7 @@ uses
   EditorObjSets in 'editor/EditorObjSets.pas',
   EditorView in 'editor/EditorView.pas',
   EditorMain in 'editor/EditorMain.pas',
-  GDfm in '../../common/GDfm.pas',
+  GDfmObj in '../../common/GDfmObj.pas',
   GVclForm in '../../common/GVclForm.pas',
   GBetaStart in '../../common/GBetaStart.pas',
   RealRes121 in 'RealRes121.pas'

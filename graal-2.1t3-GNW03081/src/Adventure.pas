@@ -379,7 +379,7 @@ procedure MakeIndexSheet(Sheet: TGSurface);
 implementation
 
 uses
-  SysUtils, Math, GFont, GSound, Sound21t3, Map21t3, NpcBridge21t3;
+  SysUtils, Math, GPeRes, GFont, GSound, Sound21t3, Map21t3, NpcBridge21t3;
 
 procedure MakeIndexSheet(Sheet: TGSurface);
 var
@@ -505,6 +505,16 @@ begin
           Exit;
         end;
       end;
+  { none in the install: the copy the program carries (GResFiles), in the
+    same folder order }
+  if Assigned(AssetFallback) then
+    for I := 0 to High(Dirs) do
+      for J := 0 to 2 do
+        if Exts[J] <> '' then
+        begin
+          Result := AssetFallback(Dirs[I] + Base + Exts[J]);
+          if Result <> '' then Exit;
+        end;
 end;
 
 function TAssets.Image(const Name, Kind: string): TGSurface;
@@ -2186,12 +2196,39 @@ end;
 
 { ---- level links ---- }
 
+{ A tutorial level the real program carried in its resources
+  (tutorial_a-1.graal .. tutorial_c-4.graal as RCDATA TUTORIALA1 ..
+  TUTORIALC4), linked into this one (src/res/); False for other names. }
+function ExeTutorial(const Name: string; out Data: string): Boolean;
+var
+  N: string;
+begin
+  Result := False;
+  Data := '';
+  N := LowerCase(ExtractFileName(Name));
+  if (Length(N) <> 18) or (Copy(N, 1, 9) <> 'tutorial_') or (Copy(N, 13, 6) <> '.graal') or
+    (N[11] <> '-') or not (N[10] in ['a'..'c']) or not (N[12] in ['1'..'4']) then Exit;
+  Result := OwnResource('TUTORIAL' + UpperCase(N[10]) + N[12], Data) and
+    (Copy(Data, 1, 3) = 'GR-');
+end;
+
 function TAdventure.LoadLevelFile(const FileName: string): Boolean;
 var
   D: string;
 begin
   SetLength(Items, 0);
   SetLength(Thrown, 0);
+  if not FileExists(FileName) and ExeTutorial(FileName, D) then
+  begin
+    { the real program's own tutorial level: links from it look in the
+      install, then here }
+    Result := Level.LoadFromString(D);
+    Level.Name := ExtractFileName(FileName);
+    if Result then FLevelDir := '';
+    if Result then Npcs.LoadLevel(Level);
+    if Result then Baddies.LoadLevel(Level);
+    Exit;
+  end;
   if not FileExists(FileName) and BuiltinFile(ExtractFileName(FileName), D) and
     (LowerCase(ExtractFileExt(FileName)) <> '.png') then
   begin
