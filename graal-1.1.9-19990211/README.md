@@ -31,6 +31,15 @@ decompiled code:
 | Tile types | `formats/arrays-and-signatures.md` |
 | Everything kept from the copied build | the table in `graal-2.05r2-GNW03081/README.md` |
 
+## Start dialog (0.0.3)
+
+With no arguments on Windows the program shows the original's own start
+dialog, built from the `TConnectFrame` form in `res/TCONNECTFRAME.dfm`
+(`src/RealRes119.pas`, from `scripts/realres/extract_res.py`, shown by
+`common/GVclForm.pas` and `common/GBetaStart.pas`). Start opens the game in a
+window shaped as the `TAdventure` form. Elsewhere the shared start screen
+stays.
+
 ## Units
 
 | Unit | 1.1.9 class | What it does |

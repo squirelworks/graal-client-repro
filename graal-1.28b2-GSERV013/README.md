@@ -35,6 +35,15 @@ tests that name 2.05 were measured on 2.05.
   it lies next to the program, else the built-in starter level. There are
   no tutorial levels and no tutorial maps.
 
+## Start dialog (0.0.3)
+
+With no arguments on Windows the program shows the original's own start
+dialog, built from the `TConnectFrame` form in `res/TCONNECTFRAME.dfm`
+(`src/RealRes128b2.pas`, from `scripts/realres/extract_res.py`, shown by
+`common/GVclForm.pas` and `common/GBetaStart.pas`). Start opens the game in a
+window shaped as the `TAdventure` form. Elsewhere the shared start screen
+stays.
+
 ## Sources
 
 The version facts come from graal_analysis: the build catalogue

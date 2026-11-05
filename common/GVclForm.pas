@@ -139,6 +139,9 @@ type
     procedure SetItems(const Name: string; const Values: array of string);
     procedure SetEnabled(const Name: string; Value: Boolean);
     procedure SetVisible(const Name: string; Value: Boolean);
+    procedure SetHeight(const Name: string; Value: Integer);
+    { The form's own caption. }
+    procedure SetCaption(const Value: string);
     procedure Focus(const Name: string);
     { Shows the form and runs until Close is called (from OnEvent) or the
       window is closed (the result is then -1). }
@@ -807,7 +810,13 @@ begin
         GetWindowText(C.Wnd, Buf, SizeOf(Buf));
         C.Text := Buf;
       end;
-    vkCombo: C.ItemIndex := SendMessage(C.Wnd, CB_GETCURSEL, 0, 0);
+    vkCombo:
+      begin
+        C.ItemIndex := SendMessage(C.Wnd, CB_GETCURSEL, 0, 0);
+        Buf[0] := #0;
+        GetWindowText(C.Wnd, Buf, SizeOf(Buf));
+        C.Text := Buf;
+      end;
     vkRadio, vkCheck: C.Checked := SendMessage(C.Wnd, BM_GETCHECK, 0, 0) = BST_CHECKED;
   end;
 {$ENDIF}
@@ -821,6 +830,10 @@ begin
   if C = nil then Exit('');
   SyncFromWindow(C);
   Result := C.Text;
+  { a list's text is its selected item }
+  if (C.Kind = vkCombo) and (C.ItemIndex >= 0) and (C.ItemIndex < C.Items.Count) and
+    (C.OwnerDraw or SameText(C.Obj.Ident('Style', 'csDropDown'), 'csDropDownList')) then
+    Result := C.Items[C.ItemIndex];
 end;
 
 procedure TVclForm.SetText(const Name, Value: string);
@@ -941,6 +954,31 @@ begin
   if C.Wnd <> 0 then ShowWindow(C.Wnd, Ord(Value) * SW_SHOW)
   else if (C.Parent <> nil) and (C.Parent.Wnd <> 0) then
     InvalidateRect(C.Parent.Wnd, nil, True);
+{$ENDIF}
+end;
+
+procedure TVclForm.SetHeight(const Name: string; Value: Integer);
+var
+  C: TVclCtl;
+begin
+  C := Ctl(Name);
+  if C = nil then Exit;
+  C.H := Value;
+{$IFDEF MSWINDOWS}
+  if C.Wnd <> 0 then
+  begin
+    SetWindowPos(C.Wnd, 0, 0, 0, C.W, C.H, SWP_NOMOVE or SWP_NOZORDER or SWP_NOACTIVATE);
+    InvalidateRect(C.Wnd, nil, True);
+  end;
+{$ENDIF}
+end;
+
+procedure TVclForm.SetCaption(const Value: string);
+begin
+  Caption := Value;
+  Root.Text := Value;
+{$IFDEF MSWINDOWS}
+  if Root.Wnd <> 0 then SetWindowText(Root.Wnd, PChar(Value));
 {$ENDIF}
 end;
 
@@ -1150,6 +1188,7 @@ var
   Ch: TVclCtl;
   Old: HGDIOBJ;
   Br: HBRUSH;
+  Hi, Lo: COLORREF;
   TM: TTextMetric;
 begin
   GetClientRect(C.Wnd, R);
@@ -1184,17 +1223,23 @@ begin
   else if C.Kind = vkPanel then
   begin
     { TCustomPanel.Paint: outer bevel, inner bevel, caption centred }
-    if C.BevelOuter = 2 then
+    { Frame3D: the top and left edge in one colour, the bottom and right
+      edge in the other }
+    if C.BevelOuter in [1, 2] then
     begin
-      Br := 0;
-      R := MkRect(0, 0, C.W, C.H);
-      FrameR(DC, MkRect(0, 0, C.W, C.H), GetSysColor(COLOR_BTNSHADOW));
-      FrameR(DC, MkRect(0, 0, C.W - 1, C.H - 1), GetSysColor(COLOR_BTNHIGHLIGHT));
-    end
-    else if C.BevelOuter = 1 then
-    begin
-      FrameR(DC, MkRect(0, 0, C.W, C.H), GetSysColor(COLOR_BTNHIGHLIGHT));
-      FrameR(DC, MkRect(0, 0, C.W - 1, C.H - 1), GetSysColor(COLOR_BTNSHADOW));
+      if C.BevelOuter = 2 then
+      begin
+        Hi := GetSysColor(COLOR_BTNHIGHLIGHT);
+        Lo := GetSysColor(COLOR_BTNSHADOW);
+      end
+      else
+      begin
+        Hi := GetSysColor(COLOR_BTNSHADOW);
+        Lo := GetSysColor(COLOR_BTNHIGHLIGHT);
+      end;
+      FrameR(DC, MkRect(0, 0, C.W, C.H), Lo);
+      FrameR(DC, MkRect(0, 0, C.W - 1, 1), Hi);
+      FrameR(DC, MkRect(0, 0, 1, C.H - 1), Hi);
     end;
     if C.Text <> '' then
     begin
@@ -1606,6 +1651,10 @@ begin
         for I := 0 to C.Items.Count - 1 do
           SendMessage(C.Wnd, CB_ADDSTRING, 0, LPARAM(PChar(C.Items[I])));
         SendMessage(C.Wnd, CB_SETCURSEL, WPARAM(C.ItemIndex), 0);
+        { an editable list's text goes to its edit field }
+        if (C.ItemIndex < 0) and (C.Text <> '') and not C.OwnerDraw and
+          not SameText(C.Obj.Ident('Style', 'csDropDown'), 'csDropDownList') then
+          SetWindowText(C.Wnd, PChar(C.Text));
       end;
   end;
   if C.Container then

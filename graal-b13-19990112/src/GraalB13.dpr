@@ -513,6 +513,7 @@ var
   Win: TGWindow;
 begin
   Result := 0;
+  Info := Default(TBetaStartInfo);
   Dir := ExtractFilePath(ParamStr(0));
   if not RealResource('TCONNECTFRAME', Info.FormData) then
   begin

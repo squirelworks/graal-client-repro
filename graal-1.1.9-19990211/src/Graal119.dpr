@@ -82,7 +82,12 @@ uses
   EditorDialogs in 'editor/EditorDialogs.pas',
   EditorObjSets in 'editor/EditorObjSets.pas',
   EditorView in 'editor/EditorView.pas',
-  EditorMain in 'editor/EditorMain.pas';
+  EditorMain in 'editor/EditorMain.pas',
+  GDfm in '../../common/GDfm.pas',
+  GVclForm in '../../common/GVclForm.pas',
+  GBetaStart in '../../common/GBetaStart.pas',
+  RealRes119 in 'RealRes119.pas'
+{$IFDEF MSWINDOWS}, Windows{$ENDIF};
 
 var
   { Set while the start screen runs a game: the arguments it chose, read
@@ -555,7 +560,7 @@ end;
 { No arguments: the game mode and the connect dialog, then the game it
   picks, and back to the start when the game ends (Esc, or a failed or
   dropped link). }
-function RunGui: Integer;
+function RunSharedStart: Integer;
 var
   Win: TGWindow;
   G: TAdventure;
@@ -636,6 +641,122 @@ begin
     Win.Free;
   end;
 end;
+
+{ No arguments: the build's own start dialog, built from its TConnectFrame
+  form (src/RealRes119.pas, from the real client), then the game in a
+  window shaped as its TAdventure form. Closing the game window ends the
+  program, as in the original; a failed connection is reported and the
+  dialog shown again. Systems without Win32 use the shared start screen. }
+function RunGui: Integer;
+{$IFDEF MSWINDOWS}
+var
+  Info: TBetaStartInfo;
+  Choice: TBetaChoice;
+  GF: TBetaGameForm;
+  Dir, Host, Lvl, X, Y, FormData, HeadsFile: string;
+  Port, I: Integer;
+  Win: TGWindow;
+  HNames, HFiles: TBetaNames;
+begin
+  Result := 0;
+  Info := Default(TBetaStartInfo);
+  Dir := ExtractFilePath(ParamStr(0));
+  if not RealResource('TCONNECTFRAME', Info.FormData) then
+  begin
+    Result := RunSharedStart;
+    Exit;
+  end;
+  InstallStopHandlers;
+  SetAssetRoots(Dir, ClientAssetFolders);
+  ReadListServer(Dir, DefaultListHost, DefaultListPort, Host, Port);
+  Info.AppTitle := 'Graal';
+  Info.Nick := '';
+  { the real dialog has no owner window and is not stay-on-top }
+  Info.AppOwned := False;
+  Info.StayOnTop := False;
+  { the lists shrink the heads with COLORONCOLOR }
+  Info.HeadPick := True;
+  Info.Heads := nil;
+  SetLength(Info.HeadSheets, 0);
+  SetLength(HFiles, 0);
+  SetLength(HNames, 0);
+  { no graalconfig.txt in this build }
+  Info.ConfigFile := '';
+  Info.LanguageDir := '';
+  { the lists' ground, heads.gif's own transparent colour }
+  Info.ItemFill := $C6C6C6;
+  Info.NickRowAlone := False;
+  SetLength(Info.Names, Length(CharacterNames));
+  for I := 0 to High(CharacterNames) do Info.Names[I] := CharacterNames[I];
+  HeadsFile := AssetPath('heads.gif');
+  if HeadsFile = '' then HeadsFile := AssetPath('heads.png');
+  if HeadsFile <> '' then
+  begin
+    Info.Heads := TGSurface.Create(1, 1);
+    if not LoadImageFile(HeadsFile, Info.Heads) then FreeAndNil(Info.Heads);
+  end;
+  try
+    repeat
+      if not RunBetaStart(Info, Choice) or StopRequested then Exit;
+      Info.Nick := Choice.Nick;
+      FormData := '';
+      RealResource('TADVENTURE', FormData);
+      BetaGameForm(FormData, GF);
+      Win := TGWindow.Create(GF.Caption, GF.ViewW, GF.ViewH);
+      GuiArgs := TStringList.Create;
+      try
+        Win.VclFrame(GF.Caption, GF.Width, GF.Height, GF.ViewW, GF.ViewH, GF.ChatH,
+          GF.MinBox, GF.MaxBox);
+        GuiArgs.Add('--window');
+        GuiArgs.Add('--data');
+        GuiArgs.Add(Dir);
+        if Choice.Mode = bmOnline then
+        begin
+          { the dialog's server field, when the player changed it; else the
+            address from listserver.txt or the rebuild's default (the host
+            the original was filled with is gone) }
+          GuiArgs.Add('--server');
+          if Choice.HostEdited and (Trim(Choice.Host) <> '') then
+            GuiArgs.Add(Trim(Choice.Host) + ':' + IntToStr(Choice.Port))
+          else if Choice.Port > 0 then
+            GuiArgs.Add(Host + ':' + IntToStr(Choice.Port))
+          else
+            GuiArgs.Add(Host + ':' + IntToStr(Port));
+        end
+        else
+        begin
+          TrainingLevel(Dir, Lvl, X, Y);
+          GuiArgs.Add('--level');
+          GuiArgs.Add(Lvl);
+          GuiArgs.Add('--x');
+          GuiArgs.Add(X);
+          GuiArgs.Add('--y');
+          GuiArgs.Add(Y);
+        end;
+        LastGameError := '';
+        if (RunGame(Win, '', Choice.Nick) <> 0) and (Choice.Mode = bmOnline) and
+          not Win.Closed and not StopRequested then
+        begin
+          MessageBox(0, PChar('Could not connect: ' + LastGameError), 'Graal',
+            MB_OK or MB_ICONEXCLAMATION);
+          Continue;
+        end;
+        Exit;
+      finally
+        FreeAndNil(GuiArgs);
+        Win.Free;
+      end;
+    until StopRequested;
+  finally
+    Info.Heads.Free;
+    for I := 0 to High(Info.HeadSheets) do Info.HeadSheets[I].Free;
+  end;
+end;
+{$ELSE}
+begin
+  Result := RunSharedStart;
+end;
+{$ENDIF}
 
 { Graal119 level.graal: open the file in the editor in the
   file's folder, with the local player at 30, 30.5. }
