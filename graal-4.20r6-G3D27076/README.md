@@ -70,10 +70,10 @@ Graal420r6 --level some.nw                  # offline
 
 ## Not yet, or not known
 
-- A macOS build: there is no window back end on macOS yet, and macOS is
+- [ ] A macOS build: there is no window back end on macOS yet, and macOS is
   left out of CI and releases unless asked.
-- The 24 period on a real Mac; the Mac send ids beyond what the qemu run
+- [ ] The 24 period on a real Mac; the Mac send ids beyond what the qemu run
   saw (`pli_sent` is a lead only).
-- The 3D mode (Torque protocol 21 on the Mac).
-- Everything still missing from the 4.20r8 rebuild.
-- No side-by-side run against the real 4.20r6; that is 0.0.2 work.
+- [ ] The 3D mode (Torque protocol 21 on the Mac).
+- [ ] Everything still missing from the 4.20r8 rebuild.
+- [ ] No side-by-side run against the real 4.20r6; that is 0.0.2 work.

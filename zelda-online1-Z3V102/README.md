@@ -94,7 +94,11 @@ takes only `pics1.gif`, `arrays.dat` and the levels.
 
 ## Not yet
 
-The player sprite from `link.gif` (a stand-in figure is drawn), the sword,
-bushes and lifting, baddies moving, chests and the story flags, the
-password save, sound. The original start position on `level1.zelda` is not
-known yet; the rebuild starts near the middle.
+- [ ] The player sprite from `link.gif` (a stand-in figure is drawn).
+- [ ] The sword, bushes and lifting.
+- [ ] Baddies moving.
+- [ ] Chests and the story flags.
+- [ ] The password save.
+- [ ] Sound.
+- [ ] The original start position on `level1.zelda` (not known yet; the
+  rebuild starts near the middle).

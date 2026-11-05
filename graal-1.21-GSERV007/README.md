@@ -65,8 +65,8 @@ build/graal-1.21-GSERV007/Graal121 --level levels/start1.graal --window
 
 ## Not yet (0.0.2)
 
-- The id sets 1.21 sends and handles: the rebuild still accepts every
+- [ ] The id sets 1.21 sends and handles: the rebuild still accepts every
   2.05 server id and its GS1 engine knows the 2.05 commands.
-- The prop encodings checked one by one against 1.21.
-- Local 2 to 4 player modes, UDP peer data, and this version's options.
-- A side-by-side run with the original under Wine.
+- [ ] The prop encodings checked one by one against 1.21.
+- [ ] Local 2 to 4 player modes, UDP peer data, and this version's options.
+- [ ] A side-by-side run with the original under Wine.
