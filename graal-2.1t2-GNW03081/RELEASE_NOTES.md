@@ -63,6 +63,10 @@ DIR`) and the install's files come first.
   are compiled in, so the exe alone in an empty folder opens on the real
   launcher and plays Training with the original's art.
 
+## What's new in v0.0.4
+
+- Rebuilt from the latest code; the changes for this client are listed here as they land.
+
 ## What's new in v0.0.3
 
 - The Windows program carries its original's own icon (the Graal head, taken from

@@ -390,6 +390,12 @@ type
     { How many pixels the ground lifts what stands at (WX, WY): world tiles
       on a gmap (64 per cell), else the level's own. }
     function WorldLift(WX, WY: Double): Integer;
+    { The heights at the corners of world tile (GX, GY), from the grid of
+      the level it is in (0 where there is none), as 2.22 reads them. }
+    procedure WorldCorners(GX, GY: Integer; out H: array of Double);
+    { The corners of world tile (GX, GY) and the slope down the screen at
+      each, for drawing its ground. }
+    function TileCorners(GX, GY: Integer): TTileCorners;
     { The same for (X, Y) of the player's level. }
     function LevelLift(X, Y: Double): Integer;
     property TileDefs: TStringList read FTileDefs;
@@ -2510,42 +2516,29 @@ begin
   if C = '#' then Result := -1 else Result := Pos(C, GlyphOrder) - 1;
 end;
 
-{ The advance of a glyph. The client keeps a table of half widths; only I
-  (6), space (8) and most letters (12) are noted, so the other narrow ones
-  here are a guess. }
-function GlyphAdvance(C: Char): Integer;
-begin
-  case C of
-    ' ': Result := 8;
-    'I', 'i', 'l', 'j', '!', '.', ',', ':', ';', '''': Result := 6;
-  else
-    Result := 12;
-  end;
-end;
+{ Half the advance of each glyph of the letters sheet, as Graal_222.exe
+  keeps them (a 96-entry table in its data) }
+const
+  GlyphHalfWidth: array[0..95] of Byte = (
+    6, 6, 6, 6, 6, 6, 6, 6, 3, 6, 6, 6, 7, 6, 6, 6, 6, 6, 6, 7, 6, 7, 7, 7,
+    7, 6, 6, 6, 6, 6, 6, 6, 6, 6, 3, 5, 6, 3, 7, 6, 6, 6, 6, 5, 6, 6, 6, 7,
+    7, 7, 7, 6, 6, 4, 6, 6, 6, 6, 6, 6, 6, 6, 3, 7, 6, 4, 4, 6, 6, 6, 6, 6,
+    6, 6, 8, 8, 5, 7, 7, 7, 7, 4, 3, 7, 8, 7, 8, 8, 8, 4, 6, 8, 8, 8, 8, 6);
+  { the codes after '#' and the glyphs each draws (Graal_222.exe: "ABXYudlrhxyz4."
+    with its count, start and glyph tables) }
+  ButtonCodes = 'ABXYudlrhxyz4.';
+  ButtonStart: array[0..13] of Byte = (0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 15);
+  ButtonCount: array[0..13] of Byte = (1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 2, 1);
+  ButtonGlyphs: array[0..15] of Byte = (91, 92, 93, 94, 77, 78, 79, 80, 74, 75,
+    71, 72, 73, 87, 88, 67);
+  { drawn for a '#' code the client does not know; the code is then drawn
+    as a letter }
+  UnknownCodeGlyph = 86;
 
-{ The picture glyph for '#' and a letter, or -1. #A, #B, #X, #Y and the
-  arrows are as read; which of 71 to 75 and 87 the other six take is a
-  guess. }
-function ButtonGlyph(C: Char): Integer;
+function GlyphAdvance(G: Integer): Integer;
 begin
-  case C of
-    'A': Result := 91;
-    'B': Result := 92;
-    'X': Result := 93;
-    'Y': Result := 94;
-    'u': Result := 77;
-    'd': Result := 78;
-    'l': Result := 79;
-    'r': Result := 80;
-    'h': Result := 71;
-    'x': Result := 72;
-    'y': Result := 73;
-    'z': Result := 74;
-    '4': Result := 75;
-    '.': Result := 87;
-  else
-    Result := -1;
-  end;
+  if (G >= 0) and (G <= High(GlyphHalfWidth)) then Result := 2 * GlyphHalfWidth[G]
+  else Result := 12;
 end;
 
 function TAdventure.SignAt(PX, PY: Double): Integer;
@@ -2620,7 +2613,7 @@ const
   CellsH = 9;
 var
   L: TGSurface;
-  X, Y, W, H, I, K, CX, G: Integer;
+  X, Y, W, H, I, J, K, CX, G: Integer;
   S: string;
   Fill: Cardinal;
 
@@ -2676,18 +2669,30 @@ begin
     I := 1;
     while I <= Length(S) do
     begin
-      if (S[I] = '#') and (I < Length(S)) then
+      if S[I] = '#' then
       begin
+        if I = Length(S) then Break;
         Inc(I);
         if S[I] = 'i' then
         begin
           Inc(I, 2); { #i and a character: an image from the level's list, not drawn }
           Continue;
         end;
-        G := ButtonGlyph(S[I]);
-        if G < 0 then G := 86;
-        if L <> nil then Glyph(G, CX, Y + 16 + K * 32);
-        Inc(CX, 16);
+        J := Pos(S[I], ButtonCodes);
+        if J > 0 then
+        begin
+          for G := ButtonStart[J - 1] to ButtonStart[J - 1] + ButtonCount[J - 1] - 1 do
+          begin
+            if L <> nil then Glyph(ButtonGlyphs[G], CX, Y + 16 + K * 32);
+            Inc(CX, GlyphAdvance(ButtonGlyphs[G]));
+          end;
+        end
+        else
+        begin
+          if L <> nil then Glyph(UnknownCodeGlyph, CX, Y + 16 + K * 32);
+          Inc(CX, GlyphAdvance(UnknownCodeGlyph));
+          Continue; { the code itself is then drawn as a letter }
+        end;
       end
       else
       begin
@@ -2695,7 +2700,7 @@ begin
         if (G >= 0) and (L <> nil) then
         begin
           Glyph(G, CX, Y + 16 + K * 32);
-          Inc(CX, GlyphAdvance(S[I]));
+          Inc(CX, GlyphAdvance(G));
         end
         else
         begin
@@ -2909,20 +2914,19 @@ begin
       if Pos('tempus', LowerCase(K.Font)) > 0 then F := NameFont;
       if F <> nil then
       begin
-        { fontsize 14 is drawn as the names are (em NameFontPx for the
-          names' size): [inf: the scale is matched by eye to the real
-          2.22's "Touch to get information"] }
-        Px := Round(K.FontSize * NameFontPx / 14);
-        { drawn with the names' weight; shaded: a navy (0,0,128) copy one
-          pixel down and right (the real 2.22's text under Wine) }
-        TW := F.TextWidth(K.Text, Px, True);
+        { fontsize is in points at 96 dots per inch, cut to whole pixels:
+          14 is an em of 18 px (the real 2.22's "Touch to get
+          information" is 195 px wide, not bold) }
+        Px := Trunc(K.FontSize * 96 / 72);
+        { shaded: a navy (0,0,128) copy one pixel down and right (the real
+          2.22's text under Wine) }
+        TW := F.TextWidth(K.Text, Px, K.Bold);
         if K.Centered then Dec(X, TW div 2);
-        { the real 2.22 puts the letters' tops 8 px above dy (its arrow,
-          7 px below the text's dy, sits just under the letters); the
-          font's em box starts about 4 px above them }
-        Dec(Y, 12);
-        if K.Shaded then F.DrawText(Screen, X + 1, Y + 1, K.Text, Px, $FF000080, True);
-        F.DrawText(Screen, X, Y, K.Text, Px, Col, True);
+        { the real 2.22 puts the baseline 5 px below the text's dy (4 px
+          above its arrow, which is 7 px below dy) }
+        Y := Y + 5 - F.Ascent(Px);
+        if K.Shaded then F.DrawText(Screen, X + 1, Y + 1, K.Text, Px, $FF000080, K.Bold);
+        F.DrawText(Screen, X, Y, K.Text, Px, Col, K.Bold);
       end
       else
       begin
@@ -4483,6 +4487,47 @@ begin
   end;
 end;
 
+procedure TAdventure.WorldCorners(GX, GY: Integer; out H: array of Double);
+var
+  CX, CY, LX, LY: Integer;
+  G: PHeightGrid;
+begin
+  H[0] := 0; H[1] := 0; H[2] := 0; H[3] := 0;
+  if Gmap <> nil then
+  begin
+    if (GX < 0) or (GY < 0) then Exit;
+    CX := GX div BoardW;
+    CY := GY div BoardH;
+    if (CX >= Gmap.Width) or (CY >= Gmap.Height) then Exit;
+    G := LevelHeights(Gmap.CellName(CX, CY));
+  end
+  else
+  begin
+    if (GX < 0) or (GY < 0) or (GX >= BoardW) or (GY >= BoardH) then Exit;
+    CX := 0;
+    CY := 0;
+    G := LevelHeights(Level.Name);
+  end;
+  if G = nil then Exit;
+  LX := GX - CX * BoardW;
+  LY := GY - CY * BoardH;
+  H[0] := G^[LY, LX];
+  H[1] := G^[LY, LX + 1];
+  H[2] := G^[LY + 1, LX];
+  H[3] := G^[LY + 1, LX + 1];
+end;
+
+function TAdventure.TileCorners(GX, GY: Integer): TTileCorners;
+var
+  Up, Down: array[0..3] of Double;
+  K: Integer;
+begin
+  WorldCorners(GX, GY, Result.H);
+  WorldCorners(GX, GY - 1, Up);
+  WorldCorners(GX, GY + 1, Down);
+  for K := 0 to 3 do Result.S[K] := Down[K] - Up[K];
+end;
+
 function TAdventure.LevelLift(X, Y: Double): Integer;
 begin
   if Gmap <> nil then
@@ -4620,8 +4665,9 @@ begin
       begin
         T := WorldTile(TX, TY);
         if T < 0 then Continue;
-        { tile 0 of a level with a height grid, on a swapped-in sheet, is
-          ground picked by height (Terrain222) }
+        { a level with a height grid, on a swapped-in sheet, is drawn as
+          ground: tile 0 picked by height, every tile lit by the slope or
+          drawn as water (Terrain222) }
         HasGrid := False;
         if Tiles <> Sheet then
         begin
@@ -4634,16 +4680,11 @@ begin
           end;
           HasGrid := Grid <> nil;
         end;
-        if HasGrid and (T = 0) then
-          DrawTerrainTile(Dst, Tiles, Grid^, TX mod BoardW, TY mod BoardH,
-            TX * TileSize - CamX, TY * TileSize - CamY)
+        if HasGrid then
+          DrawGroundTile(Dst, Tiles, T, TileCorners(TX, TY), TX mod BoardW,
+            TY mod BoardH, TX * TileSize - CamX, TY * TileSize - CamY)
         else
-        begin
           DrawTile(Dst, Tiles, T, TX * TileSize - CamX, TY * TileSize - CamY);
-          if HasGrid then
-            ShadeTile(Dst, Grid^, TX mod BoardW, TY mod BoardH,
-              TX * TileSize - CamX, TY * TileSize - CamY);
-        end;
       end;
   if Lifting then LiftGround(CamX, CamY);
   { what lives in the player's level (items, NPCs, baddies, shots, things

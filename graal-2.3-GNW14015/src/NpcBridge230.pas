@@ -17,7 +17,7 @@ interface
 
 uses
   Classes, SysUtils, Math, GTypes, GLevel, GSurface, GArrays, GFont, GGs1, Npc230,
-  Baddy230, Adventure;
+  Baddy230, Adventure, GAni;
 
 type
   TAdventureNpcWorld = class(TNpcWorld)
@@ -38,6 +38,8 @@ type
     function PlayerChat: string; override;
     function PlayerCode(const Code: string): string; override;
     function Image(const Name: string): TGSurface; override;
+    function GaniScript(const Gani: string): string; override;
+    function Lift(X, Y: Double): Integer; override;
     function TileType(X, Y: Integer): Integer; override;
     procedure DrawCharacter(N: TNpc; Screen: TGSurface; DX, DY, Tick: Integer); override;
     procedure HurtPlayer(Power, FromX, FromY: Double); override;
@@ -226,6 +228,20 @@ begin
   end;
 end;
 
+function TAdventureNpcWorld.Lift(X, Y: Double): Integer;
+begin
+  Result := FAdv.LevelLift(X, Y);
+end;
+
+function TAdventureNpcWorld.GaniScript(const Gani: string): string;
+var
+  A: TGraalAni;
+begin
+  Result := '';
+  A := FAdv.Assets.Ani(Gani);
+  if A <> nil then Result := A.Script;
+end;
+
 function TAdventureNpcWorld.Image(const Name: string): TGSurface;
 begin
   Result := FAdv.Assets.Image(Name, '');
@@ -269,6 +285,7 @@ begin
   if N.Gani <> '' then P.AniName := N.Gani else P.AniName := 'idle';
   P.AniStart := FAdv.Frame - Tick;
   P.FixedStep := -1;
+  P.Placed := True;
   FAdv.DrawPlayer(P, Round(N.X * 16) - DX, Round(N.Y * 16) - DY);
 end;
 
@@ -437,6 +454,8 @@ begin
       2.17.1 and 2.22 shipped with set their tile sheet this way }
     if Op = GsFirstOp + GsCommandIndex('addtiledef') then
       FAdv.AddTileDef(A.Str[0], A.Str[1])
+    else if Op = GsFirstOp + GsCommandIndex('replaceani') then
+      FAdv.ReplaceAni(A.Str[0], A.Str[1])
     else
       FAdv.Log('GS1 ' + GsCommands[Op - GsFirstOp].Name + ' (not modelled)');
   end;

@@ -346,6 +346,33 @@ begin
 end;
 
 { The heights of a generator gmap's levels, built as 2.22 builds them. }
+{ the ground picker of Graal_222.exe: bands from the top, transition tiles
+  by corner mask, decorations by the fraction of the corners' sum }
+procedure TestGroundPicker;
+  function Corners(TL, TR, BL, BR: Double): TTileCorners;
+  begin
+    FillChar(Result, SizeOf(Result), 0);
+    Result.H[CornerTL] := TL; Result.H[CornerTR] := TR;
+    Result.H[CornerBL] := BL; Result.H[CornerBR] := BR;
+  end;
+var
+  SX, SY: Integer;
+begin
+  { all four at 4.5: the full patch of the band from 4, a plain tile by
+    place (frac(18) = 0 gives decoration 1) }
+  PickGroundTile(Corners(4.5, 4.5, 4.5, 4.5), 1, 2, SX, SY);
+  Check((SX = 256 + 16) and (SY = 256), Format('ground: full patch decoration (%d,%d)', [SX, SY]));
+  { 4.6 x 4: frac(18.4) x 1000 = 400, and 255 = 144: a plain tile }
+  PickGroundTile(Corners(4.6, 4.6, 4.6, 4.6), 1, 2, SX, SY);
+  Check((SX = 256 + 16) and (SY = 256 + 64 + 32), Format('ground: full patch plain tile (%d,%d)', [SX, SY]));
+  { only the top left reaches 5: transition mask 8 of band 3 }
+  PickGroundTile(Corners(6, 4.5, 4.5, 4.5), 0, 0, SX, SY);
+  Check((SX = 256 + 128 + 32) and (SY = 256 + 32), Format('ground: transition tile (%d,%d)', [SX, SY]));
+  { all under 0: water }
+  PickGroundTile(Corners(-1, -1, -1, -1), 0, 0, SX, SY);
+  Check((SX = 16) and (SY = 0), Format('ground: water (%d,%d)', [SX, SY]));
+end;
+
 procedure TestTerrainHeights;
 var
   St: THeightStore;
@@ -1800,6 +1827,7 @@ begin
   TestListServer;
   TestResolveName;
   TestTerrainHeights;
+  TestGroundPicker;
   TestAssetOrder;
   TestListTrailingNuls;
   TestBuiltins;
