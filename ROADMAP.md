@@ -49,7 +49,9 @@ task lists mechanically on 2026-11-05 and some are older than the code).
 
 - [ ] #108 2.22: the rest of the real client (launcher drop-downs and
   buttons, GS1 2.22 additions, NPC props past 40, editors, chat bubbles)
-- [ ] #109 3.x and later: the Torque-faithful rebuild, stages 0 to 10
+- [ ] #109 3.x and later: the Torque-faithful rebuild, stages 0 to 10,
+  targeted at v0.0.4 (stage 1 VM parked, uncompiled, on branch
+  `claude/project-thread-b0180m`, `common/torque/README.md`)
   (on hold; needs Graal_analysis #242 and the decision in #110)
 - [ ] #111 2.3 from a real 2.3 exe (on hold)
 - [ ] #112 Graal3D side by side (on hold: d3drm.dll)
