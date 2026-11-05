@@ -88,9 +88,11 @@ function ServerDisplayName(const Name: string): string;
   the player picks something. Message, when not empty, is shown first (say,
   why a login failed). ListHost / ListPort: where the server list comes
   from. False: the window was closed or Esc pressed. }
+{ ListOnly: the server list alone (the start dialog is the program's
+  own form, GLaunch1x); Back or Esc there ends with False. }
 function RunStartScreen(Win: TGWindow; S: TGSurface; Fetch: TListFetch;
   const Info: TStartInfo; const DataDir, ListHost: string; ListPort: Integer;
-  const Message: string; var R: TStartResult): Boolean;
+  const Message: string; var R: TStartResult; ListOnly: Boolean = False): Boolean;
 
 { listserver.txt in Dir: first line the host, second the port. Missing:
   DefHost / DefPort. }
@@ -309,7 +311,7 @@ var
 
 function RunStartScreen(Win: TGWindow; S: TGSurface; Fetch: TListFetch;
   const Info: TStartInfo; const DataDir, ListHost: string; ListPort: Integer;
-  const Message: string; var R: TStartResult): Boolean;
+  const Message: string; var R: TStartResult; ListOnly: Boolean): Boolean;
 type
   TPage = (pgStart, pgList);
 var
@@ -330,6 +332,16 @@ begin
     Page := pgStart;
     Focus := 0;
     Sel := -1;
+    if ListOnly then
+    begin
+      Page := pgList;
+      if R.Password <> '' then Fetch.Start(ListHost, ListPort, R.Account, R.Password)
+      else
+      begin
+        Focus := 1;
+        Fetch.Status := 'Type your account and password, then press Enter or Refresh.';
+      end;
+    end;
     Note := Message;
     if R.Nickname = '' then R.Nickname := 'unknown';
     if R.Account = '' then R.Account := 'guest';
@@ -427,6 +439,7 @@ begin
         { input }
         if Pos(#27, Chars) > 0 then
         begin
+          if ListOnly then Exit;
           Page := pgStart;
           Continue;
         end;
@@ -442,7 +455,11 @@ begin
             I := (CY - Top) div RowH;
             if (I >= 0) and (I < Length(Fetch.Servers)) then Sel := I;
           end;
-          if Inside(BBack, CX, CY) then Page := pgStart;
+          if Inside(BBack, CX, CY) then
+          begin
+            if ListOnly then Exit;
+            Page := pgStart;
+          end;
           if Inside(BRefresh, CX, CY) then
           begin
             Sel := -1;
