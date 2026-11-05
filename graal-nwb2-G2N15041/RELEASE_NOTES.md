@@ -16,6 +16,10 @@ own, so it runs as it is. Put it at the top of a NewWorld install you own
 `--data DIR`) and the install's tiles, ganis, heads, bodies and levels take
 their place.
 
+## What's new in v0.0.4
+
+- Rebuilt from the latest code; the changes for this client are listed here as they land.
+
 ## What's new in v0.0.3
 
 - The Windows program carries its original's own icon (the Graal head, taken from

@@ -26,6 +26,10 @@ Files are looked for in the program's own folder first, then in
 `graal-assets/2.22` and `graal-assets/common` beside it, then in the
 `--data` folder. Nothing above the program's folder is read.
 
+## What's new in v0.0.4
+
+- Rebuilt from the latest code; the changes for this client are listed here as they land.
+
 ## What's new in v0.0.3
 
 - Stress tested before release: a long soak with several players walking

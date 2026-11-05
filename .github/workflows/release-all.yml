@@ -2,7 +2,7 @@ name: release-all
 
 # Every client released at the same version in ONE run, instead of one
 # release.yml run per folder. Start it from the Actions tab (Run workflow,
-# version defaults to v0.0.3). It:
+# version defaults to v0.0.4). It:
 #   - builds and tests every Delphi client (graal-*/) on Linux and Windows,
 #     stamps the version into each Windows exe and packs each one with the
 #     same scripts release.yml uses (scripts/release/);
@@ -29,9 +29,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Version for every client, e.g. v0.0.3
+        description: Version for every client, e.g. v0.0.4
         required: true
-        default: v0.0.3
+        default: v0.0.4
       publish:
         description: Publish straight away (no = drafts to review)
         type: choice
