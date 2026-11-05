@@ -185,7 +185,7 @@ Tracking: [#99](https://github.com/squirelworks/graal-delphi/issues/99).
 | graal-delphi #98 | release-all v0.0.3 and the stress gate | merge after the fixes; then the dry run (#107) |
 | Graal_analysis #242 | Torque study and the 3.04 plan | review by the maintainer |
 
-The tarball has each open PR's branch checked out next to `main`.
+In the tarball each open PR's branch is a local branch of the clone (`git branch` lists them; `BRANCHES.md` maps PR to branch).
 
 ## 8. Where things live
 
@@ -229,7 +229,10 @@ The PC cannot build or push; code changes happen in the cloud or in Cursor.
 ## 10. How to start in Cursor
 
 1. Unpack the tarball. `repos/graal-delphi` and `repos/Graal_analysis` are
-   clones at `main`; `repos/branches/` has each open PR's branch.
+   full clones at `main` with every branch (open PR branches are local
+   branches, listed in `BRANCHES.md`); `repos/seihai-stack/` has the Seihai
+   repos; `project-files/` has the captures, test exes and reference shots.
+   Set each clone's `origin` to GitHub with your own credentials before pushing.
 2. Read `AGENTS.md` here and in Graal_analysis.
 3. Open [ROADMAP.md](ROADMAP.md) and issue #99. Take the next unchecked
    item, one per branch and PR.
