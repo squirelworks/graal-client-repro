@@ -19,7 +19,11 @@ place.
 
 ## What's new in v0.0.4
 
-- Rebuilt from the latest code; the changes for this client are listed here as they land.
+- [x] **One Player's start.** start1.graal at x 21.5, y 28, read from the exe's own start table, then moved by the level's own script as in the original (start1.graal's playerenters puts the player at 13.5, 37.5, under Stefan).
+- [x] **NPC messages and names.** White Arial Bold 20 px on a blue shadow, measured from the real client on Windows 10. Long messages wrap at the view's width, each line centred over the NPC and kept inside the view. An NPC outside the view shows no message.
+- [x] **The game window's frame.** A Delphi form owned by a hidden application window (the taskbar button), sizable with the minimise and maximise boxes ($16CF0000), as the real one on Windows 10.
+- [x] **Alt+Enter.** 640 x 480 full screen and back, as the original's DirectDraw view.
+- [x] **The minimap.** It shows only on a level of the map's grid, so the start cave and the houses show none.
 
 ## What's new in v0.0.3
 
@@ -83,11 +87,11 @@ window and drawing from the 1.41 sprite sheet are not done.
 
 - [ ] Two to Four Players on one keyboard. The modes are offered, but they play as One Player.
 - [ ] The status bar as 1.41r1 draws it. The rebuild still draws a later HUD.
-- [ ] One Player's start position and camera.
 - [ ] The other forms in the exe: the F1 options window, More options, and the editor dialogs.
-- [ ] Alt+Enter full screen.
 - [ ] The nick and "Load head/colors from last session" kept in HKCU\Software\Graal\Client.
 - [ ] The dialog's text uses Liberation Sans for MS Sans Serif, so a line can break one word apart from the real one.
 - [ ] The real message boxes (connection failed and the like).
 - [ ] The real server list form (TServerListFrame). The rebuild's own list page is shown instead.
 - [ ] A self-contained exe. The start dialog, icon and character list are compiled in, but the levels, heads, sprites and sounds are still read from the install folder rather than compiled in with the folder as a fallback.
+- [ ] The sword picture beside S, and its power in the original's large digits.
+- [ ] The vertical place of NPC messages and names is the rebuild's; only their font, wrapping and centring are taken from the original.

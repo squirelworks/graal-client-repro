@@ -83,6 +83,10 @@ type
     ArrowHeld: array[0..3] of Boolean;
     Held: array[TGKey] of Boolean;
     Closed: Boolean;
+    { UseDelphiFrames: the application window keeps its title when the
+      game window opens (the 1.x programs set no Application.Title; 2.22
+      gives it the game's caption) }
+    FixedAppTitle: Boolean;
     constructor Create(const Title: string; AWidth, AHeight: Integer);
     destructor Destroy; override;
     function Ok: Boolean;
@@ -447,7 +451,7 @@ begin
     ExStyle := WS_EX_CONTROLPARENT or WS_EX_WINDOWEDGE;
     if not FWasFull then ExStyle := ExStyle or WS_EX_ACCEPTFILES;
     { the taskbar button (the application window) takes the game's title }
-    if FApp <> 0 then SetWindowText(FApp, PChar(Title));
+    if (FApp <> 0) and not FixedAppTitle then SetWindowText(FApp, PChar(Title));
   end
   else if Dialog then
   begin
@@ -676,7 +680,12 @@ begin
   Style := WS_OVERLAPPED or WS_CAPTION or WS_SYSMENU or WS_THICKFRAME or
     WS_MINIMIZEBOX or WS_VISIBLE;
   SetWindowLong(FWnd, GWL_STYLE, LONG(Style));
-  SetWindowLong(FWnd, GWL_EXSTYLE, LONG(WS_EX_APPWINDOW));
+  { owned by Delphi's application window (UseDelphiFrames): a TForm's
+    WS_EX_CONTROLPARENT and WS_EX_WINDOWEDGE, no button of its own }
+  if FDelphi then
+    SetWindowLong(FWnd, GWL_EXSTYLE, LONG(WS_EX_CONTROLPARENT or WS_EX_WINDOWEDGE))
+  else
+    SetWindowLong(FWnd, GWL_EXSTYLE, LONG(WS_EX_APPWINDOW));
   { poScreenCenter, at the outer size the form gives }
   SetWindowPos(FWnd, 0, (GetSystemMetrics(SM_CXSCREEN) - OuterW) div 2,
     (GetSystemMetrics(SM_CYSCREEN) - OuterH) div 2, OuterW, OuterH,
