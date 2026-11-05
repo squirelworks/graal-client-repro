@@ -78,6 +78,8 @@ type
     PartSet: Boolean;
     PX, PY, PW, PH: Integer;
     Layer: Integer;
+    { changeimgcolors (multiply, 0..1) and changeimgzoom }
+    R, G, B, A, Zoom: Double;
   end;
 
   TNpc = class
@@ -119,6 +121,12 @@ type
     EffR, EffG, EffB, EffA, Zoom: Double;
     Ctx: TGsContext;
     Script: string;
+    { the SCRIPT block of the gani the character shows (lamps_wood's
+      flame): run for this NPC, with playerx / playery meaning the NPC;
+      GaniOf is the gani it was loaded for }
+    GaniCtx: TGsContext;
+    GaniOf: string;
+    GaniTimeout: Double;
     Gone: Boolean;           { destroyed: removed after the run }
     Local: Boolean;          { made offline or by putnpc: nothing to sync }
     { online: the level the server sent it for (the object level), lower
@@ -148,8 +156,13 @@ type
     function PlayerChat: string; virtual;
     function PlayerCode(const Code: string): string; virtual;
     function Image(const Name: string): TGSurface; virtual;
+    { The SCRIPT block of a gani ('' when it has none or is not found). }
+    function GaniScript(const Gani: string): string; virtual;
     function TileType(X, Y: Integer): Integer; virtual;
     procedure DrawCharacter(N: TNpc; Screen: TGSurface; DX, DY, Tick: Integer); virtual;
+    { How many pixels the ground lifts what stands at (X, Y) of the
+      player's level (Terrain222); 0 off height-shaped maps. }
+    function Lift(X, Y: Double): Integer; virtual;
     procedure HurtPlayer(Power, FromX, FromY: Double); virtual;
     procedure ShowSign(Index: Integer); virtual;
     procedure Say2(const Text: string); virtual;
@@ -186,6 +199,8 @@ type
     procedure SetVisible(N: TNpc; On, Local: Boolean);
     function CharProp(N: TNpc; const Code, Value: string): Boolean;
     procedure ShowImg(N: TNpc; Index: Integer; const Img: string; X, Y: Double);
+    { Starts the script of the gani a character shows, once per gani. }
+    procedure SyncGaniScript(N: TNpc);
     function FindImg(N: TNpc; Index: Integer): Integer;
     function InScope(N: TNpc): Boolean;
     procedure Rescope(N: TNpc);
@@ -271,6 +286,12 @@ type
 
 function ColorIndexOf(const S: string): Integer;
 
+var
+  { the view size for the screenwidth / screenheight script variables:
+    640 x 480, or the fullscreen mode (the game sets these) }
+  NpcScreenW: Integer = 640;
+  NpcScreenH: Integer = 480;
+
 implementation
 
 uses
@@ -292,10 +313,13 @@ begin
   CellX := -1;
   CellY := -1;
   Gani := 'idle';
-  Colors[0] := 0; { white skin? the player defaults: see ColorTable }
-  Colors[1] := 9;
-  Colors[2] := 0;
-  Colors[3] := 12;
+  { a character NPC with no colours of its own: a new player's, orange,
+    darkred, black, darkred, black (client-internals/body-colours-and-
+    attributes.md; the lab saw the real 2.22 draw such NPCs black and red) }
+  Colors[0] := 2;
+  Colors[1] := 5;
+  Colors[2] := 18;
+  Colors[3] := 5;
   Colors[4] := 18;
   HeadImage := 'head0.png';
   BodyImage := 'body.png';
@@ -305,6 +329,7 @@ end;
 
 destructor TNpc.Destroy;
 begin
+  GaniCtx.Free;
   Ctx.Free;
   CharObj.Free;
   inherited;
@@ -353,8 +378,10 @@ function TNpcWorld.SetPlayerVar(const Name: string; V: Double): Boolean; begin R
 function TNpcWorld.PlayerChat: string; begin Result := ''; end;
 function TNpcWorld.PlayerCode(const Code: string): string; begin Result := ''; end;
 function TNpcWorld.Image(const Name: string): TGSurface; begin Result := nil; end;
+function TNpcWorld.GaniScript(const Gani: string): string; begin Result := ''; end;
 function TNpcWorld.TileType(X, Y: Integer): Integer; begin Result := 0; end;
 procedure TNpcWorld.DrawCharacter(N: TNpc; Screen: TGSurface; DX, DY, Tick: Integer); begin end;
+function TNpcWorld.Lift(X, Y: Double): Integer; begin Result := 0; end;
 procedure TNpcWorld.HurtPlayer(Power, FromX, FromY: Double); begin end;
 procedure TNpcWorld.ShowSign(Index: Integer); begin end;
 procedure TNpcWorld.Say2(const Text: string); begin end;
@@ -977,6 +1004,16 @@ begin
   V := 0;
   Result := True;
   N := Ctx2Npc(Ctx);
+  { in a gani's script the player is whoever shows the gani }
+  if (N <> nil) and (Ctx = N.GaniCtx) then
+    if Name = 'playerx' then begin V := N.X; Exit; end
+    else if Name = 'playery' then begin V := N.Y; Exit; end
+    else if Name = 'playerdir' then begin V := N.Dir; Exit; end;
+  if Name = 'lighteffectsenabled' then
+  begin
+    V := 1;
+    Exit;
+  end;
   if Copy(Name, 1, 6) = 'player' then
   begin
     if Name = 'playerx' then V := World.PlayerX
@@ -1020,8 +1057,8 @@ begin
   else if Name = 'tokenscount' then V := Tokens.Count
   else if Name = 'paramscount' then begin if Ctx <> nil then V := Ctx.Params.Count; end
   else if Name = 'timevar' then V := FTick * TickSeconds
-  else if Name = 'screenwidth' then V := 640
-  else if Name = 'screenheight' then V := 480
+  else if Name = 'screenwidth' then V := NpcScreenW
+  else if Name = 'screenheight' then V := NpcScreenH
   else if (Name = 'compuscount') or (Name = 'playerscount') or (Name = 'bombscount') or
     (Name = 'arrowscount') or (Name = 'itemscount') or (Name = 'exploscount') or
     (Name = 'horsescount') or (Name = 'signscount') or (Name = 'weaponscount') then
@@ -1077,7 +1114,8 @@ begin
   else if Name = 'timeout' then
   begin
     if V < 0 then V := 0;
-    N.Timeout := V;
+    if Ctx = N.GaniCtx then N.GaniTimeout := V
+    else N.Timeout := V;
   end
   else if Name = 'rupees' then begin N.Rupees := Trunc(V); N.MarkDirty(NPCPROP_RUPEES); end
   else if Name = 'darts' then begin N.Arrows := Trunc(V); N.MarkDirty(NPCPROP_ARROWS); end
@@ -1435,6 +1473,17 @@ begin
         if RunTimeouts or N.TimerEverywhere then Fire(N, 'timeout');
       end;
     end;
+    { a gani's script runs on every client: it only draws }
+    SyncGaniScript(N);
+    if (N.GaniCtx <> nil) and (N.GaniTimeout > 0) then
+    begin
+      N.GaniTimeout := N.GaniTimeout - TickSeconds;
+      if N.GaniTimeout <= 0.0001 then
+      begin
+        N.GaniTimeout := 0;
+        N.GaniCtx.Run('timeout');
+      end;
+    end;
   end;
   RemoveGone;
   World.Idle;
@@ -1515,11 +1564,47 @@ begin
     N.ShownImages[I].Layer := 1;
     N.ShownImages[I].PartSet := False;
     N.ShownImages[I].Image := '';
+    N.ShownImages[I].R := 1;
+    N.ShownImages[I].G := 1;
+    N.ShownImages[I].B := 1;
+    N.ShownImages[I].A := 1;
+    N.ShownImages[I].Zoom := 1;
   end;
   if N.ShownImages[I].Image <> Img then N.ShownImages[I].PartSet := False;
   N.ShownImages[I].Image := Img;
   N.ShownImages[I].X := X;
   N.ShownImages[I].Y := Y;
+end;
+
+procedure TNpcManager.SyncGaniScript(N: TNpc);
+var
+  G, S: string;
+begin
+  if (N = nil) or N.Gone then Exit;
+  G := '';
+  if N.Character then
+  begin
+    G := LowerCase(N.Gani);
+    if (Pos('[', G) > 1) then G := Copy(G, 1, Pos('[', G) - 1);
+    if (Length(G) > 5) and (Copy(G, Length(G) - 4, 5) = '.gani') then
+      SetLength(G, Length(G) - 5);
+  end;
+  if G = N.GaniOf then Exit;
+  N.GaniOf := G;
+  if (N.GaniCtx <> nil) and N.GaniCtx.Running then Exit;
+  FreeAndNil(N.GaniCtx);
+  N.GaniTimeout := 0;
+  if G = '' then Exit;
+  S := World.GaniScript(G);
+  if Trim(S) = '' then Exit;
+  N.GaniCtx := TGsContext.Create(Self, N);
+  if not N.GaniCtx.Load(S) then
+  begin
+    Error(N.GaniCtx, N.GaniCtx.Script.Errors.Text);
+    FreeAndNil(N.GaniCtx);
+    Exit;
+  end;
+  N.GaniCtx.Run('created');
 end;
 
 function ActionParams(const S: string): string;
@@ -1754,6 +1839,22 @@ begin
           N.ShownImages[I].PartSet := True;
         end;
       end;
+    730: { changeimgcolors index,r,g,b,a }
+      begin
+        I := FindImg(N, Trunc(A.Num[0]));
+        if I >= 0 then
+        begin
+          N.ShownImages[I].R := EnsureRange(A.Num[1], 0, 1);
+          N.ShownImages[I].G := EnsureRange(A.Num[2], 0, 1);
+          N.ShownImages[I].B := EnsureRange(A.Num[3], 0, 1);
+          N.ShownImages[I].A := EnsureRange(A.Num[4], 0, 1);
+        end;
+      end;
+    731: { changeimgzoom index,zoom }
+      begin
+        I := FindImg(N, Trunc(A.Num[0]));
+        if I >= 0 then N.ShownImages[I].Zoom := EnsureRange(A.Num[1], 0.05, 8);
+      end;
     GsOpChangeImgVis:
       begin
         I := FindImg(N, Trunc(A.Num[0]));
@@ -1782,14 +1883,14 @@ end;
 { An image part with a colour multiply, zoom around its centre, and either
   alpha blending or adding light (drawaslight). }
 procedure DrawEffect(Screen, Img: TGSurface; SX, SY, W, H, DX, DY: Integer;
-  N: TNpc; Light: Boolean);
+  ER, EG, EB, EA, Zoom: Double; Light: Boolean);
 var
   OW, OH, X, Y, TX, TY, I, J: Integer;
   C, D: Cardinal;
   A, R, G, B, DR, DG, DB: Double;
 begin
-  OW := Round(W * N.Zoom);
-  OH := Round(H * N.Zoom);
+  OW := Round(W * Zoom);
+  OH := Round(H * Zoom);
   { the zoom keeps the centre where it was }
   DX := DX + (W - OW) div 2;
   DY := DY + (H - OH) div 2;
@@ -1797,20 +1898,20 @@ begin
   begin
     Y := DY + J;
     if (Y < 0) or (Y >= Screen.Height) then Continue;
-    TY := SY + Trunc(J / N.Zoom);
+    TY := SY + Trunc(J / Zoom);
     if (TY < 0) or (TY >= Img.Height) then Continue;
     for I := 0 to OW - 1 do
     begin
       X := DX + I;
       if (X < 0) or (X >= Screen.Width) then Continue;
-      TX := SX + Trunc(I / N.Zoom);
+      TX := SX + Trunc(I / Zoom);
       if (TX < 0) or (TX >= Img.Width) then Continue;
       C := Img.Pixels[TX + TY * Img.Width];
-      A := (C shr 24) / 255 * N.EffA;
+      A := (C shr 24) / 255 * EA;
       if A <= 0 then Continue;
-      R := ((C shr 16) and $FF) * N.EffR;
-      G := ((C shr 8) and $FF) * N.EffG;
-      B := (C and $FF) * N.EffB;
+      R := ((C shr 16) and $FF) * ER;
+      G := ((C shr 8) and $FF) * EG;
+      B := (C and $FF) * EB;
       D := Screen.Pixels[X + Y * Screen.Width];
       DR := (D shr 16) and $FF;
       DG := (D shr 8) and $FF;
@@ -1835,7 +1936,7 @@ end;
 
 procedure TNpcManager.Draw(Screen: TGSurface; LCamX, LCamY: Integer; Over: Boolean);
 var
-  I, K, DX, DY, TW, SX, SY, SW, SH, CamX, CamY: Integer;
+  I, K, DX, DY, TW, SX, SY, SW, SH, CamX, CamY, Lifted, Pass: Integer;
   N: TNpc;
   Img: TGSurface;
   S: string;
@@ -1860,6 +1961,33 @@ begin
     if Over <> (N.Layer > 0) then Continue;
     DX := Round(N.X * 16) - CamX;
     DY := Round(N.Y * 16) - CamY;
+    { on height-shaped ground 2.22 lifts an NPC by the height at its foot:
+      a character's (x + 1.5, y + 3), an image's bottom centre; what it
+      shows (showimg) goes up with it }
+    if N.Character then
+      Lifted := World.Lift(N.X + 1.5 + (LCamX - CamX) / 16, N.Y + 3 + (LCamY - CamY) / 16)
+    else
+    begin
+      Lifted := 0;
+      Img := World.Image(N.Image);
+      if Img <> nil then
+      begin
+        if N.PartSet then
+        begin
+          SW := N.PW;
+          SH := N.PH;
+        end
+        else
+        begin
+          SW := Img.Width;
+          SH := Img.Height;
+        end;
+        Lifted := World.Lift(N.X + SW / 32 + (LCamX - CamX) / 16,
+          N.Y + SH / 16 + (LCamY - CamY) / 16);
+      end;
+    end;
+    Dec(DY, Lifted);
+    Inc(CamY, Lifted);
     if N.Character then
       World.DrawCharacter(N, Screen, DX, DY, FTick - N.GaniStart)
     else
@@ -1883,24 +2011,46 @@ begin
         end;
         if (N.Layer = 9) or (N.Zoom <> 1) or (N.EffR <> 1) or (N.EffG <> 1) or
           (N.EffB <> 1) or (N.EffA <> 1) then
-          DrawEffect(Screen, Img, SX, SY, SW, SH, DX, DY, N, N.Layer = 9)
+          DrawEffect(Screen, Img, SX, SY, SW, SH, DX, DY, N.EffR, N.EffG, N.EffB,
+            N.EffA, N.Zoom, N.Layer = 9)
         else
           Screen.Blit(Img, SX, SY, SW, SH, DX, DY);
       end;
     end;
+    { light pictures add their light over the rest, so the flame of a
+      lamp shows washed in its glow as on 2.22 }
+    for Pass := 0 to 1 do
     for K := 0 to High(N.ShownImages) do
-    begin
-      Img := World.Image(N.ShownImages[K].Image);
-      if Img = nil then Continue;
-      if N.ShownImages[K].PartSet then
-        Screen.Blit(Img, N.ShownImages[K].PX, N.ShownImages[K].PY,
-          Min(N.ShownImages[K].PW, Img.Width - N.ShownImages[K].PX),
-          Min(N.ShownImages[K].PH, Img.Height - N.ShownImages[K].PY),
-          Round(N.ShownImages[K].X * 16) - CamX, Round(N.ShownImages[K].Y * 16) - CamY)
-      else
-        Screen.Blit(Img, 0, 0, Img.Width, Img.Height,
-          Round(N.ShownImages[K].X * 16) - CamX, Round(N.ShownImages[K].Y * 16) - CamY);
-    end;
+      with N.ShownImages[K] do
+      begin
+        if (LowerCase(Copy(ExtractFileName(Image), 1, 5)) = 'light') <> (Pass = 1) then
+          Continue;
+        Img := World.Image(Image);
+        if Img = nil then Continue;
+        if PartSet then
+        begin
+          SX := PX;
+          SY := PY;
+          SW := Min(PW, Img.Width - PX);
+          SH := Min(PH, Img.Height - PY);
+        end
+        else
+        begin
+          SX := 0;
+          SY := 0;
+          SW := Img.Width;
+          SH := Img.Height;
+        end;
+        { an image named light* adds light, as Graal's light pictures;
+          [inf: the rule is taken from the light*.png naming, not traced] }
+        if (LowerCase(Copy(ExtractFileName(Image), 1, 5)) = 'light') or (R <> 1) or
+          (G <> 1) or (B <> 1) or (A <> 1) or (Zoom <> 1) then
+          DrawEffect(Screen, Img, SX, SY, SW, SH, Round(X * 16) - CamX,
+            Round(Y * 16) - CamY, R, G, B, A, Zoom,
+            LowerCase(Copy(ExtractFileName(Image), 1, 5)) = 'light')
+        else
+          Screen.Blit(Img, SX, SY, SW, SH, Round(X * 16) - CamX, Round(Y * 16) - CamY);
+      end;
     { the message, or the timer, centred over the NPC }
     S := N.Message;
     if N.TimerShow and (N.Timeout > 0) then S := IntToStr(Ceil(N.Timeout));

@@ -415,8 +415,6 @@ begin
         G.Log('no display: running without a window');
         FreeAndNil(Win);
       end;
-      { Alt+Enter: fullscreen and back, as 2.31 }
-      if Win <> nil then Win.AllowFullscreen := True;
     end;
 
     { sound only in a window: stress runs and tests open no device }
@@ -440,6 +438,10 @@ begin
         if Win <> nil then
         begin
           Win.Pump;
+          { Alt+Enter: fullscreen and back, as 2.31 }
+          if Win.TakeFullscreenToggle then
+            if not Win.Fullscreen then Win.EnterFullscreen(ScreenW, ScreenH)
+            else Win.LeaveFullscreen(ScreenW, ScreenH);
           if Win.Closed then Break;
           { Esc: 2.31 asks "Do you really want to quit Graal?" first }
           if Win.WasPressed(gkEscape) then
@@ -756,11 +758,11 @@ begin
           Win.Reshape(StringOfChar(' ', I) + 'G r a a l' + StringOfChar(' ', 5 - I),
             ScreenW, ScreenH);
         end;
-        Win.AllowFullscreen := True;
         { More options: Start in fullscreen mode }
         Config.Load(Dir + 'graalconfig.txt');
+        Win.TakeFullscreenToggle;
         if Config.Bool('startinfullscreen') and not Win.Fullscreen then
-          Win.ToggleFullscreen;
+          Win.EnterFullscreen(ScreenW, ScreenH);
         if RunGame(Win, R.Password, R.Nickname) <> 0 then
           Msg := LastGameError
         else
@@ -768,7 +770,7 @@ begin
       finally
         FreeAndNil(GuiArgs);
       end;
-      Win.AllowFullscreen := False;
+      if Win.Fullscreen then Win.LeaveFullscreen(ScreenW, ScreenH);
     until Win.Closed or StopRequested;
   finally
     Art.Free;

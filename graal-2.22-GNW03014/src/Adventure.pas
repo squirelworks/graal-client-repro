@@ -23,15 +23,13 @@ uses
   Npc222, Baddy222, Terrain222, GTrueType;
 
 const
-  { The game view. 640x480 is assumed for 2.22 as for 2.05; not read from
-    the binary. }
-  ScreenW = 640;
-  ScreenH = 480;
+  { The game view in a window: 640 x 480 (2.22 under Wine, TAdventure). }
+  WindowW = 640;
+  WindowH = 480;
   { the chat line under the play area: a white sunken edit box 24 high
     across the bottom of the window (2.22 under Wine); the play area is
     the 456 above it }
   ChatBarH = 24;
-  ViewH = ScreenH - ChatBarH;
   { the em of the names under characters, in TEMPSITC.TTF: matched to
     the real 2.22's names (a cap height of 11 px, GDI's made-up bold) }
   NameFontPx = 17;
@@ -56,6 +54,19 @@ const
 
   { PLI_SHOWIMG (24) = GCHAR 9 every 5.1 s (lab: 5.11 to 5.17 s). }
   ShowImgEveryMs = 5100;
+
+var
+  { The game view now: 640 x 480 in a window, the fullscreen mode
+    (graalconfig.txt's fullscreenmode, 1024 x 768 by default) after
+    Alt+Enter, as 2.22 draws more of the level there. ViewH is the play
+    area above the chat line. Set by TAdventure.SetScreenSize. }
+  { A file the game log is added to as it is written ('' for none): set
+    when a Graal222.log exists beside the program, so a tester can send
+    it. }
+  LogFileName: string = '';
+  ScreenW: Integer = WindowW;
+  ScreenH: Integer = WindowH;
+  ViewH: Integer = WindowH - ChatBarH;
 
 type
   { Images and ganis from the player's install, loaded once and kept. }
@@ -224,6 +235,7 @@ type
     FTileDefs: TStringList;
     FHeights: THeightStore;
     FHeightsScanned: Boolean;
+    FGround: TGSurface;    { the flat ground, before the heights lift it }
     FTileDefLevel: string;
     FLevels: TStringList;  { lower-case name -> TCachedLevel }
     FLevelDir: string;     { folder of the level file played offline }
@@ -354,6 +366,11 @@ type
     { Draws P with the camera at (CamX, CamY) pixels; also used for the
       character on the start screen. }
     procedure DrawPlayer(P: TServerPlayer; CamX, CamY: Integer);
+    { The movie ganis (GANI0002) among P's attributes (the tutorial
+      master's #P1 tutorial_touch.gani: an arrow and "Touch to get
+      information"), drawn over P whose top-left is at (DX, DY). }
+    procedure DrawAttachedGanis(P: TServerPlayer; DX, DY: Integer);
+    procedure DrawMovie(A: TGraalAni; DX, DY: Integer; MovieFrame: Double);
     { The status display over the board: buttons, counts, hearts, bars. }
     procedure DrawStatus;
     { The player's classic sprite value (see WireSprite). }
@@ -362,12 +379,19 @@ type
     procedure UseBuiltins;
     { Notes the addtiledef lines in L's NPC scripts. }
     procedure NoteTileDefs(L: TAdventureLevel);
+    { Raises the flat ground in FGround onto Screen by the heights. }
+    procedure LiftGround(CamX, CamY: Integer);
     { The tile sheet for a level: an addtiledef image whose prefix starts
       the level name, else pics1. }
     function TileSheetFor(const LevelName: string): TGSurface;
     { The height grid of a level, from the HEIGHTS blocks of the gmaps in
       the install (maps/) or of the gmap being played. }
-    function LevelHeights(const LevelName: string; out G: THeightGrid): Boolean;
+    function LevelHeights(const LevelName: string): PHeightGrid;
+    { How many pixels the ground lifts what stands at (WX, WY): world tiles
+      on a gmap (64 per cell), else the level's own. }
+    function WorldLift(WX, WY: Double): Integer;
+    { The same for (X, Y) of the player's level. }
+    function LevelLift(X, Y: Double): Integer;
     property TileDefs: TStringList read FTileDefs;
     { replaceani Old,New: the player's Old gani is drawn as New (the
       offline tutorial puts the human2 ganis in for idle, walk and the
@@ -387,6 +411,9 @@ type
     procedure WalkStep(Dir: Integer);
     { One frame: network in, game step, network out, draw. }
     procedure Tick;
+    { A new view size (Alt+Enter: the fullscreen mode, or back to
+      640 x 480): the frame is drawn at that size from the next tick. }
+    procedure SetScreenSize(W, H: Integer);
     procedure Draw;
     { the white chat line under the play area }
     procedure DrawChatBar;
@@ -527,6 +554,11 @@ function AniStepNumber(const AniName: string; Frame: Integer): Integer;
 function WireSprite(const AniName: string; Frame, Dir: Integer): Integer;
 { Fallback tile sheet when pics1 is not available: each tile gets a flat
   colour derived from its index, so a frame still shows the board layout. }
+const
+  { rows of flat ground drawn below the screen, for heights to lift into
+    view: 16 height steps }
+  GroundMargin = 16 * LiftPerHeight;
+
 procedure MakeIndexSheet(Sheet: TGSurface);
 { Old-style sprite prop -> pose (servers that send no GANI). }
 function SpriteWalkStep(Sprite: Integer): Integer;
@@ -534,7 +566,7 @@ function SpriteWalkStep(Sprite: Integer): Integer;
 implementation
 
 uses
-  SysUtils, Math, GFont, GSound, GPeRes, Sound222, Map222, NpcBridge222;
+  SysUtils, Math, GFont, GSound, GPeRes, Res222, Sound222, Map222, NpcBridge222;
 
 procedure MakeIndexSheet(Sheet: TGSurface);
 var
@@ -731,14 +763,36 @@ var
   I, J, K: Integer;
   Base, Cand: string;
   Exts: array[0..2] of string;
+
+  { none in the install: the copy the program carries (GAssetDirs'
+    AssetFallback), in the same folder order }
+  procedure Fallback;
+  var
+    FI, FJ: Integer;
+  begin
+    if not Assigned(AssetFallback) then Exit;
+    for FI := 0 to High(Dirs) do
+      for FJ := 0 to 2 do
+        if Exts[FJ] <> '' then
+        begin
+          Result := AssetFallback(Dirs[FI] + Base + Exts[FJ]);
+          if Result <> '' then Exit;
+        end;
+  end;
+
 begin
   { the asset roots (GAssetDirs), set by UseInstall }
   Result := '';
-  if (AssetRootCount = 0) or (Name = '') then Exit;
+  if Name = '' then Exit;
   Base := ChangeFileExt(Name, '');
   Exts[0] := ExtractFileExt(Name);
   Exts[1] := '.png';
   Exts[2] := '.gif';
+  if AssetRootCount = 0 then
+  begin
+    Fallback;
+    Exit;
+  end;
   for K := 0 to AssetRootCount - 1 do
     for I := 0 to High(Dirs) do
       for J := 0 to 2 do
@@ -751,6 +805,7 @@ begin
           Exit;
         end;
       end;
+  Fallback;
 end;
 
 function TAssets.LevelFile(const Name: string): string;
@@ -760,6 +815,9 @@ begin
     (Pos('\', Name) > 0) then Exit;
   Result := AssetPath('levels/' + Name);
   if Result = '' then Result := AssetPath(Name);
+  { 2.22 keeps its gmaps in maps/ }
+  if (Result = '') and EndsWith(LowerCase(Name), '.gmap') then
+    Result := AssetPath('maps/' + Name);
 end;
 
 function TAssets.Image(const Name, Kind: string): TGSurface;
@@ -1258,6 +1316,7 @@ begin
   FOthers.Free;
   FTileDefs.Free;
   FHeights.Free;
+  FGround.Free;
   FLog.Free;
   inherited Destroy;
 end;
@@ -1281,6 +1340,7 @@ const
 procedure TAdventure.Log(const S: string);
 var
   Line: string;
+  LF: TextFile;
 begin
   Line := Format('[%5d] %s', [Frame, S]);
   if Echo then
@@ -1292,6 +1352,15 @@ begin
   end;
   if FLog.Count >= LogKeep then FLog.Delete(0);
   FLog.Add(Line);
+  if LogFileName <> '' then
+    try
+      AssignFile(LF, LogFileName);
+      if FileExists(LogFileName) then Append(LF) else Rewrite(LF);
+      WriteLn(LF, FormatDateTime('hh:nn:ss.zzz', Now) + ' ' + Line);
+      CloseFile(LF);
+    except
+      LogFileName := '';
+    end;
 end;
 
 procedure TAdventure.ClientLog(const Line: string);
@@ -2801,6 +2870,76 @@ begin
     FAniReplace.Add(K + '=' + Trim(New));
 end;
 
+procedure TAdventure.DrawAttachedGanis(P: TServerPlayer; DX, DY: Integer);
+var
+  K: Integer;
+  A: TGraalAni;
+  N: string;
+begin
+  for K := 1 to 30 do
+  begin
+    N := LowerCase(P.Attr[K]);
+    if (Length(N) < 6) or (Copy(N, Length(N) - 4, 5) <> '.gani') then Continue;
+    A := Assets.Ani(N);
+    if (A <> nil) and (Length(A.Actors) > 0) then
+      { [inf: 20 movie frames a second, the game's tick] }
+      DrawMovie(A, DX, DY, Frame);
+  end;
+end;
+
+procedure TAdventure.DrawMovie(A: TGraalAni; DX, DY: Integer; MovieFrame: Double);
+var
+  I, TW, X, Y, Px: Integer;
+  K: TGaniKey;
+  Spr: TGraalAniSprite;
+  Img: TGSurface;
+  F: TTrueTypeFont;
+  Col: Cardinal;
+begin
+  for I := 0 to High(A.Actors) do
+  begin
+    if not A.ActorAt(I, MovieFrame, K) or not K.Visible then Continue;
+    X := DX + Round(K.DX);
+    Y := DY + Round(K.DY);
+    if A.Actors[I].IsText then
+    begin
+      if K.Text = '' then Continue;
+      Col := $FF000000 or (K.Color and $FFFFFF);
+      F := nil;
+      if Pos('tempus', LowerCase(K.Font)) > 0 then F := NameFont;
+      if F <> nil then
+      begin
+        { fontsize 14 is drawn as the names are (em NameFontPx for the
+          names' size): [inf: the scale is matched by eye to the real
+          2.22's "Touch to get information"] }
+        Px := Round(K.FontSize * NameFontPx / 14);
+        { drawn with the names' weight; shaded: a navy (0,0,128) copy one
+          pixel down and right (the real 2.22's text under Wine) }
+        TW := F.TextWidth(K.Text, Px, True);
+        if K.Centered then Dec(X, TW div 2);
+        { the real 2.22 puts the letters' tops 8 px above dy (its arrow,
+          7 px below the text's dy, sits just under the letters); the
+          font's em box starts about 4 px above them }
+        Dec(Y, 12);
+        if K.Shaded then F.DrawText(Screen, X + 1, Y + 1, K.Text, Px, $FF000080, True);
+        F.DrawText(Screen, X, Y, K.Text, Px, Col, True);
+      end
+      else
+      begin
+        TW := TextWidth(K.Text, 1);
+        if K.Centered then Dec(X, TW div 2);
+        if K.Shaded then DrawText(Screen, X + 1, Y + 1, K.Text, $FF0000C0, 1);
+        DrawText(Screen, X, Y, K.Text, Col, 1);
+      end;
+    end
+    else if A.FindSprite(K.Sprite, Spr) then
+    begin
+      Img := Assets.Image(Spr.Sheet, '');
+      if Img <> nil then Screen.Blit(Img, Spr.X, Spr.Y, Spr.W, Spr.H, X, Y);
+    end;
+  end;
+end;
+
 function TAdventure.NameFont: TTrueTypeFont;
 var
   F: string;
@@ -2842,6 +2981,12 @@ begin
     (Copy(N, 20, 6) <> '.graal') or (N[18] <> '-') or not (N[17] in ['a'..'c']) or
     not (N[19] in ['1'..'3']) then Exit;
   R := 'TUTORIAL' + UpperCase(N[17]) + N[19];
+  { compiled in (Res222); the real exe beside the program as a fallback }
+  if EmbeddedRes(R, Data) and (Copy(Data, 1, 3) = 'GR-') then
+  begin
+    Result := True;
+    Exit;
+  end;
   for I := 0 to High(Exes) do
   begin
     F := AssetPath(Exes[I]);
@@ -3749,6 +3894,18 @@ end;
 const
   LinkAhead = 1.25;
 
+procedure TAdventure.SetScreenSize(W, H: Integer);
+begin
+  if (W < 64) or (H < 64) then Exit;
+  ScreenW := W;
+  ScreenH := H;
+  ViewH := H - ChatBarH;
+  NpcScreenW := W;
+  NpcScreenH := H;
+  Screen.Free;
+  Screen := TGSurface.Create(W, H);
+end;
+
 procedure TAdventure.Tick;
 var
   D: Integer;
@@ -3945,7 +4102,10 @@ begin
   begin
     BX := Round(P.X * TileSize) - CamX;
     BY := Round(P.Y * TileSize) - CamY;
-  end;
+    Dec(BY, WorldLift(P.X + 1.5, P.Y + 3));
+  end
+  else
+    Dec(BY, WorldLift(P.X + P.GmapX * BoardW + 1.5, P.Y + P.GmapY * BoardH + 3));
   if P = Player then A := Assets.Ani(PlayerAniFor(P.AniName))
   else A := Assets.Ani(P.AniName);
   if A = nil then A := Assets.Ani('idle');
@@ -4283,7 +4443,7 @@ begin
   end;
 end;
 
-function TAdventure.LevelHeights(const LevelName: string; out G: THeightGrid): Boolean;
+function TAdventure.LevelHeights(const LevelName: string): PHeightGrid;
 var
   I: Integer;
   R: string;
@@ -4299,16 +4459,107 @@ begin
       FHeights.AddDir(R);
     end;
   end;
-  Result := (LevelName <> '') and FHeights.Find(LevelName, G);
+  Result := nil;
+  if LevelName <> '' then Result := FHeights.Find(LevelName);
+end;
+
+function TAdventure.WorldLift(WX, WY: Double): Integer;
+var
+  CX, CY: Integer;
+  G: PHeightGrid;
+begin
+  Result := 0;
+  if Gmap <> nil then
+  begin
+    CX := Floor(WX / BoardW);
+    CY := Floor(WY / BoardH);
+    G := LevelHeights(Gmap.CellName(CX, CY));
+    if G <> nil then Result := LiftAt(G^, WX - CX * BoardW, WY - CY * BoardH);
+  end
+  else if Level <> nil then
+  begin
+    G := LevelHeights(Level.Name);
+    if G <> nil then Result := LiftAt(G^, WX, WY);
+  end;
+end;
+
+function TAdventure.LevelLift(X, Y: Double): Integer;
+begin
+  if Gmap <> nil then
+    Result := WorldLift(X + Player.GmapX * BoardW, Y + Player.GmapY * BoardH)
+  else
+    Result := WorldLift(X, Y);
+end;
+
+procedure TAdventure.LiftGround(CamX, CamY: Integer);
+var
+  X, Y, SY, Prev, Top, Lift, CX, CY, LastCX, LastCY, WX, WY, K: Integer;
+  G: PHeightGrid;
+  H: Double;
+  Col: Cardinal;
+begin
+  LastCX := MaxInt;
+  LastCY := MaxInt;
+  G := nil;
+  for X := 0 to ScreenW - 1 do
+  begin
+    WX := CamX + X;
+    Prev := -1;
+    for Y := 0 to FGround.Height - 1 do
+    begin
+      WY := CamY + Y;
+      { the height under this point of the ground, in its cell }
+      if Gmap <> nil then
+      begin
+        CX := WX div (BoardW * TileSize);
+        CY := WY div (BoardH * TileSize);
+      end
+      else
+      begin
+        CX := 0;
+        CY := 0;
+      end;
+      if (CX <> LastCX) or (CY <> LastCY) then
+      begin
+        LastCX := CX;
+        LastCY := CY;
+        if Gmap <> nil then G := LevelHeights(Gmap.CellName(CX, CY))
+        else G := LevelHeights(Level.Name);
+      end;
+      Lift := 0;
+      if G <> nil then
+      begin
+        H := HeightAt(G^, (WX - CX * BoardW * TileSize) / TileSize,
+          (WY - CY * BoardH * TileSize) / TileSize);
+        if H > 0 then Lift := Round(H * LiftPerHeight);
+      end;
+      SY := Y - Lift;
+      if SY >= ScreenH then Continue;
+      Col := FGround.Pixels[Y * FGround.Width + X];
+      { nearer ground is drawn later, over what it hides; a gap left by a
+        slope is filled with the same point }
+      if SY > Prev then
+      begin
+        Top := Prev + 1;
+        if Top < 0 then Top := 0;
+        for K := Top to SY do
+          Screen.Pixels[K * Screen.Width + X] := Col;
+        Prev := SY;
+      end
+      else if SY >= 0 then
+        Screen.Pixels[SY * Screen.Width + X] := Col;
+    end;
+  end;
 end;
 
 procedure TAdventure.Draw;
 var
   CamX, CamY, LCamX, LCamY, TX, TY, X0, Y0, I, T, WorldW, WorldH, PX, PY: Integer;
-  Tiles: TGSurface;
+  PLift, Margin: Integer;
+  Tiles, Dst: TGSurface;
   CellName, GridName: string;
-  Grid: THeightGrid;
-  HasGrid, GridOk: Boolean;
+  Grid: PHeightGrid;
+  HasGrid, Lifting: Boolean;
 begin
   Screen.Fill($FF000000);
   if Sheet.Width = 0 then MakeIndexSheet(Sheet);
@@ -4319,7 +4570,7 @@ begin
   end;
   Tiles := TileSheetFor(Level.Name);
   GridName := #0;
-  GridOk := False;
+  Grid := nil;
   { on a gmap the camera works in world tiles: local + 64 x cell }
   PX := 0;
   PY := 0;
@@ -4332,16 +4583,38 @@ begin
     WorldW := Gmap.Width * BoardW;
     WorldH := Gmap.Height * BoardH;
   end;
-  { centre on the player's body (the sprite box is 3 tiles wide) }
+  { on height-shaped ground everything stands lifted by the height under
+    its foot, and 2.22's camera follows the player's lifted place }
+  PLift := WorldLift(Player.X + PX + 1.5, Player.Y + PY + 3);
+  if Gmap <> nil then CellName := Gmap.CellName(Player.GmapX, Player.GmapY)
+  else CellName := Level.Name;
+  Lifting := (PLift > 0) or (LevelHeights(CellName) <> nil);
+  { centre on (x + 1.5, y + 1.5) of the player, lifted, as 2.22's camera }
   CamX := Round((Player.X + PX + 1.5) * TileSize) - ScreenW div 2;
-  CamY := Round((Player.Y + PY + 2) * TileSize) - ViewH div 2;
+  CamY := Round((Player.Y + PY + 1.5) * TileSize) - PLift - ViewH div 2;
   if CamX > WorldW * TileSize - ScreenW then CamX := WorldW * TileSize - ScreenW;
   if CamY > WorldH * TileSize - ViewH then CamY := WorldH * TileSize - ViewH;
   if CamX < 0 then CamX := 0;
   if CamY < 0 then CamY := 0;
+  { the lifted ground is drawn flat first, with the rows below the screen
+    that heights can lift into view, then raised column by column }
+  Margin := 0;
+  Dst := Screen;
+  if Lifting then
+  begin
+    Margin := GroundMargin;
+    if FGround = nil then FGround := TGSurface.Create(ScreenW, ScreenH + Margin);
+    if (FGround.Width <> ScreenW) or (FGround.Height <> ScreenH + Margin) then
+    begin
+      FGround.Free;
+      FGround := TGSurface.Create(ScreenW, ScreenH + Margin);
+    end;
+    FGround.Fill($FF000000);
+    Dst := FGround;
+  end;
   X0 := CamX div TileSize;
   Y0 := CamY div TileSize;
-  for TY := Y0 to Y0 + ScreenH div TileSize + 1 do
+  for TY := Y0 to Y0 + (ScreenH + Margin) div TileSize + 1 do
     for TX := X0 to X0 + ScreenW div TileSize + 1 do
       if (TX < WorldW) and (TY < WorldH) then
       begin
@@ -4357,21 +4630,22 @@ begin
           if CellName <> GridName then
           begin
             GridName := CellName;
-            GridOk := LevelHeights(CellName, Grid);
+            Grid := LevelHeights(CellName);
           end;
-          HasGrid := GridOk;
+          HasGrid := Grid <> nil;
         end;
         if HasGrid and (T = 0) then
-          DrawTerrainTile(Screen, Tiles, Grid, TX mod BoardW, TY mod BoardH,
+          DrawTerrainTile(Dst, Tiles, Grid^, TX mod BoardW, TY mod BoardH,
             TX * TileSize - CamX, TY * TileSize - CamY)
         else
         begin
-          DrawTile(Screen, Tiles, T, TX * TileSize - CamX, TY * TileSize - CamY);
+          DrawTile(Dst, Tiles, T, TX * TileSize - CamX, TY * TileSize - CamY);
           if HasGrid then
-            ShadeTile(Screen, Grid, TX mod BoardW, TY mod BoardH,
+            ShadeTile(Dst, Grid^, TX mod BoardW, TY mod BoardH,
               TX * TileSize - CamX, TY * TileSize - CamY);
         end;
       end;
+  if Lifting then LiftGround(CamX, CamY);
   { what lives in the player's level (items, NPCs, baddies, shots, things
     thrown) is in that level's tiles: on a gmap its cell is offset }
   LCamX := CamX - PX * TileSize;
