@@ -22,10 +22,13 @@ latest release is in [RELEASES.md](RELEASES.md).
 > owners and are used here only to identify the software being
 > reimplemented.
 
-This repo holds no original Graal code, graphics, sounds or level data. The
-code is written from notes on the wire protocol, file formats and observed
+This repo holds no original Graal code. The code is written from notes on the wire protocol, file formats and observed
 behaviour (in graal_analysis), not copied or translated from the original
-programs. Game assets such as `pics1.png`, `arrays.dat`, ganis, heads and
+programs. The resources embedded in each original exe (icons, cursors,
+bitmaps, dialogs and form layouts, menus, string tables, version info,
+fonts, sounds) are extracted per version and wired into that build's
+rebuild, so each one carries its own original's look; this is the owner's
+decision (2026-11-05). Game assets such as `pics1.png`, `arrays.dat`, ganis, heads and
 bodies are loaded at run time from an install you supply. Tests that need
 original data, such as the tutorial levels inside the 2.05 exe, read it
 from a local path and are skipped when it is missing.

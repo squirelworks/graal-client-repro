@@ -34,10 +34,13 @@ are in the README (Wire, World, Play, Harden and stress, Release).
 
 ## 2. Rules (binding)
 
-- **Nothing original in the repo by default.** No original Graal code,
-  graphics, sounds or levels. Assets are loaded at run time from an
-  install the player supplies (`graal-assets/`, see [docs/assets.md](docs/assets.md)).
-  See open decision D4 for the v0.0.3 resource-extraction work.
+- **No original Graal code in the repo.** Game data (tiles, ganis,
+  heads, bodies, levels) is loaded at run time from an install the player
+  supplies (`graal-assets/`, see [docs/assets.md](docs/assets.md)). By
+  Squirrel's decision (D4), everything embedded in each real exe (icons,
+  cursors, bitmaps, dialogs and forms, menus, string tables, version info,
+  manifest, fonts, sounds) is extracted per version and wired into that
+  folder's rebuild.
 - **No raw decompile material.** No code or data addresses, RVAs or file
   offsets, no Ghidra/IDA names (`FUN_`, `DAT_`, `LAB_`), no decompiled C,
   in source, comments, commit messages or PR text. Findings come from
@@ -209,20 +212,22 @@ tarball under `project-files/` where listed):
 
 The PC cannot build or push; code changes happen in the cloud or in Cursor.
 
-## 9. Open decisions (Squirrel's)
+## 9. Decisions (Squirrel's; D4 is made, the rest are open)
 
 - **D1. Torque layer language**: Object Pascal in graal-delphi
   (recommended) or C++ in its own tree. [#110](https://github.com/squirelworks/graal-delphi/issues/110).
 - **D2. 2.3**: read the unpacked exe from Drive to make the folder 2.3's
   own, or keep the stand-in. [#111](https://github.com/squirelworks/graal-delphi/issues/111).
 - **D3. d3drm.dll source** for the real Graal3D. [#112](https://github.com/squirelworks/graal-delphi/issues/112).
-- **D4. Extracted resources in the repo.** The README says the repo holds
-  no original graphics; the v0.0.3 rule is that everything embedded in a
-  real exe is wired into its rebuild. 2.22 reads the start art, layout and
-  tutorial from `Graal_222.exe` at run time (nothing committed), but #97
-  compiles in `Graal222.ico`. Decide whether extracted resources may be
-  committed per folder (a `resources/` subfolder linked into the `.res`),
-  or must always be read from the player's install at run time.
+- **D4. Extracted resources: decided (2026-11-05).** Squirrel set the
+  assets concern aside: each exe is made as faithful as possible, with
+  everything pulled out of its own real exe and wired into its
+  reproduction, per client (never 2.22's set for another version). The
+  extracted set goes in the folder (for example a `resources/` subfolder
+  plus the `.rc`/`.res` the project links) and is compiled in. Where
+  versions share identical resources, dedupe by hash but still ship them
+  per folder. Clients without a real exe are made to look as authentic
+  as possible from their nearest real siblings.
 - **D5. Licence and code signing.** [#116](https://github.com/squirelworks/graal-delphi/issues/116).
 - **D6. 5.x/6.x Login capture** against a public server (Graal_analysis #247).
 

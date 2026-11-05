@@ -7,11 +7,12 @@ or release by hand. Start with [HANDOFF-CURSOR.md](HANDOFF-CURSOR.md) and
 
 ## What may go in the repo
 
-- No original Graal code, graphics, sounds or levels. Clients load the
-  player's own install at run time (`graal-assets/`, `docs/assets.md`).
-  Whether resources extracted from a real exe may be committed is an open
-  owner decision (HANDOFF-CURSOR.md, D4); until it is decided, read them
-  from the install at run time.
+- No original Graal code. Game data (tiles, ganis, heads, bodies, levels)
+  is loaded from the player's own install at run time (`graal-assets/`,
+  `docs/assets.md`). The resources embedded in each real exe (icons,
+  bitmaps, forms, string tables, version info, fonts, sounds) are
+  extracted per version and wired into that folder's rebuild (Squirrel's
+  decision, HANDOFF-CURSOR.md D4). Never another version's set.
 - No raw decompile material anywhere (source, comments, commits, PR text):
   no code or data addresses, RVAs or file offsets, no `FUN_` / `DAT_` /
   `LAB_` names, no decompiled C. Write behaviour from the Graal_analysis

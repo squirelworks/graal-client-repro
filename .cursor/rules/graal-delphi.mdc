@@ -9,7 +9,9 @@ Follow `AGENTS.md` at the repo root on every request. In short:
 - One change per branch and PR. Folder PRs touch only their folder (plus
   `common/` when a shared unit really changes) and never the root `README.md`.
 - PR bodies start with the attribution block in `AGENTS.md`.
-- No original Graal code or assets in the repo; no decompile addresses,
+- No original Graal code; game data comes from the player's install. Each
+  real exe's embedded resources are extracted per version and wired into
+  its own rebuild. No decompile addresses,
   `FUN_`/`DAT_`/`LAB_` names or decompiled C anywhere.
 - Test only against loopback servers you start (seihai-gserver, `scripts/relay98.py`).
 - `scripts/build.sh` and `scripts/test.sh` must pass with no unfreed memory.
