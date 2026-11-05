@@ -2887,7 +2887,7 @@ begin
     if (Length(N) < 6) or (Copy(N, Length(N) - 4, 5) <> '.gani') then Continue;
     A := Assets.Ani(N);
     if (A <> nil) and (Length(A.Actors) > 0) then
-      { [inf: 20 movie frames a second, the game's tick] }
+      { a movie frame a game tick (the 50 ms timer); [inf: the per-tick step of the movie itself is not traced] }
       DrawMovie(A, DX, DY, Frame);
   end;
 end;

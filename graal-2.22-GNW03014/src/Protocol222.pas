@@ -52,7 +52,7 @@ const
     server from growing the client without bound. }
   InFrameMax = 16 * 1024 * 1024;  { one inflated frame }
   InPendingMax = 4 * 1024 * 1024; { an unfinished message }
-  TickMs = 50;          { the frame gate (about 52 ms measured on 2.22) }
+  TickMs = 50;          { the game tick: Graal_222.exe runs its game on a multimedia timer of 50 ms (resolution 10) }
 
   { client -> server }
   PLI_LEVELWARP = 0;
