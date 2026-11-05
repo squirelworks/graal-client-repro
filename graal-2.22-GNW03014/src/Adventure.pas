@@ -2516,42 +2516,29 @@ begin
   if C = '#' then Result := -1 else Result := Pos(C, GlyphOrder) - 1;
 end;
 
-{ The advance of a glyph. The client keeps a table of half widths; only I
-  (6), space (8) and most letters (12) are noted, so the other narrow ones
-  here are a guess. }
-function GlyphAdvance(C: Char): Integer;
-begin
-  case C of
-    ' ': Result := 8;
-    'I', 'i', 'l', 'j', '!', '.', ',', ':', ';', '''': Result := 6;
-  else
-    Result := 12;
-  end;
-end;
+{ Half the advance of each glyph of the letters sheet, as Graal_222.exe
+  keeps them (a 96-entry table in its data) }
+const
+  GlyphHalfWidth: array[0..95] of Byte = (
+    6, 6, 6, 6, 6, 6, 6, 6, 3, 6, 6, 6, 7, 6, 6, 6, 6, 6, 6, 7, 6, 7, 7, 7,
+    7, 6, 6, 6, 6, 6, 6, 6, 6, 6, 3, 5, 6, 3, 7, 6, 6, 6, 6, 5, 6, 6, 6, 7,
+    7, 7, 7, 6, 6, 4, 6, 6, 6, 6, 6, 6, 6, 6, 3, 7, 6, 4, 4, 6, 6, 6, 6, 6,
+    6, 6, 8, 8, 5, 7, 7, 7, 7, 4, 3, 7, 8, 7, 8, 8, 8, 4, 6, 8, 8, 8, 8, 6);
+  { the codes after '#' and the glyphs each draws (Graal_222.exe: "ABXYudlrhxyz4."
+    with its count, start and glyph tables) }
+  ButtonCodes = 'ABXYudlrhxyz4.';
+  ButtonStart: array[0..13] of Byte = (0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 15);
+  ButtonCount: array[0..13] of Byte = (1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 2, 1);
+  ButtonGlyphs: array[0..15] of Byte = (91, 92, 93, 94, 77, 78, 79, 80, 74, 75,
+    71, 72, 73, 87, 88, 67);
+  { drawn for a '#' code the client does not know; the code is then drawn
+    as a letter }
+  UnknownCodeGlyph = 86;
 
-{ The picture glyph for '#' and a letter, or -1. #A, #B, #X, #Y and the
-  arrows are as read; which of 71 to 75 and 87 the other six take is a
-  guess. }
-function ButtonGlyph(C: Char): Integer;
+function GlyphAdvance(G: Integer): Integer;
 begin
-  case C of
-    'A': Result := 91;
-    'B': Result := 92;
-    'X': Result := 93;
-    'Y': Result := 94;
-    'u': Result := 77;
-    'd': Result := 78;
-    'l': Result := 79;
-    'r': Result := 80;
-    'h': Result := 71;
-    'x': Result := 72;
-    'y': Result := 73;
-    'z': Result := 74;
-    '4': Result := 75;
-    '.': Result := 87;
-  else
-    Result := -1;
-  end;
+  if (G >= 0) and (G <= High(GlyphHalfWidth)) then Result := 2 * GlyphHalfWidth[G]
+  else Result := 12;
 end;
 
 function TAdventure.SignAt(PX, PY: Double): Integer;
@@ -2626,7 +2613,7 @@ const
   CellsH = 9;
 var
   L: TGSurface;
-  X, Y, W, H, I, K, CX, G: Integer;
+  X, Y, W, H, I, J, K, CX, G: Integer;
   S: string;
   Fill: Cardinal;
 
@@ -2682,18 +2669,30 @@ begin
     I := 1;
     while I <= Length(S) do
     begin
-      if (S[I] = '#') and (I < Length(S)) then
+      if S[I] = '#' then
       begin
+        if I = Length(S) then Break;
         Inc(I);
         if S[I] = 'i' then
         begin
           Inc(I, 2); { #i and a character: an image from the level's list, not drawn }
           Continue;
         end;
-        G := ButtonGlyph(S[I]);
-        if G < 0 then G := 86;
-        if L <> nil then Glyph(G, CX, Y + 16 + K * 32);
-        Inc(CX, 16);
+        J := Pos(S[I], ButtonCodes);
+        if J > 0 then
+        begin
+          for G := ButtonStart[J - 1] to ButtonStart[J - 1] + ButtonCount[J - 1] - 1 do
+          begin
+            if L <> nil then Glyph(ButtonGlyphs[G], CX, Y + 16 + K * 32);
+            Inc(CX, GlyphAdvance(ButtonGlyphs[G]));
+          end;
+        end
+        else
+        begin
+          if L <> nil then Glyph(UnknownCodeGlyph, CX, Y + 16 + K * 32);
+          Inc(CX, GlyphAdvance(UnknownCodeGlyph));
+          Continue; { the code itself is then drawn as a letter }
+        end;
       end
       else
       begin
@@ -2701,7 +2700,7 @@ begin
         if (G >= 0) and (L <> nil) then
         begin
           Glyph(G, CX, Y + 16 + K * 32);
-          Inc(CX, GlyphAdvance(S[I]));
+          Inc(CX, GlyphAdvance(G));
         end
         else
         begin
