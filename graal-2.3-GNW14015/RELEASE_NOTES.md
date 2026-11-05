@@ -40,6 +40,18 @@ its files, or keep those files in a `graal-assets/` folder beside it.
   as 2.31 does, the white chat line along the bottom, and Alt+Enter for
   fullscreen and back.
 - [x] The Graal head icon in the title bar and the taskbar.
+- [x] Options opens 2.31's "More options" window (Video, Audio,
+  Microphone, Controls, General), read from and saved to
+  `graalconfig.txt`; "Start in fullscreen" is honoured.
+- [x] Get an account! and Go ask in 2.31's "Open URL" box before opening
+  the page in the browser.
+- [x] Typing in the chat line: Tab goes to it, Enter says the line, and it
+  shows over your head; Esc in a game asks before quitting.
+- [x] Training as 2.31 draws it: the height-shaped sand and grass (from
+  the install's `maps/offlinetutorial.gmap`), the burning torches, the
+  wizard with its arrow and "Touch to get information", the squirrel and
+  the human2 player.
+- [x] Alt+Enter switches to a real 640 x 480 fullscreen mode and back.
 
 ## Downloads
 
@@ -79,9 +91,11 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
   it can be checked. The version profile says 2.3 lacks 2.31's fixes
   (gmap NPC border crossing, number to text, saving the key setup).
 - [ ] The client's own tamper check bytes (a stand-in is sent).
-- [ ] The Options window behind the Options button.
-- [ ] Training's look (2.31's picso tiles, torch lights, wizard).
-- [ ] Typing in the chat line; dialog text in MS Sans Serif.
+- [ ] Training's heights: some things stand a little lower than in 2.31
+  (the wizard about 25 pixels); without the install's gmap Training is
+  drawn flat.
+- [ ] Fullscreen uses 640 x 480, not the "Fullscreen mode" in More options.
+- [ ] Dialog text in MS Sans Serif.
 - [ ] The F1 window, NPC movement messages, UDP. See the build's README.
 
 ## Checks behind this release

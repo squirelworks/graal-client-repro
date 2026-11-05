@@ -38,7 +38,7 @@ unit RealStart230;
 interface
 
 uses
-  Classes, GSurface, GWindow, GStartScreen;
+  Classes, GSurface, GWindow, GStartScreen, Dialogs230;
 
 type
   TRealStartArt = class
@@ -46,6 +46,10 @@ type
     Back1, Back2: TGSurface;
     Btn: array[1..4] of TGSurface;
     Lang: TStringList;
+    { graalconfig.txt (the More options window's settings) and the page
+      Get an account! offers (arrays2.dat line 3) }
+    Config: TGraalConfig;
+    AccountUrl: string;
     constructor Create;
     destructor Destroy; override;
     { The pictures compiled into this program (res/, from Graal_231.exe)
@@ -97,6 +101,7 @@ constructor TRealStartArt.Create;
 begin
   inherited Create;
   Lang := TStringList.Create;
+  Config := TGraalConfig.Create;
 end;
 
 destructor TRealStartArt.Destroy;
@@ -107,6 +112,7 @@ begin
   Back2.Free;
   for I := 1 to 4 do Btn[I].Free;
   Lang.Free;
+  Config.Free;
   inherited Destroy;
 end;
 
@@ -608,9 +614,18 @@ begin
               if Inside(BOptions, CX, CY) then
               begin
                 Press(2);
-                Note := 'Options are not built yet.';
+                { 2.31's More options window, over this one }
+                RunMoreOptions(Art.Config, Art.Text);
+                Win.TakeClick(CX, CY);
+                Win.TakeChars;
               end;
-              if Inside(BAccount, CX, CY) then Press(3);
+              if Inside(BAccount, CX, CY) then
+              begin
+                Press(3);
+                if Art.AccountUrl <> '' then RunOpenUrl(Art.AccountUrl, Art.Text);
+                Win.TakeClick(CX, CY);
+                Win.TakeChars;
+              end;
             end;
             if (Page = pgStart) and ((Clicked and Inside(BStart, CX, CY)) or (Pos(#13, Chars) > 0)) then
             begin
@@ -686,7 +701,16 @@ begin
                 Row := (CY - LList.Y - 2) div UiLineH;
                 if (Row >= 0) and (Row <= High(Rows)) then Sel := Rows[Row];
               end;
-              if Inside(BGo, CX, CY) then Press(8);
+              if Inside(BGo, CX, CY) then
+              begin
+                { Go: the picked server's homepage, asked first }
+                Press(8);
+                if (Sel >= 0) and (Sel <= High(Fetch.Servers)) and
+                  (Fetch.Servers[Sel].Url <> '') then
+                  RunOpenUrl(Fetch.Servers[Sel].Url, Art.Text);
+                Win.TakeClick(CX, CY);
+                Win.TakeChars;
+              end;
             end;
             if ((Clicked and Inside(BConnect, CX, CY)) or (Pos(#13, Chars) > 0)) and
               (Sel >= 0) and (Sel <= High(Fetch.Servers)) then
