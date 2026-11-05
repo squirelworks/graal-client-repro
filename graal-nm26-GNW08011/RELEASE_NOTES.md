@@ -21,15 +21,15 @@ the install's files come first.
 
 ## What's new in v0.0.3
 
-- The Windows program carries its original's own icon (the Graal head, taken from
-  the original exe), so Explorer shows it as the original did.
+- The Windows program carries its original's own icon (the Graal head, taken
+  from the original exe), so Explorer shows it as the original did.
 - Stress tested before release: a long soak with several players walking
   between levels, others connecting and dropping again and again, and a
   level with 80 scripted NPCs, with no crash, error or memory growth.
 - The start window and the server list are the original's own: laid out from
   the forms inside the original exe, with its background pictures, buttons,
-  captions and colours compiled into the program, so it needs no original exe
-  beside it.
+  captions and colours compiled into the program, so it needs no original
+  exe beside it.
 - The launcher window is the dialog itself, sized to its picture, with only
   the close button, as on the original.
 - The server list shows the listserver's own status lines and the original's
@@ -47,6 +47,8 @@ the install's files come first.
   else the copy the program carries), opens on the one graalconfig.txt last
   picked, and the pick dresses your player with its head and colours and is
   saved back for next time.
+- Training opens the offline tutorial (levels/tutorial/), as the original
+  does.
 - It runs on its own: the files of its original's install that the game reads
   are compiled in, so the exe alone in an empty folder opens on the real
   launcher and plays Training with the original's art.
@@ -97,5 +99,6 @@ and login. The file requests at login, NewMain's first gani system and the
 - [ ] The Options button: the original's options window is not built yet.
 - [ ] The launcher's text is drawn with the program's own font, not Windows'
       MS Sans Serif, so some words sit a pixel or two off the original.
-- [ ] The in-game HUD has not yet been compared side by side with the
-      original.
+- [ ] Sign text shows the `#(13)` line codes instead of breaking the line.
+- [ ] The launcher's caption icon is removed for Windows but not yet checked
+      on a real PC.

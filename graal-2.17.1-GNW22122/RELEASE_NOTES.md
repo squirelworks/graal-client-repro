@@ -25,15 +25,15 @@ come first.
 
 ## What's new in v0.0.3
 
-- The Windows program carries its original's own icon (the Graal head, taken from
-  the original exe), so Explorer shows it as the original did.
+- The Windows program carries its original's own icon (the Graal head, taken
+  from the original exe), so Explorer shows it as the original did.
 - Stress tested before release: a long soak with several players walking
   between levels, others connecting and dropping again and again, and a
   level with 80 scripted NPCs, with no crash, error or memory growth.
 - The start window and the server list are the original's own: laid out from
   the forms inside the original exe, with its background pictures, buttons,
-  captions and colours compiled into the program, so it needs no original exe
-  beside it.
+  captions and colours compiled into the program, so it needs no original
+  exe beside it.
 - The launcher window is the dialog itself, sized to its picture, with only
   the close button, as on the original.
 - The server list shows the listserver's own status lines and the original's
@@ -45,12 +45,11 @@ come first.
   Delphi program's does.
 - Alt+Enter switches the game to fullscreen in its own 640 x 480 mode and
   back.
-- The game window is titled as the original's (the language file's window name
-  and the server's name).
-- The server list has the original's Graal Gold and Classic tabs, its picture
-  buttons and column headers.
+- The server list has the original's Classic tab, the combo box under the
+  list, its picture buttons and column headers.
 - Training works without an install: the offline tutorial levels inside the
   original exe are compiled in.
+- The game window and the taskbar are titled " G r a a l " as on the original.
 - It runs on its own: the files of its original's install that the game reads
   are compiled in, so the exe alone in an empty folder opens on the real
   launcher and plays Training with the original's art.
@@ -116,10 +115,6 @@ real 2.17.1. See the build's README.
 - [ ] The Options button: the original's options window is not built yet.
 - [ ] The launcher's text is drawn with the program's own font, not Windows'
       MS Sans Serif, so some words sit a pixel or two off the original.
-- [ ] The in-game HUD has not yet been compared side by side with the
-      original.
-- [ ] The Training window's title is spaced out (" G r a a l ") on the
-      original; this one is not.
 - [ ] Training does not yet use the offline tutorial's gmap.
 
 ## Checks behind this release
@@ -129,3 +124,8 @@ TestSoundMap217) run with range and overflow checks and the heap tracer,
 and must end with no unfreed memory. CI also logs two of these clients
 into seihai-gserver, has the second see the first, and walks one through
 a level link.
+- [ ] Alt+Enter switches to 640 x 480; the original switches to 1024 x 768.
+- [ ] Training lacks the original's burning torches, the wizard NPC and the
+      raised ground.
+- [ ] The launcher's caption icon is removed for Windows but not yet checked
+      on a real PC.

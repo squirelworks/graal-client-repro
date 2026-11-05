@@ -34,7 +34,7 @@ SKIPROOT = re.compile(r"^(graalconfig|listserver|newfeatures.*|readme.*|filename
                       r".*map\.txt|bigmap|minimap)\.txt$", re.I)
 LEVDIRS = {"ganis", "heads", "bodies", "swords", "shields", "tutorial", "weather", "npcs", "images",
            "hats", "letters", "baddies", "backpals", "emoticons", "horses", "graphics", "maps",
-           "tiledefs", "weapons", "critters", "menuskins"}
+           "tiledefs", "weapons", "critters", "menuskins", "webgifs", "smilies", "bomys", "midis", "sneakpeek"}
 
 
 def select(r):

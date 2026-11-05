@@ -600,6 +600,7 @@ begin
     'StartScreen|=GlyphResource|SpeedButton2|BUTTON4' + #10 +
     'StartScreen|=NumGlyphs|SpeedButton2|2' + #10 +
     'ServerList|=GlyphResource|SpeedButton1|BUTTON4' + #10 +
+    'ServerList|=Visible|ComboBox1|True' + #10 +
     'ServerList|=NumGlyphs|SpeedButton1|2' + #10 +
     { its "Get an account!" label takes the list's words }
     'StartScreen|=LangKey|Label6|ServerList-Label6' + #10 +
@@ -615,7 +616,7 @@ begin
     'ServerList|=NumGlyphs|Button1|2' + #10 +
     'ServerList|TRichEdit|Description|347|140|209|69|||60416|clGreen' + #10;
   { the tabs and their words, as Graal_2171.exe holds them }
-  Result.Tabs := 'P|Graal Gold' + #10 + '*|Classic';
+  Result.Tabs := '*|Classic';
 end;
 
 { No arguments: the start screen, then the game it picks, and back to the
@@ -666,11 +667,12 @@ begin
     GameTitle := 'Graal ' + ClientBuildLabel + ' (' + ClientVersionToken + ')';
     if RS <> nil then
     begin
-      GameTitle := RS.GameTitle;
+      { Graal_2171.exe titles its game window " G r a a l " and its
+        application "G r a a l", whatever the language file says }
+      GameTitle := ' G r a a l ';
       { the frames of a Delphi program: the taskbar button is the
-        application window, titled with the original's program name }
-      Win.UseDelphiFrames(ChangeFileExt(Copy(RS.Spec.ExeNames, 1,
-        Pos(';', RS.Spec.ExeNames + ';') - 1), ''));
+        application window }
+      Win.UseDelphiFrames('G r a a l');
     end;
     FillChar(R, SizeOf(R), 0);
     Msg := '';

@@ -224,12 +224,15 @@ begin
     if (N.Str('GlyphResource', '') <> '') and Res(N.Str('GlyphResource', ''), D) then
       G := Picture(D, N.Str('GlyphResource', ''));
     D := DfmBitmap(N.Bin('Glyph.Data'));
-    if (G = nil) and (D <> '') then G := Picture(D, 'glyph.bmp');
-    if G <> nil then
+    if (G = nil) and (D <> '') then
     begin
-      KeyOut(G);
-      FImages.AddObject(Form + '.' + N.Name, G);
+      G := Picture(D, 'glyph.bmp');
+      { a form glyph is drawn with its bottom-left colour see-through; the
+        button pictures the client loads (BUTTON1..4) are drawn whole, or
+        2.17.1's GO, in the border's grey, would vanish }
+      if G <> nil then KeyOut(G);
     end;
+    if G <> nil then FImages.AddObject(Form + '.' + N.Name, G);
   end;
   for I := 0 to N.Count - 1 do LoadGlyphs(N.Child(I), Form);
 end;
@@ -892,7 +895,9 @@ function TFormPainter.Caption(N: TDfmNode): string;
 begin
   { a control the client words from another form's key (LangKey, set in
     the build's spec) }
-  if N.Has('LangKey') and RS.HasText(N.Str('LangKey', '')) then
+  if N.Bool('FixedCaption', False) then
+    Result := N.Str('Caption', '')
+  else if N.Has('LangKey') and RS.HasText(N.Str('LangKey', '')) then
     Result := RS.Text(N.Str('LangKey', ''), N.Str('Caption', ''))
   else if RS.HasText(FormKey + '-' + N.Name) then
     Result := RS.Text(FormKey + '-' + N.Name, N.Str('Caption', ''))
@@ -1016,12 +1021,21 @@ begin
         Inc(X, 20);
       end;
     end;
+    { too long for the box: a focused edit shows the end (the caret's
+      side), any other the start }
     while (T <> '') and (UiTextWidth(T, ufRegular) > W - (X - B.X) - 4) do
-      Delete(T, 1, 1);
-    if Focused and Combo and (T <> '') then
+      if Focused then Delete(T, 1, 1) else Delete(T, Length(T), 1);
+    if Focused and Combo and (T <> '') and (N.Str('Style', '') <> '') then
     begin
       { a focused list combo box shows its item picked, across the box }
       Surf.FillRect(B.X + 3, B.Y + 3, W - 4, B.H - 6, ColSelect);
+      UiDrawText(Surf, X, B.Y + (B.H - UiLineH) div 2, T, ColWhite, ufRegular);
+    end
+    else if Focused and Combo and (T <> '') then
+    begin
+      { a focused editable combo box opens with its text selected }
+      Surf.FillRect(X - 1, B.Y + (B.H - UiLineH) div 2, UiTextWidth(T, ufRegular) + 2,
+        UiLineH, ColSelect);
       UiDrawText(Surf, X, B.Y + (B.H - UiLineH) div 2, T, ColWhite, ufRegular);
     end
     else
@@ -1400,16 +1414,15 @@ begin
     if (RS.HeadIndex >= 0) and (RS.HeadIndex < RS.Heads.Count) then StS.SetV('characterbox', RS.Heads.Names[RS.HeadIndex]);
     if RS.Spec.AccountOnList then Cur := LiS else Cur := StS;
     Cur.SetV('accountbox', R.Account);
-    { the password box opens with the form's text ("guest") }
-    if R.Password = '' then
-    begin
-      if RS.Spec.AccountOnList then H := RS.ListForm.Find('passedit')
-      else H := RS.StartForm.Find('passedit');
-      if H <> nil then Cur.SetV('passedit', H.Str('Text', ''));
-    end
-    else Cur.SetV('passedit', R.Password);
+    { the password box opens empty, as on the real clients (the form's
+      "guest" text is cleared when they start); back from a failed login
+      it keeps what was typed }
+    Cur.SetV('passedit', R.Password);
     LiS.Checked.Add('CheckBox1');
+    { the real clients open on the account box when the start window has
+      one, else on the nick name }
     if RS.Spec.StartFocus <> '' then StS.Focus := RS.Spec.StartFocus
+    else if RS.StartForm.Find('accountbox') <> nil then StS.Focus := 'accountbox'
     else StS.Focus := 'Edit3';
     Note := Message;
     Fetched := False;

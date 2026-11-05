@@ -592,7 +592,8 @@ begin
   Result.StartTitle := '';
   Result.FixedStartTitle := False;
   Result.AccountOnList := False;
-  Result.Runtime := 'StartScreen|TPaintButton|Button3|320|240|105|26|&Options|BUTTON1' + #10 +
+  Result.Runtime := 'StartScreen|=Visible|Label9|False' + #10 +
+    'StartScreen|TPaintButton|Button3|320|240|105|26|&Options|BUTTON1' + #10 +
     'StartScreen|TPaintButton|Button2|448|240|105|26|&Training|BUTTON1' + #10 +
     'StartScreen|TPaintButton|Button1|448|376|105|26|&Start|BUTTON1' + #10 +
     'ServerList|TRichEdit|Description|344|168|209|65|||60416|clGreen' + #10;

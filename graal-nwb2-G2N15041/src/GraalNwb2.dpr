@@ -563,6 +563,12 @@ end;
   replaces it). }
 procedure TrainingLevel(const Dir: string; out Path, X, Y: string);
 begin
+  { the NewWorld exe's Training opens start1.nw (levels/sneakpeek/ in the
+    beta installs) }
+  X := '30';
+  Y := '30';
+  Path := FirstFileIn(Dir, 'levels/sneakpeek/start1.nw;levels/start1.nw;start1.nw');
+  if Path <> '' then Exit;
   X := '32';
   Y := '60';
   Path := FirstFileIn(Dir, 'levels/tutorial_b-4.graal;tutorial_b-4.graal');

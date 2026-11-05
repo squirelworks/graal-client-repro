@@ -563,6 +563,12 @@ end;
   replaces it). }
 procedure TrainingLevel(const Dir: string; out Path, X, Y: string);
 begin
+  { the NewWorld exe's Training opens start1.nw (levels/sneakpeek/ in the
+    beta installs) }
+  X := '30';
+  Y := '30';
+  Path := FirstFileIn(Dir, 'levels/sneakpeek/start1.nw;levels/start1.nw;start1.nw');
+  if Path <> '' then Exit;
   X := '32';
   Y := '60';
   Path := FirstFileIn(Dir, 'levels/tutorial_b-4.graal;tutorial_b-4.graal');
@@ -588,7 +594,10 @@ begin
   Result.FixedStartTitle := True;
   Result.AccountOnList := True;
   Result.Runtime := 'StartScreen|TPaintButton|Button2|336|240|105|26|&Training|BUTTON1' + #10 +
-    'StartScreen|TPaintButton|Button3|200|280|105|26|&Options|BUTTON1' + #10 +
+    'StartScreen|TPaintButton|Button3|200|280|105|26||BUTTON1' + #10 +
+    { the real one's Options button is blank: no caption, none from the
+      language file }
+    'StartScreen|=FixedCaption|Button3|True' + #10 +
     'StartScreen|TPaintButton|Button1|336|280|105|26|&Start|BUTTON1' + #10;
   Result.Runtime := Result.Runtime +
     { the NewWorld start window recolours its form at run time: white

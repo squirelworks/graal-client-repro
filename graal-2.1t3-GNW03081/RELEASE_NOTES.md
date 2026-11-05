@@ -21,15 +21,15 @@ the install's files come first.
 
 ## What's new in v0.0.3
 
-- The Windows program carries its original's own icon (the Graal head, taken from
-  the original exe), so Explorer shows it as the original did.
+- The Windows program carries its original's own icon (the Graal head, taken
+  from the original exe), so Explorer shows it as the original did.
 - Stress tested before release: a long soak with several players walking
   between levels, others connecting and dropping again and again, and a
   level with 80 scripted NPCs, with no crash, error or memory growth.
 - The start window and the server list are the original's own: laid out from
   the forms inside the original exe, with its background pictures, buttons,
-  captions and colours compiled into the program, so it needs no original exe
-  beside it.
+  captions and colours compiled into the program, so it needs no original
+  exe beside it.
 - The launcher window is the dialog itself, sized to its picture, with only
   the close button, as on the original.
 - The server list shows the listserver's own status lines and the original's
@@ -95,8 +95,9 @@ not done.
 - [ ] The Options button: the original's options window is not built yet.
 - [ ] The launcher's text is drawn with the program's own font, not Windows'
       MS Sans Serif, so some words sit a pixel or two off the original.
-- [ ] The in-game HUD has not yet been compared side by side with the
-      original.
-- [ ] The Training window's title and start level are not yet checked against
-      the original.
 - [ ] Sign text shows the `#(13)` line codes instead of breaking the line.
+- [ ] At the Training start the status bar shows a bomb after D, and Stefan
+      and the player are drawn at once; the original shows only Stefan's name
+      at first.
+- [ ] The launcher's caption icon is removed for Windows but not yet checked
+      on a real PC.

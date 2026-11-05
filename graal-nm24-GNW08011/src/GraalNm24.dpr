@@ -565,7 +565,8 @@ procedure TrainingLevel(const Dir: string; out Path, X, Y: string);
 begin
   X := '32';
   Y := '60';
-  Path := FirstFileIn(Dir, 'levels/tutorial_b-4.graal;tutorial_b-4.graal');
+  { NewMain keeps its offline tutorial in levels/tutorial/ }
+  Path := FirstFileIn(Dir, 'levels/tutorial/tutorial_b-4.graal;levels/tutorial_b-4.graal;tutorial_b-4.graal');
   if Path = '' then
   begin
     Path := Dir + 'start.nw';
