@@ -58,6 +58,13 @@ its files, or keep those files in a `graal-assets/` folder beside it.
 - [x] Training's look: the wizard, the squirrel and the human2 player
   with its shield, as 2.31 draws them, with the wizard's bobbing green
   arrow and its "Touch to get information" line.
+- [x] Training's torches burn: the lamp gani's own script shows the flame
+  and its glow, as in 2.31.
+- [x] Training's ground is the height-shaped sand and grass 2.31 draws
+  from the install's `maps/offlinetutorial.gmap`, with people and things
+  standing raised on it.
+- [x] Alt+Enter and "Start in fullscreen" switch the screen to a real
+  640 x 480 fullscreen mode.
 
 ## Downloads
 
@@ -95,9 +102,12 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 
 ## Not yet
 
-- [ ] Training's torch flames and their light: 2.31 draws them from a
-  script inside the lamp's gani, which the rebuild does not run yet. The
-  grass also looks a little brighter in 2.31.
+- [ ] Training's heights: side by side with 2.31 the wizard stands about
+  25 pixels lower and the torches about 10; 2.31's own height rules are
+  not traced yet (the rebuild uses 2.22's). The ground needs the install's
+  `maps/offlinetutorial.gmap`; without it Training is drawn flat.
+- [ ] Fullscreen uses 640 x 480, not the "Fullscreen mode" picked in More
+  options.
 - [ ] Dialog text is drawn in Liberation Sans, not Windows' MS Sans Serif.
 - [ ] `graal://` and `graal3://` links, the F1 window, NPC movement
   messages, UDP. See the build's README for the full list.

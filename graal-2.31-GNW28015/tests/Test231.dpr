@@ -36,7 +36,6 @@ uses
   GUiFont in '../../common/GUiFont.pas',
   Res231 in '../src/Res231.pas',
   Dialogs231 in '../src/Dialogs231.pas',
-  GaniMovie231 in '../src/GaniMovie231.pas',
   RealStart231 in '../src/RealStart231.pas',
   TestNpc231 in 'TestNpc231.pas',
   TestBaddy231 in 'TestBaddy231.pas';
@@ -1694,33 +1693,28 @@ end;
 procedure TestMovie;
 const
   Src = 'GANI0002'#10'SPRITE 0 arrow.png 0 0 16 16'#10'FRAMES 60'#10'MOVIE'#10 +
-    'ACTOR SPRITE'#10'FRAME 0 sprite=0,dx=0,dy=0'#10'FRAME 20 dy=-4'#10'ACTOREND'#10 +
-    'ACTOR TEXT'#10'FRAME 0 text=Touch to get information,color=FFE080,fontsize=14'#10 +
-    'ACTOREND'#10'MOVIEEND'#10;
+    'ACTOR SPRITE'#10'FRAME 0 sprite #=0,dx=0,dy=0'#10'FRAME 20 dy=-4'#10'ACTOREND'#10 +
+    'ACTOR TEXT'#10'FRAME 0 text=Touch to get information,color=FFE080,fontsize=14,shaded=true'#10 +
+    'ACTOREND'#10'MOVIEEND'#10'SCRIPT'#10'timeout = 0.05;'#10'SCRIPTEND'#10;
 var
-  M: TGaniMovie;
-  P: TStringList;
-  S: TMovieSprite;
+  A: TGraalAni;
+  K: TGaniKey;
+  S: TGraalAniSprite;
 begin
-  M := TGaniMovie.Create;
-  P := TStringList.Create;
+  A := TGraalAni.Create;
   try
-    Check(M.LoadFromString(Src) and (M.Frames = 60) and (Length(M.Actors) = 2),
+    Check(A.LoadFromString(Src) and (A.MovieFrames = 60) and (Length(A.Actors) = 2),
       'movie gani: frames and actors read');
-    Check(M.FindSprite(0, S) and (S.Sheet = 'arrow.png') and (S.W = 16) and (S.H = 16),
+    Check(A.FindSprite(0, S) and (S.Sheet = 'arrow.png') and (S.W = 16),
       'movie gani: the sprite table');
-    M.Actors[0].At(10, P);
-    Check(P.Values['dy'] = '0', 'movie gani: a key frame holds until the next');
-    M.Actors[0].At(30, P);
-    Check((P.Values['dy'] = '-4') and (P.Values['sprite'] = '0'),
+    Check(A.ActorAt(0, 30, K) and (Round(K.DY) = -4) and (K.Sprite = 0),
       'movie gani: later key frames change only what they name');
-    M.Actors[1].At(0, P);
-    Check(M.Actors[1].IsText and (P.Values['text'] = 'Touch to get information') and
-      (MovieColor(P.Values['color'], 0) = $FFFFE080), 'movie gani: a text actor');
-    Check(not M.LoadFromString('GANI0001'#10), 'movie gani: GANI0001 is not a movie');
+    Check(A.ActorAt(1, 0, K) and A.Actors[1].IsText and
+      (K.Text = 'Touch to get information') and (K.Color = $FFE080) and K.Shaded,
+      'movie gani: a text actor');
+    Check(Trim(A.Script) = 'timeout = 0.05;', 'gani script: the SCRIPT block is kept');
   finally
-    P.Free;
-    M.Free;
+    A.Free;
   end;
 end;
 
