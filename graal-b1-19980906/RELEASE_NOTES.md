@@ -14,6 +14,13 @@ it runs as it is. Put it in a folder with your own copy of this build's
 files (or point it at one with `--data DIR`) and its tiles and levels take
 their place.
 
+On Windows the first start may show **"Windows protected your PC"**. That
+is SmartScreen meeting an unsigned program it has not seen before, not a
+virus warning. Either click **More info**, then **Run anyway** (once), or
+unblock the zip before you extract it: right-click it, **Properties**,
+tick **Unblock**, **OK**. Then nothing in the folder is asked about again.
+See [Windows says "Windows protected your PC"](https://github.com/squirelworks/graal-delphi#windows-says-windows-protected-your-pc).
+
 ## What works
 
 - The start screen: nick name, Training, and Start with the relay server

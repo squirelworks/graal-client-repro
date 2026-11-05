@@ -20,6 +20,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Free Pascal
         run: sudo apt-get update && sudo apt-get install -y fp-compiler fp-units-base fp-units-fcl libx11-dev
+      - name: Every client has its Windows resources
+        run: python3 scripts/win/make_winres.py --check
       - name: Build (Delphi mode)
         run: scripts/build.sh
       - name: Unit tests
@@ -68,10 +70,21 @@ jobs:
           export PATH="$(ls -d /c/tools/freepascal/bin/* | head -1):$PATH"
           # The Chocolatey install has no fpc.cfg naming the unit folders,
           # so name them here (Windows path form, with FPC's * wildcard).
-          export FPCFLAGS='-O2 -FuC:\tools\freepascal\units\i386-win32\*'
+          # -WR: relocations, so the exe can carry the ASLR flag
+          export FPCFLAGS='-O2 -WR -FuC:\tools\freepascal\units\i386-win32\*'
           ls /c/tools/freepascal/units/i386-win32 | head -5
           scripts/build.sh
           scripts/test.sh
+      - name: Check the clients carry version info and a manifest
+        shell: pwsh
+        run: |
+          foreach ($exe in Get-ChildItem build/*/Graal*.exe) {
+            $v = $exe.VersionInfo
+            "{0}: {1} {2} / {3}" -f $exe.Directory.Name, $v.ProductName, $v.ProductVersion, $v.FileDescription
+            if ($v.ProductName -ne 'graal-delphi' -or $v.CompanyName -ne 'squirelworks') { throw "$($exe.FullName): no version info" }
+            $bytes = [IO.File]::ReadAllBytes($exe.FullName)
+            if ([Text.Encoding]::ASCII.GetString($bytes).IndexOf('requestedExecutionLevel') -lt 0) { throw "$($exe.FullName): no manifest" }
+          }
       # the Windows programs of this run, for trying a PR on a Windows PC
       - uses: actions/upload-artifact@v4
         with:
