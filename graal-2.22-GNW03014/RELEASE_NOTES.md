@@ -101,9 +101,13 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 - Sound effects in a window (`--nosound` turns them off).
 - Level links, asked with LEVELWARP or, for a level already seen,
   LEVELWARPMOD with its mod time, each followed by the tamper check.
-- The ground of new-world maps: a level with a height grid in its
-  `.gmap` is drawn as water, sand, sand and grass, or grass by height,
-  with slopes lit from the upper left, as measured on the real 2.22.
+- The ground of new-world maps, built as 2.22 builds it: the `.gmap`'s
+  height field, its seeded random displacement and each level's HEIGHTS
+  points give every tile corner a height. The ground is drawn as water,
+  sand, sand and grass, or grass by height, with slopes lit from the
+  upper left, and it stands raised by its height: the ground, players and
+  NPCs go up 16 px per height step, and the camera follows the player's
+  raised place, so Training's hills and palms sit where 2.22 draws them.
 - Baddies by 2.22's rules: they hunt the nearest player in the level,
   slide along walls, play 2.22's sounds (steps, frog, shield, splash,
   death), and a shield block pushes the player back.
@@ -138,7 +142,7 @@ editors; Options; UDP peer traffic; macOS. See the build's README for the full l
 
 ## Checks behind this release
 
-The test suites (357 checks) run with range and overflow checks and the heap
+The test suites (359 checks) run with range and overflow checks and the heap
 tracer, and must end with no unfreed memory. It includes frames of a real
 2.22 session, a bzip2 round trip against random and repetitive data, and a
 fuzz run of 20000 random messages and 3000 random gen-5 frames through the

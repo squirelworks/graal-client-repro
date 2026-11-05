@@ -160,6 +160,9 @@ type
     function GaniScript(const Gani: string): string; virtual;
     function TileType(X, Y: Integer): Integer; virtual;
     procedure DrawCharacter(N: TNpc; Screen: TGSurface; DX, DY, Tick: Integer); virtual;
+    { How many pixels the ground lifts what stands at (X, Y) of the
+      player's level (Terrain222); 0 off height-shaped maps. }
+    function Lift(X, Y: Double): Integer; virtual;
     procedure HurtPlayer(Power, FromX, FromY: Double); virtual;
     procedure ShowSign(Index: Integer); virtual;
     procedure Say2(const Text: string); virtual;
@@ -378,6 +381,7 @@ function TNpcWorld.Image(const Name: string): TGSurface; begin Result := nil; en
 function TNpcWorld.GaniScript(const Gani: string): string; begin Result := ''; end;
 function TNpcWorld.TileType(X, Y: Integer): Integer; begin Result := 0; end;
 procedure TNpcWorld.DrawCharacter(N: TNpc; Screen: TGSurface; DX, DY, Tick: Integer); begin end;
+function TNpcWorld.Lift(X, Y: Double): Integer; begin Result := 0; end;
 procedure TNpcWorld.HurtPlayer(Power, FromX, FromY: Double); begin end;
 procedure TNpcWorld.ShowSign(Index: Integer); begin end;
 procedure TNpcWorld.Say2(const Text: string); begin end;
@@ -1932,7 +1936,7 @@ end;
 
 procedure TNpcManager.Draw(Screen: TGSurface; LCamX, LCamY: Integer; Over: Boolean);
 var
-  I, K, DX, DY, TW, SX, SY, SW, SH, CamX, CamY: Integer;
+  I, K, DX, DY, TW, SX, SY, SW, SH, CamX, CamY, Lifted, Pass: Integer;
   N: TNpc;
   Img: TGSurface;
   S: string;
@@ -1957,6 +1961,33 @@ begin
     if Over <> (N.Layer > 0) then Continue;
     DX := Round(N.X * 16) - CamX;
     DY := Round(N.Y * 16) - CamY;
+    { on height-shaped ground 2.22 lifts an NPC by the height at its foot:
+      a character's (x + 1.5, y + 3), an image's bottom centre; what it
+      shows (showimg) goes up with it }
+    if N.Character then
+      Lifted := World.Lift(N.X + 1.5 + (LCamX - CamX) / 16, N.Y + 3 + (LCamY - CamY) / 16)
+    else
+    begin
+      Lifted := 0;
+      Img := World.Image(N.Image);
+      if Img <> nil then
+      begin
+        if N.PartSet then
+        begin
+          SW := N.PW;
+          SH := N.PH;
+        end
+        else
+        begin
+          SW := Img.Width;
+          SH := Img.Height;
+        end;
+        Lifted := World.Lift(N.X + SW / 32 + (LCamX - CamX) / 16,
+          N.Y + SH / 16 + (LCamY - CamY) / 16);
+      end;
+    end;
+    Dec(DY, Lifted);
+    Inc(CamY, Lifted);
     if N.Character then
       World.DrawCharacter(N, Screen, DX, DY, FTick - N.GaniStart)
     else
@@ -1986,9 +2017,14 @@ begin
           Screen.Blit(Img, SX, SY, SW, SH, DX, DY);
       end;
     end;
+    { light pictures add their light over the rest, so the flame of a
+      lamp shows washed in its glow as on 2.22 }
+    for Pass := 0 to 1 do
     for K := 0 to High(N.ShownImages) do
       with N.ShownImages[K] do
       begin
+        if (LowerCase(Copy(ExtractFileName(Image), 1, 5)) = 'light') <> (Pass = 1) then
+          Continue;
         Img := World.Image(Image);
         if Img = nil then Continue;
         if PartSet then
