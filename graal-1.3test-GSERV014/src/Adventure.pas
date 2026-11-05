@@ -22,7 +22,7 @@ const
   { The game view. 2.05's window size is not yet read from the binary;
     640x480 is the classic default and is marked as an assumption. }
   ScreenW = 640;
-  ScreenH = 480;
+  ScreenH = 472;
 
   { Directions, as the walking routine numbers them. }
   DirUp = 0;

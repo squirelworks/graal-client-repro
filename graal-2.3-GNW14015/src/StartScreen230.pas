@@ -97,6 +97,8 @@ procedure TListFetch230.Poll;
 begin
   if (Client = nil) or Done or Failed then Exit;
   Client.Poll;
+  SiteUrl := Client.SiteUrl;
+  UpgradeUrl := Client.UpgradeUrl;
   if Client.Status <> '' then
     Status := StringReplace(Client.Status, #10, ' ', [rfReplaceAll]);
   if Client.Error <> '' then
