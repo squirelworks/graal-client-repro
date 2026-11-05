@@ -3,14 +3,15 @@
   Stands in for the DelphiX TDXForm of the originals. Back ends:
     Windows   GDI (StretchDIBits), the same API under Delphi and Free Pascal
     Unix      X11 through Free Pascal's xlib units (XPutImage)
-    macOS     none yet: Ok is False, so the client runs headless or writes
-              frames with --dump (a Cocoa back end is still to come)
+    macOS     Cocoa through the Objective-C runtime (a CALayer shows each
+              frame as a CGImage); -dGW_HEADLESS builds the old windowless
+              stub, where Ok is False and the client runs headless
   The window shows the surface 1:1 and keeps a held-key table that the game
   tick reads, which is how DelphiX's DXInput was used. }
 unit GWindow;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
-{$IFDEF DARWIN}{$DEFINE GW_NONE}{$ENDIF}
+{$IFDEF DARWIN}{$DEFINE GW_NONE}{$IFNDEF GW_HEADLESS}{$DEFINE GW_COCOA}{$ENDIF}{$ENDIF}
 
 interface
 
@@ -36,6 +37,12 @@ type
     { the last frame shown, painted again on WM_PAINT }
     FLast: TGSurface;
 {$IFDEF GW_NONE}
+{$IFDEF GW_COCOA}
+    { NSWindow, its content view's CALayer, a device RGB colour space }
+    FWin, FLayer, FColorSpace: Pointer;
+    { the content view's size in points, for the mouse }
+    FViewW, FViewH: Double;
+{$ENDIF}
 {$ELSE}{$IFNDEF MSWINDOWS}
     FDisplay: Pointer;
     FWin: Cardinal;
@@ -839,7 +846,7 @@ end;
 
 {$ENDIF}
 
-{$IFDEF GW_NONE}
+{$IFDEF GW_NONE}{$IFNDEF GW_COCOA}
 
 constructor TGWindow.Create(const Title: string; AWidth, AHeight: Integer);
 begin
@@ -894,6 +901,10 @@ begin
   FHeight := AHeight;
 end;
 
+{$ENDIF}{$ENDIF}
+
+{$IFDEF GW_COCOA}
+{$I GWindowCocoa.inc}
 {$ENDIF}
 
 {$IFNDEF MSWINDOWS}{$IFNDEF GW_NONE}
