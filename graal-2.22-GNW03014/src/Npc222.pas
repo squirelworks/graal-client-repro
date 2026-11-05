@@ -98,7 +98,7 @@ type
     Gani, GaniParams, HeadImage, BodyImage, SwordImage, ShieldImage,
     HorseImage, Nickname, Chat: string;
     Colors: array[0..4] of Integer;
-    Attr: array[1..5] of string;
+    Attr: array[1..30] of string;  { #P1 .. #P30 (gattrib1-30) }
     Male: Boolean;
     Dir, Sprite: Integer;
     GaniStart: Integer;      { manager tick the gani started on }
@@ -243,7 +243,7 @@ type
     { The NPC's box in tiles. }
     procedure Bounds(N: TNpc; out BX, BY, BW, BH: Double);
     { Drawing: Layer < 0 under the player, 0 with the level, > 0 over. }
-    procedure Draw(Screen: TGSurface; CamX, CamY: Integer; Over: Boolean);
+    procedure Draw(Screen: TGSurface; LCamX, LCamY: Integer; Over: Boolean);
     { flags }
     function HasFlag(const Name: string): Boolean;
     procedure PutFlag(const Name: string; On, Send: Boolean);
@@ -745,7 +745,11 @@ begin
       NPCPROP_GMAPLEVELX: N.CellX := R.ReadGChar;
       NPCPROP_GMAPLEVELY: N.CellY := R.ReadGChar;
       NPCPROP_Z: N.Z := R.ReadGChar - 50;
-      NPCPROP_GATTRIB6..NPCPROP_GATTRIB9, NPCPROP_SCRIPTER..NPCPROP_GATTRIB30:
+      NPCPROP_GATTRIB6..NPCPROP_GATTRIB9:
+        N.Attr[P - NPCPROP_GATTRIB6 + 6] := R.ReadGString;
+      NPCPROP_GATTRIB10..NPCPROP_GATTRIB30:
+        N.Attr[P - NPCPROP_GATTRIB10 + 10] := R.ReadGString;
+      NPCPROP_SCRIPTER..NPCPROP_CURLEVEL:
         R.ReadGString;
     end;
     if R.Overrun then Exit;
@@ -788,6 +792,8 @@ begin
       Result := Result + GShort(N.PX) + GShort(N.PY) + GChar(N.PW) + GChar(N.PH);
     NPCPROP_BODYIMAGE: Result := Result + GString(N.BodyImage);
     NPCPROP_GATTRIB1..NPCPROP_GATTRIB5: Result := Result + GString(N.Attr[Prop - NPCPROP_GATTRIB1 + 1]);
+    NPCPROP_GATTRIB6..NPCPROP_GATTRIB9: Result := Result + GString(N.Attr[Prop - NPCPROP_GATTRIB6 + 6]);
+    NPCPROP_GATTRIB10..NPCPROP_GATTRIB30: Result := Result + GString(N.Attr[Prop - NPCPROP_GATTRIB10 + 10]);
   else
     Result := '';
   end;
@@ -1460,11 +1466,13 @@ begin
       N.MarkDirty(NPCPROP_COLORS);
     end;
   end
-  else if (Length(Cd) = 3) and (Copy(Cd, 1, 2) = '#P') and (Cd[3] in ['1'..'5']) then
+  else if (Copy(Cd, 1, 2) = '#P') and (StrToIntDef(Copy(Cd, 3, 2), 0) >= 1) and (StrToIntDef(Copy(Cd, 3, 2), 0) <= 30) then
   begin
-    K := Ord(Cd[3]) - Ord('0');
+    K := StrToIntDef(Copy(Cd, 3, 2), 0);
     N.Attr[K] := Value;
-    N.MarkDirty(NPCPROP_GATTRIB1 + K - 1);
+    if K <= 5 then N.MarkDirty(NPCPROP_GATTRIB1 + K - 1)
+    else if K <= 9 then N.MarkDirty(NPCPROP_GATTRIB6 + K - 6)
+    else N.MarkDirty(NPCPROP_GATTRIB10 + K - 10);
   end
   else
     Result := False;
@@ -1814,16 +1822,29 @@ begin
   end;
 end;
 
-procedure TNpcManager.Draw(Screen: TGSurface; CamX, CamY: Integer; Over: Boolean);
+procedure TNpcManager.Draw(Screen: TGSurface; LCamX, LCamY: Integer; Over: Boolean);
 var
-  I, K, DX, DY, TW, SX, SY, SW, SH: Integer;
+  I, K, DX, DY, TW, SX, SY, SW, SH, CamX, CamY: Integer;
   N: TNpc;
   Img: TGSurface;
   S: string;
 begin
-  for I := 0 to Npcs.Count - 1 do
+  { the player's level, then the other cells of a gmap: 2.22 draws a
+    neighbour cell's NPCs at their place on the map, so they do not pop
+    in at the edge }
+  for I := 0 to Npcs.Count + Parked.Count - 1 do
   begin
-    N := Npc(I);
+    CamX := LCamX;
+    CamY := LCamY;
+    if I < Npcs.Count then N := Npc(I)
+    else
+    begin
+      N := TNpc(Parked[I - Npcs.Count]);
+      if (ScopeGmap = '') or (N.Home <> ScopeGmap) or (N.CellX < 0) or
+        (N.CellY < 0) then Continue;
+      Dec(CamX, (N.CellX - ScopeX) * 64 * 16);
+      Dec(CamY, (N.CellY - ScopeY) * 64 * 16);
+    end;
     if N.Gone or not N.Visible then Continue;
     if Over <> (N.Layer > 0) then Continue;
     DX := Round(N.X * 16) - CamX;
@@ -1877,6 +1898,14 @@ begin
     begin
       TW := TextWidth(S, 1);
       DrawText(Screen, DX + 24 - TW div 2, DY - 10, S, $FFFFFFFF, 1);
+    end;
+    { a character's nickname under its feet, white over a blue shadow, as
+      2.22 under Wine draws setcharprop #n }
+    if N.Character and (N.Nickname <> '') then
+    begin
+      TW := TextWidth(N.Nickname, 1);
+      DrawText(Screen, DX + 25 - TW div 2, DY + 51, N.Nickname, $FF0000A0, 1);
+      DrawText(Screen, DX + 24 - TW div 2, DY + 50, N.Nickname, $FFFFFFFF, 1);
     end;
   end;
 end;

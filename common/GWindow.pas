@@ -258,6 +258,9 @@ begin
   WC.lpfnWndProc := @WndProc;
   WC.hInstance := HInstance;
   WC.hCursor := LoadCursor(0, IDC_ARROW);
+  { the program's MAINICON (its .rc), in the title bar and the taskbar;
+    none: Windows' default }
+  WC.hIcon := LoadIcon(HInstance, 'MAINICON');
   WC.lpszClassName := 'TGraalWindow';
   Windows.RegisterClass(WC);
   R.Left := 0; R.Top := 0; R.Right := AWidth; R.Bottom := AHeight;

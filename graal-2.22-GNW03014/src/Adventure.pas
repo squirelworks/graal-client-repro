@@ -27,6 +27,11 @@ const
     the binary. }
   ScreenW = 640;
   ScreenH = 480;
+  { the chat line under the play area: a white sunken edit box 24 high
+    across the bottom of the window (2.22 under Wine); the play area is
+    the 456 above it }
+  ChatBarH = 24;
+  ViewH = ScreenH - ChatBarH;
 
   { Directions, as the walking routine numbers them. }
   DirUp = 0;
@@ -114,7 +119,7 @@ type
     Id: Integer;
     Nickname, Account, Level, HeadImage, BodyImage, SwordImage, ShieldImage,
     Chat, Language, OsType: string;
-    Attr: array[1..5] of string;
+    Attr: array[1..30] of string;  { #P1 .. #P30 (gattrib1-30) }
     X, Y: Double;       { tiles, top-left of the 3x3-tile sprite box }
     Z, GmapX, GmapY: Integer;
     Sprite, Status, MaxPower, Power, Rupees, Arrows, Bombs: Integer;
@@ -234,6 +239,8 @@ type
     FCurrentData: TCachedLevel;
     { the level NPC messages go to: SETACTIVELEVEL, or LEVELNAME when the
       server has no NPC server (protocol/packet-layouts.md) }
+    FStartCellX, FStartCellY: Integer;
+    FAniReplace: TStringList;
     FObjectLevel: string;
     { a large file coming in chunks (LARGEFILESTART ... LARGEFILEEND) }
     FLargeName, FLargeData: string;
@@ -254,7 +261,6 @@ type
     procedure TickCombat;
     procedure DrawCombat(CamX, CamY: Integer);
     procedure SendMovedProps;
-    function BodyFor(P: TServerPlayer): TGSurface;
     function GetOther(I: Integer): TServerPlayer;
     function GetOtherCount: Integer;
     function GetCurrent: TCachedLevel;
@@ -358,6 +364,16 @@ type
       the install (maps/) or of the gmap being played. }
     function LevelHeights(const LevelName: string; out G: THeightGrid): Boolean;
     property TileDefs: TStringList read FTileDefs;
+    { replaceani Old,New: the player's Old gani is drawn as New (the
+      offline tutorial puts the human2 ganis in for idle, walk and the
+      rest) }
+    procedure ReplaceAni(const Old, New: string);
+    { P's body picture in P's colours }
+    function BodyFor(P: TServerPlayer): TGSurface;
+    function PlayerAniFor(const Name: string): string;
+    { the gmap cell a gmap from LoadLevelFile starts in (Training: 1, 1) }
+    property StartCellX: Integer read FStartCellX write FStartCellX;
+    property StartCellY: Integer read FStartCellY write FStartCellY;
     function ConnectServer(const Host: string; Port: Word;
       const Account, Password: string): Boolean;
     { The walking routine for one direction key (one step). }
@@ -365,9 +381,15 @@ type
     { One frame: network in, game step, network out, draw. }
     procedure Tick;
     procedure Draw;
+    { the white chat line under the play area }
+    procedure DrawChatBar;
     { Loads a level (or a .gmap and its levels) from disk for offline play;
       links then look for their levels next to it, then in the install. }
     function LoadLevelFile(const FileName: string): Boolean;
+    { a level the original Graal_222.exe carries in its resources (the
+      offline tutorial, offlinetutorial_a-1 .. c-3 as TUTORIALA1 ..
+      TUTORIALC3), read from that program when it is in the install }
+    function ExeLevel(const Name: string; out Data: string): Boolean;
     { The cached level of that name; Make adds an empty one. }
     function CachedLevel(const Name: string; Make: Boolean): TCachedLevel;
     { The tile at a position in the current gmap's world (or the level when
@@ -505,7 +527,7 @@ function SpriteWalkStep(Sprite: Integer): Integer;
 implementation
 
 uses
-  SysUtils, Math, GFont, GSound, Sound222, Map222, NpcBridge222;
+  SysUtils, Math, GFont, GSound, GPeRes, Sound222, Map222, NpcBridge222;
 
 procedure MakeIndexSheet(Sheet: TGSurface);
 var
@@ -586,7 +608,7 @@ procedure TAssets.Want(const Name: string);
 var
   K: string;
 begin
-  if not Assigned(OnWant) or (Name = '') then Exit;
+  if not Assigned(OnWant) or (Name = '') or (Name[1] = '#') then Exit;
   { plain file names only, and not without end }
   if (Pos('/', Name) > 0) or (Pos('\', Name) > 0) or (Pos('..', Name) > 0) or
     (Length(Name) > 100) or (FAsked.Count >= 500) then Exit;
@@ -741,7 +763,8 @@ var
   Ok: Boolean;
 begin
   Result := nil;
-  if Name = '' then Exit;
+  { '#c#' (showcharacter) and the other '#' names are markers, not files }
+  if (Name = '') or (Name[1] = '#') then Exit;
   Key := 'img:' + LowerCase(Name);
   I := FNames.IndexOf(Key);
   if I >= 0 then
@@ -762,6 +785,15 @@ begin
     F := FindFile(Name, ['', 'levels/', 'levels/images/', 'levels/webgifs/',
       'levels/npcs/', 'levels/tiledefs/', 'levels/baddies/', 'levels/bomys/',
       'levels/horses/', 'levels/hats/', 'levels/emoticons/', 'levels/smilies/']);
+  { 2.22 finds a file in any folder of levels/ (its file name cache): the
+    tutorial's #P attributes (khairs0, klegs0, kmarms100) are in webgifs,
+    its #P4 shield in shields }
+  if F = '' then
+    F := FindFile(Name, ['', 'levels/', 'levels/webgifs/', 'levels/images/',
+      'levels/hats/', 'levels/shields/', 'levels/heads/', 'levels/bodies/',
+      'levels/swords/', 'levels/weapons/', 'levels/npcs/', 'levels/tiledefs/',
+      'levels/baddies/', 'levels/bomys/', 'levels/horses/', 'levels/emoticons/',
+      'levels/smilies/']);
   S := nil;
   if F <> '' then
   begin
@@ -798,6 +830,9 @@ var
   A: TGraalAni;
 begin
   N := Name;
+  { a step index in brackets (the tutorial's setcharani g2k2master[0])
+    names the same gani }
+  if (Pos('[', N) > 1) and EndsWith(N, ']') then N := Copy(N, 1, Pos('[', N) - 1);
   if EndsWith(N, '.gani') then SetLength(N, Length(N) - 5);
   Key := 'ani:' + LowerCase(N);
   I := FNames.IndexOf(Key);
@@ -863,10 +898,11 @@ function TGmap.LoadFromString(const Data: string): Boolean;
 var
   Lines, Row: TStringList;
   I, J: Integer;
-  S, W: string;
+  S, W, Generated: string;
   InNames: Boolean;
 begin
   Result := False;
+  Generated := '';
   Width := 0;
   Height := 0;
   Cells.Clear;
@@ -893,9 +929,19 @@ begin
       W := UpperCase(Copy(S, 1, Pos(' ', S + ' ') - 1));
       if W = 'WIDTH' then Width := StrToIntDef(Trim(Copy(S, 6, MaxInt)), 0)
       else if W = 'HEIGHT' then Height := StrToIntDef(Trim(Copy(S, 7, MaxInt)), 0)
-      else if W = 'LEVELNAMES' then InNames := True;
+      else if W = 'LEVELNAMES' then InNames := True
+      else if W = 'GENERATED' then Generated := Trim(Copy(S, 10, MaxInt));
     end;
     if (Width <= 0) or (Height <= 0) or (Width > 256) or (Height > 256) then Exit;
+    { a generated gmap (offlinetutorial.gmap) lists no names: its cells
+      are <base>_<column letter>-<row from 1><ext>, row by row, as its
+      HEIGHTS blocks name them (offlinetutorial_a-1.graal .. _c-3) }
+    if (Cells.Count = 0) and (Generated <> '') and (Width <= 26) and
+      (LastDelimiter('_', Generated) > 1) then
+      for J := 0 to Width * Height - 1 do
+        Cells.Add(Copy(Generated, 1, LastDelimiter('_', Generated)) +
+          Chr(Ord('a') + J mod Width) + '-' + IntToStr(J div Width + 1) +
+          ExtractFileExt(Generated));
     while Cells.Count < Width * Height do Cells.Add('');
     Result := True;
   finally
@@ -1087,8 +1133,11 @@ begin
       PLPROP_PLANGUAGE: Language := R.ReadGString;
       PLPROP_OSTYPE: OsType := R.ReadGString;
       PLPROP_TEXTCODEPAGE: CodePage := R.ReadGInt3;
-      PLPROP_HORSEGIF, PLPROP_GATTRIB6..PLPROP_GATTRIB9,
+      PLPROP_GATTRIB6..PLPROP_GATTRIB9:
+        Attr[P - PLPROP_GATTRIB6 + 6] := R.ReadGString;
       PLPROP_GATTRIB10..PLPROP_GATTRIB30:
+        Attr[P - PLPROP_GATTRIB10 + 10] := R.ReadGString;
+      PLPROP_HORSEGIF:
         R.ReadGString;
       PLPROP_CARRYNPC, PLPROP_KILLSCOUNT, PLPROP_DEATHSCOUNT,
       PLPROP_ONLINESECS, PLPROP_UDPPORT, PLPROP_RATING:
@@ -1120,6 +1169,7 @@ constructor TAdventure.Create;
 begin
   inherited Create;
   FLog := TStringList.Create;
+  FAniReplace := TStringList.Create;
   LoginMs := -1;
   UseWallClock := True;
   FClient := TAdventureClient.Create;
@@ -1185,6 +1235,7 @@ var
 begin
   FreeAndNil(Baddies);
   FreeAndNil(Npcs);
+  FAniReplace.Free;
   FClient.Free;
   for I := 0 to FLevels.Count - 1 do FLevels.Objects[I].Free;
   FLevels.Free;
@@ -2729,6 +2780,60 @@ begin
     end;
 end;
 
+procedure TAdventure.ReplaceAni(const Old, New: string);
+var
+  I: Integer;
+  K: string;
+begin
+  K := LowerCase(Trim(Old));
+  if K = '' then Exit;
+  I := FAniReplace.IndexOfName(K);
+  if I >= 0 then FAniReplace.Delete(I);
+  if (Trim(New) <> '') and (LowerCase(Trim(New)) <> K) then
+    FAniReplace.Add(K + '=' + Trim(New));
+end;
+
+function TAdventure.PlayerAniFor(const Name: string): string;
+var
+  V: string;
+begin
+  Result := Name;
+  V := FAniReplace.Values[LowerCase(Name)];
+  if V <> '' then Result := V;
+end;
+
+function TAdventure.ExeLevel(const Name: string; out Data: string): Boolean;
+const
+  Exes: array[0..1] of string = ('Graal_222.exe', 'Graal.exe');
+var
+  N, R, F: string;
+  I: Integer;
+begin
+  Result := False;
+  Data := '';
+  N := LowerCase(Name);
+  { offlinetutorial_<a..c>-<1..3>.graal }
+  if (Length(N) <> 25) or (Copy(N, 1, 16) <> 'offlinetutorial_') or
+    (Copy(N, 20, 6) <> '.graal') or (N[18] <> '-') or not (N[17] in ['a'..'c']) or
+    not (N[19] in ['1'..'3']) then Exit;
+  R := 'TUTORIAL' + UpperCase(N[17]) + N[19];
+  for I := 0 to High(Exes) do
+  begin
+    F := AssetPath(Exes[I]);
+    if (F = '') and (FLevelDir <> '') then
+    begin
+      F := ExpandFileName(FLevelDir + '..' + PathDelim + Exes[I]);
+      if not FileExists(F) then F := '';
+    end;
+    if (F <> '') and PeResource(F, RT_RCDATA, R, Data) and (Copy(Data, 1, 3) = 'GR-') then
+    begin
+      Result := True;
+      Exit;
+    end;
+  end;
+  Data := '';
+end;
+
 function TAdventure.LoadLevelFile(const FileName: string): Boolean;
 var
   Data, N, P, D: string;
@@ -2754,12 +2859,13 @@ begin
         P := FLevelDir + N;
         if not FileExists(P) then P := Assets.LevelFile(N);
         L := CachedLevel(N, True);
-        if (P <> '') and L.LoadFromFile(P) then L.HasBoard := True;
+        if (P <> '') and L.LoadFromFile(P) then L.HasBoard := True
+        else if ExeLevel(N, D) and L.LoadFromString(D) then L.HasBoard := True;
         L.Name := N;
       end;
-    Player.GmapX := 0;
-    Player.GmapY := 0;
-    Level := CachedLevel(Gmap.CellName(0, 0), True);
+    Player.GmapX := Max(0, Min(StartCellX, Gmap.Width - 1));
+    Player.GmapY := Max(0, Min(StartCellY, Gmap.Height - 1));
+    Level := CachedLevel(Gmap.CellName(Player.GmapX, Player.GmapY), True);
     Player.Level := GmapName;
     Result := Level.HasBoard;
     if Result then LevelEntered;
@@ -2881,7 +2987,7 @@ var
   F: Integer;
 begin
   F := 0;
-  A := Assets.Ani(Player.AniName);
+  A := Assets.Ani(PlayerAniFor(Player.AniName));
   if A <> nil then F := A.StepAt(Frame - Player.AniStart);
   Result := WireSprite(Player.AniName, F, Player.Dir);
 end;
@@ -3745,10 +3851,21 @@ begin
 end;
 
 function TAdventure.BodyFor(P: TServerPlayer): TGSurface;
+const
+  { the key colours of a recolourable body (those of body.png's palette):
+    skin, coat, sleeves, shoes, belt, the outline and the clear colour.
+    Only palette entries of exactly these colours change, so a body
+    drawn in other colours (the tutorial's kmbody100.png, all browns) is
+    drawn as it is, as 2.22 under Wine shows it }
+  Keys: array[0..6] of Cardinal = ($FFAD6B, $FFFFFF, $FF0000, $CE1829, $0000FF,
+    $000000, $008400);
 var
   Src: TGSurface;
   Key: string;
-  I: Integer;
+  I, J, N: Integer;
+  Slots: array of Integer;
+  Cols: array of Cardinal;
+  Want: array[0..6] of Cardinal;
 begin
   Result := nil;
   Src := Assets.Image(P.BodyImage, 'body');
@@ -3766,12 +3883,23 @@ begin
     P.BodyCache.SetSize(Src.Width, Src.Height);
     P.BodyCache.Indices := Src.Indices;
     P.BodyCache.Palette := Src.Palette;
-    { entry 5 skin, 6 coat, 4 sleeves, 3 shoes, 1 belt; 0 the outline (18);
-      2 is the clear colour }
-    P.BodyCache.Recolor([5, 6, 4, 3, 1, 0, 2],
-      [ColorTable[ColorIndex(P.Colors[0])], ColorTable[ColorIndex(P.Colors[1])],
-       ColorTable[ColorIndex(P.Colors[2])], ColorTable[ColorIndex(P.Colors[3])],
-       ColorTable[ColorIndex(P.Colors[4])], ColorTable[18], 0]);
+    for I := 0 to 4 do Want[I] := ColorTable[ColorIndex(P.Colors[I])];
+    Want[5] := ColorTable[18];
+    Want[6] := 0;
+    SetLength(Slots, 0);
+    SetLength(Cols, 0);
+    for J := 0 to High(Src.Palette) do
+      for I := 0 to 6 do
+        if Src.Palette[J] and $FFFFFF = Keys[I] then
+        begin
+          N := Length(Slots);
+          SetLength(Slots, N + 1);
+          SetLength(Cols, N + 1);
+          Slots[N] := J;
+          Cols[N] := Want[I];
+          Break;
+        end;
+    P.BodyCache.Recolor(Slots, Cols);
     P.BodyKey := Key;
   end;
   Result := P.BodyCache;
@@ -3793,7 +3921,8 @@ begin
     BX := Round(P.X * TileSize) - CamX;
     BY := Round(P.Y * TileSize) - CamY;
   end;
-  A := Assets.Ani(P.AniName);
+  if P = Player then A := Assets.Ani(PlayerAniFor(P.AniName))
+  else A := Assets.Ani(P.AniName);
   if A = nil then A := Assets.Ani('idle');
   if A = nil then
   begin
@@ -3846,14 +3975,17 @@ begin
     else if SheetName = 'PICS' then Img := Sheet
     else if Copy(SheetName, 1, 4) = 'ATTR' then
     begin
-      K := StrToIntDef(Copy(SheetName, 5, 1), 0);
+      K := StrToIntDef(Copy(SheetName, 5, 2), 0);
       AttrName := '';
-      if (K >= 1) and (K <= 5) then
+      if (K >= 1) and (K <= 30) then
       begin
+        { only the player's own ATTRn: a gani's DEFAULTATTRn is the
+          editor's preview, never drawn in the game (2.22 under Wine
+          shows no hat on a player or NPC without one) }
         AttrName := P.Attr[K];
-        if AttrName = '' then AttrName := A.DefaultAttr[K];
       end;
-      Img := Assets.Image(AttrName, 'hat');
+      Img := nil;
+      if AttrName <> '' then Img := Assets.Image(AttrName, 'hat');
     end
     else
       Img := Assets.Image(Spr.Sheet, '');
@@ -3925,8 +4057,8 @@ procedure TAdventure.DrawStatus;
 const
   RowStart: array[0..5] of Integer = (0, 5, 11, 16, 22, 27);
 var
-  St: TGSurface;
-  I, N, Row, Col, X, Half, HX, HY, Hearts2, Down: Integer;
+  St, Icon: TGSurface;
+  I, N, Row, Col, X, Half, HX, HY, Hearts2, Down, SX, SY, SW, SH: Integer;
 
   procedure Part(SX, SY, W, H, DX, DY: Integer);
   begin
@@ -3967,6 +4099,20 @@ begin
       KeyName('S', 80, 30);
       Part(202, 0, 22, 33, 145, 30);
       KeyName('D', 145, 30);
+      { glove (sprites 145, 325 over it for power 3) at (40, 29) and the
+        sword (sprite 17 of the sword image) at (105, 31):
+        status-display.md }
+      Icon := Assets.Image('sprites.png', '');
+      if (Icon <> nil) and (Player.GlovePower >= 2) then
+      begin
+        if Arrays.SpriteRect(145, SX, SY, SW, SH) then
+          Screen.Blit(Icon, SX, SY, SW, SH, 40, 29);
+        if (Player.GlovePower >= 3) and Arrays.SpriteRect(325, SX, SY, SW, SH) then
+          Screen.Blit(Icon, SX, SY, SW, SH, 40, 29);
+      end;
+      Icon := Assets.Image(Player.SwordImage, 'sword');
+      if (Icon <> nil) and (Player.SwordPower > 0) and Arrays.SpriteRect(17, SX, SY, SW, SH) then
+        Screen.Blit(Icon, SX, SY, SW, SH, 105, 31);
       if Player.GlovePower >= 2 then
         DrawText(Screen, 60, 31, IntToStr(Player.GlovePower), $FFFFFFFF, 1);
       DrawText(Screen, 125, 31, IntToStr(Player.SwordPower), $FFFFFFFF, 1);
@@ -4163,9 +4309,9 @@ begin
   end;
   { centre on the player's body (the sprite box is 3 tiles wide) }
   CamX := Round((Player.X + PX + 1.5) * TileSize) - ScreenW div 2;
-  CamY := Round((Player.Y + PY + 2) * TileSize) - ScreenH div 2;
+  CamY := Round((Player.Y + PY + 2) * TileSize) - ViewH div 2;
   if CamX > WorldW * TileSize - ScreenW then CamX := WorldW * TileSize - ScreenW;
-  if CamY > WorldH * TileSize - ScreenH then CamY := WorldH * TileSize - ScreenH;
+  if CamY > WorldH * TileSize - ViewH then CamY := WorldH * TileSize - ViewH;
   if CamX < 0 then CamX := 0;
   if CamY < 0 then CamY := 0;
   X0 := CamX div TileSize;
@@ -4223,6 +4369,23 @@ begin
   DrawMaps(Self);
   if Reading then DrawSign(LCamY);
   if ItemListOpen then DrawItemList;
+  DrawChatBar;
+end;
+
+procedure TAdventure.DrawChatBar;
+var
+  Y: Integer;
+begin
+  Y := ViewH;
+  Screen.FillRect(0, Y, ScreenW, ChatBarH, $FFFFFFFF);
+  { the sunken edge: grey 166 then 106 on the top and left, 227 then
+    white on the bottom and right }
+  Screen.FillRect(0, Y, ScreenW, 1, $FFA6A6A6);
+  Screen.FillRect(0, Y, 1, ChatBarH, $FFA6A6A6);
+  Screen.FillRect(1, Y + 1, ScreenW - 2, 1, $FF6A6A6A);
+  Screen.FillRect(1, Y + 1, 1, ChatBarH - 2, $FF6A6A6A);
+  Screen.FillRect(1, Y + ChatBarH - 2, ScreenW - 2, 1, $FFE3E3E3);
+  Screen.FillRect(ScreenW - 2, Y + 1, 1, ChatBarH - 2, $FFE3E3E3);
 end;
 
 end.

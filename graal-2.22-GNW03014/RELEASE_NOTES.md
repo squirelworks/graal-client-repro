@@ -50,8 +50,12 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
   to the program, else `listserver.graal.in:14922`), then account,
   password and Connect. When no listserver answers, the status line
   names each host that failed and why.
-- Training: the offline tutorial levels, when they lie next to the
-  program, with the tutorial's own tile set; else a built-in starter level.
+- Training: with `Graal_222.exe` in the install, the real offline
+  tutorial: `maps/offlinetutorial.gmap` with its nine levels read from
+  that program's resources, starting by the cauldron. The tutorial's
+  script dresses the player as 2.22 does (blond hair, brown shirt,
+  shield) and puts in its own walking ganis. Without it, a built-in
+  starter level.
 - Login to a 2.22 server: login type 5, `GNW03014`, the tamper check, and
   gen-5 frames both ways. Checked against frames of a real 2.22 session:
   the rebuild makes the real client's uncompressed frames byte for byte
@@ -59,7 +63,18 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 - The 2.1+ player props (GANI as text, OSTYPE, TEXTCODEPAGE, gmap cells),
   stopping where 2.22's own parsers stop.
 - The board, the player and other players drawn from the install's tiles
-  and ganis.
+  and ganis, with every head shown: a gani's default hat is not drawn
+  over anyone. Bodies change only their key colours (skin, coat,
+  sleeves, shoes, belt), so bodies drawn in other colours show as they
+  are. Gani attributes `#P1` to `#P30`, pictures found in any folder of
+  `levels/`.
+- Server NPCs on gmaps: each in its own cell, the cells around the
+  player drawn at their place on the map, nicknames under character
+  NPCs.
+- The sword and glove icons in the status display, and the white chat
+  line under the play area.
+- On Windows, the Graal head as the program's icon in the title bar and
+  the taskbar.
 - Walking and collision, with props sent every 100 ms as 2.22 does.
 - S sword, A lift / throw / open, D weapon, Q item list, M map; items,
   bombs, hearts, death and respawn; signs.
@@ -100,13 +115,13 @@ when it was started from there). Run `Graal222 --help` for every flag.
 
 ## Not yet
 
-2.22's additions to GS1 and its NPC props past 40; NPCs in gmap cells
-other than the player's; the editors; chat bubbles, names and the chat
-bar; Options; UDP peer traffic; macOS. See the build's README for the full list.
+Most of 2.22's additions to GS1; 2.22's own start screen and server
+list; typing in the chat line; the editors; Options; UDP peer traffic;
+macOS. See the build's README for the full list.
 
 ## Checks behind this release
 
-The test suites (327 checks) run with range and overflow checks and the heap
+The test suites (347 checks) run with range and overflow checks and the heap
 tracer, and must end with no unfreed memory. It includes frames of a real
 2.22 session, a bzip2 round trip against random and repetitive data, and a
 fuzz run of 20000 random messages and 3000 random gen-5 frames through the

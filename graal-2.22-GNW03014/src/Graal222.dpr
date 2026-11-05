@@ -59,6 +59,7 @@ uses
   GBzip2 in '../../common/GBzip2.pas',
   GBuiltin in '../../common/GBuiltin.pas',
   GAssetDirs in '../../common/GAssetDirs.pas',
+  GPeRes in '../../common/GPeRes.pas',
   GAni in '../../common/GAni.pas',
   GFont in '../../common/GFont.pas',
   GWindow in '../../common/GWindow.pas',
@@ -123,7 +124,7 @@ begin
   WriteLn('Graal ', ClientBuildLabel, ' (', ClientVersionToken, ') rebuild');
   WriteLn('  (no arguments: the start screen, Training or the server list)');
   WriteLn('  --server HOST:PORT --account NAME [--password-env VAR]');
-  WriteLn('  --level FILE [--x X --y Y]');
+  WriteLn('  --level FILE [--x X --y Y] [--cell CX,CY]');
   WriteLn('  common: [--data DIR] [--window | --headless] [--frames N] [--seconds N]');
   WriteLn('          [--keys SCRIPT] [--walk script|idle|random] [--walk-ms N] [--seed N]');
   WriteLn('          [--link-every N] [--nodelay] [--stats-every N]');
@@ -266,7 +267,7 @@ var
   Script: TKeyScript;
   Walker: TWalker;
   Hist: TTickHistogram;
-  Server, Host, Sheet, Dump, Pw, Data, Account, WalkName, EndState, Error: string;
+  Server, Host, Sheet, Dump, Pw, Data, Account, WalkName, EndState, Error, CellArg: string;
   Port, Frames, I, C, D, Seconds, StatsEvery, ExitCode_: Integer;
   OK, Online, UseWindow, NoDelay, Dropped, Crashed: Boolean;
   WasHeld: array[0..4] of Boolean;
@@ -357,6 +358,13 @@ begin
     end
     else
     begin
+      { --cell CX,CY: the gmap cell to start in }
+      CellArg := Arg('--cell', '');
+      if Pos(',', CellArg) > 0 then
+      begin
+        G.StartCellX := StrToIntDef(Copy(CellArg, 1, Pos(',', CellArg) - 1), 0);
+        G.StartCellY := StrToIntDef(Copy(CellArg, Pos(',', CellArg) + 1, MaxInt), 0);
+      end;
       OK := G.LoadLevelFile(Arg('--level', ''));
       if OK then
       begin
@@ -519,17 +527,25 @@ begin
   Result := ExitCode_;
 end;
 
-{ Training: the offline tutorial Graal_222.exe carried in its resources
-  (offlinetutorial_a-1 .. c-3, starting at the centre, b-2) when it lies
-  next to the program; else the built-in starter level (a start.nw next to
-  the program replaces it). The arrival point on offlinetutorial_b-2 is not
-  traced: (27.5, 31.5), just below the cauldron, is matched by eye to a
-  screenshot of the real 2.22 under Wine (the earlier guess, (30, 30),
-  put the player inside the cauldron). }
-procedure TrainingLevel(const Dir: string; out Path, X, Y: string);
+{ Training: the offline tutorial gmap (maps/offlinetutorial.gmap, a
+  generated 3x3 map whose levels offlinetutorial_a-1 .. c-3 Graal_222.exe
+  carries in its resources), starting in the centre cell b-2, when the
+  install has both; else offlinetutorial_b-2.graal on disk; else the
+  built-in starter level (a start.nw next to the program replaces it). The
+  arrival point on b-2 is not traced: (27.5, 31.5), just below the
+  cauldron, is matched by eye to a screenshot of the real 2.22 under Wine. }
+procedure TrainingLevel(const Dir: string; out Path, X, Y, Cell: string);
+var
+  D: string;
 begin
   X := '27.5';
   Y := '31.5';
+  Cell := '1,1';
+  Path := FirstFileIn(Dir, 'maps/offlinetutorial.gmap');
+  if (Path <> '') and not PeResource(FirstFileIn(Dir, 'Graal_222.exe;Graal.exe'), RT_RCDATA,
+    'TUTORIALB2', D) then Path := '';
+  if Path <> '' then Exit;
+  Cell := '';
   Path := FirstFileIn(Dir, 'levels/offlinetutorial_b-2.graal;offlinetutorial_b-2.graal');
   if Path = '' then
   begin
@@ -546,7 +562,7 @@ var
   Win: TGWindow;
   G: TAdventure;
   R: TStartResult;
-  Dir, ListHost, ArrHost, Msg, Lvl, X, Y: string;
+  Dir, ListHost, ArrHost, Msg, Lvl, X, Y, Cell: string;
   ListPort: Integer;
   Picked: Boolean;
   Fetch: TListFetch222;
@@ -609,9 +625,14 @@ begin
         GuiArgs.Add(Dir);
         if R.Choice = scTraining then
         begin
-          TrainingLevel(Dir, Lvl, X, Y);
+          TrainingLevel(Dir, Lvl, X, Y, Cell);
           GuiArgs.Add('--level');
           GuiArgs.Add(Lvl);
+          if Cell <> '' then
+          begin
+            GuiArgs.Add('--cell');
+            GuiArgs.Add(Cell);
+          end;
           GuiArgs.Add('--x');
           GuiArgs.Add(X);
           GuiArgs.Add('--y');

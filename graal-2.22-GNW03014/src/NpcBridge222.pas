@@ -214,8 +214,8 @@ begin
     K := P.Colors[Ord(Code[2]) - Ord('0')];
     if (K >= 0) and (K <= 19) then Result := GsColorNames[K];
   end
-  else if (Length(Code) = 2) and (Code[1] = 'P') and (Code[2] in ['1'..'5']) then
-    Result := P.Attr[Ord(Code[2]) - Ord('0')]
+  else if (Copy(Code, 1, 1) = 'P') and (StrToIntDef(Copy(Code, 2, 2), 0) >= 1) and (StrToIntDef(Copy(Code, 2, 2), 0) <= 30) then
+    Result := P.Attr[StrToIntDef(Copy(Code, 2, 2), 0)]
   else if Code = 'weapons' then
   begin
     if FAdv.WeaponsOn then Result := '1' else Result := '0';
@@ -265,7 +265,7 @@ begin
   P.SwordImage := N.SwordImage;
   P.ShieldImage := N.ShieldImage;
   for I := 0 to 4 do P.Colors[I] := N.Colors[I];
-  for I := 1 to 5 do P.Attr[I] := N.Attr[I];
+  for I := 1 to 30 do P.Attr[I] := N.Attr[I];
   if N.Gani <> '' then P.AniName := N.Gani else P.AniName := 'idle';
   P.AniStart := FAdv.Frame - Tick;
   P.FixedStep := -1;
@@ -390,9 +390,9 @@ begin
     C := ColorIndexOf(Value);
     if C >= 0 then P.Colors[Ord(Code[3]) - Ord('0')] := C;
   end
-  else if (Length(Code) = 3) and (Copy(Code, 1, 2) = '#P') and (Code[3] in ['1'..'5']) then
+  else if (Copy(Code, 1, 2) = '#P') and (StrToIntDef(Copy(Code, 3, 2), 0) >= 1) and (StrToIntDef(Copy(Code, 3, 2), 0) <= 30) then
   begin
-    K := Ord(Code[3]) - Ord('0');
+    K := StrToIntDef(Copy(Code, 3, 2), 0);
     P.Attr[K] := Value;
   end;
 end;
@@ -432,7 +432,10 @@ begin
     GsOpDisableWeapons: FAdv.WeaponsOn := False;
     GsOpShowStats: FAdv.ShowStats := Trunc(A.Num[0]);
   else
-    FAdv.Log('GS1 ' + GsCommands[Op - GsFirstOp].Name + ' (not modelled)');
+    if GsCommands[Op - GsFirstOp].Name = 'replaceani' then
+      FAdv.ReplaceAni(A.Str[0], A.Str[1])
+    else
+      FAdv.Log('GS1 ' + GsCommands[Op - GsFirstOp].Name + ' (not modelled)');
   end;
 end;
 

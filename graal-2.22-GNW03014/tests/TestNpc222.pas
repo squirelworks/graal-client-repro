@@ -493,6 +493,7 @@ var
   W: TTestWorld;
   M: TNpcManager;
   N: TNpc;
+  Scr: TGSurface;
 begin
   W := TTestWorld.Create;
   W.IsOnline := True;
@@ -518,6 +519,19 @@ begin
     M.SetScope('b.nw', 'world.gmap', 0, 0);
     C((M.FindById(6) <> nil) and (M.FindById(5) = nil) and (M.FindAnyById(5) <> nil),
       'scope: crossing into a cell brings its NPCs and keeps the left ones');
+    { the east cell's waiting NPC is drawn at its place on the map: x 10
+      of cell 1 is 1184 px from cell 0's left edge }
+    M.FindAnyById(5).Image := 'block.png';
+    W.Img.Fill($FFFF0000);
+    Scr := TGSurface.Create(1300, 200);
+    try
+      M.Draw(Scr, 0, 0, False);
+      C((Scr.GetPixel(1190, 170) = $FFFF0000) and (Scr.GetPixel(170, 170) <> $FFFF0000),
+        'scope: a neighbour cell''s NPC is drawn at its global place');
+    finally
+      Scr.Free;
+      W.Img.Fill(0);
+    end;
     { props past 40 up to 73 are read through; 48 still ends the stream }
     M.Receive(3, GInt3(6) + GChar(NPCPROP_GATTRIB6) + GString('x') + GChar(NPCPROP_SCRIPTER) +
       GString('s') + GChar(NPCPROP_GATTRIB30) + GString('y') + GChar(NPCPROP_X) + GChar(10));
@@ -581,6 +595,8 @@ begin
       'files: the copy the server sent is drawn');
     A.Image('../x.png', '');
     C(L.Names.Count = 1, 'files: names with a path are not asked');
+    C(A.Image('#c#', '') = nil, 'files: the showcharacter marker is no picture');
+    C(L.Names.Count = 1, 'files: the showcharacter marker is not asked');
   finally
     L.Names.Free;
     L.Free;

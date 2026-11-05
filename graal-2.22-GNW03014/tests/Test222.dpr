@@ -34,6 +34,7 @@ uses
   GBuiltin in '../../common/GBuiltin.pas',
   GStartScreen in '../../common/GStartScreen.pas',
   ListServer222 in '../src/ListServer222.pas',
+  GPeRes in '../../common/GPeRes.pas',
   TestNpc222 in 'TestNpc222.pas',
   TestBaddy222 in 'TestBaddy222.pas';
 
@@ -861,6 +862,11 @@ var
 begin
   M := TGmap.Create;
   try
+    { a generated gmap names no levels: base_<letter>-<row> (the offline
+      tutorial's HEIGHTS blocks) }
+    Check(M.LoadFromString('GRMAP001'#10'WIDTH 3'#10'HEIGHT 3'#10'GENERATED offlinetutorial_c-3.graal'#10) and
+      (M.CellName(0, 0) = 'offlinetutorial_a-1.graal') and (M.CellName(1, 1) = 'offlinetutorial_b-2.graal') and
+      (M.CellName(2, 0) = 'offlinetutorial_c-1.graal'), 'gmap: a generated gmap''s cell names');
     Check(M.LoadFromString(GmapText) and (M.Width = 3) and (M.Height = 2) and
       (M.CellName(2, 1) = 'g_2_1.nw') and (M.CellName(3, 0) = ''),
       'gmap: GRMAP001 WIDTH, HEIGHT and LEVELNAMES');
@@ -937,6 +943,37 @@ begin
     Msgs.Free;
     SrvOut.Free;
     Codec.Free;
+    G.Free;
+  end;
+end;
+
+{ the look of a player: key colours only, replaceani, #P past 5 }
+procedure TestLook;
+const
+  { 2 x 1, palette white (the coat key) and a brown }
+  Png = #$89'PNG'#$0D#$0A#$1A#$0A#$00#$00#$00#$0D'IHDR'#$00#$00#$00#$02#$00#$00#$00#$01#$08#$03#$00#$00#$00#$C3#$FC#$8F#$B8#$00#$00#$00#$06'PLTE'#$FF#$FF#$FF'b'#$3B#$03#$BB#$2A'r'#$B2#$00#$00#$00#$0B'IDATx'#$9C'c'#$60#$60#$04#$00#$00#$04#$00#$02#$BF'z'#$3F'J'#$00#$00#$00#$00'IEND'#$AE'B'#$60#$82;
+var
+  G: TAdventure;
+  B: TGSurface;
+  D: string;
+begin
+  G := TAdventure.Create;
+  try
+    G.Assets.AddDownload('kbody.png', Png);
+    G.Player.BodyImage := 'kbody.png';
+    G.Player.Colors[1] := 2;
+    B := G.BodyFor(G.Player);
+    Check((B <> nil) and (B.Width = 2) and (B.GetPixel(0, 0) and $FFFFFF = ColorTable[2] and $FFFFFF) and
+      (B.GetPixel(1, 0) and $FFFFFF = $623B03),
+      'body: the coat key colour takes the coat colour; other colours stay');
+    G.ReplaceAni('idle', 'human2_idle');
+    Check((G.PlayerAniFor('IDLE') = 'human2_idle') and (G.PlayerAniFor('walk') = 'walk'),
+      'replaceani: the player''s idle is drawn as the new gani');
+    G.Player.Attr[6] := 'kmarms100.png';
+    Check(G.Player.Attr[6] = 'kmarms100.png', 'player: #P6 is kept');
+    Check(not PeResourceData('MZ' + StringOfChar(#0, 100), RT_RCDATA, 'TUTORIALB2', D),
+      'resources: a file that is no PE gives none');
+  finally
     G.Free;
   end;
 end;
@@ -1681,6 +1718,7 @@ begin
   TestWalking;
   TestLinks;
   TestGmap;
+  TestLook;
   TestShowImg;
   TestBoardModify;
   TestFuzz;
