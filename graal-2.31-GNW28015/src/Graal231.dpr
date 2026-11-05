@@ -300,6 +300,7 @@ var
   Port, Frames, I, C, D, Seconds, StatsEvery, ExitCode_: Integer;
   OK, Online, UseWindow, NoDelay, Dropped, Crashed: Boolean;
   WasHeld: array[0..4] of Boolean;
+  Chars: string;
   StartUs, GateUs, NowUs, T0, NextStatsUs: Int64;
 
 begin
@@ -437,7 +438,29 @@ begin
         if Win <> nil then
         begin
           Win.Pump;
-          if Win.Closed or Win.Held[gkEscape] then Break;
+          if Win.Closed then Break;
+          { Esc: 2.31 asks "Do you really want to quit Graal?" first }
+          if Win.WasPressed(gkEscape) then
+          begin
+            if AskQuit then Break;
+            Win.TakeChars;
+          end;
+          { Tab gives the keys to the chat line and back; while it has
+            them, letters go into it and only the arrows walk }
+          if Win.WasPressed(gkChat) then G.ToggleChat;
+          Chars := StringReplace(StringReplace(Win.TakeChars, #9, '', [rfReplaceAll]),
+            #27, '', [rfReplaceAll]);
+          if G.ChatFocus then
+          begin
+            G.TypeChat(Chars);
+            G.Keys[DirUp] := Win.ArrowHeld[0];
+            G.Keys[DirLeft] := Win.ArrowHeld[1];
+            G.Keys[DirDown] := Win.ArrowHeld[2];
+            G.Keys[DirRight] := Win.ArrowHeld[3];
+            for C := 0 to 4 do WasHeld[C] := True;
+          end
+          else
+          begin
           G.Keys[DirUp] := Win.Held[gkUp];
           G.Keys[DirLeft] := Win.Held[gkLeft];
           G.Keys[DirDown] := Win.Held[gkDown];
@@ -453,6 +476,7 @@ begin
           WasHeld[2] := Win.Held[gkItem];
           WasHeld[3] := Win.Held[gkMap];
           WasHeld[4] := Win.Held[gkItemList];
+          end;
         end;
         if Walker.Mode = wmScript then D := Script.DirAt(I)
         else D := Walker.DirAt(I, G.Level, G.Player.X, G.Player.Y);

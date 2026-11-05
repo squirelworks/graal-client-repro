@@ -20,7 +20,7 @@ interface
 
 uses
   Classes, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GAssetDirs, GraalClient, Protocol231,
-  Npc231, Baddy231;
+  Npc231, Baddy231, GTrueType;
 
 const
   { The game window: TAdventure's client area is 640 x 480 (its form is
@@ -32,6 +32,10 @@ const
     above it (2.31 under Wine, Training) }
   ChatBarH = 24;
   ViewH = ScreenH - ChatBarH;
+  { what players say is written over their heads in the install's
+    TEMPSITC.TTF (graalconfig.txt: font=Tempus Sans ITC), white over a
+    blue copy one pixel down and right, as the real 2.31 shows it }
+  ChatFontPx = 18;
 
   { Directions, as the walking routine numbers them. }
   DirUp = 0;
@@ -198,6 +202,8 @@ type
     FSentGani: string;
     FPropsSent: Boolean;
     FOthers: TList;
+    FChatFont: TTrueTypeFont;
+    FChatFontTried: Boolean;
     { addtiledef lines seen in level scripts: 'prefix'#9'image', newest
       first; FTileDefLevel is the level last scanned }
     FTileDefs: TStringList;
@@ -300,6 +306,11 @@ type
     Blasts: array of TBlast;
     { Reading a sign: its lines and the first line of the page shown. }
     Reading: Boolean;
+    { the chat line: what is typed in it, whether it has the keys (Tab
+      gives them to it and back), and whether its text is picked (Tab
+      picks it all, so typing replaces it) }
+    ChatInput: string;
+    ChatFocus, ChatPicked: Boolean;
     SignLines: array of string;
     SignLine: Integer;
     { The weapon list (2.05 keeps one, in arrival order) and the selected
@@ -343,6 +354,18 @@ type
     procedure Draw;
     { the white chat line under the play area }
     procedure DrawChatBar;
+    { Typed characters for the chat line: Enter says the line (it stays
+      in the chat line, emptied), backspace, printable characters. }
+    procedure TypeChat(const Chars: string);
+    { Tab: the chat line takes the keys, or gives them back. }
+    procedure ToggleChat;
+    { Sets what the player says (PLPROP_CURCHAT), sent when online. }
+    procedure Say(const Text: string);
+    { Text centred on CX in the chat font, or the built-in font without it. }
+    procedure DrawChatText(CX, Y: Integer; const Text: string);
+    { P's chat over its head }
+    procedure DrawSaid(P: TServerPlayer; CamX, CamY: Integer);
+    function ChatFont: TTrueTypeFont;
     { Loads a level (or a .gmap and its levels) from disk for offline play;
       links then look for their levels next to it, then in the install. }
     function LoadLevelFile(const FileName: string): Boolean;
@@ -481,7 +504,7 @@ function SpriteWalkStep(Sprite: Integer): Integer;
 implementation
 
 uses
-  SysUtils, Math, GFont, GSound, Sound231, Map231, NpcBridge231;
+  SysUtils, Math, GFont, GSound, Sound231, Map231, NpcBridge231, GUiFont;
 
 procedure MakeIndexSheet(Sheet: TGSurface);
 var
@@ -1066,6 +1089,7 @@ var
 begin
   FreeAndNil(Baddies);
   FreeAndNil(Npcs);
+  FChatFont.Free;
   FClient.Free;
   for I := 0 to FLevels.Count - 1 do FLevels.Objects[I].Free;
   FLevels.Free;
@@ -3940,6 +3964,10 @@ begin
   for I := 0 to FOthers.Count - 1 do
     DrawPlayer(Others[I], CamX, CamY);
   DrawPlayer(Player, CamX, CamY);
+  { what each player says, over the head }
+  for I := 0 to FOthers.Count - 1 do
+    DrawSaid(Others[I], CamX, CamY);
+  DrawSaid(Player, CamX, CamY);
   DrawCombat(LCamX, LCamY);
   DrawShots(LCamX, LCamY);
   Npcs.Draw(Screen, LCamX, LCamY, True);
@@ -3967,7 +3995,112 @@ begin
   Screen.FillRect(1, Y + 1, 1, ChatBarH - 2, $FF6A6A6A);
   Screen.FillRect(1, Y + ChatBarH - 2, ScreenW - 2, 1, $FFE3E3E3);
   Screen.FillRect(ScreenW - 2, Y + 1, 1, ChatBarH - 2, $FFE3E3E3);
+  { what is typed, black; picked: white on the highlight; the caret
+    while the line has the keys }
+  if ChatPicked then
+  begin
+    Screen.FillRect(3, Y + 4, UiTextWidth(ChatInput, ufRegular) + 1, UiLineH, $FF000080);
+    UiDrawText(Screen, 3, Y + 4, ChatInput, $FFFFFFFF, ufRegular);
+  end
+  else
+    UiDrawText(Screen, 3, Y + 4, ChatInput, $FF000000, ufRegular);
+  if ChatFocus and not ChatPicked and ((Frame div 10) mod 2 = 0) then
+    Screen.FillRect(3 + UiTextWidth(ChatInput, ufRegular), Y + 4, 1, UiLineH - 1, $FF000000);
 end;
+
+function TAdventure.ChatFont: TTrueTypeFont;
+var
+  F: string;
+begin
+  if not FChatFontTried then
+  begin
+    FChatFontTried := True;
+    F := AssetPath('TEMPSITC.TTF');
+    if F <> '' then
+    begin
+      FChatFont := TTrueTypeFont.Create;
+      if not FChatFont.LoadFromFile(F) then FreeAndNil(FChatFont);
+    end;
+  end;
+  Result := FChatFont;
+end;
+
+procedure TAdventure.DrawChatText(CX, Y: Integer; const Text: string);
+var
+  F: TTrueTypeFont;
+  TW: Integer;
+begin
+  F := ChatFont;
+  if F = nil then
+  begin
+    TW := TextWidth(Text, 1);
+    DrawText(Screen, CX - TW div 2 + 1, Y + 1, Text, $FF0000FF, 1);
+    DrawText(Screen, CX - TW div 2, Y, Text, $FFFFFFFF, 1);
+    Exit;
+  end;
+  TW := F.TextWidth(Text, ChatFontPx, True);
+  F.DrawText(Screen, CX - TW div 2 + 1, Y + 1, Text, ChatFontPx, $FF0000FF, True);
+  F.DrawText(Screen, CX - TW div 2, Y, Text, ChatFontPx, $FFFFFFFF, True);
+end;
+
+procedure TAdventure.DrawSaid(P: TServerPlayer; CamX, CamY: Integer);
+var
+  BX, BY: Integer;
+begin
+  if P.Chat = '' then Exit;
+  if Gmap <> nil then
+  begin
+    BX := Round((P.X + P.GmapX * BoardW) * TileSize) - CamX;
+    BY := Round((P.Y + P.GmapY * BoardH) * TileSize) - CamY;
+  end
+  else
+  begin
+    BX := Round(P.X * TileSize) - CamX;
+    BY := Round(P.Y * TileSize) - CamY;
+  end;
+  DrawChatText(BX + 24, BY - 6, P.Chat);
+end;
+
+procedure TAdventure.ToggleChat;
+begin
+  ChatFocus := not ChatFocus;
+  ChatPicked := ChatFocus and (ChatInput <> '');
+end;
+
+procedure TAdventure.Say(const Text: string);
+begin
+  Player.Chat := Text;
+  if (FClient <> nil) and FClient.Connected then
+    FClient.SendPacket(PLI_PLAYERPROPS, GChar(PLPROP_CURCHAT) + GString(Text));
+end;
+
+procedure TAdventure.TypeChat(const Chars: string);
+var
+  I: Integer;
+begin
+  for I := 1 to Length(Chars) do
+    case Chars[I] of
+      #13:
+        begin
+          Say(ChatInput);
+          ChatInput := '';
+          ChatPicked := False;
+        end;
+      #8:
+        begin
+          if ChatPicked then ChatInput := ''
+          else if ChatInput <> '' then Delete(ChatInput, Length(ChatInput), 1);
+          ChatPicked := False;
+        end;
+      ' '..'~', #160..#255:
+        begin
+          if ChatPicked then ChatInput := '';
+          ChatPicked := False;
+          if Length(ChatInput) < 220 then ChatInput := ChatInput + Chars[I];
+        end;
+    end;
+end;
+
 
 end.
 

@@ -60,6 +60,11 @@ procedure RunMoreOptions(Config: TGraalConfig; Lang: TLangText);
   then opened in the default browser, on Windows). }
 function RunOpenUrl(const Url: string; Lang: TLangText): Boolean;
 
+{ Esc in the game: "Do you really want to quit Graal?", OK and Cancel
+  (Windows' own question box, titled Warning, as 2.31 shows it). True:
+  OK. }
+function AskQuit: Boolean;
+
 { Opens Url in the default browser (Windows); False elsewhere. }
 function OpenInBrowser(const Url: string): Boolean;
 
@@ -875,5 +880,73 @@ begin
     Glyph.Free;
   end;
 end;
+
+{ ---- quit ---- }
+
+function AskQuit: Boolean;
+{$IFDEF MSWINDOWS}
+begin
+  Result := MessageBox(GetActiveWindow, 'Do you really want to quit Graal?', 'Warning',
+    MB_OKCANCEL or MB_ICONQUESTION) = IDOK;
+end;
+{$ELSE}
+const
+  W = 236;
+  H = 82;
+var
+  Win: TGWindow;
+  S: TGSurface;
+  CX, CY, I: Integer;
+  Chars: string;
+begin
+  Result := False;
+  Win := TGWindow.Create('Warning', W, H);
+  S := TGSurface.Create(W, H);
+  try
+    if not Win.Ok then
+    begin
+      Result := True;
+      Exit;
+    end;
+    Win.Reshape('Warning', W, H, True);
+    while True do
+    begin
+      Win.Pump;
+      if Win.Closed then Exit;
+      Chars := Win.TakeChars;
+      if Pos(#27, Chars) > 0 then Exit;
+      if Pos(#13, Chars) > 0 then
+      begin
+        Result := True;
+        Exit;
+      end;
+      if Win.TakeClick(CX, CY) then
+      begin
+        if (CX >= 40) and (CX < 115) and (CY >= 48) and (CY < 71) then
+        begin
+          Result := True;
+          Exit;
+        end;
+        if (CX >= 122) and (CX < 197) and (CY >= 48) and (CY < 71) then Exit;
+      end;
+      S.Fill(ColWhite);
+      S.FillRect(0, 40, W, H - 40, ColFace);
+      { the question mark in a blue circle }
+      for I := 0 to 23 do
+        S.FillRect(12 + 12 - Round(Sqrt(Sqr(12.0) - Sqr(I - 11.5))), 10 + I,
+          2 * Round(Sqrt(Sqr(12.0) - Sqr(I - 11.5))), 1, $FF2A5CAA);
+      UiDrawText(S, 20, 14, '?', ColWhite, ufBold);
+      Text(S, 48, 14, 'Do you really want to quit Graal?');
+      Button(S, 40, 48, 75, 23, 'OK', True, False);
+      Button(S, 122, 48, 75, 23, 'Cancel', False, False);
+      Win.Present(S);
+      Sleep(20);
+    end;
+  finally
+    S.Free;
+    Win.Free;
+  end;
+end;
+{$ENDIF}
 
 end.
