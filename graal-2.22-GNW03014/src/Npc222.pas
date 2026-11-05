@@ -271,6 +271,12 @@ type
 
 function ColorIndexOf(const S: string): Integer;
 
+var
+  { the view size for the screenwidth / screenheight script variables:
+    640 x 480, or the fullscreen mode (the game sets these) }
+  NpcScreenW: Integer = 640;
+  NpcScreenH: Integer = 480;
+
 implementation
 
 uses
@@ -292,10 +298,13 @@ begin
   CellX := -1;
   CellY := -1;
   Gani := 'idle';
-  Colors[0] := 0; { white skin? the player defaults: see ColorTable }
-  Colors[1] := 9;
-  Colors[2] := 0;
-  Colors[3] := 12;
+  { a character NPC with no colours of its own: a new player's, orange,
+    darkred, black, darkred, black (client-internals/body-colours-and-
+    attributes.md; the lab saw the real 2.22 draw such NPCs black and red) }
+  Colors[0] := 2;
+  Colors[1] := 5;
+  Colors[2] := 18;
+  Colors[3] := 5;
   Colors[4] := 18;
   HeadImage := 'head0.png';
   BodyImage := 'body.png';
@@ -1020,8 +1029,8 @@ begin
   else if Name = 'tokenscount' then V := Tokens.Count
   else if Name = 'paramscount' then begin if Ctx <> nil then V := Ctx.Params.Count; end
   else if Name = 'timevar' then V := FTick * TickSeconds
-  else if Name = 'screenwidth' then V := 640
-  else if Name = 'screenheight' then V := 480
+  else if Name = 'screenwidth' then V := NpcScreenW
+  else if Name = 'screenheight' then V := NpcScreenH
   else if (Name = 'compuscount') or (Name = 'playerscount') or (Name = 'bombscount') or
     (Name = 'arrowscount') or (Name = 'itemscount') or (Name = 'exploscount') or
     (Name = 'horsescount') or (Name = 'signscount') or (Name = 'weaponscount') then

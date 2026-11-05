@@ -79,6 +79,7 @@ uses
   StartScreen222 in 'StartScreen222.pas',
   GUiFont in '../../common/GUiFont.pas',
   RealStart222 in 'RealStart222.pas',
+  Res222 in 'Res222.pas',
   RunMode in 'RunMode.pas';
 
 var
@@ -262,8 +263,49 @@ end;
 { One game: from the command line, or as the start screen chose it (then
   GuiWin is the window to play in, and nothing goes to stdout). Returns
   the exit code. }
+var
+  { Shift held on Start or Training: the game starts in fullscreen
+    (newfeatures2001.txt) }
+  GuiStartFull: Boolean;
+
+{ graalconfig.txt's fullscreenmode (WIDTHxHEIGHT, 1024x768 when missing)
+  and startinfullscreen }
+procedure ReadFullscreenConfig(const Dir: string; out W, H: Integer;
+  out StartFull: Boolean);
+var
+  L: TStringList;
+  S: string;
+  P: Integer;
+begin
+  W := 1024;
+  H := 768;
+  StartFull := False;
+  if not FileExists(Dir + 'graalconfig.txt') then Exit;
+  L := TStringList.Create;
+  try
+    try
+      L.LoadFromFile(Dir + 'graalconfig.txt');
+    except
+      Exit;
+    end;
+    S := Trim(L.Values['fullscreenmode']);
+    P := Pos('x', LowerCase(S));
+    if (P > 1) and (StrToIntDef(Copy(S, 1, P - 1), 0) >= 640) and
+      (StrToIntDef(Copy(S, P + 1, 9), 0) >= 480) then
+    begin
+      W := StrToInt(Copy(S, 1, P - 1));
+      H := StrToInt(Copy(S, P + 1, 9));
+    end;
+    StartFull := LowerCase(Trim(L.Values['startinfullscreen'])) = 'true';
+  finally
+    L.Free;
+  end;
+end;
+
 function RunGame(GuiWin: TGWindow; const GuiPw, GuiNick: string): Integer;
 var
+  FullW, FullH: Integer;
+  StartFull: Boolean;
   G: TAdventure;
   Win: TGWindow;
   Script: TKeyScript;
@@ -314,6 +356,7 @@ begin
     { no --data: the program's folder (and a graal-assets beside it) }
     if Data = '' then Data := ExtractFilePath(ParamStr(0));
     G.UseInstall(Data);
+    ReadFullscreenConfig(IncludeTrailingPathDelimiter(Data), FullW, FullH, StartFull);
     Script.Parse(Arg('--keys', ''));
     if Arg('--keys', '') <> '' then WalkName := Arg('--walk', 'script')
     else WalkName := Arg('--walk', 'idle');
@@ -394,6 +437,10 @@ begin
       end;
     end;
 
+    { Alt+Enter, as 2.22: the fullscreen mode and back to the window }
+    if (Win <> nil) and (StartFull or GuiStartFull) and Win.EnterFullscreen(FullW, FullH) then
+      G.SetScreenSize(FullW, FullH);
+
     { sound only in a window: stress runs and tests open no device }
     SoundEnabled := (Win <> nil) and not HasArg('--nosound');
 
@@ -416,6 +463,16 @@ begin
         begin
           Win.Pump;
           if Win.Closed or Win.Held[gkEscape] then Break;
+          if Win.TakeFullscreenToggle then
+            if not Win.Fullscreen then
+            begin
+              if Win.EnterFullscreen(FullW, FullH) then G.SetScreenSize(FullW, FullH);
+            end
+            else
+            begin
+              Win.LeaveFullscreen(WindowW, WindowH);
+              G.SetScreenSize(WindowW, WindowH);
+            end;
           G.Keys[DirUp] := Win.Held[gkUp];
           G.Keys[DirLeft] := Win.Held[gkLeft];
           G.Keys[DirDown] := Win.Held[gkDown];
@@ -520,6 +577,8 @@ begin
     SoundEnabled := False;
     MapOpen := False;
     UseDefaultMaps;
+    if (Win <> nil) and Win.Fullscreen then Win.LeaveFullscreen(WindowW, WindowH);
+    if ScreenW <> WindowW then G.SetScreenSize(WindowW, WindowH);
     if Win <> GuiWin then Win.Free;
     Script.Free;
     Walker.Free;
@@ -534,17 +593,18 @@ end;
   carries in its resources), starting in the centre cell b-2, when the
   install has both; else offlinetutorial_b-2.graal on disk; else the
   built-in starter level (a start.nw next to the program replaces it). The
-  arrival point on b-2 is not traced: (27.5, 31.5), just below the
-  cauldron, is matched by eye to a screenshot of the real 2.22 under Wine. }
+  arrival point on b-2 is (27, 32) facing down, just below the cauldron,
+  as the lab read it from the real 2.22's memory. }
 procedure TrainingLevel(const Dir: string; out Path, X, Y, Cell: string);
 var
   D: string;
 begin
-  X := '27.5';
-  Y := '31.5';
+  X := '27';
+  Y := '32';
   Cell := '1,1';
   Path := FirstFileIn(Dir, 'maps/offlinetutorial.gmap');
-  if (Path <> '') and not PeResource(FirstFileIn(Dir, 'Graal_222.exe;Graal.exe'), RT_RCDATA,
+  if (Path <> '') and not EmbeddedRes('TUTORIALB2', D) and
+    not PeResource(FirstFileIn(Dir, 'Graal_222.exe;Graal.exe'), RT_RCDATA,
     'TUTORIALB2', D) then Path := '';
   if Path <> '' then Exit;
   Cell := '';
@@ -603,6 +663,8 @@ begin
     if Art <> nil then
     begin
       GameTitle := Art.Text('MainWindow', 'Graal');
+      { the taskbar button is Delphi's application window, titled Graal }
+      Win.UseDelphiFrames(GameTitle);
       Win.Reshape(Art.Text('StartScreen', 'Graal 2001'), 577, 416, True);
     end;
     if AssetPath('arrays2.dat') <> '' then
@@ -638,6 +700,7 @@ begin
         G.Free;
       end;
       if not Picked or Win.Closed or StopRequested then Exit;
+      GuiStartFull := Win.ShiftHeld;
       GuiArgs := TStringList.Create;
       try
         GuiArgs.Add('--window');

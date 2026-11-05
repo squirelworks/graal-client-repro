@@ -38,6 +38,7 @@ uses
   GUiFont in '../../common/GUiFont.pas',
   GTrueType in '../../common/GTrueType.pas',
   RealStart222 in '../src/RealStart222.pas',
+  Res222 in '../src/Res222.pas',
   TestNpc222 in 'TestNpc222.pas',
   TestBaddy222 in 'TestBaddy222.pas';
 
@@ -960,6 +961,7 @@ var
   B: TGSurface;
   D: string;
   TT: TTrueTypeFont;
+  Art: TRealStartArt;
 begin
   G := TAdventure.Create;
   try
@@ -977,6 +979,25 @@ begin
     Check(G.Player.Attr[6] = 'kmarms100.png', 'player: #P6 is kept');
     Check(not PeResourceData('MZ' + StringOfChar(#0, 100), RT_RCDATA, 'TUTORIALB2', D),
       'resources: a file that is no PE gives none');
+    G.SetScreenSize(1024, 768);
+    G.Tick;
+    Check((G.Screen.Width = 1024) and (G.Screen.Height = 768) and (ScreenW = 1024) and
+      (ViewH = 744) and (NpcScreenW = 1024) and (NpcScreenH = 768),
+      'fullscreen: the view is drawn at the fullscreen mode, screenwidth follows');
+    G.SetScreenSize(WindowW, WindowH);
+    Check((G.Screen.Width = 640) and (ViewH = 456) and (NpcScreenH = 480),
+      'fullscreen: back to the 640 x 480 window');
+    Check(EmbeddedRes('tutorialb2', D) and (Copy(D, 1, 8) = 'GR-V1.03') and
+      not EmbeddedRes('TUTORIALD1', D) and (D = ''),
+      'resources: the Training levels are compiled in, by the real exe''s names');
+    Art := TRealStartArt.Create;
+    try
+      Check(Art.Load('', '') and (Art.Back1.Width = 577) and (Art.Back1.Height = 416) and
+        (Art.Text('StartScreen', '') = 'Graal Reborn') and (Art.Text('MainWindow', '') = 'Graal'),
+        'start window: its art and words come from the compiled-in copy, no Graal_222.exe needed');
+    finally
+      Art.Free;
+    end;
     Check((ServerTab('P Graal the Adventure') = ltGold) and (ServerTab('Doomsday') = ltSilver) and
       (ServerTab('H Testbed') = ltBronze) and (ServerTab('3 Sharp3D TEST') = ltNone) and
       (ServerTab('U Login') = ltNone), 'server list: Gold P, Silver plain, Bronze H, no tab for 3 and U');

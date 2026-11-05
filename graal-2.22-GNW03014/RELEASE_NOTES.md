@@ -16,13 +16,14 @@ chat are not there yet.
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").
 
-The zips hold no Graal levels, sounds or tile sets; the Windows program
-carries the Graal head icon. It also carries small default graphics and a
+The program carries what 2.22's own `Graal_222.exe` carries: the start
+window and server list art and buttons, the nine Training levels, the
+English words of its windows and the Graal head icon, so it needs no
+`Graal_222.exe` beside it. It also carries small default graphics and a
 starter level of its own, so it runs as it is. Put it in a 2.22 install
-you own, next to `Graal_222.exe` (or point it at one with `--data DIR`),
-and it uses what that install holds: the tiles, ganis, heads and bodies,
-the start window and server list art inside `Graal_222.exe`, the offline
-tutorial, the language file and the name font.
+(or point it at one with `--data DIR`) and it uses what that install
+holds: the tiles, ganis, heads and bodies, sounds, the Training map and
+the name font.
 
 Files are looked for in the program's own folder first, then in
 `graal-assets/2.22` and `graal-assets/common` beside it, then in the
@@ -48,7 +49,7 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 ## What works
 
 - 2.22's own start window, in a 577 x 416 window of its own with only a
-  close button: the GraalOnline art and buttons from `Graal_222.exe`,
+  close button: the GraalOnline art and buttons of `Graal_222.exe`,
   Nickname, Language, Account and Password laid out as the original's
   form, the words from `languages/languageEnglish.txt`, and the nickname
   and last account 2.22 saved in the registry. Start fetches the server
@@ -57,11 +58,15 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
   server list: Gold, Silver and Bronze tabs, the server's language,
   version, description and homepage, the listserver's message, and
   Connect. The game then opens in its own 640 x 480 window titled
-  "Graal: <server>". Without `Graal_222.exe` the program's own start
-  screen stands in.
-- Training: with `Graal_222.exe` in the install, the real offline
-  tutorial: `maps/offlinetutorial.gmap` with its nine levels read from
-  that program's resources, starting by the cauldron. The tutorial's
+  "Graal: <server>". The windows have the original's frames, and the
+  taskbar shows one Graal button with the Graal head.
+- Alt+Enter switches to fullscreen and back, as 2.22 does: the screen
+  goes to `fullscreenmode` from the install's `graalconfig.txt`
+  (1024 x 768 when it has none) and more of the level is shown.
+  `startinfullscreen=true`, or Shift held on Start or Training, starts
+  the game in fullscreen.
+- Training: with the install's `maps/offlinetutorial.gmap`, the real
+  offline tutorial with its nine levels, starting below the cauldron. The tutorial's
   script dresses the player as 2.22 does (blond hair, brown shirt,
   shield) and puts in its own walking ganis. Without it, a built-in
   starter level.
@@ -130,7 +135,7 @@ editors; Options; UDP peer traffic; macOS. See the build's README for the full l
 
 ## Checks behind this release
 
-The test suites (350 checks) run with range and overflow checks and the heap
+The test suites (354 checks) run with range and overflow checks and the heap
 tracer, and must end with no unfreed memory. It includes frames of a real
 2.22 session, a bzip2 round trip against random and repetitive data, and a
 fuzz run of 20000 random messages and 3000 random gen-5 frames through the

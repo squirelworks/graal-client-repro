@@ -23,15 +23,13 @@ uses
   Npc222, Baddy222, Terrain222, GTrueType;
 
 const
-  { The game view. 640x480 is assumed for 2.22 as for 2.05; not read from
-    the binary. }
-  ScreenW = 640;
-  ScreenH = 480;
+  { The game view in a window: 640 x 480 (2.22 under Wine, TAdventure). }
+  WindowW = 640;
+  WindowH = 480;
   { the chat line under the play area: a white sunken edit box 24 high
     across the bottom of the window (2.22 under Wine); the play area is
     the 456 above it }
   ChatBarH = 24;
-  ViewH = ScreenH - ChatBarH;
   { the em of the names under characters, in TEMPSITC.TTF: matched to
     the real 2.22's names (a cap height of 11 px, GDI's made-up bold) }
   NameFontPx = 17;
@@ -56,6 +54,15 @@ const
 
   { PLI_SHOWIMG (24) = GCHAR 9 every 5.1 s (lab: 5.11 to 5.17 s). }
   ShowImgEveryMs = 5100;
+
+var
+  { The game view now: 640 x 480 in a window, the fullscreen mode
+    (graalconfig.txt's fullscreenmode, 1024 x 768 by default) after
+    Alt+Enter, as 2.22 draws more of the level there. ViewH is the play
+    area above the chat line. Set by TAdventure.SetScreenSize. }
+  ScreenW: Integer = WindowW;
+  ScreenH: Integer = WindowH;
+  ViewH: Integer = WindowH - ChatBarH;
 
 type
   { Images and ganis from the player's install, loaded once and kept. }
@@ -387,6 +394,9 @@ type
     procedure WalkStep(Dir: Integer);
     { One frame: network in, game step, network out, draw. }
     procedure Tick;
+    { A new view size (Alt+Enter: the fullscreen mode, or back to
+      640 x 480): the frame is drawn at that size from the next tick. }
+    procedure SetScreenSize(W, H: Integer);
     procedure Draw;
     { the white chat line under the play area }
     procedure DrawChatBar;
@@ -534,7 +544,7 @@ function SpriteWalkStep(Sprite: Integer): Integer;
 implementation
 
 uses
-  SysUtils, Math, GFont, GSound, GPeRes, Sound222, Map222, NpcBridge222;
+  SysUtils, Math, GFont, GSound, GPeRes, Res222, Sound222, Map222, NpcBridge222;
 
 procedure MakeIndexSheet(Sheet: TGSurface);
 var
@@ -2842,6 +2852,12 @@ begin
     (Copy(N, 20, 6) <> '.graal') or (N[18] <> '-') or not (N[17] in ['a'..'c']) or
     not (N[19] in ['1'..'3']) then Exit;
   R := 'TUTORIAL' + UpperCase(N[17]) + N[19];
+  { compiled in (Res222); the real exe beside the program as a fallback }
+  if EmbeddedRes(R, Data) and (Copy(Data, 1, 3) = 'GR-') then
+  begin
+    Result := True;
+    Exit;
+  end;
   for I := 0 to High(Exes) do
   begin
     F := AssetPath(Exes[I]);
@@ -3748,6 +3764,18 @@ end;
   32.5) fits the same point. }
 const
   LinkAhead = 1.25;
+
+procedure TAdventure.SetScreenSize(W, H: Integer);
+begin
+  if (W < 64) or (H < 64) then Exit;
+  ScreenW := W;
+  ScreenH := H;
+  ViewH := H - ChatBarH;
+  NpcScreenW := W;
+  NpcScreenH := H;
+  Screen.Free;
+  Screen := TGSurface.Create(W, H);
+end;
 
 procedure TAdventure.Tick;
 var

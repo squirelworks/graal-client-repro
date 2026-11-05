@@ -67,7 +67,7 @@ uses
 {$IFDEF MSWINDOWS}
   Windows,
 {$ENDIF}
-  SysUtils, GPeRes, GUiFont;
+  SysUtils, GPeRes, GUiFont, Res222;
 
 const
   DlgW = 577;
@@ -103,7 +103,8 @@ function TRealStartArt.Load(const ExeFile, LangFile: string): Boolean;
     D: string;
   begin
     Result := nil;
-    if not PeResource(ExeFile, RT_RCDATA, Name, D) then Exit;
+    { the copy compiled in (Res222); the real exe's only as a fallback }
+    if not EmbeddedRes(Name, D) and not PeResource(ExeFile, RT_RCDATA, Name, D) then Exit;
     Result := TGSurface.Create(0, 0);
     if not LoadImageData(D, Name, Result, False) or (Result.Width = 0) then
       FreeAndNil(Result);
@@ -111,13 +112,16 @@ function TRealStartArt.Load(const ExeFile, LangFile: string): Boolean;
 
 var
   I: Integer;
+  D: string;
 begin
   Back1 := Pic('SCREENIMG1');
   Back2 := Pic('SCREENIMG2');
   for I := 1 to 4 do Btn[I] := Pic('BUTTON' + IntToStr(I));
   Result := (Back1 <> nil) and (Back2 <> nil) and (Btn[1] <> nil) and (Btn[2] <> nil) and
     (Btn[3] <> nil) and (Btn[4] <> nil);
-  if (LangFile <> '') and FileExists(LangFile) then
+  if EmbeddedRes('LANGUAGEENGLISH', D) then
+    Lang.Text := D
+  else if (LangFile <> '') and FileExists(LangFile) then
     try
       Lang.LoadFromFile(LangFile);
     except
@@ -290,7 +294,13 @@ begin
     Right := X;
   end;
   if Masked then T := StringOfChar('*', Length(Text)) else T := Text;
-  while (T <> '') and (UiTextWidth(T, ufRegular) > Right - B.X - 6) do Delete(T, 1, 1);
+  { an edit being typed in keeps its end in view; any other shows its
+    start, cut at the right (the server list's Graal version) }
+  if Focused and not Combo then
+    while (T <> '') and (UiTextWidth(T, ufRegular) > Right - B.X - 6) do Delete(T, 1, 1)
+  else
+    while (T <> '') and (UiTextWidth(T, ufRegular) > Right - B.X - 6) do
+      Delete(T, Length(T), 1);
   TW := UiTextWidth(T, ufRegular);
   if Focused and Combo and (T <> '') then
   begin
@@ -305,7 +315,7 @@ begin
 end;
 
 { a picture button: the left half up, the right half pressed; the caption
-  bold and centred }
+  centred, regular weight as the lab saw the real one draw it }
 procedure PicButton(S, Img: TGSurface; X, Y: Integer; const Caption: string; Down: Boolean);
 var
   W, D: Integer;
@@ -314,8 +324,8 @@ begin
   W := Img.Width div 2;
   if Down then D := 1 else D := 0;
   S.Blit(Img, D * W, 0, W, Img.Height, X, Y);
-  UiDrawText(S, X + (W - UiTextWidth(Caption, ufBold)) div 2 + D,
-    Y + (Img.Height - UiLineH) div 2 + D, Caption, ColText, ufBold);
+  UiDrawText(S, X + (W - UiTextWidth(Caption, ufRegular)) div 2 + D,
+    Y + (Img.Height - UiLineH) div 2 + D, Caption, ColText, ufRegular);
 end;
 
 procedure Centred(S: TGSurface; X, Y, W: Integer; const T: string; Face: TUiFace);
@@ -467,7 +477,9 @@ begin
     Note := Message;
     Lang := 'English';
     if R.Account = '' then R.Account := 'guest';
-    Focus := 0;
+    { the account box is first in the tab order (TabOrder 0): it has the
+      focus on open, its text picked }
+    Focus := 2;
     Sel := -1;
     Tab := ltSilver;
     PressBtn := 0;
@@ -520,17 +532,24 @@ begin
             if Pos(#27, Chars) > 0 then Exit;
             if Pos(#9, Chars) > 0 then
             begin
+              { TabOrder: account, password, nickname, language }
               case Focus of
-                0: Focus := 2;
                 2: Focus := 3;
+                3: Focus := 0;
+                0: Focus := 1;
               else
-                Focus := 0;
+                Focus := 2;
               end;
               Chars := StringReplace(Chars, #9, '', [rfReplaceAll]);
             end;
             case Focus of
               0: TypeInto(R.Nickname, Chars, 20);
-              2: TypeInto(R.Account, Chars, 30);
+              2:
+                begin
+                  { typing over the picked text replaces it }
+                  if (Chars <> '') and (Chars[1] >= ' ') then R.Account := '';
+                  TypeInto(R.Account, Chars, 30);
+                end;
               3: TypeInto(R.Password, Chars, 30);
             end;
             if Clicked then
@@ -563,11 +582,11 @@ begin
             end;
             { drawing }
             Fill(Art.Back1);
-            Centred(S, 80, 212, 281, Art.Text('StartScreen-Label1', 'Welcome to Graal!'), ufBold);
-            UiDrawText(S, 72, 246, Art.Text('StartScreen-Label5', 'Nick Name:'), ColText, ufBold);
-            UiDrawText(S, 72, 274, Art.Text('StartScreen-Label2', 'Language:'), ColText, ufBold);
-            UiDrawText(S, 76, 332, Art.Text('ServerList-Label7', 'Account:'), ColText, ufBold);
-            UiDrawText(S, 76, 364, Art.Text('ServerList-Label8', 'Password:'), ColText, ufBold);
+            Centred(S, 80, 209, 281, Art.Text('StartScreen-Label1', 'Welcome to Graal!'), ufBold);
+            UiDrawText(S, 72, 246, Art.Text('StartScreen-Label5', 'Nick Name:'), ColText, ufRegular);
+            UiDrawText(S, 72, 274, Art.Text('StartScreen-Label2', 'Language:'), ColText, ufRegular);
+            UiDrawText(S, 76, 332, Art.Text('ServerList-Label7', 'Account:'), ColText, ufRegular);
+            UiDrawText(S, 76, 364, Art.Text('ServerList-Label8', 'Password:'), ColText, ufRegular);
             Edit(S, FNick, R.Nickname, Focus = 0, False, False);
             Edit(S, FLang, Lang, Focus = 1, False, True);
             Edit(S, FAcc, R.Account, Focus = 2, False, True);
@@ -712,6 +731,9 @@ begin
             if Art.Btn[4] <> nil then
               S.Blit(Art.Btn[4], Ord(Pressed(8)) * (Art.Btn[4].Width div 2), 0,
                 Art.Btn[4].Width div 2, Art.Btn[4].Height, BGo.X, BGo.Y);
+            { an empty drop-down under the list (the real 2.22 shows one
+              here; the lab measured it at 28..228, 316..338) }
+            Edit(S, Box(28, 316, 201, 23), '', False, False, True);
             { the listserver's lines }
             if Fetch.StatusLines <> '' then Wrapped(S, 24, 330, 529, Fetch.StatusLines, True)
             else Wrapped(S, 24, 330, 529, Fetch.Status, True);
