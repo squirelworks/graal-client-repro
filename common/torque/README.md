@@ -1,6 +1,6 @@
-# common/torque: parked Torque layer (target: v0.0.4)
+# common/torque: parked Torque layer (on hold, no target)
 
-Status on 2026-11-05: **on hold** by Squirrel's call ("hold off on torque, full speed ahead on less than V3"). Torque clients are targeted at the **v0.0.4** release. Nothing here is built or used by any client folder yet.
+Status on 2026-11-05: **on hold** by Squirrel's call ("hold off on torque, full speed ahead on less than V3"). Torque is on hold with no target release. Nothing here is built or used by any client folder yet.
 
 Plan: Graal_analysis `torque/rebuild-plan-3.04.md` (stages 0 to 5) and `torque/study-torque-clients.md`.
 
