@@ -1,0 +1,317 @@
+name: release-all
+
+# Every client released at the same version in ONE run, instead of one
+# release.yml run per folder. Start it from the Actions tab (Run workflow,
+# version defaults to v0.0.3). It:
+#   - builds and tests every Delphi client (graal-*/) on Linux and Windows,
+#     stamps the version into each Windows exe and packs each one with the
+#     same scripts release.yml uses (scripts/release/);
+#   - makes one GitHub release per folder, tag <folder>-<version>, titled
+#     with the first heading of the folder's RELEASE_NOTES.md plus the
+#     version, with the notes as its text and that folder's zips attached;
+#   - releases the Java and Game Boy clients through their own workflows
+#     (javagraal, zelda-online1, zelda-online2, graalgb);
+#   - stress tests every Delphi client first (scripts/stress.sh, one job
+#     per client on Linux): a long soak against a local seihai-gserver
+#     with players walking between levels, players connecting and dropping
+#     again and again, a level of 80 scripted NPCs, and a memory check.
+#     Stress gate = block stops the whole release if any client fails;
+#     report releases anyway and leaves the failures in the run;
+#   - points RELEASES.md at the new releases.
+# Publish = yes publishes them straight away (pressing Run workflow is the
+# go-ahead for all of them at once); no makes drafts as release.yml does.
+# Every folder's RELEASE_NOTES.md must mention the version, so a folder
+# without notes for it stops the run before anything is released.
+# Running it again for the same version replaces the zips and notes.
+# Dry run = yes does everything up to the releases and stops there: no
+# tag, no release, no RELEASES.md commit; the zips stay in the run.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version for every client, e.g. v0.0.3
+        required: true
+        default: v0.0.3
+      publish:
+        description: Publish straight away (no = drafts to review)
+        type: choice
+        options: ['yes', 'no']
+        default: 'yes'
+      only:
+        description: Only these folders, space-separated (empty = every client)
+        required: false
+        default: ''
+      stress_seconds:
+        description: Stress soak per client, in seconds
+        required: true
+        default: '120'
+      stress_gate:
+        description: A stress failure blocks the release, or is only reported
+        type: choice
+        options: ['block', 'report']
+        default: 'block'
+      dry_run:
+        description: Dry run (yes = plan, build, pack and stress only; nothing is released)
+        type: choice
+        options: ['no', 'yes']
+        default: 'no'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-all
+  cancel-in-progress: false
+
+env:
+  VERSION: ${{ inputs.version }}
+  ONLY: ${{ inputs.only }}
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      delphi: ${{ steps.list.outputs.delphi }}
+      delphi_json: ${{ steps.list.outputs.delphi_json }}
+      javagraal: ${{ steps.list.outputs.javagraal }}
+      zelda1: ${{ steps.list.outputs.zelda1 }}
+      zelda2: ${{ steps.list.outputs.zelda2 }}
+      graalgb: ${{ steps.list.outputs.graalgb }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: List the clients and check their notes
+        id: list
+        run: |
+          case "$VERSION" in v[0-9]*) ;; *) echo "version must look like v0.0.3"; exit 1 ;; esac
+          if [ -n "$ONLY" ]; then ALL="$ONLY"
+          else ALL="$(ls -d graal-*/ graalgb-*/ javagraal-*/ zelda-online*/ | tr -d /)"; fi
+          DELPHI=""; BAD=0
+          for B in $ALL; do
+            if [ ! -f "$B/RELEASE_NOTES.md" ]; then echo "::error::$B: no RELEASE_NOTES.md"; BAD=1; continue; fi
+            if ! grep -qF "$VERSION" "$B/RELEASE_NOTES.md"; then
+              echo "::error::$B: RELEASE_NOTES.md says nothing about $VERSION"; BAD=1; continue
+            fi
+            case "$B" in
+              graal-*) ls "$B"/src/*.dpr > /dev/null || { echo "::error::$B: no src/*.dpr"; BAD=1; }
+                       DELPHI="$DELPHI $B" ;;
+              javagraal-2000) echo "javagraal=yes" >> "$GITHUB_OUTPUT" ;;
+              zelda-online1-Z3V102) echo "zelda1=yes" >> "$GITHUB_OUTPUT" ;;
+              zelda-online2-Z3V103) echo "zelda2=yes" >> "$GITHUB_OUTPUT" ;;
+              graalgb-1.10) echo "graalgb=yes" >> "$GITHUB_OUTPUT" ;;
+              *) echo "::error::$B: not a client folder"; BAD=1 ;;
+            esac
+          done
+          [ $BAD = 0 ]
+          echo "delphi=${DELPHI# }" >> "$GITHUB_OUTPUT"
+          echo "delphi_json=$(printf '%s\n' $DELPHI | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().split()))')" >> "$GITHUB_OUTPUT"
+          echo "Delphi clients: $(echo $DELPHI | wc -w)"
+          echo "$DELPHI" | tr ' ' '\n'
+
+  build:
+    needs: plan
+    if: needs.plan.outputs.delphi != ''
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      BUILDS: ${{ needs.plan.outputs.delphi }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Free Pascal (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y fp-compiler fp-units-base fp-units-fcl libx11-dev
+      - name: Install Free Pascal (Windows)
+        if: runner.os == 'Windows'
+        run: choco install freepascal -y --no-progress
+      - name: Stamp the version into the Windows resources
+        if: runner.os == 'Windows'
+        shell: bash
+        run: for B in $BUILDS; do scripts/release/stamp.sh "$B" "$VERSION"; done
+      - name: Build and test
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = Windows ]; then
+            export PATH="$(ls -d /c/tools/freepascal/bin/* | head -1):$PATH"
+            # -WR: relocations, so the exe can carry the ASLR flag
+            export FPCFLAGS='-O2 -WR -FuC:\tools\freepascal\units\i386-win32\*'
+          fi
+          scripts/build.sh $BUILDS
+          scripts/test.sh
+      - name: Pack
+        shell: bash
+        run: for B in $BUILDS; do scripts/release/pack.sh "$B" "$VERSION" "${RUNNER_OS,,}"; done
+      - name: Check the Windows exes carry version info and a manifest
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $want = $env:VERSION.TrimStart('v')
+          foreach ($exe in Get-ChildItem "dist/*-$env:VERSION-windows/*.exe") {
+            $v = $exe.VersionInfo
+            "{0}/{1}: {2} {3} / {4}" -f $exe.Directory.Name, $exe.Name, $v.ProductName, $v.ProductVersion, $v.FileDescription
+            if ($v.ProductName -ne 'graal-delphi' -or $v.CompanyName -ne 'squirelworks') { throw "$($exe.FullName): no version info" }
+            if ($v.ProductVersion -ne $want) { throw "$($exe.FullName): version $($v.ProductVersion), not $want" }
+            $bytes = [IO.File]::ReadAllBytes($exe.FullName)
+            if ([Text.Encoding]::ASCII.GetString($bytes).IndexOf('requestedExecutionLevel') -lt 0) { throw "$($exe.FullName): no manifest" }
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-all-${{ runner.os }}
+          path: dist/*.zip
+
+  gserver:
+    # seihai-gserver, built once for every stress job
+    needs: plan
+    if: needs.plan.outputs.delphi != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: squirelworks/seihai-gserver
+          path: seihai-gserver
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release --manifest-path seihai-gserver/Cargo.toml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stress-gserver
+          path: |
+            seihai-gserver/target/release/seihai-gserver
+            seihai-gserver/world
+
+  stress:
+    needs: [plan, gserver]
+    strategy:
+      fail-fast: false
+      matrix:
+        build: ${{ fromJSON(needs.plan.outputs.delphi_json) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: stress-gserver
+          path: seihai-gserver
+      - name: Install Free Pascal
+        run: sudo apt-get update && sudo apt-get install -y fp-compiler fp-units-base fp-units-fcl libx11-dev
+      - name: Build
+        run: scripts/build.sh "${{ matrix.build }}"
+      - name: Stress
+        env:
+          SOAK: ${{ inputs.stress_seconds }}
+        run: |
+          chmod +x seihai-gserver/target/release/seihai-gserver
+          scripts/stress.sh seihai-gserver/target/release/seihai-gserver "${{ matrix.build }}" "$SOAK"
+
+  release:
+    needs: [plan, build, stress]
+    # after the stress jobs; with stress gate = report, also when some failed
+    if: >-
+      always() && inputs.dry_run != 'yes' && needs.build.result == 'success' &&
+      (needs.stress.result == 'success' || inputs.stress_gate == 'report')
+    runs-on: ubuntu-latest
+    env:
+      BUILDS: ${{ needs.plan.outputs.delphi }}
+      PUBLISH: ${{ inputs.publish }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: release-all-*
+          merge-multiple: true
+      - name: One release per client
+        run: |
+          DRAFT=""; [ "$PUBLISH" = yes ] || DRAFT="--draft"
+          for B in $BUILDS; do
+            TAG="$B-$VERSION"
+            TITLE="$(head -1 "$B/RELEASE_NOTES.md" | sed 's/^# *//') $VERSION"
+            ZIPS=$(ls dist/"$TAG"-*.zip)
+            if gh release view "$TAG" > /dev/null 2>&1; then
+              echo "== $TAG exists: replacing its zips and notes"
+              gh release upload "$TAG" $ZIPS --clobber
+              gh release edit "$TAG" --title "$TITLE" --notes-file "$B/RELEASE_NOTES.md"
+            else
+              echo "== $TAG"
+              gh release create "$TAG" $ZIPS $DRAFT --title "$TITLE" \
+                --notes-file "$B/RELEASE_NOTES.md" --target "$GITHUB_SHA"
+            fi
+          done
+
+  javagraal:
+    needs: [plan, stress]
+    if: >-
+      always() && inputs.dry_run != 'yes' && needs.plan.outputs.javagraal == 'yes' &&
+      (needs.stress.result != 'failure' || inputs.stress_gate == 'report')
+    uses: ./.github/workflows/javagraal.yml
+    with:
+      version: ${{ inputs.version }}
+      publish: ${{ inputs.publish }}
+
+  zelda-online1:
+    needs: [plan, stress]
+    if: >-
+      always() && inputs.dry_run != 'yes' && needs.plan.outputs.zelda1 == 'yes' &&
+      (needs.stress.result != 'failure' || inputs.stress_gate == 'report')
+    uses: ./.github/workflows/zelda-online1.yml
+    with:
+      version: ${{ inputs.version }}
+      publish: ${{ inputs.publish }}
+
+  zelda-online2:
+    needs: [plan, stress]
+    if: >-
+      always() && inputs.dry_run != 'yes' && needs.plan.outputs.zelda2 == 'yes' &&
+      (needs.stress.result != 'failure' || inputs.stress_gate == 'report')
+    uses: ./.github/workflows/zelda-online2.yml
+    with:
+      version: ${{ inputs.version }}
+      publish: ${{ inputs.publish }}
+
+  graalgb:
+    needs: [plan, stress]
+    if: >-
+      always() && inputs.dry_run != 'yes' && needs.plan.outputs.graalgb == 'yes' &&
+      (needs.stress.result != 'failure' || inputs.stress_gate == 'report')
+    uses: ./.github/workflows/graalgb.yml
+    with:
+      version: ${{ inputs.version }}
+      publish: ${{ inputs.publish }}
+
+  releases-md:
+    # Points RELEASES.md at what this run released, so its table stays the
+    # newest release of each client. Published runs only: a draft is not
+    # downloadable yet. If the branch does not take a push from Actions,
+    # this job fails on its own and the releases above still stand.
+    needs: [plan, release, javagraal, zelda-online1, zelda-online2, graalgb]
+    if: >-
+      always() && inputs.dry_run != 'yes' && inputs.publish == 'yes' && needs.plan.result == 'success' &&
+      !contains(needs.*.result, 'cancelled') &&
+      needs.release.result != 'failure' && needs.javagraal.result != 'failure' &&
+      needs.zelda-online1.result != 'failure' && needs.zelda-online2.result != 'failure' &&
+      needs.graalgb.result != 'failure'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update RELEASES.md
+        env:
+          DELPHI: ${{ needs.plan.outputs.delphi }}
+          JAVAGRAAL: ${{ needs.plan.outputs.javagraal }}
+          ZELDA1: ${{ needs.plan.outputs.zelda1 }}
+          ZELDA2: ${{ needs.plan.outputs.zelda2 }}
+          GRAALGB: ${{ needs.plan.outputs.graalgb }}
+        run: |
+          F="$DELPHI"
+          [ "$JAVAGRAAL" = yes ] && F="$F javagraal-2000"
+          [ "$ZELDA1" = yes ] && F="$F zelda-online1-Z3V102"
+          [ "$ZELDA2" = yes ] && F="$F zelda-online2-Z3V103"
+          [ "$GRAALGB" = yes ] && F="$F graalgb-1.10"
+          python3 -I scripts/release/releases_md.py "$VERSION" $F
+          git diff --quiet -- RELEASES.md 2>/dev/null && { echo "RELEASES.md unchanged"; exit 0; }
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add RELEASES.md
+          git commit -m "RELEASES.md: every client at $VERSION"
+          git push origin "HEAD:$GITHUB_REF_NAME"

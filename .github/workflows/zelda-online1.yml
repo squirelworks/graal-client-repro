@@ -1,13 +1,12 @@
 name: zelda-online1
 
 # Zelda Online 1 (Java). Built and tested on Linux and Windows on every push
-# and pull request that touches it. A tag zelda-online1-Z3V102-v<version>
-# (or a manual run) also makes a DRAFT release with the jar; Squirrel
+# and pull request that touches it. A manual run with a
+# version (or release-all) also makes a DRAFT release with the jar; Squirrel
 # reviews it and presses Publish.
 on:
   push:
     branches: [main]
-    tags: ['zelda-online1-Z3V102-v*']
     paths: ['zelda-online1-Z3V102/**', '.github/workflows/zelda-online1.yml']
   pull_request:
     paths: ['zelda-online1-Z3V102/**', '.github/workflows/zelda-online1.yml']
@@ -17,6 +16,16 @@ on:
         description: Version to release as a draft, e.g. v0.0.1 (empty = build only)
         required: false
         default: ''
+  # release-all.yml calls this to release every client in one run
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: true
+      publish:
+        description: yes = publish the release straight away, no = a draft
+        type: string
+        default: 'no'
 
 concurrency:
   group: zelda-online1-${{ github.ref }}
@@ -78,5 +87,5 @@ jobs:
           name: ${{ env.TITLE }}
           body_path: zelda-online1-Z3V102/RELEASE_NOTES.md
           target_commitish: ${{ github.sha }}
-          draft: true
+          draft: ${{ inputs.publish != 'yes' }}
           files: dist/*.zip

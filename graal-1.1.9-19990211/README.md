@@ -67,16 +67,16 @@ decompiled code:
 
 ## Known differences at 0.0.1
 
-- The 1.1.9 `arrays.dat` holds 24 tables where the later clients read 25.
+- [ ] The 1.1.9 `arrays.dat` holds 24 tables where the later clients read 25.
   Tables 0 and 1 (the passable tiles) are read from it; the rest are the
   built-in ones until it is known which table moved.
-- 1.1.9's `sprites`, `state` and `letters` sheets have their own layouts.
+- [ ] 1.1.9's `sprites`, `state` and `letters` sheets have their own layouts.
   The built-in sheets are drawn until those layouts are read.
-- The player is drawn from the built-in ganis; 1.1.9 had no ganis and drew
+- [ ] The player is drawn from the built-in ganis; 1.1.9 had no ganis and drew
   from `sprites.gif` and `heads.gif`.
-- `onlinestart.graal` was built into the original program. Without it the
+- [ ] `onlinestart.graal` was built into the original program. Without it the
   built-in start level stands in.
-- Two and Four Players (one keyboard), save games (`.gsave`), the
+- [ ] Two and Four Players (one keyboard), save games (`.gsave`), the
   registration key line (`8`) and web levels over HTTP are not built.
 
 ## Files it opens

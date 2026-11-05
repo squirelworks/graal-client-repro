@@ -1,0 +1,24 @@
+---
+description: Binding rules for graal-delphi (Graal client rebuilds in Delphi)
+alwaysApply: true
+---
+
+Follow `AGENTS.md` at the repo root on every request. In short:
+
+- Open PRs only; never merge, push to `main`, tag or release.
+- One change per branch and PR. Folder PRs touch only their folder (plus
+  `common/` when a shared unit really changes) and never the root `README.md`.
+- PR bodies start with the attribution block in `AGENTS.md`.
+- No original Graal code; game data comes from the player's install. Each
+  real exe's embedded resources are extracted per version and wired into
+  its own rebuild. No decompile addresses,
+  `FUN_`/`DAT_`/`LAB_` names or decompiled C anywhere.
+- Test only against loopback servers you start (seihai-gserver, `scripts/relay98.py`).
+- `scripts/build.sh` and `scripts/test.sh` must pass with no unfreed memory.
+- Each fix: a bullet under the current version's "What's new" in the
+  folder's `RELEASE_NOTES.md`, and tick its `- [ ]` item in the folder
+  README, `ROADMAP.md` and the issue.
+- All clients release together via `release-all.yml`; no per-folder releases.
+- Match each folder against its own real client only.
+
+Context: `HANDOFF-CURSOR.md`, `ROADMAP.md`, issue #99.

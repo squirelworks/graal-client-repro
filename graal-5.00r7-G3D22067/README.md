@@ -88,15 +88,15 @@ From the program's folder (or `--data`), then `graal-assets/5.00r7/`, then
 
 ## Not yet, or not known
 
-- The Login server's scripted GUI (server list, accounts) and GS2 in
+- [ ] The Login server's scripted GUI (server list, accounts) and GS2 in
   general: 140 and 197 (class and weapon scripts, the `GRESCR01` cache),
   195 (gani scripts) and 190 (`onServerListerConnect`) are accepted and
   ignored.
-- `GR-V1.05` levels (tile layers) and `GRPKG001` update packages.
-- The base-file requests after the language (`basepackage.gupd` by 47 or 23).
-- The keep-alive 24 the lab saw every 5 s: its payload was not recorded.
-- 183 ("is this process running?") is accepted and not answered.
-- Whether 5.00r7 plays offline at all is not traced; Training keeps 3.153's.
-- The 3D mode (Torque, `Graal3DEngine.dll`, protocol 24).
-- No side-by-side run against the real 5.00r7; that is 0.0.2 work.
-- Everything still missing from the 3.153 rebuild.
+- [ ] `GR-V1.05` levels (tile layers) and `GRPKG001` update packages.
+- [ ] The base-file requests after the language (`basepackage.gupd` by 47 or 23).
+- [ ] The keep-alive 24 the lab saw every 5 s: its payload was not recorded.
+- [ ] 183 ("is this process running?") is accepted and not answered.
+- [ ] Whether 5.00r7 plays offline at all is not traced; Training keeps 3.153's.
+- [ ] The 3D mode (Torque, `Graal3DEngine.dll`, protocol 24).
+- [ ] No side-by-side run against the real 5.00r7; that is 0.0.2 work.
+- [ ] Everything still missing from the 3.153 rebuild.

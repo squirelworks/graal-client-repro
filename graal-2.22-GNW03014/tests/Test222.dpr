@@ -345,12 +345,12 @@ begin
   SetAssetRootsFor('', '', '');
 end;
 
-{ The HEIGHTS blocks of a generator gmap, and the height between points. }
+{ The heights of a generator gmap's levels, built as 2.22 builds them. }
 procedure TestTerrainHeights;
 var
   St: THeightStore;
-  G: THeightGrid;
-  Txt: string;
+  G: PHeightGrid;
+  Txt, D: string;
   R: Integer;
 begin
   St := THeightStore.Create;
@@ -360,14 +360,34 @@ begin
       Txt := Txt + Format('%d,%d,0,0,0,0,0,0,%d', [R, R * 2, 8 - R]) + #10;
     Txt := Txt + 'HEIGHTSEND'#10'HEIGHTS other.graal 8 8'#10'1.5'#10'HEIGHTSEND'#10;
     Check(St.AddGmap(Txt) = 2, 'terrain: two HEIGHTS blocks read');
-    Check(St.Find('LEV_A-1.graal', G) and (G[3, 0] = 3) and (G[3, 1] = 6) and (G[3, 8] = 5),
-      'terrain: the grid of a level, row by row, found by name in any case');
-    Check(Abs(HeightAt(G, 0, 12) - 1.5) < 1e-6, 'terrain: halfway between rows 1 and 2');
-    Check(Abs(HeightAt(G, 4, 8) - 1.5) < 1e-6, 'terrain: halfway between columns 0 and 1');
-    Check(Abs(HeightAt(G, 64, 64) - 0) < 1e-6, 'terrain: the far corner');
-    Check(St.Find('other.graal', G) and (G[0, 0] = 1.5) and (G[1, 0] = 0),
-      'terrain: a short block keeps the rest at 0');
-    Check(not St.Find('missing.graal', G), 'terrain: no grid for another level');
+    G := St.Find('LEV_A-1.graal');
+    Check((G <> nil) and (G^[24, 0] = 3) and (G^[24, 8] = 6) and (G^[24, 64] = 5),
+      'terrain: the surface passes through the HEIGHTS points, found in any case');
+    Check((G <> nil) and (Abs(HeightAt(G^, 0, 12) - 1.5) < 1e-6) and
+      (Abs(HeightAt(G^, 4, 8) - 1.5) < 1e-6) and (Abs(HeightAt(G^, 64, 64)) < 1e-6),
+      'terrain: with no height field, plain blends between the points');
+    G := St.Find('other.graal');
+    Check((G <> nil) and (G^[0, 0] = 1.5) and (G^[8, 0] = 0), 'terrain: a short block keeps the rest at 0');
+    Check(St.Find('missing.graal') = nil, 'terrain: no grid for another level');
+    St.Clear;
+    { the offline tutorial: map edges from GENSEED, the level inside from
+      its seed, then the HEIGHTS correction (values from a model that
+      places the real client's NPCs to the pixel) }
+    if EmbeddedRes('maps/offlinetutorial.gmap', D) then
+    begin
+      Check(St.AddGmap(D) = 9, 'terrain: the tutorial''s nine HEIGHTS blocks');
+      G := St.Find('offlinetutorial_b-2.graal');
+      Check((G <> nil) and (Abs(G^[13, 37] - 4.449629009262084) < 1e-6) and
+        (Abs(G^[35, 20] - 8.210414702604098) < 1e-6) and (G^[0, 0] = -1.75),
+        'terrain: the tutorial level''s heights as 2.22 builds them');
+      Check((G <> nil) and (LiftAt(G^, 28.5, 35) = 142) and (LiftAt(G^, 19.5, 26) = 98),
+        'terrain: the player and the left lamp lifted 142 and 98 px');
+      G := St.Find('offlinetutorial_a-1.graal');
+      Check((G <> nil) and (Abs(G^[5, 7] + 9.96343225675022) < 1e-6) and
+        (LiftAt(G^, 10, 10) = 0), 'terrain: another cell, and water lifts nothing');
+    end
+    else
+      Check(False, 'terrain: the tutorial gmap is built in');
   finally
     St.Free;
   end;

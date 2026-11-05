@@ -319,6 +319,14 @@ end;
 
 { a picture button: the left half up, the right half pressed; the caption
   bold and centred (the lab's screenshots of the real one) }
+{ A start-window label: the larger bold face over a faint dark shadow one
+  pixel down and right, as the lab saw on the real 2.22. }
+procedure ShadowLabel(S: TGSurface; X, Y: Integer; const Text: string);
+begin
+  UiDrawText(S, X + 1, Y + 1, Text, $FF143214, ufLabel);
+  UiDrawText(S, X, Y, Text, ColText, ufLabel);
+end;
+
 procedure PicButton(S, Img: TGSurface; X, Y: Integer; const Caption: string; Down: Boolean);
 var
   W, D: Integer;
@@ -586,10 +594,10 @@ begin
             { drawing }
             Fill(Art.Back1);
             Centred(S, 80, 209, 281, Art.Text('StartScreen-Label1', 'Welcome to Graal!'), ufBold);
-            UiDrawText(S, 72, 246, Art.Text('StartScreen-Label5', 'Nick Name:'), ColText, ufBold);
-            UiDrawText(S, 72, 274, Art.Text('StartScreen-Label2', 'Language:'), ColText, ufBold);
-            UiDrawText(S, 76, 332, Art.Text('ServerList-Label7', 'Account:'), ColText, ufBold);
-            UiDrawText(S, 76, 364, Art.Text('ServerList-Label8', 'Password:'), ColText, ufBold);
+            ShadowLabel(S, 72, 246, Art.Text('StartScreen-Label5', 'Nick Name:'));
+            ShadowLabel(S, 72, 274, Art.Text('StartScreen-Label2', 'Language:'));
+            ShadowLabel(S, 76, 332, Art.Text('ServerList-Label7', 'Account:'));
+            ShadowLabel(S, 76, 364, Art.Text('ServerList-Label8', 'Password:'));
             Edit(S, FNick, R.Nickname, Focus = 0, False, False);
             Edit(S, FLang, Lang, Focus = 1, False, True);
             Edit(S, FAcc, R.Account, Focus = 2, False, True);
@@ -735,8 +743,8 @@ begin
               S.Blit(Art.Btn[4], Ord(Pressed(8)) * (Art.Btn[4].Width div 2), 0,
                 Art.Btn[4].Width div 2, Art.Btn[4].Height, BGo.X, BGo.Y);
             { an empty drop-down under the list (the real 2.22 shows one
-              here; the lab measured it at 28..228, 316..338) }
-            Edit(S, Box(28, 316, 201, 23), '', False, False, True);
+              here, under the list at its left edge, 10 px below it) }
+            Edit(S, Box(24, 290, 201, 23), '', False, False, True);
             { the listserver's lines }
             if Fetch.StatusLines <> '' then Wrapped(S, 24, 330, 529, Fetch.StatusLines, True)
             else Wrapped(S, 24, 330, 529, Fetch.Status, True);
