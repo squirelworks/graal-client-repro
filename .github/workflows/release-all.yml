@@ -23,6 +23,8 @@ name: release-all
 # Every folder's RELEASE_NOTES.md must mention the version, so a folder
 # without notes for it stops the run before anything is released.
 # Running it again for the same version replaces the zips and notes.
+# Dry run = yes does everything up to the releases and stops there: no
+# tag, no release, no RELEASES.md commit; the zips stay in the run.
 on:
   workflow_dispatch:
     inputs:
@@ -48,6 +50,11 @@ on:
         type: choice
         options: ['block', 'report']
         default: 'block'
+      dry_run:
+        description: Dry run (yes = plan, build, pack and stress only; nothing is released)
+        type: choice
+        options: ['no', 'yes']
+        default: 'no'
 
 permissions:
   contents: write
@@ -201,7 +208,7 @@ jobs:
     needs: [plan, build, stress]
     # after the stress jobs; with stress gate = report, also when some failed
     if: >-
-      always() && needs.build.result == 'success' &&
+      always() && inputs.dry_run != 'yes' && needs.build.result == 'success' &&
       (needs.stress.result == 'success' || inputs.stress_gate == 'report')
     runs-on: ubuntu-latest
     env:
@@ -236,7 +243,7 @@ jobs:
   javagraal:
     needs: [plan, stress]
     if: >-
-      always() && needs.plan.outputs.javagraal == 'yes' &&
+      always() && inputs.dry_run != 'yes' && needs.plan.outputs.javagraal == 'yes' &&
       (needs.stress.result != 'failure' || inputs.stress_gate == 'report')
     uses: ./.github/workflows/javagraal.yml
     with:
@@ -246,7 +253,7 @@ jobs:
   zelda-online1:
     needs: [plan, stress]
     if: >-
-      always() && needs.plan.outputs.zelda1 == 'yes' &&
+      always() && inputs.dry_run != 'yes' && needs.plan.outputs.zelda1 == 'yes' &&
       (needs.stress.result != 'failure' || inputs.stress_gate == 'report')
     uses: ./.github/workflows/zelda-online1.yml
     with:
@@ -256,7 +263,7 @@ jobs:
   zelda-online2:
     needs: [plan, stress]
     if: >-
-      always() && needs.plan.outputs.zelda2 == 'yes' &&
+      always() && inputs.dry_run != 'yes' && needs.plan.outputs.zelda2 == 'yes' &&
       (needs.stress.result != 'failure' || inputs.stress_gate == 'report')
     uses: ./.github/workflows/zelda-online2.yml
     with:
@@ -266,7 +273,7 @@ jobs:
   graalgb:
     needs: [plan, stress]
     if: >-
-      always() && needs.plan.outputs.graalgb == 'yes' &&
+      always() && inputs.dry_run != 'yes' && needs.plan.outputs.graalgb == 'yes' &&
       (needs.stress.result != 'failure' || inputs.stress_gate == 'report')
     uses: ./.github/workflows/graalgb.yml
     with:
@@ -280,7 +287,7 @@ jobs:
     # this job fails on its own and the releases above still stand.
     needs: [plan, release, javagraal, zelda-online1, zelda-online2, graalgb]
     if: >-
-      always() && inputs.publish == 'yes' && needs.plan.result == 'success' &&
+      always() && inputs.dry_run != 'yes' && inputs.publish == 'yes' && needs.plan.result == 'success' &&
       !contains(needs.*.result, 'cancelled') &&
       needs.release.result != 'failure' && needs.javagraal.result != 'failure' &&
       needs.zelda-online1.result != 'failure' && needs.zelda-online2.result != 'failure' &&
