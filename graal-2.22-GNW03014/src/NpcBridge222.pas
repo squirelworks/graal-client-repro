@@ -38,6 +38,7 @@ type
     function GaniScript(const Gani: string): string; override;
     function TileType(X, Y: Integer): Integer; override;
     procedure DrawCharacter(N: TNpc; Screen: TGSurface; DX, DY, Tick: Integer); override;
+    function Lift(X, Y: Double): Integer; override;
     procedure HurtPlayer(Power, FromX, FromY: Double); override;
     procedure ShowSign(Index: Integer); override;
     procedure Say2(const Text: string); override;
@@ -247,6 +248,11 @@ end;
 type
   TNpcCharacter = class(TServerPlayer)
   end;
+
+function TAdventureNpcWorld.Lift(X, Y: Double): Integer;
+begin
+  Result := FAdv.LevelLift(X, Y);
+end;
 
 procedure TAdventureNpcWorld.DrawCharacter(N: TNpc; Screen: TGSurface; DX, DY, Tick: Integer);
 var

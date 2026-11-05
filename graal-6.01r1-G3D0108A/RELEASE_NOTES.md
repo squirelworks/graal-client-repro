@@ -17,6 +17,12 @@ heads and bodies take their place. The shared `graal-assets/` folder next
 to the program works too (`graal-assets/6.01r1/`, then
 `graal-assets/common/`).
 
+## What's new in v0.0.3
+
+- Stress tested before release: a long soak with several players walking
+  between levels, others connecting and dropping again and again, and a
+  level with 80 scripted NPCs, with no crash, error or memory growth.
+
 ## Downloads
 
 | Zip | Runs on | Window |
@@ -59,6 +65,12 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 NPCs, baddies, items and weapons; scripts and their cache; the scripted
 server list and account screens; chat and its font; layered levels; update
 packages. See the build's README for the full list.
+
+The original runs on the Torque engine; this release is still the Delphi
+stand-in that speaks its wire protocol. The Torque layer is not done.
+
+The original's own icon: no copy of the original program to take it from
+is in the project yet, so the Windows program has the default icon.
 
 ## Checks behind this release
 

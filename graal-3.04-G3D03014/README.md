@@ -68,17 +68,17 @@ Graal304 --server HOST:PORT --account NAME --headless --seconds 600 \
 
 ## Not yet, or not known
 
-- The server name prefixes `P `, `3 `, `H `, `U ` pick the list tab in 3.04
+- [ ] The server name prefixes `P `, `3 `, `H `, `U ` pick the list tab in 3.04
   (Gold, 3D, Hosted, hidden); the shared start screen shows one list.
-- The two default weapon icons (34) and the list icons (23, asked for by
+- [ ] The two default weapon icons (34) and the list icons (23, asked for by
   name after 180) of the first frame; only the head is asked for.
-- The UDP channel between players (movement, chat, trigger actions, the
+- [ ] The UDP channel between players (movement, chat, trigger actions, the
   5.1 s message), so `UDPPORT` is sent as 0.
-- `GSERVL01` text levels and `GR-V1.04` heights; the licence file's RSA
+- [ ] `GSERVL01` text levels and `GR-V1.04` heights; the licence file's RSA
   signature; the `GWEBL001` level cache.
-- Everything still missing from the 2.22 rebuild: NPCs, baddies, items,
+- [ ] Everything still missing from the 2.22 rebuild: NPCs, baddies, items,
   weapons, GS1, chat bubbles, Options.
-- Which offline tutorial level the Tutorial button opens, and where: the
+- [ ] Which offline tutorial level the Tutorial button opens, and where: the
   rebuild opens `levels/tutorial/offlinetutorial_b-2.graal` at (30, 30),
   else its starter level.
-- No side-by-side run against the real 3.04 yet; that is 0.0.2 work.
+- [ ] No side-by-side run against the real 3.04 yet; that is 0.0.2 work.
