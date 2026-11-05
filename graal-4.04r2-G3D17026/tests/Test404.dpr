@@ -29,7 +29,9 @@ uses
   GBuiltin in '../../common/GBuiltin.pas',
   GStartScreen in '../../common/GStartScreen.pas',
   ListServer404 in '../src/ListServer404.pas',
-  StartScreen404 in '../src/StartScreen404.pas';
+  StartScreen404 in '../src/StartScreen404.pas',
+  Res404 in '../src/Res404.pas',
+  RealStart404 in '../src/RealStart404.pas';
 
 {$I Capture404.inc}
 
@@ -1251,10 +1253,39 @@ begin
   end;
 end;
 
+procedure TestRealStart;
+var
+  Art: TRealStartArt;
+  D: string;
+begin
+  Art := TRealStartArt.Create;
+  try
+    Check(Art.Load, 'real start: the compiled-in pictures decode');
+    Check((Art.Screen.Width = 555) and (Art.Screen.Height = 463),
+      'real start: graalv4screen is 555 x 463');
+    Check((Art.Title.Width = 385) and (Art.Title.Height = 172),
+      'real start: graalv4title is 385 x 172');
+    Check((Art.TextEdit.Width = 17) and (Art.TextEdit.Height = 18),
+      'real start: defaulttextedit is 17 x 18');
+    Check((Art.Radio.Width = 13) and (Art.Check.Width = 13),
+      'real start: radio and check are 13 wide');
+    Check((ScreenW - Art.Screen.Width) div 2 = ScreenX, 'real start: the picture is centred');
+  finally
+    Art.Free;
+  end;
+  Check(ResFile('graalv4title', D) and (Copy(D, 2, 3) = 'PNG'), 'res: names in any case');
+  Check(not ResFile('NOSUCH', D), 'res: an unknown name');
+  Check(LicenseSignupUrl('h'#13#10'14900'#13#10'x'#13#10'http://a/b.php'#13#10) = 'http://a/b.php',
+    'licence: line 3 is the sign-up page');
+  Check(LicenseSignupUrl('h'#13#10'14900'#13#10) = DefaultSignupUrl,
+    'licence: no line 3, the default sign-up page');
+end;
+
 begin
   TestGTypes;
   TestBzip2;
   TestGen5Capture;
+  TestRealStart;
   TestLogin;
   TestListServer;
   TestStartRows;

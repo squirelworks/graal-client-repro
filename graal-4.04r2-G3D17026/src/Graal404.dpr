@@ -70,6 +70,8 @@ uses
   GStartScreen in '../../common/GStartScreen.pas',
   ListServer404 in 'ListServer404.pas',
   StartScreen404 in 'StartScreen404.pas',
+  Res404 in 'Res404.pas',
+  RealStart404 in 'RealStart404.pas',
   RunMode in 'RunMode.pas';
 
 var
@@ -239,6 +241,16 @@ begin
   Result := Result + ',"nodelay":' + LowerCase(BoolToStr(NoDelay, True)) + '}';
 end;
 
+{ The game window's title: "G r a a l" with eight spaces spread at random
+  before and after it, as Graal4.exe sets it. }
+function PaddedTitle: string;
+var
+  I: Integer;
+begin
+  I := Random(9);
+  Result := StringOfChar(' ', I) + 'G r a a l' + StringOfChar(' ', 8 - I);
+end;
+
 { One game: from the command line, or as the start screen chose it (then
   GuiWin is the window to play in, and nothing goes to stdout). Returns
   the exit code. }
@@ -357,13 +369,12 @@ begin
 
     if UseWindow and (Frames >= 0) and (Win = nil) then
     begin
-      Win := TGWindow.Create('Graal ' + ClientBuildLabel + ' (' + ClientVersionToken + ')',
-        ScreenW, ScreenH);
+      Win := TGWindow.Create(PaddedTitle, ScreenW, ScreenH);
       if not Win.Ok then
       begin
         G.Log('no display: running without a window');
         FreeAndNil(Win);
-      end;
+      end
     end;
 
     { the frame loop: a 50 ms gate; a late frame is not made up }
@@ -384,6 +395,8 @@ begin
         if Win <> nil then
         begin
           Win.Pump;
+          { Alt+Enter: full screen and back, as in Graal4.exe }
+          PollFullscreen(Win);
           if Win.Closed or Win.Held[gkEscape] then Break;
           G.Keys[DirUp] := Win.Held[gkUp];
           G.Keys[DirLeft] := Win.Held[gkLeft];
@@ -496,26 +509,33 @@ begin
 end;
 
 { No arguments: the start screen, then the game it picks, and back to the
-  start screen when the game ends (Esc, or a failed or dropped login). }
+  start screen when the game ends (Esc, or a failed or dropped login).
+
+  With license/license.graal in the install (the real 4.04r2 needs it),
+  the start screen is 4.04r2's own (RealStart404: its pictures, compiled
+  in) and Start logs in to the licence's Login server. Without it there is
+  no Login server to go to, so the shared start screen and its server list
+  (listserver.graal.in, or listserver.txt) take its place. }
 function RunGui: Integer;
 var
   Win: TGWindow;
   G: TAdventure;
   R: TStartResult;
-  Dir, ListHost, ArrHost, Msg, Lvl, X, Y: string;
+  Dir, ListHost, ArrHost, Msg, Lvl, X, Y, Lic, Signup: string;
   ListPort: Integer;
   Picked: Boolean;
   Fetch: TListFetch404;
   Info: TStartInfo;
   Who: TCharacter404;
   Hosts: TListHosts;
+  Art: TRealStartArt;
   LoginMode: Boolean;
   I: Integer;
 begin
   Result := 0;
   Dir := ExtractFilePath(ParamStr(0));
-  Win := TGWindow.Create('Graal ' + ClientBuildLabel + ' (' + ClientVersionToken + ')',
-    ScreenW, ScreenH);
+  Win := TGWindow.Create(PaddedTitle, ScreenW, ScreenH);
+  Art := TRealStartArt.Create;
   try
     if not Win.Ok then
     begin
@@ -525,18 +545,25 @@ begin
       Result := 64;
       Exit;
     end;
-    { Start asks listserver.graal.in on 14922 for a list (a
-      listserver.txt next to the program names another). The real 4.04r2
-      logs in to the Login server named in license/license.graal (line 0
-      host, line 1 port, lines 5 and 6 fallbacks); when the install has
-      that file its hosts are added as extra rows, never the default. }
     { SIGTERM / Ctrl+C end the program on the start screen too }
     InstallStopHandlers;
     SetAssetRoots(Dir, ClientBuildLabel);
-    if AssetPath('license/license.graal') <> '' then
-      Hosts := LoadListHosts(AssetPath('license/license.graal'))
-    else
-      Hosts := LoadListHosts(Dir + 'license' + PathDelim + 'license.graal');
+    Lic := AssetPath('license/license.graal');
+    if Lic = '' then Lic := Dir + 'license' + PathDelim + 'license.graal';
+    Hosts := LoadListHosts(Lic);
+    Signup := DefaultSignupUrl;
+    if FileExists(Lic) then
+      with TStringList.Create do
+      try
+        try
+          LoadFromFile(Lic);
+          Signup := LicenseSignupUrl(Text);
+        except
+        end;
+      finally
+        Free;
+      end;
+    if not Art.Load then FreeAndNil(Art);
     ArrHost := DefaultListHost;
     ReadListServer(Dir, ArrHost, DefaultListPort, ListHost, ListPort);
     FillChar(R, SizeOf(R), 0);
@@ -548,13 +575,19 @@ begin
       Fetch.LoginHosts := Hosts;
       Who := TCharacter404.Create;
       try
-        G.UseInstall(Dir);
-        Who.G := G;
-        Info.Title := 'graal-delphi';
-        Info.Subtitle := '4.04r2 rebuilt';
-        Info.DrawCharacter := Who.Draw;
-        Info.StopRequested := StopRequested;
-        Picked := RunStartScreen(Win, G.Screen, Fetch, Info, Dir, ListHost, ListPort, Msg, R);
+        if (Art <> nil) and (Length(Hosts.Hosts) > 0) then
+          Picked := RunRealStart(Win, G.Screen, Art, Hosts.Hosts[0], Hosts.Port,
+            Signup, Msg, StopRequested, R)
+        else
+        begin
+          G.UseInstall(Dir);
+          Who.G := G;
+          Info.Title := 'graal-delphi';
+          Info.Subtitle := '4.04r2 rebuilt';
+          Info.DrawCharacter := Who.Draw;
+          Info.StopRequested := StopRequested;
+          Picked := RunStartScreen(Win, G.Screen, Fetch, Info, Dir, ListHost, ListPort, Msg, R);
+        end;
       finally
         Who.Free;
         Fetch.Free;
@@ -582,7 +615,7 @@ begin
           GuiArgs.Add(R.Host + ':' + IntToStr(R.Port));
           GuiArgs.Add('--account');
           GuiArgs.Add(R.Account);
-          { a licence-file row is the Login server }
+          { a licence-file host is the Login server }
           LoginMode := False;
           for I := 0 to High(Hosts.Hosts) do
             if (R.Host = Hosts.Hosts[I]) and (R.Port = Hosts.Port) then
@@ -603,6 +636,7 @@ begin
       end;
     until Win.Closed or StopRequested;
   finally
+    Art.Free;
     Win.Free;
   end;
 end;
