@@ -86,3 +86,4 @@ window and drawing from the 1.41 sprite sheet are not done.
 - [ ] The dialog's text uses Liberation Sans for MS Sans Serif, so a line can break one word apart from the real one.
 - [ ] The real message boxes (connection failed and the like).
 - [ ] The real server list form (TServerListFrame). The rebuild's own list page is shown instead.
+- [ ] A self-contained exe. The start dialog, icon and character list are compiled in, but the levels, heads, sprites and sounds are still read from the install folder rather than compiled in with the folder as a fallback.
