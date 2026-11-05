@@ -91,6 +91,29 @@ var
   LastGameError: string = '';
   { graalconfig.txt, as the More options window left it }
   Config: TGraalConfig = nil;
+  { the start screen asks the game to open in fullscreen (More options:
+    Start in fullscreen mode) }
+  GuiStartFull: Boolean = False;
+
+{ graalconfig.txt's fullscreenmode (WIDTHxHEIGHT, 2.31's More options
+  "Fullscreen mode"; 1024x768 when missing or unreadable) }
+procedure FullscreenMode(out W, H: Integer);
+var
+  S: string;
+  P: Integer;
+begin
+  W := 1024;
+  H := 768;
+  if Config = nil then Exit;
+  S := Trim(Config.Str('fullscreenmode'));
+  P := Pos('x', LowerCase(S));
+  if (P > 1) and (StrToIntDef(Copy(S, 1, P - 1), 0) >= WindowW) and
+    (StrToIntDef(Copy(S, P + 1, 9), 0) >= WindowH) then
+  begin
+    W := StrToInt(Copy(S, 1, P - 1));
+    H := StrToInt(Copy(S, P + 1, 9));
+  end;
+end;
 
 { The page Get an account! offers: line 3 of arrays2.dat (the Graal
   Reborn install has http://forums.graal.in/forums/register.php there),
@@ -299,7 +322,7 @@ var
   Walker: TWalker;
   Hist: TTickHistogram;
   Server, Host, Sheet, Dump, Pw, Data, Account, WalkName, EndState, Error: string;
-  Port, Frames, I, C, D, Seconds, StatsEvery, ExitCode_: Integer;
+  Port, Frames, I, C, D, Seconds, StatsEvery, ExitCode_, FullW, FullH: Integer;
   OK, Online, UseWindow, NoDelay, Dropped, Crashed: Boolean;
   WasHeld: array[0..4] of Boolean;
   Chars: string;
@@ -409,13 +432,19 @@ begin
     if UseWindow and (Frames >= 0) and (Win = nil) then
     begin
       Win := TGWindow.Create('Graal ' + ClientBuildLabel + ' (' + ClientVersionToken + ')',
-        ScreenW, ScreenH);
+        WindowW, WindowH);
       if not Win.Ok then
       begin
         G.Log('no display: running without a window');
         FreeAndNil(Win);
       end;
     end;
+
+    { the fullscreen mode More options picked; the game view takes its
+      size there }
+    FullscreenMode(FullW, FullH);
+    if (Win <> nil) and GuiStartFull and Win.EnterFullscreen(FullW, FullH) then
+      G.SetScreenSize(FullW, FullH);
 
     { sound only in a window: stress runs and tests open no device }
     SoundEnabled := (Win <> nil) and not HasArg('--nosound');
@@ -440,8 +469,15 @@ begin
           Win.Pump;
           { Alt+Enter: fullscreen and back, as 2.31 }
           if Win.TakeFullscreenToggle then
-            if not Win.Fullscreen then Win.EnterFullscreen(ScreenW, ScreenH)
-            else Win.LeaveFullscreen(ScreenW, ScreenH);
+            if not Win.Fullscreen then
+            begin
+              if Win.EnterFullscreen(FullW, FullH) then G.SetScreenSize(FullW, FullH);
+            end
+            else
+            begin
+              Win.LeaveFullscreen(WindowW, WindowH);
+              G.SetScreenSize(WindowW, WindowH);
+            end;
           if Win.Closed then Break;
           { Esc: 2.31 asks "Do you really want to quit Graal?" first }
           if Win.WasPressed(gkEscape) then
@@ -662,7 +698,7 @@ begin
   Art := nil;
   Config := TGraalConfig.Create;
   Win := TGWindow.Create('Graal ' + ClientBuildLabel + ' (' + ClientVersionToken + ')',
-    ScreenW, ScreenH);
+    WindowW, WindowH);
   try
     if not Win.Ok then
     begin
@@ -755,18 +791,17 @@ begin
           (seen under Wine: "  G r a a l   ", "    G r a a l "); online
           "Graal: <server>" (the "Graal: " string of Graal_231.exe). }
         if (R.Choice = scOnline) and (R.ServerName <> '') then
-          Win.Reshape('Graal: ' + R.ServerName, ScreenW, ScreenH)
+          Win.Reshape('Graal: ' + R.ServerName, WindowW, WindowH)
         else
         begin
           I := Random(6);
           Win.Reshape(StringOfChar(' ', I) + 'G r a a l' + StringOfChar(' ', 5 - I),
-            ScreenW, ScreenH);
+            WindowW, WindowH);
         end;
-        { More options: Start in fullscreen mode }
+        { More options: Start in fullscreen mode (RunGame enters it) }
         Config.Load(Dir + 'graalconfig.txt');
         Win.TakeFullscreenToggle;
-        if Config.Bool('startinfullscreen') and not Win.Fullscreen then
-          Win.EnterFullscreen(ScreenW, ScreenH);
+        GuiStartFull := Config.Bool('startinfullscreen');
         if RunGame(Win, R.Password, R.Nickname) <> 0 then
           Msg := LastGameError
         else
@@ -774,7 +809,12 @@ begin
       finally
         FreeAndNil(GuiArgs);
       end;
-      if Win.Fullscreen then Win.LeaveFullscreen(ScreenW, ScreenH);
+      if Win.Fullscreen then Win.LeaveFullscreen(WindowW, WindowH);
+      GuiStartFull := False;
+      { the next game starts in the window's size }
+      ScreenW := WindowW;
+      ScreenH := WindowH;
+      ViewH := WindowH - ChatBarH;
     until Win.Closed or StopRequested;
   finally
     Art.Free;

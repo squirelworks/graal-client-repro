@@ -26,13 +26,12 @@ const
   { The game window: TAdventure's client area is 640 x 480 (2.31's form is
     644 x 507 with the frame; 2.31 under Wine shows 640 x 480; no 2.3
     program survives, so 2.3 is taken to be the same). }
-  ScreenW = 640;
-  ScreenH = 480;
+  WindowW = 640;
+  WindowH = 480;
   { the chat line under the play area: TAdventure's Edit1, a white
     sunken edit box 24 high across the bottom; the play area is the 456
     above it (2.31 under Wine, Training; 2.3 is modelled on 2.31) }
   ChatBarH = 24;
-  ViewH = ScreenH - ChatBarH;
   { what players say is written over their heads in the install's
     TEMPSITC.TTF (graalconfig.txt: font=Tempus Sans ITC), white over a
     blue copy one pixel down and right, as the real 2.31 shows it }
@@ -58,6 +57,16 @@ const
 
   { PLI_SHOWIMG (24) = GCHAR 9 every 5.1 s (lab: 5.11 to 5.17 s). }
   ShowImgEveryMs = 5100;
+
+var
+  { The game view now: 640 x 480 in a window, the fullscreen mode
+    (graalconfig.txt's fullscreenmode, which 2.31's More options sets,
+    1024 x 768 by default) after Alt+Enter, drawing more of the level, as
+    2.22 (the same engine) does there. ViewH is the play area above the
+    chat line. Set by TAdventure.SetScreenSize. }
+  ScreenW: Integer = WindowW;
+  ScreenH: Integer = WindowH;
+  ViewH: Integer = WindowH - ChatBarH;
 
 type
   { Images and ganis from the player's install, loaded once and kept. }
@@ -371,6 +380,8 @@ type
     { One frame: network in, game step, network out, draw. }
     procedure Tick;
     procedure Draw;
+    { The game view's size (the window's, or the fullscreen mode's). }
+    procedure SetScreenSize(W, H: Integer);
     { the white chat line under the play area }
     procedure DrawChatBar;
     { Typed characters for the chat line: Enter says the line (it stays
@@ -4072,6 +4083,18 @@ begin
         Screen.Pixels[SY * Screen.Width + X] := Col;
     end;
   end;
+end;
+
+procedure TAdventure.SetScreenSize(W, H: Integer);
+begin
+  if (W < 64) or (H < 64) then Exit;
+  ScreenW := W;
+  ScreenH := H;
+  ViewH := H - ChatBarH;
+  NpcScreenW := W;
+  NpcScreenH := H;
+  Screen.Free;
+  Screen := TGSurface.Create(W, H);
 end;
 
 procedure TAdventure.Draw;
