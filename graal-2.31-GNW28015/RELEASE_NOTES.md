@@ -65,6 +65,16 @@ its files, or keep those files in a `graal-assets/` folder beside it.
   standing raised on it.
 - [x] Alt+Enter and "Start in fullscreen" switch the screen to a real
   640 x 480 fullscreen mode.
+- [x] Training does what 2.31's does: it starts `GraalEditor.exe -play`
+  from the Graal folder. Without GraalEditor.exe it shows 2.31's
+  "GraalEditor.exe has not been found in the Graal folder!" box, and then
+  the rebuild plays the tutorial itself (the built-in stand-in for the
+  editor's play mode, which 2.31 does not have).
+- [x] Editor's not-found message is the same Error box.
+- [x] The server list has 2.31's Show More and Donations buttons, and its
+  Version box shows the start of the version, cut at the right.
+- [x] The start window and server list have no icon in their caption, and
+  the account box has the focus when the window opens, its text picked.
 
 ## Downloads
 
@@ -106,6 +116,8 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
   25 pixels lower and the torches about 10; 2.31's own height rules are
   not traced yet (the rebuild uses 2.22's). The ground needs the install's
   `maps/offlinetutorial.gmap`; without it Training is drawn flat.
+- [ ] Show More and Donations press but do nothing yet: what they open was
+  not seen.
 - [ ] Fullscreen uses 640 x 480, not the "Fullscreen mode" picked in More
   options.
 - [ ] Dialog text is drawn in Liberation Sans, not Windows' MS Sans Serif.

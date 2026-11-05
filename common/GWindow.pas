@@ -457,7 +457,7 @@ begin
     (GetSystemMetrics(SM_CYSCREEN) - H) div 2, W, H, SWP_NOZORDER or SWP_FRAMECHANGED);
   { the big icon for the taskbar and Alt+Tab, the small one for the
     caption }
-  if FDelphi and Dialog then
+  if Dialog then
   begin
     { a Delphi dialog's caption has no icon }
     SendMessage(FWnd, WM_SETICON, ICON_BIG, 0);
