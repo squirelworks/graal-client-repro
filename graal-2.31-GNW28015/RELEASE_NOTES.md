@@ -18,6 +18,7 @@ its files, or keep those files in a `graal-assets/` folder beside it.
 
 ## What's new in v0.0.4
 
+- Rebuilt from the latest code; the changes for this client are listed here as they land.
 - Faithfulness pass: compared side by side with the real 2.31 (under Wine
   and on Windows), and the differences found brought in line with it.
 - [x] 2.31's own start window: its background and picture buttons, taken

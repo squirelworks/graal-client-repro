@@ -43,12 +43,16 @@ type
     function TextWidth(const S: string; Px: Integer; Bold: Boolean = False): Integer;
     { Line height (ascent + descent) at an em of Px pixels. }
     function LineHeight(Px: Integer): Integer;
+    { Ascent at an em of Px pixels: DrawText's baseline is this far below Y. }
+    function Ascent(Px: Integer): Integer;
     { Draws S with the top of its line at Y, blended in Color by each
       pixel's coverage. }
     { Bold: GDI's made-up bold of a font with no bold face, each glyph
       twice, one pixel apart, and one pixel wider }
+    { Crisp: no blending, a pixel is drawn when at least half covered (GDI
+      text without smoothing) }
     procedure DrawText(Dest: TGSurface; X, Y: Integer; const S: string; Px: Integer;
-      Color: Cardinal; Bold: Boolean = False);
+      Color: Cardinal; Bold: Boolean = False; Crisp: Boolean = False);
   end;
 
 implementation
@@ -574,8 +578,14 @@ begin
     Inc(Result, Round(Advance(GlyphIndex(Ord(S[I]))) * Px / FUnits) + Ord(Bold));
 end;
 
+function TTrueTypeFont.Ascent(Px: Integer): Integer;
+begin
+  Result := 0;
+  if FUnits > 0 then Result := Round(FAscent * Px / FUnits);
+end;
+
 procedure TTrueTypeFont.DrawText(Dest: TGSurface; X, Y: Integer; const S: string; Px: Integer;
-  Color: Cardinal; Bold: Boolean);
+  Color: Cardinal; Bold: Boolean; Crisp: Boolean);
 var
   I, J, K, G, DX, DY, A, Idx, Pass: Integer;
   Key: string;
@@ -606,6 +616,8 @@ begin
       begin
         A := B.Cov[J + K * B.W];
         if A = 0 then Continue;
+        if Crisp then
+          if A >= 8 then A := 16 else Continue;
         DX := X + B.OX + J + Pass;
         if (DX < 0) or (DX >= Dest.Width) then Continue;
         if A >= 16 then Dest.Pixels[DX + DY * Dest.Width] := Color or $FF000000
