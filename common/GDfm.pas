@@ -1,16 +1,22 @@
-{ GDfm: reads a Delphi form as the original program carries it (an RCDATA
-  resource named after the form's class, such as TCONNECTFRAME, in the
-  binary "TPF0" layout), so a rebuild can lay out its dialogs where the
-  original's form puts its controls, read from the original program when
-  it lies in the install. Nothing of the form is copied into this program.
+{ GDfm: reads a Delphi form as the original clients carry it in their
+  resources (RCDATA named after the form's class, TCONNECTFRAME,
+  TSERVERLISTFRAME, ...), so a rebuild can lay out its windows exactly as
+  the program it rebuilds did, from that program's own file.
 
-  The layout is the Delphi streaming format: "TPF0", then a component:
-  optional flags byte ($F0 or more; bit 2 adds a position), class name and
-  component name as short strings, properties (a short-string name and a
-  typed value) up to a 0, child components up to a 0. Value types: 1 list,
-  2/3/4 8/16/32-bit integer, 5 extended, 6 string, 7 identifier, 8 false,
-  9 true, 10 binary, 11 set, 12 long string, 13 nil, 14 collection, 15
-  single, 16 currency, 17 date, 18 wide string, 19 int64, 20 UTF-8. }
+  The data is Delphi's binary form stream ("TPF0"): per component an
+  optional prefix byte ($F0 or more: flags, then an index when bit 2 is
+  set), the class name and the component name as short strings, its
+  properties (a short string name and a typed value each) up to a 0, its
+  child components up to a 0. Values are typed by a first byte: 0 null,
+  1 list, 2/3/4 8/16/32-bit integers, 5 extended, 6 and 7 short string and
+  identifier, 8 False, 9 True, 10 binary, 11 set, 12 long string, 13 nil,
+  14 collection, 15 single, 16 currency, 17 date, 18 wide string, 19
+  64-bit integer, 20 UTF-8 string. A collection holds items, each a list
+  (1) of properties up to a 0, after an optional integer order value.
+
+  Nothing is interpreted: integers, strings, identifiers and sets are kept
+  as text (sets as "[a,b]"), binaries (pictures, glyphs) as bytes, and
+  collections flattened to Name[i].Prop. }
 unit GDfm;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
@@ -21,49 +27,116 @@ uses
   Classes;
 
 type
-  TDfmProp = record
-    Name: string;
-    { integers in decimal, identifiers and strings as they are, sets as
-      their members with commas, true/false as True/False; collections
-      give one property per item field, "Columns[0].Width" }
-    Value: string;
-    { the bytes of a binary property (Glyph.Data, Bitmap) }
-    Binary: Boolean;
-  end;
-
   TDfmNode = class
   public
     ClassName_, Name: string;
-    Props: array of TDfmProp;
+    { Prop=Value, in the order the form lists them }
+    Props: TStringList;
+    { binary properties (Picture.Data, Glyph.Data): name -> bytes }
+    Bins: TStringList;
     Children: TList;
+    Parent: TDfmNode;
     constructor Create;
     destructor Destroy; override;
+    function Child(I: Integer): TDfmNode;
+    function Count: Integer;
+    { the same as Count (the 2.0x launcher's name for it) }
+    function ChildCount: Integer;
     function Has(const Prop: string): Boolean;
     function Str(const Prop: string; const Default: string = ''): string;
     function Int(const Prop: string; Default: Integer = 0): Integer;
     function Bool(const Prop: string; Default: Boolean = False): Boolean;
-    function Child(I: Integer): TDfmNode;
-    function ChildCount: Integer;
-    { This node or the first one under it named Name (case-insensitive). }
+    function Bin(const Prop: string): string;
+    { the component called Name anywhere under this one, or nil }
     function Find(const AName: string): TDfmNode;
   end;
 
-{ The form in Data ("TPF0" ...), or nil when it does not read as one. }
+{ The form in Data (a binary form stream), or nil when it is not one. }
 function ParseDfm(const Data: string): TDfmNode;
 
-{ A Delphi colour (clLime, clGreen, clBtnFace, a $00BBGGRR number) as
-  $AARRGGBB; Default when it is none of these. System colours are the
-  classic Windows scheme. }
+{ A Delphi TColor (a number, or clLime, clGreen, clBtnFace, ...) as an
+  ARGB surface colour; Default for names it does not know. }
 function DfmColor(const Value: string; Default: Cardinal): Cardinal;
+
+{ The picture inside a TBitmap property (Glyph.Data, Picture.Data of a
+  bitmap): the bytes after the stream's own size or class name, from 'BM'
+  on; '' when there is none. }
+function DfmBitmap(const Data: string): string;
 
 implementation
 
 uses
   SysUtils;
 
+type
+  TReader_ = class
+    S: string;
+    P: Integer; { 1-based }
+    Bad: Boolean;
+    function U8: Integer;
+    function I16: Integer;
+    function I32: Integer;
+    function Bytes(N: Integer): string;
+    function SStr: string;
+    function Peek: Integer;
+  end;
+
+function TReader_.Peek: Integer;
+begin
+  if P > Length(S) then
+  begin
+    Bad := True;
+    Result := 0;
+  end
+  else Result := Ord(S[P]);
+end;
+
+function TReader_.U8: Integer;
+begin
+  Result := Peek;
+  Inc(P);
+end;
+
+function TReader_.I16: Integer;
+begin
+  Result := U8 or (U8 shl 8);
+  if Result >= $8000 then Dec(Result, $10000);
+end;
+
+function TReader_.I32: Integer;
+var
+  V: Cardinal;
+begin
+  V := Cardinal(U8) or (Cardinal(U8) shl 8) or (Cardinal(U8) shl 16) or
+    (Cardinal(U8) shl 24);
+  Result := Integer(V);
+end;
+
+function TReader_.Bytes(N: Integer): string;
+begin
+  if (N < 0) or (P + N - 1 > Length(S)) then
+  begin
+    Bad := True;
+    Result := '';
+    P := Length(S) + 1;
+    Exit;
+  end;
+  Result := Copy(S, P, N);
+  Inc(P, N);
+end;
+
+function TReader_.SStr: string;
+begin
+  Result := Bytes(U8);
+end;
+
+{ ---- nodes ---- }
+
 constructor TDfmNode.Create;
 begin
   inherited Create;
+  Props := TStringList.Create;
+  Bins := TStringList.Create;
   Children := TList.Create;
 end;
 
@@ -73,33 +146,39 @@ var
 begin
   for I := 0 to Children.Count - 1 do TDfmNode(Children[I]).Free;
   Children.Free;
+  for I := 0 to Bins.Count - 1 do Dispose(PString(Bins.Objects[I]));
+  Bins.Free;
+  Props.Free;
   inherited Destroy;
 end;
 
-function TDfmNode.Has(const Prop: string): Boolean;
-var
-  I: Integer;
+function TDfmNode.Child(I: Integer): TDfmNode;
 begin
-  Result := False;
-  for I := 0 to High(Props) do
-    if SameText(Props[I].Name, Prop) then
-    begin
-      Result := True;
-      Exit;
-    end;
+  Result := TDfmNode(Children[I]);
 end;
 
-function TDfmNode.Str(const Prop: string; const Default: string): string;
+function TDfmNode.Count: Integer;
+begin
+  Result := Children.Count;
+end;
+
+function TDfmNode.ChildCount: Integer;
+begin
+  Result := Children.Count;
+end;
+
+function TDfmNode.Has(const Prop: string): Boolean;
+begin
+  Result := Props.IndexOfName(Prop) >= 0;
+end;
+
+function TDfmNode.Str(const Prop, Default: string): string;
 var
   I: Integer;
 begin
-  Result := Default;
-  for I := 0 to High(Props) do
-    if SameText(Props[I].Name, Prop) then
-    begin
-      Result := Props[I].Value;
-      Exit;
-    end;
+  I := Props.IndexOfName(Prop);
+  if I < 0 then Result := Default
+  else Result := Copy(Props[I], Length(Prop) + 2, MaxInt);
 end;
 
 function TDfmNode.Int(const Prop: string; Default: Integer): Integer;
@@ -112,19 +191,18 @@ var
   V: string;
 begin
   V := Str(Prop, '');
-  if SameText(V, 'True') then Result := True
-  else if SameText(V, 'False') then Result := False
+  if V = 'True' then Result := True
+  else if V = 'False' then Result := False
   else Result := Default;
 end;
 
-function TDfmNode.Child(I: Integer): TDfmNode;
+function TDfmNode.Bin(const Prop: string): string;
+var
+  I: Integer;
 begin
-  Result := TDfmNode(Children[I]);
-end;
-
-function TDfmNode.ChildCount: Integer;
-begin
-  Result := Children.Count;
+  I := Bins.IndexOf(Prop);
+  if I < 0 then Result := ''
+  else Result := string(PString(Bins.Objects[I])^);
 end;
 
 function TDfmNode.Find(const AName: string): TDfmNode;
@@ -136,7 +214,7 @@ begin
     Result := Self;
     Exit;
   end;
-  for I := 0 to Children.Count - 1 do
+  for I := 0 to Count - 1 do
   begin
     Result := Child(I).Find(AName);
     if Result <> nil then Exit;
@@ -144,225 +222,131 @@ begin
   Result := nil;
 end;
 
-type
-  EDfm = class(Exception);
+{ ---- the stream ---- }
 
-  TDfmReader = class
-    D: string;
-    P: Integer; { 1-based }
-    function Byte_: Integer;
-    function Peek: Integer;
-    function Bytes(N: Integer): string;
-    function I32: Integer;
-    function ShortStr: string;
-    procedure Value(Node: TDfmNode; const Name: string);
-    function Component: TDfmNode;
-  end;
-
-function TDfmReader.Peek: Integer;
-begin
-  if P > Length(D) then raise EDfm.Create('end of form');
-  Result := Ord(D[P]);
-end;
-
-function TDfmReader.Byte_: Integer;
-begin
-  Result := Peek;
-  Inc(P);
-end;
-
-function TDfmReader.Bytes(N: Integer): string;
-begin
-  if (N < 0) or (P + N - 1 > Length(D)) then raise EDfm.Create('end of form');
-  Result := Copy(D, P, N);
-  Inc(P, N);
-end;
-
-function TDfmReader.I32: Integer;
+{ One value as text; a binary goes to Node.Bins under Name, a collection
+  to Name[i].Prop entries. }
+procedure ReadValue(R: TReader_; Node: TDfmNode; const Name: string; out Text: string);
 var
-  S: string;
+  T, N, Item: Integer;
+  Sub, PName, V: string;
+  Box: PString;
 begin
-  S := Bytes(4);
-  Result := Integer(Cardinal(Ord(S[1])) or (Cardinal(Ord(S[2])) shl 8) or
-    (Cardinal(Ord(S[3])) shl 16) or (Cardinal(Ord(S[4])) shl 24));
-end;
-
-function TDfmReader.ShortStr: string;
-begin
-  Result := Bytes(Byte_);
-end;
-
-procedure TDfmReader.Value(Node: TDfmNode; const Name: string);
-var
-  T, N, Item, Idx: Integer;
-  V, Part: string;
-  Bin: Boolean;
-  Sub: TDfmNode;
-  J: Integer;
-
-  procedure Add(const AName, AValue: string; IsBin: Boolean);
-  begin
-    SetLength(Node.Props, Length(Node.Props) + 1);
-    Node.Props[High(Node.Props)].Name := AName;
-    Node.Props[High(Node.Props)].Value := AValue;
-    Node.Props[High(Node.Props)].Binary := IsBin;
-  end;
-
-begin
-  Bin := False;
-  T := Byte_;
+  Text := '';
+  T := R.U8;
   case T of
-    0: V := '';
+    0: Text := '';
     1:
       begin
-        { a list: kept as its items with commas }
-        V := '';
-        while Peek <> 0 do
+        Sub := '';
+        while (R.Peek <> 0) and not R.Bad do
         begin
-          Sub := TDfmNode.Create;
-          try
-            Value(Sub, 'x');
-            if V <> '' then V := V + ',';
-            if Length(Sub.Props) > 0 then V := V + Sub.Props[0].Value;
-          finally
-            Sub.Free;
-          end;
+          ReadValue(R, Node, Name, V);
+          if Sub <> '' then Sub := Sub + ' ';
+          Sub := Sub + V;
         end;
-        Inc(P);
+        R.U8;
+        Text := '(' + Sub + ')';
       end;
-    2: V := IntToStr(ShortInt(Byte_));
-    3:
-      begin
-        Part := Bytes(2);
-        V := IntToStr(SmallInt(Word(Ord(Part[1]) or (Ord(Part[2]) shl 8))));
-      end;
-    4: V := IntToStr(I32);
-    5: begin Bytes(10); V := '0'; end;
-    6, 7: V := ShortStr;
-    8: V := 'False';
-    9: V := 'True';
+    2: begin N := R.U8; if N >= 128 then Dec(N, 256); Text := IntToStr(N); end;
+    3: Text := IntToStr(R.I16);
+    4: Text := IntToStr(R.I32);
+    5: begin R.Bytes(10); Text := '0'; end;
+    6, 7: Text := R.SStr;
+    8: Text := 'False';
+    9: Text := 'True';
     10:
       begin
-        N := I32;
-        V := Bytes(N);
-        Bin := True;
+        N := R.I32;
+        New(Box);
+        Box^ := R.Bytes(N);
+        Node.Bins.AddObject(Name, TObject(Box));
+        Text := '{binary}';
       end;
     11:
       begin
-        V := '';
-        repeat
-          Part := ShortStr;
-          if Part <> '' then
-          begin
-            if V <> '' then V := V + ',';
-            V := V + Part;
-          end;
-        until Part = '';
+        Sub := '';
+        while not R.Bad do
+        begin
+          V := R.SStr;
+          if V = '' then Break;
+          if Sub <> '' then Sub := Sub + ',';
+          Sub := Sub + V;
+        end;
+        Text := '[' + Sub + ']';
       end;
-    12, 20: V := Bytes(I32);
-    13: V := '';
+    12: begin N := R.I32; Text := R.Bytes(N); end;
+    13: Text := 'nil';
     14:
       begin
         Item := 0;
-        while Peek <> 0 do
+        while (R.Peek <> 0) and not R.Bad do
         begin
-          if Peek in [2, 3, 4] then
+          if R.Peek in [2, 3, 4] then ReadValue(R, Node, Name, V);
+          if R.Peek = 1 then R.U8;
+          while (R.Peek <> 0) and not R.Bad do
           begin
-            Sub := TDfmNode.Create;
-            try
-              Value(Sub, 'x');
-            finally
-              Sub.Free;
-            end;
+            PName := R.SStr;
+            ReadValue(R, Node, Format('%s[%d].%s', [Name, Item, PName]), V);
+            Node.Props.Add(Format('%s[%d].%s=%s', [Name, Item, PName, V]));
           end;
-          if Byte_ <> 1 then raise EDfm.Create('bad collection');
-          Sub := TDfmNode.Create;
-          try
-            while Peek <> 0 do
-            begin
-              Part := ShortStr;
-              Value(Sub, Part);
-            end;
-            Inc(P);
-            for J := 0 to High(Sub.Props) do
-              Add(Format('%s[%d].%s', [Name, Item, Sub.Props[J].Name]), Sub.Props[J].Value,
-                Sub.Props[J].Binary);
-          finally
-            Sub.Free;
-          end;
+          R.U8;
           Inc(Item);
         end;
-        Inc(P);
-        Exit;
+        R.U8;
+        Text := IntToStr(Item);
       end;
-    15: begin Bytes(4); V := '0'; end;
-    16, 17, 19: begin Bytes(8); V := '0'; end;
-    18:
-      begin
-        N := I32;
-        Part := Bytes(N * 2);
-        V := '';
-        for Idx := 0 to N - 1 do
-          if Ord(Part[Idx * 2 + 2]) = 0 then V := V + Part[Idx * 2 + 1] else V := V + '?';
-      end;
+    15: begin R.Bytes(4); Text := '0'; end;
+    16, 17, 19: begin R.Bytes(8); Text := '0'; end;
+    18: begin N := R.I32; Sub := R.Bytes(2 * N); Text := '';
+          for Item := 0 to N - 1 do
+            if Ord(Sub[2 * Item + 2]) = 0 then Text := Text + Sub[2 * Item + 1]
+            else Text := Text + '?';
+        end;
+    20: begin N := R.I32; Text := R.Bytes(N); end;
   else
-    raise EDfm.CreateFmt('value type %d', [T]);
+    R.Bad := True;
   end;
-  Add(Name, V, Bin);
 end;
 
-function TDfmReader.Component: TDfmNode;
+function ReadComponent(R: TReader_; Parent: TDfmNode): TDfmNode;
 var
   Flags: Integer;
-  Name: string;
-  Sub: TDfmNode;
+  PName, V: string;
 begin
   Result := TDfmNode.Create;
-  try
-    if Peek and $F0 = $F0 then
-    begin
-      Flags := Byte_;
-      if Flags and 2 <> 0 then
-      begin
-        Sub := TDfmNode.Create;
-        try
-          Value(Sub, 'x');
-        finally
-          Sub.Free;
-        end;
-      end;
-    end;
-    Result.ClassName_ := ShortStr;
-    Result.Name := ShortStr;
-    while Peek <> 0 do
-    begin
-      Name := ShortStr;
-      Value(Result, Name);
-    end;
-    Inc(P);
-    while Peek <> 0 do Result.Children.Add(Component);
-    Inc(P);
-  except
-    Result.Free;
-    raise;
+  Result.Parent := Parent;
+  if (R.Peek and $F0) = $F0 then
+  begin
+    Flags := R.U8;
+    if (Flags and 2) <> 0 then ReadValue(R, Result, '', V);
   end;
+  Result.ClassName_ := R.SStr;
+  Result.Name := R.SStr;
+  while (R.Peek <> 0) and not R.Bad do
+  begin
+    PName := R.SStr;
+    ReadValue(R, Result, PName, V);
+    Result.Props.Add(PName + '=' + V);
+  end;
+  R.U8;
+  while (R.Peek <> 0) and not R.Bad do
+    Result.Children.Add(ReadComponent(R, Result));
+  R.U8;
 end;
 
 function ParseDfm(const Data: string): TDfmNode;
 var
-  R: TDfmReader;
+  R: TReader_;
 begin
   Result := nil;
   if Copy(Data, 1, 4) <> 'TPF0' then Exit;
-  R := TDfmReader.Create;
+  R := TReader_.Create;
   try
-    R.D := Data;
+    R.S := Data;
     R.P := 5;
-    try
-      Result := R.Component;
-    except
-      on EDfm do Result := nil;
-    end;
+    Result := ReadComponent(R, nil);
+    if R.Bad then FreeAndNil(Result);
   finally
     R.Free;
   end;
@@ -370,39 +354,49 @@ end;
 
 function DfmColor(const Value: string; Default: Cardinal): Cardinal;
 var
-  N: Int64;
-  V: string;
+  V: Integer;
+  C: Cardinal;
 begin
   Result := Default;
-  V := LowerCase(Value);
-  if V = '' then Exit;
-  if V = 'clblack' then Result := $FF000000
-  else if V = 'clmaroon' then Result := $FF800000
-  else if V = 'clgreen' then Result := $FF008000
-  else if V = 'clolive' then Result := $FF808000
-  else if V = 'clnavy' then Result := $FF000080
-  else if V = 'clpurple' then Result := $FF800080
-  else if V = 'clteal' then Result := $FF008080
-  else if V = 'clgray' then Result := $FF808080
-  else if V = 'clsilver' then Result := $FFC0C0C0
-  else if V = 'clred' then Result := $FFFF0000
-  else if V = 'cllime' then Result := $FF00FF00
-  else if V = 'clyellow' then Result := $FFFFFF00
-  else if V = 'clblue' then Result := $FF0000FF
-  else if V = 'clfuchsia' then Result := $FFFF00FF
-  else if V = 'claqua' then Result := $FF00FFFF
-  else if V = 'clwhite' then Result := $FFFFFFFF
-  else if (V = 'clbtnface') or (V = 'clmenu') or (V = 'clscrollbar') then Result := $FFC0C0C0
-  else if (V = 'clwindow') then Result := $FFFFFFFF
-  else if (V = 'clwindowtext') or (V = 'clbtntext') or (V = 'clmenutext') then Result := $FF000000
-  else if (V = 'clhighlight') or (V = 'clactivecaption') then Result := $FF000080
-  else if V = 'clhighlighttext' then Result := $FFFFFFFF
-  else if (V = 'clbtnshadow') or (V = 'clgraytext') then Result := $FF808080
-  else if V = 'clbtnhighlight' then Result := $FFFFFFFF
-  else if TryStrToInt64(Value, N) and (N >= 0) and (N <= $FFFFFF) then
-    { $00BBGGRR }
-    Result := $FF000000 or Cardinal((N and $FF) shl 16) or Cardinal(N and $FF00) or
-      Cardinal((N shr 16) and $FF);
+  if Value = '' then Exit;
+  if (Value[1] = '-') or ((Value[1] >= '0') and (Value[1] <= '9')) then
+  begin
+    V := StrToIntDef(Value, -1);
+    if V < 0 then Exit;
+    { TColor is $00BBGGRR }
+    C := Cardinal(V);
+    Result := $FF000000 or ((C and $FF) shl 16) or (C and $FF00) or ((C shr 16) and $FF);
+    Exit;
+  end;
+  if SameText(Value, 'clBlack') then Result := $FF000000
+  else if SameText(Value, 'clMaroon') then Result := $FF800000
+  else if SameText(Value, 'clGreen') then Result := $FF008000
+  else if SameText(Value, 'clOlive') then Result := $FF808000
+  else if SameText(Value, 'clNavy') then Result := $FF000080
+  else if SameText(Value, 'clPurple') then Result := $FF800080
+  else if SameText(Value, 'clTeal') then Result := $FF008080
+  else if SameText(Value, 'clGray') then Result := $FF808080
+  else if SameText(Value, 'clSilver') then Result := $FFC0C0C0
+  else if SameText(Value, 'clRed') then Result := $FFFF0000
+  else if SameText(Value, 'clLime') then Result := $FF00FF00
+  else if SameText(Value, 'clYellow') then Result := $FFFFFF00
+  else if SameText(Value, 'clBlue') then Result := $FF0000FF
+  else if SameText(Value, 'clFuchsia') then Result := $FFFF00FF
+  else if SameText(Value, 'clAqua') then Result := $FF00FFFF
+  else if SameText(Value, 'clWhite') then Result := $FFFFFFFF
+  else if SameText(Value, 'clWindow') then Result := $FFFFFFFF
+  else if SameText(Value, 'clWindowText') then Result := $FF000000
+  else if SameText(Value, 'clBtnFace') then Result := $FFD4D0C8
+  else if SameText(Value, 'clBtnText') then Result := $FF000000;
+end;
+
+function DfmBitmap(const Data: string): string;
+var
+  P: Integer;
+begin
+  P := Pos('BM', Data);
+  if (P = 0) or (P > 40) then Result := ''
+  else Result := Copy(Data, P, MaxInt);
 end;
 
 end.

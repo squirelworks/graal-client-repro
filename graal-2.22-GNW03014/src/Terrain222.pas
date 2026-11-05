@@ -20,16 +20,21 @@
   lifts what stands there by one tile (16 px) on screen: the ground, and
   players and NPCs at their foot point.
 
-  The ground picked by height was measured on the real 2.22 under Wine, by
-  setting the offline tutorial's grid to one height at a time and comparing
-  screenshots with picso.png (2026-11-04):
+  The ground is drawn as 2.22 draws it (read from Graal_222.exe):
 
-  - below 0: water, darker the deeper it is;
-  - 0 to 3: sand; about 4: sand and grass mixed; 5 and up: grass;
-  - flat ground is drawn about 30 levels darker than the sheet in each
-    colour channel, and slopes are lit from the upper left.
-
-  The band edges are dithered rather than copied. }
+  - a tile of the level other than 0 is copied from the sheet; tile 0 is
+    picked from the four corner heights. Seven thresholds (0, 3, 4, 5, 25,
+    55, 65) are tried from the top: when all four corners reach one, the
+    tile comes from the full patch of the band above it; when only some
+    do, from that band's transition tiles, chosen by which corners reach
+    it. A full patch tile is a decoration (flowers, stones) when the
+    fraction of the corners' sum says so, otherwise a plain tile picked by
+    the tile's place;
+  - each pixel is darkened by the slope down the screen at that place,
+    32 levels on flat ground, none on ground that falls towards the
+    viewer, 63 on ground that rises;
+  - where the ground is under 0 the pixel is water: the deeper, the darker
+    and bluer, and white foam at the shore. }
 unit Terrain222;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
@@ -99,14 +104,26 @@ function HeightAt(const G: THeightGrid; X, Y: Double): Double;
   0 (water) lift nothing. }
 function LiftAt(const G: THeightGrid; X, Y: Double): Integer;
 
-{ Draws the ground of tile (TX, TY) of a level with grid G at (DX, DY) on
-  Dest, from the new-order sheet Sheet (picso.png and kin). }
-procedure DrawTerrainTile(Dest, Sheet: TGSurface; const G: THeightGrid;
-  TX, TY, DX, DY: Integer);
+type
+  { the heights at a tile's corners, and the slope down the screen there
+    (the height one corner below less the one above): top left, top right,
+    bottom left, bottom right }
+  TTileCorners = record
+    H, S: array[0..3] of Double;
+  end;
 
-{ Darkens a tile already drawn at (DX, DY) the way the ground around it is
-  lit, so that tiles on the ground (paths, flowers) sit in it. }
-procedure ShadeTile(Dest: TGSurface; const G: THeightGrid; TX, TY, DX, DY: Integer);
+const
+  CornerTL = 0; CornerTR = 1; CornerBL = 2; CornerBR = 3;
+
+{ Where on a new-order sheet (picso.png and kin) the ground of a tile 0
+  with corners C comes from; X and Y are its place in the level. }
+procedure PickGroundTile(const C: TTileCorners; X, Y: Integer; out SX, SY: Integer);
+
+{ Draws tile Tile of a level with height corners C at (DX, DY) on Dest,
+  from the new-order sheet: tile 0 is picked by height, and every pixel is
+  lit by the slope or drawn as water. }
+procedure DrawGroundTile(Dest, Sheet: TGSurface; Tile: Integer;
+  const C: TTileCorners; X, Y, DX, DY: Integer);
 
 implementation
 
@@ -569,127 +586,157 @@ begin
   Result := Round(H * LiftPerHeight);
 end;
 
-{ A fixed noise in -0.5..0.5 per pixel, for the dithered band edges. }
-function Noise(X, Y: Integer): Double;
+{ 2.22's own rounding: down, after adding 0.0001 }
+function Floor2(X: Double): Integer;
 var
-  H: Cardinal;
+  F: Double;
 begin
-  {$PUSH}{$Q-}{$R-}
-  H := Cardinal(X) * 374761393 + Cardinal(Y) * 668265263;
-  H := (H xor (H shr 13)) * 1274126177;
-  H := H xor (H shr 16);
-  {$POP}
-  Result := (H and $FFFF) / 65535 - 0.5;
+  F := X + 0.0001;
+  Result := Trunc(F);
+  if Result > F then Dec(Result);
+end;
+
+function Frac2(X: Double): Double;
+var
+  F: Integer;
+begin
+  F := Floor2(X);
+  if F > X then Result := 0
+  else Result := X - F;
 end;
 
 const
-  { 128 x 128 ground patches on the new-order sheet (picso.png) }
-  WaterX = 0;   WaterY = 0;
-  SandX = 0;    SandY = 256;
-  MixX = 256;   MixY = 256;
-  GrassX = 512; GrassY = 256;
-  Patch = 128;
-  FlatShade = 30;
-  SlopeShade = 22;   { per height step per tile }
-  DepthShade = 14;   { per height step under 0 }
+  { the heights where the ground's bands begin }
+  BandFrom: array[0..6] of Double = (0, 3, 4, 5, 25, 55, 65);
+  { the transition tile (column, row) of each corner mask: 1 bottom right,
+    2 bottom left, 4 top right, 8 top left reach the band }
+  Transition: array[0..15, 0..1] of Integer = (
+    (7, 8), (0, 0), (2, 0), (1, 0), (0, 2), (0, 1), (3, 0), (4, 2),
+    (2, 2), (4, 0), (2, 1), (3, 2), (1, 2), (4, 1), (3, 1), (1, 1));
+  Band = 256;          { each band is a 256 x 256 block of the sheet }
+  WaterLevel = 0.0;
+  HeightFix = 24 * 16; { heights and slopes in fixed point }
+  SlopeFix = 32 * 16;
 
-function ShadeChannel(V, D: Integer): Integer;
-begin
-  Result := V - D;
-  if Result < 0 then Result := 0;
-  if Result > 255 then Result := 255;
-end;
-
-function TileSlopeShade(const G: THeightGrid; TX, TY: Integer): Integer;
+procedure PickGroundTile(const C: TTileCorners; X, Y: Integer; out SX, SY: Integer);
 var
-  HX, HY: Double;
+  B, Mask, V: Integer;
 begin
-  HX := HeightAt(G, TX + 1.0, TY + 0.5) - HeightAt(G, TX + 0.0, TY + 0.5);
-  HY := HeightAt(G, TX + 0.5, TY + 1.0) - HeightAt(G, TX + 0.5, TY + 0.0);
-  Result := FlatShade + Round(-(HX + HY) * SlopeShade);
-end;
-
-procedure ShadeTile(Dest: TGSurface; const G: THeightGrid; TX, TY, DX, DY: Integer);
-var
-  I, J, PX, PY, D: Integer;
-  Col: Cardinal;
-begin
-  D := TileSlopeShade(G, TX, TY);
-  for J := 0 to TileSize - 1 do
+  SX := 0;
+  SY := 0;
+  for B := 6 downto 0 do
   begin
-    PY := DY + J;
-    if (PY < 0) or (PY >= Dest.Height) then Continue;
-    for I := 0 to TileSize - 1 do
+    Mask := 0;
+    if C.H[CornerBR] >= BandFrom[B] then Inc(Mask, 1);
+    if C.H[CornerBL] >= BandFrom[B] then Inc(Mask, 2);
+    if C.H[CornerTR] >= BandFrom[B] then Inc(Mask, 4);
+    if C.H[CornerTL] >= BandFrom[B] then Inc(Mask, 8);
+    if Mask = 15 then
     begin
-      PX := DX + I;
-      if (PX < 0) or (PX >= Dest.Width) then Continue;
-      Col := Dest.Pixels[PY * Dest.Width + PX];
-      Dest.Pixels[PY * Dest.Width + PX] := $FF000000 or
-        (Cardinal(ShadeChannel((Col shr 16) and $FF, D)) shl 16) or
-        (Cardinal(ShadeChannel((Col shr 8) and $FF, D)) shl 8) or
-        Cardinal(ShadeChannel(Col and $FF, D));
+      SX := ((B + 1) shr 1) * Band;
+      SY := ((B + 1) and 1) * Band;
+      Break;
     end;
+    if Mask > 0 then
+    begin
+      SX := (B shr 1) * Band + Band div 2 + Transition[Mask, 0] * TileSize;
+      SY := (B and 1) * Band + Transition[Mask, 1] * TileSize;
+      Exit;
+    end;
+  end;
+  { a full patch: a decoration now and then, else a plain tile }
+  V := Floor2(Frac2(C.H[0] + C.H[1] + C.H[2] + C.H[3]) * 1000) mod 256;
+  if (V >= 0) and (V < 63) then
+  begin
+    Inc(V);
+    Inc(SX, (V and 7) * TileSize);
+    Inc(SY, (V shr 3) * TileSize);
+  end
+  else
+  begin
+    Inc(SX, (X and 3) * TileSize);
+    Inc(SY, 64 + (Y and 3) * TileSize);
   end;
 end;
 
-procedure DrawTerrainTile(Dest, Sheet: TGSurface; const G: THeightGrid;
-  TX, TY, DX, DY: Integer);
+{ (A * N) div 16, rounded down as an arithmetic shift }
+function Step16(A: Int64; N: Integer): Int64; inline;
+begin
+  Result := SarInt64(A * N, 4);
+end;
+
+function SubSat(V, D: Integer): Cardinal; inline;
+begin
+  if V < D then Result := 0
+  else if V - D > 255 then Result := 255
+  else Result := V - D;
+end;
+
+procedure DrawGroundTile(Dest, Sheet: TGSurface; Tile: Integer;
+  const C: TTileCorners; X, Y, DX, DY: Integer);
 var
-  I, J, WX, WY, PX, PY, SX, SY, D, Dd, OX, OY: Integer;
-  H, Hn: Double;
-  Slope: Integer;
+  H, S: array[0..3] of Integer;
+  K, I, J, PX, PY, SX, SY, D, L: Integer;
+  HL, HR, SL, SR, HP, Depth: Int64;
+  AnyWater, AllWater: Boolean;
   Col: Cardinal;
 begin
-  if (Sheet = nil) or (Sheet.Width < GrassX + Patch) or (Sheet.Height < GrassY + Patch) then Exit;
-  { the slope is taken once per tile, from the heights around its centre }
-  Slope := TileSlopeShade(G, TX, TY) - FlatShade;
+  if Sheet = nil then Exit;
+  if Tile = 0 then PickGroundTile(C, X, Y, SX, SY)
+  else TileSheetPos(Tile, SX, SY);
+  if (SX + TileSize > Sheet.Width) or (SY + TileSize > Sheet.Height) then Exit;
+  AnyWater := False;
+  AllWater := True;
+  for K := 0 to 3 do
+  begin
+    H[K] := Floor2(C.H[K] * HeightFix);
+    S[K] := Floor2(C.S[K] * SlopeFix);
+    if C.H[K] < WaterLevel then AnyWater := True
+    else AllWater := False;
+  end;
   for J := 0 to TileSize - 1 do
   begin
     PY := DY + J;
     if (PY < 0) or (PY >= Dest.Height) then Continue;
-    WY := TY * TileSize + J;
+    HL := Step16(H[CornerBL] - H[CornerTL], J) + H[CornerTL];
+    HR := Step16(H[CornerBR] - H[CornerTR], J) + H[CornerTR];
+    SL := Step16(S[CornerBL] - S[CornerTL], J) + S[CornerTL];
+    SR := Step16(S[CornerBR] - S[CornerTR], J) + S[CornerTR];
     for I := 0 to TileSize - 1 do
     begin
       PX := DX + I;
       if (PX < 0) or (PX >= Dest.Width) then Continue;
-      WX := TX * TileSize + I;
-      H := HeightAt(G, WX / TileSize, WY / TileSize);
-      Hn := H + Noise(WX, WY);
-      D := FlatShade + Slope;
-      if Hn < 0 then
+      D := 0;
+      HP := 0;
+      if AnyWater then HP := Step16(HR - HL, I) + HL;
+      if AnyWater and (HP < 0) then
       begin
-        OX := WaterX;
-        OY := WaterY;
-        Dd := Round(-H * DepthShade);
-        D := FlatShade + Dd;
-      end
-      else if Hn < 3.5 then
-      begin
-        OX := SandX;
-        OY := SandY;
-      end
-      else if Hn < 4.75 then
-      begin
-        OX := MixX;
-        OY := MixY;
+        { water: the depth darkens red and green and sets blue }
+        Depth := -HP;
+        if Depth >= $C00 then D := $C0
+        else
+        begin
+          D := (Depth shr 4) and $FF;
+          if Depth < $180 then D := ((Depth shr 1) and $FF) + D - $C0;
+        end;
+        if AllWater then Col := Sheet.Pixels[(SY + J) * Sheet.Width + SX + I]
+        else Col := Sheet.Pixels[((SY and (Band - 1)) + 48 + J) * Sheet.Width +
+          (SX and (Band - 1)) + I];
+        if D >= -15 then K := (240 - D) and $FF else K := 255;
+        Dest.Pixels[PY * Dest.Width + PX] := $FF000000 or
+          (SubSat((Col shr 16) and $FF, D) shl 16) or
+          (SubSat((Col shr 8) and $FF, D) shl 8) or Cardinal(K);
       end
       else
       begin
-        OX := GrassX;
-        OY := GrassY;
+        L := SarInt64(Step16(SR - SL, I) + SL, 4) + 32;
+        if L > 63 then L := 63;
+        if L < 0 then L := 0;
+        Col := Sheet.Pixels[(SY + J) * Sheet.Width + SX + I];
+        Dest.Pixels[PY * Dest.Width + PX] := $FF000000 or
+          (SubSat((Col shr 16) and $FF, L) shl 16) or
+          (SubSat((Col shr 8) and $FF, L) shl 8) or SubSat(Col and $FF, L);
       end;
-      SX := OX + (WX mod Patch);
-      SY := OY + (WY mod Patch);
-      { the sand patch's top-left tile on picso.png is a grass tile, not
-        sand: the real 2.22 shows none at the grid points, so take the
-        sand to its right }
-      if (OX = SandX) and (OY = SandY) and (WX mod Patch < TileSize) and
-        (WY mod Patch < TileSize) then Inc(SX, TileSize);
-      Col := Sheet.Pixels[SY * Sheet.Width + SX];
-      Dest.Pixels[PY * Dest.Width + PX] := $FF000000 or
-        (Cardinal(ShadeChannel((Col shr 16) and $FF, D)) shl 16) or
-        (Cardinal(ShadeChannel((Col shr 8) and $FF, D)) shl 8) or
-        Cardinal(ShadeChannel(Col and $FF, D));
     end;
   end;
 end;

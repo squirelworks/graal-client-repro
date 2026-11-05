@@ -173,7 +173,7 @@ var
 begin
   Result := nil;
   if N = nil then Exit;
-  D := N.Str('Glyph.Data');
+  D := N.Bin('Glyph.Data');
   if Length(D) < 8 then Exit;
   Result := Picture(Copy(D, 5, MaxInt), '.bmp', True);
 end;
@@ -215,7 +215,7 @@ begin
   if Art.List = nil then Exit;
   N := Art.List.Find('ImageList1');
   if N = nil then Exit;
-  D := N.Str('Bitmap');
+  D := N.Bin('Bitmap');
   Cx := N.Int('Width', 16);
   Cy := N.Int('Height', 16);
   { Delphi 4 wrote either its own layout (size, count, a BMP of the images

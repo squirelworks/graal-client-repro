@@ -16,6 +16,7 @@ bodies.
 
 ## What's new in v0.0.4
 
+- Rebuilt from the latest code; the changes for this client are listed here as they land.
 - [x] The launcher is this build's own: the start window is the real
   `TConnectFrame`, a 476 x 330 "Graal 2001" dialog with only the close
   button, over the real start art (`SCREENIMG1`), with its labels, language
