@@ -1,0 +1,20 @@
+Algonian 0=headalgo000.gif,male,orange,black,white,white,black,white,darkblue
+Algonian 1=headalgo001.gif,male,orange,darkred,gray,white,darkred,gray,darkblue
+Algonian 2=headalgo002.gif,male,orange,darkred,gray,white,darkred,gray,darkblue
+Algonian 3=headalgo003.gif,male,orange,brown,gray,gray,darkred,gray,brown
+Algonian 4=headalgo004.gif,male,orange,brown,gray,gray,darkred,gray,brown
+Algonian 5=headalgo005.gif,male,orange,darkred,gray,white,darkred,gray,darkblue
+Algonian 6=headalgo006.gif,male,orange,darkred,gray,white,darkred,gray,darkblue
+Algonian 7=headalgo007.gif,male,orange,brown,gray,gray,darkred,gray,brown
+Algonian 8=headalgo008.gif,male,orange,brown,gray,gray,darkred,gray,brown
+Algonian 9=headalgo009.gif,male,orange,darkred,gray,white,darkred,gray,darkblue
+Goth 0=headgoth000.gif,male,black,gray,red,black,black,red,red
+Goth 1=headgoth001.gif,male,black,gray,orange,gray,gray,black, lightgray
+Havar 0=headhava000.gif,male,blue,black,black,darkblue,darkblue,blue,blue
+Neperon 0=headnepe000.gif,male,blue,black,black,darkblue,darkblue,blue,blue
+Phenthian 0=headphen000.gif,male,orange,gray,blue,black,black,blue,blue
+Sentarian 0=headsent000.gif,male,blue,blue,lightblue,darkblue,green,lightblue,lightblue
+Sentarian 1=headsent001.gif,male,darkred,brown,red,brown,blue,red,red
+Sentarian 2=headsent002.gif,male,gray,gray,lightgray,gray,darkred,lightgray,lightgray
+Valguard 0=headvalg000.gif,male,black,black,gray,gray,gray,gray,black
+

@@ -14,6 +14,10 @@ client carries simple graphics of its own; put a 2.05 install you own next
 to it, or point `--data DIR` at one, for the real tiles, ganis, heads and
 bodies.
 
+## What's new in v0.0.4
+
+- Rebuilt from the latest code; the changes for this client are listed here as they land.
+
 ## What's new in v0.0.3
 
 - The Windows program carries its original's own icon (the Graal head, taken from
