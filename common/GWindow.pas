@@ -227,6 +227,7 @@ end;
 
 var
   ActiveWindow: TGWindow;
+  LiveWindows: array of TGWindow;
 
 { declared here so that nil (back to the registry mode) can be passed }
 function GwChangeDisplaySettings(DM: Pointer; Flags: DWORD): LongInt; stdcall;
@@ -259,88 +260,95 @@ procedure UpdateFormScroll(W: TGWindow; Wnd: HWND); forward;
 procedure FormScroll(W: TGWindow; Wnd: HWND; Bar, Code: Integer); forward;
 
 function WndProc(Wnd: HWND; Msg: UINT; WP: WPARAM; LP: LPARAM): LRESULT; stdcall;
+var
+  W: TGWindow;
 begin
   Result := 0;
-  if ActiveWindow <> nil then
+  { each window answers for itself: a dialog over the start window must
+    not take the start window's keys and clicks, nor leave it deaf once
+    closed }
+  W := TGWindow(GetWindowLongPtr(Wnd, GWLP_USERDATA));
+  if W = nil then W := ActiveWindow;
+  if W <> nil then
     case Msg of
       WM_KEYDOWN, WM_KEYUP:
         begin
-          if WP = VK_CONTROL then ActiveWindow.CtrlHeld := Msg = WM_KEYDOWN;
-          if WP = VK_SHIFT then ActiveWindow.ShiftHeld := Msg = WM_KEYDOWN;
+          if WP = VK_CONTROL then W.CtrlHeld := Msg = WM_KEYDOWN;
+          if WP = VK_SHIFT then W.ShiftHeld := Msg = WM_KEYDOWN;
           case WP of
-            VK_UP: ActiveWindow.ArrowHeld[0] := Msg = WM_KEYDOWN;
-            VK_LEFT: ActiveWindow.ArrowHeld[1] := Msg = WM_KEYDOWN;
-            VK_DOWN: ActiveWindow.ArrowHeld[2] := Msg = WM_KEYDOWN;
-            VK_RIGHT: ActiveWindow.ArrowHeld[3] := Msg = WM_KEYDOWN;
+            VK_UP: W.ArrowHeld[0] := Msg = WM_KEYDOWN;
+            VK_LEFT: W.ArrowHeld[1] := Msg = WM_KEYDOWN;
+            VK_DOWN: W.ArrowHeld[2] := Msg = WM_KEYDOWN;
+            VK_RIGHT: W.ArrowHeld[3] := Msg = WM_KEYDOWN;
           end;
-          ActiveWindow.SetKey(VKToKey(WP), Msg = WM_KEYDOWN);
+          W.SetKey(VKToKey(WP), Msg = WM_KEYDOWN);
           Exit;
         end;
       WM_SYSKEYDOWN:
         { Alt+Enter (bit 29: Alt held; bit 30: an auto-repeat) }
         if (WP = VK_RETURN) and ((LP and (1 shl 29)) <> 0) then
         begin
-          if (LP and (1 shl 30)) = 0 then ActiveWindow.FFullToggle := True;
+          if (LP and (1 shl 30)) = 0 then W.FFullToggle := True;
           Exit;
         end;
       WM_SYSCHAR:
         if WP = 13 then Exit; { no beep for Alt+Enter }
-      WM_CHAR: begin ActiveWindow.AddChar(Chr(WP and $FF)); Exit; end;
+      WM_CHAR: begin W.AddChar(Chr(WP and $FF)); Exit; end;
       WM_LBUTTONDOWN:
         begin
-          ActiveWindow.MouseLeft := True;
-          ActiveWindow.AddClick(SmallInt(LP and $FFFF), SmallInt((LP shr 16) and $FFFF));
+          W.MouseLeft := True;
+          W.AddClick(SmallInt(LP and $FFFF), SmallInt((LP shr 16) and $FFFF));
           SetCapture(Wnd);
           Exit;
         end;
       WM_LBUTTONUP:
         begin
-          ActiveWindow.MouseLeft := False;
-          if not ActiveWindow.MouseRight then ReleaseCapture;
+          W.MouseLeft := False;
+          if not W.MouseRight then ReleaseCapture;
           Exit;
         end;
       WM_RBUTTONDOWN:
         begin
-          ActiveWindow.MouseRight := True;
-          ActiveWindow.AddRightClick(SmallInt(LP and $FFFF), SmallInt((LP shr 16) and $FFFF));
+          W.MouseRight := True;
+          W.AddRightClick(SmallInt(LP and $FFFF), SmallInt((LP shr 16) and $FFFF));
           SetCapture(Wnd);
           Exit;
         end;
       WM_RBUTTONUP:
         begin
-          ActiveWindow.MouseRight := False;
-          if not ActiveWindow.MouseLeft then ReleaseCapture;
+          W.MouseRight := False;
+          if not W.MouseLeft then ReleaseCapture;
           Exit;
         end;
       WM_MOUSEWHEEL:
         begin
-          if SmallInt((WP shr 16) and $FFFF) > 0 then Dec(ActiveWindow.FWheel)
-          else Inc(ActiveWindow.FWheel);
+          if SmallInt((WP shr 16) and $FFFF) > 0 then Dec(W.FWheel)
+          else Inc(W.FWheel);
           Exit;
         end;
       WM_MOUSEMOVE:
         begin
-          ActiveWindow.MouseX := SmallInt(LP and $FFFF);
-          ActiveWindow.MouseY := SmallInt((LP shr 16) and $FFFF);
+          W.MouseX := SmallInt(LP and $FFFF);
+          W.MouseY := SmallInt((LP shr 16) and $FFFF);
           Exit;
         end;
-      WM_CLOSE: begin ActiveWindow.Closed := True; Exit; end;
+      WM_CLOSE: begin W.Closed := True; Exit; end;
       { the frame covers the client: no erasing, and a paint (uncovering,
         restoring) shows the last frame again }
       WM_ERASEBKGND:
-        if ActiveWindow.FLast <> nil then begin Result := 1; Exit; end;
+        if W.FLast <> nil then begin Result := 1; Exit; end;
       WM_PAINT:
-        if ActiveWindow.FLast <> nil then
+        if W.FLast <> nil then
         begin
           ValidateRect(Wnd, nil);
-          ActiveWindow.Present(ActiveWindow.FLast);
+          W.Present(W.FLast);
           Exit;
         end;
       WM_SYSCOMMAND:
         { minimising a form minimises the application, as Delphi's }
-        if ((WP and $FFF0) = SC_MINIMIZE) and (ActiveWindow.FApp <> 0) then
+        if ((WP and $FFF0) = SC_MINIMIZE) and (W.FApp <> 0) then
         begin
-          ShowWindow(ActiveWindow.FApp, SW_MINIMIZE);
+          ShowWindow(W.FApp, SW_MINIMIZE);
           Exit;
         end;
       WM_SIZE:
@@ -380,18 +388,36 @@ begin
   FWnd := CreateWindow('TGraalWindow', PChar(Title),
     WS_OVERLAPPEDWINDOW and not WS_THICKFRAME, Integer(CW_USEDEFAULT), 0,
     R.Right - R.Left, R.Bottom - R.Top, 0, 0, HInstance, nil);
+  SetWindowLongPtr(FWnd, GWLP_USERDATA, LONG_PTR(Self));
+  SetLength(LiveWindows, Length(LiveWindows) + 1);
+  LiveWindows[High(LiveWindows)] := Self;
   ActiveWindow := Self;
   ShowWindow(FWnd, SW_SHOW);
 end;
 
 destructor TGWindow.Destroy;
+var
+  I, J: Integer;
 begin
   if FFullscreen then GwChangeDisplaySettings(nil, 0);
-  ActiveWindow := nil;
+  { back to the newest window still open (a dialog's owner), if any }
+  for I := High(LiveWindows) downto 0 do
+    if LiveWindows[I] = Self then
+    begin
+      for J := I to High(LiveWindows) - 1 do LiveWindows[J] := LiveWindows[J + 1];
+      SetLength(LiveWindows, Length(LiveWindows) - 1);
+      Break;
+    end;
+  if ActiveWindow = Self then
+    if Length(LiveWindows) > 0 then ActiveWindow := LiveWindows[High(LiveWindows)]
+    else ActiveWindow := nil;
   FreeAndNil(FLast);
-  if FWnd <> 0 then DestroyWindow(FWnd);
+  if FWnd <> 0 then
+  begin
+    SetWindowLongPtr(FWnd, GWLP_USERDATA, 0);
+    DestroyWindow(FWnd);
+  end;
   if FApp <> 0 then DestroyWindow(FApp);
-  ActiveWindow := nil;
   inherited Destroy;
 end;
 
@@ -484,7 +510,7 @@ begin
     (GetSystemMetrics(SM_CYSCREEN) - H) div 2, W, H, SWP_NOZORDER or SWP_FRAMECHANGED);
   { the big icon for the taskbar and Alt+Tab, the small one for the
     caption }
-  if FDelphi and Dialog then
+  if Dialog then
   begin
     { a Delphi dialog's caption has no icon; redraw the frame without it }
     SendMessage(FWnd, WM_SETICON, ICON_BIG, 0);

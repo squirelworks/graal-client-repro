@@ -52,6 +52,8 @@ walking, links, gmaps and the game layer are 2.22's unchanged.
 | `src/Adventure.pas` | game state, levels, gmaps, handlers, the 50 ms tick, drawing (2.22's, with the changes above) |
 | `src/Graal231.dpr` | front end: start screen with no arguments; flags for the window, keys, frame dump, stress runs |
 | `src/ListServer231.pas`, `src/StartScreen231.pas` | the listserver step and the start screen plug-in (2.22's) |
+| `src/RealStart231.pas` | 2.31's own start window and server list (its own windows, 577 x 416) |
+| `src/Res231.pas` | what 2.31's program carries, compiled in: generated from `res/` (see `res/README.md`) by `scripts/res/make_resunit.py` |
 | `src/Npc231.pas`, `src/NpcBridge231.pas` | level NPCs and what their scripts reach (2.17.1's, with 2.31's prop range) |
 | `src/Baddy231.pas`, `src/Sound231.pas`, `src/Map231.pas` | baddies, sound effects, the maps (2.17.1's) |
 | `src/RunMode.pas` | stress-run support |
@@ -86,14 +88,17 @@ next to the program, or the install's `arrays2.dat`, wins over it.
 
 ## Not yet, or not known (0.0.2)
 
-- [ ] No side-by-side run with the real `Graal_231.exe` under Wine yet.
+- Side by side with the real `Graal_231.exe` under Wine (2026-11-05): the
+  start window, its title, buttons and places, the Training window's size,
+  title and chat line, and Alt+Enter match; so do the More options and
+  Open URL windows, the chat line and the quit box. Training's torches,
+  text and ground are in; some things stand a little lower than in 2.31
+  (see RELEASE_NOTES "Not yet").
 - [ ] The payload of 24 in 2.31 (2.22's value, 9, is sent).
 - [ ] Whether 2.31 sends its own position as X2 / Y2; the rebuild sends X / Y
   in half tiles, as 2.22 does.
 - [ ] `LARGEFILESIZE` and `MOVE2` are accepted and ignored; NPC moves are not
   animated.
-- [ ] 2.31's own start window: the Editor button, the Graal Gold / Graal 3D /
-  Classic / Hosted tabs, `graal://` links. The shared start screen is drawn.
-- [ ] The F1 window with four buttons, the "Use filename cache" option, the
-  key-config fix, GS1's `timevar2`, `downloadsize`, `onwall2`, `onwater2`.
+- [ ] `graal://` links.
+- [ ] The F1 window with four buttons, the key-config fix, GS1's `timevar2`, `downloadsize`, `onwall2`, `onwater2`.
 - [ ] Everything listed under "Not yet" in the 2.22 README.

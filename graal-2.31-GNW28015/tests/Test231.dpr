@@ -32,6 +32,12 @@ uses
   GBuiltin in '../../common/GBuiltin.pas',
   GStartScreen in '../../common/GStartScreen.pas',
   ListServer231 in '../src/ListServer231.pas',
+  GWindow in '../../common/GWindow.pas',
+  GUiFont in '../../common/GUiFont.pas',
+  GSysUiFont in '../../common/GSysUiFont.pas',
+  Res231 in '../src/Res231.pas',
+  Dialogs231 in '../src/Dialogs231.pas',
+  RealStart231 in '../src/RealStart231.pas',
   TestNpc231 in 'TestNpc231.pas',
   TestBaddy231 in 'TestBaddy231.pas';
 
@@ -1602,8 +1608,122 @@ begin
   end;
 end;
 
+{ What the rebuild carries from 2.31's own program: the start window's
+  pictures (and their sizes in Graal_231.exe), the tutorial levels, and
+  the server list's tabs as 2.31 names them. }
+procedure TestRealStart;
+var
+  Art: TRealStartArt;
+  D: string;
+  L: TAdventureLevel;
+  C: Char;
+  N, K: Integer;
+begin
+  Art := TRealStartArt.Create;
+  try
+    Check(Art.Load(''), 'real start: the compiled-in pictures decode');
+    Check((Art.Back1.Width = 577) and (Art.Back1.Height = 416), 'real start: SCREENIMG1 is 577 x 416');
+    Check((Art.Back2.Width = 577) and (Art.Back2.Height = 416), 'real start: SCREENIMG2 is 577 x 416');
+    Check(Art.Btn[2].Width > Art.Btn[1].Width, 'real start: BUTTON2 is the wide button');
+    Check(Art.Text('StartScreen-Button5', 'Editor') = 'Editor', 'real start: no language file, the defaults');
+  finally
+    Art.Free;
+  end;
+  Check(ServerTab('P Gold Server') = ltGold, 'tabs: P is Graal Gold');
+  Check(ServerTab('3 A 3D Server') = lt3D, 'tabs: 3 is Graal 3D');
+  Check(ServerTab('H Someone''s') = ltHosted, 'tabs: H is Hosted');
+  Check(ServerTab('Classic One') = ltClassic, 'tabs: no prefix is Classic');
+  Check(ServerTab('U Hidden') = ltNone, 'tabs: U is on no tab');
+  N := 0;
+  for C := 'A' to 'C' do
+    for K := 1 to 3 do
+      if ResFile('TUTORIAL' + C + IntToStr(K), D) and (Copy(D, 1, 8) = 'GR-V1.03') then Inc(N);
+  Check(N = 9, 'tutorial: the nine levels are compiled in, GR-V1.03');
+  L := TAdventureLevel.Create;
+  try
+    Check(ResFile('TUTORIALB2', D) and L.LoadFromString(D),
+      'tutorial: b-2 parses');
+  finally
+    L.Free;
+  end;
+end;
+
+procedure TestConfig;
+var
+  C: TGraalConfig;
+  F: TStringList;
+  Name, D: string;
+  G: TGSurface;
+begin
+  Name := GetTempDir + 'graalconfig-test.txt';
+  C := TGraalConfig.Create;
+  F := TStringList.Create;
+  try
+    DeleteFile(Name);
+    C.Load(Name);
+    Check(C.Bool('automapping') and C.Bool('noudp') and not C.Bool('waitvertical'),
+      'graalconfig: 2.31''s defaults with no file');
+    Check((C.Str('font') = 'Tempus Sans ITC') and (C.Int('fontsize', 0) = 24) and
+      (C.Str('fullscreenmode') = '1024x768'), 'graalconfig: font, size, fullscreen mode');
+    F.Add('head=head1.gif');
+    F.Add('notoalls=true');
+    F.SaveToFile(Name);
+    C.Load(Name);
+    Check((C.Lines[0] = 'head=head1.gif') and C.Bool('notoalls'),
+      'graalconfig: the file''s own lines first, in order');
+    C.SetBool('startinfullscreen', True);
+    C.SetStr('midivolume', '40');
+    Check(C.Save, 'graalconfig: saves');
+    C.Load(Name);
+    Check(C.Bool('startinfullscreen') and (C.Int('midivolume', 0) = 40) and
+      (C.Lines[0] = 'head=head1.gif'), 'graalconfig: what was saved reads back');
+  finally
+    DeleteFile(Name);
+    F.Free;
+    C.Free;
+  end;
+  G := TGSurface.Create(0, 0);
+  try
+    Check(ResFile('OPENGLYPH', D) and LoadImageData(D, 'OPENGLYPH.bmp', G, False) and
+      (G.Width = 15) and (G.Height = 14), 'open url: the Open button''s picture is compiled in');
+  finally
+    G.Free;
+  end;
+end;
+
+procedure TestMovie;
+const
+  Src = 'GANI0002'#10'SPRITE 0 arrow.png 0 0 16 16'#10'FRAMES 60'#10'MOVIE'#10 +
+    'ACTOR SPRITE'#10'FRAME 0 sprite #=0,dx=0,dy=0'#10'FRAME 20 dy=-4'#10'ACTOREND'#10 +
+    'ACTOR TEXT'#10'FRAME 0 text=Touch to get information,color=FFE080,fontsize=14,shaded=true'#10 +
+    'ACTOREND'#10'MOVIEEND'#10'SCRIPT'#10'timeout = 0.05;'#10'SCRIPTEND'#10;
+var
+  A: TGraalAni;
+  K: TGaniKey;
+  S: TGraalAniSprite;
+begin
+  A := TGraalAni.Create;
+  try
+    Check(A.LoadFromString(Src) and (A.MovieFrames = 60) and (Length(A.Actors) = 2),
+      'movie gani: frames and actors read');
+    Check(A.FindSprite(0, S) and (S.Sheet = 'arrow.png') and (S.W = 16),
+      'movie gani: the sprite table');
+    Check(A.ActorAt(0, 30, K) and (Round(K.DY) = -4) and (K.Sprite = 0),
+      'movie gani: later key frames change only what they name');
+    Check(A.ActorAt(1, 0, K) and A.Actors[1].IsText and
+      (K.Text = 'Touch to get information') and (K.Color = $FFE080) and K.Shaded,
+      'movie gani: a text actor');
+    Check(Trim(A.Script) = 'timeout = 0.05;', 'gani script: the SCRIPT block is kept');
+  finally
+    A.Free;
+  end;
+end;
+
 begin
   Skipped := 0;
+  TestRealStart;
+  TestConfig;
+  TestMovie;
   TestGTypes;
   TestBzip2;
   TestGen5Capture;
