@@ -78,7 +78,7 @@ uses
 {$IFDEF MSWINDOWS}
   Windows,
 {$ENDIF}
-  SysUtils, Res231, GUiFont;
+  SysUtils, Math, Res231, GUiFont;
 
 const
   DlgW = 577;
@@ -336,12 +336,20 @@ begin
     Right := X;
   end;
   if Masked then T := StringOfChar('*', Length(Text)) else T := Text;
-  while (T <> '') and (UiTextWidth(T, ufRegular) > Right - B.X - 6) do Delete(T, 1, 1);
+  { an edit being typed in keeps its end in view; any other shows its
+    start, cut at the right (the server list's Version: the real 2.31 on
+    Windows) }
+  if Focused and not Combo then
+    while (T <> '') and (UiTextWidth(T, ufRegular) > Right - B.X - 6) do Delete(T, 1, 1)
+  else
+    while (T <> '') and (UiTextWidth(T, ufRegular) > Right - B.X - 6) do
+      Delete(T, Length(T), 1);
   TW := UiTextWidth(T, ufRegular);
   if Focused and Combo and (T <> '') then
   begin
-    { a focused combo shows its text picked }
-    S.FillRect(B.X + 3, B.Y + 3, Right - B.X - 4, B.H - 6, ColSelect);
+    { a focused combo shows its text picked: the blue just behind the
+      text, as the real one }
+    S.FillRect(B.X + 3, B.Y + 3, Min(TW + 2, Right - B.X - 4), B.H - 6, ColSelect);
     UiDrawText(S, B.X + 4, B.Y + (B.H - UiLineH) div 2, T, ColWhite, ufRegular);
   end
   else
@@ -439,10 +447,11 @@ var
   S: TGSurface;
   Page: TPage;
   Focus, Sel, I, N, CX, CY, Row, PressBtn: Integer;
+  AccPicked: Boolean;
   Clicked: Boolean;
   Chars, Note, Lang, Title1, Title2: string;
   BTraining, BEditor, BOptions, BAccount, BStart, FNick, FLang, FAcc, FPw: TBox;
-  BConnect, BGo, LList, FCombo: TBox;
+  BMore, BDonate, BConnect, BGo, LList, FCombo: TBox;
   Tab, T: TListTab;
   Tabs: array of TListTab;
   Rows: array of Integer;
@@ -514,8 +523,11 @@ begin
     Note := Message;
     Lang := 'English';
     { the form says guest / guest, but 2.31 empties both before it shows
-      the window (under Wine, nothing saved) }
-    Focus := 0;
+      the window (under Wine, nothing saved). The account box is first in
+      the tab order: it has the focus on open, its text picked (the real
+      2.31 on Windows, 2026-11-05) }
+    Focus := 2;
+    AccPicked := True;
     Sel := -1;
     Tab := ltClassic;
     PressBtn := 0;
@@ -535,6 +547,10 @@ begin
     { TServerListFrame }
     LList := Box(24, 190, 201, 91);
     FCombo := Box(24, 290, 201, 23);
+    { Show More and Donations as the real 2.31 shows them on Windows
+      (2026-11-05), left of Connect; pressing them does nothing yet }
+    BMore := Box(120, 375, 105, 26);
+    BDonate := Box(240, 375, 185, 26);
     BConnect := Box(440, 375, 105, 26);
     BGo := Box(528, 288, 28, 26);
     while True do
@@ -571,38 +587,65 @@ begin
             if Pos(#27, Chars) > 0 then Exit;
             if Pos(#9, Chars) > 0 then
             begin
+              { TabOrder: account, password, nickname, language }
               case Focus of
-                0: Focus := 2;
                 2: Focus := 3;
+                3: Focus := 0;
+                0: Focus := 1;
               else
-                Focus := 0;
+                Focus := 2;
               end;
+              AccPicked := Focus = 2;
               Chars := StringReplace(Chars, #9, '', [rfReplaceAll]);
             end;
             case Focus of
               0: TypeInto(R.Nickname, Chars, 20);
-              2: TypeInto(R.Account, Chars, 30);
+              2:
+                begin
+                  { typing over the picked text replaces it }
+                  if (Chars <> '') and (Chars[1] >= ' ') and AccPicked then R.Account := '';
+                  TypeInto(R.Account, Chars, 30);
+                end;
               3: TypeInto(R.Password, Chars, 30);
             end;
+            if Chars <> '' then AccPicked := False;
             if Clicked then
             begin
               if Inside(FNick, CX, CY) then Focus := 0;
               if Inside(FLang, CX, CY) then Focus := 1;
               if Inside(FAcc, CX, CY) then Focus := 2;
+              AccPicked := False;
               if Inside(FPw, CX, CY) then Focus := 3;
               if Inside(BTraining, CX, CY) then
               begin
+                { 2.31's Training starts "GraalEditor.exe -play" from the
+                  Graal folder (seen under Wine and on Windows, 2026-11-05)
+                  and stays on this window; without it, the same error as
+                  Editor. The rebuild then plays the tutorial itself, its
+                  stand-in for the editor's play mode. }
+                Press(1);
                 SaveLogin(R.Nickname, R.Account);
-                R.Choice := scTraining;
-                Result := True;
-                Exit;
+                if not StartProgram(Dir, 'GraalEditor.exe', '-play') then
+                begin
+                  ShowError(Art.Text('StartScreen-GraalEditorError',
+                    'GraalEditor.exe has not been found in the Graal folder!'));
+                  Win.TakeClick(CX, CY);
+                  Win.TakeChars;
+                  R.Choice := scTraining;
+                  Result := True;
+                  Exit;
+                end;
               end;
               if Inside(BEditor, CX, CY) then
               begin
                 Press(5);
                 if not StartProgram(Dir, 'GraalEditor.exe', '') then
-                  Note := Art.Text('StartScreen-GraalEditorError',
-                    'GraalEditor.exe has not been found in the Graal folder!');
+                begin
+                  ShowError(Art.Text('StartScreen-GraalEditorError',
+                    'GraalEditor.exe has not been found in the Graal folder!'));
+                  Win.TakeClick(CX, CY);
+                  Win.TakeChars;
+                end;
               end;
               if Inside(BOptions, CX, CY) then
               begin
@@ -637,7 +680,7 @@ begin
             UiDrawText(S, 76, 364, Art.Text('ServerList-Label8', 'Password:'), ColText, ufBold);
             Edit(S, FNick, R.Nickname, Focus = 0, False, False);
             Edit(S, FLang, Lang, Focus = 1, False, True);
-            Edit(S, FAcc, R.Account, Focus = 2, False, True);
+            Edit(S, FAcc, R.Account, (Focus = 2) and AccPicked, False, True);
             Edit(S, FPw, R.Password, Focus = 3, True, False);
             PicButton(S, Art.Btn[2], BTraining.X, BTraining.Y,
               Art.Text('StartScreen-Button2', 'Training'), Pressed(1));
@@ -705,6 +748,8 @@ begin
                 Win.TakeChars;
               end;
             end;
+            if Clicked and Inside(BMore, CX, CY) then Press(9);
+            if Clicked and Inside(BDonate, CX, CY) then Press(10);
             if ((Clicked and Inside(BConnect, CX, CY)) or (Pos(#13, Chars) > 0)) and
               (Sel >= 0) and (Sel <= High(Fetch.Servers)) then
             begin
@@ -805,6 +850,10 @@ begin
             if Note <> '' then Wrapped(S, 24, 330, 529, Note, True)
             else if Fetch.StatusLines <> '' then Wrapped(S, 24, 330, 529, Fetch.StatusLines, True)
             else Wrapped(S, 24, 330, 529, Fetch.Status, True);
+            PicButton(S, Art.Btn[1], BMore.X, BMore.Y,
+              Art.Text('ServerList-Button2', 'Show More'), Pressed(9));
+            PicButton(S, Art.Btn[3], BDonate.X, BDonate.Y,
+              Art.Text('ServerList-Button4', 'Donations'), Pressed(10));
             PicButton(S, Art.Btn[1], BConnect.X, BConnect.Y,
               Art.Text('ServerList-Button1', 'Connect'), Pressed(7));
           end;
