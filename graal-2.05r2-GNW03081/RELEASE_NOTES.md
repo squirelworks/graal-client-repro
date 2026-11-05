@@ -65,6 +65,14 @@ bodies.
   lists its whole folder tree and opens them (traced under Wine): a
   `.png` is not taken for a `.gif`, and with an install present a
   missing picture stays missing instead of the built-in art filling in.
+- [x] The status display's A, S and D (and the small Q) are drawn as the
+  real one draws them, traced under Wine: GDI "Helvetica" bold, cells 26
+  and 10 high, at the traced points, white over black. They were this
+  project's blocky pixel font, whose S read as a B.
+- [x] Names under characters and the sword and glove powers use
+  `graalconfig.txt`'s font (Tempus Sans ITC, a cell 24 high, bold), read
+  from the install or Windows' Fonts folder, as the real one asks GDI for
+  it; the pixel font only when the font is nowhere.
 ### Not yet
 
 - [ ] Text in the dialogs uses Liberation Sans for the forms' MS Sans
@@ -76,8 +84,6 @@ bodies.
 - [ ] The "Getting server list ..." box is drawn inside the list window,
   not as a window of its own.
 - [ ] The password is not saved (the real client keeps it in the registry).
-- [ ] Names under characters use this project's pixel font, not the real
-  client's bold system font.
 - [ ] The Windows version block still names this project, not the
   original's company and product strings.
 
