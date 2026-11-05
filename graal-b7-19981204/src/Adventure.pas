@@ -25,7 +25,7 @@ unit Adventure;
 interface
 
 uses
-  Classes, GLevel, GSurface, GArrays, GAni, GBuiltin, GAssetDirs, GRelay, ProtocolB7;
+  Classes, GLevel, GSurface, GBetaHud, GArrays, GAni, GBuiltin, GAssetDirs, GRelay, ProtocolB7;
 
 const
   ScreenW = 640;
@@ -1020,6 +1020,7 @@ begin
   for I := 0 to FOthers.Count - 1 do
     if not Others[I].Away then DrawPlayer(Others[I], CamX, CamY);
   DrawPlayer(Player, CamX, CamY);
+  DrawBetaHud(Screen, HudLayout, HudStartValues(HudStartRupees));
 end;
 
 end.

@@ -17,6 +17,22 @@ interface
 uses
   GSurface;
 
+var
+  { Windows only: the window class, owner window and extended style the
+    next TGWindow is created with (the 1998 clients' game window is a
+    TAdventure owned by the hidden application window) }
+  GWindowClass: string = 'TGraalWindow';
+  GWindowOwner: PtrUInt = 0;
+  GWindowExStyle: Cardinal = 0;
+  { Windows only: what Alt+Enter does in the game window, as each original
+    does it. 0 nothing; 1 switch the display to 640 x 480 16-bit and show
+    the window as a topmost pop-up over the whole screen (the DXDraw
+    full-screen mode of 5th Graal alpha on); 2 the "Display mode cannot be
+    changed" box, the window then a pop-up the size of the screen (2nd to
+    5th Graal); 3 the topmost pop-up without changing the mode (1st
+    Graal). Pressed again, the window is put back. }
+  GAltEnterMode: Integer = 0;
+
 type
   TGKey = (gkNone, gkUp, gkLeft, gkDown, gkRight, gkAction, gkAttack,
     gkItem, gkMap, gkChat, gkEscape, gkItemList,
@@ -45,6 +61,12 @@ type
     FRightX, FRightY: Integer;
     FWheel: Integer;
     FChars: string;
+{$IFDEF MSWINDOWS}
+    FFull, FModeChanged: Boolean;
+    FSaveStyle, FSaveEx: LongInt;
+    FSaveRect: array[0..3] of LongInt;
+    procedure AltEnter;
+{$ENDIF}
     procedure AddClick(X, Y: Integer);
     procedure AddRightClick(X, Y: Integer);
 {$IFNDEF MSWINDOWS}{$IFNDEF GW_NONE}
@@ -194,6 +216,8 @@ begin
 end;
 
 function WndProc(Wnd: HWND; Msg: UINT; WP: WPARAM; LP: LPARAM): LRESULT; stdcall;
+var
+  R: TRect;
 begin
   Result := 0;
   if ActiveWindow <> nil then
@@ -212,6 +236,22 @@ begin
           Exit;
         end;
       WM_CHAR: begin ActiveWindow.AddChar(Chr(WP and $FF)); Exit; end;
+      WM_SYSKEYDOWN:
+        if (WP = VK_RETURN) and (GAltEnterMode > 0) then
+        begin
+          ActiveWindow.AltEnter;
+          Exit;
+        end;
+      WM_SYSCHAR:
+        if (WP = 13) and (GAltEnterMode > 0) then Exit;
+      WM_ERASEBKGND:
+        if ActiveWindow.FFull then
+        begin
+          GetClientRect(Wnd, R);
+          FillRect(HDC(WP), R, GetStockObject(BLACK_BRUSH));
+          Result := 1;
+          Exit;
+        end;
       WM_LBUTTONDOWN:
         begin
           ActiveWindow.MouseLeft := True;
@@ -267,19 +307,77 @@ begin
   WC.lpfnWndProc := @WndProc;
   WC.hInstance := HInstance;
   WC.hCursor := LoadCursor(0, IDC_ARROW);
-  WC.lpszClassName := 'TGraalWindow';
+  WC.lpszClassName := PChar(GWindowClass);
   Windows.RegisterClass(WC);
   R.Left := 0; R.Top := 0; R.Right := AWidth; R.Bottom := AHeight;
   AdjustWindowRect(R, WS_OVERLAPPEDWINDOW and not WS_THICKFRAME, False);
-  FWnd := CreateWindow('TGraalWindow', PChar(Title),
+  FWnd := CreateWindowEx(GWindowExStyle, PChar(GWindowClass), PChar(Title),
     WS_OVERLAPPEDWINDOW and not WS_THICKFRAME, Integer(CW_USEDEFAULT), 0,
-    R.Right - R.Left, R.Bottom - R.Top, 0, 0, HInstance, nil);
+    R.Right - R.Left, R.Bottom - R.Top, HWND(GWindowOwner), 0, HInstance, nil);
   ActiveWindow := Self;
   ShowWindow(FWnd, SW_SHOW);
 end;
 
+procedure TGWindow.AltEnter;
+var
+  DM: TDevMode;
+  R: TRect;
+  W, H: Integer;
+begin
+  if FFull then
+  begin
+    { back to the window it was }
+    if FModeChanged then ChangeDisplaySettings(nil, 0);
+    FModeChanged := False;
+    FFull := False;
+    SetWindowLong(FWnd, GWL_STYLE, FSaveStyle);
+    SetWindowLong(FWnd, GWL_EXSTYLE, FSaveEx);
+    SetWindowPos(FWnd, HWND_NOTOPMOST, FSaveRect[0], FSaveRect[1],
+      FSaveRect[2] - FSaveRect[0], FSaveRect[3] - FSaveRect[1], SWP_FRAMECHANGED or SWP_SHOWWINDOW);
+    InvalidateRect(FWnd, nil, True);
+    Exit;
+  end;
+  FSaveStyle := GetWindowLong(FWnd, GWL_STYLE);
+  FSaveEx := GetWindowLong(FWnd, GWL_EXSTYLE);
+  GetWindowRect(FWnd, R);
+  FSaveRect[0] := R.Left; FSaveRect[1] := R.Top;
+  FSaveRect[2] := R.Right; FSaveRect[3] := R.Bottom;
+  FFull := True;
+  if GAltEnterMode = 1 then
+  begin
+    FillChar(DM, SizeOf(DM), 0);
+    DM.dmSize := SizeOf(DM);
+    DM.dmPelsWidth := 640;
+    DM.dmPelsHeight := 480;
+    DM.dmBitsPerPel := 16;
+    DM.dmFields := DM_PELSWIDTH or DM_PELSHEIGHT or DM_BITSPERPEL;
+    FModeChanged := ChangeDisplaySettings(@DM, CDS_FULLSCREEN) = DISP_CHANGE_SUCCESSFUL;
+  end
+  else if GAltEnterMode = 2 then
+    MessageBox(HWND(GWindowOwner), 'Display mode cannot be changed (640x480 16bit)', 'Graal',
+      MB_OK or MB_ICONERROR);
+  W := GetSystemMetrics(SM_CXSCREEN);
+  H := GetSystemMetrics(SM_CYSCREEN);
+  if GAltEnterMode = 2 then
+  begin
+    { the pop-up the failed switch leaves: maximised, not topmost }
+    SetWindowLong(FWnd, GWL_STYLE, LongInt(WS_POPUP or WS_VISIBLE or WS_CLIPSIBLINGS or
+      WS_CLIPCHILDREN or WS_MAXIMIZE));
+    SetWindowLong(FWnd, GWL_EXSTYLE, $00050000);
+    SetWindowPos(FWnd, HWND_TOP, 0, 0, W, H, SWP_FRAMECHANGED or SWP_SHOWWINDOW);
+  end
+  else
+  begin
+    SetWindowLong(FWnd, GWL_STYLE, LongInt(WS_POPUP or WS_VISIBLE or WS_CLIPSIBLINGS));
+    SetWindowLong(FWnd, GWL_EXSTYLE, $00050008);
+    SetWindowPos(FWnd, HWND_TOPMOST, 0, 0, W, H, SWP_FRAMECHANGED or SWP_SHOWWINDOW);
+  end;
+  InvalidateRect(FWnd, nil, True);
+end;
+
 destructor TGWindow.Destroy;
 begin
+  if FFull and FModeChanged then ChangeDisplaySettings(nil, 0);
   if FWnd <> 0 then DestroyWindow(FWnd);
   ActiveWindow := nil;
   inherited Destroy;
@@ -304,8 +402,9 @@ end;
 procedure TGWindow.VclFrame(const Title: string; OuterW, OuterH, ViewW, ViewH,
   ChatH: Integer; MinBox, MaxBox: Boolean);
 var
-  Style: DWORD;
+  Style, ExStyle: DWORD;
   Chat: HWND;
+  R: TRect;
 begin
   SetWindowText(FWnd, PChar(Title));
   FWidth := ViewW;
@@ -314,8 +413,16 @@ begin
   if MinBox then Style := Style or WS_MINIMIZEBOX;
   if MaxBox then Style := Style or WS_MAXIMIZEBOX;
   SetWindowLong(FWnd, GWL_STYLE, LONG(Style));
-  SetWindowLong(FWnd, GWL_EXSTYLE, LONG(WS_EX_WINDOWEDGE or WS_EX_APPWINDOW));
+  if GWindowExStyle <> 0 then ExStyle := GWindowExStyle
+  else ExStyle := WS_EX_WINDOWEDGE or WS_EX_APPWINDOW;
+  SetWindowLong(FWnd, GWL_EXSTYLE, LONG(ExStyle));
   SetClassLongPtr(FWnd, GCL_HBRBACKGROUND, LONG_PTR(COLOR_BTNFACE + 1));
+  { the client is the view and the chat field, as the originals show it
+    (their forms' outer sizes are Windows 98 frames) }
+  R.Left := 0; R.Top := 0; R.Right := ViewW; R.Bottom := ViewH + ChatH;
+  AdjustWindowRectEx(R, Style, False, ExStyle);
+  OuterW := R.Right - R.Left;
+  OuterH := R.Bottom - R.Top;
   SetWindowPos(FWnd, 0, (GetSystemMetrics(SM_CXSCREEN) - OuterW) div 2,
     (GetSystemMetrics(SM_CYSCREEN) - OuterH) div 2, OuterW, OuterH,
     SWP_NOZORDER or SWP_FRAMECHANGED);

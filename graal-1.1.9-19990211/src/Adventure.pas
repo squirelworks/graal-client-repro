@@ -15,7 +15,7 @@ unit Adventure;
 interface
 
 uses
-  Classes, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GAssetDirs, GraalClient, Protocol119,
+  Classes, GTypes, GLevel, GSurface, GBetaHud, GArrays, GAni, GBuiltin, GAssetDirs, GraalClient, Protocol119,
   Npc119, Baddy119;
 
 const
@@ -3104,125 +3104,20 @@ begin
   end;
 end;
 
-{ ---- status display (client-internals/status-display.md) ---- }
+{ ---- status display: this build's own state.gif layout (GBetaHud,
+  HudLayout in Protocol119), with the player's counts ---- }
 
 procedure TAdventure.DrawStatus;
-const
-  RowStart: array[0..5] of Integer = (0, 5, 11, 16, 22, 27);
 var
-  St: TGSurface;
-  I, N, Row, Col, X, Half, HX, HY, Hearts2, Down: Integer;
-
-  procedure Part(SX, SY, W, H, DX, DY: Integer);
-  begin
-    Screen.Blit(St, SX, SY, W, H, DX, DY);
-  end;
-
-  procedure Digits(V, CX, Y: Integer; Centred: Boolean);
-  var
-    D: string;
-    J, X0: Integer;
-  begin
-    D := IntToStr(V);
-    if Centred then X0 := CX - (Length(D) * 12) div 2 else X0 := CX;
-    for J := 1 to Length(D) do
-      Part(14 * (Ord(D[J]) - Ord('0')), 81, 14, 16, X0 + (J - 1) * 12, Y);
-  end;
-
-  procedure KeyName(const K: string; BX, BY: Integer);
-  var
-    TX: Integer;
-  begin
-    TX := BX + (22 - TextWidth(K, 2)) div 2;
-    DrawText(Screen, TX + 1, BY + 9 + 1, K, $FF000000, 2);
-    DrawText(Screen, TX, BY + 9, K, $FFFFFFFF, 2);
-  end;
-
+  V: THudValues;
 begin
-  St := Assets.Image('state.png', '');
-  if St = nil then Exit;
-  { buttons with their keys; with weapons off only the first }
-  if ShowStats and $01 <> 0 then
-  begin
-    Part(202, 0, 22, 33, 15, 30);
-    KeyName('A', 15, 30);
-    if WeaponsOn then
-    begin
-      Part(202, 0, 22, 33, 80, 30);
-      KeyName('S', 80, 30);
-      Part(202, 0, 22, 33, 145, 30);
-      KeyName('D', 145, 30);
-      if Player.GlovePower >= 2 then
-        DrawText(Screen, 60, 31, IntToStr(Player.GlovePower), $FFFFFFFF, 1);
-      DrawText(Screen, 125, 31, IntToStr(Player.SwordPower), $FFFFFFFF, 1);
-    end;
-  end;
-  if WeaponsOn then
-  begin
-    if ShowStats and $02 <> 0 then Part(80, 33, 120, 16, 274, 30);
-    if ShowStats and $04 <> 0 then Digits(Player.Rupees, 280, 48, True);
-    if ShowStats and $08 <> 0 then
-    begin
-      Part(14 * ((Player.Bombs div 10) mod 10), 81, 14, 16, 326, 48);
-      Part(14 * (Player.Bombs mod 10), 81, 14, 16, 338, 48);
-    end;
-    if ShowStats and $10 <> 0 then
-    begin
-      Part(14 * ((Player.Arrows div 10) mod 10), 81, 14, 16, 374, 48);
-      Part(14 * (Player.Arrows mod 10), 81, 14, 16, 386, 48);
-    end;
-  end;
-  { the selected weapon's whole image beside the D button: x 170, centred
-    on y 45 }
-  if (ShowStats and $01 <> 0) and WeaponsOn and (Selected >= 0) and (Selected <= High(Weapons)) and
-    (Weapons[Selected].Image <> '') then
-  begin
-    St := Assets.Image(Weapons[Selected].Image, 'weapon');
-    if St <> nil then Screen.Blit(St, 0, 0, St.Width, St.Height, 170, 45 - St.Height div 2);
-    St := Assets.Image('state.png', '');
-  end;
-  { hearts: one per container while power remains }
-  if ShowStats and $20 <> 0 then
-  begin
-    Hearts2 := Player.Power;  { half hearts }
-    N := Min(Player.MaxPower, 30);
-    if N <= 4 then
-    begin
-      for I := 0 to N - 1 do
-      begin
-        if Hearts2 <= 2 * I then Break;
-        if Hearts2 >= 2 * I + 2 then Half := 0 else Half := 1;
-        Part(40 * Half, 0, 40, 44, ScreenW - 198 + 45 * I, 24);
-      end;
-    end
-    else
-    begin
-      if Hearts2 < 12 then Down := 10 else Down := 0;
-      for I := 0 to N - 1 do
-      begin
-        if Hearts2 <= 2 * I then Break;
-        if Hearts2 >= 2 * I + 2 then Half := 0 else Half := 1;
-        Row := 0;
-        while (Row < 5) and (I >= RowStart[Row + 1]) do Inc(Row);
-        Col := I - RowStart[Row];
-        HX := ScreenW - 198 + 35 * Col;
-        HY := 24 + Down;
-        if Row > 0 then
-        begin
-          Inc(HX, Round(17.5 * Row) - 35);
-          Inc(HY, 20 * Row);
-        end;
-        Part(80 + 31 * Half, 0, 31, 33, HX, HY);
-      end;
-    end;
-  end;
-  { alignment bar }
-  if ShowStats and $40 <> 0 then
-  begin
-    Part(0, 97, 130, 22, 15, 65);
-    X := Max(0, Min(AP, 100));
-    if X > 0 then Part(0, 119, X, 10, 15 + 22, 65 + 6);
-  end;
+  if ShowStats = 0 then Exit;
+  V.Rupees := Player.Rupees;
+  V.Bombs := Player.Bombs;
+  V.Arrows := Player.Arrows;
+  { power counts half hearts; a container shows while any of it is left }
+  V.Hearts := Min((Player.Power + 1) div 2, 30);
+  DrawBetaHud(Screen, HudLayout, V);
 end;
 
 procedure TAdventure.Draw;

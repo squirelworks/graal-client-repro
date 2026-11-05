@@ -40,6 +40,10 @@ client carries simple graphics of its own.
       never reads the original program.
 - [ ] Made from the real 1.21 program, recovered from the InstallShield package's
       `_SETUP.1` archive with `scripts/realres/is3x.py` (its MD5 matches the README's).
+- [ ] The game window is a `TAdventure` owned by the hidden application window, with the original's styles and a 640 x 448 client plus the 24-pixel chat field.
+- [ ] One Player starts in `house1.graal` at 21.5, 28, the first player's spot from the original's start table (the bed).
+- [ ] The status display is drawn from the install's own `state.gif`: the A, S and D buttons with the sword and bomb beside them, the rupee, bomb and arrow counts in the digits of `sprites.gif`, and the hearts, each piece where the original draws it.
+- [ ] Alt+Enter switches to 640 x 480 full screen (a topmost pop-up over the whole screen) and back, as the original does.
 
 ## Downloads
 
@@ -79,6 +83,9 @@ and starter level.
 
 ## Not yet
 
+- [ ] The player is drawn with the rebuild's stand-in animations, not the
+      build's own sprite sheet and the chosen head; the F1 options window is
+      not rebuilt.
 - [ ] Linux and macOS keep the shared start screen; the original's dialog is
       Windows only.
 - [ ] Two to Four Players start the one-player game; the local multiplayer modes
