@@ -193,7 +193,7 @@ with `--fallback b12=b11 --fallback b13=b11 --fallback b14=b11
   tutorial. Graal500 on main looks for `pics1.png` at the top and in
   `levels/`, so with only the zip it draws the built-in tiles; it needs
   the build to search `levels/tiles/` as the 4.x builds do. The install's
-  `license/license.graal` names a LAN host (192.168.1.2, a local edit)
+  `license/license.graal` names a LAN host (a local edit)
   and Graal500 does not read it, so it is cut.
 - `Thumbs.db` (Windows Explorer's thumbnail cache) is cut everywhere.
 - 2.17.1 reads 2.22's start-window art and has no `objects.dat` (2.22
