@@ -29,7 +29,8 @@ uses
 
 const
   ScreenW = 640;
-  ScreenH = 480;
+  { the TAdventure form's DXDraw is 640 x 448 }
+  ScreenH = 448;
 
   DirUp = 0;
   DirLeft = 1;

@@ -21,7 +21,11 @@ uses
   GAssetDirs in '../../common/GAssetDirs.pas',
   GRelay in '../../common/GRelay.pas',
   ProtocolB14 in '../src/ProtocolB14.pas',
-  Adventure in '../src/Adventure.pas';
+  Adventure in '../src/Adventure.pas',
+  GDfm in '../../common/GDfm.pas',
+  GVclForm in '../../common/GVclForm.pas',
+  GBetaStart in '../../common/GBetaStart.pas',
+  RealResB14 in '../src/RealResB14.pas';
 
 var
   Passed, Failed: Integer;
@@ -242,8 +246,44 @@ begin
   Check(Ok, 'fuzz: 20000 random D payloads and lines, no crash');
 end;
 
+{ The start dialog and the game window come from the real client's own
+  forms (src/RealResB14.pas, extracted from its exe). }
+procedure TestStartForm;
+var
+  Data: string;
+  O: TDfmObj;
+  F: TVclForm;
+  Img: TGSurface;
+  G: TBetaGameForm;
+begin
+  Check(RealResource('TCONNECTFRAME', Data) and (Copy(Data, 1, 4) = 'TPF0'),
+    'forms: TCONNECTFRAME is in the program');
+  O := ParseDfm(Data);
+  F := TVclForm.Create(O, 'Graal');
+  Img := TGSurface.Create(F.ClientWidth, F.ClientHeight);
+  try
+    Check(SameText(O.ClassName_, 'TConnectFrame'), 'forms: the start dialog is TConnectFrame');
+    Check(F.Caption = 'Graal - The Adventure', 'forms: the dialog''s caption');
+    Check(BetaShape(F) = bsModeList, 'forms: the dialog''s shape is bsModeList');
+    Check(F.Ctl('Button1') <> nil, 'forms: the Start button');
+    F.Render(Img);
+    Check(Img.Pixels[0] <> 0, 'forms: the dialog draws without Win32');
+  finally
+    Img.Free;
+    F.Free;
+    O.Free;
+  end;
+  Check(RealResource('TADVENTURE', Data), 'forms: TADVENTURE is in the program');
+  Check(BetaGameForm(Data, G) and (G.ViewW = 640) and (G.ViewH = 448),
+    'forms: the game view is 640 x 448');
+  Check(G.MinBox and not G.MaxBox, 'forms: the game window has a minimise box, no maximise box');
+  Check((Length(CharacterNames) = 1) = (CharacterNames[0] = ''),
+    'forms: the character list is the build''s own');
+end;
+
 begin
   TestProfile;
+  TestStartForm;
   TestSid;
   TestLines;
   TestTime;

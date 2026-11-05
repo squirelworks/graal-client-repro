@@ -30,7 +30,10 @@ decompiled code:
 | `../common/GRelay.pas` | the relay lines, the two-character sender id, +32 numbers, one relay connection |
 | `src/ProtocolB8.pas` | this build's game name, D types, level magics, colour count, connect dialog |
 | `src/Adventure.pas` | game state: level, walking, the two relay connections, partners, drawing |
-| `src/GraalB8.dpr` | front end: the start screen with no arguments, or the command line |
+| `src/GraalB8.dpr` | front end: the original's start dialog with no arguments (the shared start screen without Win32), or the command line |
+| `src/RealResB8.pas` | the original program's resources (forms, pictures, strings), from `scripts/realres/extract_res.py` |
+| `../common/GDfm.pas`, `../common/GVclForm.pas` | reading Delphi forms and showing them as native windows |
+| `../common/GBetaStart.pas` | the 1998 start dialog: character lists, modes, what the player picked |
 | `src/StartScreenB8.pas` | the connect dialog as the one row of the shared start screen's list |
 | `src/RunMode.pas` | stress-run support (clock, stop signals, tick histogram, walker, JSON) |
 
@@ -55,6 +58,16 @@ decompiled code:
   receive path. CI joins two copies to the lab relay
   (`scripts/relay98.py`) and checks that each sees the other.
 
+## Start dialog and window (0.0.3)
+
+With no arguments on Windows the program shows the original's own start
+dialog, built from the `TConnectFrame` form in `res/TCONNECTFRAME.dfm`: One Player and Two Players with a character list each, and the "Online At Cyberjoueur" group with nick name, server and port.
+The window is with no owner window, so it has its own taskbar button, as in the original.
+The character lists hold Fung Si Yan, Nick, Mandi, Bad Max, Pachukite, Blond, Dino, Matthew, Athena, Bob, Zoraas, Raven, Joe, Duff, Slade, each with its head from `heads.gif`.
+Start opens the game in a window shaped as the `TAdventure` form
+(`res/TADVENTURE.dfm`). Under Wine, real and rebuilt dialogs were
+screenshotted side by side and match pixel for pixel.
+
 ## Not yet (0.0.2 and later)
 
 - The player is drawn with the project's built-in stand-in art; this
@@ -74,7 +87,7 @@ Without them it uses its built-in assets.
 ## Running it
 
 ```
-GraalB8                                                # start screen
+GraalB8                                                # start dialog
 GraalB8 --level levels/level1.graal --data /path/to/install --window
 GraalB8 --server 127.0.0.1:14802 --nick NAME --data /path/to/install
 ```
