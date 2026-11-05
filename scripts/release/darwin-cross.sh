@@ -15,8 +15,13 @@ sudo apt-get install -y fpc fpc-source-3.2.2 lld-18 clang curl xz-utils
 # 1. macOS SDK stubs (.tbd). usr/lib is enough for the current headless clients;
 #    a Cocoa back end also needs System/Library/Frameworks (add '*/System/Library/Frameworks/*').
 SDKDIR=$HOME/sdk; mkdir -p "$SDKDIR"
-curl -sSL https://github.com/joseluisq/macosx-sdks/releases/download/14.5/MacOSX14.5.sdk.tar.xz \
-  | tar xJ -C "$SDKDIR" --wildcards '*/usr/lib/*' '*SDKSettings*'
+# Both downloads are pinned by sha256: the step stops on any mismatch.
+SDK_SHA256=6e146275d19f027faa2e8354da5e0267513abf013b8f16ad65a231653a2b1c5d
+ERRORE_SHA256=d85b452e8669f7639878ce3a527f4eb9445d10905f7b888bb5ac2f8b1d570578
+curl -sSL -o "$SDKDIR/sdk.tar.xz" https://github.com/joseluisq/macosx-sdks/releases/download/14.5/MacOSX14.5.sdk.tar.xz
+echo "$SDK_SHA256  $SDKDIR/sdk.tar.xz" | sha256sum -c -
+tar xJf "$SDKDIR/sdk.tar.xz" -C "$SDKDIR" --wildcards '*/usr/lib/*' '*SDKSettings*'
+rm "$SDKDIR/sdk.tar.xz"
 SDK=$SDKDIR/MacOSX14.5.sdk
 
 # 2. assembler / linker wrappers (FPC uses clang as assembler for darwin, and <prefix>ld)
@@ -36,6 +41,7 @@ printf '[package]\nname=fpc\nversion=3.2.2\n[target]\ndirs=rtl\n' > $S/Makefile.
 mkdir -p $S/compiler/msg
 curl -sSL -o $S/compiler/msg/errore.msg \
   https://gitlab.com/freepascal.org/fpc/source/-/raw/release_3_2_2/compiler/msg/errore.msg
+echo "$ERRORE_SHA256  $S/compiler/msg/errore.msg" | sha256sum -c -
 mkdir -p $HOME/m2i && fpc -FE$HOME/m2i -FU$HOME/m2i $S/compiler/utils/msg2inc.pp
 (cd $S/compiler && $HOME/m2i/msg2inc msg/errore.msg msg msg)
 

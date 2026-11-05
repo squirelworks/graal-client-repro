@@ -195,6 +195,9 @@ jobs:
     needs: plan
     if: needs.plan.outputs.delphi != ''
     runs-on: ubuntu-24.04
+    # it downloads a toolchain from outside, so it gets no write token
+    permissions:
+      contents: read
     continue-on-error: true
     timeout-minutes: 90
     env:
