@@ -10,8 +10,9 @@
   logs in there as a game server named Login, which hands the client on
   with 178. They are never the default.
 
-  The start screen is this project's own (common/GStartScreen.pas); the
-  original start window and its pictures are never drawn. }
+  This shared start screen is used only when the install has no
+  license/license.graal; with one, Graal404 shows 4.04r2's own start
+  screen (RealStart404). }
 unit StartScreen404;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}

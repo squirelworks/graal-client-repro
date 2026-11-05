@@ -17,6 +17,27 @@ point it at one with `--data DIR`) and the install's tiles, ganis, heads and
 bodies take their place. The shared `graal-assets/` folder next to the
 program works too (`graal-assets/4.04r2/`, then `graal-assets/common/`).
 
+## What's new in v0.0.3
+
+- [x] 4.04r2's own start screen, drawn inside the 640 x 480 game window
+  the way the real 4.04r2 does it: the GraalOnline house and title, the
+  Nickname panel, the Play as / Account name / Password panel with the
+  Member radio and Save password, Start, and Become a Member, Options and
+  Offline Test along the bottom. The pictures are the install's own GUI
+  pictures (graalv4screen, graalv4title, the edit box, combo arrow, radio
+  and check box), built into the program, at the places measured on the
+  real 4.04r2.
+- [x] Start logs in to the Login server named in `license/license.graal`,
+  as the real 4.04r2 does, instead of asking for a server list. Without
+  that file the old start screen and server list are still there.
+- [x] Offline Test plays the offline tutorial; Become a Member opens the
+  sign-up page the licence file names.
+- [x] The game window is titled "G r a a l" with eight spaces spread
+  around it at random, as Graal4.exe does.
+- [x] Alt+Enter switches to fullscreen and back, as in 4.04r2.
+- [x] 4.04r2's own icon (Graal4.exe's MAINICON) in the title bar and the
+  taskbar.
+
 ## Downloads
 
 | Zip | Runs on | Window |
@@ -36,10 +57,10 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 
 ## What works
 
-- The start screen: nick name, Training, Start. Start asks
-  `listserver.graal.in` on port 14922 for a list; the Login server named
-  in the install's `license/license.graal` is added as an extra row.
-  Then account, password and Connect.
+- 4.04r2's own start screen: nickname, account, password, Start, Offline
+  Test. Start logs in to the Login server named in the install's
+  `license/license.graal`. Without that file, the old start screen asks
+  `listserver.graal.in` on port 14922 for a list instead.
 - Login with `G3D17026`, the platform `win` and three machine fields,
   which the rebuild leaves empty. No tamper check.
 - The Login server: its level is shown with no players on it, and the
@@ -52,9 +73,16 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 
 ## Not yet
 
-NPCs, baddies, items and weapons; the GS1 and GS2 script engines; chat;
-the server list as the original shows it; update packages; the 3D mode;
-saved passwords; Options. See the build's README for the full list.
+- [ ] The players walking about on the start screen, and the lamp's glow:
+  the real 4.04r2's engine draws live characters there.
+- [ ] Options, and Save password: the box ticks but nothing is saved yet.
+- [ ] The window cannot be resized by dragging its edge (the real one can);
+  Alt+Enter gives fullscreen.
+- [ ] The start screen's words are drawn in Liberation Sans, not the
+  engine's Arial.
+- [ ] NPCs, baddies, items and weapons; the GS1 and GS2 script engines;
+  chat; update packages; the 3D mode. See the build's README for the full
+  list.
 
 ## Checks behind this release
 
