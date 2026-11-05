@@ -114,6 +114,9 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 - [ ] Training's heights: some things stand a little lower than in 2.31
   (the wizard about 25 pixels); without the install's gmap Training is
   drawn flat.
+- [ ] Small dark squares every 8 tiles over water (seen in fullscreen).
+  They come from the terrain drawing the clients share, not from this
+  client.
 - [ ] The F1 window, NPC movement messages, UDP. See the build's README.
 
 ## Checks behind this release

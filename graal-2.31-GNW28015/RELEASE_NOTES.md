@@ -128,6 +128,9 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
   25 pixels lower and the torches about 10; 2.31's own height rules are
   not traced yet (the rebuild uses 2.22's). The ground needs the install's
   `maps/offlinetutorial.gmap`; without it Training is drawn flat.
+- [ ] Small dark squares every 8 tiles over water (seen in fullscreen).
+  They come from the terrain drawing the clients share, not from this
+  client.
 - [ ] `graal://` and `graal3://` links, the F1 window, NPC movement
   messages, UDP. See the build's README for the full list.
 
