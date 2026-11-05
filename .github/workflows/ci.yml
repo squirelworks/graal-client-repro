@@ -85,6 +85,11 @@ jobs:
             $bytes = [IO.File]::ReadAllBytes($exe.FullName)
             if ([Text.Encoding]::ASCII.GetString($bytes).IndexOf('requestedExecutionLevel') -lt 0) { throw "$($exe.FullName): no manifest" }
           }
+      # the Windows programs of this run, for trying a PR on a Windows PC
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-programs
+          path: build/*/*.exe
 
   macos:
     # macOS runners can wait for hours; it is built for releases only (a

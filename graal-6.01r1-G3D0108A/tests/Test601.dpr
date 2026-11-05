@@ -1239,7 +1239,7 @@ begin
     Check((S <> nil) and (S.Width > 0), 'install: sprites.png from levels/images/downloads/');
   finally
     G.Free;
-    SetAssetRoots('', ClientBuildLabel);
+    SetAssetRootsFor('', '', ClientBuildLabel);
     DeleteFile(Dir + 'levels' + PathDelim + 'tiles' + PathDelim + 'pics1.png');
     DeleteFile(Dir + 'levels' + PathDelim + 'images' + PathDelim + 'downloads' +
       PathDelim + 'sprites.png');

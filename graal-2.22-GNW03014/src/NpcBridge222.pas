@@ -14,7 +14,7 @@ interface
 
 uses
   Classes, SysUtils, Math, GTypes, GLevel, GSurface, GArrays, GFont, GGs1, Npc222,
-  Baddy222, Adventure;
+  Baddy222, Adventure, GSound;
 
 type
   TAdventureNpcWorld = class(TNpcWorld)
@@ -78,6 +78,10 @@ type
     function Arrays: TGArrays; override;
     procedure DrawVerse(Screen: TGSurface; CX, Y: Integer; const Text: string); override;
     procedure AllDied; override;
+    function OtherCount: Integer; override;
+    function OtherAt(I: Integer; out X, Y: Double): Boolean; override;
+    procedure Sound(const Name: string; X, Y: Double); override;
+    procedure PushPlayer(KX, KY: Double); override;
   end;
 
 { The NPC manager for a game, with its combat events hooked up. }
@@ -550,6 +554,32 @@ end;
 procedure TAdventureBaddyWorld.AllDied;
 begin
   if FAdv.Npcs <> nil then FAdv.Npcs.FireAll('compusdied');
+end;
+
+function TAdventureBaddyWorld.OtherCount: Integer;
+begin
+  Result := FAdv.OtherCount;
+end;
+
+function TAdventureBaddyWorld.OtherAt(I: Integer; out X, Y: Double): Boolean;
+var
+  P: TServerPlayer;
+begin
+  P := FAdv.Others[I];
+  X := P.X;
+  Y := P.Y;
+  Result := not P.Gone and ((P.Level = '') or (FAdv.Level = nil) or
+    SameText(P.Level, FAdv.Level.Name));
+end;
+
+procedure TAdventureBaddyWorld.Sound(const Name: string; X, Y: Double);
+begin
+  PlaySoundAt(Name, X, Y);
+end;
+
+procedure TAdventureBaddyWorld.PushPlayer(KX, KY: Double);
+begin
+  FAdv.PushPlayer(KX, KY);
 end;
 
 end.
