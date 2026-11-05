@@ -68,6 +68,11 @@ function RunOpenUrl(const Url: string; Lang: TLangText): Boolean;
   OK. }
 function AskQuit: Boolean;
 
+{ An error, as 2.31 shows one (Windows' own box titled Error, with the
+  warning sign and OK), e.g. "GraalEditor.exe has not been found in the
+  Graal folder!" }
+procedure ShowError(const Msg: string);
+
 { Opens Url in the default browser (Windows); False elsewhere. }
 function OpenInBrowser(const Url: string): Boolean;
 
@@ -942,6 +947,54 @@ begin
       Text(S, 48, 14, 'Do you really want to quit Graal?');
       Button(S, 40, 48, 75, 23, 'OK', True, False);
       Button(S, 122, 48, 75, 23, 'Cancel', False, False);
+      Win.Present(S);
+      Sleep(20);
+    end;
+  finally
+    S.Free;
+    Win.Free;
+  end;
+end;
+{$ENDIF}
+
+procedure ShowError(const Msg: string);
+{$IFDEF MSWINDOWS}
+begin
+  MessageBox(GetActiveWindow, PChar(Msg), 'Error', MB_OK or MB_ICONWARNING);
+end;
+{$ELSE}
+var
+  Win: TGWindow;
+  S: TGSurface;
+  W, H, CX, CY, I, BX: Integer;
+  Chars: string;
+begin
+  W := UiTextWidth(Msg, ufRegular) + 90;
+  if W < 200 then W := 200;
+  H := 82;
+  BX := W - 75 - 12;
+  Win := TGWindow.Create('Error', W, H);
+  S := TGSurface.Create(W, H);
+  try
+    if not Win.Ok then Exit;
+    Win.Reshape('Error', W, H, True);
+    while True do
+    begin
+      Win.Pump;
+      if Win.Closed then Exit;
+      Chars := Win.TakeChars;
+      if (Pos(#27, Chars) > 0) or (Pos(#13, Chars) > 0) then Exit;
+      if Win.TakeClick(CX, CY) and (CX >= BX) and (CX < BX + 75) and
+        (CY >= 48) and (CY < 71) then Exit;
+      S.Fill(ColWhite);
+      S.FillRect(0, 40, W, H - 40, ColFace);
+      { the warning sign: a yellow triangle with a black ! }
+      for I := 0 to 21 do
+        S.FillRect(24 - I div 2, 9 + I, I + 1, 1, $FFF2C200);
+      S.FillRect(23, 14, 3, 9, $FF000000);
+      S.FillRect(23, 25, 3, 3, $FF000000);
+      Text(S, 54, 14, Msg);
+      Button(S, BX, 48, 75, 23, 'OK', True, False);
       Win.Present(S);
       Sleep(20);
     end;

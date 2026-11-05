@@ -52,6 +52,15 @@ its files, or keep those files in a `graal-assets/` folder beside it.
   wizard with its arrow and "Touch to get information", the squirrel and
   the human2 player.
 - [x] Alt+Enter switches to a real 640 x 480 fullscreen mode and back.
+- [x] Training does what 2.31's does: it starts `GraalEditor.exe -play`
+  from the Graal folder; without it, the "GraalEditor.exe has not been
+  found in the Graal folder!" box, and then the rebuild plays the tutorial
+  itself (its stand-in for the editor's play mode). Editor's not-found
+  message is the same box.
+- [x] The server list has Show More and Donations, and its Version box
+  shows the start of the version.
+- [x] The start window and server list have no icon in their caption; the
+  account box has the focus when the window opens, its text picked.
 
 ## Downloads
 
@@ -94,6 +103,7 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 - [ ] Training's heights: some things stand a little lower than in 2.31
   (the wizard about 25 pixels); without the install's gmap Training is
   drawn flat.
+- [ ] Show More and Donations press but do nothing yet.
 - [ ] Fullscreen uses 640 x 480, not the "Fullscreen mode" in More options.
 - [ ] Dialog text in MS Sans Serif.
 - [ ] The F1 window, NPC movement messages, UDP. See the build's README.

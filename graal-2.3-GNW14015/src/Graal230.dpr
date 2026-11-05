@@ -687,6 +687,10 @@ begin
     Config.Load(Dir + 'graalconfig.txt');
     if Art <> nil then
     begin
+      { a Delphi program's frames: the start window and server list are
+        dialogs with no icon in their caption (the real 2.31 on Windows,
+        2026-11-05); the taskbar button is the application's, titled Graal }
+      Win.UseDelphiFrames(Art.Text('MainWindow', 'Graal'));
       Art.Config.Load(Dir + 'graalconfig.txt');
       Art.AccountUrl := AccountPage(Dir);
     end;
