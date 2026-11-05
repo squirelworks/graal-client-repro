@@ -23,6 +23,25 @@ it in that install (or point it at one with `--data DIR`, or keep a
 `graal-assets/` folder inside the program's folder) and the install's files
 come first.
 
+## What's new in v0.0.4
+
+- Training starts on the offline tutorial map, in the centre square below the
+  cauldron, as the original does. That map has the burning torches, the wizard
+  with "Touch to get Information", the raised ground and the chat bar along
+  the bottom. 2.17.1 now runs the same game layer as the 2.22 rebuild, but
+  keeps 2.17.1's own network rules: the NPC and player property ranges,
+  warping with LEVELWARP only, one tamper check at login, none of 2.22's extra
+  packets, and .gif baddies.
+- Alt+Enter switches to the fullscreen size in graalconfig.txt (1024 x 768 as
+  installed) and back, as the original does. startinfullscreen, or holding
+  Shift on Start or Training, starts the game in fullscreen.
+- The A, S and D key letters are drawn the way the original draws them:
+  Windows text in the font it asks for (Helvetica, which Windows shows as
+  Arial), bold, white, over a black shadow one pixel down and right, at the
+  original's places on the tags. Before this they used the rebuild's own small
+  block letters, and the S looked like a B.
+- The little Q over the D tag is drawn, as on the original.
+
 ## What's new in v0.0.3
 
 - The Windows program carries its original's own icon (the Graal head, taken
@@ -107,7 +126,7 @@ weapon, Q the item list, M the map; Esc leaves the game. Run
 
 ## Not yet
 
-Gmaps, the ids 169 to 185, large file downloads, the GS1 commands added
+Most of the ids 169 to 185, the GS1 commands added
 after 2.05 (beyond `addtiledef` and `replaceani`), gani scripts, chat
 bubbles, Options, UDP peer traffic, and a side-by-side check against the
 real 2.17.1. See the build's README.
@@ -115,7 +134,6 @@ real 2.17.1. See the build's README.
 - [ ] The Options button: the original's options window is not built yet.
 - [ ] The launcher's text is drawn with the program's own font, not Windows'
       MS Sans Serif, so some words sit a pixel or two off the original.
-- [ ] Training does not yet use the offline tutorial's gmap.
 
 ## Checks behind this release
 
@@ -124,8 +142,8 @@ TestSoundMap217) run with range and overflow checks and the heap tracer,
 and must end with no unfreed memory. CI also logs two of these clients
 into seihai-gserver, has the second see the first, and walks one through
 a level link.
-- [ ] Alt+Enter switches to 640 x 480; the original switches to 1024 x 768.
-- [ ] Training lacks the original's burning torches, the wizard NPC and the
-      raised ground.
+- [ ] On Training the view sits a little lower than the original's (the
+      original shows more above the wizard).
+- [ ] Names under characters are not drawn yet.
 - [ ] The launcher's caption icon is removed for Windows but not yet checked
       on a real PC.
