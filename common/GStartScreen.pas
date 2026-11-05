@@ -50,6 +50,10 @@ type
     { the listserver's own status lines (#10 between them), when it sent
       some }
     StatusLines: string;
+    { the site and upgrade pages the listserver sent (its SITEURL and
+      UPGURL packets), '' when none: 2.31 shows Show More and its second
+      button only for these }
+    SiteUrl, UpgradeUrl: string;
     Done, Failed: Boolean;
     { Account and Password are what the list page holds when the list is
       asked for; builds whose list step does not send them ignore them. }

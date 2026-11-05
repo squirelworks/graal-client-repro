@@ -44,8 +44,8 @@ const
   { The start levels: One Player starts on level1.graal; online the client
     starts on onlinestart.graal and moves to onlinestartlocal.graal when
     the server says it plays local levels (NL). }
-  { One Player starts in house1.graal, as the original does (read on
-    Windows) }
+  { One Player opens house1.graal, as the real 1.1 does (checked side by
+    side under Wine) }
   OfflineStartLevel = 'house1.graal';
   OnlineStartLevel = 'onlinestart.graal';
   OnlineLocalLevel = 'onlinestartlocal.graal';
