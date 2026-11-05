@@ -962,6 +962,11 @@ var
   D: string;
   TT: TTrueTypeFont;
   Art: TRealStartArt;
+  GA: TGraalAni;
+  Key: TGaniKey;
+  GS: TGsScript;
+  Found: Boolean;
+  NI: Integer;
 begin
   G := TAdventure.Create;
   try
@@ -979,6 +984,35 @@ begin
     Check(G.Player.Attr[6] = 'kmarms100.png', 'player: #P6 is kept');
     Check(not PeResourceData('MZ' + StringOfChar(#0, 100), RT_RCDATA, 'TUTORIALB2', D),
       'resources: a file that is no PE gives none');
+    GA := TGraalAni.Create;
+    try
+      Check(GA.LoadFromString('GANI0002'#10'SPRITE 20 arrow.png 0 0 16 16 arrow'#10 +
+        'FRAMES 40'#10'SCRIPT'#10'if (created) {'#10'  showimg 1,a.png,playerx,playery;'#10'}'#10 +
+        'SCRIPTEND'#10'MOVIE'#10'  ACTOR SPRITE S1'#10'    FRAME 0 dx=16,dy=-29,sprite #=20'#10 +
+        '    FRAME 20 dy=-24'#10'  ACTOREND'#10'  ACTOR TEXT T1'#10 +
+        '    FRAME 0 centered=true,color=FFE080,dx=35,dy=-36,text=Touch to get information,shaded=true'#10 +
+        '  ACTOREND'#10'MOVIEEND'#10) and (Pos('showimg 1', GA.Script) > 0) and
+        (GA.MovieFrames = 40) and (Length(GA.Actors) = 2) and GA.ActorAt(0, 10, Key) and
+        (Abs(Key.DY + 26.5) < 0.01) and (Key.Sprite = 20) and GA.ActorAt(1, 50, Key) and
+        (Key.Text = 'Touch to get information') and (Key.Color = $FFE080) and Key.Shaded,
+        'gani: a SCRIPT block and a GANI0002 movie with sprite and text actors');
+    finally
+      GA.Free;
+    end;
+    GS := TGsScript.Create;
+    try
+      GS.Compile('if (created) { setimg(); }'#10'function setimg() { this.n = 1; }');
+      Found := False;
+      for NI := 0 to GS.Count - 1 do
+        if (GS.Node(NI).Kind = nkCall) and (LowerCase(GS.Node(NI).Name) = 'setimg') then Found := True;
+      Check(Found, 'GS1: a function the script declares wins over the setimg command');
+    finally
+      GS.Free;
+    end;
+    Check((EmbeddedCount > 50) and (EmbeddedPath('PICS1.png') <> '') and
+      FileExists(EmbeddedPath('levels/ganis/idle.gani')) and (EmbeddedPath('nothing.png') = '') and
+      (EmbeddedPath('../pics1.png') = ''),
+      'install files: carried in the program and given as files when the install lacks them');
     G.SetScreenSize(1024, 768);
     G.Tick;
     Check((G.Screen.Width = 1024) and (G.Screen.Height = 768) and (ScreenW = 1024) and

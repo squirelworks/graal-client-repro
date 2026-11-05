@@ -31,6 +31,10 @@ type
     FApp: THandle;
 {$ENDIF}
     FDelphi: Boolean;
+    { has been fullscreen: Delphi's form then has no WS_EX_ACCEPTFILES }
+    FWasFull: Boolean;
+    { the last frame shown, painted again on WM_PAINT }
+    FLast: TGSurface;
 {$IFDEF GW_NONE}
 {$ELSE}{$IFNDEF MSWINDOWS}
     FDisplay: Pointer;
@@ -298,6 +302,17 @@ begin
           Exit;
         end;
       WM_CLOSE: begin ActiveWindow.Closed := True; Exit; end;
+      { the frame covers the client: no erasing, and a paint (uncovering,
+        restoring) shows the last frame again }
+      WM_ERASEBKGND:
+        if ActiveWindow.FLast <> nil then begin Result := 1; Exit; end;
+      WM_PAINT:
+        if ActiveWindow.FLast <> nil then
+        begin
+          ValidateRect(Wnd, nil);
+          ActiveWindow.Present(ActiveWindow.FLast);
+          Exit;
+        end;
       WM_SYSCOMMAND:
         { minimising a form minimises the application, as Delphi's }
         if ((WP and $FFF0) = SC_MINIMIZE) and (ActiveWindow.FApp <> 0) then
@@ -340,6 +355,8 @@ end;
 destructor TGWindow.Destroy;
 begin
   if FFullscreen then GwChangeDisplaySettings(nil, 0);
+  ActiveWindow := nil;
+  FreeAndNil(FLast);
   if FWnd <> 0 then DestroyWindow(FWnd);
   if FApp <> 0 then DestroyWindow(FApp);
   ActiveWindow := nil;
@@ -383,10 +400,14 @@ begin
   end
   else if FDelphi then
   begin
-    { bsSizeable: $16CF0000 / $00010110 on the real 2.22's game window }
+    { bsSizeable: $16CF0000 / $00010110 on the real 2.22's game window,
+      $00010100 once it has been fullscreen }
     Style := WS_VISIBLE or WS_CLIPSIBLINGS or WS_CLIPCHILDREN or WS_CAPTION or
       WS_SYSMENU or WS_THICKFRAME or WS_MINIMIZEBOX or WS_MAXIMIZEBOX;
-    ExStyle := WS_EX_CONTROLPARENT or WS_EX_WINDOWEDGE or WS_EX_ACCEPTFILES;
+    ExStyle := WS_EX_CONTROLPARENT or WS_EX_WINDOWEDGE;
+    if not FWasFull then ExStyle := ExStyle or WS_EX_ACCEPTFILES;
+    { the taskbar button (the application window) takes the game's title }
+    if FApp <> 0 then SetWindowText(FApp, PChar(Title));
   end
   else if Dialog then
   begin
@@ -463,6 +484,10 @@ begin
   SendMessage(FApp, WM_SETICON, ICON_SMALL, LPARAM(WC.hIcon));
   ShowWindow(FApp, SW_SHOWNORMAL);
   FDelphi := True;
+  { the forms' class has no icon: a bsDialog caption shows none, the game
+    window gets one with WM_SETICON (Reshape) }
+  SetClassLong(FWnd, GCL_HICON, 0);
+  SetClassLong(FWnd, -34 { GCL_HICONSM }, 0);
   { the form is owned by the application window: no button of its own }
   ShowWindow(FWnd, SW_HIDE);
   SetWindowLong(FWnd, GWL_HWNDPARENT, LONG(FApp));
@@ -484,8 +509,13 @@ begin
   FFullscreen := True;
   FWidth := AWidth;
   FHeight := AHeight;
+  FWasFull := True;
   SetWindowLong(FWnd, GWL_STYLE, LONG(WS_POPUP or WS_VISIBLE));
-  SetWindowLong(FWnd, GWL_EXSTYLE, LONG(WS_EX_APPWINDOW or WS_EX_TOPMOST));
+  { $00010008 on the real 2.22 in fullscreen }
+  if FDelphi then
+    SetWindowLong(FWnd, GWL_EXSTYLE, LONG(WS_EX_CONTROLPARENT or WS_EX_TOPMOST))
+  else
+    SetWindowLong(FWnd, GWL_EXSTYLE, LONG(WS_EX_APPWINDOW or WS_EX_TOPMOST));
   SetWindowPos(FWnd, HWND_TOPMOST, 0, 0, AWidth, AHeight,
     SWP_FRAMECHANGED or SWP_SHOWWINDOW);
   SetForegroundWindow(FWnd);
@@ -513,6 +543,17 @@ begin
   BI.bmiHeader.biPlanes := 1;
   BI.bmiHeader.biBitCount := 32;
   BI.bmiHeader.biCompression := BI_RGB;
+  { a copy of the frame for WM_PAINT (the game's own surface may be
+    freed or resized before the next paint) }
+  if Surface <> FLast then
+  begin
+    if FLast = nil then FLast := TGSurface.Create(Surface.Width, Surface.Height)
+    else if (FLast.Width <> Surface.Width) or (FLast.Height <> Surface.Height) then
+      FLast.SetSize(Surface.Width, Surface.Height);
+    if Surface.Width * Surface.Height > 0 then
+      Move(Surface.Pixels[0], FLast.Pixels[0], Surface.Width * Surface.Height * 4);
+  end;
+  if Surface.Width * Surface.Height = 0 then Exit;
   DC := GetDC(FWnd);
   StretchDIBits(DC, 0, 0, FWidth, FHeight, 0, 0, Surface.Width, Surface.Height,
     @Surface.Pixels[0], BI, DIB_RGB_COLORS, SRCCOPY);

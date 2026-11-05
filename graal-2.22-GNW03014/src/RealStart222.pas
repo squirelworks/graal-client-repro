@@ -67,9 +67,11 @@ uses
 {$IFDEF MSWINDOWS}
   Windows,
 {$ENDIF}
-  SysUtils, GPeRes, GUiFont, Res222;
+  SysUtils, Math, GPeRes, GUiFont, Res222;
 
 const
+  { the server list's rows: 17 px apart, as the real list box's }
+  ListRowH = 17;
   DlgW = 577;
   DlgH = 416;
   ColText = $FFCCCC99;     { the dialogs' text }
@@ -304,8 +306,9 @@ begin
   TW := UiTextWidth(T, ufRegular);
   if Focused and Combo and (T <> '') then
   begin
-    { a focused combo shows its text picked }
-    S.FillRect(B.X + 3, B.Y + 3, Right - B.X - 4, B.H - 6, ColSelect);
+    { a focused combo shows its text picked: the blue just behind the
+      text, as the real one }
+    S.FillRect(B.X + 3, B.Y + 3, Min(TW + 2, Right - B.X - 4), B.H - 6, ColSelect);
     UiDrawText(S, B.X + 4, B.Y + (B.H - UiLineH) div 2, T, ColWhite, ufRegular);
   end
   else
@@ -315,7 +318,7 @@ begin
 end;
 
 { a picture button: the left half up, the right half pressed; the caption
-  centred, regular weight as the lab saw the real one draw it }
+  bold and centred (the lab's screenshots of the real one) }
 procedure PicButton(S, Img: TGSurface; X, Y: Integer; const Caption: string; Down: Boolean);
 var
   W, D: Integer;
@@ -324,8 +327,8 @@ begin
   W := Img.Width div 2;
   if Down then D := 1 else D := 0;
   S.Blit(Img, D * W, 0, W, Img.Height, X, Y);
-  UiDrawText(S, X + (W - UiTextWidth(Caption, ufRegular)) div 2 + D,
-    Y + (Img.Height - UiLineH) div 2 + D, Caption, ColText, ufRegular);
+  UiDrawText(S, X + (W - UiTextWidth(Caption, ufBold)) div 2 + D,
+    Y + (Img.Height - UiLineH) div 2 + D, Caption, ColText, ufBold);
 end;
 
 procedure Centred(S: TGSurface; X, Y, W: Integer; const T: string; Face: TUiFace);
@@ -583,10 +586,10 @@ begin
             { drawing }
             Fill(Art.Back1);
             Centred(S, 80, 209, 281, Art.Text('StartScreen-Label1', 'Welcome to Graal!'), ufBold);
-            UiDrawText(S, 72, 246, Art.Text('StartScreen-Label5', 'Nick Name:'), ColText, ufRegular);
-            UiDrawText(S, 72, 274, Art.Text('StartScreen-Label2', 'Language:'), ColText, ufRegular);
-            UiDrawText(S, 76, 332, Art.Text('ServerList-Label7', 'Account:'), ColText, ufRegular);
-            UiDrawText(S, 76, 364, Art.Text('ServerList-Label8', 'Password:'), ColText, ufRegular);
+            UiDrawText(S, 72, 246, Art.Text('StartScreen-Label5', 'Nick Name:'), ColText, ufBold);
+            UiDrawText(S, 72, 274, Art.Text('StartScreen-Label2', 'Language:'), ColText, ufBold);
+            UiDrawText(S, 76, 332, Art.Text('ServerList-Label7', 'Account:'), ColText, ufBold);
+            UiDrawText(S, 76, 364, Art.Text('ServerList-Label8', 'Password:'), ColText, ufBold);
             Edit(S, FNick, R.Nickname, Focus = 0, False, False);
             Edit(S, FLang, Lang, Focus = 1, False, True);
             Edit(S, FAcc, R.Account, Focus = 2, False, True);
@@ -641,7 +644,7 @@ begin
               end;
               if Inside(LList, CX, CY) then
               begin
-                Row := (CY - LList.Y - 2) div UiLineH;
+                Row := (CY - LList.Y - 2) div ListRowH;
                 if (Row >= 0) and (Row <= High(Rows)) then Sel := Rows[Row];
               end;
               if Inside(BMore, CX, CY) then Press(5);
@@ -696,22 +699,22 @@ begin
             S.FillRect(LList.X, LList.Y, LList.W, 1, $FFAEAEAE);
             S.FillRect(LList.X, LList.Y, 1, LList.H, $FFAEAEAE);
             S.FillRect(LList.X + 2, LList.Y + 2, LList.W - 4, LList.H - 4, ColFill);
-            N := (LList.H - 4) div UiLineH;
+            N := (LList.H - 4) div ListRowH;
             for I := 0 to High(Rows) do
             begin
               if I >= N then Break;
               Srv := Fetch.Servers[Rows[I]];
-              CY := LList.Y + 2 + I * UiLineH + 1;
+              CY := LList.Y + 2 + I * ListRowH + 1;
               if Rows[I] = Sel then
               begin
-                S.FillRect(LList.X + 4, CY, 177, UiLineH, ColSelect);
-                UiDrawText(S, LList.X + 9, CY, ServerDisplayName(Srv.Name), ColWhite, ufRegular);
+                S.FillRect(LList.X + 4, CY, 177, ListRowH, ColSelect);
+                UiDrawText(S, LList.X + 6, CY, ServerDisplayName(Srv.Name), ColWhite, ufRegular);
                 UiDrawText(S, LList.X + 179 - UiTextWidth(Srv.Players, ufRegular), CY,
                   Srv.Players, ColWhite, ufRegular);
               end
               else
               begin
-                UiDrawText(S, LList.X + 9, CY, ServerDisplayName(Srv.Name), ColText, ufRegular);
+                UiDrawText(S, LList.X + 6, CY, ServerDisplayName(Srv.Name), ColText, ufRegular);
                 UiDrawText(S, LList.X + 179 - UiTextWidth(Srv.Players, ufRegular), CY,
                   Srv.Players, ColText, ufRegular);
               end;

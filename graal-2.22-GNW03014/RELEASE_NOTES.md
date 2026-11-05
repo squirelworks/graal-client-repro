@@ -18,12 +18,14 @@ chat are not there yet.
 
 The program carries what 2.22's own `Graal_222.exe` carries: the start
 window and server list art and buttons, the nine Training levels, the
-English words of its windows and the Graal head icon, so it needs no
-`Graal_222.exe` beside it. It also carries small default graphics and a
-starter level of its own, so it runs as it is. Put it in a 2.22 install
-(or point it at one with `--data DIR`) and it uses what that install
-holds: the tiles, ganis, heads and bodies, sounds, the Training map and
-the name font.
+English words of its windows and the Graal head icon. It also carries the
+2.22 install's art that the start screen and Training use: the tiles
+(`pics1.png`, `picso.png`), the sprites, status and letters pictures, the
+bombs, `arrays.dat`, the name font, the offline tutorial map with its
+levels, ganis and pictures, and the default body, head, sword and shield.
+So it runs on its own, with nothing beside it, and looks like 2.22. Put
+it in a 2.22 install (or point it at one with `--data DIR`) and it uses
+what that install holds first.
 
 Files are looked for in the program's own folder first, then in
 `graal-assets/2.22` and `graal-assets/common` beside it, then in the
@@ -65,11 +67,12 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
   (1024 x 768 when it has none) and more of the level is shown.
   `startinfullscreen=true`, or Shift held on Start or Training, starts
   the game in fullscreen.
-- Training: with the install's `maps/offlinetutorial.gmap`, the real
-  offline tutorial with its nine levels, starting below the cauldron. The tutorial's
-  script dresses the player as 2.22 does (blond hair, brown shirt,
-  shield) and puts in its own walking ganis. Without it, a built-in
-  starter level.
+- Training: the real offline tutorial with its nine levels, starting
+  below the cauldron. The tutorial's script dresses the player as 2.22
+  does (blond hair, brown shirt, shield) and puts in its own walking
+  ganis. The lamps burn with their gani scripts (light and flame), and the
+  teacher's "Touch to get information" sign floats over its arrow in the
+  name font, as 2.22 draws gani movie text.
 - Login to a 2.22 server: login type 5, `GNW03014`, the tamper check, and
   gen-5 frames both ways. Checked against frames of a real 2.22 session:
   the rebuild makes the real client's uncompressed frames byte for byte
@@ -135,7 +138,7 @@ editors; Options; UDP peer traffic; macOS. See the build's README for the full l
 
 ## Checks behind this release
 
-The test suites (354 checks) run with range and overflow checks and the heap
+The test suites (357 checks) run with range and overflow checks and the heap
 tracer, and must end with no unfreed memory. It includes frames of a real
 2.22 session, a bzip2 round trip against random and repetitive data, and a
 fuzz run of 20000 random messages and 3000 random gen-5 frames through the

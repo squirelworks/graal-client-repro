@@ -316,6 +316,11 @@ begin
       end;
       SX := OX + (WX mod Patch);
       SY := OY + (WY mod Patch);
+      { the sand patch's top-left tile on picso.png is a grass tile, not
+        sand: the real 2.22 shows none at the grid points, so take the
+        sand to its right }
+      if (OX = SandX) and (OY = SandY) and (WX mod Patch < TileSize) and
+        (WY mod Patch < TileSize) then Inc(SX, TileSize);
       Col := Sheet.Pixels[SY * Sheet.Width + SX];
       Dest.Pixels[PY * Dest.Width + PX] := $FF000000 or
         (Cardinal(ShadeChannel((Col shr 16) and $FF, D)) shl 16) or

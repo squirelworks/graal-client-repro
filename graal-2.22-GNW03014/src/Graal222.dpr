@@ -603,6 +603,8 @@ begin
   Y := '32';
   Cell := '1,1';
   Path := FirstFileIn(Dir, 'maps/offlinetutorial.gmap');
+  { none in the install: the copy the program carries }
+  if Path = '' then Path := AssetPath('maps/offlinetutorial.gmap');
   if (Path <> '') and not EmbeddedRes('TUTORIALB2', D) and
     not PeResource(FirstFileIn(Dir, 'Graal_222.exe;Graal.exe'), RT_RCDATA,
     'TUTORIALB2', D) then Path := '';
@@ -751,6 +753,11 @@ end;
 
 begin
   Randomize;
+  { the files of the 2.22 install the program carries (Res222) stand in
+    for any the install lacks }
+  AssetFallback := EmbeddedPath;
+  if FileExists(ExtractFilePath(ParamStr(0)) + 'Graal222.log') then
+    LogFileName := ExtractFilePath(ParamStr(0)) + 'Graal222.log';
   if ParamCount = 0 then
     Halt(RunGui);
   OpenConsoleIO;

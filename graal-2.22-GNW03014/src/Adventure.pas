@@ -60,6 +60,10 @@ var
     (graalconfig.txt's fullscreenmode, 1024 x 768 by default) after
     Alt+Enter, as 2.22 draws more of the level there. ViewH is the play
     area above the chat line. Set by TAdventure.SetScreenSize. }
+  { A file the game log is added to as it is written ('' for none): set
+    when a Graal222.log exists beside the program, so a tester can send
+    it. }
+  LogFileName: string = '';
   ScreenW: Integer = WindowW;
   ScreenH: Integer = WindowH;
   ViewH: Integer = WindowH - ChatBarH;
@@ -361,6 +365,11 @@ type
     { Draws P with the camera at (CamX, CamY) pixels; also used for the
       character on the start screen. }
     procedure DrawPlayer(P: TServerPlayer; CamX, CamY: Integer);
+    { The movie ganis (GANI0002) among P's attributes (the tutorial
+      master's #P1 tutorial_touch.gani: an arrow and "Touch to get
+      information"), drawn over P whose top-left is at (DX, DY). }
+    procedure DrawAttachedGanis(P: TServerPlayer; DX, DY: Integer);
+    procedure DrawMovie(A: TGraalAni; DX, DY: Integer; MovieFrame: Double);
     { The status display over the board: buttons, counts, hearts, bars. }
     procedure DrawStatus;
     { The player's classic sprite value (see WireSprite). }
@@ -741,14 +750,36 @@ var
   I, J, K: Integer;
   Base, Cand: string;
   Exts: array[0..2] of string;
+
+  { none in the install: the copy the program carries (GAssetDirs'
+    AssetFallback), in the same folder order }
+  procedure Fallback;
+  var
+    FI, FJ: Integer;
+  begin
+    if not Assigned(AssetFallback) then Exit;
+    for FI := 0 to High(Dirs) do
+      for FJ := 0 to 2 do
+        if Exts[FJ] <> '' then
+        begin
+          Result := AssetFallback(Dirs[FI] + Base + Exts[FJ]);
+          if Result <> '' then Exit;
+        end;
+  end;
+
 begin
   { the asset roots (GAssetDirs), set by UseInstall }
   Result := '';
-  if (AssetRootCount = 0) or (Name = '') then Exit;
+  if Name = '' then Exit;
   Base := ChangeFileExt(Name, '');
   Exts[0] := ExtractFileExt(Name);
   Exts[1] := '.png';
   Exts[2] := '.gif';
+  if AssetRootCount = 0 then
+  begin
+    Fallback;
+    Exit;
+  end;
   for K := 0 to AssetRootCount - 1 do
     for I := 0 to High(Dirs) do
       for J := 0 to 2 do
@@ -761,6 +792,7 @@ begin
           Exit;
         end;
       end;
+  Fallback;
 end;
 
 function TAssets.LevelFile(const Name: string): string;
@@ -770,6 +802,9 @@ begin
     (Pos('\', Name) > 0) then Exit;
   Result := AssetPath('levels/' + Name);
   if Result = '' then Result := AssetPath(Name);
+  { 2.22 keeps its gmaps in maps/ }
+  if (Result = '') and EndsWith(LowerCase(Name), '.gmap') then
+    Result := AssetPath('maps/' + Name);
 end;
 
 function TAssets.Image(const Name, Kind: string): TGSurface;
@@ -1291,6 +1326,7 @@ const
 procedure TAdventure.Log(const S: string);
 var
   Line: string;
+  LF: TextFile;
 begin
   Line := Format('[%5d] %s', [Frame, S]);
   if Echo then
@@ -1302,6 +1338,15 @@ begin
   end;
   if FLog.Count >= LogKeep then FLog.Delete(0);
   FLog.Add(Line);
+  if LogFileName <> '' then
+    try
+      AssignFile(LF, LogFileName);
+      if FileExists(LogFileName) then Append(LF) else Rewrite(LF);
+      WriteLn(LF, FormatDateTime('hh:nn:ss.zzz', Now) + ' ' + Line);
+      CloseFile(LF);
+    except
+      LogFileName := '';
+    end;
 end;
 
 procedure TAdventure.ClientLog(const Line: string);
@@ -2809,6 +2854,76 @@ begin
   if I >= 0 then FAniReplace.Delete(I);
   if (Trim(New) <> '') and (LowerCase(Trim(New)) <> K) then
     FAniReplace.Add(K + '=' + Trim(New));
+end;
+
+procedure TAdventure.DrawAttachedGanis(P: TServerPlayer; DX, DY: Integer);
+var
+  K: Integer;
+  A: TGraalAni;
+  N: string;
+begin
+  for K := 1 to 30 do
+  begin
+    N := LowerCase(P.Attr[K]);
+    if (Length(N) < 6) or (Copy(N, Length(N) - 4, 5) <> '.gani') then Continue;
+    A := Assets.Ani(N);
+    if (A <> nil) and (Length(A.Actors) > 0) then
+      { [inf: 20 movie frames a second, the game's tick] }
+      DrawMovie(A, DX, DY, Frame);
+  end;
+end;
+
+procedure TAdventure.DrawMovie(A: TGraalAni; DX, DY: Integer; MovieFrame: Double);
+var
+  I, TW, X, Y, Px: Integer;
+  K: TGaniKey;
+  Spr: TGraalAniSprite;
+  Img: TGSurface;
+  F: TTrueTypeFont;
+  Col: Cardinal;
+begin
+  for I := 0 to High(A.Actors) do
+  begin
+    if not A.ActorAt(I, MovieFrame, K) or not K.Visible then Continue;
+    X := DX + Round(K.DX);
+    Y := DY + Round(K.DY);
+    if A.Actors[I].IsText then
+    begin
+      if K.Text = '' then Continue;
+      Col := $FF000000 or (K.Color and $FFFFFF);
+      F := nil;
+      if Pos('tempus', LowerCase(K.Font)) > 0 then F := NameFont;
+      if F <> nil then
+      begin
+        { fontsize 14 is drawn as the names are (em NameFontPx for the
+          names' size): [inf: the scale is matched by eye to the real
+          2.22's "Touch to get information"] }
+        Px := Round(K.FontSize * NameFontPx / 14);
+        { drawn with the names' weight; shaded: a navy (0,0,128) copy one
+          pixel down and right (the real 2.22's text under Wine) }
+        TW := F.TextWidth(K.Text, Px, True);
+        if K.Centered then Dec(X, TW div 2);
+        { the real 2.22 puts the letters' tops 8 px above dy (its arrow,
+          7 px below the text's dy, sits just under the letters); the
+          font's em box starts about 4 px above them }
+        Dec(Y, 12);
+        if K.Shaded then F.DrawText(Screen, X + 1, Y + 1, K.Text, Px, $FF000080, True);
+        F.DrawText(Screen, X, Y, K.Text, Px, Col, True);
+      end
+      else
+      begin
+        TW := TextWidth(K.Text, 1);
+        if K.Centered then Dec(X, TW div 2);
+        if K.Shaded then DrawText(Screen, X + 1, Y + 1, K.Text, $FF0000C0, 1);
+        DrawText(Screen, X, Y, K.Text, Col, 1);
+      end;
+    end
+    else if A.FindSprite(K.Sprite, Spr) then
+    begin
+      Img := Assets.Image(Spr.Sheet, '');
+      if Img <> nil then Screen.Blit(Img, Spr.X, Spr.Y, Spr.W, Spr.H, X, Y);
+    end;
+  end;
 end;
 
 function TAdventure.NameFont: TTrueTypeFont;
