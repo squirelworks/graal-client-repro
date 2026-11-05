@@ -62,7 +62,7 @@ and gani scripts; precise movement; Options; the UDP channel between
 players. See the build's README for the full list.
 
 The original runs on the Torque engine; this release is still the Delphi
-stand-in that speaks its wire protocol. The Torque work is on hold.
+stand-in that speaks its wire protocol. The Torque layer is not done.
 
 The original's own icon: no copy of the original program to take it from
 is in the project yet, so the Windows program has the default icon.
