@@ -1615,7 +1615,7 @@ end;
 function TNpcManager.Command(Ctx: TGsContext; Op: Integer; const A: TGsArgs): Boolean;
 var
   N, M: TNpc;
-  I: Integer;
+  I, V: Integer;
   CX, CY, BX, BY, BW, BH: Double;
 begin
   Result := False;
@@ -1858,7 +1858,15 @@ begin
     GsOpChangeImgVis:
       begin
         I := FindImg(N, Trunc(A.Num[0]));
-        if I >= 0 then N.ShownImages[I].Layer := ClampI(Trunc(A.Num[1]), 0, 4);
+        { Graal_222.exe: 0 to 2 are layers -1 to 1 and 3 up are 9 up (3 is
+          light); a layer under 9 counts from the NPC's own }
+        V := Floor(A.Num[1] + 0.0001);
+        if (I >= 0) and (V >= 0) and (V <= 20) then
+        begin
+          if V >= 3 then V := V + 6 else V := V - 1;
+          if V < 9 then V := V + N.Layer;
+          N.ShownImages[I].Layer := V;
+        end;
       end;
     GsOpToInventory:
       begin
@@ -1935,46 +1943,74 @@ begin
 end;
 
 procedure TNpcManager.Draw(Screen: TGSurface; LCamX, LCamY: Integer; Over: Boolean);
+type
+  { one thing on 2.22's draw list: an NPC, or a picture it shows }
+  TDrawItem = record
+    N: TNpc;
+    K: Integer;          { -1 the NPC itself, else its ShownImages index }
+    Layer: Integer;
+    Y, X: Double;        { the sort keys, in the player's level's tiles }
+    CamX, CamY: Integer; { the camera for it, lifted with its NPC }
+  end;
 var
-  I, K, O, DX, DY, TW, SX, SY, SW, SH, CamX, CamY, Lifted, Pass: Integer;
+  Items: array of TDrawItem;
+  Count, I, J, K, DX, DY, TW, SX, SY, SW, SH, CamX, CamY, Lifted: Integer;
+  OX, OY: Double;
   N: TNpc;
-  Order: array of Integer;
-  KeyY, KeyX: array of Double;
+  It: TDrawItem;
   Img: TGSurface;
   S: string;
-begin
-  { the player's level, then the other cells of a gmap: 2.22 draws a
-    neighbour cell's NPCs at their place on the map, so they do not pop
-    in at the edge }
-  { 2.22 sorts what it draws by y, then x, then age (its draw list's
-    compare), so of two NPCs on one row the one to the right is drawn over
-    the other: the tutorial's palm shades the sleeping squirrel }
-  SetLength(Order, Npcs.Count + Parked.Count);
-  SetLength(KeyY, Length(Order));
-  SetLength(KeyX, Length(Order));
-  for I := 0 to High(Order) do
+  Light: Boolean;
+
+  function Before(const A, B: TDrawItem): Boolean;
   begin
-    if I < Npcs.Count then N := Npc(I) else N := TNpc(Parked[I - Npcs.Count]);
-    KeyY[I] := N.Y;
-    KeyX[I] := N.X;
-    if (I >= Npcs.Count) and (N.CellX >= 0) and (N.CellY >= 0) then
-    begin
-      KeyY[I] := KeyY[I] + (N.CellY - ScopeY) * 64;
-      KeyX[I] := KeyX[I] + (N.CellX - ScopeX) * 64;
-    end;
-    { insertion keeps equal keys in list order }
-    K := I;
-    while (K > 0) and ((KeyY[Order[K - 1]] > KeyY[I]) or
-      ((KeyY[Order[K - 1]] = KeyY[I]) and (KeyX[Order[K - 1]] > KeyX[I]))) do
-    begin
-      Order[K] := Order[K - 1];
-      Dec(K);
-    end;
-    Order[K] := I;
+    if A.Layer <> B.Layer then Result := A.Layer < B.Layer
+    else if A.Y <> B.Y then Result := A.Y < B.Y
+    else Result := A.X < B.X;
   end;
-  for O := 0 to High(Order) do
+
+  procedure Add(AK, ALayer: Integer; AY, AX: Double);
   begin
-    I := Order[O];
+    if Count = Length(Items) then SetLength(Items, Count * 2 + 16);
+    Items[Count].N := N;
+    Items[Count].K := AK;
+    Items[Count].Layer := ALayer;
+    Items[Count].Y := AY;
+    Items[Count].X := AX;
+    Items[Count].CamX := CamX;
+    Items[Count].CamY := CamY;
+    Inc(Count);
+  end;
+
+  procedure PartOf(AImg: TGSurface; APartSet: Boolean; APX, APY, APW, APH: Integer);
+  begin
+    if APartSet then
+    begin
+      SX := APX;
+      SY := APY;
+      SW := Min(APW, AImg.Width - APX);
+      SH := Min(APH, AImg.Height - APY);
+    end
+    else
+    begin
+      SX := 0;
+      SY := 0;
+      SW := AImg.Width;
+      SH := AImg.Height;
+    end;
+  end;
+
+begin
+  { 2.22 draws a list of NPCs and the pictures they show (showimg), sorted
+    by layer, then y (a picture's bottom), then x, then age: its draw
+    list's compare in Graal_222.exe. So of two NPCs on one row the one to
+    the right is drawn over the other (the tutorial's palm shades the
+    sleeping squirrel), and light pictures (layer 9) come after the rest.
+    Layers above 0 are drawn after the players (Over). The player's level
+    comes first, then the other cells of a gmap at their place on the map. }
+  Count := 0;
+  for I := 0 to Npcs.Count + Parked.Count - 1 do
+  begin
     CamX := LCamX;
     CamY := LCamY;
     if I < Npcs.Count then N := Npc(I)
@@ -1987,36 +2023,71 @@ begin
       Dec(CamY, (N.CellY - ScopeY) * 64 * 16);
     end;
     if N.Gone or not N.Visible then Continue;
-    if Over <> (N.Layer > 0) then Continue;
-    DX := Round(N.X * 16) - CamX;
-    DY := Round(N.Y * 16) - CamY;
+    OX := (LCamX - CamX) / 16;
+    OY := (LCamY - CamY) / 16;
     { on height-shaped ground 2.22 lifts an NPC by the height at its foot:
       a character's (x + 1.5, y + 3), an image's bottom centre; what it
       shows (showimg) goes up with it }
     if N.Character then
-      Lifted := World.Lift(N.X + 1.5 + (LCamX - CamX) / 16, N.Y + 3 + (LCamY - CamY) / 16)
+      Lifted := World.Lift(N.X + 1.5 + OX, N.Y + 3 + OY)
     else
     begin
       Lifted := 0;
       Img := World.Image(N.Image);
       if Img <> nil then
       begin
-        if N.PartSet then
-        begin
-          SW := N.PW;
-          SH := N.PH;
-        end
-        else
-        begin
-          SW := Img.Width;
-          SH := Img.Height;
-        end;
-        Lifted := World.Lift(N.X + SW / 32 + (LCamX - CamX) / 16,
-          N.Y + SH / 16 + (LCamY - CamY) / 16);
+        PartOf(Img, N.PartSet, N.PX, N.PY, N.PW, N.PH);
+        Lifted := World.Lift(N.X + SW / 32 + OX, N.Y + SH / 16 + OY);
       end;
     end;
-    Dec(DY, Lifted);
     Inc(CamY, Lifted);
+    if (N.Layer > 0) = Over then Add(-1, N.Layer, N.Y + OY, N.X + OX);
+    for K := 0 to High(N.ShownImages) do
+      with N.ShownImages[K] do
+        if (Layer > 0) = Over then
+        begin
+          Img := World.Image(Image);
+          if Img = nil then Continue;
+          PartOf(Img, PartSet, PX, PY, PW, PH);
+          Add(K, Layer, Y + SH / 16 + OY, X + OX);
+        end;
+  end;
+  { insertion keeps equal keys in list order }
+  for I := 1 to Count - 1 do
+  begin
+    It := Items[I];
+    J := I;
+    while (J > 0) and Before(It, Items[J - 1]) do
+    begin
+      Items[J] := Items[J - 1];
+      Dec(J);
+    end;
+    Items[J] := It;
+  end;
+  for I := 0 to Count - 1 do
+  begin
+    N := Items[I].N;
+    CamX := Items[I].CamX;
+    CamY := Items[I].CamY;
+    if Items[I].K >= 0 then
+    begin
+      with N.ShownImages[Items[I].K] do
+      begin
+        Img := World.Image(Image);
+        if Img = nil then Continue;
+        PartOf(Img, PartSet, PX, PY, PW, PH);
+        { layer 9 adds its light (changeimgvis 3 and drawaslight) }
+        Light := Layer = 9;
+        if Light or (R <> 1) or (G <> 1) or (B <> 1) or (A <> 1) or (Zoom <> 1) then
+          DrawEffect(Screen, Img, SX, SY, SW, SH, Round(X * 16) - CamX,
+            Round(Y * 16) - CamY, R, G, B, A, Zoom, Light)
+        else
+          Screen.Blit(Img, SX, SY, SW, SH, Round(X * 16) - CamX, Round(Y * 16) - CamY);
+      end;
+      Continue;
+    end;
+    DX := Round(N.X * 16) - CamX;
+    DY := Round(N.Y * 16) - CamY;
     if N.Character then
       World.DrawCharacter(N, Screen, DX, DY, FTick - N.GaniStart)
     else
@@ -2024,20 +2095,7 @@ begin
       Img := World.Image(N.Image);
       if Img <> nil then
       begin
-        if N.PartSet then
-        begin
-          SX := N.PX;
-          SY := N.PY;
-          SW := Min(N.PW, Img.Width - N.PX);
-          SH := Min(N.PH, Img.Height - N.PY);
-        end
-        else
-        begin
-          SX := 0;
-          SY := 0;
-          SW := Img.Width;
-          SH := Img.Height;
-        end;
+        PartOf(Img, N.PartSet, N.PX, N.PY, N.PW, N.PH);
         if (N.Layer = 9) or (N.Zoom <> 1) or (N.EffR <> 1) or (N.EffG <> 1) or
           (N.EffB <> 1) or (N.EffA <> 1) then
           DrawEffect(Screen, Img, SX, SY, SW, SH, DX, DY, N.EffR, N.EffG, N.EffB,
@@ -2046,40 +2104,6 @@ begin
           Screen.Blit(Img, SX, SY, SW, SH, DX, DY);
       end;
     end;
-    { light pictures add their light over the rest, so the flame of a
-      lamp shows washed in its glow as on 2.22 }
-    for Pass := 0 to 1 do
-    for K := 0 to High(N.ShownImages) do
-      with N.ShownImages[K] do
-      begin
-        if (LowerCase(Copy(ExtractFileName(Image), 1, 5)) = 'light') <> (Pass = 1) then
-          Continue;
-        Img := World.Image(Image);
-        if Img = nil then Continue;
-        if PartSet then
-        begin
-          SX := PX;
-          SY := PY;
-          SW := Min(PW, Img.Width - PX);
-          SH := Min(PH, Img.Height - PY);
-        end
-        else
-        begin
-          SX := 0;
-          SY := 0;
-          SW := Img.Width;
-          SH := Img.Height;
-        end;
-        { an image named light* adds light, as Graal's light pictures;
-          [inf: the rule is taken from the light*.png naming, not traced] }
-        if (LowerCase(Copy(ExtractFileName(Image), 1, 5)) = 'light') or (R <> 1) or
-          (G <> 1) or (B <> 1) or (A <> 1) or (Zoom <> 1) then
-          DrawEffect(Screen, Img, SX, SY, SW, SH, Round(X * 16) - CamX,
-            Round(Y * 16) - CamY, R, G, B, A, Zoom,
-            LowerCase(Copy(ExtractFileName(Image), 1, 5)) = 'light')
-        else
-          Screen.Blit(Img, SX, SY, SW, SH, Round(X * 16) - CamX, Round(Y * 16) - CamY);
-      end;
     { the message, or the timer, centred over the NPC }
     S := N.Message;
     if N.TimerShow and (N.Timeout > 0) then S := IntToStr(Ceil(N.Timeout));
