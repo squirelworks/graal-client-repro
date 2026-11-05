@@ -35,6 +35,7 @@ uses
   GWindow in '../../common/GWindow.pas',
   GUiFont in '../../common/GUiFont.pas',
   Res231 in '../src/Res231.pas',
+  Dialogs231 in '../src/Dialogs231.pas',
   RealStart231 in '../src/RealStart231.pas',
   TestNpc231 in 'TestNpc231.pas',
   TestBaddy231 in 'TestBaddy231.pas';
@@ -1646,9 +1647,82 @@ begin
   end;
 end;
 
+procedure TestConfig;
+var
+  C: TGraalConfig;
+  F: TStringList;
+  Name, D: string;
+  G: TGSurface;
+begin
+  Name := GetTempDir + 'graalconfig-test.txt';
+  C := TGraalConfig.Create;
+  F := TStringList.Create;
+  try
+    DeleteFile(Name);
+    C.Load(Name);
+    Check(C.Bool('automapping') and C.Bool('noudp') and not C.Bool('waitvertical'),
+      'graalconfig: 2.31''s defaults with no file');
+    Check((C.Str('font') = 'Tempus Sans ITC') and (C.Int('fontsize', 0) = 24) and
+      (C.Str('fullscreenmode') = '1024x768'), 'graalconfig: font, size, fullscreen mode');
+    F.Add('head=head1.gif');
+    F.Add('notoalls=true');
+    F.SaveToFile(Name);
+    C.Load(Name);
+    Check((C.Lines[0] = 'head=head1.gif') and C.Bool('notoalls'),
+      'graalconfig: the file''s own lines first, in order');
+    C.SetBool('startinfullscreen', True);
+    C.SetStr('midivolume', '40');
+    Check(C.Save, 'graalconfig: saves');
+    C.Load(Name);
+    Check(C.Bool('startinfullscreen') and (C.Int('midivolume', 0) = 40) and
+      (C.Lines[0] = 'head=head1.gif'), 'graalconfig: what was saved reads back');
+  finally
+    DeleteFile(Name);
+    F.Free;
+    C.Free;
+  end;
+  G := TGSurface.Create(0, 0);
+  try
+    Check(ResFile('OPENGLYPH', D) and LoadImageData(D, 'OPENGLYPH.bmp', G, False) and
+      (G.Width = 15) and (G.Height = 14), 'open url: the Open button''s picture is compiled in');
+  finally
+    G.Free;
+  end;
+end;
+
+procedure TestMovie;
+const
+  Src = 'GANI0002'#10'SPRITE 0 arrow.png 0 0 16 16'#10'FRAMES 60'#10'MOVIE'#10 +
+    'ACTOR SPRITE'#10'FRAME 0 sprite #=0,dx=0,dy=0'#10'FRAME 20 dy=-4'#10'ACTOREND'#10 +
+    'ACTOR TEXT'#10'FRAME 0 text=Touch to get information,color=FFE080,fontsize=14,shaded=true'#10 +
+    'ACTOREND'#10'MOVIEEND'#10'SCRIPT'#10'timeout = 0.05;'#10'SCRIPTEND'#10;
+var
+  A: TGraalAni;
+  K: TGaniKey;
+  S: TGraalAniSprite;
+begin
+  A := TGraalAni.Create;
+  try
+    Check(A.LoadFromString(Src) and (A.MovieFrames = 60) and (Length(A.Actors) = 2),
+      'movie gani: frames and actors read');
+    Check(A.FindSprite(0, S) and (S.Sheet = 'arrow.png') and (S.W = 16),
+      'movie gani: the sprite table');
+    Check(A.ActorAt(0, 30, K) and (Round(K.DY) = -4) and (K.Sprite = 0),
+      'movie gani: later key frames change only what they name');
+    Check(A.ActorAt(1, 0, K) and A.Actors[1].IsText and
+      (K.Text = 'Touch to get information') and (K.Color = $FFE080) and K.Shaded,
+      'movie gani: a text actor');
+    Check(Trim(A.Script) = 'timeout = 0.05;', 'gani script: the SCRIPT block is kept');
+  finally
+    A.Free;
+  end;
+end;
+
 begin
   Skipped := 0;
   TestRealStart;
+  TestConfig;
+  TestMovie;
   TestGTypes;
   TestBzip2;
   TestGen5Capture;

@@ -46,6 +46,25 @@ its files, or keep those files in a `graal-assets/` folder beside it.
   area is the 456 pixels above it.
 - [x] Alt+Enter switches the game to fullscreen and back, as in 2.31.
 - [x] 2.31's own icon in the title bar and the taskbar.
+- [x] The Options button opens 2.31's "More options" window: its Video,
+  Audio, Microphone, Controls and General pages with 2.31's settings,
+  read from and saved to `graalconfig.txt` as 2.31 does. "Start in
+  fullscreen" is honoured when a game starts.
+- [x] Get an account! and Go ask, in 2.31's own "Open URL" box, whether to
+  open the page in the browser, and open it when you say yes.
+- [x] Typing in the chat line: Tab goes to it, Enter says the line, and
+  what you say shows over your head in 2.31's lettering and colours.
+- [x] Esc in a game asks "Do you really want to quit Graal?" first.
+- [x] Training's look: the wizard, the squirrel and the human2 player
+  with its shield, as 2.31 draws them, with the wizard's bobbing green
+  arrow and its "Touch to get information" line.
+- [x] Training's torches burn: the lamp gani's own script shows the flame
+  and its glow, as in 2.31.
+- [x] Training's ground is the height-shaped sand and grass 2.31 draws
+  from the install's `maps/offlinetutorial.gmap`, with people and things
+  standing raised on it.
+- [x] Alt+Enter and "Start in fullscreen" switch the screen to a real
+  640 x 480 fullscreen mode.
 
 ## Downloads
 
@@ -83,12 +102,12 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 
 ## Not yet
 
-- [ ] The Options window (2.31's TMoreOptions) behind the Options button.
-- [ ] Get an account! and the Go button open nothing yet.
-- [ ] Training's look: 2.31 draws the tutorial with the picso tiles, the
-  torch lights, the wizard and the "Touch to get information" text; the
-  rebuild still shows the level with the install's normal tiles.
-- [ ] Typing in the chat line.
+- [ ] Training's heights: side by side with 2.31 the wizard stands about
+  25 pixels lower and the torches about 10; 2.31's own height rules are
+  not traced yet (the rebuild uses 2.22's). The ground needs the install's
+  `maps/offlinetutorial.gmap`; without it Training is drawn flat.
+- [ ] Fullscreen uses 640 x 480, not the "Fullscreen mode" picked in More
+  options.
 - [ ] Dialog text is drawn in Liberation Sans, not Windows' MS Sans Serif.
 - [ ] `graal://` and `graal3://` links, the F1 window, NPC movement
   messages, UDP. See the build's README for the full list.

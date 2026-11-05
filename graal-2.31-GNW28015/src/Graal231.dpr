@@ -76,6 +76,8 @@ uses
   ListServer231 in 'ListServer231.pas',
   StartScreen231 in 'StartScreen231.pas',
   Res231 in 'Res231.pas',
+  Dialogs231 in 'Dialogs231.pas',
+  GTrueType in '../../common/GTrueType.pas',
   GUiFont in '../../common/GUiFont.pas',
   RealStart231 in 'RealStart231.pas',
   RunMode in 'RunMode.pas';
@@ -86,6 +88,33 @@ var
   GuiArgs: TStringList = nil;
   { why the last game ended, for the start screen }
   LastGameError: string = '';
+  { graalconfig.txt, as the More options window left it }
+  Config: TGraalConfig = nil;
+
+{ The page Get an account! offers: line 3 of arrays2.dat (the Graal
+  Reborn install has http://forums.graal.in/forums/register.php there),
+  or '' when the file has none. }
+function AccountPage(const Dir: string): string;
+var
+  L: TStringList;
+  F: string;
+begin
+  Result := '';
+  F := AssetPath('arrays2.dat');
+  if F = '' then F := Dir + 'arrays2.dat';
+  if not FileExists(F) then Exit;
+  L := TStringList.Create;
+  try
+    try
+      L.LoadFromFile(F);
+      if (L.Count > 3) and (Pos('://', L[3]) > 0) then Result := Trim(L[3]);
+    except
+      Result := '';
+    end;
+  finally
+    L.Free;
+  end;
+end;
 
 function ArgCount: Integer;
 begin
@@ -272,6 +301,7 @@ var
   Port, Frames, I, C, D, Seconds, StatsEvery, ExitCode_: Integer;
   OK, Online, UseWindow, NoDelay, Dropped, Crashed: Boolean;
   WasHeld: array[0..4] of Boolean;
+  Chars: string;
   StartUs, GateUs, NowUs, T0, NextStatsUs: Int64;
 
 begin
@@ -384,8 +414,6 @@ begin
         G.Log('no display: running without a window');
         FreeAndNil(Win);
       end;
-      { Alt+Enter: fullscreen and back, as 2.31 }
-      if Win <> nil then Win.AllowFullscreen := True;
     end;
 
     { sound only in a window: stress runs and tests open no device }
@@ -409,7 +437,33 @@ begin
         if Win <> nil then
         begin
           Win.Pump;
-          if Win.Closed or Win.Held[gkEscape] then Break;
+          { Alt+Enter: fullscreen and back, as 2.31 }
+          if Win.TakeFullscreenToggle then
+            if not Win.Fullscreen then Win.EnterFullscreen(ScreenW, ScreenH)
+            else Win.LeaveFullscreen(ScreenW, ScreenH);
+          if Win.Closed then Break;
+          { Esc: 2.31 asks "Do you really want to quit Graal?" first }
+          if Win.WasPressed(gkEscape) then
+          begin
+            if AskQuit then Break;
+            Win.TakeChars;
+          end;
+          { Tab gives the keys to the chat line and back; while it has
+            them, letters go into it and only the arrows walk }
+          if Win.WasPressed(gkChat) then G.ToggleChat;
+          Chars := StringReplace(StringReplace(Win.TakeChars, #9, '', [rfReplaceAll]),
+            #27, '', [rfReplaceAll]);
+          if G.ChatFocus then
+          begin
+            G.TypeChat(Chars);
+            G.Keys[DirUp] := Win.ArrowHeld[0];
+            G.Keys[DirLeft] := Win.ArrowHeld[1];
+            G.Keys[DirDown] := Win.ArrowHeld[2];
+            G.Keys[DirRight] := Win.ArrowHeld[3];
+            for C := 0 to 4 do WasHeld[C] := True;
+          end
+          else
+          begin
           G.Keys[DirUp] := Win.Held[gkUp];
           G.Keys[DirLeft] := Win.Held[gkLeft];
           G.Keys[DirDown] := Win.Held[gkDown];
@@ -425,6 +479,7 @@ begin
           WasHeld[2] := Win.Held[gkItem];
           WasHeld[3] := Win.Held[gkMap];
           WasHeld[4] := Win.Held[gkItemList];
+          end;
         end;
         if Walker.Mode = wmScript then D := Script.DirAt(I)
         else D := Walker.DirAt(I, G.Level, G.Player.X, G.Player.Y);
@@ -604,6 +659,7 @@ begin
   Result := 0;
   Dir := ExtractFilePath(ParamStr(0));
   Art := nil;
+  Config := TGraalConfig.Create;
   Win := TGWindow.Create('Graal ' + ClientBuildLabel + ' (' + ClientVersionToken + ')',
     ScreenW, ScreenH);
   try
@@ -625,6 +681,14 @@ begin
       in (res/), its words come from the install's languages/ }
     Art := TRealStartArt.Create;
     if not Art.Load(FirstFileIn(Dir, 'languages/languageEnglish.txt')) then FreeAndNil(Art);
+    { the More options window's settings, in the Graal folder as 2.31
+      keeps them }
+    Config.Load(Dir + 'graalconfig.txt');
+    if Art <> nil then
+    begin
+      Art.Config.Load(Dir + 'graalconfig.txt');
+      Art.AccountUrl := AccountPage(Dir);
+    end;
     if AssetPath('arrays2.dat') <> '' then
       Hosts := LoadListHosts(AssetPath('arrays2.dat'))
     else
@@ -693,7 +757,11 @@ begin
           Win.Reshape(StringOfChar(' ', I) + 'G r a a l' + StringOfChar(' ', 5 - I),
             ScreenW, ScreenH);
         end;
-        Win.AllowFullscreen := True;
+        { More options: Start in fullscreen mode }
+        Config.Load(Dir + 'graalconfig.txt');
+        Win.TakeFullscreenToggle;
+        if Config.Bool('startinfullscreen') and not Win.Fullscreen then
+          Win.EnterFullscreen(ScreenW, ScreenH);
         if RunGame(Win, R.Password, R.Nickname) <> 0 then
           Msg := LastGameError
         else
@@ -701,10 +769,11 @@ begin
       finally
         FreeAndNil(GuiArgs);
       end;
-      Win.AllowFullscreen := False;
+      if Win.Fullscreen then Win.LeaveFullscreen(ScreenW, ScreenH);
     until Win.Closed or StopRequested;
   finally
     Art.Free;
+    FreeAndNil(Config);
     Win.Free;
   end;
 end;

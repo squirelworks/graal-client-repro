@@ -14,7 +14,7 @@ interface
 
 uses
   Classes, SysUtils, Math, GTypes, GLevel, GSurface, GArrays, GFont, GGs1, Npc222,
-  Baddy222, Adventure, GSound, GTrueType;
+  Baddy222, Adventure, GSound, GTrueType, GAni;
 
 type
   TAdventureNpcWorld = class(TNpcWorld)
@@ -35,8 +35,10 @@ type
     function PlayerChat: string; override;
     function PlayerCode(const Code: string): string; override;
     function Image(const Name: string): TGSurface; override;
+    function GaniScript(const Gani: string): string; override;
     function TileType(X, Y: Integer): Integer; override;
     procedure DrawCharacter(N: TNpc; Screen: TGSurface; DX, DY, Tick: Integer); override;
+    function Lift(X, Y: Double): Integer; override;
     procedure HurtPlayer(Power, FromX, FromY: Double); override;
     procedure ShowSign(Index: Integer); override;
     procedure Say2(const Text: string); override;
@@ -247,6 +249,11 @@ type
   TNpcCharacter = class(TServerPlayer)
   end;
 
+function TAdventureNpcWorld.Lift(X, Y: Double): Integer;
+begin
+  Result := FAdv.LevelLift(X, Y);
+end;
+
 procedure TAdventureNpcWorld.DrawCharacter(N: TNpc; Screen: TGSurface; DX, DY, Tick: Integer);
 var
   P: TServerPlayer;
@@ -271,6 +278,16 @@ begin
   P.AniStart := FAdv.Frame - Tick;
   P.FixedStep := -1;
   FAdv.DrawPlayer(P, Round(N.X * 16) - DX, Round(N.Y * 16) - DY);
+  FAdv.DrawAttachedGanis(P, DX, DY);
+end;
+
+function TAdventureNpcWorld.GaniScript(const Gani: string): string;
+var
+  A: TGraalAni;
+begin
+  Result := '';
+  A := FAdv.Assets.Ani(Gani);
+  if A <> nil then Result := A.Script;
 end;
 
 procedure TAdventureNpcWorld.HurtPlayer(Power, FromX, FromY: Double);
