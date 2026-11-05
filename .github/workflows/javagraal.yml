@@ -26,6 +26,10 @@ on:
         description: yes = publish the release straight away, no = a draft
         type: string
         default: 'no'
+      combined:
+        description: yes = hand the zip to release-all for its one release, instead of a release of its own
+        type: string
+        default: 'no'
 
 concurrency:
   group: javagraal-${{ github.ref }}
@@ -82,7 +86,13 @@ jobs:
           (cd dist && zip -qr "$OUT.zip" "$OUT")
           echo "TAG_NAME=$B-$V" >> "$GITHUB_ENV"
           echo "TITLE=$(head -1 "$B/RELEASE_NOTES.md" | sed 's/^# *//') $V" >> "$GITHUB_ENV"
-      - uses: softprops/action-gh-release@v2
+      - if: inputs.combined == 'yes'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-all-javagraal
+          path: dist/*.zip
+      - if: inputs.combined != 'yes'
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG_NAME }}
           name: ${{ env.TITLE }}

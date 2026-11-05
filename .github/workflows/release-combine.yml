@@ -1,0 +1,79 @@
+name: release-combine
+
+# Gathers the per-client releases of one version (tags <folder>-<version>,
+# as release-all made them up to v0.0.3) into ONE release, tag <version>,
+# titled "Graal clients <version>", with every zip attached and one notes
+# text listing every client (scripts/release/combined_notes.py). Hide =
+# yes then turns the per-client releases back into drafts, so the releases
+# page shows only the one; that is undone by publishing a draft again, and
+# happens only once the one release holds every zip. Start it from the
+# Actions tab (Run workflow).
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version whose per-client releases to gather, e.g. v0.0.3
+        required: true
+        default: v0.0.3
+      hide:
+        description: Turn the per-client releases into drafts afterwards
+        type: choice
+        options: ['yes', 'no']
+        default: 'yes'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-all
+  cancel-in-progress: false
+
+jobs:
+  combine:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      V: ${{ inputs.version }}
+      HIDE: ${{ inputs.hide }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Gather the per-client releases
+        run: |
+          case "$V" in v[0-9]*) ;; *) echo "version must look like v0.0.3"; exit 1 ;; esac
+          gh release list --limit 500 --json tagName,isDraft \
+            -q '.[] | select(.isDraft | not) | .tagName' | grep -- "-$V\$" | sort > tags.txt || true
+          echo "$(wc -l < tags.txt) per-client $V releases"
+          [ -s tags.txt ] || { echo "no per-client $V releases"; exit 1; }
+          mkdir dist
+          WANT=0
+          while read -r T; do
+            N=$(gh release view "$T" --json assets -q '.assets | length')
+            WANT=$((WANT + N))
+            gh release download "$T" -D dist
+          done < tags.txt
+          GOT=$(ls dist | wc -l)
+          echo "$GOT files (expected $WANT)"
+          [ "$GOT" -eq "$WANT" ]
+          echo "WANT=$WANT" >> "$GITHUB_ENV"
+      - name: Make the one release
+        run: |
+          F=$(sed "s/-$V\$//" tags.txt)
+          ZIPS="$(ls dist/*)" python3 -I scripts/release/combined_notes.py "$V" $F > notes.md
+          TARGET=$(gh api "repos/$GITHUB_REPOSITORY/commits/$(head -1 tags.txt)" -q .sha)
+          if gh release view "$V" > /dev/null 2>&1; then
+            gh release upload "$V" dist/* --clobber
+            gh release edit "$V" --title "Graal clients $V" --notes-file notes.md
+          else
+            gh release create "$V" dist/* --title "Graal clients $V" \
+              --notes-file notes.md --target "$TARGET"
+          fi
+          HAVE=$(gh release view "$V" --json assets -q '.assets | length')
+          echo "$V holds $HAVE files (expected $WANT)"
+          [ "$HAVE" -ge "$WANT" ]
+          gh release view "$V" --json url -q .url
+      - name: Hide the per-client releases
+        if: inputs.hide == 'yes'
+        run: |
+          while read -r T; do
+            gh release edit "$T" --draft=true > /dev/null && echo "drafted $T"
+          done < tags.txt

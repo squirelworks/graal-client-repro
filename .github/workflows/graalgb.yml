@@ -28,6 +28,10 @@ on:
         description: yes = publish the release straight away, no = a draft
         type: string
         default: 'no'
+      combined:
+        description: yes = hand the zip to release-all for its one release, instead of a release of its own
+        type: string
+        default: 'no'
 
 concurrency:
   group: graalgb-${{ github.ref }}
@@ -113,7 +117,13 @@ jobs:
           cp rom/GraalGB.gbc "$FOLDER/tools/import_assets.py" "$FOLDER/tools/gpak.py" \
              "$FOLDER/README.md" "$FOLDER/RELEASE_NOTES.md" "dist/$OUT/"
           cd dist && zip -qr "$OUT.zip" "$OUT"
-      - uses: softprops/action-gh-release@v2
+      - if: inputs.combined == 'yes'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-all-graalgb
+          path: dist/*.zip
+      - if: inputs.combined != 'yes'
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.FOLDER }}-${{ env.VERSION }}
           name: ${{ env.TITLE }}
