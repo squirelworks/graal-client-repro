@@ -19,6 +19,12 @@ in that install (or point it at one with `--data DIR`, or keep a
 `graal-assets/` folder inside the program's folder) and the install's tiles, ganis, heads,
 bodies and offline tutorial take their place.
 
+## What's new in v0.0.3
+
+- Stress tested before release: a long soak with several players walking
+  between levels, others connecting and dropping again and again, and a
+  level with 80 scripted NPCs, with no crash, error or memory growth.
+
 ## Downloads
 
 | Zip | Runs on | Window |

@@ -24,6 +24,9 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 
 ## What's new in v0.0.3
 
+- Stress tested before release: a long soak with several players on one
+  relay and others connecting and dropping again and again, with no crash,
+  error or memory growth.
 - [ ] The start dialog is this build's own. Its form (`TConnectFrame`) is taken
       from the original program and compiled in: One Player and Two Players with a character list each, and the "Online At Cyberjoueur" group with nick name, server and port, at the same
       places, with the same captions, pictures, fonts, colours and tab order.

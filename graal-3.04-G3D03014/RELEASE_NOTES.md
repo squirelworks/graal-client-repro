@@ -18,6 +18,12 @@ point it at one with `--data DIR`) and the install's tiles, ganis, heads and
 bodies take their place. The shared `graal-assets/` folder next to the
 program works too (`graal-assets/3.04/`, then `graal-assets/common/`).
 
+## What's new in v0.0.3
+
+- Stress tested before release: a long soak with several players walking
+  between levels, others connecting and dropping again and again, and a
+  level with 80 scripted NPCs, with no crash, error or memory growth.
+
 ## Downloads
 
 | Zip | Runs on | Window |
