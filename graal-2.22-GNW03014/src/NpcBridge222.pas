@@ -14,7 +14,7 @@ interface
 
 uses
   Classes, SysUtils, Math, GTypes, GLevel, GSurface, GArrays, GFont, GGs1, Npc222,
-  Baddy222, Adventure, GSound;
+  Baddy222, Adventure, GSound, GTrueType;
 
 type
   TAdventureNpcWorld = class(TNpcWorld)
@@ -40,6 +40,7 @@ type
     procedure HurtPlayer(Power, FromX, FromY: Double); override;
     procedure ShowSign(Index: Integer); override;
     procedure Say2(const Text: string); override;
+    procedure DrawName(Screen: TGSurface; CX, Y: Integer; const Name: string); override;
     procedure Warp(const Level: string; X, Y: Double); override;
     procedure LayItem(Item: Integer; X, Y: Double); override;
     procedure PlaySound(const Name: string; X, Y: Double; Looped: Boolean); override;
@@ -289,6 +290,25 @@ begin
     FAdv.ReadSign(FAdv.Level.Signs[Index].Text);
     FWasReading := True;
   end;
+end;
+
+{ 2.22 writes names in the install's TEMPSITC.TTF (Tempus Sans ITC),
+  white over a dark blue copy one pixel down and right (the lab's
+  screenshot of the real client); without the font, the built-in one }
+procedure TAdventureNpcWorld.DrawName(Screen: TGSurface; CX, Y: Integer; const Name: string);
+var
+  F: TTrueTypeFont;
+  TW: Integer;
+begin
+  F := FAdv.NameFont;
+  if F = nil then
+  begin
+    inherited DrawName(Screen, CX, Y, Name);
+    Exit;
+  end;
+  TW := F.TextWidth(Name, NameFontPx, True);
+  F.DrawText(Screen, CX - TW div 2 + 1, Y + 1, Name, NameFontPx, $FF0000C0, True);
+  F.DrawText(Screen, CX - TW div 2, Y, Name, NameFontPx, $FFFFFFFF, True);
 end;
 
 procedure TAdventureNpcWorld.Say2(const Text: string);

@@ -153,6 +153,8 @@ type
     procedure HurtPlayer(Power, FromX, FromY: Double); virtual;
     procedure ShowSign(Index: Integer); virtual;
     procedure Say2(const Text: string); virtual;
+    { a name centred on CX under a character, its line's top at Y }
+    procedure DrawName(Screen: TGSurface; CX, Y: Integer; const Name: string); virtual;
     procedure Warp(const Level: string; X, Y: Double); virtual;
     procedure LayItem(Item: Integer; X, Y: Double); virtual;
     procedure PlaySound(const Name: string; X, Y: Double; Looped: Boolean); virtual;
@@ -356,6 +358,15 @@ procedure TNpcWorld.DrawCharacter(N: TNpc; Screen: TGSurface; DX, DY, Tick: Inte
 procedure TNpcWorld.HurtPlayer(Power, FromX, FromY: Double); begin end;
 procedure TNpcWorld.ShowSign(Index: Integer); begin end;
 procedure TNpcWorld.Say2(const Text: string); begin end;
+
+procedure TNpcWorld.DrawName(Screen: TGSurface; CX, Y: Integer; const Name: string);
+var
+  TW: Integer;
+begin
+  TW := TextWidth(Name, 1);
+  DrawText(Screen, CX + 1 - TW div 2, Y + 5, Name, $FF0000A0, 1);
+  DrawText(Screen, CX - TW div 2, Y + 4, Name, $FFFFFFFF, 1);
+end;
 procedure TNpcWorld.Warp(const Level: string; X, Y: Double); begin end;
 procedure TNpcWorld.LayItem(Item: Integer; X, Y: Double); begin end;
 procedure TNpcWorld.PlaySound(const Name: string; X, Y: Double; Looped: Boolean); begin end;
@@ -1902,11 +1913,7 @@ begin
     { a character's nickname under its feet, white over a blue shadow, as
       2.22 under Wine draws setcharprop #n }
     if N.Character and (N.Nickname <> '') then
-    begin
-      TW := TextWidth(N.Nickname, 1);
-      DrawText(Screen, DX + 25 - TW div 2, DY + 51, N.Nickname, $FF0000A0, 1);
-      DrawText(Screen, DX + 24 - TW div 2, DY + 50, N.Nickname, $FFFFFFFF, 1);
-    end;
+      World.DrawName(Screen, DX + 24, DY + 46, N.Nickname);
   end;
 end;
 

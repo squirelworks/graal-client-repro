@@ -77,6 +77,8 @@ uses
   GStartScreen in '../../common/GStartScreen.pas',
   ListServer222 in 'ListServer222.pas',
   StartScreen222 in 'StartScreen222.pas',
+  GUiFont in '../../common/GUiFont.pas',
+  RealStart222 in 'RealStart222.pas',
   RunMode in 'RunMode.pas';
 
 var
@@ -569,9 +571,12 @@ var
   Info: TStartInfo;
   Who: TCharacter222;
   Hosts: TListHosts;
+  Art: TRealStartArt;
+  GameTitle: string;
 begin
   Result := 0;
   Dir := ExtractFilePath(ParamStr(0));
+  Art := nil;
   Win := TGWindow.Create('Graal ' + ClientBuildLabel + ' (' + ClientVersionToken + ')',
     ScreenW, ScreenH);
   try
@@ -589,6 +594,17 @@ begin
     { SIGTERM / Ctrl+C end the program on the start screen too }
     InstallStopHandlers;
     SetAssetRoots(Dir, ClientBuildLabel);
+    { 2.22's own start window and server list when Graal_222.exe is in the
+      install (its pictures; its words from languages/) }
+    Art := TRealStartArt.Create;
+    if not Art.Load(FirstFileIn(Dir, 'Graal_222.exe;Graal.exe'),
+      FirstFileIn(Dir, 'languages/languageEnglish.txt')) then FreeAndNil(Art);
+    GameTitle := 'Graal ' + ClientBuildLabel + ' (' + ClientVersionToken + ')';
+    if Art <> nil then
+    begin
+      GameTitle := Art.Text('MainWindow', 'Graal');
+      Win.Reshape(Art.Text('StartScreen', 'Graal 2001'), 577, 416, True);
+    end;
     if AssetPath('arrays2.dat') <> '' then
       Hosts := LoadListHosts(AssetPath('arrays2.dat'))
     else
@@ -597,6 +613,7 @@ begin
     if Length(Hosts.Hosts) > 0 then ArrHost := Hosts.Hosts[0];
     ReadListServer(Dir, ArrHost, Hosts.Port, ListHost, ListPort);
     FillChar(R, SizeOf(R), 0);
+    if Art <> nil then ReadSavedLogin(R.Nickname, R.Account);
     Msg := '';
     repeat
       Win.TakeChars;
@@ -611,7 +628,10 @@ begin
         Info.Subtitle := '2.22 rebuilt';
         Info.DrawCharacter := Who.Draw;
         Info.StopRequested := StopRequested;
-        Picked := RunStartScreen(Win, G.Screen, Fetch, Info, Dir, ListHost, ListPort, Msg, R);
+        if Art <> nil then
+          Picked := RunRealStart(Win, Art, Fetch, Info, ListHost, ListPort, Msg, R)
+        else
+          Picked := RunStartScreen(Win, G.Screen, Fetch, Info, Dir, ListHost, ListPort, Msg, R);
       finally
         Who.Free;
         Fetch.Free;
@@ -646,6 +666,12 @@ begin
           GuiArgs.Add(R.Account);
         end;
         LastGameError := '';
+        { the game in its own 640 x 480 window, as 2.22's TAdventure }
+        { "Graal: <server>" online, as 2.22's title bar }
+        if (R.Choice = scOnline) and (R.ServerName <> '') and (Art <> nil) then
+          Win.Reshape(GameTitle + ': ' + R.ServerName, ScreenW, ScreenH)
+        else
+          Win.Reshape(GameTitle, ScreenW, ScreenH);
         if RunGame(Win, R.Password, R.Nickname) <> 0 then
           Msg := LastGameError
         else
@@ -655,6 +681,7 @@ begin
       end;
     until Win.Closed or StopRequested;
   finally
+    Art.Free;
     Win.Free;
   end;
 end;

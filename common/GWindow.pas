@@ -66,6 +66,14 @@ type
     { Handles every waiting window event. }
     procedure Pump;
     procedure Present(Surface: TGSurface);
+    { New title and client size (the start dialog is 577 x 416, the game
+      640 x 480), kept centred on the screen. }
+    { Dialog: a fixed dialog frame with only the close button (2.22's
+      start window and server list, bsDialog); else the game's frame. }
+    procedure Reshape(const Title: string; AWidth, AHeight: Integer;
+      Dialog: Boolean = False);
+    property Width: Integer read FWidth;
+    property Height: Integer read FHeight;
     { True once for each press since the last call (for one-shot keys). }
     function WasPressed(K: TGKey): Boolean;
     procedure SetKey(K: TGKey; Down: Boolean);
@@ -295,6 +303,42 @@ begin
   end;
 end;
 
+procedure TGWindow.Reshape(const Title: string; AWidth, AHeight: Integer;
+  Dialog: Boolean);
+var
+  R: TRect;
+  W, H: Integer;
+  Style, ExStyle: DWORD;
+begin
+  SetWindowText(FWnd, PChar(Title));
+  FWidth := AWidth;
+  FHeight := AHeight;
+  if Dialog then
+  begin
+    { bsDialog: caption and close button only; the taskbar still shows
+      the program }
+    Style := WS_POPUP or WS_CAPTION or WS_SYSMENU or DS_MODALFRAME or WS_VISIBLE;
+    ExStyle := WS_EX_DLGMODALFRAME or WS_EX_APPWINDOW;
+  end
+  else
+  begin
+    Style := (WS_OVERLAPPEDWINDOW and not WS_THICKFRAME) or WS_VISIBLE;
+    ExStyle := WS_EX_APPWINDOW;
+  end;
+  SetWindowLong(FWnd, GWL_STYLE, LONG(Style));
+  SetWindowLong(FWnd, GWL_EXSTYLE, LONG(ExStyle));
+  R.Left := 0; R.Top := 0; R.Right := AWidth; R.Bottom := AHeight;
+  AdjustWindowRectEx(R, Style, False, ExStyle);
+  W := R.Right - R.Left;
+  H := R.Bottom - R.Top;
+  SetWindowPos(FWnd, 0, (GetSystemMetrics(SM_CXSCREEN) - W) div 2,
+    (GetSystemMetrics(SM_CYSCREEN) - H) div 2, W, H, SWP_NOZORDER or SWP_FRAMECHANGED);
+  { the big icon for the taskbar and Alt+Tab, the small one for the
+    caption }
+  SendMessage(FWnd, WM_SETICON, ICON_BIG, LPARAM(LoadIcon(HInstance, 'MAINICON')));
+  SendMessage(FWnd, WM_SETICON, ICON_SMALL, LPARAM(LoadIcon(HInstance, 'MAINICON')));
+end;
+
 procedure TGWindow.Present(Surface: TGSurface);
 var
   BI: TBitmapInfo;
@@ -340,6 +384,13 @@ end;
 
 procedure TGWindow.Present(Surface: TGSurface);
 begin
+end;
+
+procedure TGWindow.Reshape(const Title: string; AWidth, AHeight: Integer;
+  Dialog: Boolean);
+begin
+  FWidth := AWidth;
+  FHeight := AHeight;
 end;
 
 {$ENDIF}
@@ -508,6 +559,72 @@ begin
       DestroyNotify: Closed := True;
     end;
   end;
+end;
+
+procedure TGWindow.Reshape(const Title: string; AWidth, AHeight: Integer;
+  Dialog: Boolean);
+type
+  TMotifHints = record
+    Flags, Functions, Decorations: culong;
+    InputMode: clong;
+    Status: culong;
+  end;
+var
+  D: PDisplay;
+  Hints: PXSizeHints;
+  Scr: cint;
+  MH: TMotifHints;
+  A: TAtom;
+begin
+  D := FDisplay;
+  if D = nil then Exit;
+  XStoreName(D, FWin, PChar(Title));
+  { _MOTIF_WM_HINTS: a dialog may only be moved and closed; the game may
+    also be minimised }
+  FillChar(MH, SizeOf(MH), 0);
+  MH.Flags := 1 or 2; { functions, decorations }
+  if Dialog then
+  begin
+    MH.Functions := 4 or 32;          { move, close }
+    MH.Decorations := 2 or 8;         { border, title }
+  end
+  else
+  begin
+    MH.Functions := 4 or 8 or 32;     { move, minimise, close }
+    MH.Decorations := 2 or 8 or 16 or 32;
+  end;
+  A := XInternAtom(D, '_MOTIF_WM_HINTS', False);
+  XChangeProperty(D, FWin, A, A, 32, PropModeReplace, @MH, 5);
+  if (AWidth <> FWidth) or (AHeight <> FHeight) then
+  begin
+    Scr := DefaultScreen(D);
+    if FImage <> nil then
+    begin
+      PXImage(FImage)^.data := nil;
+      XDestroyImage(FImage);
+    end;
+    if FImageBuf <> nil then FreeMem(FImageBuf);
+    FWidth := AWidth;
+    FHeight := AHeight;
+    GetMem(FImageBuf, AWidth * AHeight * 4);
+    FillChar(FImageBuf^, AWidth * AHeight * 4, 0);
+    FImage := XCreateImage(D, DefaultVisual(D, Scr), 24, ZPixmap, 0, FImageBuf,
+      AWidth, AHeight, 32, AWidth * 4);
+    Hints := XAllocSizeHints;
+    Hints^.flags := PMinSize or PMaxSize;
+    Hints^.min_width := AWidth;
+    Hints^.max_width := AWidth;
+    Hints^.min_height := AHeight;
+    Hints^.max_height := AHeight;
+    XSetWMNormalHints(D, FWin, Hints);
+    XFree(Hints);
+    XResizeWindow(D, FWin, AWidth, AHeight);
+  end;
+  { centred on the screen, as 2.22's forms (poScreenCenter) }
+  Scr := DefaultScreen(D);
+  XMoveWindow(D, FWin, (DisplayWidth(D, Scr) - AWidth) div 2,
+    (DisplayHeight(D, Scr) - AHeight) div 2);
+  XFlush(D);
 end;
 
 procedure TGWindow.Present(Surface: TGSurface);

@@ -35,6 +35,9 @@ uses
   GStartScreen in '../../common/GStartScreen.pas',
   ListServer222 in '../src/ListServer222.pas',
   GPeRes in '../../common/GPeRes.pas',
+  GUiFont in '../../common/GUiFont.pas',
+  GTrueType in '../../common/GTrueType.pas',
+  RealStart222 in '../src/RealStart222.pas',
   TestNpc222 in 'TestNpc222.pas',
   TestBaddy222 in 'TestBaddy222.pas';
 
@@ -956,6 +959,7 @@ var
   G: TAdventure;
   B: TGSurface;
   D: string;
+  TT: TTrueTypeFont;
 begin
   G := TAdventure.Create;
   try
@@ -973,6 +977,18 @@ begin
     Check(G.Player.Attr[6] = 'kmarms100.png', 'player: #P6 is kept');
     Check(not PeResourceData('MZ' + StringOfChar(#0, 100), RT_RCDATA, 'TUTORIALB2', D),
       'resources: a file that is no PE gives none');
+    Check((ServerTab('P Graal the Adventure') = ltGold) and (ServerTab('Doomsday') = ltSilver) and
+      (ServerTab('H Testbed') = ltBronze) and (ServerTab('3 Sharp3D TEST') = ltNone) and
+      (ServerTab('U Login') = ltNone), 'server list: Gold P, Silver plain, Bronze H, no tab for 3 and U');
+    Check((UiTextWidth('Start', ufBold) > UiTextWidth('Start', ufRegular)) and
+      (UiTextWidth('', ufBold) = 0), 'dialog font: bold is wider');
+    TT := TTrueTypeFont.Create;
+    try
+      Check(not TT.LoadFromString('true' + StringOfChar(#0, 40)) and (TT.TextWidth('abc', 16) = 0),
+        'TrueType: a file without its tables is refused and draws nothing');
+    finally
+      TT.Free;
+    end;
   finally
     G.Free;
   end;

@@ -16,11 +16,13 @@ chat are not there yet.
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").
 
-These zips hold no original Graal code, graphics, sounds or levels. The
-program carries small original default graphics and a starter level of its
-own, so it runs as it is. Put it in a 2.22 install you own (or point it at
-one with `--data DIR`) and the install's tiles, ganis, heads, bodies,
-start-window picture and offline tutorial take their place.
+The zips hold no Graal levels, sounds or tile sets; the Windows program
+carries the Graal head icon. It also carries small default graphics and a
+starter level of its own, so it runs as it is. Put it in a 2.22 install
+you own, next to `Graal_222.exe` (or point it at one with `--data DIR`),
+and it uses what that install holds: the tiles, ganis, heads and bodies,
+the start window and server list art inside `Graal_222.exe`, the offline
+tutorial, the language file and the name font.
 
 Files are looked for in the program's own folder first, then in
 `graal-assets/2.22` and `graal-assets/common` beside it, then in the
@@ -45,11 +47,18 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 
 ## What works
 
-- The start screen: nick name, Training, Start. Start fetches the server
+- 2.22's own start window, in a 577 x 416 window of its own with only a
+  close button: the GraalOnline art and buttons from `Graal_222.exe`,
+  Nickname, Language, Account and Password laid out as the original's
+  form, the words from `languages/languageEnglish.txt`, and the nickname
+  and last account 2.22 saved in the registry. Start fetches the server
   list (hosts from the install's `arrays2.dat`, or `listserver.txt` next
-  to the program, else `listserver.graal.in:14922`), then account,
-  password and Connect. When no listserver answers, the status line
-  names each host that failed and why.
+  to the program, else `listserver.graal.in:14922`) and opens 2.22's
+  server list: Gold, Silver and Bronze tabs, the server's language,
+  version, description and homepage, the listserver's message, and
+  Connect. The game then opens in its own 640 x 480 window titled
+  "Graal: <server>". Without `Graal_222.exe` the program's own start
+  screen stands in.
 - Training: with `Graal_222.exe` in the install, the real offline
   tutorial: `maps/offlinetutorial.gmap` with its nine levels read from
   that program's resources, starting by the cauldron. The tutorial's
@@ -69,8 +78,8 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
   are. Gani attributes `#P1` to `#P30`, pictures found in any folder of
   `levels/`.
 - Server NPCs on gmaps: each in its own cell, the cells around the
-  player drawn at their place on the map, nicknames under character
-  NPCs.
+  player drawn at their place on the map, and names under character
+  NPCs in the install's `TEMPSITC.TTF`, white over dark blue.
 - The sword and glove icons in the status display, and the white chat
   line under the play area.
 - On Windows, the Graal head as the program's icon in the title bar and
@@ -115,13 +124,13 @@ when it was started from there). Run `Graal222 --help` for every flag.
 
 ## Not yet
 
-Most of 2.22's additions to GS1; 2.22's own start screen and server
-list; typing in the chat line; the editors; Options; UDP peer traffic;
-macOS. See the build's README for the full list.
+Most of 2.22's additions to GS1; the account and language drop-downs,
+Get an account!, Show More and Donations; typing in the chat line; the
+editors; Options; UDP peer traffic; macOS. See the build's README for the full list.
 
 ## Checks behind this release
 
-The test suites (347 checks) run with range and overflow checks and the heap
+The test suites (350 checks) run with range and overflow checks and the heap
 tracer, and must end with no unfreed memory. It includes frames of a real
 2.22 session, a bzip2 round trip against random and repetitive data, and a
 fuzz run of 20000 random messages and 3000 random gen-5 frames through the

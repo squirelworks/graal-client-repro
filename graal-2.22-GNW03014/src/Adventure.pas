@@ -20,7 +20,7 @@ interface
 
 uses
   Classes, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GAssetDirs, GraalClient, Protocol222,
-  Npc222, Baddy222, Terrain222;
+  Npc222, Baddy222, Terrain222, GTrueType;
 
 const
   { The game view. 640x480 is assumed for 2.22 as for 2.05; not read from
@@ -32,6 +32,9 @@ const
     the 456 above it }
   ChatBarH = 24;
   ViewH = ScreenH - ChatBarH;
+  { the em of the names under characters, in TEMPSITC.TTF: matched to
+    the real 2.22's names (a cap height of 11 px, GDI's made-up bold) }
+  NameFontPx = 17;
 
   { Directions, as the walking routine numbers them. }
   DirUp = 0;
@@ -241,6 +244,8 @@ type
       server has no NPC server (protocol/packet-layouts.md) }
     FStartCellX, FStartCellY: Integer;
     FAniReplace: TStringList;
+    FNameFont: TTrueTypeFont;
+    FNameFontTried: Boolean;
     FObjectLevel: string;
     { a large file coming in chunks (LARGEFILESTART ... LARGEFILEEND) }
     FLargeName, FLargeData: string;
@@ -371,6 +376,8 @@ type
     { P's body picture in P's colours }
     function BodyFor(P: TServerPlayer): TGSurface;
     function PlayerAniFor(const Name: string): string;
+    { the install's TEMPSITC.TTF for names, or nil }
+    function NameFont: TTrueTypeFont;
     { the gmap cell a gmap from LoadLevelFile starts in (Training: 1, 1) }
     property StartCellX: Integer read FStartCellX write FStartCellX;
     property StartCellY: Integer read FStartCellY write FStartCellY;
@@ -1236,6 +1243,7 @@ begin
   FreeAndNil(Baddies);
   FreeAndNil(Npcs);
   FAniReplace.Free;
+  FNameFont.Free;
   FClient.Free;
   for I := 0 to FLevels.Count - 1 do FLevels.Objects[I].Free;
   FLevels.Free;
@@ -2791,6 +2799,23 @@ begin
   if I >= 0 then FAniReplace.Delete(I);
   if (Trim(New) <> '') and (LowerCase(Trim(New)) <> K) then
     FAniReplace.Add(K + '=' + Trim(New));
+end;
+
+function TAdventure.NameFont: TTrueTypeFont;
+var
+  F: string;
+begin
+  if not FNameFontTried then
+  begin
+    FNameFontTried := True;
+    F := AssetPath('TEMPSITC.TTF');
+    if F <> '' then
+    begin
+      FNameFont := TTrueTypeFont.Create;
+      if not FNameFont.LoadFromFile(F) then FreeAndNil(FNameFont);
+    end;
+  end;
+  Result := FNameFont;
 end;
 
 function TAdventure.PlayerAniFor(const Name: string): string;
