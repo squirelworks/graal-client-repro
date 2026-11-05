@@ -19,6 +19,16 @@ on:
         description: Version to release as a draft, e.g. v0.0.1 (empty = build only)
         required: false
         default: ''
+  # release-all.yml calls this to release every client in one run
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: true
+      publish:
+        description: yes = publish the release straight away, no = a draft
+        type: string
+        default: 'no'
 
 concurrency:
   group: graalgb-${{ github.ref }}
@@ -110,5 +120,5 @@ jobs:
           name: ${{ env.TITLE }}
           body_path: ${{ env.FOLDER }}/RELEASE_NOTES.md
           target_commitish: ${{ github.sha }}
-          draft: true
+          draft: ${{ inputs.publish != 'yes' }}
           files: dist/*.zip

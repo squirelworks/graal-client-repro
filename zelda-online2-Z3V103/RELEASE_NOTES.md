@@ -13,6 +13,11 @@ The zip holds no original code, graphics or levels. The game carries simple
 stand-in graphics and two small levels of its own, so it runs with nothing
 next to it.
 
+## What's new in v0.0.3
+
+- Faithfulness pass: compared side by side with the original program it was
+  rebuilt from, and the differences found brought in line with it.
+
 ## Running it
 
 Unzip, then run `java -jar ZeldaOnline2.jar` (or double-click it). The

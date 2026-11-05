@@ -16,6 +16,14 @@ own, so it runs as it is. Put it at the top of a NewMain install you own
 `--data DIR`) and the install's tiles, ganis, heads, bodies and levels take
 their place.
 
+## What's new in v0.0.3
+
+- Faithfulness pass: compared side by side with the original program it was
+  rebuilt from, and the differences found brought in line with it.
+- Stress tested before release: a long soak with several players walking
+  between levels, others connecting and dropping again and again, and a
+  level with 80 scripted NPCs, with no crash, error or memory growth.
+
 ## Downloads
 
 | Zip | Runs on | Window |

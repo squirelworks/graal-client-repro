@@ -16,6 +16,11 @@ carries simple art and rooms of its own, so it runs as it is. With a copy
 of the demo that you own, `import_assets.py` makes a second ROM that shows
 the demo's own graphics, rooms and texts.
 
+## What's new in v0.0.3
+
+- Faithfulness pass: compared side by side with the original program it was
+  rebuilt from, and the differences found brought in line with it.
+
 ## Downloads
 
 One zip, `graalgb-1.10-….zip`, the same on every system:

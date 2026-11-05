@@ -21,6 +21,14 @@ unblock the zip before you extract it: right-click it, **Properties**,
 tick **Unblock**, **OK**. Then nothing in the folder is asked about again.
 See [Windows says "Windows protected your PC"](https://github.com/squirelworks/graal-delphi#windows-says-windows-protected-your-pc).
 
+## What's new in v0.0.3
+
+- Faithfulness pass: compared side by side with the original program it was
+  rebuilt from, and the differences found brought in line with it.
+- Stress tested before release: a long soak with several players on one
+  relay and others connecting and dropping again and again, with no crash,
+  error or memory growth.
+
 ## What works
 
 - The start screen: nick name, Training, and Start with the relay server

@@ -13,6 +13,13 @@ These zips hold no original Graal3D code, meshes, textures or levels. The
 client carries a simple stand-in level and player of its own; put your
 Graal3D files next to it for the real ones.
 
+## What's new in v0.0.3
+
+- Faithfulness pass: compared side by side with the original program it was
+  rebuilt from, and the differences found brought in line with it.
+- Stress tested before release: a long offline run through the stand-in
+  level with no crash or error.
+
 ## Downloads
 
 | Zip | Runs on | Window |
