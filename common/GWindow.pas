@@ -38,6 +38,11 @@ type
     FWmDelete: Cardinal;
 {$ENDIF}{$ENDIF}
     FWidth, FHeight: Integer;
+    { ShowForm: a Delphi form's frame; the picture is drawn 1:1 at the
+      scroll position, and what lies beyond it is the form's colour }
+    FForm, FAutoScroll: Boolean;
+    FDesignW, FDesignH: Integer;
+    FFormColor: Cardinal;
     FPressed: array[TGKey] of Boolean; { pressed since the last tick }
     FClicked: Boolean;
     FClickX, FClickY: Integer;
@@ -52,6 +57,8 @@ type
 {$ENDIF}{$ENDIF}
   public
     MouseX, MouseY: Integer;
+    { the scroll position of a ShowForm window (0, 0 without scroll bars) }
+    ScrollX, ScrollY: Integer;
     { Mouse buttons held now, and the Ctrl / Shift keys (for the editor). }
     MouseLeft, MouseRight: Boolean;
     CtrlHeld, ShiftHeld: Boolean;
@@ -66,6 +73,27 @@ type
     { Handles every waiting window event. }
     procedure Pump;
     procedure Present(Surface: TGSurface);
+    { New title and client size (the start dialog is 577 x 416, the game
+      640 x 480), kept centred on the screen. }
+    { Dialog: a fixed dialog frame with only the close button (2.22's
+      start window and server list, bsDialog); else the game's frame. }
+    { MinBox (with Dialog False): a fixed frame with the minimise and close
+      buttons and a greyed maximise button (the 1.x forms' BorderIcons
+      [biSystemMenu, biMinimize]) }
+    procedure Reshape(const Title: string; AWidth, AHeight: Integer;
+      Dialog: Boolean = False; MinBox: Boolean = False);
+    { A Delphi form's own window, as TForm makes it: the outer size the
+      form gives (Width, Height), so the client is what the frame leaves
+      of it on this system; a sizable frame with the minimise box and a
+      greyed maximise box ([biSystemMenu, biMinimize]); scroll bars over
+      the controls' extent (DesignW x DesignH) when AutoScroll and it
+      does not fit, as on Windows 10, where the 1.x start dialogs come up
+      a little too small. The surfaces then given to Present are of the
+      design size. Outside Windows the window is the design size. }
+    procedure ShowForm(const Title: string; OuterW, OuterH, DesignW, DesignH: Integer;
+      AutoScroll: Boolean; FormColor: Cardinal);
+    property Width: Integer read FWidth;
+    property Height: Integer read FHeight;
     { True once for each press since the last call (for one-shot keys). }
     function WasPressed(K: TGKey): Boolean;
     procedure SetKey(K: TGKey; Down: Boolean);
@@ -184,6 +212,9 @@ begin
   end;
 end;
 
+procedure UpdateFormScroll(W: TGWindow; Wnd: HWND); forward;
+procedure FormScroll(W: TGWindow; Wnd: HWND; Bar, Code: Integer); forward;
+
 function WndProc(Wnd: HWND; Msg: UINT; WP: WPARAM; LP: LPARAM): LRESULT; stdcall;
 begin
   Result := 0;
@@ -242,6 +273,15 @@ begin
           Exit;
         end;
       WM_CLOSE: begin ActiveWindow.Closed := True; Exit; end;
+      WM_SIZE:
+        if ActiveWindow.FForm then UpdateFormScroll(ActiveWindow, Wnd);
+      WM_HSCROLL, WM_VSCROLL:
+        if ActiveWindow.FForm then
+        begin
+          if Msg = WM_HSCROLL then FormScroll(ActiveWindow, Wnd, SB_HORZ, WP and $FFFF)
+          else FormScroll(ActiveWindow, Wnd, SB_VERT, WP and $FFFF);
+          Exit;
+        end;
     end;
   Result := DefWindowProc(Wnd, Msg, WP, LP);
 end;
@@ -258,6 +298,9 @@ begin
   WC.lpfnWndProc := @WndProc;
   WC.hInstance := HInstance;
   WC.hCursor := LoadCursor(0, IDC_ARROW);
+  { the program's MAINICON (its .rc), in the title bar and the taskbar;
+    none: Windows' default }
+  WC.hIcon := LoadIcon(HInstance, 'MAINICON');
   WC.lpszClassName := 'TGraalWindow';
   Windows.RegisterClass(WC);
   R.Left := 0; R.Top := 0; R.Right := AWidth; R.Bottom := AHeight;
@@ -292,11 +335,190 @@ begin
   end;
 end;
 
+procedure TGWindow.Reshape(const Title: string; AWidth, AHeight: Integer;
+  Dialog: Boolean; MinBox: Boolean);
+var
+  R: TRect;
+  W, H: Integer;
+  Style, ExStyle: DWORD;
+begin
+  if FForm then
+  begin
+    FForm := False;
+    FAutoScroll := False;
+    ScrollX := 0;
+    ScrollY := 0;
+    UpdateFormScroll(Self, FWnd);
+  end;
+  SetWindowText(FWnd, PChar(Title));
+  FWidth := AWidth;
+  FHeight := AHeight;
+  if Dialog then
+  begin
+    { bsDialog: caption and close button only; the taskbar still shows
+      the program }
+    Style := WS_POPUP or WS_CAPTION or WS_SYSMENU or DS_MODALFRAME or WS_VISIBLE;
+    ExStyle := WS_EX_DLGMODALFRAME or WS_EX_APPWINDOW;
+  end
+  else if MinBox then
+  begin
+    Style := WS_OVERLAPPED or WS_CAPTION or WS_SYSMENU or WS_MINIMIZEBOX or WS_VISIBLE;
+    ExStyle := WS_EX_APPWINDOW;
+  end
+  else
+  begin
+    Style := (WS_OVERLAPPEDWINDOW and not WS_THICKFRAME) or WS_VISIBLE;
+    ExStyle := WS_EX_APPWINDOW;
+  end;
+  SetWindowLong(FWnd, GWL_STYLE, LONG(Style));
+  SetWindowLong(FWnd, GWL_EXSTYLE, LONG(ExStyle));
+  R.Left := 0; R.Top := 0; R.Right := AWidth; R.Bottom := AHeight;
+  AdjustWindowRectEx(R, Style, False, ExStyle);
+  W := R.Right - R.Left;
+  H := R.Bottom - R.Top;
+  SetWindowPos(FWnd, 0, (GetSystemMetrics(SM_CXSCREEN) - W) div 2,
+    (GetSystemMetrics(SM_CYSCREEN) - H) div 2, W, H, SWP_NOZORDER or SWP_FRAMECHANGED);
+  { the big icon for the taskbar and Alt+Tab, the small one for the
+    caption }
+  SendMessage(FWnd, WM_SETICON, ICON_BIG, LPARAM(LoadIcon(HInstance, 'MAINICON')));
+  SendMessage(FWnd, WM_SETICON, ICON_SMALL, LPARAM(LoadIcon(HInstance, 'MAINICON')));
+end;
+
+procedure UpdateFormScroll(W: TGWindow; Wnd: HWND);
+var
+  SI: TScrollInfo;
+  R: TRect;
+  Bar: Integer;
+begin
+  { Delphi's AutoScroll: a bar for each way the design does not fit }
+  GetClientRect(Wnd, R);
+  W.FWidth := R.Right - R.Left;
+  W.FHeight := R.Bottom - R.Top;
+  for Bar := SB_HORZ to SB_VERT do
+  begin
+    FillChar(SI, SizeOf(SI), 0);
+    SI.cbSize := SizeOf(SI);
+    SI.fMask := SIF_RANGE or SIF_PAGE or SIF_POS;
+    SI.nMin := 0;
+    if W.FAutoScroll then
+    begin
+      if Bar = SB_HORZ then
+      begin
+        SI.nMax := W.FDesignW - 1;
+        SI.nPage := W.FWidth;
+        if W.ScrollX > W.FDesignW - W.FWidth then W.ScrollX := W.FDesignW - W.FWidth;
+        if W.ScrollX < 0 then W.ScrollX := 0;
+        SI.nPos := W.ScrollX;
+      end
+      else
+      begin
+        SI.nMax := W.FDesignH - 1;
+        SI.nPage := W.FHeight;
+        if W.ScrollY > W.FDesignH - W.FHeight then W.ScrollY := W.FDesignH - W.FHeight;
+        if W.ScrollY < 0 then W.ScrollY := 0;
+        SI.nPos := W.ScrollY;
+      end;
+    end;
+    SetScrollInfo(Wnd, Bar, SI, True);
+  end;
+  GetClientRect(Wnd, R);
+  W.FWidth := R.Right - R.Left;
+  W.FHeight := R.Bottom - R.Top;
+end;
+
+procedure FormScroll(W: TGWindow; Wnd: HWND; Bar, Code: Integer);
+var
+  SI: TScrollInfo;
+  P, Page, Max_: Integer;
+begin
+  FillChar(SI, SizeOf(SI), 0);
+  SI.cbSize := SizeOf(SI);
+  SI.fMask := SIF_ALL;
+  GetScrollInfo(Wnd, Bar, SI);
+  P := SI.nPos;
+  Page := Integer(SI.nPage);
+  Max_ := SI.nMax - Page + 1;
+  case Code of
+    SB_LINEUP: Dec(P, 8);
+    SB_LINEDOWN: Inc(P, 8);
+    SB_PAGEUP: Dec(P, Page);
+    SB_PAGEDOWN: Inc(P, Page);
+    SB_THUMBTRACK, SB_THUMBPOSITION: P := SI.nTrackPos;
+    SB_TOP: P := 0;
+    SB_BOTTOM: P := Max_;
+  end;
+  if P > Max_ then P := Max_;
+  if P < 0 then P := 0;
+  if Bar = SB_HORZ then W.ScrollX := P else W.ScrollY := P;
+  SI.fMask := SIF_POS;
+  SI.nPos := P;
+  SetScrollInfo(Wnd, Bar, SI, True);
+end;
+
+procedure TGWindow.ShowForm(const Title: string; OuterW, OuterH, DesignW, DesignH: Integer;
+  AutoScroll: Boolean; FormColor: Cardinal);
+var
+  Style: DWORD;
+begin
+  FForm := True;
+  FAutoScroll := AutoScroll;
+  FDesignW := DesignW;
+  FDesignH := DesignH;
+  FFormColor := FormColor;
+  ScrollX := 0;
+  ScrollY := 0;
+  SetWindowText(FWnd, PChar(Title));
+  { TForm, bsSizeable, BorderIcons [biSystemMenu, biMinimize] }
+  Style := WS_OVERLAPPED or WS_CAPTION or WS_SYSMENU or WS_THICKFRAME or
+    WS_MINIMIZEBOX or WS_VISIBLE;
+  SetWindowLong(FWnd, GWL_STYLE, LONG(Style));
+  SetWindowLong(FWnd, GWL_EXSTYLE, LONG(WS_EX_APPWINDOW));
+  { poScreenCenter, at the outer size the form gives }
+  SetWindowPos(FWnd, 0, (GetSystemMetrics(SM_CXSCREEN) - OuterW) div 2,
+    (GetSystemMetrics(SM_CYSCREEN) - OuterH) div 2, OuterW, OuterH,
+    SWP_NOZORDER or SWP_FRAMECHANGED);
+  UpdateFormScroll(Self, FWnd);
+  SendMessage(FWnd, WM_SETICON, ICON_BIG, LPARAM(LoadIcon(HInstance, 'MAINICON')));
+  SendMessage(FWnd, WM_SETICON, ICON_SMALL, LPARAM(LoadIcon(HInstance, 'MAINICON')));
+end;
+
 procedure TGWindow.Present(Surface: TGSurface);
 var
   BI: TBitmapInfo;
   DC: HDC;
+  Br: HBRUSH;
+  R: TRect;
+  C: Cardinal;
 begin
+  if FForm then
+  begin
+    FillChar(BI, SizeOf(BI), 0);
+    BI.bmiHeader.biSize := SizeOf(BI.bmiHeader);
+    BI.bmiHeader.biWidth := Surface.Width;
+    BI.bmiHeader.biHeight := -Surface.Height;
+    BI.bmiHeader.biPlanes := 1;
+    BI.bmiHeader.biBitCount := 32;
+    BI.bmiHeader.biCompression := BI_RGB;
+    DC := GetDC(FWnd);
+    SetDIBitsToDevice(DC, -ScrollX, -ScrollY, Surface.Width, Surface.Height, 0, 0, 0,
+      Surface.Height, @Surface.Pixels[0], BI, DIB_RGB_COLORS);
+    { beyond the form's design: its colour (a larger window) }
+    C := FFormColor;
+    Br := CreateSolidBrush(((C shr 16) and $FF) or (C and $FF00) or ((C and $FF) shl 16));
+    if Surface.Width - ScrollX < FWidth then
+    begin
+      R.Left := Surface.Width - ScrollX; R.Top := 0; R.Right := FWidth; R.Bottom := FHeight;
+      Windows.FillRect(DC, R, Br);
+    end;
+    if Surface.Height - ScrollY < FHeight then
+    begin
+      R.Left := 0; R.Top := Surface.Height - ScrollY; R.Right := FWidth; R.Bottom := FHeight;
+      Windows.FillRect(DC, R, Br);
+    end;
+    DeleteObject(Br);
+    ReleaseDC(FWnd, DC);
+    Exit;
+  end;
   FillChar(BI, SizeOf(BI), 0);
   BI.bmiHeader.biSize := SizeOf(BI.bmiHeader);
   BI.bmiHeader.biWidth := Surface.Width;
@@ -337,6 +559,20 @@ end;
 
 procedure TGWindow.Present(Surface: TGSurface);
 begin
+end;
+
+procedure TGWindow.ShowForm(const Title: string; OuterW, OuterH, DesignW, DesignH: Integer;
+  AutoScroll: Boolean; FormColor: Cardinal);
+begin
+  FWidth := OuterW - 8;
+  FHeight := OuterH - 34;
+end;
+
+procedure TGWindow.Reshape(const Title: string; AWidth, AHeight: Integer;
+  Dialog: Boolean; MinBox: Boolean);
+begin
+  FWidth := AWidth;
+  FHeight := AHeight;
 end;
 
 {$ENDIF}
@@ -505,6 +741,80 @@ begin
       DestroyNotify: Closed := True;
     end;
   end;
+end;
+
+procedure TGWindow.ShowForm(const Title: string; OuterW, OuterH, DesignW, DesignH: Integer;
+  AutoScroll: Boolean; FormColor: Cardinal);
+begin
+  { the window managers here draw their own frames: the client is the
+    form's design size (its outer size less a Windows 9x frame) }
+  Reshape(Title, OuterW - 8, OuterH - 34, False, True);
+end;
+
+procedure TGWindow.Reshape(const Title: string; AWidth, AHeight: Integer;
+  Dialog: Boolean; MinBox: Boolean);
+type
+  TMotifHints = record
+    Flags, Functions, Decorations: culong;
+    InputMode: clong;
+    Status: culong;
+  end;
+var
+  D: PDisplay;
+  Hints: PXSizeHints;
+  Scr: cint;
+  MH: TMotifHints;
+  A: TAtom;
+begin
+  D := FDisplay;
+  if D = nil then Exit;
+  XStoreName(D, FWin, PChar(Title));
+  { _MOTIF_WM_HINTS: a dialog may only be moved and closed; the game may
+    also be minimised }
+  FillChar(MH, SizeOf(MH), 0);
+  MH.Flags := 1 or 2; { functions, decorations }
+  if Dialog then
+  begin
+    MH.Functions := 4 or 32;          { move, close }
+    MH.Decorations := 2 or 8;         { border, title }
+  end
+  else
+  begin
+    MH.Functions := 4 or 8 or 32;     { move, minimise, close }
+    MH.Decorations := 2 or 8 or 16 or 32;
+  end;
+  A := XInternAtom(D, '_MOTIF_WM_HINTS', False);
+  XChangeProperty(D, FWin, A, A, 32, PropModeReplace, @MH, 5);
+  if (AWidth <> FWidth) or (AHeight <> FHeight) then
+  begin
+    Scr := DefaultScreen(D);
+    if FImage <> nil then
+    begin
+      PXImage(FImage)^.data := nil;
+      XDestroyImage(FImage);
+    end;
+    if FImageBuf <> nil then FreeMem(FImageBuf);
+    FWidth := AWidth;
+    FHeight := AHeight;
+    GetMem(FImageBuf, AWidth * AHeight * 4);
+    FillChar(FImageBuf^, AWidth * AHeight * 4, 0);
+    FImage := XCreateImage(D, DefaultVisual(D, Scr), 24, ZPixmap, 0, FImageBuf,
+      AWidth, AHeight, 32, AWidth * 4);
+    Hints := XAllocSizeHints;
+    Hints^.flags := PMinSize or PMaxSize;
+    Hints^.min_width := AWidth;
+    Hints^.max_width := AWidth;
+    Hints^.min_height := AHeight;
+    Hints^.max_height := AHeight;
+    XSetWMNormalHints(D, FWin, Hints);
+    XFree(Hints);
+    XResizeWindow(D, FWin, AWidth, AHeight);
+  end;
+  { centred on the screen, as 2.22's forms (poScreenCenter) }
+  Scr := DefaultScreen(D);
+  XMoveWindow(D, FWin, (DisplayWidth(D, Scr) - AWidth) div 2,
+    (DisplayHeight(D, Scr) - AHeight) div 2);
+  XFlush(D);
 end;
 
 procedure TGWindow.Present(Surface: TGSurface);
