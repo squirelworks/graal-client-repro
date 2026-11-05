@@ -839,7 +839,7 @@ begin
   Exe := Root + 'clients' + PathDelim;
   { graal-assets one folder above the program is not used }
   PutFile(Root + 'graal-assets' + PathDelim + 'common' + PathDelim + 'z.txt', 'above');
-  SetAssetRoots(Exe, '2.05r2');
+  SetAssetRootsFor(Exe, '', '2.05r2');
   Check(AssetPath('z.txt') = '', 'assets: nothing is read from above the program folder');
   Root := Exe;
   PutFile(Root + 'graal-assets' + PathDelim + 'common' + PathDelim + 'a.txt', 'common');
@@ -847,21 +847,21 @@ begin
   PutFile(Root + 'graal-assets' + PathDelim + '2.05r2' + PathDelim + 'b.txt', 'version');
   PutFile(Exe + 'c.txt', 'exe');
   PutFile(Root + 'graal-assets' + PathDelim + 'common' + PathDelim + 'c.txt', 'common');
-  SetAssetRoots(Exe, '2.05r2');
+  SetAssetRootsFor(Exe, '', '2.05r2');
   Check(AssetRootCount = 3, 'assets: the program folder, the version folder, common');
   Check(Pos('common', AssetPath('a.txt')) > 0, 'assets: a file only in common is found there');
   Check(Pos('2.05r2', AssetPath('b.txt')) > 0, 'assets: the version folder wins over common');
   Check(AssetPath('c.txt') = Exe + 'c.txt', 'assets: the program folder wins over both');
   Check(AssetPath('nothere.txt') = '', 'assets: a missing file gives no path');
-  SetAssetRoots(Root + 'graal-assets', '2.05r2');
+  SetAssetRootsFor('', Root + 'graal-assets', '2.05r2');
   Check(Pos('2.05r2', AssetPath('b.txt')) > 0, 'assets: --data may point at graal-assets itself');
   PutFile(Root + 'graal-assets' + PathDelim + '2.22' + PathDelim + 'd.txt', 'fallback');
   PutFile(Root + 'graal-assets' + PathDelim + '2.22' + PathDelim + 'b.txt', 'fallback');
-  SetAssetRoots(Root + 'graal-assets', '2.05r2;2.22');
+  SetAssetRootsFor('', Root + 'graal-assets', '2.05r2;2.22');
   Check(AssetRootCount = 3, 'assets: a fallback version adds its folder');
   Check(Pos('2.22', AssetPath('d.txt')) > 0, 'assets: a file only in the fallback version is found');
   Check(Pos('2.05r2', AssetPath('b.txt')) > 0, 'assets: the own version wins over the fallback');
-  SetAssetRoots('', '');
+  SetAssetRootsFor('', '', '');
 end;
 
 procedure TestStatus;

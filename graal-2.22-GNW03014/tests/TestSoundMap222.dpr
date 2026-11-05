@@ -15,7 +15,8 @@ uses
   GSound in '../../common/GSound.pas',
   Adventure in '../src/Adventure.pas',
   Sound222 in '../src/Sound222.pas',
-  Map222 in '../src/Map222.pas';
+  Map222 in '../src/Map222.pas',
+  Terrain222 in '../src/Terrain222.pas';
 
 var
   Passed, Failed: Integer;
@@ -188,7 +189,7 @@ begin
   finally
     L.Free;
   end;
-  SetAssetRoots(Root, '2.22');
+  SetAssetRootsFor('', Root, '2.22');
   G := TAdventure.Create;
   try
     G.Headless := True;
@@ -229,7 +230,7 @@ begin
     UseDefaultMaps;
   finally
     G.Free;
-    SetAssetRoots('', '');
+    SetAssetRootsFor('', '', '');
     DeleteFile(Root + 'bigmap.txt');
     DeleteFile(Root + 'tutorialmap.txt');
     RemoveDir(Root);

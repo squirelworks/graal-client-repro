@@ -15,6 +15,7 @@ uses
   GZlib in '../../common/GZlib.pas',
   GBzip2 in '../../common/GBzip2.pas',
   GSocket in '../../common/GSocket.pas',
+  GAssetDirs in '../../common/GAssetDirs.pas',
   GLevel in '../../common/GLevel.pas',
   GSurface in '../../common/GSurface.pas',
   GArrays in '../../common/GArrays.pas',
@@ -29,6 +30,7 @@ uses
   GSound in '../../common/GSound.pas',
   Sound222 in '../src/Sound222.pas',
   Map222 in '../src/Map222.pas',
+  Terrain222 in '../src/Terrain222.pas',
   GBuiltin in '../../common/GBuiltin.pas',
   GStartScreen in '../../common/GStartScreen.pas',
   ListServer222 in '../src/ListServer222.pas',
@@ -300,6 +302,69 @@ begin
   finally
     C.Free;
     Codec.Free;
+  end;
+end;
+
+procedure PutText(const Path, Text: string);
+var
+  L: TStringList;
+begin
+  ForceDirectories(ExtractFilePath(Path));
+  L := TStringList.Create;
+  try
+    L.Text := Text;
+    L.SaveToFile(Path);
+  finally
+    L.Free;
+  end;
+end;
+
+{ The program's folder and the graal-assets next to it come first; the
+  folder given with --data is searched last. }
+procedure TestAssetOrder;
+var
+  Root, Exe, Data: string;
+begin
+  Root := IncludeTrailingPathDelimiter(GetTempDir) + 'assetorder-' + IntToStr(Random(1000000)) + PathDelim;
+  Exe := Root + 'exe' + PathDelim;
+  Data := Root + 'data' + PathDelim;
+  PutText(Exe + 'a.txt', 'exe');
+  PutText(Exe + 'graal-assets' + PathDelim + '2.22' + PathDelim + 'b.txt', 'assets');
+  PutText(Data + 'a.txt', 'data');
+  PutText(Data + 'b.txt', 'data');
+  PutText(Data + 'c.txt', 'data');
+  SetAssetRootsFor(Exe, Data, '2.22');
+  Check(AssetPath('a.txt') = Exe + 'a.txt', 'assets: the program folder wins over --data');
+  Check(Pos('graal-assets', AssetPath('b.txt')) > 0, 'assets: graal-assets next to the program wins over --data');
+  Check(AssetPath('c.txt') = Data + 'c.txt', 'assets: --data is still searched, last');
+  SetAssetRootsFor('', '', '');
+end;
+
+{ The HEIGHTS blocks of a generator gmap, and the height between points. }
+procedure TestTerrainHeights;
+var
+  St: THeightStore;
+  G: THeightGrid;
+  Txt: string;
+  R: Integer;
+begin
+  St := THeightStore.Create;
+  try
+    Txt := 'GRMAP001'#10'WIDTH 1'#10'HEIGHT 1'#10'HEIGHTS lev_a-1.graal 8 8'#10;
+    for R := 0 to 8 do
+      Txt := Txt + Format('%d,%d,0,0,0,0,0,0,%d', [R, R * 2, 8 - R]) + #10;
+    Txt := Txt + 'HEIGHTSEND'#10'HEIGHTS other.graal 8 8'#10'1.5'#10'HEIGHTSEND'#10;
+    Check(St.AddGmap(Txt) = 2, 'terrain: two HEIGHTS blocks read');
+    Check(St.Find('LEV_A-1.graal', G) and (G[3, 0] = 3) and (G[3, 1] = 6) and (G[3, 8] = 5),
+      'terrain: the grid of a level, row by row, found by name in any case');
+    Check(Abs(HeightAt(G, 0, 12) - 1.5) < 1e-6, 'terrain: halfway between rows 1 and 2');
+    Check(Abs(HeightAt(G, 4, 8) - 1.5) < 1e-6, 'terrain: halfway between columns 0 and 1');
+    Check(Abs(HeightAt(G, 64, 64) - 0) < 1e-6, 'terrain: the far corner');
+    Check(St.Find('other.graal', G) and (G[0, 0] = 1.5) and (G[1, 0] = 0),
+      'terrain: a short block keeps the rest at 0');
+    Check(not St.Find('missing.graal', G), 'terrain: no grid for another level');
+  finally
+    St.Free;
   end;
 end;
 
@@ -1603,6 +1668,8 @@ begin
   TestLogin;
   TestListServer;
   TestResolveName;
+  TestTerrainHeights;
+  TestAssetOrder;
   TestListTrailingNuls;
   TestBuiltins;
   TestLoginBurst;
