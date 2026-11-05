@@ -266,10 +266,10 @@ begin
   Colors[2] := 0;
   Colors[3] := 12;
   Colors[4] := 18;
-  HeadImage := 'head0.png';
+  HeadImage := 'head0.gif';
   BodyImage := 'body.png';
-  SwordImage := 'sword1.png';
-  ShieldImage := 'shield1.png';
+  SwordImage := 'sword1.gif';
+  ShieldImage := 'shield1.gif';
 end;
 
 destructor TNpc.Destroy;
@@ -605,7 +605,7 @@ begin
         begin
           V := R.ReadGChar;
           if V >= 100 then N.HeadImage := R.ReadChars(V - 100)
-          else N.HeadImage := 'head' + IntToStr(V) + '.png';
+          else N.HeadImage := 'head' + IntToStr(V) + '.gif';
         end;
       NPCPROP_SAVE0..NPCPROP_SAVE9: N.Save[P - NPCPROP_SAVE0] := R.ReadGChar;
       NPCPROP_ALIGNMENT: N.AP := R.ReadGChar;

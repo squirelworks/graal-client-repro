@@ -43,14 +43,23 @@ type
   TResLookup = function(const Name: string; out Data: string): Boolean;
 
   TRealStart20 = class
+  private
+    FFormCaption: string; { TAdventure's caption }
   public
     Back1, Back2, Button: TGSurface;
     Icons: array of TGSurface;
     Connect, List, Short: TDfmNode;
     MainCaption: string;
     Lang: TStringList;
+    { the language box's items, as it shows them (Español for the file
+      languageEspa#U00f1ol.txt), sorted }
     Languages: TStringList;
+    { Name=file for each of Languages }
+    LanguageFiles: TStringList;
     LanguageName: string;
+    { graalconfig.txt fullscreenmode (640x480, 800x600, 1024x768): the
+      screen mode Alt+Enter switches to; 640 x 480 when not set }
+    FullScreenW, FullScreenH: Integer;
     constructor Create;
     destructor Destroy; override;
     { The art and forms through Res; the language files from Dir.
@@ -58,6 +67,8 @@ type
     function Load(Res: TResLookup; const Dir: string): Boolean;
     { The language file's text for Key, or Default. }
     function Text(const Key, Default: string): string;
+    { Picks a language of the box and reads its file. }
+    procedure SetLanguage(const Name: string);
   end;
 
 { Runs the start window and the server list in Win until the player picks
@@ -87,10 +98,43 @@ uses
   SysUtils, GUiFont;
 
 const
-  ColSelect = $FF3399FF;
   ColWhite = $FFFFFFFF;
   ColRed = $FFFF0000;
   ColBlack = $FF000000;
+
+{ The selection colour: Windows' own highlight colour (the real clients'
+  combo and list views draw with it), Wine's default elsewhere. }
+function ColSelect: Cardinal;
+{$IFDEF MSWINDOWS}
+var
+  C: Cardinal;
+begin
+  C := GetSysColor(COLOR_HIGHLIGHT);
+  Result := $FF000000 or ((C and $FF) shl 16) or (C and $FF00) or ((C shr 16) and $FF);
+end;
+{$ELSE}
+begin
+  Result := $FF3399FF;
+end;
+{$ENDIF}
+
+{ Whether the accelerator letters show: Windows hides them (the real
+  clients' buttons show no red letter there) unless keyboard cues are on;
+  under Wine they show. }
+function AccelShown: Boolean;
+{$IFDEF MSWINDOWS}
+var
+  B: BOOL;
+begin
+  B := False;
+  if not SystemParametersInfo($100A { SPI_GETKEYBOARDCUES }, 0, @B, 0) then B := True;
+  Result := B;
+end;
+{$ELSE}
+begin
+  Result := True;
+end;
+{$ENDIF}
 
 function NowMs: Int64;
 begin
@@ -139,6 +183,9 @@ begin
   inherited Create;
   Lang := TStringList.Create;
   Languages := TStringList.Create;
+  LanguageFiles := TStringList.Create;
+  FullScreenW := 640;
+  FullScreenH := 480;
 end;
 
 destructor TRealStart20.Destroy;
@@ -154,6 +201,7 @@ begin
   Short.Free;
   Lang.Free;
   Languages.Free;
+  LanguageFiles.Free;
   inherited Destroy;
 end;
 
@@ -223,6 +271,30 @@ function TRealStart20.Load(Res: TResLookup; const Dir: string): Boolean;
     if Res(Name, D) then Result := ParseDfm(D);
   end;
 
+  { the files name a character beyond ASCII as #U and four hex digits
+    (languageEspa#U00f1ol.txt); the box shows the character }
+  function Decoded(const L: string): string;
+  var
+    I, C: Integer;
+  begin
+    Result := '';
+    I := 1;
+    while I <= Length(L) do
+    begin
+      if (L[I] = '#') and (I + 5 <= Length(L)) and (UpCase(L[I + 1]) = 'U') and
+        TryStrToInt('$' + Copy(L, I + 2, 4), C) then
+      begin
+        if C < 256 then Result := Result + Chr(C) else Result := Result + '?';
+        Inc(I, 6);
+      end
+      else
+      begin
+        Result := Result + L[I];
+        Inc(I);
+      end;
+    end;
+  end;
+
   procedure FindLanguages(const Path: string);
   var
     SR: TSearchRec;
@@ -231,9 +303,12 @@ function TRealStart20.Load(Res: TResLookup; const Dir: string): Boolean;
     if FindFirst(Path + 'language*.txt', faAnyFile, SR) = 0 then
     begin
       repeat
-        L := Copy(SR.Name, 9, Length(SR.Name) - 12);
+        L := Decoded(Copy(SR.Name, 9, Length(SR.Name) - 12));
         if (L <> '') and (Languages.IndexOf(L) < 0) then
+        begin
           Languages.AddObject(L, TObject(PtrInt(0)));
+          LanguageFiles.Add(L + '=' + Path + SR.Name);
+        end;
       until FindNext(SR) <> 0;
       FindClose(SR);
     end;
@@ -241,7 +316,8 @@ function TRealStart20.Load(Res: TResLookup; const Dir: string): Boolean;
 
 var
   Adv: TDfmNode;
-  F: string;
+  F, M: string;
+  P, V: Integer;
 begin
   Back1 := Pic('SCREENIMG1', '.jpg', False);
   Back2 := Pic('SCREENIMG2', '.jpg', False);
@@ -252,6 +328,7 @@ begin
   Adv := Form('TADVENTURE');
   MainCaption := 'Graal';
   if Adv <> nil then MainCaption := Adv.Str('Caption', 'Graal');
+  FFormCaption := MainCaption;
   Adv.Free;
   LoadIcons(Self);
   { the language files the install has, as the language box lists them;
@@ -265,21 +342,40 @@ begin
   if FileExists(F) then
   begin
     Lang.LoadFromFile(F);
-    if Lang.Values['language'] <> '' then LanguageName := Lang.Values['language'];
+    if Lang.Values['language'] <> '' then LanguageName := Decoded(Lang.Values['language']);
+    { fullscreenmode=1024x768 }
+    M := LowerCase(Trim(Lang.Values['fullscreenmode']));
+    P := Pos('x', M);
+    if (P > 0) and TryStrToInt(Copy(M, 1, P - 1), V) and (V >= 320) then
+    begin
+      FullScreenW := V;
+      if TryStrToInt(Copy(M, P + 1, MaxInt), V) and (V >= 200) then FullScreenH := V
+      else FullScreenW := 640;
+    end;
     Lang.Clear;
   end;
   if Languages.IndexOf(LanguageName) < 0 then LanguageName := Languages[0];
-  F := Dir + 'language' + LanguageName + '.txt';
-  if not FileExists(F) then F := Dir + 'languages' + PathDelim + 'language' + LanguageName + '.txt';
-  if FileExists(F) then
+  SetLanguage(LanguageName);
+  Result := (Back1 <> nil) and (Back2 <> nil) and (Button <> nil) and (Connect <> nil) and
+    (List <> nil);
+end;
+
+procedure TRealStart20.SetLanguage(const Name: string);
+var
+  F: string;
+begin
+  LanguageName := Name;
+  Lang.Clear;
+  F := LanguageFiles.Values[Name];
+  if (F <> '') and FileExists(F) then
     try
       Lang.LoadFromFile(F);
     except
       Lang.Clear;
     end;
+  MainCaption := FFormCaption;
+  if MainCaption = '' then MainCaption := 'Graal';
   if Lang.Values['MainWindow'] <> '' then MainCaption := Lang.Values['MainWindow'];
-  Result := (Back1 <> nil) and (Back2 <> nil) and (Button <> nil) and (Connect <> nil) and
-    (List <> nil);
 end;
 
 function TRealStart20.Text(const Key, Default: string): string;
@@ -504,6 +600,34 @@ begin
     UiDrawText(S, N.Int('Left'), N.Int('Top'), Plain, Col, Bold(N));
 end;
 
+{ The dotted focus rectangle: every other pixel of the edge inverted }
+procedure FocusRect(S: TGSurface; X, Y, W, H: Integer);
+
+  procedure Flip(PX, PY: Integer);
+  begin
+    if (PX >= 0) and (PY >= 0) and (PX < S.Width) and (PY < S.Height) then
+      S.Pixels[PX + PY * S.Width] := S.Pixels[PX + PY * S.Width] xor $00FFFFFF;
+  end;
+
+var
+  I: Integer;
+begin
+  I := 0;
+  while I < W do
+  begin
+    Flip(X + I, Y);
+    Flip(X + W - 1 - I, Y + H - 1);
+    Inc(I, 2);
+  end;
+  I := 2;
+  while I < H - 1 do
+  begin
+    Flip(X, Y + I);
+    Flip(X + W - 1, Y + H - 1 - I);
+    Inc(I, 2);
+  end;
+end;
+
 { an edit, combo or rich edit box of the form }
 procedure DrawBox(S: TGSurface; N: TDfmNode; const Text: string; Focused: Boolean);
 var
@@ -551,6 +675,7 @@ begin
     { a focused drop-down list shows its item picked }
     S.FillRect(X + 3, Y + 3, Right - X - 4, H - 6, ColSelect);
     UiDrawText(S, X + 4, Y + (H - UiLineH) div 2, T, ColWhite, Bold(N));
+    FocusRect(S, X + 3, Y + 3, Right - X - 4, H - 6);
   end
   else
     UiDrawText(S, X + 4, Y + (H - UiLineH) div 2, T, Col, Bold(N));
@@ -575,7 +700,8 @@ end;
 
 { A picture button: a glyph (or BUTTON1) with two states side by side, the
   caption bold and centred, its accelerator letter red }
-procedure PicButton(S, Img: TGSurface; X, Y: Integer; const Caption: string; Down: Boolean);
+procedure PicButton(S, Img: TGSurface; X, Y: Integer; const Caption: string; Down: Boolean;
+  Face: TUiFace = ufBold);
 var
   W, D, TX, TY, A: Integer;
   Plain: string;
@@ -586,18 +712,18 @@ begin
   S.Blit(Img, D * W, 0, W, Img.Height, X, Y);
   SplitAccel(Caption, Plain, A);
   if Plain = '' then Exit;
-  TX := X + (W - UiTextWidth(Plain, ufBold)) div 2 + D;
+  TX := X + (W - UiTextWidth(Plain, Face)) div 2 + D;
   TY := Y + (Img.Height - UiLineH) div 2 + D;
-  if A > 0 then
+  if (A > 0) and AccelShown then
   begin
-    UiDrawText(S, TX, TY, Copy(Plain, 1, A - 1), ColBlack, ufBold);
-    Inc(TX, UiTextWidth(Copy(Plain, 1, A - 1), ufBold));
-    UiDrawText(S, TX, TY, Plain[A], ColRed, ufBold);
-    Inc(TX, UiTextWidth(Plain[A], ufBold));
-    UiDrawText(S, TX, TY, Copy(Plain, A + 1, MaxInt), ColBlack, ufBold);
+    UiDrawText(S, TX, TY, Copy(Plain, 1, A - 1), ColBlack, Face);
+    Inc(TX, UiTextWidth(Copy(Plain, 1, A - 1), Face));
+    UiDrawText(S, TX, TY, Plain[A], ColRed, Face);
+    Inc(TX, UiTextWidth(Plain[A], Face));
+    UiDrawText(S, TX, TY, Copy(Plain, A + 1, MaxInt), ColBlack, Face);
   end
   else
-    UiDrawText(S, TX, TY, Plain, ColBlack, ufBold);
+    UiDrawText(S, TX, TY, Plain, ColBlack, Face);
 end;
 
 function Inside(N: TDfmNode; X, Y: Integer): Boolean;
@@ -643,6 +769,10 @@ var
   Glyphs: TList;
   Col: Cardinal;
   ExtraSent: Boolean;
+  { the language box's list, open }
+  DropOpen: Boolean;
+  DropTop, DropHot, Wheel: Integer;
+  LangBox: TDfmNode;
 
   function Pressed(Id: Integer): Boolean;
   begin
@@ -674,6 +804,133 @@ var
   begin
     K := Art.List.Children.IndexOf(Node);
     Result := TGSurface(Glyphs[K]);
+  end;
+
+  { The language box's drop-down list, under the box: at most 8 rows of
+    16 pixels, a scroll bar when there are more (the real 2.0x lists 9
+    languages, 8 shown) }
+  procedure DropGeom(out X, Y, W, H, Rows: Integer; out Bar: Boolean);
+  begin
+    Rows := Art.Languages.Count;
+    if Rows > 8 then Rows := 8;
+    if Rows < 1 then Rows := 1;
+    Bar := Art.Languages.Count > Rows;
+    X := LangBox.Int('Left');
+    Y := LangBox.Int('Top') + LangBox.Int('Height');
+    W := LangBox.Int('Width');
+    H := Rows * 16 + 2;
+  end;
+
+  procedure DropScroll(Delta: Integer);
+  var
+    Rows: Integer;
+  begin
+    Rows := Art.Languages.Count;
+    if Rows > 8 then Rows := 8;
+    DropTop := DropTop + Delta;
+    if DropTop > Art.Languages.Count - Rows then DropTop := Art.Languages.Count - Rows;
+    if DropTop < 0 then DropTop := 0;
+  end;
+
+  procedure DrawDrop;
+  var
+    X, Y, W, H, Rows, K, IW, TY, TH, TT: Integer;
+    Bar: Boolean;
+    Fill, TextCol: Cardinal;
+
+    procedure Arrow(AX, AY: Integer; Up: Boolean);
+    var
+      J: Integer;
+    begin
+      for J := 0 to 3 do
+        if Up then S.FillRect(AX + 5 + J, AY + 6 + 3 - J, 7 - 2 * J, 1, $FF606060)
+        else S.FillRect(AX + 5 + J, AY + 6 + J, 7 - 2 * J, 1, $FF606060);
+    end;
+
+  begin
+    DropGeom(X, Y, W, H, Rows, Bar);
+    Fill := DfmColor(LangBox.Str('Color'), ColWhite);
+    S.FillRect(X, Y, W, H, ColBlack);
+    S.FillRect(X + 1, Y + 1, W - 2, H - 2, Fill);
+    IW := W - 2;
+    if Bar then Dec(IW, 17);
+    for K := 0 to Rows - 1 do
+    begin
+      if DropTop + K >= Art.Languages.Count then Break;
+      TY := Y + 1 + K * 16;
+      if DropTop + K = DropHot then
+      begin
+        S.FillRect(X + 1, TY, IW, 16, ColSelect);
+        TextCol := ColWhite;
+      end
+      else
+        TextCol := DfmColor(LangBox.Str('Font.Color'), ColBlack);
+      UiDrawText(S, X + 3, TY, Art.Languages[DropTop + K], TextCol, Bold(LangBox));
+    end;
+    if Bar then
+    begin
+      { the scroll bar: arrows at the ends, the thumb between }
+      K := X + W - 1 - 17;
+      S.FillRect(K, Y + 1, 17, H - 2, $FFF0F0F0);
+      Arrow(K, Y + 1, True);
+      Arrow(K, Y + H - 1 - 17, False);
+      TT := H - 2 - 34;
+      TH := TT * Rows div Art.Languages.Count;
+      if TH < 8 then TH := 8;
+      S.FillRect(K + 2, Y + 1 + 17 + (TT - TH) * DropTop div (Art.Languages.Count - Rows),
+        13, TH, $FFCDCDCD);
+    end;
+  end;
+
+  { Mouse and keys while the list is open; True when it took the click }
+  function DropInput(Clicked: Boolean; CX, CY: Integer; var Chars: string): Boolean;
+  var
+    X, Y, W, H, Rows, K: Integer;
+    Bar: Boolean;
+  begin
+    Result := False;
+    DropGeom(X, Y, W, H, Rows, Bar);
+    if Wheel <> 0 then DropScroll(Wheel);
+    { the row under the mouse is the one picked, as Windows tracks it }
+    if (Win.MouseX >= X) and (Win.MouseX < X + W - 1 - Ord(Bar) * 17) and
+      (Win.MouseY > Y) and (Win.MouseY < Y + H - 1) then
+    begin
+      K := DropTop + (Win.MouseY - Y - 1) div 16;
+      if K < Art.Languages.Count then DropHot := K;
+    end;
+    if Pos(#13, Chars) > 0 then
+    begin
+      if (DropHot >= 0) and (DropHot < Art.Languages.Count) then
+        Art.SetLanguage(Art.Languages[DropHot]);
+      DropOpen := False;
+      Chars := '';
+      Result := True;
+      Exit;
+    end;
+    if Pos(#27, Chars) > 0 then
+    begin
+      DropOpen := False;
+      Chars := '';
+      Result := True;
+      Exit;
+    end;
+    if not Clicked then Exit;
+    Result := True;
+    if Bar and (CX >= X + W - 1 - 17) and (CX < X + W - 1) and (CY > Y) and (CY < Y + H - 1) then
+    begin
+      if CY < Y + 1 + 17 then DropScroll(-1)
+      else if CY >= Y + H - 1 - 17 then DropScroll(1)
+      else if CY < Y + H div 2 then DropScroll(-Rows)
+      else DropScroll(Rows);
+      Exit;
+    end;
+    if (CX >= X) and (CX < X + W) and (CY > Y) and (CY < Y + H - 1) then
+    begin
+      K := DropTop + (CY - Y - 1) div 16;
+      if K < Art.Languages.Count then Art.SetLanguage(Art.Languages[K]);
+    end;
+    { a click on an item picks it; anywhere else only closes the list }
+    DropOpen := False;
   end;
 
   procedure ShortBox(const Msg: string);
@@ -726,16 +983,23 @@ begin
     AccBox := Art.List.Find('accountbox');
     PassBox := Art.List.Find('passedit');
     ConnectBtn := Art.List.Find('Button1');
+    LangBox := Art.Connect.Find('languagebox');
+    DropOpen := False;
+    DropTop := 0;
+    DropHot := 0;
     while True do
     begin
       Win.Pump;
       if Win.Closed or (Assigned(Info.StopRequested) and Info.StopRequested()) then Exit;
       Clicked := Win.TakeClick(CX, CY);
       Chars := Win.TakeChars;
+      Wheel := Win.TakeWheel;
       Fetch.Poll;
       case Page of
         pgStart:
           begin
+            if DropOpen and (LangBox <> nil) and DropInput(Clicked, CX, CY, Chars) then
+              Clicked := False;
             if Pos(#27, Chars) > 0 then Exit;
             if Pos(#9, Chars) > 0 then
             begin
@@ -745,11 +1009,16 @@ begin
             if Focus = 1 then TypeInto(R.Nickname, Chars, 20);
             if Clicked then
             begin
-              if Inside(Art.Connect.Find('languagebox'), CX, CY) then
+              if Inside(LangBox, CX, CY) then
               begin
+                { the box drops its list down, the language in use picked
+                  and in sight }
                 Focus := 0;
-                I := Art.Languages.IndexOf(Art.LanguageName);
-                Art.LanguageName := Art.Languages[(I + 1) mod Art.Languages.Count];
+                DropOpen := True;
+                DropHot := Art.Languages.IndexOf(Art.LanguageName);
+                if DropHot < 0 then DropHot := 0;
+                DropTop := DropHot - 7;
+                DropScroll(0);
               end;
               if Inside(Art.Connect.Find('Edit3'), CX, CY) then Focus := 1;
               if InBtn(BtnTraining, CX, CY) then
@@ -774,7 +1043,8 @@ begin
               FetchStart := NowMs;
               ExtraSent := False;
               Page := pgFetch;
-              Shape(Art.List, Title2);
+              { the list's caption says it loads until the servers are in }
+              Shape(Art.List, Title2 + ' (loading...)');
               Continue;
             end;
             { drawing: the art, then the form's controls }
@@ -790,12 +1060,15 @@ begin
               else if N.ClassName_ = 'TEdit' then DrawBox(S, N, R.Nickname, Focus = 1)
               else if N.ClassName_ = 'TComboBox' then DrawBox(S, N, '', False);
             end;
+            { the start window's buttons: 12 pt bold, bigger than the
+              form's text (side by side on Windows) }
             PicButton(S, Art.Button, BtnTraining[0], BtnTraining[1],
-              Art.Text('StartScreen-Button2', '&Training'), Pressed(1));
+              Art.Text('StartScreen-Button2', '&Training'), Pressed(1), ufButton);
             PicButton(S, Art.Button, BtnOptions[0], BtnOptions[1],
-              Art.Text('StartScreen-Button3', '&Options'), Pressed(2));
+              Art.Text('StartScreen-Button3', '&Options'), Pressed(2), ufButton);
             PicButton(S, Art.Button, BtnStart[0], BtnStart[1],
-              Art.Text('StartScreen-Button1', '&Start'), Pressed(3));
+              Art.Text('StartScreen-Button1', '&Start'), Pressed(3), ufButton);
+            if DropOpen then DrawDrop;
             if Note <> '' then
               Wrapped(S, 24, 300, 428, 32, Note, $FF00FF00, ufRegular, 1);
           end;
@@ -819,6 +1092,7 @@ begin
               if Fetch.Done then
               begin
                 Page := pgList;
+                Win.SetTitle(Title2);
                 Sel := -1;
                 if Length(Fetch.Servers) > 0 then Sel := 0;
               end

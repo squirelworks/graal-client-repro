@@ -528,9 +528,12 @@ begin
   end;
 end;
 
-{ 2.05 finds a picture by its name in any folder under levels/ (gate1.gif
-  in levels/gifs, light2.png in levels/images), not only in the folder of
-  its kind. The first root that has a file of that name wins. }
+{ 2.0x finds a picture by its exact name in any folder of the install: on
+  start and again on Training it lists the whole folder tree (the root,
+  languages/, levels/ and every folder under it, maps/, sounds/) and then
+  opens head0.gif, sword1.gif, wbomb1.gif, body.png ... from wherever the
+  list has them (traced under Wine). The first root that has a file of that
+  name wins. }
 function TAssets.Indexed(const Name: string): string;
 var
   K, I: Integer;
@@ -541,7 +544,7 @@ begin
     FIndex.Sorted := True;
     FPaths := TStringList.Create;
     for K := 0 to AssetRootCount - 1 do
-      IndexDir(AssetRoot(K) + 'levels' + PathDelim, 0);
+      IndexDir(AssetRoot(K), 0);
   end;
   I := FIndex.IndexOf(LowerCase(Name));
   if I >= 0 then Result := FPaths[PtrInt(FIndex.Objects[I])] else Result := '';
@@ -591,33 +594,13 @@ begin
 end;
 
 function TAssets.FindFile(const Name: string; const Dirs: array of string): string;
-var
-  I, J, K: Integer;
-  Base, Cand: string;
-  Exts: array[0..2] of string;
 begin
-  { the asset roots (GAssetDirs), set by UseInstall }
+  { Dirs is kept for the callers; 2.0x looks a name up in its list of the
+    whole install, as it is asked for: sword1.gif is not found as
+    sword1.png, nor head0.png as head0.gif }
   Result := '';
   if (AssetRootCount = 0) or (Name = '') then Exit;
-  Base := ChangeFileExt(Name, '');
-  Exts[0] := ExtractFileExt(Name);
-  Exts[1] := '.png';
-  Exts[2] := '.gif';
-  for K := 0 to AssetRootCount - 1 do
-    for I := 0 to High(Dirs) do
-      for J := 0 to 2 do
-      begin
-        if Exts[J] = '' then Continue;
-        Cand := AssetRoot(K) + Dirs[I] + Base + Exts[J];
-        if FileExists(Cand) then
-        begin
-          Result := Cand;
-          Exit;
-        end;
-      end;
   Result := Indexed(Name);
-  if Result = '' then Result := Indexed(Base + '.png');
-  if Result = '' then Result := Indexed(Base + '.gif');
 end;
 
 function TAssets.Image(const Name, Kind: string): TGSurface;
@@ -651,8 +634,11 @@ begin
     else Ok := LoadImageKeyed(F, S);
     if not Ok then FreeAndNil(S);
   end;
-  { nothing on disk: the built-in default of that name, if there is one }
-  if (S = nil) and BuiltinFile(Name, D) then
+  { nothing on disk: the built-in default of that name, if there is one,
+    when no install is there at all; an install without the file shows
+    nothing, as 2.0x does }
+  if (S = nil) and ((AssetRootCount = 0) or (Indexed('sprites.png') = '')) and
+    BuiltinFile(Name, D) then
   begin
     S := TGSurface.Create(0, 0);
     if not LoadImageData(D, Name, S, Kind = 'body') then FreeAndNil(S);

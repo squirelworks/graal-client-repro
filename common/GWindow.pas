@@ -27,6 +27,10 @@ type
   private
 {$IFDEF MSWINDOWS}
     FWnd: THandle;
+    FApp: THandle;       { the TApplication window (GWDelphiApp), or 0 }
+    FFull: Boolean;      { Alt+Enter full screen on }
+    FDialog: Boolean;    { the last Reshape was a dialog }
+    FTitle: string;
 {$ENDIF}
 {$IFDEF GW_NONE}
 {$ELSE}{$IFNDEF MSWINDOWS}
@@ -60,6 +64,10 @@ type
     ArrowHeld: array[0..3] of Boolean;
     Held: array[TGKey] of Boolean;
     Closed: Boolean;
+    { Alt+Enter in the game frame switches the screen to this mode and the
+      window to cover it (2.0x's fullscreenmode); 0: Alt+Enter does
+      nothing. Windows only. }
+    FullScreenW, FullScreenH: Integer;
     constructor Create(const Title: string; AWidth, AHeight: Integer);
     destructor Destroy; override;
     function Ok: Boolean;
@@ -72,6 +80,8 @@ type
       start window and server list, bsDialog); else the game's frame. }
     procedure Reshape(const Title: string; AWidth, AHeight: Integer;
       Dialog: Boolean = False);
+    { A new title, the window left as it is. }
+    procedure SetTitle(const Title: string);
     property Width: Integer read FWidth;
     property Height: Integer read FHeight;
     { True once for each press since the last call (for one-shot keys). }
@@ -87,7 +97,20 @@ type
       #9 tab, #13 enter, #27 escape, and Ctrl+letter as #1..#26. }
     function TakeChars: string;
     procedure AddChar(C: Char);
+{$IFDEF MSWINDOWS}
+    procedure SetFullScreen(On: Boolean);
+    property FullScreen: Boolean read FFull;
+{$ENDIF}
   end;
+
+var
+  { Set before the window is made to have it behave as a Delphi 5 form: a
+    hidden TApplication window of this title owns it and is the program's
+    taskbar entry, a dialog frame (Reshape Dialog) has no caption icon as
+    bsDialog has none, and the game frame is sizeable (bsSizeable, with
+    minimise and maximise), the picture stretched to it. '' (the default):
+    one window of its own on the taskbar, as before. Windows only. }
+  GWDelphiApp: string = '';
 
 implementation
 
@@ -192,11 +215,66 @@ begin
   end;
 end;
 
-function WndProc(Wnd: HWND; Msg: UINT; WP: WPARAM; LP: LPARAM): LRESULT; stdcall;
+{ A mouse position in the client area as a picture pixel: the picture is
+  stretched to the client area when the frame is sized or full screen. }
+procedure MousePos(Wnd: HWND; LP: LPARAM; out X, Y: Integer);
+var
+  R: TRect;
+begin
+  X := SmallInt(LP and $FFFF);
+  Y := SmallInt((LP shr 16) and $FFFF);
+  GetClientRect(Wnd, R);
+  if (R.Right > 0) and (R.Right <> ActiveWindow.FWidth) then
+    X := X * ActiveWindow.FWidth div R.Right;
+  if (R.Bottom > 0) and (R.Bottom <> ActiveWindow.FHeight) then
+    Y := Y * ActiveWindow.FHeight div R.Bottom;
+end;
+
+{ The TApplication window of a Delphi 5 program: a 0 x 0 window that is
+  the taskbar entry; it hands the focus on to the form. }
+function AppWndProc(Wnd: HWND; Msg: UINT; WP: WPARAM; LP: LPARAM): LRESULT; stdcall;
 begin
   Result := 0;
   if ActiveWindow <> nil then
     case Msg of
+      WM_SETFOCUS:
+        begin
+          if IsWindowVisible(ActiveWindow.FWnd) then SetFocus(ActiveWindow.FWnd);
+          Exit;
+        end;
+      WM_CLOSE: begin ActiveWindow.Closed := True; Exit; end;
+    end;
+  Result := DefWindowProc(Wnd, Msg, WP, LP);
+end;
+
+function WndProc(Wnd: HWND; Msg: UINT; WP: WPARAM; LP: LPARAM): LRESULT; stdcall;
+var
+  MX, MY: Integer;
+begin
+  Result := 0;
+  if ActiveWindow <> nil then
+    case Msg of
+      WM_SYSKEYDOWN:
+        if (WP = VK_RETURN) and (ActiveWindow.FullScreenW > 0) and not ActiveWindow.FDialog then
+        begin
+          ActiveWindow.SetFullScreen(not ActiveWindow.FFull);
+          Exit;
+        end;
+      WM_SYSCHAR:
+        { Alt+Enter: no beep }
+        if WP = 13 then Exit;
+      WM_SYSCOMMAND:
+        { a Delphi form minimises the program: its TApplication window,
+          which hides the forms it owns }
+        if ((WP and $FFF0) = SC_MINIMIZE) and (ActiveWindow.FApp <> 0) then
+        begin
+          ShowWindow(ActiveWindow.FApp, SW_MINIMIZE);
+          Exit;
+        end;
+      WM_ACTIVATEAPP:
+        { full screen gives the screen back when another program is
+          switched to }
+        if (WP = 0) and ActiveWindow.FFull then ActiveWindow.SetFullScreen(False);
       WM_KEYDOWN, WM_KEYUP:
         begin
           if WP = VK_CONTROL then ActiveWindow.CtrlHeld := Msg = WM_KEYDOWN;
@@ -214,7 +292,8 @@ begin
       WM_LBUTTONDOWN:
         begin
           ActiveWindow.MouseLeft := True;
-          ActiveWindow.AddClick(SmallInt(LP and $FFFF), SmallInt((LP shr 16) and $FFFF));
+          MousePos(Wnd, LP, MX, MY);
+          ActiveWindow.AddClick(MX, MY);
           SetCapture(Wnd);
           Exit;
         end;
@@ -227,7 +306,8 @@ begin
       WM_RBUTTONDOWN:
         begin
           ActiveWindow.MouseRight := True;
-          ActiveWindow.AddRightClick(SmallInt(LP and $FFFF), SmallInt((LP shr 16) and $FFFF));
+          MousePos(Wnd, LP, MX, MY);
+          ActiveWindow.AddRightClick(MX, MY);
           SetCapture(Wnd);
           Exit;
         end;
@@ -245,8 +325,9 @@ begin
         end;
       WM_MOUSEMOVE:
         begin
-          ActiveWindow.MouseX := SmallInt(LP and $FFFF);
-          ActiveWindow.MouseY := SmallInt((LP shr 16) and $FFFF);
+          MousePos(Wnd, LP, MX, MY);
+          ActiveWindow.MouseX := MX;
+          ActiveWindow.MouseY := MY;
           Exit;
         end;
       WM_CLOSE: begin ActiveWindow.Closed := True; Exit; end;
@@ -271,18 +352,36 @@ begin
   WC.hIcon := LoadIcon(HInstance, 'MAINICON');
   WC.lpszClassName := 'TGraalWindow';
   Windows.RegisterClass(WC);
+  FApp := 0;
+  if GWDelphiApp <> '' then
+  begin
+    { Delphi's TApplication window: 0 x 0 at the screen centre, the
+      program's title and icon, the taskbar entry of the forms it owns }
+    WC.lpfnWndProc := @AppWndProc;
+    WC.lpszClassName := 'TApplication';
+    Windows.RegisterClass(WC);
+    FApp := CreateWindowEx(WS_EX_WINDOWEDGE, 'TApplication', PChar(GWDelphiApp),
+      WS_POPUP or WS_CAPTION or WS_SYSMENU or WS_MINIMIZEBOX or WS_CLIPSIBLINGS,
+      GetSystemMetrics(SM_CXSCREEN) div 2, GetSystemMetrics(SM_CYSCREEN) div 2, 0, 0,
+      0, 0, HInstance, nil);
+    SendMessage(FApp, WM_SETICON, ICON_BIG, LPARAM(LoadIcon(HInstance, 'MAINICON')));
+    SendMessage(FApp, WM_SETICON, ICON_SMALL, LPARAM(LoadIcon(HInstance, 'MAINICON')));
+  end;
   R.Left := 0; R.Top := 0; R.Right := AWidth; R.Bottom := AHeight;
   AdjustWindowRect(R, WS_OVERLAPPEDWINDOW and not WS_THICKFRAME, False);
   FWnd := CreateWindow('TGraalWindow', PChar(Title),
     WS_OVERLAPPEDWINDOW and not WS_THICKFRAME, Integer(CW_USEDEFAULT), 0,
-    R.Right - R.Left, R.Bottom - R.Top, 0, 0, HInstance, nil);
+    R.Right - R.Left, R.Bottom - R.Top, FApp, 0, HInstance, nil);
   ActiveWindow := Self;
+  if FApp <> 0 then ShowWindow(FApp, SW_SHOWNA);
   ShowWindow(FWnd, SW_SHOW);
 end;
 
 destructor TGWindow.Destroy;
 begin
+  if FFull then ChangeDisplaySettings(nil, 0);
   if FWnd <> 0 then DestroyWindow(FWnd);
+  if FApp <> 0 then DestroyWindow(FApp);
   ActiveWindow := nil;
   inherited Destroy;
 end;
@@ -310,9 +409,13 @@ var
   W, H: Integer;
   Style, ExStyle: DWORD;
 begin
+  if FFull and Dialog then SetFullScreen(False);
   SetWindowText(FWnd, PChar(Title));
+  FTitle := Title;
   FWidth := AWidth;
   FHeight := AHeight;
+  FDialog := Dialog;
+  if FFull then Exit;
   if Dialog then
   begin
     { bsDialog: caption and close button only; the taskbar still shows
@@ -325,6 +428,14 @@ begin
     Style := (WS_OVERLAPPEDWINDOW and not WS_THICKFRAME) or WS_VISIBLE;
     ExStyle := WS_EX_APPWINDOW;
   end;
+  if FApp <> 0 then
+  begin
+    { a Delphi 5 form: the TApplication window is on the taskbar, not the
+      form; bsDialog (WS_EX_DLGMODALFRAME, no icon) or bsSizeable }
+    ExStyle := ExStyle and not WS_EX_APPWINDOW;
+    if not Dialog then
+      Style := WS_OVERLAPPEDWINDOW or WS_CLIPCHILDREN or WS_CLIPSIBLINGS or WS_VISIBLE;
+  end;
   SetWindowLong(FWnd, GWL_STYLE, LONG(Style));
   SetWindowLong(FWnd, GWL_EXSTYLE, LONG(ExStyle));
   R.Left := 0; R.Top := 0; R.Right := AWidth; R.Bottom := AHeight;
@@ -335,14 +446,70 @@ begin
     (GetSystemMetrics(SM_CYSCREEN) - H) div 2, W, H, SWP_NOZORDER or SWP_FRAMECHANGED);
   { the big icon for the taskbar and Alt+Tab, the small one for the
     caption }
-  SendMessage(FWnd, WM_SETICON, ICON_BIG, LPARAM(LoadIcon(HInstance, 'MAINICON')));
-  SendMessage(FWnd, WM_SETICON, ICON_SMALL, LPARAM(LoadIcon(HInstance, 'MAINICON')));
+  if (FApp <> 0) and Dialog then
+  begin
+    { bsDialog has no caption icon }
+    SendMessage(FWnd, WM_SETICON, ICON_BIG, 0);
+    SendMessage(FWnd, WM_SETICON, ICON_SMALL, 0);
+  end
+  else
+  begin
+    SendMessage(FWnd, WM_SETICON, ICON_BIG, LPARAM(LoadIcon(HInstance, 'MAINICON')));
+    SendMessage(FWnd, WM_SETICON, ICON_SMALL, LPARAM(LoadIcon(HInstance, 'MAINICON')));
+  end;
+end;
+
+procedure TGWindow.SetTitle(const Title: string);
+begin
+  FTitle := Title;
+  SetWindowText(FWnd, PChar(Title));
+end;
+
+procedure TGWindow.SetFullScreen(On: Boolean);
+var
+  DM: TDevMode;
+  W, H: Integer;
+begin
+  if On = FFull then Exit;
+  if On then
+  begin
+    if (FullScreenW <= 0) or (FullScreenH <= 0) then Exit;
+    { the display mode 2.0x asks DirectDraw for, the window a topmost
+      popup over all of it }
+    FillChar(DM, SizeOf(DM), 0);
+    DM.dmSize := SizeOf(DM);
+    DM.dmPelsWidth := FullScreenW;
+    DM.dmPelsHeight := FullScreenH;
+    DM.dmFields := DM_PELSWIDTH or DM_PELSHEIGHT;
+    if ChangeDisplaySettings(@DM, CDS_FULLSCREEN) = DISP_CHANGE_SUCCESSFUL then
+    begin
+      W := FullScreenW;
+      H := FullScreenH;
+    end
+    else
+    begin
+      W := GetSystemMetrics(SM_CXSCREEN);
+      H := GetSystemMetrics(SM_CYSCREEN);
+    end;
+    FFull := True;
+    SetWindowLong(FWnd, GWL_STYLE, LONG(WS_POPUP or WS_VISIBLE));
+    SetWindowLong(FWnd, GWL_EXSTYLE, LONG(WS_EX_TOPMOST));
+    SetWindowPos(FWnd, HWND_TOPMOST, 0, 0, W, H, SWP_FRAMECHANGED or SWP_SHOWWINDOW);
+  end
+  else
+  begin
+    ChangeDisplaySettings(nil, 0);
+    FFull := False;
+    SetWindowPos(FWnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE or SWP_NOSIZE);
+    Reshape(FTitle, FWidth, FHeight, FDialog);
+  end;
 end;
 
 procedure TGWindow.Present(Surface: TGSurface);
 var
   BI: TBitmapInfo;
   DC: HDC;
+  R: TRect;
 begin
   FillChar(BI, SizeOf(BI), 0);
   BI.bmiHeader.biSize := SizeOf(BI.bmiHeader);
@@ -351,8 +518,12 @@ begin
   BI.bmiHeader.biPlanes := 1;
   BI.bmiHeader.biBitCount := 32;
   BI.bmiHeader.biCompression := BI_RGB;
+  GetClientRect(FWnd, R);
+  if (R.Right <= 0) or (R.Bottom <= 0) then Exit;
   DC := GetDC(FWnd);
-  StretchDIBits(DC, 0, 0, FWidth, FHeight, 0, 0, Surface.Width, Surface.Height,
+  { the picture fills the client area: 1:1 unless the frame was sized,
+    maximised or made full screen }
+  StretchDIBits(DC, 0, 0, R.Right, R.Bottom, 0, 0, Surface.Width, Surface.Height,
     @Surface.Pixels[0], BI, DIB_RGB_COLORS, SRCCOPY);
   ReleaseDC(FWnd, DC);
 end;
@@ -391,6 +562,10 @@ procedure TGWindow.Reshape(const Title: string; AWidth, AHeight: Integer;
 begin
   FWidth := AWidth;
   FHeight := AHeight;
+end;
+
+procedure TGWindow.SetTitle(const Title: string);
+begin
 end;
 
 {$ENDIF}
@@ -559,6 +734,11 @@ begin
       DestroyNotify: Closed := True;
     end;
   end;
+end;
+
+procedure TGWindow.SetTitle(const Title: string);
+begin
+  if FDisplay <> nil then XStoreName(FDisplay, FWin, PChar(Title));
 end;
 
 procedure TGWindow.Reshape(const Title: string; AWidth, AHeight: Integer;

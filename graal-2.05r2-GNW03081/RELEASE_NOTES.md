@@ -14,7 +14,7 @@ client carries simple graphics of its own; put a 2.05 install you own next
 to it, or point `--data DIR` at one, for the real tiles, ganis, heads and
 bodies.
 
-## What's new in v0.0.3
+## What's new in v0.0.4
 
 - [x] The launcher is this build's own: the start window is the real
   `TConnectFrame`, a 476 x 330 "Graal 2001" dialog with only the close
@@ -44,12 +44,35 @@ bodies.
 - [x] A language file next to the program (`language<Name>.txt`) renames
   the start window's controls by name (`StartScreen-<Name>=`), as the real
   client does.
+- [x] The windows behave as the real Delphi program's do on Windows: the
+  taskbar entry is the program's hidden "Graal" application window, the
+  start window and server list have no title-bar icon, and the game
+  window can be resized, minimised and maximised (the picture stretched to
+  it).
+- [x] Alt+Enter in the game switches to full screen at `graalconfig.txt`'s
+  `fullscreenmode` (640x480 when not set) and back.
+- [x] The language box drops down its list (8 rows and a scroll bar, the
+  mouse picks), and picking a language reads its file at once. Names such
+  as `languageEspa#U00f1ol.txt` show as Español; the dialog font now has
+  every Windows-1252 character.
+- [x] The Training, Options and Start captions are 12 pt bold as on the
+  real one, the accelerator letter only red where Windows shows keyboard
+  cues, and selections use Windows' own highlight colour.
+- [x] The server list is titled "... (loading...)" until the servers are
+  in, as the real one is.
+- [x] Pictures are found by their exact names anywhere in the install
+  (`head0.gif`, `sword1.gif`, `wbomb1.gif`, `body.png`), as the real exe
+  lists its whole folder tree and opens them (traced under Wine): a
+  `.png` is not taken for a `.gif`, and with an install present a
+  missing picture stays missing instead of the built-in art filling in.
 ### Not yet
 
 - [ ] Text in the dialogs uses Liberation Sans for the forms' MS Sans
   Serif, so glyphs differ by a pixel here and there.
 - [ ] The Options window, the Get an account and homepage GO buttons, and
   the list's right-click menu do nothing yet.
+- [ ] Full screen stretches the 640 x 480 picture; whether 2.0x showed
+  more of the level at 800 x 600 and 1024 x 768 is not checked yet.
 - [ ] The "Getting server list ..." box is drawn inside the list window,
   not as a window of its own.
 - [ ] The password is not saved (the real client keeps it in the registry).

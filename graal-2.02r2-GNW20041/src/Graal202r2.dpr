@@ -636,6 +636,9 @@ begin
   Result := 0;
   Dir := ExtractFilePath(ParamStr(0));
   Art := nil;
+  { a Delphi 5 program: the forms are owned by its TApplication window
+    ("Graal"), which is the taskbar entry }
+  GWDelphiApp := 'Graal';
   Win := TGWindow.Create('Graal ' + ClientBuildLabel + ' (' + ClientVersionToken + ')',
     ScreenW, ScreenH);
   try
@@ -713,7 +716,13 @@ begin
         LastGameError := '';
         { the game in its own 640 x 480 window, titled as the original's
           TAdventure ("Graal") }
-        if Art <> nil then Win.Reshape(Art.MainCaption, ScreenW, ScreenH);
+        if Art <> nil then
+        begin
+          { Alt+Enter: the screen mode of graalconfig.txt fullscreenmode }
+          Win.FullScreenW := Art.FullScreenW;
+          Win.FullScreenH := Art.FullScreenH;
+          Win.Reshape(Art.MainCaption, ScreenW, ScreenH);
+        end;
         if RunGame(Win, R.Password, R.Nickname) <> 0 then
           Msg := LastGameError
         else
