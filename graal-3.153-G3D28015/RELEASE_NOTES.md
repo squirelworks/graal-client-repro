@@ -61,6 +61,12 @@ mode; the RC file browser and script uploads; server text, class scripts
 and gani scripts; precise movement; Options; the UDP channel between
 players. See the build's README for the full list.
 
+The original runs on the Torque engine; this release is still the Delphi
+stand-in that speaks its wire protocol. The Torque work comes in v0.0.4.
+
+The original's own icon: no copy of the original program to take it from
+is in the project yet, so the Windows program has the default icon.
+
 ## Checks behind this release
 
 The test suite (87 checks) runs with range and overflow checks and the heap

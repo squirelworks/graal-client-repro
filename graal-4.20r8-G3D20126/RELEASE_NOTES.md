@@ -63,6 +63,12 @@ NPCs, baddies, items and weapons; the GS1 and GS2 script engines; chat;
 the server list as the original shows it; update packages; the 3D mode;
 saved passwords; Options. See the build's README for the full list.
 
+The original runs on the Torque engine; this release is still the Delphi
+stand-in that speaks its wire protocol. The Torque work comes in v0.0.4.
+
+The original's own icon: no copy of the original program to take it from
+is in the project yet, so the Windows program has the default icon.
+
 ## Checks behind this release
 
 The test suite (108 checks) runs with range and overflow checks and the
