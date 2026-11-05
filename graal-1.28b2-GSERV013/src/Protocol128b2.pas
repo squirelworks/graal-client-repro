@@ -161,6 +161,70 @@ const
 
 function PLOName(Id: Integer): string;
 
+const
+  { the character list of the start dialog as the build's headsconfig.txt
+    gives it (used when the install has none), and each one's head }
+  CharacterNames: array[0..28] of string = (
+    'Fung Si Yan',
+    'Nick',
+    'Mandi',
+    'Bad Max',
+    'Pachukite',
+    'Blond',
+    'Dino',
+    'Brendan',
+    'Athena',
+    'Bob',
+    'Zoraas',
+    'Raven',
+    'Joe',
+    'Old Man',
+    'Slade',
+    'Azraelite',
+    'NeoKnight',
+    'Thief',
+    'Adventurer',
+    'Ninji Knight',
+    'Fire',
+    'Dragoon',
+    'Lunar',
+    'Judge',
+    'Vincent',
+    'Silver',
+    'Terra',
+    'Squall',
+    'Sleep Koji');
+  CharacterHeads: array[0..28] of string = (
+    'head0.gif',
+    'head1.gif',
+    'head2.gif',
+    'head3.gif',
+    'head4.gif',
+    'head5.gif',
+    'head6.gif',
+    'head7.gif',
+    'head8.gif',
+    'head9.gif',
+    'head10.gif',
+    'head11.gif',
+    'head12.gif',
+    'head13.gif',
+    'head14.gif',
+    'head15.gif',
+    'head16.gif',
+    'head17.gif',
+    'head18.gif',
+    'head19.gif',
+    'head20.gif',
+    'head23.gif',
+    'head24.gif',
+    'head25.gif',
+    'head26.gif',
+    'head27.gif',
+    'head28.gif',
+    'head29.gif',
+    'sleepkoji.gif');
+
 implementation
 
 uses

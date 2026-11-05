@@ -4,6 +4,8 @@
    The release workflow stamps the version lines from the tag; keep
    0,0,0,0 and "0.0.0-dev" here. */
 1 24 "../../common/win/graal-delphi.manifest"
+/* the real client's icon (scripts/realres/extract_res.py) */
+MAINICON ICON "RealRes121.ico"
 
 /* the program's icon, as the real Graal.exe carries it (GROUP_ICON
    MAINICON): the window and the taskbar show it */

@@ -32,6 +32,10 @@ uses
   GFont in '../../common/GFont.pas',
   GWindow in '../../common/GWindow.pas',
   GStartScreen in '../../common/GStartScreen.pas',
+  GDfmObj in '../../common/GDfmObj.pas',
+  GVclForm in '../../common/GVclForm.pas',
+  GBetaStart in '../../common/GBetaStart.pas',
+  RealRes11 in '../src/RealRes11.pas',
   GDfm1x in '../../common/GDfm1x.pas',
   GUiFont in '../../common/GUiFont.pas',
   GLaunch1x in '../../common/GLaunch1x.pas',
@@ -1252,7 +1256,41 @@ begin
   Check(ReadDfm('junk') = nil, 'launch: not a form');
 end;
 
+{ The start dialog and the game window come from the real client's own
+  forms (src/RealRes11.pas, extracted from its exe). }
+procedure TestStartForm;
+var
+  Data: string;
+  O: TDfmObj;
+  F: TVclForm;
+  Img: TGSurface;
+  G: TBetaGameForm;
 begin
+  Check(RealResource('TCONNECTFRAME', Data) and (Copy(Data, 1, 4) = 'TPF0'),
+    'forms: TCONNECTFRAME is in the program');
+  O := ParseDfm(Data);
+  F := TVclForm.Create(O, 'Graal');
+  Img := TGSurface.Create(F.ClientWidth, F.ClientHeight);
+  try
+    Check(SameText(O.ClassName_, 'TConnectFrame'), 'forms: the start dialog is TConnectFrame');
+    Check(F.Caption = 'Graal - The Adventure', 'forms: the dialog''s caption');
+    Check(BetaShape(F) = bsModeList, 'forms: the dialog has the mode list');
+    F.Render(Img);
+    Check(Img.Pixels[0] <> 0, 'forms: the dialog draws without Win32');
+  finally
+    Img.Free;
+    F.Free;
+    O.Free;
+  end;
+  Check(RealResource('TADVENTURE', Data), 'forms: TADVENTURE is in the program');
+  Check(BetaGameForm(Data, G) and (G.ViewW = 640) and (G.ViewH = 448),
+    'forms: the game view is 640 x 448');
+  Check(G.MinBox and (G.MaxBox = False), 'forms: the game window''s frame buttons');
+  Check(Length(CharacterNames) >= 21, 'forms: the character list is the build''s own');
+end;
+
+begin
+  TestStartForm;
   TestGTypes;
   TestLaunchForm;
   TestRelayCodec;

@@ -178,6 +178,33 @@ const
 
 function PLOName(Id: Integer): string;
 
+const
+  { the character lists of the start dialog, in the build's order (the
+    real client's lists); each entry is the head of the same column of
+    heads.gif }
+  CharacterNames: array[0..20] of string = (
+    'Fung Si Yan',
+    'Nick',
+    'Mandi',
+    'Bad Max',
+    'Pachukite',
+    'Blond',
+    'Dino',
+    'Brendan',
+    'Athena',
+    'Bob',
+    'Zoraas',
+    'Raven',
+    'Joe',
+    'Old Man',
+    'Slade',
+    'Azraelite',
+    'NeoKnight',
+    'Thief',
+    'Adventurer',
+    'Ninji Knight',
+    'Fire');
+
 implementation
 
 uses
