@@ -51,6 +51,7 @@ program GraalNwb1pre;
   scripts/res/extract_res.py): its start window and server list forms and
   art, its icon and tutorial levels }
 {$R res/GraalNwb1preRes.res}
+{$R res/GraalNwb1preInstall.res}
 
 uses
   SysUtils, Classes,

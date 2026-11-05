@@ -9,12 +9,16 @@ hit-or-miss first release.
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").
 
-These zips hold no original Graal code, graphics, sounds or levels. The
-program carries small original default graphics and a starter level of its
-own, so it runs as it is. Put it at the top of a NewMain install you own
-(or keep a `graal-assets/` folder next to it, or point it at one with
-`--data DIR`) and the install's tiles, ganis, heads, bodies and levels take
-their place.
+The program carries what the original's own `Graal-NewMain24.exe` carries:
+the start window and server list forms, their art and buttons and the Graal
+head icon, plus NewMain 26's character list. It also carries the files of
+the NewMain 24 install that the game reads: the tile and sprite sheets, the
+heads, bodies, swords and shields, the ganis, the Training and start levels,
+the maps, the sounds and the language files. So it runs alone in an empty
+folder and looks like the original. (The NewMain 24 install at hand had no
+heads; those and the character list are NewMain 26's.) Put it at the top of
+a NewMain install you own (or keep a `graal-assets/` folder next to it, or
+point it at one with `--data DIR`) and the install's files come first.
 
 ## What's new in v0.0.3
 
@@ -44,6 +48,9 @@ their place.
   else the copy the program carries), opens on the one graalconfig.txt last
   picked, and the pick dresses your player with its head and colours and is
   saved back for next time.
+- It runs on its own: the files of its original's install that the game reads
+  are compiled in, so the exe alone in an empty folder opens on the real
+  launcher and plays Training with the original's art.
 
 ## Downloads
 

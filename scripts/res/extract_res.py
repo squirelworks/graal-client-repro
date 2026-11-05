@@ -127,7 +127,7 @@ def pack(folder):
     res = os.path.join(ROOT, folder, "src", "res")
     out = struct.pack("<II", 0, 32) + struct.pack("<HHHH", 0xFFFF, 0, 0xFFFF, 0) + b"\0" * 16
     for f in sorted(os.listdir(res)):
-        if f == "manifest.txt" or f.endswith(".res"):
+        if f.endswith("manifest.txt") or f.endswith(".res"):
             continue
         out += entry(os.path.splitext(f)[0], open(os.path.join(res, f), "rb").read())
     open(os.path.join(res, program(folder) + "Res.res"), "wb").write(out)

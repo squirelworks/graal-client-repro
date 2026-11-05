@@ -51,6 +51,7 @@ program GraalNm26;
   scripts/res/extract_res.py): its start window and server list forms and
   art, its icon and tutorial levels }
 {$R res/GraalNm26Res.res}
+{$R res/GraalNm26Install.res}
 
 uses
   SysUtils, Classes,

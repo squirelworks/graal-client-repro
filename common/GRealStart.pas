@@ -137,9 +137,10 @@ uses
 {$IFDEF MSWINDOWS}
   Windows,
 {$ENDIF}
-  SysUtils, Math, GPeRes, GUiFont;
+  SysUtils, Math, GPeRes, GUiFont, GResFiles;
 
 function ConfigHead(const F: string): string; forward;
+function LanguageName(const FileName: string): string; forward;
 
 const
   ColWhite = $FFFFFFFF;
@@ -311,18 +312,26 @@ begin
   if FindFirst(LDir + 'language*.txt', faAnyFile, SR) = 0 then
   begin
     repeat
-      F := Copy(SR.Name, 9, Length(SR.Name) - 12);
-      F := StringReplace(F, '#U00f1', #$F1, [rfReplaceAll]);
-      F := StringReplace(F, '#U00e7', #$E7, [rfReplaceAll]);
-      F := StringReplace(F, '#U00ea', #$EA, [rfReplaceAll]);
-      Languages.Add(F);
+      Languages.Add(LanguageName(SR.Name));
     until FindNext(SR) <> 0;
     FindClose(SR);
   end;
+  { none beside the program: the ones it carries (GResFiles) }
+  if Languages.Count = 0 then
+    for I := 0 to ResFileList.Count - 1 do
+    begin
+      F := LowerCase(ResFileList[I]);
+      if Copy(F, 1, 10) = 'languages/' then F := Copy(F, 11, MaxInt);
+      if (Pos('/', F) = 0) and (Copy(F, 1, 8) = 'language') and
+        (ExtractFileExt(F) = '.txt') then
+        Languages.Add(LanguageName(ExtractFileName(ResFileList[I])));
+    end;
   Languages.Sort;
   if Languages.IndexOf('English') < 0 then Languages.Insert(0, 'English');
   F := LDir + 'languageEnglish.txt';
-  if FileExists(F) then
+  if not FileExists(F) then F := ResFilePath('languages/languageEnglish.txt');
+  if F = '' then F := ResFilePath('languageEnglish.txt');
+  if (F <> '') and FileExists(F) then
     try
       Lang.LoadFromFile(F);
     except
@@ -365,6 +374,15 @@ begin
   ConfigFile := FirstFileIn(Dir, 'graalconfig.txt');
   HeadIndex := Heads.IndexOfName(ConfigHead(ConfigFile));
   if (HeadIndex < 0) and (Heads.Count > 0) then HeadIndex := 0;
+end;
+
+function LanguageName(const FileName: string): string;
+begin
+  { language<Name>.txt, with the installs' #Uxxxx for accented letters }
+  Result := Copy(FileName, 9, Length(FileName) - 12);
+  Result := StringReplace(Result, '#U00f1', #$F1, [rfReplaceAll]);
+  Result := StringReplace(Result, '#U00e7', #$E7, [rfReplaceAll]);
+  Result := StringReplace(Result, '#U00ea', #$EA, [rfReplaceAll]);
 end;
 
 function TRealStart.HasText(const Key: string): Boolean;

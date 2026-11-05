@@ -51,6 +51,7 @@ program Graal21t2;
   scripts/res/extract_res.py): its start window and server list forms and
   art, its icon and tutorial levels }
 {$R res/Graal21t2Res.res}
+{$R res/Graal21t2Install.res}
 
 uses
   SysUtils, Classes,

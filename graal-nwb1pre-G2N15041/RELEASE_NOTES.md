@@ -9,12 +9,15 @@ hit-or-miss first release.
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").
 
-These zips hold no original Graal code, graphics, sounds or levels. The
-program carries small original default graphics and a starter level of its
-own, so it runs as it is. Put it at the top of a NewWorld install you own
-(or keep a `graal-assets/` folder next to it, or point it at one with
-`--data DIR`) and the install's tiles, ganis, heads, bodies and levels take
-their place.
+The program carries what the original's own `Graal-NW.exe` carries: the
+start window and server list forms, their art and buttons and the Graal head
+icon. It also carries the files of the NewWorld beta 1 install that the game
+reads: the tile and sprite sheets, the heads, bodies, swords and shields,
+the ganis, the Training and start levels, the maps, the sounds and the
+language files. So it runs alone in an empty folder and looks like the
+original. Put it at the top of a NewWorld install you own (or keep a
+`graal-assets/` folder next to it, or point it at one with `--data DIR`) and
+the install's files come first.
 
 ## What's new in v0.0.3
 
@@ -41,6 +44,9 @@ their place.
 - The server list asks for the account and password itself, as this version's
   original does.
 - The start window opens on the language box, as the original does.
+- It runs on its own: the files of its original's install that the game reads
+  are compiled in, so the exe alone in an empty folder opens on the real
+  launcher and plays Training with the original's art.
 
 ## Downloads
 

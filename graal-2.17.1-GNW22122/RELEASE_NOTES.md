@@ -12,12 +12,16 @@ offline tutorial needs.
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").
 
-These zips hold no original Graal code, graphics, sounds or levels. The
-program carries small original default graphics and a starter level of its
-own, so it runs as it is. 2.17.1 shipped in the same folder as 2.22: put it
-in that install (or point it at one with `--data DIR`, or keep a
-`graal-assets/` folder inside the program's folder) and the install's tiles, ganis, heads,
-bodies and offline tutorial take their place.
+The program carries what the original's own `Graal_2171.exe` carries: the
+start window and server list forms, their art and buttons, its offline
+Training levels and the Graal head icon. It also carries the files of the
+2.17.1 install that the game reads: the tile and sprite sheets, the heads,
+bodies, swords and shields, the ganis, the Training and start levels, the
+maps, the sounds and the language files. So it runs alone in an empty folder
+and looks like the original. 2.17.1 shipped in the same folder as 2.22: put
+it in that install (or point it at one with `--data DIR`, or keep a
+`graal-assets/` folder inside the program's folder) and the install's files
+come first.
 
 ## What's new in v0.0.3
 
@@ -47,6 +51,9 @@ bodies and offline tutorial take their place.
   buttons and column headers.
 - Training works without an install: the offline tutorial levels inside the
   original exe are compiled in.
+- It runs on its own: the files of its original's install that the game reads
+  are compiled in, so the exe alone in an empty folder opens on the real
+  launcher and plays Training with the original's art.
 
 ## Downloads
 
