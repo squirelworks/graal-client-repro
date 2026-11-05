@@ -1312,7 +1312,7 @@ var
   L: TLaunch;
   S: TGSurface;
   C: TCtl;
-  CX, CY, I, RW, RH: Integer;
+  CX, CY, I, RW, RH, H: Integer;
   Go: Boolean;
 
   procedure FillChars(Box: TCtl; Def: Integer);
@@ -1403,7 +1403,12 @@ begin
       C := TCtl(L.Ctls[I]);
       if (C.Parent <> nil) or not C.Visible then Continue;
       if C.X + C.W > RW then RW := C.X + C.W;
-      if C.Y + C.H > RH then RH := C.Y + C.H;
+      { a panel counts at its design height: the One Player layout only
+        shortens it after the range is set, so 1.28b2 to 1.39 show both
+        bars on Windows 10 as the real ones do }
+      H := C.H;
+      if C.Kind = ckPanel then H := C.Obj.Int('Height', C.H);
+      if C.Y + H > RH then RH := C.Y + H;
     end;
     Win.ShowForm(L.Caption, L.Form.Int('Width', L.CW + 8),
       L.Form.Int('Height', L.CH + 34), RW, RH, L.Form.Bool('AutoScroll', True), clBtnFace);

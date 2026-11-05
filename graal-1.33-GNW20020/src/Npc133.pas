@@ -242,7 +242,7 @@ function ColorIndexOf(const S: string): Integer;
 implementation
 
 uses
-  GFont;
+  GFont, GNpcFont;
 
 { ---- TNpc ---- }
 
@@ -1666,6 +1666,8 @@ end;
 
 procedure TNpcManager.Draw(Screen: TGSurface; CamX, CamY: Integer; Over: Boolean);
 var
+  Lines: TStringList;
+  L, TX: Integer;
   I, K, DX, DY, TW, SX, SY, SW, SH: Integer;
   N: TNpc;
   Img: TGSurface;
@@ -1723,10 +1725,29 @@ begin
     S := N.Message;
     if N.TimerShow and (N.Timeout > 0) then S := IntToStr(Ceil(N.Timeout));
     if (S = '') and N.Character then S := N.Chat;
+    { an NPC wholly outside the view shows no message }
+    if (DX + 48 <= 0) or (DX >= Screen.Width) or (DY + 48 <= 0) or (DY >= Screen.Height) then
+      S := '';
     if S <> '' then
     begin
-      TW := TextWidth(S, 1);
-      DrawText(Screen, DX + 24 - TW div 2, DY - 10, S, $FFFFFFFF, 1);
+      { Arial Bold 20 px on a blue shadow, wrapped at the view's width,
+        each line centred over the NPC and kept inside the view, the
+        last line just above it }
+      Lines := TStringList.Create;
+      try
+        NpcWrap(S, Screen.Width, Lines);
+        for L := 0 to Lines.Count - 1 do
+        begin
+          TW := NpcTextWidth(Lines[L]);
+          TX := DX + 24 - TW div 2;
+          if TX > Screen.Width - TW then TX := Screen.Width - TW;
+          if TX < 0 then TX := 0;
+          NpcDrawShadowed(Screen, TX,
+            DY - 2 - (Lines.Count - L) * NpcLineH, Lines[L]);
+        end;
+      finally
+        Lines.Free;
+      end;
     end;
   end;
 end;

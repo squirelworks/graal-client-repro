@@ -20,6 +20,19 @@ tiles are NewMain 26's.) Put it at the top of a Graal install you own (or
 keep a `graal-assets/` folder next to it, or point it at one with `--data
 DIR`) and the install's files come first.
 
+## What's new in v0.0.4
+
+- The A, S and D key letters are drawn the way the original draws them:
+  Windows text in the font it asks for (Helvetica, which Windows shows as
+  Arial), bold, white, over a black shadow one pixel down and right, at the
+  original's places on the tags. Before this they used the rebuild's own small
+  block letters, and the S looked like a B.
+- The little Q over the D tag is drawn, as on the original.
+- The sword power number and the names under characters are in Tempus Sans
+  ITC, bold, white over a blue shadow, as the original draws them. The font is
+  read from the install's own tempsitc.ttf, as the original loads it. Without
+  that file the program uses Arial, as Windows does.
+
 ## What's new in v0.0.3
 
 - The Windows program carries its original's own icon (the Graal head, taken
@@ -49,18 +62,6 @@ DIR`) and the install's files come first.
 - It runs on its own: the files of its original's install that the game reads
   are compiled in, so the exe alone in an empty folder opens on the real
   launcher and plays Training with the original's art.
-
-## What's new in v0.0.4
-
-- Rebuilt from the latest code; the changes for this client are listed here as they land.
-
-## What's new in v0.0.3
-
-- The Windows program carries its original's own icon (the Graal head, taken from
-  the original exe), so Explorer shows it as the original did.
-- Stress tested before release: a long soak with several players walking
-  between levels, others connecting and dropping again and again, and a
-  level with 80 scripted NPCs, with no crash, error or memory growth.
 
 ## Downloads
 

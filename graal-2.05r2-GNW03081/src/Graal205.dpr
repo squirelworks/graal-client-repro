@@ -73,6 +73,11 @@ uses
   Map205 in 'Map205.pas',
   GStartScreen in '../../common/GStartScreen.pas',
   StartScreen205 in 'StartScreen205.pas',
+  GDfm in '../../common/GDfm.pas',
+  GUiFont in '../../common/GUiFont.pas',
+  GRes20x in '../../common/GRes20x.pas',
+  ResGraal205 in 'ResGraal205.pas',
+  GRealStart20 in '../../common/GRealStart20.pas',
   RunMode in 'RunMode.pas',
   GLevelWrite in '../../common/GLevelWrite.pas',
   EditorDoc in 'editor/EditorDoc.pas',
@@ -88,6 +93,10 @@ var
   GuiArgs: TStringList = nil;
   { why the last game ended, for the start screen }
   LastGameError: string = '';
+  { Alt+Enter's screen mode (graalconfig.txt fullscreenmode), set by the
+    start screen; 0: Alt+Enter does nothing }
+  GuiFullW: Integer = 0;
+  GuiFullH: Integer = 0;
 
 function ArgCount: Integer;
 begin
@@ -422,6 +431,11 @@ begin
         begin
           Win.Pump;
           if Win.Closed or Win.Held[gkEscape] then Break;
+          { Alt+Enter: the configured screen mode, the 640 x 480 picture
+            filling it, and back }
+          if Win.TakeFullscreenToggle and (GuiFullW > 0) then
+            if not Win.Fullscreen then Win.EnterFullscreen(GuiFullW, GuiFullH)
+            else Win.LeaveFullscreen(ScreenW, ScreenH);
           { F4: the built-in level editor (offline only) }
           if Win.WasPressed(gkEditor) or EditorFirst then
           begin
@@ -561,11 +575,50 @@ end;
 { Training: the tutorial where 2.05 starts it, when it lies next to the
   program; else the built-in starter level (a start.nw next to the program
   replaces it). }
+{ The Training levels this build's original exe carried in its resources
+  (TUTORIALA1 .. TUTORIALC4, TUTORIALB2H the house), compiled into this
+  program (ResGraal205): written out once as tutorial_a-1.graal ..
+  tutorial_c-4.graal and tutorial_b-2_house.graal, the names their links
+  use, into a folder of this build's own under the system's temp folder.
+  Returns that folder's tutorial_b-4.graal, or ''. }
+function WriteTutorials: string;
+const
+  Names: array[0..12] of string = ('A1', 'A2', 'A3', 'A4', 'B1', 'B2', 'B2H', 'B3', 'B4',
+    'C1', 'C2', 'C3', 'C4');
+var
+  Dir, D, F: string;
+  I: Integer;
+  S: TFileStream;
+begin
+  Result := '';
+  Dir := IncludeTrailingPathDelimiter(GetTempDir(False)) + 'graal-delphi-' +
+    ClientBuildLabel + PathDelim;
+  if not ForceDirectories(Dir) then Exit;
+  for I := 0 to High(Names) do
+  begin
+    if not ExeResource('TUTORIAL' + Names[I], D) then Exit;
+    if Names[I] = 'B2H' then F := 'tutorial_b-2_house.graal'
+    else F := 'tutorial_' + LowerCase(Names[I][1]) + '-' + Names[I][2] + '.graal';
+    try
+      S := TFileStream.Create(Dir + F, fmCreate);
+      try
+        S.WriteBuffer(D[1], Length(D));
+      finally
+        S.Free;
+      end;
+    except
+      Exit;
+    end;
+  end;
+  Result := Dir + 'tutorial_b-4.graal';
+end;
+
 procedure TrainingLevel(const Dir: string; out Path, X, Y: string);
 begin
   X := '32';
   Y := '60';
   Path := FirstFileIn(Dir, 'levels/tutorial_b-4.graal;tutorial_b-4.graal');
+  if Path = '' then Path := WriteTutorials;
   if Path = '' then
   begin
     Path := Dir + 'start.nw';
@@ -587,9 +640,11 @@ var
   Fetch: TListFetch205;
   Info: TStartInfo;
   Who: TCharacter205;
+  Art: TRealStart20;
 begin
   Result := 0;
   Dir := ExtractFilePath(ParamStr(0));
+  Art := nil;
   Win := TGWindow.Create('Graal ' + ClientBuildLabel + ' (' + ClientVersionToken + ')',
     ScreenW, ScreenH);
   try
@@ -601,6 +656,9 @@ begin
       Result := 64;
       Exit;
     end;
+    { a Delphi 5 program: the forms are owned by its TApplication window
+      ("Graal"), which is the taskbar entry }
+    Win.UseDelphiFrames('Graal');
     { the asset roots before anything is read from them }
     SetAssetRoots(Dir, ClientBuildLabel);
     { listserver.txt next to the program, else the community listserver in
@@ -609,7 +667,16 @@ begin
     ReadListServer(Dir, DefaultListHost, DefaultListPort, ListHost, ListPort);
     { SIGTERM / Ctrl+C end the program on the start screen too }
     InstallStopHandlers;
+    { the launcher of this build's original, from its own forms and art
+      (compiled in: ResGraal205) }
+    Art := TRealStart20.Create;
+    if Art.Load(ExeResource, Dir) then
+      Win.Reshape(Art.Connect.Str('Caption', 'Graal 2001'), Art.Connect.Int('ClientWidth', 476),
+        Art.Connect.Int('ClientHeight', 330), True)
+    else
+      FreeAndNil(Art);
     FillChar(R, SizeOf(R), 0);
+    if Art <> nil then ReadSavedLogin(R.Nickname, R.Account);
     Msg := '';
     repeat
       Win.TakeChars;
@@ -623,7 +690,10 @@ begin
         Info.Subtitle := '2.05 rev 2 rebuilt';
         Info.DrawCharacter := Who.Draw;
         Info.StopRequested := StopRequested;
-        Picked := RunStartScreen(Win, G.Screen, Fetch, Info, Dir, ListHost, ListPort, Msg, R);
+        if Art <> nil then
+          Picked := RunRealStart20(Win, Art, Fetch, Info, ListHost, ListPort, Msg, R)
+        else
+          Picked := RunStartScreen(Win, G.Screen, Fetch, Info, Dir, ListHost, ListPort, Msg, R);
       finally
         Who.Free;
         Fetch.Free;
@@ -653,6 +723,15 @@ begin
           GuiArgs.Add(R.Account);
         end;
         LastGameError := '';
+        { the game in its own 640 x 480 window, titled as the original's
+          TAdventure ("Graal") }
+        if Art <> nil then
+        begin
+          { Alt+Enter: the screen mode of graalconfig.txt fullscreenmode }
+          GuiFullW := Art.FullScreenW;
+          GuiFullH := Art.FullScreenH;
+          Win.Reshape(Art.MainCaption, ScreenW, ScreenH);
+        end;
         if RunGame(Win, R.Password, R.Nickname) <> 0 then
           Msg := LastGameError
         else
@@ -660,8 +739,13 @@ begin
       finally
         FreeAndNil(GuiArgs);
       end;
+      if Win.Fullscreen then Win.LeaveFullscreen(ScreenW, ScreenH);
+      if (Art <> nil) and not Win.Closed then
+        Win.Reshape(Art.Connect.Str('Caption', 'Graal 2001'), Art.Connect.Int('ClientWidth', 476),
+          Art.Connect.Int('ClientHeight', 330), True);
     until Win.Closed or StopRequested;
   finally
+    Art.Free;
     Win.Free;
   end;
 end;

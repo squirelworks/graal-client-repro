@@ -1,8 +1,5 @@
 { NpcBridge217: connects the NPC scripts (Npc217) to the game (TAdventure).
 
-  2.17.1 copy of the 2.05 rev 2 unit: 2.17.1 runs it as 2.05 does until a
-  difference is found (see the build's README).
-
   TAdventureNpcWorld answers the NPC manager's questions about the player
   and the level, and carries script commands into the game: hurt, items,
   warps, explosions, the player's look. The game's combat events (sword
@@ -17,7 +14,7 @@ interface
 
 uses
   Classes, SysUtils, Math, GTypes, GLevel, GSurface, GArrays, GFont, GGs1, Npc217,
-  Baddy217, Adventure;
+  Baddy217, Adventure, GSound, GTrueType, GAni;
 
 type
   TAdventureNpcWorld = class(TNpcWorld)
@@ -38,11 +35,13 @@ type
     function PlayerChat: string; override;
     function PlayerCode(const Code: string): string; override;
     function Image(const Name: string): TGSurface; override;
+    function GaniScript(const Gani: string): string; override;
     function TileType(X, Y: Integer): Integer; override;
     procedure DrawCharacter(N: TNpc; Screen: TGSurface; DX, DY, Tick: Integer); override;
     procedure HurtPlayer(Power, FromX, FromY: Double); override;
     procedure ShowSign(Index: Integer); override;
     procedure Say2(const Text: string); override;
+    procedure DrawName(Screen: TGSurface; CX, Y: Integer; const Name: string); override;
     procedure Warp(const Level: string; X, Y: Double); override;
     procedure LayItem(Item: Integer; X, Y: Double); override;
     procedure PlaySound(const Name: string; X, Y: Double; Looped: Boolean); override;
@@ -81,6 +80,10 @@ type
     function Arrays: TGArrays; override;
     procedure DrawVerse(Screen: TGSurface; CX, Y: Integer; const Text: string); override;
     procedure AllDied; override;
+    function OtherCount: Integer; override;
+    function OtherAt(I: Integer; out X, Y: Double): Boolean; override;
+    procedure Sound(const Name: string; X, Y: Double); override;
+    procedure PushPlayer(KX, KY: Double); override;
   end;
 
 { The NPC manager for a game, with its combat events hooked up. }
@@ -213,8 +216,7 @@ begin
     K := P.Colors[Ord(Code[2]) - Ord('0')];
     if (K >= 0) and (K <= 19) then Result := GsColorNames[K];
   end
-  else if (Length(Code) in [2, 3]) and (Code[1] = 'P') and
-    (StrToIntDef(Copy(Code, 2, 2), 0) in [1..30]) then
+  else if (Copy(Code, 1, 1) = 'P') and (StrToIntDef(Copy(Code, 2, 2), 0) >= 1) and (StrToIntDef(Copy(Code, 2, 2), 0) <= 30) then
     Result := P.Attr[StrToIntDef(Copy(Code, 2, 2), 0)]
   else if Code = 'weapons' then
   begin
@@ -265,11 +267,21 @@ begin
   P.SwordImage := N.SwordImage;
   P.ShieldImage := N.ShieldImage;
   for I := 0 to 4 do P.Colors[I] := N.Colors[I];
-  for I := 1 to 5 do P.Attr[I] := N.Attr[I];
+  for I := 1 to 30 do P.Attr[I] := N.Attr[I];
   if N.Gani <> '' then P.AniName := N.Gani else P.AniName := 'idle';
   P.AniStart := FAdv.Frame - Tick;
   P.FixedStep := -1;
   FAdv.DrawPlayer(P, Round(N.X * 16) - DX, Round(N.Y * 16) - DY);
+  FAdv.DrawAttachedGanis(P, DX, DY);
+end;
+
+function TAdventureNpcWorld.GaniScript(const Gani: string): string;
+var
+  A: TGraalAni;
+begin
+  Result := '';
+  A := FAdv.Assets.Ani(Gani);
+  if A <> nil then Result := A.Script;
 end;
 
 procedure TAdventureNpcWorld.HurtPlayer(Power, FromX, FromY: Double);
@@ -289,6 +301,25 @@ begin
     FAdv.ReadSign(FAdv.Level.Signs[Index].Text);
     FWasReading := True;
   end;
+end;
+
+{ 2.22 writes names in the install's TEMPSITC.TTF (Tempus Sans ITC),
+  white over a dark blue copy one pixel down and right (the lab's
+  screenshot of the real client); without the font, the built-in one }
+procedure TAdventureNpcWorld.DrawName(Screen: TGSurface; CX, Y: Integer; const Name: string);
+var
+  F: TTrueTypeFont;
+  TW: Integer;
+begin
+  F := FAdv.NameFont;
+  if F = nil then
+  begin
+    inherited DrawName(Screen, CX, Y, Name);
+    Exit;
+  end;
+  TW := F.TextWidth(Name, NameFontPx, True);
+  F.DrawText(Screen, CX - TW div 2 + 1, Y + 1, Name, NameFontPx, $FF0000C0, True);
+  F.DrawText(Screen, CX - TW div 2, Y, Name, NameFontPx, $FFFFFFFF, True);
 end;
 
 procedure TAdventureNpcWorld.Say2(const Text: string);
@@ -390,11 +421,10 @@ begin
     C := ColorIndexOf(Value);
     if C >= 0 then P.Colors[Ord(Code[3]) - Ord('0')] := C;
   end
-  else if (Length(Code) in [3, 4]) and (Copy(Code, 1, 2) = '#P') then
+  else if (Copy(Code, 1, 2) = '#P') and (StrToIntDef(Copy(Code, 3, 2), 0) >= 1) and (StrToIntDef(Copy(Code, 3, 2), 0) <= 30) then
   begin
-    { #P1 to #P30 (2.16 added #P10 to #P30) }
     K := StrToIntDef(Copy(Code, 3, 2), 0);
-    if (K >= 1) and (K <= 30) then P.Attr[K] := Value;
+    P.Attr[K] := Value;
   end;
 end;
 
@@ -435,9 +465,9 @@ begin
   else
     { addtiledef IMAGE,PREFIX[,TYPE]: the 2.2-era offline tutorial that
       2.17.1 shipped with sets its tile sheet this way }
-    if Op = GsFirstOp + GsCommandIndex('addtiledef') then
+    if GsCommands[Op - GsFirstOp].Name = 'addtiledef' then
       FAdv.AddTileDef(A.Str[0], A.Str[1], Trunc(A.Num[2]))
-    else if Op = GsFirstOp + GsCommandIndex('replaceani') then
+    else if GsCommands[Op - GsFirstOp].Name = 'replaceani' then
       FAdv.ReplaceAni(A.Str[0], A.Str[1])
     else
       FAdv.Log('GS1 ' + GsCommands[Op - GsFirstOp].Name + ' (not modelled)');
@@ -535,7 +565,7 @@ end;
 function TAdventureBaddyWorld.Image(const Name: string): TGSurface;
 begin
   { 2.05 keeps the baddies in their own folder, 2.22 in levels/baddies }
-  if SameText(Name, 'wbow1.gif') then
+  if SameText(Name, 'wbow1.png') then
   begin
     Result := FAdv.Assets.Image(Name, 'weapon');
     Exit;
@@ -562,6 +592,32 @@ end;
 procedure TAdventureBaddyWorld.AllDied;
 begin
   if FAdv.Npcs <> nil then FAdv.Npcs.FireAll('compusdied');
+end;
+
+function TAdventureBaddyWorld.OtherCount: Integer;
+begin
+  Result := FAdv.OtherCount;
+end;
+
+function TAdventureBaddyWorld.OtherAt(I: Integer; out X, Y: Double): Boolean;
+var
+  P: TServerPlayer;
+begin
+  P := FAdv.Others[I];
+  X := P.X;
+  Y := P.Y;
+  Result := not P.Gone and ((P.Level = '') or (FAdv.Level = nil) or
+    SameText(P.Level, FAdv.Level.Name));
+end;
+
+procedure TAdventureBaddyWorld.Sound(const Name: string; X, Y: Double);
+begin
+  PlaySoundAt(Name, X, Y);
+end;
+
+procedure TAdventureBaddyWorld.PushPlayer(KX, KY: Double);
+begin
+  FAdv.PushPlayer(KX, KY);
 end;
 
 end.

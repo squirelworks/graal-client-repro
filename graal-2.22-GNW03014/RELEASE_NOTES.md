@@ -149,7 +149,9 @@ when it was started from there). Run `Graal222 --help` for every flag.
 
 Most of 2.22's additions to GS1; the account and language drop-downs,
 Get an account!, Show More and Donations; typing in the chat line; the
-editors; Options; UDP peer traffic; macOS. See the build's README for the full list.
+editors; Options; UDP peer traffic; macOS. Gani movies advance one
+frame per 50 ms game tick, a step not yet traced from `Graal_222.exe`.
+See the build's README for the full list.
 
 ## Checks behind this release
 

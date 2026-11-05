@@ -17,6 +17,75 @@ bodies.
 ## What's new in v0.0.4
 
 - Rebuilt from the latest code; the changes for this client are listed here as they land.
+- [x] The launcher is this build's own: the start window is the real
+  `TConnectFrame`, a 476 x 330 "Graal 2001" dialog with only the close
+  button, over the real start art (`SCREENIMG1`), with its labels, language
+  box and nickname placed from the form, and the Training, Options and
+  Start buttons drawn from `BUTTON1` where the real one paints them.
+- [x] Start opens the server list as its own 577 x 416 window
+  ("Graalonline.com Server List", `SCREENIMG2`), laid out from this exe's
+  `TServerListFrame`: the 2.03 to 2.05 rev 2 server list form.
+  "Getting server list ..." shows in the `TShortMessage` box while the
+  listserver answers. The account and password are typed on the list, as
+  in the real client, and the list is asked for with id 0 alone first.
+- [x] Every resource of this build's original `Graal.exe` is compiled into
+  the program (`src/ResGraal205.pas`, made by
+  `scripts/res20x/make_res20x.py`): the start and list art, the loading
+  screen, `BUTTON1`, all 46 forms, the Training levels and the Graal
+  head icon (`src/Graal205.ico`, the window and taskbar icon on Windows). No
+  original program or install is needed for the launcher or Training.
+- [x] Training plays the tutorial levels from this build's own exe
+  (`TUTORIALB4` is 10275 bytes here),
+  written out once to a folder of its own under the system's temp folder.
+- [x] The game opens in its own 640 x 480 window titled "Graal", as the
+  real `TAdventure`, and Esc goes back to the start window.
+- [x] The nickname and last account are read from and saved to
+  `HKCU\Software\Graal\Client` (`nickname`, `accountname`) on Windows,
+  as the real client keeps them.
+- [x] A language file next to the program (`language<Name>.txt`) renames
+  the start window's controls by name (`StartScreen-<Name>=`), as the real
+  client does.
+- [x] The windows behave as the real Delphi program's do on Windows: the
+  taskbar entry is the program's hidden "Graal" application window, the
+  start window and server list have no title-bar icon, and the game
+  window can be resized, minimised and maximised.
+- [x] Alt+Enter in the game switches to full screen at `graalconfig.txt`'s
+  `fullscreenmode` (640x480 when not set) and back.
+- [x] The language box drops down its list (8 rows and a scroll bar, the
+  mouse picks), and picking a language reads its file at once. Names such
+  as `languageEspa#U00f1ol.txt` show as Español; the dialog font now has
+  every Windows-1252 character.
+- [x] The Training, Options and Start captions are 12 pt bold as on the
+  real one, the accelerator letter only red where Windows shows keyboard
+  cues, and selections use Windows' own highlight colour.
+- [x] The server list is titled "... (loading...)" until the servers are
+  in, as the real one is.
+- [x] Pictures are found by their exact names anywhere in the install
+  (`head0.gif`, `sword1.gif`, `wbomb1.gif`, `body.png`), as the real exe
+  lists its whole folder tree and opens them (traced under Wine): a
+  `.png` is not taken for a `.gif`, and with an install present a
+  missing picture stays missing instead of the built-in art filling in.
+- [x] The status display's A, S and D (and the small Q) are drawn as the
+  real one draws them, traced under Wine: GDI "Helvetica" bold, cells 26
+  and 10 high, at the traced points, white over black. They were this
+  project's blocky pixel font, whose S read as a B.
+- [x] Names under characters and the sword and glove powers use
+  `graalconfig.txt`'s font (Tempus Sans ITC, a cell 24 high, bold), read
+  from the install or Windows' Fonts folder, as the real one asks GDI for
+  it; the pixel font only when the font is nowhere.
+### Not yet
+
+- [ ] Text in the dialogs uses Liberation Sans for the forms' MS Sans
+  Serif, so glyphs differ by a pixel here and there.
+- [ ] The Options window, the Get an account and homepage GO buttons, and
+  the list's right-click menu do nothing yet.
+- [ ] Full screen stretches the 640 x 480 picture; whether 2.0x showed
+  more of the level at 800 x 600 and 1024 x 768 is not checked yet.
+- [ ] The "Getting server list ..." box is drawn inside the list window,
+  not as a window of its own.
+- [ ] The password is not saved (the real client keeps it in the registry).
+- [ ] The Windows version block still names this project, not the
+  original's company and product strings.
 
 ## What's new in v0.0.3
 

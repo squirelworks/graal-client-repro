@@ -379,7 +379,7 @@ procedure MakeIndexSheet(Sheet: TGSurface);
 implementation
 
 uses
-  SysUtils, Math, GFont, GSound, SoundNm26, MapNm26, NpcBridgeNm26;
+  SysUtils, Math, GFont, GSound, SoundNm26, MapNm26, NpcBridgeNm26, GHudFont;
 
 procedure MakeIndexSheet(Sheet: TGSurface);
 var
@@ -2817,10 +2817,10 @@ procedure TAdventure.DrawNames(CamX, CamY: Integer);
     TX, TY: Integer;
   begin
     if Name = '' then Exit;
-    TX := Round(X * TileSize) - CamX + 24 - TextWidth(Name, 2) div 2;
+    TX := Round(X * TileSize) - CamX + 24 - HudNameWidth(Name) div 2;
     TY := Round(Y * TileSize) - CamY + 44;
-    DrawText(Screen, TX + 1, TY + 1, Name, $FF0000FF, 2);
-    DrawText(Screen, TX, TY, Name, $FFFFFFFF, 2);
+    { "Tempus Sans ITC" 24 bold, white on a blue shadow (traced) }
+    HudNameText(Screen, TX, TY, Name, $FFFFFFFF, $FF0000FF);
   end;
 
 var
@@ -3000,13 +3000,11 @@ var
       Part(14 * (Ord(D[J]) - Ord('0')), 81, 14, 16, X0 + (J - 1) * 12, Y);
   end;
 
+  { traced from the real client: ExtTextOut in "Helvetica" 26 bold,
+    black at +1,+1 then white, one pixel in and two down from the tag }
   procedure KeyName(const K: string; BX, BY: Integer);
-  var
-    TX: Integer;
   begin
-    TX := BX + (22 - TextWidth(K, 2)) div 2;
-    DrawText(Screen, TX + 1, BY + 9 + 1, K, $FF000000, 2);
-    DrawText(Screen, TX, BY + 9, K, $FFFFFFFF, 2);
+    HudShadowText(Screen, BX + 1, BY + 2, K, $FFFFFFFF, $FF000000, hfKey);
   end;
 
 begin
@@ -3023,9 +3021,12 @@ begin
       KeyName('S', 80, 30);
       Part(202, 0, 22, 33, 145, 30);
       KeyName('D', 145, 30);
+      { the Q over D, "Helvetica" 10 bold (traced) }
+      HudShadowText(Screen, 146, 27, 'Q', $FFFFFFFF, $FF000000, hfHint);
       if Player.GlovePower >= 2 then
-        DrawText(Screen, 60, 31, IntToStr(Player.GlovePower), $FFFFFFFF, 1);
-      DrawText(Screen, 125, 31, IntToStr(Player.SwordPower), $FFFFFFFF, 1);
+        HudNameText(Screen, 56, 31, IntToStr(Player.GlovePower), $FFFFFFFF, $FF0000FF);
+      { "Tempus Sans ITC" 24 bold, white on a blue shadow (traced) }
+      HudNameText(Screen, 121, 31, IntToStr(Player.SwordPower), $FFFFFFFF, $FF0000FF);
     end;
   end;
   if WeaponsOn then

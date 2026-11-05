@@ -87,6 +87,8 @@ procedure DrawMaps(G: TAdventure);
 { Opens the big map with its scroll set as 2.05 does. }
 procedure OpenBigMap(G: TAdventure);
 procedure ClampMapScroll(ViewW, ViewH: Integer);
+{ The level DX, DY cells from Level on the big map (setmap), or ''. }
+function MapNeighbour(const Level: string; DX, DY: Integer): string;
 
 implementation
 
@@ -241,7 +243,7 @@ begin
   if Path <> '' then
   begin
     M.Image := TGSurface.Create(0, 0);
-    if not LoadImageFile(Path, M.Image) or (M.Image.Width = 0) then FreeAndNil(M.Image);
+    if not LoadImageKeyed(Path, M.Image) or (M.Image.Width = 0) then FreeAndNil(M.Image);
   end;
 end;
 
@@ -251,6 +253,21 @@ begin
   Pending := False;
   LoadMap(BigMap);
   LoadMap(MiniMap);
+end;
+
+function MapNeighbour(const Level: string; DX, DY: Integer): string;
+var
+  I, CX, CY: Integer;
+begin
+  Result := '';
+  LoadPending;
+  I := BigMap.IndexOf(Level);
+  if (I < 0) or (BigMap.Cols <= 0) then Exit;
+  CX := I mod BigMap.Cols + DX;
+  CY := I div BigMap.Cols + DY;
+  if (CX < 0) or (CY < 0) or (CX >= BigMap.Cols) or (CY >= BigMap.Rows) then Exit;
+  Result := BigMap.Names[CY * BigMap.Cols + CX];
+  if Result = 'x' then Result := '';
 end;
 
 { ---- the big map ---- }
@@ -444,7 +461,7 @@ var
   P: TServerPlayer;
 begin
   if (MiniMap.Image = nil) or (MiniMap.Cols <= 0) then Exit;
-  Bottom := ScreenH - MinimapBottom;
+  Bottom := ViewH - MinimapBottom;
   Top := Bottom - MiniMap.Image.Height;
   G.Screen.Blit(MiniMap.Image, 0, 0, MiniMap.Image.Width, MiniMap.Image.Height,
     MinimapLeft, Top);

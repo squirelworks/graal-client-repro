@@ -461,7 +461,7 @@ begin
       GChar(PLPROP_SPRITE) + GChar(DirLeft) + GChar(PLPROP_MAXPOWER) + GChar(6) +
       GChar(PLPROP_Y) + GChar(50));
     try
-      P.ApplyProps(R, True);
+      P.ApplyProps(R, True, 0);
     finally
       R.Free;
     end;
@@ -471,7 +471,7 @@ begin
       'others: the pose comes from the GANI prop and runs with time');
     R := TGReader.Create(GChar(PLPROP_PCONNECTED));
     try
-      P.ApplyProps(R, True);
+      P.ApplyProps(R, True, 0);
     finally
       R.Free;
     end;
@@ -482,7 +482,7 @@ begin
     R := TGReader.Create(GChar(PLPROP_GMAPLEVELX) + GChar(2) +
       GChar(PLPROP_GATTRIB30) + GString('x') + GChar(PLPROP_X) + GChar(40));
     try
-      G.Player.ApplyProps(R, False);
+      G.Player.ApplyProps(R, False, 0);
     finally
       R.Free;
     end;
@@ -491,14 +491,14 @@ begin
     R := TGReader.Create(GChar(PLPROP_X) + GChar(42) + GChar(PLPROP_JOINLEAVELVL) + GChar(1) +
       GChar(PLPROP_Y) + GChar(50));
     try
-      G.Player.ApplyProps(R, False);
+      G.Player.ApplyProps(R, False, 0);
     finally
       R.Free;
     end;
     Check((G.Player.X = 21) and (G.Player.Y <> 25), 'self: the own stream stops at 50');
     R := TGReader.Create(GChar(78) + GChar(1) + GChar(PLPROP_Y) + GChar(50));
     try
-      G.Player.ApplyProps(R, False);
+      G.Player.ApplyProps(R, False, 0);
     finally
       R.Free;
     end;
@@ -1354,7 +1354,7 @@ begin
     R := TGReader.Create(GChar(46) + GString('a6.png') + GChar(54) + GString('a10.png') +
       GChar(PLPROP_X) + GChar(20));
     try
-      P.ApplyProps(R, True);
+      P.ApplyProps(R, True, 0);
     finally
       R.Free;
     end;
@@ -1363,7 +1363,7 @@ begin
     { NPC props: 44 and 53 read on, 41 stops the stream }
     G.Receive(3, GInt3(5) + GChar(44) + GString('g6') + GChar(53) + GString('g10') +
       GChar(2) + GChar(30) + GChar(41) + GChar(1) + GChar(3) + GChar(50));
-    N := G.Npcs.FindById(5);
+    N := G.Npcs.FindAnyById(5);
     Check((N <> nil) and (N.X = 15) and (N.Y <> 25), '2.1: NPC props 44 and 53 read on, 41 stops');
   finally
     G.Free;

@@ -379,11 +379,16 @@ begin
     end
     else
     begin
+      { the start position first: the level's NPCs then get playerenters
+        and may move the player (start1.graal puts it at 13.5, 37.5), as
+        in the original }
+      G.Player.X := StrToFloatDef(StringReplace(Arg('--x', '30'), '.',
+        DefaultFormatSettings.DecimalSeparator, []), 30);
+      G.Player.Y := StrToFloatDef(StringReplace(Arg('--y', '30'), '.',
+        DefaultFormatSettings.DecimalSeparator, []), 30);
       OK := G.LoadLevelFile(Arg('--level', ''));
       if OK then
       begin
-        G.Player.X := StrToFloatDef(Arg('--x', '30'), 30);
-        G.Player.Y := StrToFloatDef(Arg('--y', '30'), 30);
         G.Log(Format('%s: %s, %d links, %d signs, %d chests, %d npcs, %d baddies',
           [G.Level.Name, G.Level.Magic, Length(G.Level.Links), Length(G.Level.Signs),
            Length(G.Level.Chests), Length(G.Level.NPCs), Length(G.Level.Baddies)]));
@@ -428,6 +433,11 @@ begin
         begin
           Win.Pump;
           if Win.Closed or Win.Held[gkEscape] then Break;
+          { Alt+Enter: 640 x 480 full screen and back, as the original's
+            DXDraw does (read on Windows 10: a 640 x 480 pop-up) }
+          if Win.TakeFullscreenToggle then
+            if not Win.Fullscreen then Win.EnterFullscreen(640, 480)
+            else Win.LeaveFullscreen(ScreenW, ScreenH);
           { F4: the built-in level editor (offline only) }
           if Win.WasPressed(gkEditor) or EditorFirst then
           begin
@@ -539,6 +549,7 @@ begin
     SoundEnabled := False;
     MapOpen := False;
     UseDefaultMaps;
+    if (Win <> nil) and Win.Fullscreen then Win.LeaveFullscreen(ScreenW, ScreenH);
     if Win <> GuiWin then Win.Free;
     Script.Free;
     Walker.Free;
@@ -548,16 +559,15 @@ begin
   Result := ExitCode_;
 end;
 
-{ Training: the one-player level this version shipped with
-  (levels/start1.graal, or levels/house1.graal in the builds that have only
-  that one), when it lies next to the program; else the built-in starter
-  level (a start.nw next to the program replaces it). The start position
-  is the rebuild's, not read from the original. }
+{ Training: player one's start from the table in the original exe
+  (levels, x and y for players one to four): start1.graal at x 21.5, y 28. Missing:
+  the built-in starter level (a start.nw next to the program replaces
+  it). }
 procedure TrainingLevel(const Dir: string; out Path, X, Y: string);
 begin
-  X := '30';
-  Y := '30';
-  Path := FirstFileIn(Dir, 'levels/start1.graal;start1.graal;levels/house1.graal;house1.graal');
+  X := '21.5';
+  Y := '28';
+  Path := FirstFileIn(Dir, 'levels/start1.graal;start1.graal');
   if Path = '' then
     Path := Dir + 'start.nw';
 end;
@@ -598,6 +608,11 @@ begin
       Result := 64;
       Exit;
     end;
+    { the frames of a Delphi program: the taskbar button is the hidden
+      application window, titled as the original's exe (Graal.exe, no
+      Application.Title in it); the forms are owned by it }
+    Win.FixedAppTitle := True;
+    Win.UseDelphiFrames('Graal');
     { the asset roots before anything is read from them }
     SetAssetRoots(Dir, ClientBuildLabel);
     { 1.38 has no listserver: the connect dialog's address, from
