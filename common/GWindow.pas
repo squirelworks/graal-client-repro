@@ -199,7 +199,7 @@ end;
 {$IFDEF MSWINDOWS}
 
 var
-  ActiveWindow: TGWindow;
+  NewestWindow: TGWindow;
 
 function VKToKey(VK: WPARAM): TGKey;
 begin
@@ -225,8 +225,14 @@ begin
 end;
 
 function WndProc(Wnd: HWND; Msg: UINT; WP: WPARAM; LP: LPARAM): LRESULT; stdcall;
+var
+  ActiveWindow: TGWindow;
 begin
   Result := 0;
+  { each window's own TGWindow (a start window and its options window can
+    be open together); the newest one before it is tagged }
+  ActiveWindow := TGWindow(GetWindowLongPtr(Wnd, GWLP_USERDATA));
+  if ActiveWindow = nil then ActiveWindow := NewestWindow;
   if ActiveWindow <> nil then
     case Msg of
       WM_KEYDOWN, WM_KEYUP:
@@ -315,17 +321,22 @@ begin
   Windows.RegisterClass(WC);
   R.Left := 0; R.Top := 0; R.Right := AWidth; R.Bottom := AHeight;
   AdjustWindowRect(R, WS_OVERLAPPEDWINDOW and not WS_THICKFRAME, False);
+  NewestWindow := Self;
   FWnd := CreateWindow('TGraalWindow', PChar(Title),
     WS_OVERLAPPEDWINDOW and not WS_THICKFRAME, Integer(CW_USEDEFAULT), 0,
     R.Right - R.Left, R.Bottom - R.Top, 0, 0, HInstance, nil);
-  ActiveWindow := Self;
+  if FWnd <> 0 then SetWindowLongPtr(FWnd, GWLP_USERDATA, LONG_PTR(Self));
   ShowWindow(FWnd, SW_SHOW);
 end;
 
 destructor TGWindow.Destroy;
 begin
-  if FWnd <> 0 then DestroyWindow(FWnd);
-  ActiveWindow := nil;
+  if FWnd <> 0 then
+  begin
+    SetWindowLongPtr(FWnd, GWLP_USERDATA, 0);
+    DestroyWindow(FWnd);
+  end;
+  if NewestWindow = Self then NewestWindow := nil;
   inherited Destroy;
 end;
 

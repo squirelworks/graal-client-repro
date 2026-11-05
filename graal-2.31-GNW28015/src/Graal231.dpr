@@ -76,6 +76,7 @@ uses
   ListServer231 in 'ListServer231.pas',
   StartScreen231 in 'StartScreen231.pas',
   Res231 in 'Res231.pas',
+  Dialogs231 in 'Dialogs231.pas',
   GUiFont in '../../common/GUiFont.pas',
   RealStart231 in 'RealStart231.pas',
   RunMode in 'RunMode.pas';
@@ -86,6 +87,33 @@ var
   GuiArgs: TStringList = nil;
   { why the last game ended, for the start screen }
   LastGameError: string = '';
+  { graalconfig.txt, as the More options window left it }
+  Config: TGraalConfig = nil;
+
+{ The page Get an account! offers: line 3 of arrays2.dat (the Graal
+  Reborn install has http://forums.graal.in/forums/register.php there),
+  or '' when the file has none. }
+function AccountPage(const Dir: string): string;
+var
+  L: TStringList;
+  F: string;
+begin
+  Result := '';
+  F := AssetPath('arrays2.dat');
+  if F = '' then F := Dir + 'arrays2.dat';
+  if not FileExists(F) then Exit;
+  L := TStringList.Create;
+  try
+    try
+      L.LoadFromFile(F);
+      if (L.Count > 3) and (Pos('://', L[3]) > 0) then Result := Trim(L[3]);
+    except
+      Result := '';
+    end;
+  finally
+    L.Free;
+  end;
+end;
 
 function ArgCount: Integer;
 begin
@@ -604,6 +632,7 @@ begin
   Result := 0;
   Dir := ExtractFilePath(ParamStr(0));
   Art := nil;
+  Config := TGraalConfig.Create;
   Win := TGWindow.Create('Graal ' + ClientBuildLabel + ' (' + ClientVersionToken + ')',
     ScreenW, ScreenH);
   try
@@ -625,6 +654,14 @@ begin
       in (res/), its words come from the install's languages/ }
     Art := TRealStartArt.Create;
     if not Art.Load(FirstFileIn(Dir, 'languages/languageEnglish.txt')) then FreeAndNil(Art);
+    { the More options window's settings, in the Graal folder as 2.31
+      keeps them }
+    Config.Load(Dir + 'graalconfig.txt');
+    if Art <> nil then
+    begin
+      Art.Config.Load(Dir + 'graalconfig.txt');
+      Art.AccountUrl := AccountPage(Dir);
+    end;
     if AssetPath('arrays2.dat') <> '' then
       Hosts := LoadListHosts(AssetPath('arrays2.dat'))
     else
@@ -694,6 +731,10 @@ begin
             ScreenW, ScreenH);
         end;
         Win.AllowFullscreen := True;
+        { More options: Start in fullscreen mode }
+        Config.Load(Dir + 'graalconfig.txt');
+        if Config.Bool('startinfullscreen') and not Win.Fullscreen then
+          Win.ToggleFullscreen;
         if RunGame(Win, R.Password, R.Nickname) <> 0 then
           Msg := LastGameError
         else
@@ -705,6 +746,7 @@ begin
     until Win.Closed or StopRequested;
   finally
     Art.Free;
+    FreeAndNil(Config);
     Win.Free;
   end;
 end;

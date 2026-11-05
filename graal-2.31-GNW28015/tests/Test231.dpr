@@ -35,6 +35,7 @@ uses
   GWindow in '../../common/GWindow.pas',
   GUiFont in '../../common/GUiFont.pas',
   Res231 in '../src/Res231.pas',
+  Dialogs231 in '../src/Dialogs231.pas',
   RealStart231 in '../src/RealStart231.pas',
   TestNpc231 in 'TestNpc231.pas',
   TestBaddy231 in 'TestBaddy231.pas';
@@ -1646,9 +1647,53 @@ begin
   end;
 end;
 
+procedure TestConfig;
+var
+  C: TGraalConfig;
+  F: TStringList;
+  Name, D: string;
+  G: TGSurface;
+begin
+  Name := GetTempDir + 'graalconfig-test.txt';
+  C := TGraalConfig.Create;
+  F := TStringList.Create;
+  try
+    DeleteFile(Name);
+    C.Load(Name);
+    Check(C.Bool('automapping') and C.Bool('noudp') and not C.Bool('waitvertical'),
+      'graalconfig: 2.31''s defaults with no file');
+    Check((C.Str('font') = 'Tempus Sans ITC') and (C.Int('fontsize', 0) = 24) and
+      (C.Str('fullscreenmode') = '1024x768'), 'graalconfig: font, size, fullscreen mode');
+    F.Add('head=head1.gif');
+    F.Add('notoalls=true');
+    F.SaveToFile(Name);
+    C.Load(Name);
+    Check((C.Lines[0] = 'head=head1.gif') and C.Bool('notoalls'),
+      'graalconfig: the file''s own lines first, in order');
+    C.SetBool('startinfullscreen', True);
+    C.SetStr('midivolume', '40');
+    Check(C.Save, 'graalconfig: saves');
+    C.Load(Name);
+    Check(C.Bool('startinfullscreen') and (C.Int('midivolume', 0) = 40) and
+      (C.Lines[0] = 'head=head1.gif'), 'graalconfig: what was saved reads back');
+  finally
+    DeleteFile(Name);
+    F.Free;
+    C.Free;
+  end;
+  G := TGSurface.Create(0, 0);
+  try
+    Check(ResFile('OPENGLYPH', D) and LoadImageData(D, 'OPENGLYPH.bmp', G, False) and
+      (G.Width = 15) and (G.Height = 14), 'open url: the Open button''s picture is compiled in');
+  finally
+    G.Free;
+  end;
+end;
+
 begin
   Skipped := 0;
   TestRealStart;
+  TestConfig;
   TestGTypes;
   TestBzip2;
   TestGen5Capture;
