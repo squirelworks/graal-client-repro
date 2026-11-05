@@ -20,7 +20,7 @@ interface
 
 uses
   Classes, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GAssetDirs, GraalClient, Protocol231,
-  Npc231, Baddy231, GTrueType;
+  Npc231, Baddy231, GTrueType, GaniMovie231;
 
 const
   { The game window: TAdventure's client area is 640 x 480 (its form is
@@ -204,6 +204,9 @@ type
     FOthers: TList;
     FChatFont: TTrueTypeFont;
     FChatFontTried: Boolean;
+    FAniReplace: TStringList;
+    { movie ganis (GANI0002) by name, nil when not found }
+    FMovies: TStringList;
     { addtiledef lines seen in level scripts: 'prefix'#9'image', newest
       first; FTileDefLevel is the level last scanned }
     FTileDefs: TStringList;
@@ -366,6 +369,15 @@ type
     { P's chat over its head }
     procedure DrawSaid(P: TServerPlayer; CamX, CamY: Integer);
     function ChatFont: TTrueTypeFont;
+    function Movie(const Name: string): TGaniMovie;
+    { a movie gani worn as an attribute (#P1 tutorial_touch.gani): its
+      sprites and words, over the character at BX, BY }
+    procedure DrawMovie(M: TGaniMovie; BX, BY, Tick: Integer);
+    { replaceani Old,New: the player's Old gani is drawn as New (the
+      offline tutorial puts the human2 ganis in for idle, walk and the
+      rest) }
+    procedure ReplaceAni(const Old, New: string);
+    function PlayerAniFor(const Name: string): string;
     { Loads a level (or a .gmap and its levels) from disk for offline play;
       links then look for their levels next to it, then in the install. }
     function LoadLevelFile(const FileName: string): Boolean;
@@ -663,6 +675,8 @@ begin
     Result := TGSurface(FNames.Objects[I]);
     Exit;
   end;
+  { a picture of a kind is looked for in its own folder first, then, as
+    2.31's file name cache finds any file of the install, in the others }
   if Kind = 'head' then F := FindFile(Name, ['levels/heads/', 'levels/', ''])
   else if Kind = 'body' then F := FindFile(Name, ['levels/bodies/', 'levels/', ''])
   else if Kind = 'sword' then F := FindFile(Name, ['levels/swords/', 'levels/', ''])
@@ -670,12 +684,15 @@ begin
   else if Kind = 'hat' then F := FindFile(Name, ['levels/hats/', 'levels/', ''])
   else if Kind = 'weapon' then F := FindFile(Name, ['levels/weapons/', 'levels/', ''])
   else
+    F := '';
+  if F = '' then
     { 2.22's install keeps level pictures in more folders than 2.05's:
       images, webgifs (most NPC pictures), npcs, tiledefs, baddies, bomys,
       horses, hats }
     F := FindFile(Name, ['', 'levels/', 'levels/images/', 'levels/webgifs/',
       'levels/npcs/', 'levels/tiledefs/', 'levels/baddies/', 'levels/bomys/',
-      'levels/horses/', 'levels/hats/', 'levels/emoticons/', 'levels/smilies/']);
+      'levels/horses/', 'levels/hats/', 'levels/emoticons/', 'levels/smilies/',
+      'levels/shields/', 'levels/swords/', 'levels/heads/', 'levels/bodies/']);
   S := nil;
   if F <> '' then
   begin
@@ -702,6 +719,8 @@ var
   A: TGraalAni;
 begin
   N := Name;
+  { setcharani g2k2master[0]: the bracketed part is not in the file's name }
+  if (Pos('[', N) > 1) and (N[Length(N)] = ']') then SetLength(N, Pos('[', N) - 1);
   if EndsWith(N, '.gani') then SetLength(N, Length(N) - 5);
   Key := 'ani:' + LowerCase(N);
   I := FNames.IndexOf(Key);
@@ -1044,6 +1063,8 @@ begin
   Assets := TAssets.Create;
   FOthers := TList.Create;
   FTileDefs := TStringList.Create;
+  FAniReplace := TStringList.Create;
+  FMovies := TStringList.Create;
   { a new 2.05 account: 3 of 3 hearts, no rupees, 10 bombs, 5 arrows }
   Player.MaxPower := 3;
   Player.Power := 6;      { half hearts, as PLPROP_CURPOWER }
@@ -1103,6 +1124,9 @@ begin
   for I := 0 to FOthers.Count - 1 do TServerPlayer(FOthers[I]).Free;
   FOthers.Free;
   FTileDefs.Free;
+  FAniReplace.Free;
+  for I := 0 to FMovies.Count - 1 do FMovies.Objects[I].Free;
+  FMovies.Free;
   FLog.Free;
   inherited Destroy;
 end;
@@ -2753,7 +2777,7 @@ var
   F: Integer;
 begin
   F := 0;
-  A := Assets.Ani(Player.AniName);
+  A := Assets.Ani(PlayerAniFor(Player.AniName));
   if A <> nil then F := A.StepAt(Frame - Player.AniStart);
   Result := WireSprite(Player.AniName, F, Player.Dir);
 end;
@@ -3581,7 +3605,8 @@ begin
     BX := Round(P.X * TileSize) - CamX;
     BY := Round(P.Y * TileSize) - CamY;
   end;
-  A := Assets.Ani(P.AniName);
+  if P = Player then A := Assets.Ani(PlayerAniFor(P.AniName))
+  else A := Assets.Ani(P.AniName);
   if A = nil then A := Assets.Ani('idle');
   if A = nil then
   begin
@@ -3648,6 +3673,10 @@ begin
     if Img <> nil then
       Screen.Blit(Img, Spr.X, Spr.Y, Spr.W, Spr.H, BX + Parts[I].X, BY + Parts[I].Y);
   end;
+  { 2.3: an attribute naming a movie gani is drawn over the character }
+  for K := 1 to 5 do
+    if EndsWith(LowerCase(P.Attr[K]), '.gani') then
+      DrawMovie(Movie(P.Attr[K]), BX, BY, Frame - P.AniStart);
 end;
 
 procedure TAdventure.DrawObjectTiles(List, I, X, Y: Integer);
@@ -4059,6 +4088,121 @@ begin
     BY := Round(P.Y * TileSize) - CamY;
   end;
   DrawChatText(BX + 24, BY - 6, P.Chat);
+end;
+
+function TAdventure.Movie(const Name: string): TGaniMovie;
+var
+  I: Integer;
+  F, N: string;
+  M: TGaniMovie;
+begin
+  N := LowerCase(Trim(Name));
+  I := FMovies.IndexOf(N);
+  if I >= 0 then
+  begin
+    Result := TGaniMovie(FMovies.Objects[I]);
+    Exit;
+  end;
+  M := nil;
+  if Pos('..', N) = 0 then
+  begin
+    F := AssetPath('levels/ganis/' + N);
+    if F = '' then F := AssetPath('ganis/' + N);
+    if F <> '' then
+    begin
+      M := TGaniMovie.Create;
+      if not M.LoadFromFile(F) then FreeAndNil(M);
+    end;
+  end;
+  FMovies.AddObject(N, M);
+  Result := M;
+end;
+
+procedure TAdventure.DrawMovie(M: TGaniMovie; BX, BY, Tick: Integer);
+var
+  I, X, Y, Px, TW: Integer;
+  Props: TStringList;
+  Spr: TMovieSprite;
+  Img: TGSurface;
+  F: TTrueTypeFont;
+  T: string;
+  Col: Cardinal;
+  Bold: Boolean;
+begin
+  if M = nil then Exit;
+  Props := TStringList.Create;
+  try
+    for I := 0 to High(M.Actors) do
+    begin
+      M.Actors[I].At(((Tick mod M.Frames) + M.Frames) mod M.Frames, Props);
+      if LowerCase(Props.Values['visible']) = 'false' then Continue;
+      X := BX + StrToIntDef(Props.Values['dx'], 0);
+      Y := BY + StrToIntDef(Props.Values['dy'], 0);
+      if not M.Actors[I].IsText then
+      begin
+        if not M.FindSprite(StrToIntDef(Props.Values['sprite #'], -1), Spr) then Continue;
+        if UpperCase(Spr.Sheet) = 'SPRITES' then Img := Assets.Image('sprites.png', '')
+        else Img := Assets.Image(Spr.Sheet, '');
+        if Img <> nil then Screen.Blit(Img, Spr.X, Spr.Y, Spr.W, Spr.H, X, Y);
+        Continue;
+      end;
+      T := Props.Values['text'];
+      if T = '' then Continue;
+      F := ChatFont;
+      { fontsize is in points: 14 is 18 pixels, as the real 2.31 shows
+        the tutorial's words }
+      Px := StrToIntDef(Props.Values['fontsize'], 14) * 4 div 3;
+      Bold := LowerCase(Props.Values['bold']) = 'true';
+      Col := MovieColor(Props.Values['color'], $FFFFFFFF);
+      if F = nil then
+      begin
+        TW := TextWidth(T, 1);
+        if LowerCase(Props.Values['centered']) = 'true' then Dec(X, TW div 2);
+        if LowerCase(Props.Values['shaded']) = 'true' then
+          DrawText(Screen, X + 1, Y + 1, T, $FF0000FF, 1);
+        DrawText(Screen, X, Y, T, Col, 1);
+        Continue;
+      end;
+      { measured on the real 2.31: a text actor's dy is 13 pixels under
+        the top of its words, and Windows draws the strokes a pixel
+        heavier than the outline (each drawn twice, a pixel apart, with
+        no change to the width) }
+      Dec(Y, 13);
+      TW := F.TextWidth(T, Px, Bold);
+      if LowerCase(Props.Values['centered']) = 'true' then Dec(X, TW div 2);
+      if LowerCase(Props.Values['shaded']) = 'true' then
+      begin
+        F.DrawText(Screen, X + 1, Y + 1, T, Px, $FF0000FF, Bold);
+        F.DrawText(Screen, X + 2, Y + 1, T, Px, $FF0000FF, Bold);
+      end;
+      F.DrawText(Screen, X, Y, T, Px, Col, Bold);
+      F.DrawText(Screen, X + 1, Y, T, Px, Col, Bold);
+    end;
+  finally
+    Props.Free;
+  end;
+end;
+
+procedure TAdventure.ReplaceAni(const Old, New: string);
+var
+  K: string;
+  I: Integer;
+begin
+  K := LowerCase(Trim(Old));
+  if K = '' then Exit;
+  I := FAniReplace.IndexOfName(K);
+  if I >= 0 then FAniReplace.Delete(I);
+  if (Trim(New) <> '') and (LowerCase(Trim(New)) <> K) then
+    FAniReplace.Add(K + '=' + Trim(New));
+end;
+
+function TAdventure.PlayerAniFor(const Name: string): string;
+var
+  V: string;
+begin
+  Result := Name;
+  V := FAniReplace.Values[LowerCase(Name)];
+  if V <> '' then Result := V;
 end;
 
 procedure TAdventure.ToggleChat;

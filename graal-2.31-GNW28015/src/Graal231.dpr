@@ -77,6 +77,8 @@ uses
   StartScreen231 in 'StartScreen231.pas',
   Res231 in 'Res231.pas',
   Dialogs231 in 'Dialogs231.pas',
+  GaniMovie231 in 'GaniMovie231.pas',
+  GTrueType in '../../common/GTrueType.pas',
   GUiFont in '../../common/GUiFont.pas',
   RealStart231 in 'RealStart231.pas',
   RunMode in 'RunMode.pas';

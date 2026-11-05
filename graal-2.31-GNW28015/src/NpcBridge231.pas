@@ -437,6 +437,8 @@ begin
       2.17.1 and 2.22 shipped with set their tile sheet this way }
     if Op = GsFirstOp + GsCommandIndex('addtiledef') then
       FAdv.AddTileDef(A.Str[0], A.Str[1])
+    else if Op = GsFirstOp + GsCommandIndex('replaceani') then
+      FAdv.ReplaceAni(A.Str[0], A.Str[1])
     else
       FAdv.Log('GS1 ' + GsCommands[Op - GsFirstOp].Name + ' (not modelled)');
   end;
