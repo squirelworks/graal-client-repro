@@ -36,6 +36,15 @@ tests that name 2.05 were measured on 2.05.
   no tutorial levels and no tutorial maps.
 - 1.21 itself got the board differently: a lab capture shows the props and the board in one large frame, without `PLO_RAWDATA`. This rebuild reads the 1.28-and-later order; a 1.21-era server may not load a level in it yet.
 
+## Start dialog (0.0.3)
+
+With no arguments on Windows the program shows the original's own start
+dialog, built from the `TConnectFrame` form in `res/TCONNECTFRAME.dfm`
+(`src/RealRes121.pas`, from `scripts/realres/extract_res.py`, shown by
+`common/GVclForm.pas` and `common/GBetaStart.pas`). Start opens the game in a
+window shaped as the `TAdventure` form. Elsewhere the shared start screen
+stays.
+
 ## Sources
 
 The version facts come from graal_analysis: the build catalogue
@@ -65,8 +74,8 @@ build/graal-1.21-GSERV007/Graal121 --level levels/start1.graal --window
 
 ## Not yet (0.0.2)
 
-- The id sets 1.21 sends and handles: the rebuild still accepts every
+- [ ] The id sets 1.21 sends and handles: the rebuild still accepts every
   2.05 server id and its GS1 engine knows the 2.05 commands.
-- The prop encodings checked one by one against 1.21.
-- Local 2 to 4 player modes, UDP peer data, and this version's options.
-- A side-by-side run with the original under Wine.
+- [ ] The prop encodings checked one by one against 1.21.
+- [ ] Local 2 to 4 player modes, UDP peer data, and this version's options.
+- [ ] A side-by-side run with the original under Wine.

@@ -86,14 +86,14 @@ From the program's folder (or `--data`), then `graal-assets/6.03r7/`, then
 
 ## Not yet, or not known
 
-- The Login server's scripted GUI and GS2: 140 and 197 (scripts and the
+- [ ] The Login server's scripted GUI and GS2: 140 and 197 (scripts and the
   `GRESCR01` cache), 195 (gani scripts) and 190 are accepted and ignored.
-- 109 (probably a file redirect), 111 (`creationtime.dat`) and 198 are
+- [ ] 109 (probably a file redirect), 111 (`creationtime.dat`) and 198 are
   accepted and ignored; the rebuild writes no `creationtime.dat`.
-- 46 (ENTERLEVEL) on level entry, 162 (the ping answer), the base-file
+- [ ] 46 (ENTERLEVEL) on level entry, 162 (the ping answer), the base-file
   requests and the keep-alive 24 are not sent.
-- `GR-V1.05` levels and `GRPKG001` update packages.
-- The chat font (Tempus Sans ITC 24) and nickname colours by AP.
-- Whether 6.03r7 plays offline at all is not traced; Training keeps 3.153's.
-- No side-by-side run against the real 6.03r7; that is 0.0.2 work.
-- Everything still missing from the 5.00r7 rebuild.
+- [ ] `GR-V1.05` levels and `GRPKG001` update packages.
+- [ ] The chat font (Tempus Sans ITC 24) and nickname colours by AP.
+- [ ] Whether 6.03r7 plays offline at all is not traced; Training keeps 3.153's.
+- [ ] No side-by-side run against the real 6.03r7; that is 0.0.2 work.
+- [ ] Everything still missing from the 5.00r7 rebuild.

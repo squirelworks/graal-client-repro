@@ -37,8 +37,15 @@ procedure SetAssetRootsFor(const ProgramDir, DataDir, Version: string);
 { The folders searched, in order, each ending in a path delimiter. }
 function AssetRootCount: Integer;
 function AssetRoot(I: Integer): string;
-{ The first existing file Rel ('/' between folders) under the roots, or ''. }
+{ The first existing file Rel ('/' between folders) under the roots, else
+  what AssetFallback gives (a client that carries its install's files), or
+  ''. }
 function AssetPath(const Rel: string): string;
+
+var
+  { Set by a client that carries files of its install: the path of a copy
+    of Rel it can give, or ''. }
+  AssetFallback: function(const Rel: string): string = nil;
 { The graal-assets folder in use, or ''. }
 function AssetsFolder: string;
 
@@ -134,6 +141,7 @@ begin
       Result := Roots[I] + R;
       Exit;
     end;
+  if Assigned(AssetFallback) then Result := AssetFallback(Rel);
 end;
 
 function AssetsFolder: string;

@@ -91,8 +91,12 @@ zip from your own copy: `pics1.gif`, `arrays.dat` and the levels only.
 
 ## Not yet
 
-The player sprite from `link.gif` (a stand-in figure is drawn, coloured by
-the options), sword, bushes, lifting, baddies, chests, board changes over
-the wire, the password save (its alphabet and mask are not in the notes
-yet), sound. The colour list is the rebuild's own. The original start
-position is not known; the rebuild starts near the middle of `level1`.
+- [ ] The player sprite from `link.gif` (a stand-in figure is drawn,
+  coloured by the options).
+- [ ] Sword, bushes, lifting, baddies, chests.
+- [ ] Board changes over the wire.
+- [ ] The password save (its alphabet and mask are not in the notes yet).
+- [ ] Sound.
+- [ ] The colour list from the original (the rebuild's list is its own).
+- [ ] The original start position (not known; the rebuild starts near the
+  middle of `level1`).

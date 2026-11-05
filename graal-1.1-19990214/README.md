@@ -34,6 +34,15 @@ decompiled code:
 | Tile types | `formats/arrays-and-signatures.md` |
 | Everything kept from the copied build | the table in `graal-2.05r2-GNW03081/README.md` |
 
+## Start dialog (0.0.3)
+
+With no arguments on Windows the program shows the original's own start
+dialog, built from the `TConnectFrame` form in `res/TCONNECTFRAME.dfm`
+(`src/RealRes11.pas`, from `scripts/realres/extract_res.py`, shown by
+`common/GVclForm.pas` and `common/GBetaStart.pas`). Start opens the game in a
+window shaped as the `TAdventure` form. Elsewhere the shared start screen
+stays.
+
 ## Units
 
 | Unit | 1.1 class | What it does |
@@ -71,16 +80,16 @@ decompiled code:
 
 ## Known differences at 0.0.1
 
-- The 1.1 `arrays.dat` holds 24 tables where the later clients read 25.
+- [ ] The 1.1 `arrays.dat` holds 24 tables where the later clients read 25.
   Tables 0 and 1 (the passable tiles) are read from it; the rest are the
   built-in ones until it is known which table moved.
-- 1.1's `sprites`, `state` and `letters` sheets have their own layouts.
+- [ ] 1.1's `sprites`, `state` and `letters` sheets have their own layouts.
   The built-in sheets are drawn until those layouts are read.
-- The player is drawn from the built-in ganis; 1.1 had no ganis and drew
+- [ ] The player is drawn from the built-in ganis; 1.1 had no ganis and drew
   from `sprites.gif` and `heads.gif`.
-- `onlinestart.graal` was built into the original program. Without it the
+- [ ] `onlinestart.graal` was built into the original program. Without it the
   built-in start level stands in.
-- Two Players (one keyboard), save games (`.gsave`), the
+- [ ] Two Players (one keyboard), save games (`.gsave`), the
   registration key line (`8`) and web levels over HTTP are not built.
 
 ## Files it opens

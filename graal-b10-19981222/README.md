@@ -30,7 +30,10 @@ decompiled code:
 | `../common/GRelay.pas` | the relay lines, the two-character sender id, +32 numbers, one relay connection |
 | `src/ProtocolB10.pas` | this build's game name, D types, level magics, colour count, connect dialog |
 | `src/Adventure.pas` | game state: level, walking, the two relay connections, partners, drawing |
-| `src/GraalB10.dpr` | front end: the start screen with no arguments, or the command line |
+| `src/GraalB10.dpr` | front end: the original's start dialog with no arguments (the shared start screen without Win32), or the command line |
+| `src/RealResB10.pas` | the original program's resources (forms, pictures, strings), from `scripts/realres/extract_res.py` |
+| `../common/GDfmObj.pas`, `../common/GVclForm.pas` | reading Delphi forms and showing them as native windows |
+| `../common/GBetaStart.pas` | the 1998 start dialog: character lists, modes, what the player picked |
 | `src/StartScreenB10.pas` | the connect dialog as the one row of the shared start screen's list |
 | `src/RunMode.pas` | stress-run support (clock, stop signals, tick histogram, walker, JSON) |
 
@@ -55,14 +58,24 @@ decompiled code:
   receive path. CI joins two copies to the lab relay
   (`scripts/relay98.py`) and checks that each sees the other.
 
+## Start dialog and window (0.0.3)
+
+With no arguments on Windows the program shows the original's own start
+dialog, built from the `TConnectFrame` form in `res/TCONNECTFRAME.dfm`: One Player and Two Players with a character list each, and the "Online At Cyberjoueur" group with nick name, server and port.
+The window is with no owner window, so it has its own taskbar button, as in the original.
+The character lists hold Fung Si Yan, Nick, Mandi, Bad Max, Pachukite, Blond, Dino, Matthew, Athena, Bob, Zoraas, Raven, Joe, Old Man, Slade, Azraelite, NeoKnight, Thief, Adventurer, each with its head from `heads.gif`.
+Start opens the game in a window shaped as the `TAdventure` form
+(`res/TADVENTURE.dfm`). Under Wine, real and rebuilt dialogs were
+screenshotted side by side and match pixel for pixel.
+
 ## Not yet (0.0.2 and later)
 
-- The player is drawn with the project's built-in stand-in art; this
+- [ ] The player is drawn with the project's built-in stand-in art; this
   build's own `sprites.gif` layout is not written up yet.
-- Chat, items, sword, bombs, arrows, baddies, NPC scripts, signs, saves
+- [ ] Chat, items, sword, bombs, arrows, baddies, NPC scripts, signs, saves
   (Graalsav5 `.save`), the local multiplayer modes, web levels over
   HTTP, sound.
-- Comparison with the original under Wine, action by action.
+- [ ] Comparison with the original under Wine, action by action.
 
 ## Assets this build reads
 
@@ -74,7 +87,7 @@ Without them it uses its built-in assets.
 ## Running it
 
 ```
-GraalB10                                                # start screen
+GraalB10                                                # start dialog
 GraalB10 --level levels/level1.graal --data /path/to/install --window
 GraalB10 --server 127.0.0.1:14802 --nick NAME --data /path/to/install
 ```

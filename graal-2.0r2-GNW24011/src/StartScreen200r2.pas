@@ -78,7 +78,10 @@ begin
     listserver's legacy port (14923) answers only once id 1 has come
     (graal_analysis manual/06-listserver.md, the login-type matrix). }
   Client.SendPacket(0, 'newmain');
-  Client.SendPacket(1, GString(Account) + GString(Password));
+  { the real 2.0x asks with id 0 alone, before any account is typed (the
+    launcher passes none then); id 1 goes too once there is one }
+  if Account <> '' then
+    Client.SendPacket(1, GString(Account) + GString(Password));
   Client.Flush;
 end;
 

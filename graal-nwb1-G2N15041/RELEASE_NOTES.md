@@ -9,12 +9,62 @@ hit-or-miss first release.
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").
 
-These zips hold no original Graal code, graphics, sounds or levels. The
-program carries small original default graphics and a starter level of its
-own, so it runs as it is. Put it at the top of a NewWorld install you own
-(or keep a `graal-assets/` folder next to it, or point it at one with
-`--data DIR`) and the install's tiles, ganis, heads, bodies and levels take
-their place.
+The program carries what the original's own `Graal-NW.exe` carries: the
+start window and server list forms, their art and buttons and the Graal head
+icon. It also carries the files of the NewWorld beta 1 install that the game
+reads: the tile and sprite sheets, the heads, bodies, swords and shields,
+the ganis, the Training and start levels, the maps, the sounds and the
+language files. So it runs alone in an empty folder and looks like the
+original. Put it at the top of a NewWorld install you own (or keep a
+`graal-assets/` folder next to it, or point it at one with `--data DIR`) and
+the install's files come first.
+
+## What's new in v0.0.4
+
+- The A, S and D key letters are drawn the way Graal-NW.exe draws them:
+  Windows text at the size it asks for (in a font name Windows does not have,
+  so Arial), white, three pixels into each tag. The tags are 60 pixels apart,
+  as on the original. Before this the rebuild used its own small block
+  letters, and the S looked like a B.
+- The NewWorld status bar: the power as "150/150" in the state.png digits,
+  next to the bear, and the gralat orb with its count. There are no hearts and
+  no bomb or arrow counters, matching the original's screen.
+- The names under characters are in Tempus Sans ITC, bold, white over a blue
+  shadow, as the original draws them. NewWorld installs carry no tempsitc.ttf,
+  so the program falls back to Arial, as Windows does.
+
+## What's new in v0.0.3
+
+- The Windows program carries its original's own icon (the Graal head, taken
+  from the original exe), so Explorer shows it as the original did.
+- Stress tested before release: a long soak with several players walking
+  between levels, others connecting and dropping again and again, and a
+  level with 80 scripted NPCs, with no crash, error or memory growth.
+- The start window and the server list are the original's own: laid out from
+  the forms inside the original exe, with its background pictures, buttons,
+  captions and colours compiled into the program, so it needs no original
+  exe beside it.
+- The launcher window is the dialog itself, sized to its picture, with only
+  the close button, as on the original.
+- The server list shows the listserver's own status lines and the original's
+  "Getting server list" box while it loads.
+- On Windows the nickname and the last account are read from and saved to the
+  same place the original keeps them, so both programs remember the same
+  login.
+- On Windows the taskbar button carries the original program's name, as a
+  Delphi program's does.
+- Alt+Enter switches the game to fullscreen in its own 640 x 480 mode and
+  back.
+- The game window is titled as the original's (the language file's window name
+  and the server's name).
+- The server list asks for the account and password itself, as this version's
+  original does.
+- The start window opens on the language box, as the original does.
+- Training opens start1.nw in the Bruges and Vangel house, as the original
+  does.
+- It runs on its own: the files of its original's install that the game reads
+  are compiled in, so the exe alone in an empty folder opens on the real
+  launcher and plays Training with the original's art.
 
 ## Downloads
 
@@ -57,5 +107,18 @@ Arrow keys walk, Esc leaves the game. `GraalNwb1 --help` lists every flag.
 ## Not yet
 
 This release has only been smoke-tested against the original: start window
-and login. The NewWorld HUD and clock, the control NPC, string arrays and
+and login. The NewWorld clock, the control NPC, string arrays and
 terrain heights are not done.
+
+- [ ] The Options button: the original's options window is not built yet.
+- [ ] The launcher's text is drawn with the program's own font, not Windows'
+      MS Sans Serif, so some words sit a pixel or two off the original.
+- [ ] The server list is matched to the original's forms but not to a
+      screenshot of the original's list, which could not be captured.
+- [ ] The clock at the bottom left (state.png's clock and the date and
+      time) is not drawn yet.
+- [ ] The sword picture beside S and its number are not yet the original's.
+- [ ] Training opens on the Bruges and Vangel house, but the view is not
+      yet placed where the original's is.
+- [ ] The launcher's caption icon is removed for Windows but not yet checked
+      on a real PC.

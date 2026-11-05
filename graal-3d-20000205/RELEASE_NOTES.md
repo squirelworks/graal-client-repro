@@ -13,13 +13,9 @@ These zips hold no original Graal3D code, meshes, textures or levels. The
 client carries a simple stand-in level and player of its own; put your
 Graal3D files next to it for the real ones.
 
-## What's new in v0.0.3
+## What's new in v0.0.4
 
-- Faithfulness pass: compared side by side with the original program it was
-  rebuilt from, and the differences found brought in line with it.
-- Stress tested before release: a long soak with several players walking
-  between levels, others connecting and dropping again and again, and a
-  level with 80 scripted NPCs, with no crash, error or memory growth.
+- Rebuilt from the latest code; the changes for this client are listed here as they land.
 - [x] Graal3D's own start window: the wood-board picture taken out of the
   real Graal3D.exe and built into this one, in its own window, "Graal 3D",
   the size of the picture (433 x 321), as the real one.
@@ -30,6 +26,11 @@ Graal3D files next to it for the real ones.
 - [x] The game opens in a window of its own, "Graal 3D", 640 x 480, and the
   start window comes back when it ends, as with the real program.
 - [x] Graal3D.exe's own icon (the torch) in the title bar and the taskbar.
+
+## What's new in v0.0.3
+
+- Stress tested before release: a long offline run through the stand-in
+  level with no crash or error.
 
 ## Downloads
 

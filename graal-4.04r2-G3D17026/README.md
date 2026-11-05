@@ -86,16 +86,16 @@ Graal404 --level some.nw                  # offline
 
 ## Not yet, or not known
 
-- The server list and account screens as the real client shows them
+- [ ] The server list and account screens as the real client shows them
   (scripted GUI from the Login server).
-- Update packages (`GRPKG001`): `basepackage.gupd` is asked for, not
+- [ ] Update packages (`GRPKG001`): `basepackage.gupd` is asked for, not
   saved, and C→S 47 for a cached copy is not sent.
-- The ids handled beyond 3.153 are accepted and ignored except 178, 182
+- [ ] The ids handled beyond 3.153 are accepted and ignored except 178, 182
   and 183: 105/106 (update packages), 170 (ghost mode), 190, 191 (projectile),
   193 to 195.
-- The four GUI texts after login (152 `pmguilds`, `pmservers`; 154 lister
+- [ ] The four GUI texts after login (152 `pmguilds`, `pmservers`; 154 lister
   options), head and weapon image checks, the large-packet length (50).
-- The 3D plug-in (`Graal3DEngine.dll`, Torque on UDP, protocol 19).
-- Saved passwords (DES, keyed on the machine).
-- Everything still missing from the 3.153 rebuild.
-- No side-by-side run against the real 4.04r2; that is 0.0.2 work.
+- [ ] The 3D plug-in (`Graal3DEngine.dll`, Torque on UDP, protocol 19).
+- [ ] Saved passwords (DES, keyed on the machine).
+- [ ] Everything still missing from the 3.153 rebuild.
+- [ ] No side-by-side run against the real 4.04r2; that is 0.0.2 work.

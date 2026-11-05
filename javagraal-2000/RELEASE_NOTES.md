@@ -12,6 +12,14 @@ The zip holds no original code, graphics or levels. The game carries simple
 stand-in graphics and two small levels of its own, so it runs with nothing
 next to it.
 
+## What's new in v0.0.4
+
+- Rebuilt from the latest code; the changes for this client are listed here as they land.
+
+## What's new in v0.0.3
+
+- Rebuilt and released together with every other client.
+
 ## Running it
 
 Unzip, then run `java -jar JavaGraal.jar` (or double-click it). It starts

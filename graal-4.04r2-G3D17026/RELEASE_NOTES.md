@@ -17,8 +17,9 @@ point it at one with `--data DIR`) and the install's tiles, ganis, heads and
 bodies take their place. The shared `graal-assets/` folder next to the
 program works too (`graal-assets/4.04r2/`, then `graal-assets/common/`).
 
-## What's new in v0.0.3
+## What's new in v0.0.4
 
+- Rebuilt from the latest code; the changes for this client are listed here as they land.
 - [x] 4.04r2's own start screen, drawn inside the 640 x 480 game window
   the way the real 4.04r2 does it: the GraalOnline house and title, the
   Nickname panel, the Play as / Account name / Password panel with the
@@ -35,8 +36,14 @@ program works too (`graal-assets/4.04r2/`, then `graal-assets/common/`).
 - [x] The game window is titled "G r a a l" with eight spaces spread
   around it at random, as Graal4.exe does.
 - [x] Alt+Enter switches to fullscreen and back, as in 4.04r2.
-- [x] 4.04r2's own icon (Graal4.exe's MAINICON) in the title bar and the
-  taskbar.
+
+## What's new in v0.0.3
+
+- The Windows program carries its original's own icon (the Graal head, taken from
+  the original exe), so Explorer shows it as the original did.
+- Stress tested before release: a long soak with several players walking
+  between levels, others connecting and dropping again and again, and a
+  level with 80 scripted NPCs, with no crash, error or memory growth.
 
 ## Downloads
 
@@ -83,6 +90,9 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 - [ ] NPCs, baddies, items and weapons; the GS1 and GS2 script engines;
   chat; update packages; the 3D mode. See the build's README for the full
   list.
+
+The original runs on the Torque engine; this release is still the Delphi
+stand-in that speaks its wire protocol. The Torque layer is not done.
 
 ## Checks behind this release
 

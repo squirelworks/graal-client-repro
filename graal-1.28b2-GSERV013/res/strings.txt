@@ -1,0 +1,246 @@
+65280	Failed to set object at index %d
+65281	MultiLine must be True when TabPosition is tpLeft or tpRight
+65282	Invalid owner
+65283	RichEdit line insertion error
+65284	Failed to Load Stream
+65285	Failed to Save Stream
+65296	Form not found
+65297	Necessary since DirectX5
+65298	3D device not found
+65299	Display mode cannot be changed (%dx%d %dbit)
+65300	DIB is invalid
+65301	Bitcount in invalid (%d)
+65302	PixelFormat in invalid
+65303	Wave is invalid
+65304	It should be either of 8 or 16 or 24 or 32
+65305	Format is invalid
+65306	Stream has already been opened
+65307	Failed to clear tab control
+65308	Failed to delete tab at index %d
+65309	Failed to retrieve tab at index %d
+65310	Failed to get object at index %d
+65311	Failed to set tab "%s" at index %d
+65312	 - Dock zone not found
+65313	 - Dock zone has no control
+65314	DirectDraw
+65315	Direct3D RetainedMode
+65316	DirectSound
+65317	Clipper
+65318	Surface
+65319	Primary Surface
+65320	Sound Buffer
+65321	Primary Buffer
+65322	%s not made
+65323	Stream not opend
+65324	%s cannot be made
+65325	%s cannot be initialized
+65326	%s cannot be locked
+65327	%s not loaded
+65328	Shift+
+65329	Ctrl+
+65330	Alt+
+65331	(Unknown)
+65332	Unable to insert a line
+65333	Clipboard does not support Icons
+65334	Text exceeds memo capacity
+65335	There is no default printer currently selected
+65336	Bits index out of range
+65337	Invalid data type for '%s'
+65338	Failed to get data for '%s'
+65339	Menu '%s' is already being used by another form
+65340	No MCI device open
+65341	Unknown error code
+65342	Docked control must have a name
+65343	Error removing control from dock tree
+65344	Yes to &All
+65345	BkSp
+65346	Tab
+65347	Esc
+65348	Enter
+65349	Space
+65350	PgUp
+65351	PgDn
+65352	End
+65353	Home
+65354	Left
+65355	Up
+65356	Right
+65357	Down
+65358	Ins
+65359	Del
+65360	Bitmaps
+65361	Invalid property value
+65362	Warning
+65363	Error
+65364	Information
+65365	Confirm
+65366	&Yes
+65367	&No
+65368	OK
+65369	Cancel
+65370	&Help
+65371	&Abort
+65372	&Retry
+65373	&Ignore
+65374	&All
+65375	N&o to All
+65376	&Yes
+65377	&No
+65378	&Help
+65379	&Close
+65380	&Ignore
+65381	&Retry
+65382	Abort
+65383	&All
+65384	Cannot drag a form
+65385	An error returned from DDE  ($0%x)
+65386	DDE Error - conversation not established ($0%x)
+65387	Error occurred when DDE ran out of memory ($0%x)
+65388	Unable to connect DDE conversation
+65389	Metafiles
+65390	Enhanced Metafiles
+65391	Icons
+65392	Scrollbar property out of range
+65393	%s property out of range
+65394	Menu index out of range
+65395	Menu inserted twice
+65396	Sub-menu is not in menu
+65397	Not enough timers available
+65398	Printer is not currently printing
+65399	Printing in progress
+65400	Printer selected is not valid
+65401	%s on %s
+65402	GroupIndex cannot be less than a previous menu item's GroupIndex
+65403	Cannot create form. No MDI forms are currently active
+65404	Can only modify an image if it contains a bitmap
+65405	A control cannot have itself as its parent
+65406	OK
+65407	Cancel
+65408	Unsupported clipboard format
+65409	Out of system resources
+65410	Canvas does not allow drawing
+65411	Invalid image size
+65412	Invalid ImageList
+65413	Unable to Replace Image
+65414	Invalid ImageList Index
+65415	Failed to read ImageList data from stream
+65416	Failed to write ImageList data to stream
+65417	Error creating window device context
+65418	Error creating window class
+65419	Cannot focus a disabled or invisible window
+65420	Control '%s' has no parent window
+65421	Cannot hide an MDI Child Form
+65422	Cannot change Visible in OnShow or OnHide
+65423	Cannot make a visible window modal
+65424	String list does not allow duplicates
+65425	Tab position incompatible with current tab style
+65426	Tab style incompatible with current tab position
+65427	A component named %s already exists
+65428	''%s'' is not a valid component name
+65429	A class named %s already exists
+65430	Invalid property value
+65431	Invalid property path
+65432	Property does not exist
+65433	Property is read-only
+65434	Error reading %s%s%s: %s
+65435	Ancestor for '%s' not found
+65436	Bitmap image is not valid
+65437	Icon image is not valid
+65438	Metafile is not valid
+65439	Cannot change the size of an icon
+65440	Friday
+65441	Saturday
+65442	Cannot assign a %s to a %s
+65443	Cannot create file %s
+65444	Cannot open file %s
+65445	Stream read error
+65446	Stream write error
+65447	Out of memory while expanding memory stream
+65448	Can't write to a read-only resource stream
+65449	Class %s not found
+65450	Invalid stream format
+65451	Resource %s not found
+65452	List index out of bounds (%d)
+65453	List capacity out of bounds (%d)
+65454	List count out of bounds (%d)
+65455	Operation not allowed on sorted string list
+65456	September
+65457	October
+65458	November
+65459	December
+65460	Sun
+65461	Mon
+65462	Tue
+65463	Wed
+65464	Thu
+65465	Fri
+65466	Sat
+65467	Sunday
+65468	Monday
+65469	Tuesday
+65470	Wednesday
+65471	Thursday
+65472	May
+65473	Jun
+65474	Jul
+65475	Aug
+65476	Sep
+65477	Oct
+65478	Nov
+65479	Dec
+65480	January
+65481	February
+65482	March
+65483	April
+65484	May
+65485	June
+65486	July
+65487	August
+65488	Write
+65489	Error creating variant array
+65490	Variant is not an array
+65491	Variant array index out of bounds
+65492	External exception %x
+65493	Assertion failed
+65494	Interface not supported
+65495	%s (%s, line %d)
+65496	Abstract Error
+65497	Access violation at address %p in module '%s'. %s of address %p
+65498	Win32 Error.  Code: %d.\n%s
+65499	A Win32 API function failed
+65500	Jan
+65501	Feb
+65502	Mar
+65503	Apr
+65504	Floating point overflow
+65505	Floating point underflow
+65506	Invalid pointer operation
+65507	Invalid class typecast
+65508	Access violation at address %p. %s of address %p
+65509	Stack overflow
+65510	Control-C hit
+65511	Privileged instruction
+65512	Exception %s in module %s at %p.\n%s%s
+65513	Application Error
+65514	Format '%s' invalid or incompatible with argument
+65515	No argument for format '%s'
+65516	Invalid variant type conversion
+65517	Invalid variant operation
+65518	Variant method calls not supported
+65519	Read
+65520	'%s' is not a valid integer value
+65521	'%s' is not a valid floating point value
+65522	Out of memory
+65523	I/O error %d
+65524	File not found
+65525	Invalid filename
+65526	Too many open files
+65527	File access denied
+65528	Read beyond end of file
+65529	Disk full
+65530	Invalid numeric input
+65531	Division by zero
+65532	Range check error
+65533	Integer overflow
+65534	Invalid floating point operation
+65535	Floating point division by zero

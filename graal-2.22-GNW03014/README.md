@@ -184,13 +184,14 @@ rebuild on the same files (`--data` pointed at that folder):
 - Different, not done yet:
   - the ground: the tutorial's levels have height grids (the `HEIGHTS`
     blocks of `maps/offlinetutorial.gmap`), and the real client draws
-    their tile 0 as ground picked by height. The rebuild now does too
-    (`Terrain222`), from what was measured by setting the grid to one
-    height at a time under Wine: water below 0, sand to about 3, sand and
-    grass mixed about 4, grass above, flat ground about 30 darker than
-    `picso.png` and slopes lit from the upper left. Side by side it is
-    close but not the same: the real one blends heights with a seeded
-    displacement and its grass has lighter patches;
+    their tile 0 as ground picked by height. The rebuild does the same
+    (`Terrain222`, read from `Graal_222.exe`): seven height bands, the
+    full patch of a band when all four corners reach it (with a
+    decoration when the fraction of the corners' sum falls under 63 in
+    1000), its transition tiles when only some do, each pixel darkened by
+    the slope down the screen (32 on flat ground, 0 to 63), and water
+    below 0 that darkens with depth and foams at the shore. Side by side
+    with the real client the ground matches tile for tile;
   - the player: the tutorial dresses the player with
     `setplayerprop #P1..#P6` and `replaceani idle,human2_idle` (hair, legs,
     arms on the human2 ganis); the rebuild skips both and draws the
@@ -210,29 +211,29 @@ rebuild on the same files (`--data` pointed at that folder):
 
 ## Not yet, or not known
 
-- `PLI_SHOWIMG` (24): the lab saw 2.22 send it only with another player in
+- [ ] `PLI_SHOWIMG` (24): the lab saw 2.22 send it only with another player in
   the level (0 in three solo sessions), but the b4_222 capture has a solo
   2.22 sending it at login and every 5.1 s. The condition is open; the
   rebuild follows the lab.
-- The `gr.x` / `gr.y` flag sets come from the server's movement weapon
+- [ ] The `gr.x` / `gr.y` flag sets come from the server's movement weapon
   script, which needs the GS1 engine; they are not sent.
-- The gmap's outer edge and cells whose level has not arrived are walls;
+- [ ] The gmap's outer edge and cells whose level has not arrived are walls;
   not measured.
-- The early-flush size of the out buffer (60000 here, so a raw body fits
+- [ ] The early-flush size of the out buffer (60000 here, so a raw body fits
   the u16 length) is not traced; nor is `TCP_NODELAY`.
-- The GS1 additions of 2.22 (gravity, textwidth, isthisflagset, ...),
+- [ ] The GS1 additions of 2.22 (gravity, textwidth, isthisflagset, ...),
   the 2.22 NPC props past 40 (`plo-npcprops-layouts.tsv`: 44 to 47 and
   53 to 73), NPCs in gmap cells other than the player's, the built-in
   editors (F4 / F6), chat bubbles and names.
-- The 2.22 status display's sword and glove pictures beside S and A, and
+- [ ] The 2.22 status display's sword and glove pictures beside S and A, and
   the chat bar under the game (the real 2.22 draws both).
-- Files other than `.gmap` are not saved; `LARGEFILESTART` / `END`.
-- `arrays2.sig` is not checked; the original start window's buttons
+- [ ] Files other than `.gmap` are not saved; `LARGEFILESTART` / `END`.
+- [ ] `arrays2.sig` is not checked; the original start window's buttons
   (`button1-4.bmp`) are not used (the shared screen draws its own);
   Options, UDP peer traffic, voice chat.
-- Where Training puts the player on `offlinetutorial_b-2.graal` is not
+- [ ] Where Training puts the player on `offlinetutorial_b-2.graal` is not
   traced: (27.5, 31.5), below the cauldron, is matched by eye to the real
   client (see above). The tutorial's script lines the engine does not
   model yet (`setplayerprop #P1..#P6`, `replaceani`, `loadmap`,
   `setletters`) are logged and skipped.
-- A macOS window (headless or `--dump` there, as for 2.05).
+- [ ] A macOS window (headless or `--dump` there, as for 2.05).

@@ -14,6 +14,7 @@ compiled into the rebuild by `scripts/res/make_resunit.py`
 | `SCREENIMG2.jpg` | RCDATA SCREENIMG2 (577 x 416) | the server list's background |
 | `BUTTON1.bmp` .. `BUTTON4.bmp` | RCDATA BUTTON1 .. BUTTON4 | the picture buttons and the Go button |
 | `TUTORIALA1.graal` .. `TUTORIALC3.graal` | RCDATA TUTORIALA1 .. TUTORIALC3 | Training: offlinetutorial_a-1 .. c-3 |
+| `OPENGLYPH.bmp` | the TOPENURL form's Open button glyph (15 x 14) | the "Open URL" box's Open button |
 | `../src/Graal230.ico` | GROUP_ICON MAINICON | the window and taskbar icon |
 
 The pictures and the levels are also byte for byte 2.22's, so they were in

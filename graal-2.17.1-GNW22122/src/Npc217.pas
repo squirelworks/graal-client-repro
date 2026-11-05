@@ -1,8 +1,5 @@
 { Npc217: level NPCs of 2.05 rev 2, their props, drawing and scripts.
 
-  2.17.1 copy of the 2.05 rev 2 unit: 2.17.1 runs it as 2.05 does until a
-  difference is found (see the build's README).
-
   Where NPCs come from (graal_analysis manual/02-protocol/05-plo.md,
   06-props.md):
   - offline, from the level file's NPC blocks (GLevel's TLevelNPC);
@@ -43,13 +40,13 @@ const
   NPCPROP_HEADIMAGE = 22; NPCPROP_SAVE0 = 23; NPCPROP_SAVE9 = 32;
   NPCPROP_ALIGNMENT = 33; NPCPROP_IMAGEPART = 34; NPCPROP_BODYIMAGE = 35;
   NPCPROP_GATTRIB1 = 36; NPCPROP_GATTRIB5 = 40;
-  NPCPROP_GATTRIB6 = 44; NPCPROP_GATTRIB9 = 47;
-  NPCPROP_GATTRIB10 = 53; NPCPROP_GATTRIB30 = 73;
-  { the props this client keeps and sends back: 0 to 40, as in 2.05 }
-  NpcPropLast = 40;
-  { 2.17.1's NPC stream reads 0 to 40, 44 to 47 and 53 to 73, and stops at
-    41 to 43, 48 to 52 and above 73 (version-profiles/
-    plo-npcprops-layouts.tsv) }
+  { 2.05 parses 0 to 40; a higher id ends the stream }
+  NpcPropLast205 = 40;
+  { 2.17.1 also parses 44 to 47 and 53 to 73; 41 to 43, 48 to 52 and
+    anything past 73 end the stream }
+  NPCPROP_GMAPLEVELX = 41; NPCPROP_GMAPLEVELY = 42; NPCPROP_Z = 43;
+  NPCPROP_GATTRIB6 = 44; NPCPROP_GATTRIB9 = 47; NPCPROP_SCRIPTER = 49;
+  NPCPROP_CURLEVEL = 52; NPCPROP_GATTRIB10 = 53; NPCPROP_GATTRIB30 = 73;
   NpcPropMax217 = 73;
 
   VisVisible = 1; VisOver = 2; VisUnder = 4;
@@ -67,6 +64,7 @@ const
   PLO_NPCDEL_ID = 29;
   PLO_FLAGDEL_ID = 31;
   PLO_HASNPCSERVER_ID = 44;
+  PLO_NPCDEL2_ID = 150;
 
   TickSeconds = 0.05;
 
@@ -81,6 +79,8 @@ type
     PartSet: Boolean;
     PX, PY, PW, PH: Integer;
     Layer: Integer;
+    { changeimgcolors (multiply, 0..1) and changeimgzoom }
+    R, G, B, A, Zoom: Double;
   end;
 
   TNpc = class
@@ -101,7 +101,7 @@ type
     Gani, GaniParams, HeadImage, BodyImage, SwordImage, ShieldImage,
     HorseImage, Nickname, Chat: string;
     Colors: array[0..4] of Integer;
-    Attr: array[1..5] of string;
+    Attr: array[1..30] of string;  { #P1 .. #P30 (gattrib1-30) }
     Male: Boolean;
     Dir, Sprite: Integer;
     GaniStart: Integer;      { manager tick the gani started on }
@@ -122,9 +122,20 @@ type
     EffR, EffG, EffB, EffA, Zoom: Double;
     Ctx: TGsContext;
     Script: string;
+    { the SCRIPT block of the gani the character shows (lamps_wood's
+      flame): run for this NPC, with playerx / playery meaning the NPC;
+      GaniOf is the gani it was loaded for }
+    GaniCtx: TGsContext;
+    GaniOf: string;
+    GaniTimeout: Double;
     Gone: Boolean;           { destroyed: removed after the run }
     Local: Boolean;          { made offline or by putnpc: nothing to sync }
-    Dirty: array[0..NpcPropLast] of Boolean;
+    { online: the level the server sent it for (the object level), lower
+      case, and its gmap cell when that level is a gmap (-1 if none) }
+    Home: string;
+    CellX, CellY: Integer;
+    Z: Integer;
+    Dirty: array[0..NpcPropLast205] of Boolean;
     constructor Create;
     destructor Destroy; override;
     function Visible: Boolean;
@@ -146,11 +157,15 @@ type
     function PlayerChat: string; virtual;
     function PlayerCode(const Code: string): string; virtual;
     function Image(const Name: string): TGSurface; virtual;
+    { The SCRIPT block of a gani ('' when it has none or is not found). }
+    function GaniScript(const Gani: string): string; virtual;
     function TileType(X, Y: Integer): Integer; virtual;
     procedure DrawCharacter(N: TNpc; Screen: TGSurface; DX, DY, Tick: Integer); virtual;
     procedure HurtPlayer(Power, FromX, FromY: Double); virtual;
     procedure ShowSign(Index: Integer); virtual;
     procedure Say2(const Text: string); virtual;
+    { a name centred on CX under a character, its line's top at Y }
+    procedure DrawName(Screen: TGSurface; CX, Y: Integer; const Name: string); virtual;
     procedure Warp(const Level: string; X, Y: Double); virtual;
     procedure LayItem(Item: Integer; X, Y: Double); virtual;
     procedure PlaySound(const Name: string; X, Y: Double; Looped: Boolean); virtual;
@@ -182,13 +197,28 @@ type
     procedure SetVisible(N: TNpc; On, Local: Boolean);
     function CharProp(N: TNpc; const Code, Value: string): Boolean;
     procedure ShowImg(N: TNpc; Index: Integer; const Img: string; X, Y: Double);
+    { Starts the script of the gani a character shows, once per gani. }
+    procedure SyncGaniScript(N: TNpc);
     function FindImg(N: TNpc; Index: Integer): Integer;
+    function InScope(N: TNpc): Boolean;
+    procedure Rescope(N: TNpc);
   public
     World: TNpcWorld;
     OwnsWorld: Boolean;
     Npcs: TList;
     Flags: TStringList;      { the player's flags: name or name=value }
     IsLeader, HasNpcServer: Boolean;
+    { Online, NPCs of other levels and other gmap cells wait here until
+      the player is there (the server sends them with the level's data). }
+    Parked: TList;
+    { Set by the game before each message: the level NPC messages go to
+      (SETACTIVELEVEL, else the last LEVELNAME) and, on a gmap, the cell
+      of the level whose data came last }
+    ObjectLevel: string;
+    DataCellX, DataCellY: Integer;
+    { Where the player is: the level, and on a gmap its name and cell }
+    ScopeLevel, ScopeGmap: string;
+    ScopeX, ScopeY: Integer;
     Log: TStringList;        { script errors, newest last (kept short) }
     constructor Create(AWorld: TNpcWorld);
     destructor Destroy; override;
@@ -196,6 +226,12 @@ type
     function Npc(I: Integer): TNpc;
     function FindById(Id: Integer): TNpc;
     procedure Clear;
+    { Online: the player is now in Level (on gmap Gmap, cell CX, CY). NPCs
+      of the old level are dropped (the server sends them again on a
+      return) unless they belong to a gmap; NPCs waiting for the new one
+      come in and get playerenters. }
+    procedure SetScope(const Level, Gmap: string; CX, CY: Integer);
+    function FindAnyById(Id: Integer): TNpc;
     { Offline: the level's NPCs, each then gets playerenters. }
     procedure LoadLevel(Level: TAdventureLevel);
     { Adds an NPC and compiles its script (no event yet). }
@@ -222,7 +258,7 @@ type
     { The NPC's box in tiles. }
     procedure Bounds(N: TNpc; out BX, BY, BW, BH: Double);
     { Drawing: Layer < 0 under the player, 0 with the level, > 0 over. }
-    procedure Draw(Screen: TGSurface; CamX, CamY: Integer; Over: Boolean);
+    procedure Draw(Screen: TGSurface; LCamX, LCamY: Integer; Over: Boolean);
     { flags }
     function HasFlag(const Name: string): Boolean;
     procedure PutFlag(const Name: string; On, Send: Boolean);
@@ -248,6 +284,12 @@ type
 
 function ColorIndexOf(const S: string): Integer;
 
+var
+  { the view size for the screenwidth / screenheight script variables:
+    640 x 480, or the fullscreen mode (the game sets these) }
+  NpcScreenW: Integer = 640;
+  NpcScreenH: Integer = 480;
+
 implementation
 
 uses
@@ -266,11 +308,16 @@ begin
   Dir := 2;
   Sprite := 2;
   Male := True;
+  CellX := -1;
+  CellY := -1;
   Gani := 'idle';
-  Colors[0] := 0; { white skin? the player defaults: see ColorTable }
-  Colors[1] := 9;
-  Colors[2] := 0;
-  Colors[3] := 12;
+  { a character NPC with no colours of its own: a new player's, orange,
+    darkred, black, darkred, black (client-internals/body-colours-and-
+    attributes.md; the lab saw the real 2.22 draw such NPCs black and red) }
+  Colors[0] := 2;
+  Colors[1] := 5;
+  Colors[2] := 18;
+  Colors[3] := 5;
   Colors[4] := 18;
   HeadImage := 'head0.png';
   BodyImage := 'body.png';
@@ -280,6 +327,7 @@ end;
 
 destructor TNpc.Destroy;
 begin
+  GaniCtx.Free;
   Ctx.Free;
   CharObj.Free;
   inherited;
@@ -297,14 +345,14 @@ end;
 
 procedure TNpc.MarkDirty(Prop: Integer);
 begin
-  if (Prop >= 0) and (Prop <= NpcPropLast) then Dirty[Prop] := True;
+  if (Prop >= 0) and (Prop <= NpcPropLast205) then Dirty[Prop] := True;
 end;
 
 function TNpc.AnyDirty: Boolean;
 var
   I: Integer;
 begin
-  for I := 0 to NpcPropLast do
+  for I := 0 to NpcPropLast205 do
     if Dirty[I] then
     begin
       Result := True;
@@ -328,11 +376,21 @@ function TNpcWorld.SetPlayerVar(const Name: string; V: Double): Boolean; begin R
 function TNpcWorld.PlayerChat: string; begin Result := ''; end;
 function TNpcWorld.PlayerCode(const Code: string): string; begin Result := ''; end;
 function TNpcWorld.Image(const Name: string): TGSurface; begin Result := nil; end;
+function TNpcWorld.GaniScript(const Gani: string): string; begin Result := ''; end;
 function TNpcWorld.TileType(X, Y: Integer): Integer; begin Result := 0; end;
 procedure TNpcWorld.DrawCharacter(N: TNpc; Screen: TGSurface; DX, DY, Tick: Integer); begin end;
 procedure TNpcWorld.HurtPlayer(Power, FromX, FromY: Double); begin end;
 procedure TNpcWorld.ShowSign(Index: Integer); begin end;
 procedure TNpcWorld.Say2(const Text: string); begin end;
+
+procedure TNpcWorld.DrawName(Screen: TGSurface; CX, Y: Integer; const Name: string);
+var
+  TW: Integer;
+begin
+  TW := TextWidth(Name, 1);
+  DrawText(Screen, CX + 1 - TW div 2, Y + 5, Name, $FF0000A0, 1);
+  DrawText(Screen, CX - TW div 2, Y + 4, Name, $FFFFFFFF, 1);
+end;
 procedure TNpcWorld.Warp(const Level: string; X, Y: Double); begin end;
 procedure TNpcWorld.LayItem(Item: Integer; X, Y: Double); begin end;
 procedure TNpcWorld.PlaySound(const Name: string; X, Y: Double; Looped: Boolean); begin end;
@@ -386,6 +444,11 @@ begin
     OwnsWorld := True;
   end;
   Npcs := TList.Create;
+  Parked := TList.Create;
+  DataCellX := -1;
+  DataCellY := -1;
+  ScopeX := -1;
+  ScopeY := -1;
   Flags := TStringList.Create;
   Log := TStringList.Create;
 end;
@@ -394,6 +457,7 @@ destructor TNpcManager.Destroy;
 begin
   Clear;
   Npcs.Free;
+  Parked.Free;
   Flags.Free;
   Log.Free;
   if OwnsWorld then World.Free;
@@ -429,7 +493,94 @@ var
 begin
   for I := 0 to Npcs.Count - 1 do Npc(I).Free;
   Npcs.Clear;
+  for I := 0 to Parked.Count - 1 do TNpc(Parked[I]).Free;
+  Parked.Clear;
   IsLeader := False;
+end;
+
+function TNpcManager.FindAnyById(Id: Integer): TNpc;
+var
+  I: Integer;
+begin
+  Result := FindById(Id);
+  if Result <> nil then Exit;
+  for I := 0 to Parked.Count - 1 do
+    if TNpc(Parked[I]).Id = Id then
+    begin
+      Result := TNpc(Parked[I]);
+      Exit;
+    end;
+end;
+
+{ an NPC with no home (offline, putnpc), of the player's level, or of the
+  player's cell of the player's gmap }
+function TNpcManager.InScope(N: TNpc): Boolean;
+begin
+  if N.Local or (N.Home = '') then Result := True
+  else if (ScopeGmap <> '') and (N.Home = ScopeGmap) then
+    Result := ((N.CellX < 0) and (N.CellY < 0)) or
+      ((N.CellX = ScopeX) and (N.CellY = ScopeY))
+  else
+    Result := N.Home = ScopeLevel;
+end;
+
+{ moves an NPC between the level's list and the waiting list }
+procedure TNpcManager.Rescope(N: TNpc);
+var
+  I: Integer;
+begin
+  if InScope(N) then
+  begin
+    I := Parked.IndexOf(N);
+    if I < 0 then Exit;
+    Parked.Delete(I);
+    Npcs.Add(N);
+    Fire(N, 'playerenters');
+  end
+  else
+  begin
+    I := Npcs.IndexOf(N);
+    if (I < 0) or N.Ctx.Running then Exit;
+    Npcs.Delete(I);
+    Parked.Add(N);
+  end;
+end;
+
+procedure TNpcManager.SetScope(const Level, Gmap: string; CX, CY: Integer);
+var
+  I: Integer;
+  N: TNpc;
+  Come: TList;
+begin
+  ScopeLevel := LowerCase(Level);
+  ScopeGmap := LowerCase(Gmap);
+  ScopeX := CX;
+  ScopeY := CY;
+  IsLeader := False;
+  Come := TList.Create;
+  try
+    for I := Npcs.Count - 1 downto 0 do
+    begin
+      N := Npc(I);
+      if InScope(N) then Continue;
+      Npcs.Delete(I);
+      { a gmap's NPCs stay for when the player walks into their cell }
+      if (N.Home <> '') and (LowerCase(ExtractFileExt(N.Home)) = '.gmap') then Parked.Add(N)
+      else N.Free;
+    end;
+    for I := Parked.Count - 1 downto 0 do
+    begin
+      N := TNpc(Parked[I]);
+      if not InScope(N) then Continue;
+      Parked.Delete(I);
+      Npcs.Add(N);
+      Come.Add(N);
+    end;
+    for I := 0 to Come.Count - 1 do
+      if Npcs.IndexOf(Come[I]) >= 0 then Fire(TNpc(Come[I]), 'playerenters');
+  finally
+    Come.Free;
+  end;
 end;
 
 function TNpcManager.Ctx2Npc(Ctx: TGsContext): TNpc;
@@ -627,8 +778,14 @@ begin
       NPCPROP_BODYIMAGE: N.BodyImage := R.ReadGString;
       NPCPROP_GATTRIB1..NPCPROP_GATTRIB5:
         N.Attr[P - NPCPROP_GATTRIB1 + 1] := R.ReadGString;
-      { #P6 to #P30: read so the stream goes on; ganis here use #P1 to #P5 }
-      NPCPROP_GATTRIB6..NPCPROP_GATTRIB9, NPCPROP_GATTRIB10..NPCPROP_GATTRIB30:
+      NPCPROP_GMAPLEVELX: N.CellX := R.ReadGChar;
+      NPCPROP_GMAPLEVELY: N.CellY := R.ReadGChar;
+      NPCPROP_Z: N.Z := R.ReadGChar - 50;
+      NPCPROP_GATTRIB6..NPCPROP_GATTRIB9:
+        N.Attr[P - NPCPROP_GATTRIB6 + 6] := R.ReadGString;
+      NPCPROP_GATTRIB10..NPCPROP_GATTRIB30:
+        N.Attr[P - NPCPROP_GATTRIB10 + 10] := R.ReadGString;
+      NPCPROP_SCRIPTER..NPCPROP_CURLEVEL:
         R.ReadGString;
     end;
     if R.Overrun then Exit;
@@ -671,6 +828,8 @@ begin
       Result := Result + GShort(N.PX) + GShort(N.PY) + GChar(N.PW) + GChar(N.PH);
     NPCPROP_BODYIMAGE: Result := Result + GString(N.BodyImage);
     NPCPROP_GATTRIB1..NPCPROP_GATTRIB5: Result := Result + GString(N.Attr[Prop - NPCPROP_GATTRIB1 + 1]);
+    NPCPROP_GATTRIB6..NPCPROP_GATTRIB9: Result := Result + GString(N.Attr[Prop - NPCPROP_GATTRIB6 + 6]);
+    NPCPROP_GATTRIB10..NPCPROP_GATTRIB30: Result := Result + GString(N.Attr[Prop - NPCPROP_GATTRIB10 + 10]);
   else
     Result := '';
   end;
@@ -682,7 +841,7 @@ var
   I: Integer;
 begin
   S := '';
-  for I := 0 to NpcPropLast do
+  for I := 0 to NpcPropLast205 do
     if N.Dirty[I] then
     begin
       S := S + PropBytes(N, I);
@@ -708,27 +867,47 @@ begin
           if R.Remaining <= 2 then Exit;
           NId := R.ReadGInt3;
           if NId <= 0 then Exit;
-          N := FindById(NId);
+          N := FindAnyById(NId);
           IsNew := N = nil;
-          if IsNew then N := Add(NId, 0, 0, '', '');
+          if IsNew then
+          begin
+            N := Add(NId, 0, 0, '', '');
+            N.Home := LowerCase(ObjectLevel);
+            if (LowerCase(ExtractFileExt(N.Home)) = '.gmap') then
+            begin
+              N.CellX := DataCellX;
+              N.CellY := DataCellY;
+            end;
+          end;
           ApplyProps(N, R, True);
           if IsNew then
           begin
             Fire(N, 'created');
-            Fire(N, 'playerenters');
+            if InScope(N) then Fire(N, 'playerenters')
+            else Rescope(N);
             RemoveGone;
-          end;
+          end
+          else
+            Rescope(N);
         finally
           R.Free;
         end;
       end;
-    PLO_NPCDEL_ID:
+    PLO_NPCDEL_ID, PLO_NPCDEL2_ID:
       begin
         R := TGReader.Create(Data);
         try
+          { NPCDEL2: c n, the level's name (n chars), then the id }
+          if Id = PLO_NPCDEL2_ID then R.ReadGString;
           NId := R.ReadGInt3;
-          N := FindById(NId);
-          if N <> nil then
+          if R.Overrun then Exit;
+          N := FindAnyById(NId);
+          if (N <> nil) and (Parked.IndexOf(N) >= 0) then
+          begin
+            Parked.Remove(N);
+            N.Free;
+          end
+          else if N <> nil then
           begin
             N.Gone := True;
             RemoveGone;
@@ -823,6 +1002,16 @@ begin
   V := 0;
   Result := True;
   N := Ctx2Npc(Ctx);
+  { in a gani's script the player is whoever shows the gani }
+  if (N <> nil) and (Ctx = N.GaniCtx) then
+    if Name = 'playerx' then begin V := N.X; Exit; end
+    else if Name = 'playery' then begin V := N.Y; Exit; end
+    else if Name = 'playerdir' then begin V := N.Dir; Exit; end;
+  if Name = 'lighteffectsenabled' then
+  begin
+    V := 1;
+    Exit;
+  end;
   if Copy(Name, 1, 6) = 'player' then
   begin
     if Name = 'playerx' then V := World.PlayerX
@@ -866,8 +1055,8 @@ begin
   else if Name = 'tokenscount' then V := Tokens.Count
   else if Name = 'paramscount' then begin if Ctx <> nil then V := Ctx.Params.Count; end
   else if Name = 'timevar' then V := FTick * TickSeconds
-  else if Name = 'screenwidth' then V := 640
-  else if Name = 'screenheight' then V := 480
+  else if Name = 'screenwidth' then V := NpcScreenW
+  else if Name = 'screenheight' then V := NpcScreenH
   else if (Name = 'compuscount') or (Name = 'playerscount') or (Name = 'bombscount') or
     (Name = 'arrowscount') or (Name = 'itemscount') or (Name = 'exploscount') or
     (Name = 'horsescount') or (Name = 'signscount') or (Name = 'weaponscount') then
@@ -923,7 +1112,8 @@ begin
   else if Name = 'timeout' then
   begin
     if V < 0 then V := 0;
-    N.Timeout := V;
+    if Ctx = N.GaniCtx then N.GaniTimeout := V
+    else N.Timeout := V;
   end
   else if Name = 'rupees' then begin N.Rupees := Trunc(V); N.MarkDirty(NPCPROP_RUPEES); end
   else if Name = 'darts' then begin N.Arrows := Trunc(V); N.MarkDirty(NPCPROP_ARROWS); end
@@ -1281,6 +1471,17 @@ begin
         if RunTimeouts or N.TimerEverywhere then Fire(N, 'timeout');
       end;
     end;
+    { a gani's script runs on every client: it only draws }
+    SyncGaniScript(N);
+    if (N.GaniCtx <> nil) and (N.GaniTimeout > 0) then
+    begin
+      N.GaniTimeout := N.GaniTimeout - TickSeconds;
+      if N.GaniTimeout <= 0.0001 then
+      begin
+        N.GaniTimeout := 0;
+        N.GaniCtx.Run('timeout');
+      end;
+    end;
   end;
   RemoveGone;
   World.Idle;
@@ -1323,11 +1524,13 @@ begin
       N.MarkDirty(NPCPROP_COLORS);
     end;
   end
-  else if (Length(Cd) = 3) and (Copy(Cd, 1, 2) = '#P') and (Cd[3] in ['1'..'5']) then
+  else if (Copy(Cd, 1, 2) = '#P') and (StrToIntDef(Copy(Cd, 3, 2), 0) >= 1) and (StrToIntDef(Copy(Cd, 3, 2), 0) <= 30) then
   begin
-    K := Ord(Cd[3]) - Ord('0');
+    K := StrToIntDef(Copy(Cd, 3, 2), 0);
     N.Attr[K] := Value;
-    N.MarkDirty(NPCPROP_GATTRIB1 + K - 1);
+    if K <= 5 then N.MarkDirty(NPCPROP_GATTRIB1 + K - 1)
+    else if K <= 9 then N.MarkDirty(NPCPROP_GATTRIB6 + K - 6)
+    else N.MarkDirty(NPCPROP_GATTRIB10 + K - 10);
   end
   else
     Result := False;
@@ -1359,11 +1562,47 @@ begin
     N.ShownImages[I].Layer := 1;
     N.ShownImages[I].PartSet := False;
     N.ShownImages[I].Image := '';
+    N.ShownImages[I].R := 1;
+    N.ShownImages[I].G := 1;
+    N.ShownImages[I].B := 1;
+    N.ShownImages[I].A := 1;
+    N.ShownImages[I].Zoom := 1;
   end;
   if N.ShownImages[I].Image <> Img then N.ShownImages[I].PartSet := False;
   N.ShownImages[I].Image := Img;
   N.ShownImages[I].X := X;
   N.ShownImages[I].Y := Y;
+end;
+
+procedure TNpcManager.SyncGaniScript(N: TNpc);
+var
+  G, S: string;
+begin
+  if (N = nil) or N.Gone then Exit;
+  G := '';
+  if N.Character then
+  begin
+    G := LowerCase(N.Gani);
+    if (Pos('[', G) > 1) then G := Copy(G, 1, Pos('[', G) - 1);
+    if (Length(G) > 5) and (Copy(G, Length(G) - 4, 5) = '.gani') then
+      SetLength(G, Length(G) - 5);
+  end;
+  if G = N.GaniOf then Exit;
+  N.GaniOf := G;
+  if (N.GaniCtx <> nil) and N.GaniCtx.Running then Exit;
+  FreeAndNil(N.GaniCtx);
+  N.GaniTimeout := 0;
+  if G = '' then Exit;
+  S := World.GaniScript(G);
+  if Trim(S) = '' then Exit;
+  N.GaniCtx := TGsContext.Create(Self, N);
+  if not N.GaniCtx.Load(S) then
+  begin
+    Error(N.GaniCtx, N.GaniCtx.Script.Errors.Text);
+    FreeAndNil(N.GaniCtx);
+    Exit;
+  end;
+  N.GaniCtx.Run('created');
 end;
 
 function ActionParams(const S: string): string;
@@ -1598,6 +1837,22 @@ begin
           N.ShownImages[I].PartSet := True;
         end;
       end;
+    730: { changeimgcolors index,r,g,b,a }
+      begin
+        I := FindImg(N, Trunc(A.Num[0]));
+        if I >= 0 then
+        begin
+          N.ShownImages[I].R := EnsureRange(A.Num[1], 0, 1);
+          N.ShownImages[I].G := EnsureRange(A.Num[2], 0, 1);
+          N.ShownImages[I].B := EnsureRange(A.Num[3], 0, 1);
+          N.ShownImages[I].A := EnsureRange(A.Num[4], 0, 1);
+        end;
+      end;
+    731: { changeimgzoom index,zoom }
+      begin
+        I := FindImg(N, Trunc(A.Num[0]));
+        if I >= 0 then N.ShownImages[I].Zoom := EnsureRange(A.Num[1], 0.05, 8);
+      end;
     GsOpChangeImgVis:
       begin
         I := FindImg(N, Trunc(A.Num[0]));
@@ -1626,14 +1881,14 @@ end;
 { An image part with a colour multiply, zoom around its centre, and either
   alpha blending or adding light (drawaslight). }
 procedure DrawEffect(Screen, Img: TGSurface; SX, SY, W, H, DX, DY: Integer;
-  N: TNpc; Light: Boolean);
+  ER, EG, EB, EA, Zoom: Double; Light: Boolean);
 var
   OW, OH, X, Y, TX, TY, I, J: Integer;
   C, D: Cardinal;
   A, R, G, B, DR, DG, DB: Double;
 begin
-  OW := Round(W * N.Zoom);
-  OH := Round(H * N.Zoom);
+  OW := Round(W * Zoom);
+  OH := Round(H * Zoom);
   { the zoom keeps the centre where it was }
   DX := DX + (W - OW) div 2;
   DY := DY + (H - OH) div 2;
@@ -1641,20 +1896,20 @@ begin
   begin
     Y := DY + J;
     if (Y < 0) or (Y >= Screen.Height) then Continue;
-    TY := SY + Trunc(J / N.Zoom);
+    TY := SY + Trunc(J / Zoom);
     if (TY < 0) or (TY >= Img.Height) then Continue;
     for I := 0 to OW - 1 do
     begin
       X := DX + I;
       if (X < 0) or (X >= Screen.Width) then Continue;
-      TX := SX + Trunc(I / N.Zoom);
+      TX := SX + Trunc(I / Zoom);
       if (TX < 0) or (TX >= Img.Width) then Continue;
       C := Img.Pixels[TX + TY * Img.Width];
-      A := (C shr 24) / 255 * N.EffA;
+      A := (C shr 24) / 255 * EA;
       if A <= 0 then Continue;
-      R := ((C shr 16) and $FF) * N.EffR;
-      G := ((C shr 8) and $FF) * N.EffG;
-      B := (C and $FF) * N.EffB;
+      R := ((C shr 16) and $FF) * ER;
+      G := ((C shr 8) and $FF) * EG;
+      B := (C and $FF) * EB;
       D := Screen.Pixels[X + Y * Screen.Width];
       DR := (D shr 16) and $FF;
       DG := (D shr 8) and $FF;
@@ -1677,16 +1932,29 @@ begin
   end;
 end;
 
-procedure TNpcManager.Draw(Screen: TGSurface; CamX, CamY: Integer; Over: Boolean);
+procedure TNpcManager.Draw(Screen: TGSurface; LCamX, LCamY: Integer; Over: Boolean);
 var
-  I, K, DX, DY, TW, SX, SY, SW, SH: Integer;
+  I, K, DX, DY, TW, SX, SY, SW, SH, CamX, CamY: Integer;
   N: TNpc;
   Img: TGSurface;
   S: string;
 begin
-  for I := 0 to Npcs.Count - 1 do
+  { the player's level, then the other cells of a gmap: 2.22 draws a
+    neighbour cell's NPCs at their place on the map, so they do not pop
+    in at the edge }
+  for I := 0 to Npcs.Count + Parked.Count - 1 do
   begin
-    N := Npc(I);
+    CamX := LCamX;
+    CamY := LCamY;
+    if I < Npcs.Count then N := Npc(I)
+    else
+    begin
+      N := TNpc(Parked[I - Npcs.Count]);
+      if (ScopeGmap = '') or (N.Home <> ScopeGmap) or (N.CellX < 0) or
+        (N.CellY < 0) then Continue;
+      Dec(CamX, (N.CellX - ScopeX) * 64 * 16);
+      Dec(CamY, (N.CellY - ScopeY) * 64 * 16);
+    end;
     if N.Gone or not N.Visible then Continue;
     if Over <> (N.Layer > 0) then Continue;
     DX := Round(N.X * 16) - CamX;
@@ -1714,24 +1982,41 @@ begin
         end;
         if (N.Layer = 9) or (N.Zoom <> 1) or (N.EffR <> 1) or (N.EffG <> 1) or
           (N.EffB <> 1) or (N.EffA <> 1) then
-          DrawEffect(Screen, Img, SX, SY, SW, SH, DX, DY, N, N.Layer = 9)
+          DrawEffect(Screen, Img, SX, SY, SW, SH, DX, DY, N.EffR, N.EffG, N.EffB,
+            N.EffA, N.Zoom, N.Layer = 9)
         else
           Screen.Blit(Img, SX, SY, SW, SH, DX, DY);
       end;
     end;
     for K := 0 to High(N.ShownImages) do
-    begin
-      Img := World.Image(N.ShownImages[K].Image);
-      if Img = nil then Continue;
-      if N.ShownImages[K].PartSet then
-        Screen.Blit(Img, N.ShownImages[K].PX, N.ShownImages[K].PY,
-          Min(N.ShownImages[K].PW, Img.Width - N.ShownImages[K].PX),
-          Min(N.ShownImages[K].PH, Img.Height - N.ShownImages[K].PY),
-          Round(N.ShownImages[K].X * 16) - CamX, Round(N.ShownImages[K].Y * 16) - CamY)
-      else
-        Screen.Blit(Img, 0, 0, Img.Width, Img.Height,
-          Round(N.ShownImages[K].X * 16) - CamX, Round(N.ShownImages[K].Y * 16) - CamY);
-    end;
+      with N.ShownImages[K] do
+      begin
+        Img := World.Image(Image);
+        if Img = nil then Continue;
+        if PartSet then
+        begin
+          SX := PX;
+          SY := PY;
+          SW := Min(PW, Img.Width - PX);
+          SH := Min(PH, Img.Height - PY);
+        end
+        else
+        begin
+          SX := 0;
+          SY := 0;
+          SW := Img.Width;
+          SH := Img.Height;
+        end;
+        { an image named light* adds light, as Graal's light pictures;
+          [inf: the rule is taken from the light*.png naming, not traced] }
+        if (LowerCase(Copy(ExtractFileName(Image), 1, 5)) = 'light') or (R <> 1) or
+          (G <> 1) or (B <> 1) or (A <> 1) or (Zoom <> 1) then
+          DrawEffect(Screen, Img, SX, SY, SW, SH, Round(X * 16) - CamX,
+            Round(Y * 16) - CamY, R, G, B, A, Zoom,
+            LowerCase(Copy(ExtractFileName(Image), 1, 5)) = 'light')
+        else
+          Screen.Blit(Img, SX, SY, SW, SH, Round(X * 16) - CamX, Round(Y * 16) - CamY);
+      end;
     { the message, or the timer, centred over the NPC }
     S := N.Message;
     if N.TimerShow and (N.Timeout > 0) then S := IntToStr(Ceil(N.Timeout));
@@ -1741,6 +2026,10 @@ begin
       TW := TextWidth(S, 1);
       DrawText(Screen, DX + 24 - TW div 2, DY - 10, S, $FFFFFFFF, 1);
     end;
+    { a character's nickname under its feet, white over a blue shadow, as
+      2.22 under Wine draws setcharprop #n }
+    if N.Character and (N.Nickname <> '') then
+      World.DrawName(Screen, DX + 24, DY + 46, N.Nickname);
   end;
 end;
 

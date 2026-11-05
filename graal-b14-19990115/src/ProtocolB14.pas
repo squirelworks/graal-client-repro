@@ -65,6 +65,31 @@ function SendsType(C: Char): Boolean;
 { True when the level magic is one this build reads. }
 function AcceptsLevel(const Magic: string): Boolean;
 
+const
+  { the character lists of the start dialog, in the build's order (the
+    real client's lists, read on Windows; each entry is the head of the
+    same column of heads.gif) }
+  CharacterNames: array[0..18] of string = (
+    'Fung Si Yan',
+    'Nick',
+    'Mandi',
+    'Bad Max',
+    'Pachukite',
+    'Blond',
+    'Dino',
+    'Matthew',
+    'Athena',
+    'Bob',
+    'Zoraas',
+    'Raven',
+    'Joe',
+    'Old Man',
+    'Slade',
+    'Azraelite',
+    'NeoKnight',
+    'Thief',
+    'Adventurer');
+
 implementation
 
 function SendsType(C: Char): Boolean;

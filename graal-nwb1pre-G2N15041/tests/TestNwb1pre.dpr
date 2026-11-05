@@ -883,17 +883,20 @@ begin
       (G.Player.Arrows = 5) and (G.AP = 50), 'status: a new account starts at 3 hearts, 10 bombs, 5 arrows');
     G.Screen.Fill($FF000000);
     G.DrawStatus;
-    Check(Lit(ScreenW - 198, 24, 40, 44), 'status: the first big heart is drawn');
-    Check(Lit(ScreenW - 198 + 90, 24, 40, 44), 'status: the third big heart is drawn');
-    Check(not Lit(ScreenW - 198 + 135, 24, 40, 44), 'status: no fourth heart with three containers');
-    Check(Lit(15, 30, 22, 33) and Lit(145, 30, 22, 33), 'status: the A and D buttons');
-    Check(Lit(326, 48, 26, 16), 'status: the bomb count');
+    { Graal-NW.exe's bar (the real client under Wine): POWER/MAX in the
+      state.png digits ending at 540 on y 39, over the bear at 532,24 }
+    Check(Lit(454, 39, 12, 16) and Lit(532, 24, 33, 41), 'status: 150/150 and the bear');
+    Check(not Lit(ScreenW - 198, 60, 90, 40), 'status: no hearts');
+    Check(Lit(15, 30, 22, 33) and Lit(75, 30, 22, 33) and Lit(135, 30, 22, 33),
+      'status: the A, S and D tags 60 px apart');
+    Check(Lit(274, 30, 16, 16) and not Lit(326, 48, 26, 16) and not Lit(374, 48, 26, 16),
+      'status: the gralat orb, no bomb or arrow counts');
     G.Screen.Fill($FF000000);
     G.Player.MaxPower := 6;
     G.Player.Power := 3;
     G.DrawStatus;
-    Check(Lit(ScreenW - 198, 34, 31, 33) and not Lit(ScreenW - 198 + 70, 34, 31, 33),
-      'status: small hearts past four containers, only while power remains');
+    Check(Lit(466, 39, 12, 16) and not Lit(440, 39, 26, 16),
+      'status: 75/300 stays right-aligned on the bear');
     G.Screen.Fill($FF000000);
     G.ShowStats := 0;
     G.DrawStatus;

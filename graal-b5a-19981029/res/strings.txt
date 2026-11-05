@@ -1,0 +1,223 @@
+65312	Necessary since DirectX5
+65313	3D device not found
+65314	Display mode cannot be changed (%dx%d %dbit)
+65315	A present display mode cannot be acquired
+65316	DIB is invalid
+65317	Bitcount in invalid (%d)
+65318	PixelFormat in invalid
+65319	Wave is invalid
+65320	It should be either of 8 or 16 or 24 or 32
+65321	Format is invalid
+65322	Stream has already been opened
+65323	Ungültiger Besitzer
+65324	Fehler bei Einfügen von RichEdit-Zeile
+65325	Das Laden des Streams ist mißlungen
+65326	Das Speichern des Streams ist mißlungen
+65328	Unbekannter Fehlercode
+65329	DirectDraw
+65330	Direct3D RetainedMode
+65331	DirectSound
+65332	Clipper
+65333	Surface
+65334	Primary Surface
+65335	Sound Buffer
+65336	Primary Buffer
+65337	%s not made
+65338	Stream not opend
+65339	%s cannot be made
+65340	%s cannot be initialized
+65341	%s cannot be locked
+65342	%s not loaded
+65343	Form not found
+65344	Pos1
+65345	Linksbündig
+65346	Nach oben
+65347	Rechts
+65348	Nach unten
+65349	Einfg
+65350	Entf
+65351	Umsch+
+65352	Strg+
+65353	Alt+
+65354	Zeile kann nicht eingefügt werden
+65355	Zwischenablage unterstützt keine Symbole
+65356	Text überschreitet Memo-Kapazität
+65357	Bits-Index außerhalb des zulässigen Bereichs
+65358	Menü '%s' wird bereits von einem anderen Formular benutzt
+65359	Kein MCI-Gerät geöffnet
+65360	Abbrechen
+65361	&Hilfe
+65362	&Abbrechen
+65363	&Wiederholen
+65364	&Ignorieren
+65365	&Alles
+65366	&Alle Nein
+65367	A&lle Ja
+65368	Rück
+65369	Tab
+65370	Esc
+65371	Enter
+65372	Leertaste
+65373	BildAuf
+65374	BildAb
+65375	Ende
+65376	&Wiederholen
+65377	Abbruch
+65378	&Alles
+65379	Formulare können nicht gezogen werden
+65380	Metadateien
+65381	Erweiterte Metadateien
+65382	Symbole
+65383	Bitmaps
+65384	Ungültiger Wert der Eigenschaft
+65385	Warnung
+65386	Fehler
+65387	Information
+65388	Bestätigen
+65389	&Ja
+65390	&Nein
+65391	OK
+65392	Aus einem sichtbaren Fenster kann kein modales gemacht werden
+65393	Eigenschaft Scrollbar außerhalb des zulässigen Bereichs
+65394	Menüindex außerhalb des zulässigen Bereichs
+65395	Menü zweimal eingefügt
+65396	Untermenü ist nicht im Menü
+65397	Nicht genügend Timer verfügbar
+65398	GroupIndex kann nicht kleiner sein als der GroupIndex eines vorhergehenden Menüelementes
+65399	Formular kann nicht erstellt werden. Zur Zeit sind keine MDI-Formulare aktiv
+65400	Ein Steuerelement kann nicht sich selbst als Vorfahr haben
+65401	OK
+65402	Abbrechen
+65403	&Ja
+65404	&Nein
+65405	&Hilfe
+65406	&Schließen
+65407	&Ignorieren
+65408	Die Größe eines Symbols kann nicht geändert werden
+65409	Format der Zwischenablage wird nicht unterstützt
+65410	Systemressourcen erschöpft.
+65411	Leinwand/Bild erlaubt kein Zeichnen
+65412	Ungültige Bildgröße
+65413	Ungültige ImageList
+65414	Bild kann nicht ersetzt werden
+65415	Ungültiger ImageList-Index
+65416	Die ImageList-Daten konnten nicht aus dem Stream gelesen werden
+65417	Die ImageList-Daten konnten nicht in den Stream geschrieben werden
+65418	Fehler beim Erstellen des Fenster-Gerätekontexts
+65419	Fehler beim Erzeugen einer Fensterklasse
+65420	Ein deaktiviertes oder unsichtbares Fenster kann nicht den Fokus erhalten
+65421	Element '%s' hat kein übergeordnetes Fenster
+65422	Ein MDI-Kindformular kann nicht verborgen werden
+65423	Eigenschaft Visible kann in OnShow oder OnHide nicht verändert werden
+65424	Die Kapazität der Liste ist erschöpft (%d)
+65425	Zu viele Einträge in der Liste (%d)
+65426	Operation bei sortierten Stringlisten nicht erlaubt
+65427	In der Stringliste sind Duplikate nicht erlaubt
+65428	Eine Komponente mit der Bezeichnung %s existiert bereits
+65429	''%s'' ist kein gültiger Komponentenname
+65430	Eine Klasse mit der Bezeichnung %s existiert bereits
+65431	Ungültiger Wert der Eigenschaft
+65432	Ungültiger Pfad für Eigenschaft
+65433	Eigenschaft existiert nicht
+65434	Eigenschaft kann nur gelesen werden
+65435	Fehler beim Lesen von %s.%s: %s
+65436	Vorfahr für '%s' nicht gefunden
+65437	Bitmap ist ungültig
+65438	Ungültiges Symbol
+65439	Metadatei ist ungültig
+65440	Dienstag
+65441	Mittwoch
+65442	Donnerstag
+65443	Freitag
+65444	Samstag
+65445	%s kann nicht zu  %s zugewiesen werden
+65446	Datei %s kann nicht erstellt werden
+65447	Datei %s kann nicht geöffnet werden
+65448	Stream-Read-Fehler
+65449	Stream-Write-Fehler
+65450	Expandieren des Speicher-Stream wegen Speichermangel nicht möglich
+65451	In einen zum Lesen geöffneten Ressourcen-Stream kann nicht geschrieben werden
+65452	Klasse %s nicht gefunden
+65453	Ungültiges Stream-Format
+65454	Ressource %s nicht gefunden
+65455	Der Index der Liste überschreitet das Maximum (%d)
+65456	Juni
+65457	Juli
+65458	August
+65459	September
+65460	Oktober
+65461	November
+65462	Dezember
+65463	So
+65464	Mo
+65465	Di
+65466	Mi
+65467	Do
+65468	Fr
+65469	Sa
+65470	Sonntag
+65471	Montag
+65472	Feb
+65473	Mär
+65474	Apr
+65475	Mai
+65476	Jun
+65477	Jul
+65478	Aug
+65479	Sep
+65480	Okt
+65481	Nov
+65482	Dez
+65483	Januar
+65484	Februar
+65485	März
+65486	April
+65487	Mai
+65488	Varianten-Methodenaufrufe werden nicht unterstützt
+65489	Lesen
+65490	Schreiben
+65491	Format-Ergebnis länger als 4096 Zeichen
+65492	Fehler beim Erzeugen von Varianten-Array
+65493	Variante ist kein Array
+65494	Varianten-Array-Index außerhalb des zulässigen Bereichs
+65495	Externe Exception %x
+65496	Bedingungsfehler
+65497	Interface wird nicht unterstützt
+65498	%s (%s, Zeile %d)
+65499	Abstrakter Fehler
+65500	Zugriffsverletzung bei Adresse %p in Modul '%s'  %s von Adresse %p
+65501	Fehler von Win32. Code: %d.\n%s
+65502	Eine Win32 API-Funktion ist fehlgeschlagen
+65503	Jan
+65504	Fehler bei Fließkommaoperation
+65505	Fließkommadivision durch Null
+65506	Überlauf bei Fließkommaoperation
+65507	Unterlauf bei Fließkommaoperation
+65508	Ungültige Zeigeroperation
+65509	Ungültige Typumwandlung
+65510	Zugriffsverletzung bei Adresse %p. %s von Adresse %p
+65511	Stack-Überlauf
+65512	Strg-C gedrückt
+65513	Priviligierte Instruktion
+65514	Exception %s im Modul %s bei %p.\n%s%s
+65515	Anwendungsfehler
+65516	Format '%s' ungültig oder inkompatibel mit Argument
+65517	Kein Argument für Format '%s'
+65518	Typkonvertierung von Variant ungültig
+65519	Ungültige Variantenoperation
+65520	'%s' ist kein gültiger Integerwert
+65521	'%s' ist kein gültiger Fließkommawert
+65522	Ungültiges Argument für Zeitkodierung
+65523	Ungültiges Argument für Datumskodierung
+65524	Speicher reicht nicht aus
+65525	I/O-Fehler %d
+65526	Datei nicht gefunden
+65527	Ungültiger Dateiname
+65528	Zu viele Dateien geöffnet
+65529	Dateizugriff verweigert
+65530	Lesen nach Dateiende (EOF)
+65531	Kapazität der Diskette/Festplatte erschöpft
+65532	Ungültige numerische Eingabe
+65533	Division durch Null
+65534	Bereichsüberschreitung
+65535	Integer-Überlauf

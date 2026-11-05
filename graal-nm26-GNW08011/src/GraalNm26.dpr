@@ -47,6 +47,11 @@ program GraalNm26;
   flags ($0100 NX_COMPAT, $0040 DYNAMIC_BASE; the relocations come from -WR
   in the Windows build flags). }
 {$IFDEF MSWINDOWS}{$IFDEF FPC}{$R GraalNm26.rc}{$SETPEOPTFLAGS $0140}{$ENDIF}{$ENDIF}
+{ every platform: what the real program carried (src/res/, packed by
+  scripts/res/extract_res.py): its start window and server list forms and
+  art, its icon and tutorial levels }
+{$R res/GraalNm26Res.res}
+{$R res/GraalNm26Install.res}
 
 uses
   SysUtils, Classes,
@@ -73,6 +78,10 @@ uses
   MapNm26 in 'MapNm26.pas',
   GStartScreen in '../../common/GStartScreen.pas',
   StartScreenNm26 in 'StartScreenNm26.pas',
+  GPeRes in '../../common/GPeRes.pas',
+  GDfm in '../../common/GDfm.pas',
+  GUiFont in '../../common/GUiFont.pas',
+  GRealStart in '../../common/GRealStart.pas',
   RunMode in 'RunMode.pas',
   GLevelWrite in '../../common/GLevelWrite.pas',
   EditorDoc in 'editor/EditorDoc.pas',
@@ -300,6 +309,12 @@ begin
   G.Echo := GuiWin = nil;
   G.Headless := HasArg('--headless');
   if GuiNick <> '' then G.Player.Nickname := GuiNick;
+  { the character picked on the start window }
+  if (GuiWin <> nil) and GuiLook.Valid then
+  begin
+    G.Player.HeadImage := GuiLook.Head;
+    for I := 0 to 4 do G.Player.Colors[I] := GuiLook.Colors[I];
+  end;
   Win := GuiWin;
   Script := TKeyScript.Create;
   Walker := TWalker.Create(Cardinal(StrToIntDef(Arg('--seed', '1'), 1)));
@@ -418,6 +433,10 @@ begin
         begin
           Win.Pump;
           if Win.Closed or Win.Held[gkEscape] then Break;
+          { Alt+Enter: fullscreen in the game's own 640 x 480 mode and back }
+          if Win.TakeFullscreenToggle then
+            if not Win.Fullscreen then Win.EnterFullscreen(ScreenW, ScreenH)
+            else Win.LeaveFullscreen(ScreenW, ScreenH);
           { F4: the built-in level editor (offline only) }
           if Win.WasPressed(gkEditor) or EditorFirst then
           begin
@@ -529,6 +548,7 @@ begin
     SoundEnabled := False;
     MapOpen := False;
     UseDefaultMaps;
+    if (Win <> nil) and Win.Fullscreen then Win.LeaveFullscreen(ScreenW, ScreenH);
     if Win <> GuiWin then Win.Free;
     Script.Free;
     Walker.Free;
@@ -545,13 +565,31 @@ procedure TrainingLevel(const Dir: string; out Path, X, Y: string);
 begin
   X := '32';
   Y := '60';
-  Path := FirstFileIn(Dir, 'levels/tutorial_b-4.graal;tutorial_b-4.graal');
+  { NewMain keeps its offline tutorial in levels/tutorial/ }
+  Path := FirstFileIn(Dir, 'levels/tutorial/tutorial_b-4.graal;levels/tutorial_b-4.graal;tutorial_b-4.graal');
   if Path = '' then
   begin
     Path := Dir + 'start.nw';
     X := '30';
     Y := '30';
   end;
+end;
+
+{ The real program's start window and server list: the 476 x 330 start window (TConnectFrame: language, character, nick name; its buttons are in the form) and the server list with the account and password (TServerListFrame), SCREENIMG1 and SCREENIMG2. Run-time
+  controls (no form holds them) are placed from screenshots of the real
+  client under Wine, 2026-11-05. }
+function RealStartSpec: TRealStartSpec;
+begin
+  Result.ListTitle := '';
+  Result.Tabs := '';
+  Result.StartFocus := '';
+  Result.ExeNames := 'Graal-NewMain26.exe';
+  Result.StartBack := 'SCREENIMG1';
+  Result.ListBack := 'SCREENIMG2';
+  Result.StartTitle := '';
+  Result.FixedStartTitle := False;
+  Result.AccountOnList := True;
+  Result.Runtime := '';
 end;
 
 { No arguments: the start screen, then the game it picks, and back to the
@@ -567,9 +605,12 @@ var
   Fetch: TListFetchNm26;
   Info: TStartInfo;
   Who: TCharacterNm26;
+  RS: TRealStart;
+  GameTitle: string;
 begin
   Result := 0;
   Dir := ExtractFilePath(ParamStr(0));
+  RS := nil;
   Win := TGWindow.Create('Graal ' + ClientBuildLabel + ' (' + ClientVersionToken + ')',
     ScreenW, ScreenH);
   try
@@ -589,6 +630,19 @@ begin
     ReadListServer(Dir, DefaultListHost, DefaultListPort, ListHost, ListPort);
     { SIGTERM / Ctrl+C end the program on the start screen too }
     InstallStopHandlers;
+    { the real program's own start window and server list, from the
+      resources this program carries }
+    RS := TRealStart.Create;
+    if not RS.Load(Dir, RealStartSpec) then FreeAndNil(RS);
+    GameTitle := 'Graal ' + ClientBuildLabel + ' (' + ClientVersionToken + ')';
+    if RS <> nil then
+    begin
+      GameTitle := RS.GameTitle;
+      { the frames of a Delphi program: the taskbar button is the
+        application window, titled with the original's program name }
+      Win.UseDelphiFrames(ChangeFileExt(Copy(RS.Spec.ExeNames, 1,
+        Pos(';', RS.Spec.ExeNames + ';') - 1), ''));
+    end;
     FillChar(R, SizeOf(R), 0);
     Msg := '';
     repeat
@@ -603,7 +657,10 @@ begin
         Info.Subtitle := 'NewMain 26 rebuilt';
         Info.DrawCharacter := Who.Draw;
         Info.StopRequested := StopRequested;
-        Picked := RunStartScreen(Win, G.Screen, Fetch, Info, Dir, ListHost, ListPort, Msg, R);
+        if RS <> nil then
+          Picked := RunRealStart(Win, RS, Fetch, Info, ListHost, ListPort, Msg, R)
+        else
+          Picked := RunStartScreen(Win, G.Screen, Fetch, Info, Dir, ListHost, ListPort, Msg, R);
       finally
         Who.Free;
         Fetch.Free;
@@ -633,6 +690,9 @@ begin
           GuiArgs.Add(R.Account);
         end;
         LastGameError := '';
+        { the game in its own 640 x 480 window, centred, titled from the
+          language file's MainWindow= (this build shows no server name) }
+        Win.Reshape(GameTitle, ScreenW, ScreenH);
         if RunGame(Win, R.Password, R.Nickname) <> 0 then
           Msg := LastGameError
         else
@@ -642,6 +702,7 @@ begin
       end;
     until Win.Closed or StopRequested;
   finally
+    RS.Free;
     Win.Free;
   end;
 end;

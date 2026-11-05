@@ -381,7 +381,7 @@ procedure MakeIndexSheet(Sheet: TGSurface);
 implementation
 
 uses
-  SysUtils, Math, GFont, GSound, SoundNwb2, MapNwb2, NpcBridgeNwb2;
+  SysUtils, Math, GFont, GSound, SoundNwb2, MapNwb2, NpcBridgeNwb2, GHudFont;
 
 procedure MakeIndexSheet(Sheet: TGSurface);
 var
@@ -513,6 +513,16 @@ begin
           Exit;
         end;
       end;
+  { none in the install: the copy the program carries (GResFiles), in the
+    same folder order }
+  if Assigned(AssetFallback) then
+    for I := 0 to High(Dirs) do
+      for J := 0 to 2 do
+        if Exts[J] <> '' then
+        begin
+          Result := AssetFallback(Dirs[I] + Base + Exts[J]);
+          if Result <> '' then Exit;
+        end;
 end;
 
 function TAssets.Image(const Name, Kind: string): TGSurface;
@@ -2829,10 +2839,10 @@ procedure TAdventure.DrawNames(CamX, CamY: Integer);
     TX, TY: Integer;
   begin
     if Name = '' then Exit;
-    TX := Round(X * TileSize) - CamX + 24 - TextWidth(Name, 2) div 2;
+    TX := Round(X * TileSize) - CamX + 24 - HudNameWidth(Name) div 2;
     TY := Round(Y * TileSize) - CamY + 44;
-    DrawText(Screen, TX + 1, TY + 1, Name, $FF0000FF, 2);
-    DrawText(Screen, TX, TY, Name, $FFFFFFFF, 2);
+    { "Tempus Sans ITC" 24 bold, white on a blue shadow (traced) }
+    HudNameText(Screen, TX, TY, Name, $FFFFFFFF, $FF0000FF);
   end;
 
 var
@@ -2990,11 +3000,9 @@ end;
 { ---- status display (client-internals/status-display.md) ---- }
 
 procedure TAdventure.DrawStatus;
-const
-  RowStart: array[0..5] of Integer = (0, 5, 11, 16, 22, 27);
 var
   St: TGSurface;
-  I, N, Row, Col, X, Half, HX, HY, Hearts2, Down: Integer;
+  X: Integer;
 
   procedure Part(SX, SY, W, H, DX, DY: Integer);
   begin
@@ -3012,13 +3020,24 @@ var
       Part(14 * (Ord(D[J]) - Ord('0')), 81, 14, 16, X0 + (J - 1) * 12, Y);
   end;
 
-  procedure KeyName(const K: string; BX, BY: Integer);
+  { traced from the real Graal-NW.exe: ExtTextOut in face "b" (Windows
+    maps it to Arial) 24, weight 400, white, no shadow, three pixels in
+    and down from the tag }
+  { S right-aligned to end at RX: digits and '/' (cell 10) of state.png }
+  procedure NwPower(const S: string; RX, Y: Integer);
   var
-    TX: Integer;
+    J, C: Integer;
   begin
-    TX := BX + (22 - TextWidth(K, 2)) div 2;
-    DrawText(Screen, TX + 1, BY + 9 + 1, K, $FF000000, 2);
-    DrawText(Screen, TX, BY + 9, K, $FFFFFFFF, 2);
+    for J := 1 to Length(S) do
+    begin
+      if S[J] = '/' then C := 10 else C := Ord(S[J]) - Ord('0');
+      Part(14 * C, 81, 14, 16, RX - 14 - (Length(S) - J) * 12, Y);
+    end;
+  end;
+
+  procedure KeyName(const K: string; BX, BY: Integer);
+  begin
+    HudDrawText(Screen, BX + 3, BY + 3, K, $FFFFFFFF, hfNwKey);
   end;
 
 begin
@@ -3031,29 +3050,23 @@ begin
     KeyName('A', 15, 30);
     if WeaponsOn then
     begin
-      Part(202, 0, 22, 33, 80, 30);
-      KeyName('S', 80, 30);
-      Part(202, 0, 22, 33, 145, 30);
-      KeyName('D', 145, 30);
+      { the tags 60 px apart (the real Graal-NW.exe under Wine) }
+      Part(202, 0, 22, 33, 75, 30);
+      KeyName('S', 75, 30);
+      Part(202, 0, 22, 33, 135, 30);
+      KeyName('D', 135, 30);
       if Player.GlovePower >= 2 then
-        DrawText(Screen, 60, 31, IntToStr(Player.GlovePower), $FFFFFFFF, 1);
-      DrawText(Screen, 125, 31, IntToStr(Player.SwordPower), $FFFFFFFF, 1);
+        HudNameText(Screen, 56, 31, IntToStr(Player.GlovePower), $FFFFFFFF, $FF0000FF);
+      { "Tempus Sans ITC" 24 bold, white on a blue shadow (traced) }
+      HudNameText(Screen, 121, 31, IntToStr(Player.SwordPower), $FFFFFFFF, $FF0000FF);
     end;
   end;
   if WeaponsOn then
   begin
-    if ShowStats and $02 <> 0 then Part(80, 33, 120, 16, 274, 30);
+    { Graal-NW.exe shows the gralat orb and its count only, no bombs or
+      arrows (the real client under Wine: orb at 274,30, count under it) }
+    if ShowStats and $02 <> 0 then Part(80, 33, 16, 16, 274, 30);
     if ShowStats and $04 <> 0 then Digits(Player.Rupees, 280, 48, True);
-    if ShowStats and $08 <> 0 then
-    begin
-      Part(14 * ((Player.Bombs div 10) mod 10), 81, 14, 16, 326, 48);
-      Part(14 * (Player.Bombs mod 10), 81, 14, 16, 338, 48);
-    end;
-    if ShowStats and $10 <> 0 then
-    begin
-      Part(14 * ((Player.Arrows div 10) mod 10), 81, 14, 16, 374, 48);
-      Part(14 * (Player.Arrows mod 10), 81, 14, 16, 386, 48);
-    end;
   end;
   { the selected weapon's whole image beside the D button: x 170, centred
     on y 45 }
@@ -3064,40 +3077,13 @@ begin
     if St <> nil then Screen.Blit(St, 0, 0, St.Width, St.Height, 170, 45 - St.Height div 2);
     St := Assets.Image('state.png', '');
   end;
-  { hearts: one per container while power remains }
+  { Graal-NW.exe draws the power as state.png digits, POWER/MAX 12 px
+    apart on y 39, over the bear at 532,24 (the real client under Wine:
+    "150/150" from x 454 at three full hearts, so 25 a half heart) }
   if ShowStats and $20 <> 0 then
   begin
-    Hearts2 := Player.Power;  { half hearts }
-    N := Min(Player.MaxPower, 30);
-    if N <= 4 then
-    begin
-      for I := 0 to N - 1 do
-      begin
-        if Hearts2 <= 2 * I then Break;
-        if Hearts2 >= 2 * I + 2 then Half := 0 else Half := 1;
-        Part(40 * Half, 0, 40, 44, ScreenW - 198 + 45 * I, 24);
-      end;
-    end
-    else
-    begin
-      if Hearts2 < 12 then Down := 10 else Down := 0;
-      for I := 0 to N - 1 do
-      begin
-        if Hearts2 <= 2 * I then Break;
-        if Hearts2 >= 2 * I + 2 then Half := 0 else Half := 1;
-        Row := 0;
-        while (Row < 5) and (I >= RowStart[Row + 1]) do Inc(Row);
-        Col := I - RowStart[Row];
-        HX := ScreenW - 198 + 35 * Col;
-        HY := 24 + Down;
-        if Row > 0 then
-        begin
-          Inc(HX, Round(17.5 * Row) - 35);
-          Inc(HY, 20 * Row);
-        end;
-        Part(80 + 31 * Half, 0, 31, 33, HX, HY);
-      end;
-    end;
+    Part(0, 0, 33, 41, 532, 24);
+    NwPower(IntToStr(Player.Power * 25) + '/' + IntToStr(Player.MaxPower * 50), 540, 39);
   end;
   { alignment bar }
   if ShowStats and $40 <> 0 then
