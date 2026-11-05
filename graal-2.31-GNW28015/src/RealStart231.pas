@@ -78,7 +78,7 @@ uses
 {$IFDEF MSWINDOWS}
   Windows,
 {$ENDIF}
-  SysUtils, Math, Res231, GUiFont;
+  SysUtils, Math, Res231, GUiFont, GSysUiFont;
 
 const
   DlgW = 577;
@@ -547,8 +547,10 @@ begin
     { TServerListFrame }
     LList := Box(24, 190, 201, 91);
     FCombo := Box(24, 290, 201, 23);
-    { Show More and Donations as the real 2.31 shows them on Windows
-      (2026-11-05), left of Connect; pressing them does nothing yet }
+    { TSERVERLISTFRAME's PaintButton1 (Show More) and PaintButton3: hidden
+      in the form; Graal_231.exe shows the first when the listserver sends
+      a site page (LSO_SITEURL) and the second for an upgrade page
+      (LSO_UPGURL), and each opens its page through the Open URL box }
     BMore := Box(120, 375, 105, 26);
     BDonate := Box(240, 375, 185, 26);
     BConnect := Box(440, 375, 105, 26);
@@ -748,8 +750,20 @@ begin
                 Win.TakeChars;
               end;
             end;
-            if Clicked and Inside(BMore, CX, CY) then Press(9);
-            if Clicked and Inside(BDonate, CX, CY) then Press(10);
+            if Clicked and (Fetch.SiteUrl <> '') and Inside(BMore, CX, CY) then
+            begin
+              Press(9);
+              RunOpenUrl(Fetch.SiteUrl, Art.Text);
+              Win.TakeClick(CX, CY);
+              Win.TakeChars;
+            end;
+            if Clicked and (Fetch.UpgradeUrl <> '') and Inside(BDonate, CX, CY) then
+            begin
+              Press(10);
+              RunOpenUrl(Fetch.UpgradeUrl, Art.Text);
+              Win.TakeClick(CX, CY);
+              Win.TakeChars;
+            end;
             if ((Clicked and Inside(BConnect, CX, CY)) or (Pos(#13, Chars) > 0)) and
               (Sel >= 0) and (Sel <= High(Fetch.Servers)) then
             begin
@@ -850,10 +864,12 @@ begin
             if Note <> '' then Wrapped(S, 24, 330, 529, Note, True)
             else if Fetch.StatusLines <> '' then Wrapped(S, 24, 330, 529, Fetch.StatusLines, True)
             else Wrapped(S, 24, 330, 529, Fetch.Status, True);
-            PicButton(S, Art.Btn[1], BMore.X, BMore.Y,
-              Art.Text('ServerList-Button2', 'Show More'), Pressed(9));
-            PicButton(S, Art.Btn[3], BDonate.X, BDonate.Y,
-              Art.Text('ServerList-Button4', 'Donations'), Pressed(10));
+            if Fetch.SiteUrl <> '' then
+              PicButton(S, Art.Btn[1], BMore.X, BMore.Y,
+                Art.Text('ServerList-Button2', 'Show More'), Pressed(9));
+            if Fetch.UpgradeUrl <> '' then
+              PicButton(S, Art.Btn[3], BDonate.X, BDonate.Y,
+                Art.Text('ServerList-Button4', 'Donations'), Pressed(10));
             PicButton(S, Art.Btn[1], BConnect.X, BConnect.Y,
               Art.Text('ServerList-Button1', 'Connect'), Pressed(7));
           end;

@@ -79,6 +79,7 @@ uses
   Dialogs231 in 'Dialogs231.pas',
   GTrueType in '../../common/GTrueType.pas',
   GUiFont in '../../common/GUiFont.pas',
+  GSysUiFont in '../../common/GSysUiFont.pas',
   RealStart231 in 'RealStart231.pas',
   RunMode in 'RunMode.pas';
 

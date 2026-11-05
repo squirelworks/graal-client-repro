@@ -129,22 +129,22 @@ file it needs is the demo itself.
 
 These are for 0.0.2 and later:
 
-- People in the game are drawn with this project's own bodies even with
+- [ ] People in the game are drawn with this project's own bodies even with
   the original assets; the demo builds them from its heads and its body
   frames, which the importer does not map yet. Their colours use the
   character's first palette only.
-- The object sprites (carried and thrown things, bomb, blast, boomerang)
+- [ ] The object sprites (carried and thrown things, bomb, blast, boomerang)
   and the menu icons are always this project's own.
-- Timing details: the frames a room load takes, the slide in 2-unit steps
+- [ ] Timing details: the frames a room load takes, the slide in 2-unit steps
   every frame, the captive's walking speed, how long each event step
   waits, the carousel's scrolling animation in the menu.
-- The rules of NPC movement modes 2 to 4 beyond a left-right patrol, an
+- [ ] The rules of NPC movement modes 2 to 4 beyond a left-right patrol, an
   up-down patrol and a wander; the NPC flag bits other than 0 and 7; the
   second walk-bit set.
-- The original runs on a monochrome Game Boy too (header flag $80). This
+- [ ] The original runs on a monochrome Game Boy too (header flag $80). This
   rebuild sets the same flag but needs a Game Boy Color: on an older model
   it shows a blank screen.
-- A side-by-side, action-by-action comparison with the demo (this is the
+- [ ] A side-by-side, action-by-action comparison with the demo (this is the
   0.0.2 check).
 
 ## Assets the build opens

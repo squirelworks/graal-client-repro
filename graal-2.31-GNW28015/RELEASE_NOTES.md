@@ -16,13 +16,10 @@ program carries small default graphics and a starter level of its own, so
 it runs as it is. Put it in the folder of a 2.31 install you own, next to
 its files, or keep those files in a `graal-assets/` folder beside it.
 
-## What's new in v0.0.3
+## What's new in v0.0.4
 
-- Faithfulness pass: compared side by side with the original program it was
-  rebuilt from, and the differences found brought in line with it.
-- Stress tested before release: a long soak with several players walking
-  between levels, others connecting and dropping again and again, and a
-  level with 80 scripted NPCs, with no crash, error or memory growth.
+- Faithfulness pass: compared side by side with the real 2.31 (under Wine
+  and on Windows), and the differences found brought in line with it.
 - [x] 2.31's own start window: its background and picture buttons, taken
   out of the real 2.31 program and built into this one, at the places the
   real one shows them. It is its own 577 x 416 window titled
@@ -71,10 +68,22 @@ its files, or keep those files in a `graal-assets/` folder beside it.
   the rebuild plays the tutorial itself (the built-in stand-in for the
   editor's play mode, which 2.31 does not have).
 - [x] Editor's not-found message is the same Error box.
-- [x] The server list has 2.31's Show More and Donations buttons, and its
-  Version box shows the start of the version, cut at the right.
+- [x] The server list's Show More and Donations buttons, traced from
+  Graal_231.exe: hidden in its form, shown when the listserver sends a
+  site page (Show More) or an upgrade page (Donations), each opening its
+  page through the Open URL box. The Version box shows the start of the
+  version, cut at the right.
+- [x] On Windows the windows' text is drawn by Windows in the forms' own
+  font, MS Sans Serif at 14 px (Font.Height -14 in every form), as 2.31's
+  controls draw it; elsewhere the built-in Liberation Sans stands in.
 - [x] The start window and server list have no icon in their caption, and
   the account box has the focus when the window opens, its text picked.
+
+## What's new in v0.0.3
+
+- Stress tested before release: a long soak with several players walking
+  between levels, others connecting and dropping again and again, and a
+  level with 80 scripted NPCs, with no crash, error or memory growth.
 
 ## Downloads
 
@@ -116,11 +125,8 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
   25 pixels lower and the torches about 10; 2.31's own height rules are
   not traced yet (the rebuild uses 2.22's). The ground needs the install's
   `maps/offlinetutorial.gmap`; without it Training is drawn flat.
-- [ ] Show More and Donations press but do nothing yet: what they open was
-  not seen.
 - [ ] Fullscreen uses 640 x 480, not the "Fullscreen mode" picked in More
   options.
-- [ ] Dialog text is drawn in Liberation Sans, not Windows' MS Sans Serif.
 - [ ] `graal://` and `graal3://` links, the F1 window, NPC movement
   messages, UDP. See the build's README for the full list.
 

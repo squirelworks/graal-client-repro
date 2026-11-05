@@ -92,7 +92,7 @@ uses
 {$IFDEF MSWINDOWS}
   Windows,
 {$ENDIF}
-  SysUtils, GUiFont, Res230;
+  SysUtils, GUiFont, GSysUiFont, Res230;
 
 { ---- graalconfig.txt ---- }
 

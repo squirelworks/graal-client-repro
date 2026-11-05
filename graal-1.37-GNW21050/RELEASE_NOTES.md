@@ -12,6 +12,14 @@ offline. It is early and many parts still behave like a later Graal: see
 The zips hold no original Graal code, graphics, sounds or levels. The
 client carries simple graphics of its own.
 
+## What's new in v0.0.3
+
+- The Windows program carries its original's own icon (the sword, taken from
+  the original exe), so Explorer shows it as the original did.
+- Stress tested before release: a long soak with several players walking
+  between levels, others connecting and dropping again and again, and a
+  level with 80 scripted NPCs, with no crash, error or memory growth.
+
 ## Downloads
 
 | Zip | Runs on | Window |
