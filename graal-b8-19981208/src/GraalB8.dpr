@@ -56,7 +56,12 @@ uses
   Adventure in 'Adventure.pas',
   GStartScreen in '../../common/GStartScreen.pas',
   StartScreenB8 in 'StartScreenB8.pas',
-  RunMode in 'RunMode.pas';
+  RunMode in 'RunMode.pas',
+  GDfmObj in '../../common/GDfmObj.pas',
+  GVclForm in '../../common/GVclForm.pas',
+  GBetaStart in '../../common/GBetaStart.pas',
+  RealResB8 in 'RealResB8.pas'
+{$IFDEF MSWINDOWS}, Windows{$ENDIF};
 
 var
   GuiArgs: TStringList = nil;
@@ -413,9 +418,9 @@ begin
   Result := ExitCode_;
 end;
 
-{ No arguments: the start screen, then the game it picks, and back to the
-  start screen when the game ends. }
-function RunGui: Integer;
+{ The shared start screen (systems without Win32), then the game it
+  picks, and back to the start screen when the game ends. }
+function RunSharedStart: Integer;
 var
   Win: TGWindow;
   G: TAdventure;
@@ -491,6 +496,110 @@ begin
     Win.Free;
   end;
 end;
+
+{ No arguments: the build's own start dialog, built from its TConnectFrame
+  form (src/RealResB8.pas, from the real client), then the game in a
+  window shaped as its TAdventure form. Closing the game window ends the
+  program, as in the original; a failed connection is reported and the
+  dialog shown again. Systems without Win32 use the shared start screen. }
+function RunGui: Integer;
+{$IFDEF MSWINDOWS}
+var
+  Info: TBetaStartInfo;
+  Choice: TBetaChoice;
+  GF: TBetaGameForm;
+  Dir, Host, Lvl, FormData, HeadsFile: string;
+  Port, I: Integer;
+  Win: TGWindow;
+begin
+  Result := 0;
+  Dir := ExtractFilePath(ParamStr(0));
+  if not RealResource('TCONNECTFRAME', Info.FormData) then
+  begin
+    Result := RunSharedStart;
+    Exit;
+  end;
+  InstallStopHandlers;
+  SetAssetRoots(Dir, ClientBuildLabel);
+  ReadListServer(Dir, DialogHost, DialogPort, Host, Port);
+  Info.AppTitle := 'Graal';
+  Info.Nick := '';
+  { the real dialog has no owner window and is not stay-on-top }
+  Info.AppOwned := False;
+  Info.StayOnTop := False;
+  { the lists shrink the heads in GDI's default mode }
+  Info.HeadPick := False;
+  SetLength(Info.Names, 0);
+  if CharacterNames[0] <> '' then
+  begin
+    SetLength(Info.Names, Length(CharacterNames));
+    for I := 0 to High(CharacterNames) do Info.Names[I] := CharacterNames[I];
+  end;
+  Info.Heads := nil;
+  HeadsFile := AssetPath('heads.gif');
+  if HeadsFile = '' then HeadsFile := AssetPath('heads.png');
+  if HeadsFile <> '' then
+  begin
+    Info.Heads := TGSurface.Create(1, 1);
+    if not LoadImageFile(HeadsFile, Info.Heads) then FreeAndNil(Info.Heads);
+  end;
+  try
+    repeat
+      if not RunBetaStart(Info, Choice) or StopRequested then Exit;
+      Info.Nick := Choice.Nick;
+      FormData := '';
+      RealResource('TADVENTURE', FormData);
+      BetaGameForm(FormData, GF);
+      Win := TGWindow.Create(GF.Caption, GF.ViewW, GF.ViewH);
+      GuiArgs := TStringList.Create;
+      try
+        Win.VclFrame(GF.Caption, GF.Width, GF.Height, GF.ViewW, GF.ViewH, GF.ChatH,
+          GF.MinBox, GF.MaxBox);
+        GuiArgs.Add('--window');
+        GuiArgs.Add('--data');
+        GuiArgs.Add(Dir);
+        if Choice.Mode = bmOnline then
+        begin
+          { the dialog's server field, when the player changed it; else the
+            relay of listserver.txt or the rebuild's default (the hosts the
+            originals were pre-filled with are gone) }
+          GuiArgs.Add('--server');
+          if Choice.HostEdited and (Trim(Choice.Host) <> '') then
+            GuiArgs.Add(Trim(Choice.Host) + ':' + IntToStr(Choice.Port))
+          else if Choice.Port > 0 then
+            GuiArgs.Add(Host + ':' + IntToStr(Choice.Port))
+          else
+            GuiArgs.Add(Host + ':' + IntToStr(Port));
+        end
+        else
+        begin
+          TrainingLevel(Dir, Lvl);
+          GuiArgs.Add('--level');
+          GuiArgs.Add(Lvl);
+        end;
+        LastGameError := '';
+        if (RunGame(Win, Choice.Nick) <> 0) and (Choice.Mode = bmOnline) and
+          not Win.Closed and not StopRequested then
+        begin
+          MessageBox(0, PChar('Could not connect: ' + LastGameError), 'Graal',
+            MB_OK or MB_ICONEXCLAMATION);
+          Continue;
+        end;
+        Exit;
+      finally
+        FreeAndNil(GuiArgs);
+        Win.Free;
+      end;
+    until StopRequested;
+  finally
+    Info.Heads.Free;
+  end;
+end;
+{$ELSE}
+begin
+  Result := RunSharedStart;
+end;
+{$ENDIF}
 
 begin
   Randomize;

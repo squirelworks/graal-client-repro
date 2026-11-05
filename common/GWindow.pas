@@ -93,6 +93,15 @@ type
     { Handles every waiting window event. }
     procedure Pump;
     procedure Present(Surface: TGSurface);
+    { Shows the window as a Delphi 3 form of the 1998 clients (their
+      TAdventure): outer size OuterW x OuterH as the form gives it, a
+      sizeable frame with the minimise box when MinBox (the maximise box
+      when MaxBox), centred. The surface (ViewW x ViewH, the form's DXDraw)
+      is drawn 1:1 at the top-left of the client area; when ChatH > 0 a
+      sunken white field ChatH high lies under it, the form's Edit1.
+      Other systems keep the window as created (ViewW x ViewH). }
+    procedure VclFrame(const Title: string; OuterW, OuterH, ViewW, ViewH,
+      ChatH: Integer; MinBox, MaxBox: Boolean);
     { New title and client size (the start dialog is 577 x 416, the game
       640 x 480), kept centred on the screen. }
     { Dialog: a fixed dialog frame with only the close button (2.22's
@@ -453,6 +462,38 @@ begin
     TranslateMessage(M);
     DispatchMessage(M);
   end;
+end;
+
+procedure TGWindow.VclFrame(const Title: string; OuterW, OuterH, ViewW, ViewH,
+  ChatH: Integer; MinBox, MaxBox: Boolean);
+var
+  Style: DWORD;
+  Chat: HWND;
+begin
+  SetWindowText(FWnd, PChar(Title));
+  FWidth := ViewW;
+  FHeight := ViewH;
+  Style := WS_CAPTION or WS_SYSMENU or WS_THICKFRAME or WS_CLIPCHILDREN or WS_VISIBLE;
+  if MinBox then Style := Style or WS_MINIMIZEBOX;
+  if MaxBox then Style := Style or WS_MAXIMIZEBOX;
+  SetWindowLong(FWnd, GWL_STYLE, LONG(Style));
+  SetWindowLong(FWnd, GWL_EXSTYLE, LONG(WS_EX_WINDOWEDGE or WS_EX_APPWINDOW));
+  SetClassLongPtr(FWnd, GCL_HBRBACKGROUND, LONG_PTR(COLOR_BTNFACE + 1));
+  SetWindowPos(FWnd, 0, (GetSystemMetrics(SM_CXSCREEN) - OuterW) div 2,
+    (GetSystemMetrics(SM_CYSCREEN) - OuterH) div 2, OuterW, OuterH,
+    SWP_NOZORDER or SWP_FRAMECHANGED);
+  if ChatH > 0 then
+  begin
+    { a white sunken box where the original's chat field is; it never
+      takes the keyboard from the game }
+    Chat := CreateWindowEx(WS_EX_CLIENTEDGE, 'STATIC', '',
+      WS_CHILD or WS_VISIBLE or SS_WHITERECT, 0, ViewH, ViewW, ChatH, FWnd, 0,
+      HInstance, nil);
+    if Chat = 0 then ;
+  end;
+  SendMessage(FWnd, WM_SETICON, ICON_BIG, LPARAM(LoadIcon(HInstance, 'MAINICON')));
+  SendMessage(FWnd, WM_SETICON, ICON_SMALL, LPARAM(LoadIcon(HInstance, 'MAINICON')));
+  InvalidateRect(FWnd, nil, True);
 end;
 
 procedure TGWindow.Reshape(const Title: string; AWidth, AHeight: Integer;
@@ -1197,5 +1238,12 @@ begin
 end;
 
 {$ENDIF}{$ENDIF}
+
+{$IFNDEF MSWINDOWS}
+procedure TGWindow.VclFrame(const Title: string; OuterW, OuterH, ViewW, ViewH,
+  ChatH: Integer; MinBox, MaxBox: Boolean);
+begin
+end;
+{$ENDIF}
 
 end.
