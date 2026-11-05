@@ -67,6 +67,7 @@ var
 begin
   FreeAndNil(Client);
   SetLength(Servers, 0);
+  StatusLines := '';
   Done := False;
   Failed := False;
   StartMs := NowMs;
@@ -101,6 +102,7 @@ procedure TListFetch222.Poll;
 begin
   if (Client = nil) or Done or Failed then Exit;
   Client.Poll;
+  StatusLines := Client.Status;
   if Client.Status <> '' then
     Status := StringReplace(Client.Status, #10, ' ', [rfReplaceAll]);
   if Client.Error <> '' then

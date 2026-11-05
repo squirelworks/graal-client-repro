@@ -27,7 +27,14 @@ type
   private
 {$IFDEF MSWINDOWS}
     FWnd: THandle;
+    { Delphi's hidden TApplication window: it owns the taskbar button }
+    FApp: THandle;
 {$ENDIF}
+    FDelphi: Boolean;
+    { has been fullscreen: Delphi's form then has no WS_EX_ACCEPTFILES }
+    FWasFull: Boolean;
+    { the last frame shown, painted again on WM_PAINT }
+    FLast: TGSurface;
 {$IFDEF GW_NONE}
 {$ELSE}{$IFNDEF MSWINDOWS}
     FDisplay: Pointer;
@@ -38,6 +45,14 @@ type
     FWmDelete: Cardinal;
 {$ENDIF}{$ENDIF}
     FWidth, FHeight: Integer;
+    { the title and frame Reshape last set, put back when fullscreen ends }
+    FTitle: string;
+    FFullscreen: Boolean;
+    FFullToggle: Boolean;
+{$IFNDEF MSWINDOWS}{$IFNDEF GW_NONE}
+    { where the frame sits in a fullscreen window larger than the mode }
+    FOffX, FOffY: Integer;
+{$ENDIF}{$ENDIF}
     { ShowForm: a Delphi form's frame; the picture is drawn 1:1 at the
       scroll position, and what lies beyond it is the form's colour }
     FForm, FAutoScroll: Boolean;
@@ -54,6 +69,7 @@ type
     procedure AddRightClick(X, Y: Integer);
 {$IFNDEF MSWINDOWS}{$IFNDEF GW_NONE}
     procedure SetArrow(Sym: Cardinal; Down: Boolean);
+    procedure NewImage(AWidth, AHeight: Integer);
 {$ENDIF}{$ENDIF}
   public
     MouseX, MouseY: Integer;
@@ -82,6 +98,23 @@ type
       [biSystemMenu, biMinimize]) }
     procedure Reshape(const Title: string; AWidth, AHeight: Integer;
       Dialog: Boolean = False; MinBox: Boolean = False);
+    { Alt+Enter as 2.22: fullscreen in the given mode (graalconfig.txt's
+      fullscreenmode) and back. Windows switches the display mode, as
+      DirectDraw's SetDisplayMode did; X11 fills the screen with a frame-
+      less window and centres the frame when the screen is larger. False
+      when the mode cannot be set (the window stays as it was). }
+    function EnterFullscreen(AWidth, AHeight: Integer): Boolean;
+    { Back to the desktop mode and the framed AWidth x AHeight window. }
+    procedure LeaveFullscreen(AWidth, AHeight: Integer);
+    property Fullscreen: Boolean read FFullscreen;
+    { The frames of a Delphi program, as 2.22's (the lab's GetWindowLong on
+      the real windows): the taskbar button belongs to a hidden window
+      titled AppTitle with the program's icon; Reshape's dialog is
+      bsDialog (no caption icon, close button only) and the game window
+      bsSizeable. Windows only. }
+    procedure UseDelphiFrames(const AppTitle: string);
+    { True once for each Alt+Enter since the last call. }
+    function TakeFullscreenToggle: Boolean;
     { A Delphi form's own window, as TForm makes it: the outer size the
       form gives (Width, Height), so the client is what the frame leaves
       of it on this system; a sizable frame with the minimise box and a
@@ -178,6 +211,12 @@ begin
   FChars := '';
 end;
 
+function TGWindow.TakeFullscreenToggle: Boolean;
+begin
+  Result := FFullToggle;
+  FFullToggle := False;
+end;
+
 function TGWindow.WasPressed(K: TGKey): Boolean;
 begin
   Result := FPressed[K];
@@ -188,6 +227,10 @@ end;
 
 var
   ActiveWindow: TGWindow;
+
+{ declared here so that nil (back to the registry mode) can be passed }
+function GwChangeDisplaySettings(DM: Pointer; Flags: DWORD): LongInt; stdcall;
+  external 'user32.dll' name 'ChangeDisplaySettingsA';
 
 function VKToKey(VK: WPARAM): TGKey;
 begin
@@ -233,6 +276,15 @@ begin
           ActiveWindow.SetKey(VKToKey(WP), Msg = WM_KEYDOWN);
           Exit;
         end;
+      WM_SYSKEYDOWN:
+        { Alt+Enter (bit 29: Alt held; bit 30: an auto-repeat) }
+        if (WP = VK_RETURN) and ((LP and (1 shl 29)) <> 0) then
+        begin
+          if (LP and (1 shl 30)) = 0 then ActiveWindow.FFullToggle := True;
+          Exit;
+        end;
+      WM_SYSCHAR:
+        if WP = 13 then Exit; { no beep for Alt+Enter }
       WM_CHAR: begin ActiveWindow.AddChar(Chr(WP and $FF)); Exit; end;
       WM_LBUTTONDOWN:
         begin
@@ -273,6 +325,24 @@ begin
           Exit;
         end;
       WM_CLOSE: begin ActiveWindow.Closed := True; Exit; end;
+      { the frame covers the client: no erasing, and a paint (uncovering,
+        restoring) shows the last frame again }
+      WM_ERASEBKGND:
+        if ActiveWindow.FLast <> nil then begin Result := 1; Exit; end;
+      WM_PAINT:
+        if ActiveWindow.FLast <> nil then
+        begin
+          ValidateRect(Wnd, nil);
+          ActiveWindow.Present(ActiveWindow.FLast);
+          Exit;
+        end;
+      WM_SYSCOMMAND:
+        { minimising a form minimises the application, as Delphi's }
+        if ((WP and $FFF0) = SC_MINIMIZE) and (ActiveWindow.FApp <> 0) then
+        begin
+          ShowWindow(ActiveWindow.FApp, SW_MINIMIZE);
+          Exit;
+        end;
       WM_SIZE:
         if ActiveWindow.FForm then UpdateFormScroll(ActiveWindow, Wnd);
       WM_HSCROLL, WM_VSCROLL:
@@ -301,6 +371,8 @@ begin
   { the program's MAINICON (its .rc), in the title bar and the taskbar;
     none: Windows' default }
   WC.hIcon := LoadIcon(HInstance, 'MAINICON');
+  { what a larger (resized) window shows past the frame }
+  WC.hbrBackground := GetStockObject(BLACK_BRUSH);
   WC.lpszClassName := 'TGraalWindow';
   Windows.RegisterClass(WC);
   R.Left := 0; R.Top := 0; R.Right := AWidth; R.Bottom := AHeight;
@@ -314,7 +386,11 @@ end;
 
 destructor TGWindow.Destroy;
 begin
+  if FFullscreen then GwChangeDisplaySettings(nil, 0);
+  ActiveWindow := nil;
+  FreeAndNil(FLast);
   if FWnd <> 0 then DestroyWindow(FWnd);
+  if FApp <> 0 then DestroyWindow(FApp);
   ActiveWindow := nil;
   inherited Destroy;
 end;
@@ -342,6 +418,7 @@ var
   W, H: Integer;
   Style, ExStyle: DWORD;
 begin
+  FTitle := Title;
   if FForm then
   begin
     FForm := False;
@@ -353,7 +430,26 @@ begin
   SetWindowText(FWnd, PChar(Title));
   FWidth := AWidth;
   FHeight := AHeight;
-  if Dialog then
+  if FDelphi and Dialog then
+  begin
+    { bsDialog as Delphi 7 makes it: $96C80000 / $00000101 on the real
+      2.22's start window and server list }
+    Style := WS_POPUP or WS_VISIBLE or WS_CLIPSIBLINGS or WS_CLIPCHILDREN or
+      WS_CAPTION or WS_SYSMENU;
+    ExStyle := WS_EX_DLGMODALFRAME or WS_EX_WINDOWEDGE;
+  end
+  else if FDelphi then
+  begin
+    { bsSizeable: $16CF0000 / $00010110 on the real 2.22's game window,
+      $00010100 once it has been fullscreen }
+    Style := WS_VISIBLE or WS_CLIPSIBLINGS or WS_CLIPCHILDREN or WS_CAPTION or
+      WS_SYSMENU or WS_THICKFRAME or WS_MINIMIZEBOX or WS_MAXIMIZEBOX;
+    ExStyle := WS_EX_CONTROLPARENT or WS_EX_WINDOWEDGE;
+    if not FWasFull then ExStyle := ExStyle or WS_EX_ACCEPTFILES;
+    { the taskbar button (the application window) takes the game's title }
+    if FApp <> 0 then SetWindowText(FApp, PChar(Title));
+  end
+  else if Dialog then
   begin
     { bsDialog: caption and close button only; the taskbar still shows
       the program }
@@ -380,8 +476,104 @@ begin
     (GetSystemMetrics(SM_CYSCREEN) - H) div 2, W, H, SWP_NOZORDER or SWP_FRAMECHANGED);
   { the big icon for the taskbar and Alt+Tab, the small one for the
     caption }
-  SendMessage(FWnd, WM_SETICON, ICON_BIG, LPARAM(LoadIcon(HInstance, 'MAINICON')));
-  SendMessage(FWnd, WM_SETICON, ICON_SMALL, LPARAM(LoadIcon(HInstance, 'MAINICON')));
+  if FDelphi and Dialog then
+  begin
+    { a Delphi dialog's caption has no icon }
+    SendMessage(FWnd, WM_SETICON, ICON_BIG, 0);
+    SendMessage(FWnd, WM_SETICON, ICON_SMALL, 0);
+  end
+  else
+  begin
+    SendMessage(FWnd, WM_SETICON, ICON_BIG, LPARAM(LoadIcon(HInstance, 'MAINICON')));
+    SendMessage(FWnd, WM_SETICON, ICON_SMALL, LPARAM(LoadIcon(HInstance, 'MAINICON')));
+  end;
+end;
+
+function AppWndProc(Wnd: HWND; Msg: UINT; WP: WPARAM; LP: LPARAM): LRESULT; stdcall;
+begin
+  Result := 0;
+  if ActiveWindow <> nil then
+    case Msg of
+      { the taskbar button brings the form forward, as TApplication }
+      WM_ACTIVATE:
+        if (LOWORD(WP) <> WA_INACTIVE) and (ActiveWindow.FWnd <> 0) and
+          IsWindowEnabled(ActiveWindow.FWnd) then
+        begin
+          SetFocus(ActiveWindow.FWnd);
+          Exit;
+        end;
+      WM_CLOSE: begin ActiveWindow.Closed := True; Exit; end;
+    end;
+  Result := DefWindowProc(Wnd, Msg, WP, LP);
+end;
+
+procedure TGWindow.UseDelphiFrames(const AppTitle: string);
+var
+  WC: TWndClass;
+begin
+  if (FWnd = 0) or (FApp <> 0) then Exit;
+  FillChar(WC, SizeOf(WC), 0);
+  WC.lpfnWndProc := @AppWndProc;
+  WC.hInstance := HInstance;
+  WC.hIcon := LoadIcon(HInstance, 'MAINICON');
+  WC.hCursor := LoadCursor(0, IDC_ARROW);
+  WC.lpszClassName := 'TApplication';
+  Windows.RegisterClass(WC);
+  { TApplication.CreateHandle: a 0 x 0 window in the screen centre }
+  FApp := CreateWindow('TApplication', PChar(AppTitle),
+    WS_POPUP or WS_CAPTION or WS_CLIPSIBLINGS or WS_SYSMENU or WS_MINIMIZEBOX,
+    GetSystemMetrics(SM_CXSCREEN) div 2, GetSystemMetrics(SM_CYSCREEN) div 2,
+    0, 0, 0, 0, HInstance, nil);
+  if FApp = 0 then Exit;
+  SendMessage(FApp, WM_SETICON, ICON_BIG, LPARAM(WC.hIcon));
+  SendMessage(FApp, WM_SETICON, ICON_SMALL, LPARAM(WC.hIcon));
+  ShowWindow(FApp, SW_SHOWNORMAL);
+  FDelphi := True;
+  { the forms' class has no icon: a bsDialog caption shows none, the game
+    window gets one with WM_SETICON (Reshape) }
+  SetClassLong(FWnd, GCL_HICON, 0);
+  SetClassLong(FWnd, -34 { GCL_HICONSM }, 0);
+  { the form is owned by the application window: no button of its own }
+  ShowWindow(FWnd, SW_HIDE);
+  SetWindowLong(FWnd, GWL_HWNDPARENT, LONG(FApp));
+  ShowWindow(FWnd, SW_SHOW);
+end;
+
+function TGWindow.EnterFullscreen(AWidth, AHeight: Integer): Boolean;
+var
+  DM: TDevMode;
+begin
+  Result := False;
+  if (FWnd = 0) or FFullscreen then Exit;
+  FillChar(DM, SizeOf(DM), 0);
+  DM.dmSize := SizeOf(DM);
+  DM.dmPelsWidth := AWidth;
+  DM.dmPelsHeight := AHeight;
+  DM.dmFields := DM_PELSWIDTH or DM_PELSHEIGHT;
+  if GwChangeDisplaySettings(@DM, CDS_FULLSCREEN) <> DISP_CHANGE_SUCCESSFUL then Exit;
+  FFullscreen := True;
+  FWidth := AWidth;
+  FHeight := AHeight;
+  FWasFull := True;
+  SetWindowLong(FWnd, GWL_STYLE, LONG(WS_POPUP or WS_VISIBLE));
+  { $00010008 on the real 2.22 in fullscreen }
+  if FDelphi then
+    SetWindowLong(FWnd, GWL_EXSTYLE, LONG(WS_EX_CONTROLPARENT or WS_EX_TOPMOST))
+  else
+    SetWindowLong(FWnd, GWL_EXSTYLE, LONG(WS_EX_APPWINDOW or WS_EX_TOPMOST));
+  SetWindowPos(FWnd, HWND_TOPMOST, 0, 0, AWidth, AHeight,
+    SWP_FRAMECHANGED or SWP_SHOWWINDOW);
+  SetForegroundWindow(FWnd);
+  Result := True;
+end;
+
+procedure TGWindow.LeaveFullscreen(AWidth, AHeight: Integer);
+begin
+  if not FFullscreen then Exit;
+  GwChangeDisplaySettings(nil, 0);
+  FFullscreen := False;
+  SetWindowPos(FWnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE or SWP_NOSIZE);
+  Reshape(FTitle, AWidth, AHeight, False);
 end;
 
 procedure UpdateFormScroll(W: TGWindow; Wnd: HWND);
@@ -460,6 +652,8 @@ procedure TGWindow.ShowForm(const Title: string; OuterW, OuterH, DesignW, Design
 var
   Style: DWORD;
 begin
+  { the game's last frame is not the form's: no repaint from it }
+  FreeAndNil(FLast);
   FForm := True;
   FAutoScroll := AutoScroll;
   FDesignW := DesignW;
@@ -526,6 +720,17 @@ begin
   BI.bmiHeader.biPlanes := 1;
   BI.bmiHeader.biBitCount := 32;
   BI.bmiHeader.biCompression := BI_RGB;
+  { a copy of the frame for WM_PAINT (the game's own surface may be
+    freed or resized before the next paint) }
+  if Surface <> FLast then
+  begin
+    if FLast = nil then FLast := TGSurface.Create(Surface.Width, Surface.Height)
+    else if (FLast.Width <> Surface.Width) or (FLast.Height <> Surface.Height) then
+      FLast.SetSize(Surface.Width, Surface.Height);
+    if Surface.Width * Surface.Height > 0 then
+      Move(Surface.Pixels[0], FLast.Pixels[0], Surface.Width * Surface.Height * 4);
+  end;
+  if Surface.Width * Surface.Height = 0 then Exit;
   DC := GetDC(FWnd);
   StretchDIBits(DC, 0, 0, FWidth, FHeight, 0, 0, Surface.Width, Surface.Height,
     @Surface.Pixels[0], BI, DIB_RGB_COLORS, SRCCOPY);
@@ -560,6 +765,20 @@ end;
 procedure TGWindow.Present(Surface: TGSurface);
 begin
 end;
+
+procedure TGWindow.UseDelphiFrames(const AppTitle: string);
+begin
+end;
+
+function TGWindow.EnterFullscreen(AWidth, AHeight: Integer): Boolean;
+begin
+  Result := False;
+end;
+
+procedure TGWindow.LeaveFullscreen(AWidth, AHeight: Integer);
+begin
+end;
+
 
 procedure TGWindow.ShowForm(const Title: string; OuterW, OuterH, DesignW, DesignH: Integer;
   AutoScroll: Boolean; FormColor: Cardinal);
@@ -699,7 +918,9 @@ begin
           if (Sym = XK_Shift_L) or (Sym = XK_Shift_R) then ShiftHeld := True;
           SetArrow(Sym, True);
           SetKey(KeySymToKey(Sym), True);
-          if Sym = XK_BackSpace then AddChar(#8)
+          if ((Sym = XK_Return) or (Sym = XK_KP_Enter)) and
+            ((E.xkey.state and Mod1Mask) <> 0) then FFullToggle := True
+          else if Sym = XK_BackSpace then AddChar(#8)
           else if (Sym = XK_Return) or (Sym = XK_KP_Enter) then AddChar(#13)
           else if Sym = XK_Tab then AddChar(#9)
           else if Sym = XK_Escape then AddChar(#27)
@@ -713,8 +934,8 @@ begin
         end;
       ButtonPress:
         case E.xbutton.button of
-          1: begin MouseLeft := True; AddClick(E.xbutton.x, E.xbutton.y); end;
-          3: begin MouseRight := True; AddRightClick(E.xbutton.x, E.xbutton.y); end;
+          1: begin MouseLeft := True; AddClick(E.xbutton.x - FOffX, E.xbutton.y - FOffY); end;
+          3: begin MouseRight := True; AddRightClick(E.xbutton.x - FOffX, E.xbutton.y - FOffY); end;
           4: Dec(FWheel);
           5: Inc(FWheel);
         end;
@@ -725,8 +946,8 @@ begin
         end;
       MotionNotify:
         begin
-          MouseX := E.xmotion.x;
-          MouseY := E.xmotion.y;
+          MouseX := E.xmotion.x - FOffX;
+          MouseY := E.xmotion.y - FOffY;
         end;
       KeyRelease:
         begin
@@ -768,6 +989,7 @@ var
 begin
   D := FDisplay;
   if D = nil then Exit;
+  FTitle := Title;
   XStoreName(D, FWin, PChar(Title));
   { _MOTIF_WM_HINTS: a dialog may only be moved and closed; the game may
     also be minimised }
@@ -787,19 +1009,7 @@ begin
   XChangeProperty(D, FWin, A, A, 32, PropModeReplace, @MH, 5);
   if (AWidth <> FWidth) or (AHeight <> FHeight) then
   begin
-    Scr := DefaultScreen(D);
-    if FImage <> nil then
-    begin
-      PXImage(FImage)^.data := nil;
-      XDestroyImage(FImage);
-    end;
-    if FImageBuf <> nil then FreeMem(FImageBuf);
-    FWidth := AWidth;
-    FHeight := AHeight;
-    GetMem(FImageBuf, AWidth * AHeight * 4);
-    FillChar(FImageBuf^, AWidth * AHeight * 4, 0);
-    FImage := XCreateImage(D, DefaultVisual(D, Scr), 24, ZPixmap, 0, FImageBuf,
-      AWidth, AHeight, 32, AWidth * 4);
+    NewImage(AWidth, AHeight);
     Hints := XAllocSizeHints;
     Hints^.flags := PMinSize or PMaxSize;
     Hints^.min_width := AWidth;
@@ -817,6 +1027,102 @@ begin
   XFlush(D);
 end;
 
+procedure TGWindow.UseDelphiFrames(const AppTitle: string);
+begin
+end;
+
+procedure TGWindow.NewImage(AWidth, AHeight: Integer);
+var
+  D: PDisplay;
+begin
+  D := FDisplay;
+  if FImage <> nil then
+  begin
+    PXImage(FImage)^.data := nil;
+    XDestroyImage(FImage);
+  end;
+  if FImageBuf <> nil then FreeMem(FImageBuf);
+  FWidth := AWidth;
+  FHeight := AHeight;
+  GetMem(FImageBuf, AWidth * AHeight * 4);
+  FillChar(FImageBuf^, AWidth * AHeight * 4, 0);
+  FImage := XCreateImage(D, DefaultVisual(D, DefaultScreen(D)), 24, ZPixmap, 0,
+    FImageBuf, AWidth, AHeight, 32, AWidth * 4);
+end;
+
+{ _NET_WM_STATE_FULLSCREEN on or off, for a window manager that has it }
+procedure SendFullscreenState(D: PDisplay; Win: TWindow; On: Boolean);
+var
+  E: TXEvent;
+begin
+  FillChar(E, SizeOf(E), 0);
+  E.xclient._type := ClientMessage;
+  E.xclient.window := Win;
+  E.xclient.message_type := XInternAtom(D, '_NET_WM_STATE', False);
+  E.xclient.format := 32;
+  E.xclient.data.l[0] := Ord(On); { 1 add, 0 remove }
+  E.xclient.data.l[1] := XInternAtom(D, '_NET_WM_STATE_FULLSCREEN', False);
+  E.xclient.data.l[3] := 1;
+  XSendEvent(D, RootWindow(D, DefaultScreen(D)), False,
+    SubstructureRedirectMask or SubstructureNotifyMask, @E);
+end;
+
+function TGWindow.EnterFullscreen(AWidth, AHeight: Integer): Boolean;
+type
+  TMotifHints = record
+    Flags, Functions, Decorations: culong;
+    InputMode: clong;
+    Status: culong;
+  end;
+var
+  D: PDisplay;
+  Scr: cint;
+  DW, DH: Integer;
+  Hints: PXSizeHints;
+  MH: TMotifHints;
+  A: TAtom;
+begin
+  Result := False;
+  D := FDisplay;
+  if (D = nil) or FFullscreen then Exit;
+  Scr := DefaultScreen(D);
+  DW := DisplayWidth(D, Scr);
+  DH := DisplayHeight(D, Scr);
+  if (DW < AWidth) or (DH < AHeight) then Exit;
+  FFullscreen := True;
+  NewImage(AWidth, AHeight);
+  FOffX := (DW - AWidth) div 2;
+  FOffY := (DH - AHeight) div 2;
+  FillChar(MH, SizeOf(MH), 0);
+  MH.Flags := 2; { decorations: none }
+  A := XInternAtom(D, '_MOTIF_WM_HINTS', False);
+  XChangeProperty(D, FWin, A, A, 32, PropModeReplace, @MH, 5);
+  Hints := XAllocSizeHints;
+  Hints^.flags := 0;
+  XSetWMNormalHints(D, FWin, Hints);
+  XFree(Hints);
+  XMoveResizeWindow(D, FWin, 0, 0, DW, DH);
+  SendFullscreenState(D, FWin, True);
+  XRaiseWindow(D, FWin);
+  XClearWindow(D, FWin);
+  XFlush(D);
+  Result := True;
+end;
+
+procedure TGWindow.LeaveFullscreen(AWidth, AHeight: Integer);
+var
+  D: PDisplay;
+begin
+  D := FDisplay;
+  if (D = nil) or not FFullscreen then Exit;
+  FFullscreen := False;
+  FOffX := 0;
+  FOffY := 0;
+  SendFullscreenState(D, FWin, False);
+  FWidth := -1; { Reshape makes a new image and sets the size again }
+  Reshape(FTitle, AWidth, AHeight, False);
+end;
+
 procedure TGWindow.Present(Surface: TGSurface);
 var
   D: PDisplay;
@@ -827,7 +1133,7 @@ begin
   N := Surface.Width * Surface.Height;
   if N > FWidth * FHeight then N := FWidth * FHeight;
   if N > 0 then Move(Surface.Pixels[0], FImageBuf^, N * 4);
-  XPutImage(D, FWin, FGC, FImage, 0, 0, 0, 0, FWidth, FHeight);
+  XPutImage(D, FWin, FGC, FImage, 0, 0, FOffX, FOffY, FWidth, FHeight);
   XFlush(D);
 end;
 
