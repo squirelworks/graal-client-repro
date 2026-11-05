@@ -5,8 +5,7 @@
 
 RELEASES.md has one row per client with its newest release. For each
 folder named, this rewrites that row's Level, Release and Download cells to
-the given version (dropping the Linux link: releases are Windows only
-now). Every client of a version is in ONE release, tagged
+the given version (with a Linux link next to each Windows one). Every client of a version is in ONE release, tagged
 with the version itself (v0.0.4), and each zip is named
 <folder>-<version>[-os].zip, so the links follow from it. Rows of clients not named are
 left alone, so the table stays "the newest release of each client". It also
@@ -34,8 +33,10 @@ def update(text, version, folders, today):
                     cells[6] = f' [{version}]({BASE}/tag/{version}) '
                     cells[7] = re.sub(r'/download/[^/)]+/' + re.escape(f) + r'-v[0-9]+(?:\.[0-9]+)*',
                                       f'/download/{version}/{f}-{version}', cells[7])
-                    # releases are Windows only now: no Linux zip to link to
-                    cells[7] = re.sub(r'\[Linux\]\([^)]*\) · ', '', cells[7])
+                    # a Delphi client ships a Linux zip next to its Windows one
+                    w = re.search(r'\[Windows\]\(([^)]*)-windows\.zip\)', cells[7])
+                    if w and '[Linux]' not in cells[7]:
+                        cells[7] = cells[7].replace('[Windows]', f'[Linux]({w.group(1)}-linux.zip) · [Windows]', 1)
                     line = '|'.join(cells)
                     done.add(f)
                 break

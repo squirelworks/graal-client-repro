@@ -75,6 +75,10 @@ uses
   Map119 in 'Map119.pas',
   GStartScreen in '../../common/GStartScreen.pas',
   StartScreen119 in 'StartScreen119.pas',
+  GDfm1x in '../../common/GDfm1x.pas',
+  GUiFont in '../../common/GUiFont.pas',
+  GLaunch1x in '../../common/GLaunch1x.pas',
+  Res119 in 'Res119.pas',
   RunMode in 'RunMode.pas',
   GLevelWrite in '../../common/GLevelWrite.pas',
   EditorDoc in 'editor/EditorDoc.pas',
@@ -90,6 +94,10 @@ var
   GuiArgs: TStringList = nil;
   { why the last game ended, for the start screen }
   LastGameError: string = '';
+  { the character picked in the start dialog: its head and colours }
+  GuiHasLook: Boolean = False;
+  GuiHead: string = '';
+  GuiColors: array[0..4] of Integer;
 
 function ArgCount: Integer;
 begin
@@ -565,8 +573,17 @@ var
   Picked: Boolean;
   Info: TStartInfo;
   Who: TCharacter119;
+  LaunchChars: TCharList;
+  LaunchCfg: TLaunchConfig;
+  LR: TLaunchResult;
+  Icons: THeadIcons;
+  Langs: TStringList;
+  Offline: Boolean;
+  I: Integer;
 begin
   Result := 0;
+  Icons := nil;
+  Langs := nil;
   Dir := ExtractFilePath(ParamStr(0));
   Win := TGWindow.Create('Graal ' + ClientBuildLabel, ScreenW, ScreenH);
   try
@@ -586,29 +603,55 @@ begin
     InstallStopHandlers;
     FillChar(R, SizeOf(R), 0);
     Msg := '';
+    { The start dialog is the program's own form (TConnectFrame, compiled
+      in from the real exe: Res119); its character list is the
+      install's headsconfig.txt, else the list the exe carries. }
+    LaunchChars := ParseCharacters(ResCharacters);
+    Icons := THeadIcons.Create(Dir);
+    Langs := InstallLanguages(Dir);
+    LaunchCfg.Style := ls11;
+    LaunchCfg.ServerEnabled := True;
+    LaunchCfg.DefServer := 'www.graalonline.com';
+    LaunchCfg.DefPort := 14802;
+    LaunchCfg.DefMode := 0;
+    ServerOverride(Dir, LaunchCfg.DefServer, LaunchCfg.DefPort);
     repeat
       Win.TakeChars;
-      G := TAdventure.Create;
-      Who := TCharacter119.Create;
-      try
-        G.UseInstall(Dir);
-        Who.G := G;
-        Info.Title := 'graal-delphi';
-        Info.Subtitle := '1.1.9 rebuilt';
-        Info.DrawCharacter := Who.Draw;
-        Info.StopRequested := StopRequested;
-        Picked := RunConnectScreen(Win, G.Screen, Info, DefHost, DefPort, Msg, R);
-      finally
-        Who.Free;
-        G.Free;
+      if not RunLaunch1x(Win, ResConnectFrame, LaunchCfg, LaunchChars, Icons.Icon, Langs, LR,
+        StopRequested) then Exit;
+      if Win.Closed or StopRequested then Exit;
+      { the first player's character: head and the five body colours }
+      GuiHasLook := (LR.Chars[0] >= 0) and (LR.Chars[0] <= High(LaunchChars));
+      if GuiHasLook then
+      begin
+        GuiHead := LaunchChars[LR.Chars[0]].Head;
+        for I := 0 to 4 do GuiColors[I] := LaunchChars[LR.Chars[0]].Colors[I];
       end;
-      if not Picked or Win.Closed or StopRequested then Exit;
+      { One Player Online connects; the other modes play offline (two to
+        four players on one keyboard are not rebuilt yet) }
+      Offline := LR.Mode <> 1;
+      R.Host := LR.Server;
+      R.Port := LR.Port;
+      { www.graalonline.com, the dialog's own default, is long gone: it
+        stands for the community server the rebuild used before }
+      if SameText(R.Host, 'www.graalonline.com') then
+      begin
+        R.Host := DefHost;
+        R.Port := DefPort;
+      end;
+      R.Account := LR.Account;
+      if R.Account = '' then R.Account := LR.Nickname;
+      R.Password := LR.Password;
+      R.Nickname := LR.Nickname;
+      if R.Nickname = '' then R.Nickname := 'unknown';
+      { the game window: TAdventure's caption and frame, 448 high }
+      Win.Reshape(FormCaption(ResAdventure, 'Graal'), ScreenW, ScreenH, False, True);
       GuiArgs := TStringList.Create;
       try
         GuiArgs.Add('--window');
         GuiArgs.Add('--data');
         GuiArgs.Add(Dir);
-        if R.Choice = scTraining then
+        if Offline then
         begin
           TrainingLevel(Dir, Lvl, X, Y);
           GuiArgs.Add('--level');
@@ -633,6 +676,8 @@ begin
       end;
     until Win.Closed or StopRequested;
   finally
+    Icons.Free;
+    Langs.Free;
     Win.Free;
   end;
 end;
