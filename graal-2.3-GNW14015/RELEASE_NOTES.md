@@ -18,6 +18,7 @@ its files, or keep those files in a `graal-assets/` folder beside it.
 
 ## What's new in v0.0.4
 
+- Rebuilt from the latest code; the changes for this client are listed here as they land.
 - Faithfulness pass: 2.3 follows 2.31 (no 2.3 program survives), which was
   compared side by side with the real 2.31 and brought in line with it.
 - [x] No 2.3 program survives, so 2.3 is now modelled on 2.31, the nearest

@@ -12,6 +12,10 @@ offline. It is early and many parts still behave like a later Graal: see
 The zips hold no original Graal code, graphics, sounds or levels. The
 client carries simple graphics of its own.
 
+## What's new in v0.0.4
+
+- Rebuilt from the latest code; the changes for this client are listed here as they land.
+
 ## What's new in v0.0.3
 
 - Stress tested before release: a long soak with several players walking

@@ -735,6 +735,10 @@ begin
         { "Graal: <server>" online, as 2.22's title bar }
         if (R.Choice = scOnline) and (R.ServerName <> '') and (Art <> nil) then
           Win.Reshape(GameTitle + ': ' + R.ServerName, ScreenW, ScreenH)
+        else if Art <> nil then
+          { 2.22's game window starts with the caption 'G r a a l', letters
+            spaced, set when the window is made }
+          Win.Reshape('G r a a l', ScreenW, ScreenH)
         else
           Win.Reshape(GameTitle, ScreenW, ScreenH);
         if RunGame(Win, R.Password, R.Nickname) <> 0 then
