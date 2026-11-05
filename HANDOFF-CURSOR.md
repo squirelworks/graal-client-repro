@@ -205,10 +205,10 @@ tarball under `project-files/` where listed):
 - per-version captures and extracted resources from the side-by-side run:
   copied in when they land (Friday refresh)
 
-**Squirrel's Windows PC** (`mirae`):
+**Squirrel's Windows PC**:
 
-- `C:\Users\brian\Claude\Graal\`: the real client installs, one folder per version (54 pairs with a rebuild)
-- `C:\Users\brian\Claude\graal-lab\`: the lab (real-client runs, captures, the error-dialog watchdog)
+- `<local client folder>`: the real client installs, one folder per version (54 pairs with a rebuild)
+- `<local lab folder>`: the lab (real-client runs, captures, the error-dialog watchdog)
 
 The PC cannot build or push; code changes happen in the cloud or in Cursor.
 
