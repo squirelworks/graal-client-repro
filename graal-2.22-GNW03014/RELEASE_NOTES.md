@@ -1,6 +1,6 @@
 # Graal 2.22 (GNW03014)
 
-The first rebuild of the classic Graal 2.22 client in Delphi (Object
+A rebuild of the classic Graal 2.22 client in Delphi (Object
 Pascal). Like the original it is a windowed program: it opens on a start
 screen with Training (the offline tutorial), the server list from the
 listserver, and login. It talks the 2.22 wire protocol (gen 5: a compression byte per
@@ -22,6 +22,10 @@ own, so it runs as it is. Put it in a 2.22 install you own (or point it at
 one with `--data DIR`) and the install's tiles, ganis, heads, bodies,
 start-window picture and offline tutorial take their place.
 
+Files are looked for in the program's own folder first, then in
+`graal-assets/2.22` and `graal-assets/common` beside it, then in the
+`--data` folder. Nothing above the program's folder is read.
+
 ## Downloads
 
 | Zip | Runs on | Window |
@@ -37,7 +41,8 @@ build's README.
 - The start screen: nick name, Training, Start. Start fetches the server
   list (hosts from the install's `arrays2.dat`, or `listserver.txt` next
   to the program, else `listserver.graal.in:14922`), then account,
-  password and Connect.
+  password and Connect. When no listserver answers, the status line
+  names each host that failed and why.
 - Training: the offline tutorial levels, when they lie next to the
   program, with the tutorial's own tile set; else a built-in starter level.
 - Login to a 2.22 server: login type 5, `GNW03014`, the tamper check, and
@@ -57,6 +62,12 @@ build's README.
 - Sound effects in a window (`--nosound` turns them off).
 - Level links, asked with LEVELWARP or, for a level already seen,
   LEVELWARPMOD with its mod time, each followed by the tamper check.
+- The ground of new-world maps: a level with a height grid in its
+  `.gmap` is drawn as water, sand, sand and grass, or grass by height,
+  with slopes lit from the upper left, as measured on the real 2.22.
+- Baddies by 2.22's rules: they hunt the nearest player in the level,
+  slide along walls, play 2.22's sounds (steps, frog, shield, splash,
+  death), and a shield block pushes the player back.
 - Gmaps: the warp onto a gmap, the `.gmap` file, the neighbouring levels,
   and walking over an edge into the next level.
 - A headless mode for stress runs, with a random walker, JSON stats and
@@ -88,7 +99,7 @@ bar; Options; UDP peer traffic; macOS. See the build's README for the full list.
 
 ## Checks behind this release
 
-The test suites (305 checks) runs with range and overflow checks and the heap
+The test suites (327 checks) run with range and overflow checks and the heap
 tracer, and must end with no unfreed memory. It includes frames of a real
 2.22 session, a bzip2 round trip against random and repetitive data, and a
 fuzz run of 20000 random messages and 3000 random gen-5 frames through the
