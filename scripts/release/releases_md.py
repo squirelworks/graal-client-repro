@@ -5,7 +5,8 @@
 
 RELEASES.md has one row per client with its newest release. For each
 folder named, this rewrites that row's Level, Release and Download cells to
-the given version. Every client of a version is in ONE release, tagged
+the given version (dropping the Linux link: releases are Windows only
+now). Every client of a version is in ONE release, tagged
 with the version itself (v0.0.4), and each zip is named
 <folder>-<version>[-os].zip, so the links follow from it. Rows of clients not named are
 left alone, so the table stays "the newest release of each client". It also
@@ -33,6 +34,8 @@ def update(text, version, folders, today):
                     cells[6] = f' [{version}]({BASE}/tag/{version}) '
                     cells[7] = re.sub(r'/download/[^/)]+/' + re.escape(f) + r'-v[0-9]+(?:\.[0-9]+)*',
                                       f'/download/{version}/{f}-{version}', cells[7])
+                    # releases are Windows only now: no Linux zip to link to
+                    cells[7] = re.sub(r'\[Linux\]\([^)]*\) · ', '', cells[7])
                     line = '|'.join(cells)
                     done.add(f)
                 break

@@ -3,21 +3,23 @@ name: release-all
 # Every client released at the same version in ONE run, instead of one
 # release.yml run per folder. Start it from the Actions tab (Run workflow,
 # version defaults to v0.0.4). It:
-#   - builds and tests every Delphi client (graal-*/) on Linux and Windows,
-#     stamps the version into each Windows exe and packs each one with the
-#     same scripts release.yml uses (scripts/release/);
+#   - builds and tests every Delphi client (graal-*/) on Windows only,
+#     stamps the version into each exe and packs it with the same scripts
+#     release.yml uses (scripts/release/). Only Windows zips are released;
 #   - builds the Java and Game Boy clients through their own workflows
 #     (javagraal, zelda-online1, zelda-online2, graalgb);
 #   - makes ONE GitHub release with every client in it: tag <version>
 #     (v0.0.4), titled "Graal clients <version>", every client's zips
 #     attached, and as its text one section per client taken from the
 #     "What's new in <version>" part of its RELEASE_NOTES.md;
-#   - stress tests every Delphi client first (scripts/stress.sh, one job
-#     per client on Linux): a long soak against a local seihai-gserver
-#     with players walking between levels, players connecting and dropping
-#     again and again, a level of 80 scripted NPCs, and a memory check.
-#     Stress gate = block stops the whole release if any client fails;
-#     report releases anyway and leaves the failures in the run;
+#   - with stress gate = block or report, stress tests every Delphi client
+#     first (scripts/stress.sh, one job per client, on a Linux build of
+#     the same code; not shipped): a long soak against a local
+#     seihai-gserver with players walking between levels, players
+#     connecting and dropping again and again, a level of 80 scripted NPCs,
+#     and a memory check. Block stops the whole release if any client
+#     fails; report releases anyway and leaves the failures in the run;
+#     off (the default) skips it;
 #   - points RELEASES.md at the new releases.
 # Publish = yes publishes them straight away (pressing Run workflow is the
 # go-ahead for all of them at once); no makes drafts as release.yml does.
@@ -48,10 +50,10 @@ on:
         required: true
         default: '120'
       stress_gate:
-        description: A stress failure blocks the release, or is only reported
+        description: Stress test (Linux build, not shipped) - off, or run it and block / only report on failure
         type: choice
-        options: ['block', 'report']
-        default: 'block'
+        options: ['off', 'block', 'report']
+        default: 'off'
       dry_run:
         description: Dry run (yes = plan, build, pack and stress only; nothing is released)
         type: choice
@@ -115,7 +117,9 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        # Windows only: the Windows exe is what is tested and shipped (ci.yml
+        # still compiles every client on Linux for each pull request)
+        os: [windows-latest]
     runs-on: ${{ matrix.os }}
     env:
       BUILDS: ${{ needs.plan.outputs.delphi }}
@@ -165,7 +169,7 @@ jobs:
   gserver:
     # seihai-gserver, built once for every stress job
     needs: plan
-    if: needs.plan.outputs.delphi != ''
+    if: needs.plan.outputs.delphi != '' && inputs.stress_gate != 'off'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -210,7 +214,7 @@ jobs:
     needs: [plan, stress]
     if: >-
       always() && inputs.dry_run != 'yes' && needs.plan.outputs.javagraal == 'yes' &&
-      (needs.stress.result != 'failure' || inputs.stress_gate == 'report')
+      (needs.stress.result != 'failure' || inputs.stress_gate != 'block')
     uses: ./.github/workflows/javagraal.yml
     with:
       version: ${{ inputs.version }}
@@ -221,7 +225,7 @@ jobs:
     needs: [plan, stress]
     if: >-
       always() && inputs.dry_run != 'yes' && needs.plan.outputs.zelda1 == 'yes' &&
-      (needs.stress.result != 'failure' || inputs.stress_gate == 'report')
+      (needs.stress.result != 'failure' || inputs.stress_gate != 'block')
     uses: ./.github/workflows/zelda-online1.yml
     with:
       version: ${{ inputs.version }}
@@ -232,7 +236,7 @@ jobs:
     needs: [plan, stress]
     if: >-
       always() && inputs.dry_run != 'yes' && needs.plan.outputs.zelda2 == 'yes' &&
-      (needs.stress.result != 'failure' || inputs.stress_gate == 'report')
+      (needs.stress.result != 'failure' || inputs.stress_gate != 'block')
     uses: ./.github/workflows/zelda-online2.yml
     with:
       version: ${{ inputs.version }}
@@ -243,7 +247,7 @@ jobs:
     needs: [plan, stress]
     if: >-
       always() && inputs.dry_run != 'yes' && needs.plan.outputs.graalgb == 'yes' &&
-      (needs.stress.result != 'failure' || inputs.stress_gate == 'report')
+      (needs.stress.result != 'failure' || inputs.stress_gate != 'block')
     uses: ./.github/workflows/graalgb.yml
     with:
       version: ${{ inputs.version }}
@@ -258,7 +262,7 @@ jobs:
     # after the stress jobs; with stress gate = report, also when some failed
     if: >-
       always() && inputs.dry_run != 'yes' && needs.build.result == 'success' &&
-      (needs.stress.result == 'success' || inputs.stress_gate == 'report') &&
+      (needs.stress.result == 'success' || inputs.stress_gate != 'block') &&
       !contains(needs.*.result, 'cancelled') &&
       needs.javagraal.result != 'failure' && needs.zelda-online1.result != 'failure' &&
       needs.zelda-online2.result != 'failure' && needs.graalgb.result != 'failure'
