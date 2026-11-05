@@ -16,6 +16,31 @@ program carries small default graphics and a starter level of its own, so
 it runs as it is. Put it in the folder of a 2.3 install you own, next to
 its files, or keep those files in a `graal-assets/` folder beside it.
 
+## What's new in v0.0.3
+
+- Faithfulness pass: compared side by side with the original program it was
+  rebuilt from, and the differences found brought in line with it.
+- Stress tested before release: a long soak with several players walking
+  between levels, others connecting and dropping again and again, and a
+  level with 80 scripted NPCs, with no crash, error or memory growth.
+- [x] No 2.3 program survives, so 2.3 is now modelled on 2.31, the nearest
+  real client (a few weeks newer). Everything below is 2.31's, taken out of
+  the real 2.31 program and built into this one.
+- [x] The start window as 2.31 has it: its own 577 x 416 window titled
+  "GraalOnline", with only a close button, its background and picture
+  buttons, and Training, Editor, Options, Get an account! and Start.
+  Editor starts GraalEditor.exe from the Graal folder.
+- [x] The server list as 2.31 has it: the tabs Graal Gold, Graal 3D,
+  Classic and Hosted, and Connect.
+- [x] Account and password start empty; the nickname and the last account
+  are remembered between runs on Windows.
+- [x] The Training levels are built in, so Training works without an
+  install.
+- [x] The game window: 640 x 480, titled "G r a a l" with spaces around it
+  as 2.31 does, the white chat line along the bottom, and Alt+Enter for
+  fullscreen and back.
+- [x] The Graal head icon in the title bar and the taskbar.
+
 ## Downloads
 
 | Zip | Runs on | Window |
@@ -50,9 +75,14 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 
 ## Not yet
 
-The client's own tamper check bytes (a stand-in is sent), the original
-start window, the F1 window, Options, chat, NPC movement messages, UDP.
-See the build's README for the full list.
+- [ ] Anything 2.3 did differently from 2.31: with no 2.3 program, none of
+  it can be checked. The version profile says 2.3 lacks 2.31's fixes
+  (gmap NPC border crossing, number to text, saving the key setup).
+- [ ] The client's own tamper check bytes (a stand-in is sent).
+- [ ] The Options window behind the Options button.
+- [ ] Training's look (2.31's picso tiles, torch lights, wizard).
+- [ ] Typing in the chat line; dialog text in MS Sans Serif.
+- [ ] The F1 window, NPC movement messages, UDP. See the build's README.
 
 ## Checks behind this release
 

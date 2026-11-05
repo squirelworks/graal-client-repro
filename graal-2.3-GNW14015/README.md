@@ -6,7 +6,8 @@ thinner one than its neighbours: no 2.3 executable has been read for the
 notes yet (`version-profiles/2.22-2.31.md` marks every 2.3 value "as
 2.31, inferred"), so this folder is the 2.31 rebuild
 (`../graal-2.31-GNW28015`) with 2.3's token. A `Graal v2.3[Unpacked]`
-copy has since turned up on the project's Drive; reading it is 0.0.2.
+copy has since turned up on the project's Drive, but it is flagged as
+malware and is not used.
 
 ## What is 2.3's own here
 
@@ -35,8 +36,12 @@ the id and prop ranges, no `PUTNPC`).
 - `setmap`: GServer-v2 pushes the map files to 2.31 but not to 2.3, which
   suggests 2.3 still asked for them. The rebuild does not model `setmap`
   yet.
-- Whether 2.3 still had Training, the Editor button and the 2.31 server
-  tabs.
+- The start window, the server list, the game window and the icon are
+  2.31's (modelled on 2.31, the nearest real client): 2.31's pictures,
+  buttons, icon and Training levels are compiled in from `res/` (see
+  `res/README.md`), with 2.31's places and titles as seen under Wine. Whether
+  2.3 already had the Editor button and the Graal Gold / Graal 3D / Classic
+  / Hosted tabs is not known.
 
 ## Running it
 

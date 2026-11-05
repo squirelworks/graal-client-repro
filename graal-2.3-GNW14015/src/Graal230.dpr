@@ -75,6 +75,9 @@ uses
   GStartScreen in '../../common/GStartScreen.pas',
   ListServer230 in 'ListServer230.pas',
   StartScreen230 in 'StartScreen230.pas',
+  Res230 in 'Res230.pas',
+  GUiFont in '../../common/GUiFont.pas',
+  RealStart230 in 'RealStart230.pas',
   RunMode in 'RunMode.pas';
 
 var
@@ -381,6 +384,8 @@ begin
         G.Log('no display: running without a window');
         FreeAndNil(Win);
       end;
+      { Alt+Enter: fullscreen and back, as 2.31 (and 2.22) }
+      if Win <> nil then Win.AllowFullscreen := True;
     end;
 
     { sound only in a window: stress runs and tests open no device }
@@ -518,18 +523,59 @@ begin
   Result := ExitCode_;
 end;
 
-{ Training (2.3 kept it): the offline tutorial Graal_222.exe carried in its resources
-  (offlinetutorial_a-1 .. c-3, starting at the centre, b-2) when it lies
-  next to the program; else the built-in starter level (a start.nw next to
-  the program replaces it). The arrival point on offlinetutorial_b-2 is not
-  traced: (27.5, 31.5), just below the cauldron, is matched by eye to a
-  screenshot of the real 2.22 under Wine (the earlier guess, (30, 30),
-  put the player inside the cauldron). }
+{ The offline tutorial (modelled on 2.31: no 2.3 program survives) 2.31 carries in its own program (RCDATA
+  TUTORIALA1 .. TUTORIALC3 of Graal_231.exe, the levels
+  offlinetutorial_a-1 .. c-3), compiled into this one from res/ (Res230),
+  written out to a folder of the user's temp folder so the level reader
+  and the links between them find them. '' when that cannot be written. }
+function WriteTutorialLevels: string;
+const
+  Cells: array[0..8] of string = ('a-1', 'a-2', 'a-3', 'b-1', 'b-2', 'b-3',
+    'c-1', 'c-2', 'c-3');
+var
+  I: Integer;
+  D, Data: string;
+  F: TFileStream;
+begin
+  Result := '';
+  D := IncludeTrailingPathDelimiter(GetTempDir(False)) + 'graal230-training' + PathDelim;
+  try
+    ForceDirectories(D);
+    for I := 0 to High(Cells) do
+    begin
+      if not ResFile('TUTORIAL' + UpperCase(StringReplace(Cells[I], '-', '', [])), Data) then
+        Exit;
+      F := TFileStream.Create(D + 'offlinetutorial_' + Cells[I] + '.graal', fmCreate);
+      try
+        if Data <> '' then F.WriteBuffer(Data[1], Length(Data));
+      finally
+        F.Free;
+      end;
+    end;
+  except
+    Exit;
+  end;
+  Result := D;
+end;
+
+{ Training (2.3 kept it, as 2.31 did): the offline tutorial, starting at the centre,
+  offlinetutorial_b-2: the install's own file when it has one, else the
+  copy compiled into this program; else the built-in starter level (a
+  start.nw next to the program replaces it). The arrival point is the
+  real 2.31's under Wine (2026-11-05): the player stands just below the
+  cauldron, (27.5, 31.5). }
 procedure TrainingLevel(const Dir: string; out Path, X, Y: string);
+var
+  T: string;
 begin
   X := '27.5';
   Y := '31.5';
   Path := FirstFileIn(Dir, 'levels/offlinetutorial_b-2.graal;offlinetutorial_b-2.graal');
+  if Path = '' then
+  begin
+    T := WriteTutorialLevels;
+    if T <> '' then Path := T + 'offlinetutorial_b-2.graal';
+  end;
   if Path = '' then
   begin
     Path := Dir + 'start.nw';
@@ -552,9 +598,12 @@ var
   Info: TStartInfo;
   Who: TCharacter230;
   Hosts: TListHosts;
+  Art: TRealStartArt;
+  I: Integer;
 begin
   Result := 0;
   Dir := ExtractFilePath(ParamStr(0));
+  Art := nil;
   Win := TGWindow.Create('Graal ' + ClientBuildLabel + ' (' + ClientVersionToken + ')',
     ScreenW, ScreenH);
   try
@@ -572,6 +621,11 @@ begin
     { SIGTERM / Ctrl+C end the program on the start screen too }
     InstallStopHandlers;
     SetAssetRoots(Dir, ClientAssetFolders);
+    { the start window and server list, modelled on 2.31's: 2.31's
+      pictures are compiled in (res/), the words come from the install's
+      languages/ }
+    Art := TRealStartArt.Create;
+    if not Art.Load(FirstFileIn(Dir, 'languages/languageEnglish.txt')) then FreeAndNil(Art);
     if AssetPath('arrays2.dat') <> '' then
       Hosts := LoadListHosts(AssetPath('arrays2.dat'))
     else
@@ -580,6 +634,7 @@ begin
     if Length(Hosts.Hosts) > 0 then ArrHost := Hosts.Hosts[0];
     ReadListServer(Dir, ArrHost, Hosts.Port, ListHost, ListPort);
     FillChar(R, SizeOf(R), 0);
+    if Art <> nil then ReadSavedLogin(R.Nickname, R.Account);
     Msg := '';
     repeat
       Win.TakeChars;
@@ -594,7 +649,10 @@ begin
         Info.Subtitle := '2.3 rebuilt';
         Info.DrawCharacter := Who.Draw;
         Info.StopRequested := StopRequested;
-        Picked := RunStartScreen(Win, G.Screen, Fetch, Info, Dir, ListHost, ListPort, Msg, R);
+        if Art <> nil then
+          Picked := RunRealStart(Win, Art, Fetch, Info, Dir, ListHost, ListPort, Msg, R)
+        else
+          Picked := RunStartScreen(Win, G.Screen, Fetch, Info, Dir, ListHost, ListPort, Msg, R);
       finally
         Who.Free;
         Fetch.Free;
@@ -624,6 +682,20 @@ begin
           GuiArgs.Add(R.Account);
         end;
         LastGameError := '';
+        { the game in its own 640 x 480 window (TAdventure), modelled on
+          2.31's (no 2.3 program survives). Offline 2.31
+          titles it "G r a a l" with a few spaces put round it at random
+          (seen under Wine: "  G r a a l   ", "    G r a a l "); online
+          "Graal: <server>" (the "Graal: " string of Graal_231.exe). }
+        if (R.Choice = scOnline) and (R.ServerName <> '') then
+          Win.Reshape('Graal: ' + R.ServerName, ScreenW, ScreenH)
+        else
+        begin
+          I := Random(6);
+          Win.Reshape(StringOfChar(' ', I) + 'G r a a l' + StringOfChar(' ', 5 - I),
+            ScreenW, ScreenH);
+        end;
+        Win.AllowFullscreen := True;
         if RunGame(Win, R.Password, R.Nickname) <> 0 then
           Msg := LastGameError
         else
@@ -631,8 +703,10 @@ begin
       finally
         FreeAndNil(GuiArgs);
       end;
+      Win.AllowFullscreen := False;
     until Win.Closed or StopRequested;
   finally
+    Art.Free;
     Win.Free;
   end;
 end;
