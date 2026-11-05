@@ -3,13 +3,12 @@ name: graalgb
 # The Game Boy Color demo rebuild (graalgb-1.10/): a GBDK C program that
 # builds a .gbc ROM. It has its own job because it is not a Delphi build.
 # Pull requests and pushes build it on Linux and Windows and play it in an
-# emulator. A tag graalgb-1.10-v<version>, or a manual run, also makes a
+# emulator. A manual run with a version, or release-all, also makes a
 # DRAFT release with the ROM and the importer; Squirrel reviews it and
 # presses Publish.
 on:
   push:
     branches: [main]
-    tags: ['graalgb-*-v*']
     paths: ['graalgb-*/**', '.github/workflows/graalgb.yml', 'scripts/builtin/font5x7.py']
   pull_request:
     paths: ['graalgb-*/**', '.github/workflows/graalgb.yml', 'scripts/builtin/font5x7.py']
@@ -19,6 +18,16 @@ on:
         description: Version to release as a draft, e.g. v0.0.1 (empty = build only)
         required: false
         default: ''
+  # release-all.yml calls this to release every client in one run
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: true
+      publish:
+        description: yes = publish the release straight away, no = a draft
+        type: string
+        default: 'no'
 
 concurrency:
   group: graalgb-${{ github.ref }}
@@ -110,5 +119,5 @@ jobs:
           name: ${{ env.TITLE }}
           body_path: ${{ env.FOLDER }}/RELEASE_NOTES.md
           target_commitish: ${{ github.sha }}
-          draft: true
+          draft: ${{ inputs.publish != 'yes' }}
           files: dist/*.zip

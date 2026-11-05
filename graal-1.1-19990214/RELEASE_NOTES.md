@@ -15,6 +15,12 @@ own, so it runs as it is. Put it at the top of a 1.1 install you own (or
 keep a `graal-assets/` folder next to it, or point it at one with
 `--data DIR`) and the install's tiles and levels take their place.
 
+## What's new in v0.0.3
+
+- Stress tested before release: a long soak with several players on one
+  relay and others connecting and dropping again and again, with no crash,
+  error or memory growth.
+
 ## Downloads
 
 | Zip | Runs on | Window |
