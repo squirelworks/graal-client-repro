@@ -34,6 +34,7 @@ uses
   ListServer231 in '../src/ListServer231.pas',
   GWindow in '../../common/GWindow.pas',
   GUiFont in '../../common/GUiFont.pas',
+  GSysUiFont in '../../common/GSysUiFont.pas',
   Res231 in '../src/Res231.pas',
   Dialogs231 in '../src/Dialogs231.pas',
   RealStart231 in '../src/RealStart231.pas',
