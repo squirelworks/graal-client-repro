@@ -19,6 +19,20 @@ original. Put it at the top of a NewWorld install you own (or keep a
 `graal-assets/` folder next to it, or point it at one with `--data DIR`) and
 the install's files come first.
 
+## What's new in v0.0.4
+
+- The A, S and D key letters are drawn the way Graal-NW.exe draws them:
+  Windows text at the size it asks for (in a font name Windows does not have,
+  so Arial), white, three pixels into each tag. The tags are 60 pixels apart,
+  as on the original. Before this the rebuild used its own small block
+  letters, and the S looked like a B.
+- The NewWorld status bar: the power as "150/150" in the state.png digits,
+  next to the bear, and the gralat orb with its count. There are no hearts and
+  no bomb or arrow counters, matching the original's screen.
+- The names under characters are in Tempus Sans ITC, bold, white over a blue
+  shadow, as the original draws them. NewWorld installs carry no tempsitc.ttf,
+  so the program falls back to Arial, as Windows does.
+
 ## What's new in v0.0.3
 
 - The Windows program carries its original's own icon (the Graal head, taken
@@ -51,18 +65,6 @@ the install's files come first.
 - It runs on its own: the files of its original's install that the game reads
   are compiled in, so the exe alone in an empty folder opens on the real
   launcher and plays Training with the original's art.
-
-## What's new in v0.0.4
-
-- Rebuilt from the latest code; the changes for this client are listed here as they land.
-
-## What's new in v0.0.3
-
-- The Windows program carries its original's own icon (the Graal head, taken from
-  the original exe), so Explorer shows it as the original did.
-- Stress tested before release: a long soak with several players walking
-  between levels, others connecting and dropping again and again, and a
-  level with 80 scripted NPCs, with no crash, error or memory growth.
 
 ## Downloads
 
@@ -105,7 +107,7 @@ Arrow keys walk, Esc leaves the game. `GraalNwb1 --help` lists every flag.
 ## Not yet
 
 This release has only been smoke-tested against the original: start window
-and login. The NewWorld HUD and clock, the control NPC, string arrays and
+and login. The NewWorld clock, the control NPC, string arrays and
 terrain heights are not done.
 
 - [ ] The Options button: the original's options window is not built yet.
@@ -113,7 +115,10 @@ terrain heights are not done.
       MS Sans Serif, so some words sit a pixel or two off the original.
 - [ ] The server list is matched to the original's forms but not to a
       screenshot of the original's list, which could not be captured.
-- [ ] NewWorld's own status bar (150/150 and the clock) is not drawn; the game
-      shows the classic one.
+- [ ] The clock at the bottom left (state.png's clock and the date and
+      time) is not drawn yet.
+- [ ] The sword picture beside S and its number are not yet the original's.
+- [ ] Training opens on the Bruges and Vangel house, but the view is not
+      yet placed where the original's is.
 - [ ] The launcher's caption icon is removed for Windows but not yet checked
       on a real PC.

@@ -2,7 +2,7 @@
 
   Command line:
     Graal217 --server HOST:PORT --account NAME [--password-env VAR]
-    Graal217 --level FILE.graal|FILE.nw [--x X --y Y]
+    Graal217 --level FILE.graal|FILE.nw|FILE.gmap [--x X --y Y]
     Graal217 FILE.graal|FILE.nw   open the level in the built-in editor
   common options:
     --data DIR        a Graal install: pics1, arrays.dat, levels/ganis, heads,
@@ -136,7 +136,7 @@ begin
   WriteLn('Graal ', ClientBuildLabel, ' (', ClientVersionToken, ') rebuild');
   WriteLn('  (no arguments: the start screen, Training or the server list)');
   WriteLn('  --server HOST:PORT --account NAME [--password-env VAR]');
-  WriteLn('  --level FILE [--x X --y Y]');
+  WriteLn('  --level FILE [--x X --y Y] [--cell CX,CY]');
   WriteLn('  common: [--data DIR] [--window | --headless] [--frames N] [--seconds N]');
   WriteLn('          [--keys SCRIPT] [--walk script|idle|random] [--walk-ms N] [--seed N]');
   WriteLn('          [--link-every N] [--nodelay] [--stats-every N]');
@@ -272,6 +272,45 @@ end;
 { One game: from the command line, or as the start screen chose it (then
   GuiWin is the window to play in, and nothing goes to stdout). Returns
   the exit code. }
+var
+  { Shift held on Start or Training: the game starts in fullscreen
+    (newfeatures2001.txt) }
+  GuiStartFull: Boolean;
+
+{ graalconfig.txt's fullscreenmode (WIDTHxHEIGHT, 1024x768 when missing)
+  and startinfullscreen }
+procedure ReadFullscreenConfig(const Dir: string; out W, H: Integer;
+  out StartFull: Boolean);
+var
+  L: TStringList;
+  S: string;
+  P: Integer;
+begin
+  W := 1024;
+  H := 768;
+  StartFull := False;
+  if not FileExists(Dir + 'graalconfig.txt') then Exit;
+  L := TStringList.Create;
+  try
+    try
+      L.LoadFromFile(Dir + 'graalconfig.txt');
+    except
+      Exit;
+    end;
+    S := Trim(L.Values['fullscreenmode']);
+    P := Pos('x', LowerCase(S));
+    if (P > 1) and (StrToIntDef(Copy(S, 1, P - 1), 0) >= 640) and
+      (StrToIntDef(Copy(S, P + 1, 9), 0) >= 480) then
+    begin
+      W := StrToInt(Copy(S, 1, P - 1));
+      H := StrToInt(Copy(S, P + 1, 9));
+    end;
+    StartFull := LowerCase(Trim(L.Values['startinfullscreen'])) = 'true';
+  finally
+    L.Free;
+  end;
+end;
+
 function RunGame(GuiWin: TGWindow; const GuiPw, GuiNick: string): Integer;
 var
   G: TAdventure;
@@ -279,7 +318,9 @@ var
   Script: TKeyScript;
   Walker: TWalker;
   Hist: TTickHistogram;
-  Server, Host, Sheet, Dump, Pw, Data, Account, WalkName, EndState, Error: string;
+  Server, Host, Sheet, Dump, Pw, Data, Account, WalkName, EndState, Error, CellArg: string;
+  FullW, FullH: Integer;
+  StartFull: Boolean;
   Port, Frames, I, C, D, Seconds, StatsEvery, ExitCode_: Integer;
   OK, Online, UseWindow, NoDelay, Dropped, Crashed, EditorFirst: Boolean;
   StartUs, GateUs, NowUs, T0, NextStatsUs: Int64;
@@ -335,6 +376,7 @@ begin
     { no --data: the program's folder (and a graal-assets inside it) }
     if Data = '' then Data := ExtractFilePath(ParamStr(0));
     G.UseInstall(Data);
+    ReadFullscreenConfig(IncludeTrailingPathDelimiter(Data), FullW, FullH, StartFull);
     Script.Parse(Arg('--keys', ''));
     if Arg('--keys', '') <> '' then WalkName := Arg('--walk', 'script')
     else WalkName := Arg('--walk', 'idle');
@@ -381,6 +423,13 @@ begin
     end
     else
     begin
+      { --cell CX,CY: the gmap cell to start in }
+      CellArg := Arg('--cell', '');
+      if Pos(',', CellArg) > 0 then
+      begin
+        G.StartCellX := StrToIntDef(Copy(CellArg, 1, Pos(',', CellArg) - 1), 0);
+        G.StartCellY := StrToIntDef(Copy(CellArg, Pos(',', CellArg) + 1, MaxInt), 0);
+      end;
       OK := G.LoadLevelFile(Arg('--level', ''));
       { offline on the tutorial, 2.05 switches to the tutorial maps }
       if Copy(LowerCase(ExtractFileName(Arg('--level', ''))), 1, 9) = 'tutorial_' then
@@ -411,6 +460,11 @@ begin
       end;
     end;
 
+    { Alt+Enter's mode from the start: startinfullscreen, or Shift held on
+      Start or Training }
+    if (Win <> nil) and (StartFull or GuiStartFull) and Win.EnterFullscreen(FullW, FullH) then
+      G.SetScreenSize(FullW, FullH);
+
     { sound only in a window: stress runs and tests open no device }
     SoundEnabled := (Win <> nil) and not HasArg('--nosound');
 
@@ -433,10 +487,18 @@ begin
         begin
           Win.Pump;
           if Win.Closed or Win.Held[gkEscape] then Break;
-          { Alt+Enter: fullscreen in the game's own 640 x 480 mode and back }
+          { Alt+Enter: graalconfig.txt's fullscreenmode (1024x768 as
+            installed; the real 2.17.1 on Windows) and back }
           if Win.TakeFullscreenToggle then
-            if not Win.Fullscreen then Win.EnterFullscreen(ScreenW, ScreenH)
-            else Win.LeaveFullscreen(ScreenW, ScreenH);
+            if not Win.Fullscreen then
+            begin
+              if Win.EnterFullscreen(FullW, FullH) then G.SetScreenSize(FullW, FullH);
+            end
+            else
+            begin
+              Win.LeaveFullscreen(WindowW, WindowH);
+              G.SetScreenSize(WindowW, WindowH);
+            end;
           { F4: the built-in level editor (offline only) }
           if Win.WasPressed(gkEditor) or EditorFirst then
           begin
@@ -548,7 +610,8 @@ begin
     SoundEnabled := False;
     MapOpen := False;
     UseDefaultMaps;
-    if (Win <> nil) and Win.Fullscreen then Win.LeaveFullscreen(ScreenW, ScreenH);
+    if (Win <> nil) and Win.Fullscreen then Win.LeaveFullscreen(WindowW, WindowH);
+    if ScreenW <> WindowW then G.SetScreenSize(WindowW, WindowH);
     if Win <> GuiWin then Win.Free;
     Script.Free;
     Walker.Free;
@@ -558,18 +621,26 @@ begin
   Result := ExitCode_;
 end;
 
-{ Training: the tutorial 2.17 starts it on, the centre of its 3x3 grid,
-  when it lies next to the program; else the built-in starter level (a
-  start.nw next to the program replaces it). The arrival point on
-  offlinetutorial_b-2 is measured from the real 2.17.1 under Wine: the
-  player stands centred under the cauldron, at (27, 32.5) [measured from a
-  screenshot, not traced]. }
-procedure TrainingLevel(const Dir: string; out Path, X, Y: string);
+{ Training: the offline tutorial gmap (maps/offlinetutorial.gmap, a 3x3
+  map whose levels offlinetutorial_a-1 .. c-3 Graal_2171.exe carries in its
+  resources), starting in the centre cell b-2, as the real 2.17.1 does;
+  else offlinetutorial_b-2.graal on disk; else the built-in starter level
+  (a start.nw next to the program replaces it). The arrival point on b-2
+  is centred under the cauldron, measured from the real 2.17.1 under Wine
+  at (27, 32.5) [measured from a screenshot, not traced]. }
+procedure TrainingLevel(const Dir: string; out Path, X, Y, Cell: string);
 var
   D: string;
 begin
   X := '27';
   Y := '32.5';
+  Cell := '1,1';
+  Path := FirstFileIn(Dir, 'maps/offlinetutorial.gmap');
+  { none in the install: the copy this program carries }
+  if Path = '' then Path := AssetPath('maps/offlinetutorial.gmap');
+  if (Path <> '') and not OwnResource('TUTORIALB2', D) then Path := '';
+  if Path <> '' then Exit;
+  Cell := '';
   Path := FirstFileIn(Dir, 'levels/offlinetutorial_b-2.graal;offlinetutorial_b-2.graal');
   { else the copy this program carries (the real exe's RCDATA TUTORIALB2) }
   if (Path = '') and OwnResource('TUTORIALB2', D) then Path := 'offlinetutorial_b-2.graal';
@@ -626,7 +697,7 @@ var
   Win: TGWindow;
   G: TAdventure;
   R: TStartResult;
-  Dir, ListHost, ArrHost, Msg, Lvl, X, Y: string;
+  Dir, ListHost, ArrHost, Msg, Lvl, X, Y, Cell: string;
   ListPort: Integer;
   Picked: Boolean;
   Fetch: TListFetch217;
@@ -698,6 +769,7 @@ begin
         G.Free;
       end;
       if not Picked or Win.Closed or StopRequested then Exit;
+      GuiStartFull := Win.ShiftHeld;
       GuiArgs := TStringList.Create;
       try
         GuiArgs.Add('--window');
@@ -705,9 +777,14 @@ begin
         GuiArgs.Add(Dir);
         if R.Choice = scTraining then
         begin
-          TrainingLevel(Dir, Lvl, X, Y);
+          TrainingLevel(Dir, Lvl, X, Y, Cell);
           GuiArgs.Add('--level');
           GuiArgs.Add(Lvl);
+          if Cell <> '' then
+          begin
+            GuiArgs.Add('--cell');
+            GuiArgs.Add(Cell);
+          end;
           GuiArgs.Add('--x');
           GuiArgs.Add(X);
           GuiArgs.Add('--y');

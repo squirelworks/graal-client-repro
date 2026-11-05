@@ -173,11 +173,25 @@ const
   PLPROP_GATTRIB30 = 74;
 
 function PLOName(Id: Integer): string;
+{ True for the ids 2.17.1's receive switch has a case for }
+function PLOKnown217(Id: Integer): Boolean;
 
 implementation
 
 uses
   SysUtils;
+
+function PLOKnown217(Id: Integer): Boolean;
+begin
+  { the ids listed above, with 169 to 185 all handled }
+  case Id of
+    0..16, 19, 22, 23, 25, 28, 30, 33, 34, 36, 37, 39..45, 47, 49, 68, 69,
+    75, 100..102, 153, 156, 168..185:
+      Result := True;
+  else
+    Result := False;
+  end;
+end;
 
 function PLOName(Id: Integer): string;
 begin
