@@ -379,14 +379,19 @@ begin
     end
     else
     begin
+      { the start position first: the level's NPCs then get playerenters
+        and may move the player (start1.graal puts it at 13.5, 37.5), as
+        in the original }
+      G.Player.X := StrToFloatDef(StringReplace(Arg('--x', '30'), '.',
+        DefaultFormatSettings.DecimalSeparator, []), 30);
+      G.Player.Y := StrToFloatDef(StringReplace(Arg('--y', '30'), '.',
+        DefaultFormatSettings.DecimalSeparator, []), 30);
       OK := G.LoadLevelFile(Arg('--level', ''));
       { offline on the tutorial, 2.05 switches to the tutorial maps }
       if Copy(LowerCase(ExtractFileName(Arg('--level', ''))), 1, 9) = 'tutorial_' then
         UseTutorialMaps;
       if OK then
       begin
-        G.Player.X := StrToFloatDef(Arg('--x', '30'), 30);
-        G.Player.Y := StrToFloatDef(Arg('--y', '30'), 30);
         G.Log(Format('%s: %s, %d links, %d signs, %d chests, %d npcs, %d baddies',
           [G.Level.Name, G.Level.Magic, Length(G.Level.Links), Length(G.Level.Signs),
            Length(G.Level.Chests), Length(G.Level.NPCs), Length(G.Level.Baddies)]));
@@ -431,6 +436,11 @@ begin
         begin
           Win.Pump;
           if Win.Closed or Win.Held[gkEscape] then Break;
+          { Alt+Enter: 640 x 480 full screen and back, as the original's
+            DXDraw does (read on Windows 10: a 640 x 480 pop-up) }
+          if Win.TakeFullscreenToggle then
+            if not Win.Fullscreen then Win.EnterFullscreen(640, 480)
+            else Win.LeaveFullscreen(ScreenW, ScreenH);
           { F4: the built-in level editor (offline only) }
           if Win.WasPressed(gkEditor) or EditorFirst then
           begin
@@ -542,6 +552,7 @@ begin
     SoundEnabled := False;
     MapOpen := False;
     UseDefaultMaps;
+    if (Win <> nil) and Win.Fullscreen then Win.LeaveFullscreen(ScreenW, ScreenH);
     if Win <> GuiWin then Win.Free;
     Script.Free;
     Walker.Free;
@@ -554,11 +565,12 @@ end;
 { One Player: 1.41 has no Training; its single-player game starts on the
   install's start1.graal when it lies next to the program, else on the
   built-in starter level (a start.nw next to the program replaces it).
-  The start point is the rebuild's choice. }
+  The start point is player one's from the table in the original exe
+  (levels, x and y for players one to four): x 21.5, y 28. }
 procedure TrainingLevel(const Dir: string; out Path, X, Y: string);
 begin
-  X := '30';
-  Y := '52';
+  X := '21.5';
+  Y := '28';
   Path := FirstFileIn(Dir, 'levels/start1.graal;start1.graal');
   if Path = '' then
   begin
@@ -604,6 +616,11 @@ begin
       Result := 64;
       Exit;
     end;
+    { the frames of a Delphi program: the taskbar button is the hidden
+      application window, titled as the original's exe (Graal.exe, no
+      Application.Title in it); the forms are owned by it }
+    Win.FixedAppTitle := True;
+    Win.UseDelphiFrames('Graal');
     { the asset roots before anything is read from them }
     SetAssetRoots(Dir, ClientBuildLabel);
     { listserver.txt next to the program, else the community listserver in
