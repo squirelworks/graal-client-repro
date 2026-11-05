@@ -7,6 +7,9 @@ name: release-all
 #     stamps the version into each Windows exe and packs each one with the
 #     same scripts release.yml uses (scripts/release/), so the release
 #     holds a Linux and a Windows zip of each;
+#   - cross-compiles every Delphi client for macOS on Linux (x86_64 and
+#     arm64 zips, scripts/release/darwin-cross.sh). Best effort: a client
+#     whose macOS build fails just has no macOS zip in the release;
 #   - builds the Java and Game Boy clients through their own workflows
 #     (javagraal, zelda-online1, zelda-online2, graalgb);
 #   - makes ONE GitHub release with every client in it: tag <version>
@@ -184,6 +187,46 @@ jobs:
             seihai-gserver/target/release/seihai-gserver
             seihai-gserver/world
 
+  macos:
+    # The macOS programs, cross-compiled on Linux (macOS runners can wait
+    # for hours): an x86_64 and an arm64 zip per client. Best effort: a
+    # client that does not build for macOS just has no macOS zip, and if
+    # this whole job fails the release still goes out with Linux and Windows.
+    needs: plan
+    if: needs.plan.outputs.delphi != ''
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    timeout-minutes: 90
+    env:
+      BUILDS: ${{ needs.plan.outputs.delphi }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free Pascal cross compilers for macOS
+        run: scripts/release/darwin-cross.sh
+      - name: Build and pack
+        run: |
+          export PATH="$HOME/xbin:$PATH"
+          OK=0; MISSED=""
+          for B in $BUILDS; do
+            for A in x86_64:x86_64 aarch64:arm64; do
+              rm -rf "build/$B"
+              if FPC="$HOME/xbin/fpc-darwin-${A%%:*}" scripts/build.sh "$B" > "build-$B-${A##*:}.log" 2>&1 &&
+                 scripts/release/pack.sh "$B" "$VERSION" "macos-${A##*:}"; then
+                OK=$((OK + 1))
+              else
+                echo "::warning::$B: no macOS ${A##*:} zip (the build failed)"
+                tail -20 "build-$B-${A##*:}.log"
+                MISSED="$MISSED $B/${A##*:}"
+              fi
+            done
+          done
+          echo "macOS zips: $OK"; [ -z "$MISSED" ] || echo "missed:$MISSED"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-all-macOS
+          path: dist/*.zip
+          if-no-files-found: ignore
+
   stress:
     needs: [plan, gserver]
     strategy:
@@ -257,12 +300,14 @@ jobs:
     # ONE release for every client: tag <version> (v0.0.4), every zip of
     # the run attached, and notes made of each client's section for this
     # version (scripts/release/combined_notes.py).
-    needs: [plan, build, stress, javagraal, zelda-online1, zelda-online2, graalgb]
+    needs: [plan, build, macos, stress, javagraal, zelda-online1, zelda-online2, graalgb]
     # after the stress jobs; with stress gate = report, also when some failed
     if: >-
       always() && inputs.dry_run != 'yes' && needs.build.result == 'success' &&
       (needs.stress.result == 'success' || inputs.stress_gate != 'block') &&
-      !contains(needs.*.result, 'cancelled') &&
+      needs.stress.result != 'cancelled' && needs.javagraal.result != 'cancelled' &&
+      needs.zelda-online1.result != 'cancelled' && needs.zelda-online2.result != 'cancelled' &&
+      needs.graalgb.result != 'cancelled' &&
       needs.javagraal.result != 'failure' && needs.zelda-online1.result != 'failure' &&
       needs.zelda-online2.result != 'failure' && needs.graalgb.result != 'failure'
     runs-on: ubuntu-latest
