@@ -44,12 +44,16 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 - [ ] The program's icon is the original's.
 - [ ] The game window is shaped as the original's `TAdventure` form: titled
       "Graal", 648 x 516 outside, a minimise box and no maximise box, the
-      640 x 448 view and the chat field under it.
+      640 x 448 view.
 - [ ] Under Wine, screenshots of the start dialog match the original's pixel for
       pixel (open character list included).
 - [ ] The original's forms, pictures, icons and strings are in `res/`, taken out by
       `scripts/realres/extract_res.py`; the program carries them itself and
       never reads the original program.
+- [ ] The game window is a `TAdventure` owned by the hidden application window, with the original's styles and a 640 x 448 client and no chat field.
+- [ ] One Player starts in `house1.graal` at 28.5, 30, the middle of the room, as the original's first frame shows.
+- [ ] The status display is drawn from the install's own `state.gif`: the big bomb, the bow, the rupee, bomb and arrow icons, the counts in the digits of `link.gif`, and the hearts, each piece at the pixel where the original draws it (the start shows 0 rupees, 10 bombs, 05 arrows and three hearts).
+- [ ] Alt+Enter shows the original's "Display mode cannot be changed (640x480 16bit)" box and leaves the window as a pop-up the size of the screen, as this build does on today's Windows.
 
 ## What works
 
@@ -72,8 +76,9 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 - [ ] The game itself still differs from the original (see below); it could not
       be compared side by side in the container, where the original stops after
       Start (it needs DirectX).
-- [ ] Windows' scrollbars on the dialog at large display scaling (VCL
-      AutoScroll) and Alt+Enter full screen.
+- [ ] The player is still the stand-in character: the build's own body from
+      its sprite sheet and the chosen character's head are not drawn yet, nor
+      the F1 options window.
 
 Chat, items, weapons, enemies, level scripts, signs, saving, sound, and
 the build's own character graphics (a stand-in character is drawn). This

@@ -8,6 +8,9 @@ unit ProtocolB2;
 
 interface
 
+
+uses
+  GBetaHud;
 const
   { the build as players and the archive name it, and its folder under
     graal-assets }
@@ -49,7 +52,9 @@ const
   SaveExt = '.save';
 
   { the offline start: the first of these found in the install }
-  TrainingLevels = 'levels/level1.graal;level1.graal';
+  { One Player starts in house1.graal, as every original does (read on
+    Windows); the others as before when an install has none }
+  TrainingLevels = 'levels/house1.graal;house1.graal;levels/level1.graal;level1.graal';
 
   { P is sent every 100 ms while walking (two 50 ms ticks) }
   PositionEveryTicks = 2;
@@ -65,6 +70,34 @@ function AcceptsLevel(const Magic: string): Boolean;
 const
   { this build's start dialog has no character list }
   CharacterNames: array[0..0] of string = ('');
+
+const
+  { The status display: state.gif pieces and places, the digits and the
+    hearts, measured against the real client's screen at the start of a
+    game (common/GBetaHud.pas). }
+  HudLayout: THudLayout = (
+    DigitSheet: 'link.gif'; SwordSheet: '';
+    DigitY: 1472; DigitH: 14; DigitStep: 16;
+    RupeeX: 230; RupeeDigits: 3; BombX: 294; ArrowX: 342; NumberY: 48;
+    HeartSX: 348; HeartSY: 0; HeartX: 422; HeartY: 24; HeartStep: 45;
+    Count: 5;
+    Pieces: (
+      (Sheet: 0; SX: 3; SY: 36; W: 60; H: 60; DX: 70; DY: 15),
+      (Sheet: 0; SX: 157; SY: 36; W: 31; H: 30; DX: 146; DY: 30),
+      (Sheet: 0; SX: 104; SY: 6; W: 16; H: 16; DX: 244; DY: 30),
+      (Sheet: 0; SX: 160; SY: 7; W: 16; H: 15; DX: 300; DY: 31),
+      (Sheet: 0; SX: 209; SY: 6; W: 15; H: 16; DX: 349; DY: 30),
+      (Sheet: 0; SX: 0; SY: 0; W: 0; H: 0; DX: 0; DY: 0),
+      (Sheet: 0; SX: 0; SY: 0; W: 0; H: 0; DX: 0; DY: 0),
+      (Sheet: 0; SX: 0; SY: 0; W: 0; H: 0; DX: 0; DY: 0)));
+
+  { the rupees the real client shows when a game starts }
+  HudStartRupees = 0;
+
+const
+  { where One Player puts the player in the start level: measured on the real client's first frame, the middle of house1's room }
+  OfflineStartX = '28.5';
+  OfflineStartY = '30';
 
 implementation
 

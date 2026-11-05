@@ -48,6 +48,10 @@ keep a `graal-assets/` folder next to it, or point it at one with
 - [ ] The original's forms, pictures, icons and strings are in `res/`, taken out by
       `scripts/realres/extract_res.py`; the program carries them itself and
       never reads the original program.
+- [ ] The game window is a `TAdventure` owned by the hidden application window, with the original's styles and a 640 x 448 client and no chat field.
+- [ ] One Player starts in `house1.graal` at 21.5, 28, the first player's spot from the original's start table (the bed).
+- [ ] The status display is drawn from the install's own `state.gif`: the big bomb, the bow, the rupee, bomb and arrow icons, the counts in the digits of `sprites.gif`, and the hearts, each piece at the pixel where the original draws it (the start shows 0 rupees, 10 bombs, 05 arrows and three hearts).
+- [ ] Alt+Enter switches to 640 x 480 full screen (a topmost pop-up over the whole screen) and back, as the original does.
 
 ## Downloads
 
@@ -88,6 +92,9 @@ Arrow keys walk, Esc leaves the game.
 
 ## Not yet
 
+- [ ] The player is drawn with the rebuild's stand-in animations, not the
+      build's own sprite sheet and the chosen head; the F1 options window is
+      not rebuilt.
 - [ ] Two Players starts the one-player game; the local multiplayer mode
       is not rebuilt.
 - [ ] The character picked in the dialog is not yet drawn in the game.
@@ -96,10 +103,7 @@ Smoke-tested only. The original's status bar, sprites and letters sheets,
 Two Players, save games and web levels are not done yet.
 
 - [ ] Two to Four Players on one keyboard. The modes are offered, but they play as One Player.
-- [ ] The status bar as 1.1 draws it. The rebuild still draws a later HUD.
-- [ ] One Player's start position and camera.
 - [ ] The other forms in the exe: the F1 options window, More options, and the editor dialogs.
-- [ ] Alt+Enter full screen.
 - [ ] The nick and "Load head/colors from last session" kept in HKCU\Software\Graal\Client.
 - [ ] The dialog's text uses Liberation Sans for MS Sans Serif, so a line can break one word apart from the real one.
 - [ ] The real message boxes (connection failed and the like).

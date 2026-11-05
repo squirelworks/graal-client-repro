@@ -45,6 +45,7 @@ uses
   GSocket in '../../common/GSocket.pas',
   GLevel in '../../common/GLevel.pas',
   GSurface in '../../common/GSurface.pas',
+  GBetaHud in '../../common/GBetaHud.pas',
   GArrays in '../../common/GArrays.pas',
   GBuiltin in '../../common/GBuiltin.pas',
   GAssetDirs in '../../common/GAssetDirs.pas',
@@ -273,8 +274,8 @@ begin
     OK := G.LoadLevelFile(Lvl);
     if OK then
     begin
-      G.Player.X := StrToFloatDef(Arg('--x', '30'), 30);
-      G.Player.Y := StrToFloatDef(Arg('--y', '30'), 30);
+      G.Player.X := StrToFloatDef(Arg('--x', OfflineStartX), 30);
+      G.Player.Y := StrToFloatDef(Arg('--y', OfflineStartY), 30);
       G.Log(Format('%s: %s, %d links, %d signs, %d chests, %d npcs, %d baddies',
         [G.Level.Name, G.Level.Magic, Length(G.Level.Links), Length(G.Level.Signs),
          Length(G.Level.Chests), Length(G.Level.NPCs), Length(G.Level.Baddies)]));
@@ -551,6 +552,15 @@ begin
       FormData := '';
       RealResource('TADVENTURE', FormData);
       BetaGameForm(FormData, GF);
+      { at run time the view fills the window and there is no chat field }
+      GF.ChatH := 0;
+      { the game window as the original makes it (read on Windows): a
+        TAdventure owned by the application window, WS_EX_APPWINDOW, WS_EX_CONTROLPARENT, WS_EX_WINDOWEDGE }
+      GWindowClass := 'TAdventure';
+      GWindowOwner := VclAppWindow;
+      GWindowExStyle := $00050100;
+      { Alt+Enter fills the screen with a topmost pop-up, as the original does }
+      GAltEnterMode := 3;
       Win := TGWindow.Create(GF.Caption, GF.ViewW, GF.ViewH);
       GuiArgs := TStringList.Create;
       try

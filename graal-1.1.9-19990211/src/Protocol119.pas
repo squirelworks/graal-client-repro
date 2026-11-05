@@ -13,6 +13,9 @@ unit Protocol119;
 
 interface
 
+
+uses
+  GBetaHud;
 const
   { the generation scripts/loopback.sh reads to pick the relay check }
   ClientGeneration = 1;
@@ -204,6 +207,34 @@ const
     'Adventurer',
     'Ninji Knight',
     'Fire');
+
+const
+  { The status display: state.gif pieces and places, the digits and the
+    hearts, measured against the real client's screen at the start of a
+    game (common/GBetaHud.pas). }
+  HudLayout: THudLayout = (
+    DigitSheet: 'sprites.gif'; SwordSheet: '';
+    DigitY: 1454; DigitH: 16; DigitStep: 12;
+    RupeeX: 250; RupeeDigits: 0; BombX: 296; ArrowX: 344; NumberY: 48;
+    HeartSX: 217; HeartSY: 60; HeartX: 422; HeartY: 24; HeartStep: 45;
+    Count: 5;
+    Pieces: (
+      (Sheet: 0; SX: 0; SY: 0; W: 60; H: 60; DX: 67; DY: 15),
+      (Sheet: 0; SX: 93; SY: 60; W: 31; H: 30; DX: 146; DY: 30),
+      (Sheet: 0; SX: 297; SY: 93; W: 16; H: 16; DX: 244; DY: 30),
+      (Sheet: 0; SX: 353; SY: 94; W: 16; H: 15; DX: 300; DY: 31),
+      (Sheet: 0; SX: 402; SY: 93; W: 15; H: 16; DX: 349; DY: 30),
+      (Sheet: 0; SX: 0; SY: 0; W: 0; H: 0; DX: 0; DY: 0),
+      (Sheet: 0; SX: 0; SY: 0; W: 0; H: 0; DX: 0; DY: 0),
+      (Sheet: 0; SX: 0; SY: 0; W: 0; H: 0; DX: 0; DY: 0)));
+
+  { the rupees the real client shows when a game starts }
+  HudStartRupees = 0;
+
+const
+  { where One Player puts the player in the start level: the table of start spots in the exe (21.5, 28 for the first player, the bed of house1) }
+  OfflineStartX = '21.5';
+  OfflineStartY = '28';
 
 implementation
 

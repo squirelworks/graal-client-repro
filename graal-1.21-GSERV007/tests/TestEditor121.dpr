@@ -17,6 +17,7 @@ uses
   GLevelWrite in '../../common/GLevelWrite.pas',
   EditorDoc in '../src/editor/EditorDoc.pas',
   GSurface in '../../common/GSurface.pas',
+  GBetaHud in '../../common/GBetaHud.pas',
   GFont in '../../common/GFont.pas',
   EditorUI in '../src/editor/EditorUI.pas',
   EditorDialogs in '../src/editor/EditorDialogs.pas',

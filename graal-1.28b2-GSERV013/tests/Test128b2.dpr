@@ -18,6 +18,7 @@ uses
   GSocket in '../../common/GSocket.pas',
   GLevel in '../../common/GLevel.pas',
   GSurface in '../../common/GSurface.pas',
+  GBetaHud in '../../common/GBetaHud.pas',
   GArrays in '../../common/GArrays.pas',
   GBuiltin in '../../common/GBuiltin.pas',
   GAssetDirs in '../../common/GAssetDirs.pas',
@@ -860,19 +861,17 @@ begin
     G.Headless := True;
     Check((G.Player.MaxPower = 3) and (G.Player.Power = 6) and (G.Player.Bombs = 10) and
       (G.Player.Arrows = 5) and (G.AP = 50), 'status: a new account starts at 3 hearts, 10 bombs, 5 arrows');
+    { the layout is this build's own state.gif, measured against the real
+      client's screen (GBetaHud); without the install's sheets nothing is
+      drawn }
+    Check((HudLayout.HeartX = 442) and (HudLayout.HeartY = 24) and (HudLayout.HeartStep = 45),
+      'status: the hearts stand where the real client draws them');
+    Check(HudLayout.Count = 8, 'status: the build''s pieces of state.gif');
+    Check((HudLayout.NumberY = 48) and (HudLayout.DigitStep = 12) and
+      (HudLayout.BombX + 48 = HudLayout.ArrowX), 'status: the counts, 12 pixels a digit');
     G.Screen.Fill($FF000000);
     G.DrawStatus;
-    Check(Lit(ScreenW - 198, 24, 40, 44), 'status: the first big heart is drawn');
-    Check(Lit(ScreenW - 198 + 90, 24, 40, 44), 'status: the third big heart is drawn');
-    Check(not Lit(ScreenW - 198 + 135, 24, 40, 44), 'status: no fourth heart with three containers');
-    Check(Lit(15, 30, 22, 33) and Lit(145, 30, 22, 33), 'status: the A and D buttons');
-    Check(Lit(326, 48, 26, 16), 'status: the bomb count');
-    G.Screen.Fill($FF000000);
-    G.Player.MaxPower := 6;
-    G.Player.Power := 3;
-    G.DrawStatus;
-    Check(Lit(ScreenW - 198, 34, 31, 33) and not Lit(ScreenW - 198 + 70, 34, 31, 33),
-      'status: small hearts past four containers, only while power remains');
+    Check(not Lit(0, 0, ScreenW, 120), 'status: no state.gif, no display');
     G.Screen.Fill($FF000000);
     G.ShowStats := 0;
     G.DrawStatus;
@@ -1314,7 +1313,8 @@ begin
     F.Free;
   end;
   Check(FormCaption(ResAdventure, '') = 'Graal', 'launch: game window caption');
-  Check(ScreenH = 472, 'launch: game window height');
+  { the 640 x 448 view; the chat field is a control of its own under it }
+  Check(ScreenH = 448, 'launch: game view height');
   C := ParseCharacters(ResCharacters);
   Check(Length(C) = 29, 'launch: character count');
   if Length(C) > 0 then

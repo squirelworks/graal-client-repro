@@ -8,6 +8,9 @@ unit ProtocolB6;
 
 interface
 
+
+uses
+  GBetaHud;
 const
   { the build as players and the archive name it, and its folder under
     graal-assets }
@@ -50,7 +53,11 @@ const
   SaveExt = '.save';
 
   { the offline start: the first of these found in the install }
-  TrainingLevels = 'levels/level1.graal;level1.graal';
+  { 6th Graal starts One Player outdoors in level13.graal, by the house
+    with the garden tables (the real client's first frame, read on
+    Windows with the default character); house1 and level1 when an
+    install lacks it }
+  TrainingLevels = 'levels/level13.graal;level13.graal;levels/house1.graal;house1.graal;levels/level1.graal;level1.graal';
 
   { P is sent every 100 ms while walking (two 50 ms ticks) }
   PositionEveryTicks = 2;
@@ -78,6 +85,36 @@ const
     'Matthew',
     'Athena',
     'Bob');
+
+const
+  { The status display: state.gif pieces and places, the digits and the
+    hearts, measured against the real client's screen at the start of a
+    game (common/GBetaHud.pas). }
+  HudLayout: THudLayout = (
+    DigitSheet: 'sprites.gif'; SwordSheet: '';
+    DigitY: 1472; DigitH: 14; DigitStep: 12;
+    RupeeX: 250; RupeeDigits: 0; BombX: 296; ArrowX: 344; NumberY: 48;
+    HeartSX: 228; HeartSY: 33; HeartX: 422; HeartY: 24; HeartStep: 45;
+    Count: 5;
+    Pieces: (
+      (Sheet: 0; SX: 3; SY: 36; W: 60; H: 60; DX: 70; DY: 15),
+      (Sheet: 0; SX: 157; SY: 36; W: 31; H: 30; DX: 146; DY: 30),
+      (Sheet: 0; SX: 104; SY: 6; W: 16; H: 16; DX: 244; DY: 30),
+      (Sheet: 0; SX: 160; SY: 7; W: 16; H: 15; DX: 300; DY: 31),
+      (Sheet: 0; SX: 209; SY: 6; W: 15; H: 16; DX: 349; DY: 30),
+      (Sheet: 0; SX: 0; SY: 0; W: 0; H: 0; DX: 0; DY: 0),
+      (Sheet: 0; SX: 0; SY: 0; W: 0; H: 0; DX: 0; DY: 0),
+      (Sheet: 0; SX: 0; SY: 0; W: 0; H: 0; DX: 0; DY: 0)));
+
+  { the rupees the real client shows when a game starts }
+  HudStartRupees = 300;
+
+const
+  { where One Player puts the player in the start level: the real
+    client's first frame matched against level13 (the camera there stops
+    at the level's left edge) }
+  OfflineStartX = '16.5';
+  OfflineStartY = '35';
 
 implementation
 

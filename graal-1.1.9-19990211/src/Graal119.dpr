@@ -57,6 +57,7 @@ uses
   GRelay in '../../common/GRelay.pas',
   GLevel in '../../common/GLevel.pas',
   GSurface in '../../common/GSurface.pas',
+  GBetaHud in '../../common/GBetaHud.pas',
   GArrays in '../../common/GArrays.pas',
   GBuiltin in '../../common/GBuiltin.pas',
   GAssetDirs in '../../common/GAssetDirs.pas',
@@ -559,9 +560,10 @@ end;
   (a start.nw next to the program replaces it). }
 procedure TrainingLevel(const Dir: string; out Path, X, Y: string);
 begin
-  X := '30';
-  Y := '30';
-  Path := FirstFileIn(Dir, 'levels/' + OfflineStartLevel + ';' + OfflineStartLevel);
+  X := OfflineStartX;
+  Y := OfflineStartY;
+  Path := FirstFileIn(Dir, 'levels/' + OfflineStartLevel + ';' + OfflineStartLevel +
+    ';levels/level1.graal;level1.graal');
   if Path = '' then Path := Dir + 'start.nw';
 end;
 
@@ -747,6 +749,15 @@ begin
       FormData := '';
       RealResource('TADVENTURE', FormData);
       BetaGameForm(FormData, GF);
+      { at run time the view fills the window and there is no chat field }
+      GF.ChatH := 0;
+      { the game window as the original makes it (read on Windows): a
+        TAdventure owned by the application window, WS_EX_APPWINDOW, WS_EX_CONTROLPARENT, WS_EX_WINDOWEDGE, WS_EX_ACCEPTFILES }
+      GWindowClass := 'TAdventure';
+      GWindowOwner := VclAppWindow;
+      GWindowExStyle := $00050110;
+      { Alt+Enter switches to 640 x 480 full screen, as the original does }
+      GAltEnterMode := 1;
       Win := TGWindow.Create(GF.Caption, GF.ViewW, GF.ViewH);
       GuiArgs := TStringList.Create;
       try

@@ -11,6 +11,9 @@ unit Protocol128b2;
 
 interface
 
+
+uses
+  GBetaHud;
 const
   { 1.28 beta 2 has no listserver: its connect dialog was pre-filled with a host
     and port. The rebuild pre-fills the community host instead, and
@@ -224,6 +227,34 @@ const
     'head28.gif',
     'head29.gif',
     'sleepkoji.gif');
+
+const
+  { The status display: state.gif pieces and places, the digits and the
+    hearts, measured against the real client's screen at the start of a
+    game (common/GBetaHud.pas). }
+  HudLayout: THudLayout = (
+    DigitSheet: 'sprites.gif'; SwordSheet: 'sword1.gif';
+    DigitY: 896; DigitH: 16; DigitStep: 12;
+    RupeeX: 280; RupeeDigits: 0; BombX: 326; ArrowX: 374; NumberY: 48;
+    HeartSX: 0; HeartSY: 0; HeartX: 442; HeartY: 24; HeartStep: 45;
+    Count: 8;
+    Pieces: (
+      (Sheet: 0; SX: 158; SY: 0; W: 22; H: 30; DX: 15; DY: 30),
+      (Sheet: 0; SX: 180; SY: 0; W: 22; H: 30; DX: 80; DY: 30),
+      (Sheet: 0; SX: 202; SY: 0; W: 22; H: 30; DX: 145; DY: 30),
+      (Sheet: 2; SX: 94; SY: 36; W: 28; H: 28; DX: 105; DY: 31),
+      (Sheet: 1; SX: 128; SY: 240; W: 32; H: 28; DX: 167; DY: 30),
+      (Sheet: 0; SX: 80; SY: 33; W: 16; H: 16; DX: 274; DY: 30),
+      (Sheet: 0; SX: 136; SY: 34; W: 16; H: 15; DX: 330; DY: 31),
+      (Sheet: 0; SX: 185; SY: 33; W: 15; H: 16; DX: 379; DY: 30)));
+
+  { the rupees the real client shows when a game starts }
+  HudStartRupees = 0;
+
+const
+  { where One Player puts the player in the start level: the table of start spots in the exe (21.5, 28 for the first player, the bed of house1) }
+  OfflineStartX = '21.5';
+  OfflineStartY = '28';
 
 implementation
 

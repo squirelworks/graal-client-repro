@@ -15,6 +15,7 @@ uses
   GSocket in '../../common/GSocket.pas',
   GLevel in '../../common/GLevel.pas',
   GSurface in '../../common/GSurface.pas',
+  GBetaHud in '../../common/GBetaHud.pas',
   GArrays in '../../common/GArrays.pas',
   GAni in '../../common/GAni.pas',
   GBuiltin in '../../common/GBuiltin.pas',

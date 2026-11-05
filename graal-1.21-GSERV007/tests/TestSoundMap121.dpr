@@ -10,6 +10,7 @@ uses
   SysUtils, Classes,
   GTypes in '../../common/GTypes.pas',
   GSurface in '../../common/GSurface.pas',
+  GBetaHud in '../../common/GBetaHud.pas',
   GAssetDirs in '../../common/GAssetDirs.pas',
   GAni in '../../common/GAni.pas',
   GSound in '../../common/GSound.pas',

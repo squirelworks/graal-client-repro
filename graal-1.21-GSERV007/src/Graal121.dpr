@@ -55,6 +55,7 @@ uses
   GSocket in '../../common/GSocket.pas',
   GLevel in '../../common/GLevel.pas',
   GSurface in '../../common/GSurface.pas',
+  GBetaHud in '../../common/GBetaHud.pas',
   GArrays in '../../common/GArrays.pas',
   GBuiltin in '../../common/GBuiltin.pas',
   GAssetDirs in '../../common/GAssetDirs.pas',
@@ -560,8 +561,8 @@ end;
   is the rebuild's, not read from the original. }
 procedure TrainingLevel(const Dir: string; out Path, X, Y: string);
 begin
-  X := '30';
-  Y := '30';
+  X := OfflineStartX;
+  Y := OfflineStartY;
   Path := FirstFileIn(Dir, 'levels/start1.graal;start1.graal;levels/house1.graal;house1.graal');
   if Path = '' then
     Path := Dir + 'start.nw';
@@ -773,6 +774,16 @@ begin
       FormData := '';
       RealResource('TADVENTURE', FormData);
       BetaGameForm(FormData, GF);
+      { at run time the view shows 640 x 448 with the chat field under it }
+      GF.ViewH := 448;
+      GF.ChatH := 24;
+      { the game window as the original makes it (read on Windows): a
+        TAdventure owned by the application window, WS_EX_APPWINDOW, WS_EX_CONTROLPARENT, WS_EX_WINDOWEDGE, WS_EX_ACCEPTFILES }
+      GWindowClass := 'TAdventure';
+      GWindowOwner := VclAppWindow;
+      GWindowExStyle := $00050110;
+      { Alt+Enter switches to 640 x 480 full screen, as the original does }
+      GAltEnterMode := 1;
       Win := TGWindow.Create(GF.Caption, GF.ViewW, GF.ViewH);
       GuiArgs := TStringList.Create;
       try

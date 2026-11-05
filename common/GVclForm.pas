@@ -101,9 +101,18 @@ type
     FResult: Integer;
 {$IFDEF MSWINDOWS}
     FAppWnd: THandle;
+    { TForm.AutoScroll: the scroll bars a client smaller than the controls
+      gets, and where it is scrolled to }
+    FRangeW, FRangeH, FScrollX, FScrollY: Integer;
+    FHasH, FHasV: Boolean;
+    FFocusWnd: THandle;
     procedure CreateWin(C: TVclCtl; ParentWnd: THandle);
     procedure PaintContainer(C: TVclCtl; DC: THandle);
     procedure Command(Id, Code: Integer);
+    procedure AutoScrollSetup;
+    procedure ScrollTo(X, Y: Integer);
+    procedure ScrollInView(C: TVclCtl);
+    procedure ScrollMsg(Bar, Code: Integer);
 {$ENDIF}
     function Build(O: TDfmObj; Parent: TVclCtl): TVclCtl;
     procedure SyncFromWindow(C: TVclCtl);
@@ -171,6 +180,11 @@ const
   clBtnShadow = $80000010;
   clBtnHighlight = $80000014;
   clGrayText = $80000011;
+
+{ The hidden application window the dialogs made (Windows), which stays for
+  the program's life and owns the game window as TApplication's does; 0
+  before the first dialog and on other systems. }
+function VclAppWindow: PtrUInt;
 
 implementation
 
@@ -1000,6 +1014,7 @@ end;
 
 var
   CurForm: TVclForm;
+  AppWnd: THandle = 0;
   Registered: Boolean;
 
 function FindByWnd(F: TVclForm; Wnd: THandle): TVclCtl;
@@ -1251,6 +1266,7 @@ begin
     end;
   end;
   SelectObject(DC, Old);
+  if C = Root then SetViewportOrgEx(DC, -FScrollX, -FScrollY, nil);
   for I := 0 to C.Children.Count - 1 do
   begin
     Ch := C.Children[I];
@@ -1258,6 +1274,135 @@ begin
     if Ch.Kind = vkLabel then PaintLabel(DC, Ch)
     else if Ch.Kind = vkImage then PaintImage(DC, Ch);
   end;
+end;
+
+{ TScrollingWinControl with AutoScroll (a TForm's default): when the
+  controls reach past the client area (a window frame thicker than the one
+  the form was made with), scroll bars show for the controls' extent, and
+  the focused control is scrolled into view (AutoScrollInView). }
+procedure TVclForm.AutoScrollSetup;
+var
+  R: TRect;
+  I, ClW, ClH: Integer;
+  Ch: TVclCtl;
+  SI: TScrollInfo;
+begin
+  FRangeW := 0;
+  FRangeH := 0;
+  FScrollX := 0;
+  FScrollY := 0;
+  FHasH := False;
+  FHasV := False;
+  if not Root.Obj.Bool('AutoScroll', True) then Exit;
+  for I := 0 to Root.Children.Count - 1 do
+  begin
+    Ch := Root.Children[I];
+    if not Ch.Visible then Continue;
+    if Ch.X + Ch.W > FRangeW then FRangeW := Ch.X + Ch.W;
+    if Ch.Y + Ch.H > FRangeH then FRangeH := Ch.Y + Ch.H;
+  end;
+  GetClientRect(Root.Wnd, R);
+  ClW := R.Right;
+  ClH := R.Bottom;
+  FHasH := FRangeW > ClW;
+  FHasV := FRangeH > ClH;
+  { one bar takes room from the other direction }
+  if FHasH and not FHasV then FHasV := FRangeH > ClH - GetSystemMetrics(SM_CYHSCROLL);
+  if FHasV and not FHasH then FHasH := FRangeW > ClW - GetSystemMetrics(SM_CXVSCROLL);
+  if not (FHasH or FHasV) then Exit;
+  ShowScrollBar(Root.Wnd, SB_HORZ, FHasH);
+  ShowScrollBar(Root.Wnd, SB_VERT, FHasV);
+  GetClientRect(Root.Wnd, R);
+  FillChar(SI, SizeOf(SI), 0);
+  SI.cbSize := SizeOf(SI);
+  SI.fMask := SIF_RANGE or SIF_PAGE or SIF_POS;
+  if FHasH then
+  begin
+    SI.nMax := FRangeW - 1;
+    SI.nPage := R.Right;
+    SetScrollInfo(Root.Wnd, SB_HORZ, SI, True);
+  end;
+  if FHasV then
+  begin
+    SI.nMax := FRangeH - 1;
+    SI.nPage := R.Bottom;
+    SetScrollInfo(Root.Wnd, SB_VERT, SI, True);
+  end;
+end;
+
+procedure TVclForm.ScrollTo(X, Y: Integer);
+var
+  R: TRect;
+begin
+  GetClientRect(Root.Wnd, R);
+  if not FHasH then X := 0
+  else if X > FRangeW - R.Right then X := FRangeW - R.Right;
+  if not FHasV then Y := 0
+  else if Y > FRangeH - R.Bottom then Y := FRangeH - R.Bottom;
+  if X < 0 then X := 0;
+  if Y < 0 then Y := 0;
+  if (X = FScrollX) and (Y = FScrollY) then Exit;
+  ScrollWindowEx(Root.Wnd, FScrollX - X, FScrollY - Y, nil, nil, 0, nil,
+    SW_SCROLLCHILDREN or SW_INVALIDATE or SW_ERASE);
+  FScrollX := X;
+  FScrollY := Y;
+  if FHasH then SetScrollPos(Root.Wnd, SB_HORZ, X, True);
+  if FHasV then SetScrollPos(Root.Wnd, SB_VERT, Y, True);
+  InvalidateRect(Root.Wnd, nil, True);
+end;
+
+procedure TVclForm.ScrollInView(C: TVclCtl);
+var
+  R: TRect;
+  L, T, Rt, B, X, Y: Integer;
+  P: TVclCtl;
+begin
+  if not (FHasH or FHasV) or (C = nil) then Exit;
+  { the control's top-level ancestor on the form }
+  P := C;
+  while (P.Parent <> nil) and (P.Parent <> Root) do P := P.Parent;
+  GetClientRect(Root.Wnd, R);
+  L := P.X - FScrollX;
+  T := P.Y - FScrollY;
+  Rt := L + P.W;
+  B := T + P.H;
+  X := FScrollX;
+  Y := FScrollY;
+  if L < 0 then X := X + L
+  else if Rt > R.Right then
+  begin
+    if Rt - L > R.Right then Rt := L + R.Right;
+    X := X + Rt - R.Right;
+  end;
+  if T < 0 then Y := Y + T
+  else if B > R.Bottom then
+  begin
+    if B - T > R.Bottom then B := T + R.Bottom;
+    Y := Y + B - R.Bottom;
+  end;
+  ScrollTo(X, Y);
+end;
+
+procedure TVclForm.ScrollMsg(Bar, Code: Integer);
+var
+  SI: TScrollInfo;
+  P: Integer;
+begin
+  FillChar(SI, SizeOf(SI), 0);
+  SI.cbSize := SizeOf(SI);
+  SI.fMask := SIF_ALL;
+  GetScrollInfo(Root.Wnd, Bar, SI);
+  P := SI.nPos;
+  case Code of
+    SB_LINEUP: Dec(P, 8);
+    SB_LINEDOWN: Inc(P, 8);
+    SB_PAGEUP: Dec(P, SI.nPage);
+    SB_PAGEDOWN: Inc(P, SI.nPage);
+    SB_THUMBTRACK, SB_THUMBPOSITION: P := SI.nTrackPos;
+    SB_TOP: P := 0;
+    SB_BOTTOM: P := SI.nMax;
+  end;
+  if Bar = SB_HORZ then ScrollTo(P, FScrollY) else ScrollTo(FScrollX, P);
 end;
 
 procedure TVclForm.Command(Id, Code: Integer);
@@ -1419,6 +1564,13 @@ begin
       WM_COMMAND:
         begin
           CurForm.Command(WP and $FFFF, (WP shr 16) and $FFFF);
+          Exit;
+        end;
+      WM_HSCROLL, WM_VSCROLL:
+        if (C = CurForm.Root) and (LP = 0) then
+        begin
+          if Msg = WM_HSCROLL then CurForm.ScrollMsg(SB_HORZ, WP and $FFFF)
+          else CurForm.ScrollMsg(SB_VERT, WP and $FFFF);
           Exit;
         end;
       WM_MEASUREITEM:
@@ -1700,6 +1852,20 @@ begin
     else if not Want and (St = BS_DEFPUSHBUTTON) then
       SendMessage(C.Wnd, BM_SETSTYLE, BS_PUSHBUTTON, 1);
   end;
+  { focus moved: the new control is scrolled into view, as the VCL does }
+  if (Foc <> CurForm.FFocusWnd) and (CurForm.FHasH or CurForm.FHasV) then
+  begin
+    CurForm.FFocusWnd := Foc;
+    for I := 0 to CurForm.FCtls.Count - 1 do
+    begin
+      C := CurForm.FCtls[I];
+      if (C.Wnd <> 0) and ((C.Wnd = Foc) or IsChild(C.Wnd, Foc)) then
+      begin
+        CurForm.ScrollInView(C);
+        Break;
+      end;
+    end;
+  end;
 end;
 
 function TVclForm.ShowModal: Integer;
@@ -1716,6 +1882,7 @@ begin
   CurForm := Self;
   FDone := False;
   FResult := -1;
+  if FAppWnd = 0 then FAppWnd := AppWnd;
   if FAppWnd = 0 then
   begin
     { TApplication's window: zero size, on screen, so the taskbar shows
@@ -1725,6 +1892,7 @@ begin
       GetSystemMetrics(SM_CXSCREEN) div 2, GetSystemMetrics(SM_CYSCREEN) div 2, 0, 0,
       0, 0, HInstance, nil);
     ShowWindow(FAppWnd, SW_SHOWNORMAL);
+    AppWnd := FAppWnd;
   end;
   Style := WS_CAPTION or WS_CLIPCHILDREN or WS_CLIPSIBLINGS;
   if SystemMenu then Style := Style or WS_SYSMENU;
@@ -1759,6 +1927,8 @@ begin
   finally
     L.Free;
   end;
+  AutoScrollSetup;
+  FFocusWnd := 0;
   ShowWindow(Root.Wnd, SW_SHOW);
   SetForegroundWindow(Root.Wnd);
   { ActiveControl, else the first tab stop }
@@ -1801,7 +1971,7 @@ begin
         Font := 0;
       end;
   end;
-  if FAppWnd <> 0 then DestroyWindow(FAppWnd);
+  { the application window stays for the program's life, as TApplication's }
   FAppWnd := 0;
   if CurForm = Self then CurForm := nil;
 end;
@@ -1820,5 +1990,15 @@ begin
 end;
 
 {$ENDIF}
+
+
+function VclAppWindow: PtrUInt;
+begin
+{$IFDEF MSWINDOWS}
+  Result := PtrUInt(AppWnd);
+{$ELSE}
+  Result := 0;
+{$ENDIF}
+end;
 
 end.
