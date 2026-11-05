@@ -194,11 +194,10 @@ three Java clients and the Game Boy Color demo. Each folder's README has what wo
 "Not yet" checklist; [RELEASES.md](RELEASES.md) has each client's latest
 release and level; [ROADMAP.md](ROADMAP.md) has the project checklist.
 
-As of 2026-11-05: 2.05 rev 2 and 2.22 are at 0.0.2 (checked side by side
-with the original), 2.17.1 at 0.0.1.1, every other client at 0.0.1. The
-next release is v0.0.3 for all clients at once ([#99](https://github.com/squirelworks/graal-delphi/issues/99)).
-The 3.x to 6.x folders reproduce the wire only and stay at 0.0.1 in level
-until the Torque layer exists ([#109](https://github.com/squirelworks/graal-delphi/issues/109)).
+As of 2026-11-05 every client is released at v0.0.4, all at once. The
+next combined release is 0.0.5 (ROADMAP.md). The 3.x to 6.x folders
+reproduce the wire and each client's own look, not the Torque engine
+around it; that work is on hold with no target ([#109](https://github.com/squirelworks/graal-delphi/issues/109)).
 
 ## Windows says "Windows protected your PC"
 

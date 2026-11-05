@@ -6,8 +6,9 @@ and which decisions are still open. The rules are short and binding; they
 are also in [AGENTS.md](AGENTS.md) and `.cursor/rules/graal-delphi.mdc`, so
 Cursor applies them on every request.
 
-State as of 2026-11-05. It is refreshed on Friday 2026-11-06 with whatever
-lands by then; the "What changed" and "Open PRs" sections say what moved.
+State as of 2026-11-05 evening (final refresh before the handoff). **v0.0.4
+is released for every client. 0.0.5 is Cursor's**: nothing past 0.0.4 is
+being worked on before Saturday (Squirrel, 2026-11-05).
 
 Owner: Squirrel (GitHub `squirelworks`).
 
@@ -62,9 +63,9 @@ are in the README (Wire, World, Play, Harden and stress, Release).
 - **Merging.** Agents open PRs; a merger (Squirrel or the merger session)
   checks folder scope, no root README changes, the attribution block and
   no raw addresses, then merges when CI is green. Do not merge your own PR.
-- **Releases.** No tags or releases by hand. v0.0.3 is **one combined
-  version for all 71 clients**, released in one action (see section 4).
-  No per-folder releases or tags until then.
+- **Releases.** No tags or releases by hand. Every release is **one
+  combined version for all 71 clients**, made in one action by Squirrel
+  (see section 4). No per-folder releases or tags.
 - **Each folder its own resources.** Every folder is matched against its
   own real client, never another version's (2.22's set is for 2.22 only;
   the 2.05-derived copies do not stand in for a later version). Folders
@@ -85,11 +86,12 @@ common/            units shared by every build (only when byte-for-byte the same
 graal-<ver>-<token>/   one folder per build: src/, tests/, README.md, RELEASE_NOTES.md
 javagraal-2000/  zelda-online1-Z3V102/  zelda-online2-Z3V103/   Java clients
 graalgb-1.10/      Game Boy Color demo
-scripts/           build.sh, test.sh, loopback.sh, relay98.py, stress.sh (#98), release/ (#98), win/, assets/, builtin/
+common/torque/     the parked Torque script VM (on hold, not used by any client)
+scripts/           build.sh, test.sh, loopback.sh, relay98.py, stress.sh, release/ (incl. darwin-cross.sh), win/, assets/, builtin/
 docs/assets.md     the graal-assets/ folder, search order per build
 .github/workflows/ ci.yml (Linux, Windows, loopback), release.yml (one folder),
-                   release-all.yml (#98, all clients), per-client workflows for Java/GB/3D
-RELEASES.md        (#96) one row per client: its latest release
+                   release-all.yml (all clients), per-client workflows for Java/GB/3D
+RELEASES.md        one row per client: its latest release
 ROADMAP.md         project-level checklist and where each client stands
 ```
 
@@ -103,107 +105,116 @@ A new folder needs `python3 scripts/win/make_winres.py` or CI fails.
 
 ## 4. Release flow
 
-- **Before #98:** `.github/workflows/release.yml`, run per folder (Actions
-  tab, folder name and version, or by pushing the tag `<folder>-v<version>`),
-  builds that folder and makes a draft release whose text is the folder's
-  `RELEASE_NOTES.md`; Squirrel presses Publish.
-- **After #98 (the one-click release):** Actions → **release-all** → Run
-  workflow, version `v0.0.3`. It (1) checks every `RELEASE_NOTES.md`
-  mentions the version, (2) builds and tests every client on Linux and
-  Windows and stamps the version into each exe, (3) runs the **stress
+- **One combined release for every client.** Actions → **release-all** →
+  Run workflow with the version (`v0.0.4` was the last). It (1) checks
+  every `RELEASE_NOTES.md` mentions the version, (2) builds and tests every
+  client and stamps the version into each exe, (3) runs the **stress
   gate**, `scripts/stress.sh` per Delphi client against a local
   seihai-gserver (soak with walkers crossing a level link, connect and
   disconnect churn with killed sessions, 80 scripted NPCs, memory growth
   check; relay builds against `relay98.py`; Graal3D offline), (4) publishes
-  one release per folder, tag `<folder>-v0.0.3`, and (5) updates
+  the zips (Linux and Windows; Java and Game Boy through their own
+  workflows; macOS best effort, never blocking), and (5) updates
   `RELEASES.md`. `stress_gate = report` releases even if a client fails;
-  `publish = no` makes drafts. Java and Game Boy release through their own
-  workflows, called from release-all.
+  `publish = no` makes drafts. `release.yml` still builds one folder.
+- **The stress job was skipped in the v0.0.4 run** (Actions run
+  42000323978), so the gate has never run on Actions: [#107](https://github.com/squirelworks/graal-delphi/issues/107).
+- **macOS zips: none in v0.0.4.** Every client failed to link on the macOS
+  cross build: the new Cocoa window (#140) needs Apple frameworks, and
+  `scripts/release/darwin-cross.sh` extracts only `usr/lib` from the SDK.
+  The untested two-line fix is in `project-files/graal-delphi/macos-cross/0.0.4-link-failure-notes.md`;
+  the toolchain setup script is `setup-darwin-cross.sh` next to it. The SDK
+  and `errore.msg` downloads are already pinned by sha256 (#144); keep any
+  new download pinned the same way. The Cocoa window is link-tested only and
+  has never run on a Mac ([#115](https://github.com/squirelworks/graal-delphi/issues/115)).
 - **RELEASES.md** lists only the **latest** release per client, one row
   each, with a link to the releases page for history (Squirrel's rule).
-- Each folder's v0.0.3 changes go as bullets under
-  `## What's new in v0.0.3` in its `RELEASE_NOTES.md`. Anything that can't
-  be fixed goes under `Not yet` as a known limitation; it does not block
-  the release.
+- Each folder's changes go as bullets under `## What's new in v0.0.5` (add
+  the heading) in its `RELEASE_NOTES.md`. Anything that can't be fixed
+  stays under `Not yet` as a known limitation; it does not block a release.
 
-Tracking: [#99](https://github.com/squirelworks/graal-delphi/issues/99).
+## 5. What changed (2026-11-04 to 11-05)
 
-## 5. What changed recently (2026-11-04 to 11-05)
-
-- **Every client has a folder of its own** (#56 to #90): the 1998 betas,
-  1.1.9 and 1.1, 1.21 to 1.41r1, NewMain 24 and 26, every 2.0x revision,
-  the 2.1 tests, the NewWorld betas, Graal3D, the Game Boy demo, and the
-  3.x to 6.x builds. All released at **v0.0.1**.
-- **0.0.2** (checked side by side with the real client): 2.05 rev 2
-  (Training under Wine: chat, chests, throwing, bombs, baddy) and 2.22
-  (new-world ground by height, 2.22 baddies, listserver failure reasons,
-  #91, #93). 2.17.1 is at **0.0.1.1** (the listserver hostname fix, #77).
-- **2.22 fidelity, #97** (open, merging): no default helmet, key-colour
-  body recolouring, no WANTFILE for `#` images, nicknames under NPCs,
-  neighbour gmap cells' NPCs, sword and glove HUD icons, white chat bar,
-  Training from the real tutorial map in `Graal_222.exe`, Graal head icon,
-  the real 577x416 launcher and server-list windows built from the exe's
-  own art and layout, nickname and account from the registry, NPC names in
-  `TEMPSITC.TTF`. Remaining items: #108.
-- **RELEASES.md, #96** (open): one table, latest release per client.
-- **One-click release, #98** (open): `release-all.yml`, the stress gate,
-  and a v0.0.3 section in every `RELEASE_NOTES.md`. All 67 Delphi clients
-  passed `scripts/stress.sh` in a cloud run; it has not run on Actions yet (#107).
-- **v0.0.3 fidelity pass under way** (#100 to #106): every real client on
-  the PC (54 pairs) is shot side by side with its rebuild, and every
-  resource embedded in each real exe (icons, bitmaps, version info, string
-  tables, each Delphi form's exact layout) is extracted. 51 of 54 start
-  screens were captured; 9th alpha and the 2.1 tests need a re-shoot now
-  that missing files are in place. A second pass records each window's
-  size, border and title-bar buttons. Fixes then go to cloud sessions per
-  family as one PR per folder.
+- **Every client has a folder of its own** (#56 to #90), from the 1998
+  betas to 6.03r7, the Java clients and the Game Boy demo.
+- **v0.0.3, then v0.0.4, released for all 71 clients at once** (#98,
+  #130, #132 to #135). RELEASES.md (#96) shows every client at v0.0.4.
+- **Faithfulness pass, per family, from each client's own real exe**:
+  the start dialog or launcher, icon, game window size, HUD and fonts,
+  resources compiled in: 1998 betas (#124, #129), 1.x (#127, #128, #137),
+  2.0x (#121), 2.1 to 2.21 (#126, #138), 2.22 (#97, #131, #136), 2.31 and
+  the 2.3 stand-in (#118, #119, #141), Graal3D (#120), 4.04r2 (#123), every
+  client's own icon (#122). Issues #102, #103 and #104 are closed; #100,
+  #101, #105 and #106 carry their remaining folders to 0.0.5.
 - **Window flow rule** (Squirrel): the real launcher *is* the start
   screen, its own small form sized to the art, with only the buttons the
-  real one has (2.22: close button only, no resize); then the server list
-  window; only then the game window at its real size.
-- **Real-client launch fixes on the PC**: `zlib.dll` copied into the 2.02
-  installs, `commands.rtf` into 9th alpha and the 2.1 tests,
-  `headsconfig.txt` into nm24. A watchdog closes any error dialog.
-- **Graal_analysis**: TRM 0.0.3 and 0.0.4 published (377 pages); the
-  1.0.0 roadmap is a checklist in Graal_analysis #191 (0.0.5 next). The
-  Torque study (#242, open) explains why 3.x+ folders stay at 0.0.1.
+  real one has; then the server list window; only then the game window at
+  its real size.
+- **CI**: a pull request builds and tests only the client folders it
+  touches (#125).
+- **macOS**: a Cocoa window back end (#140) and macOS zips in release-all
+  (#139); the cross link fails (section 4).
+- **Torque**: the parked stage 1 script VM is on main in `common/torque/`
+  and compiles under FPC (#145); nothing uses it (section 6).
+- **Docs**: machine-specific details removed (#146).
+- **Graal_analysis**: TRM 0.0.3 and 0.0.4 published; the Torque study
+  (#242) and its stage checklist (#250) merged; the facts the v0.0.4
+  rebuilds traced from the real clients written up (#249).
+- **Seihai stack**: seihai #369 (HUD fonts and per-version UI facts from
+  graal-delphi v0.0.4) and #370 (machine details removed); seihai-gserver
+  stage 3.1 to 3.5 (#37 to #41: level NPCs, baddies with a level leader,
+  bombs and shots, player hits and kill claims, a lab run with real clients).
 
 ## 6. On hold, and why
 
 | Item | Why | Issue |
 |---|---|---|
-| 3.04 and later past 0.0.1 | The real 3.x+ clients are Torque applications (scripts, GUI, fonts, `GuiGraalCtrl`); the folders reproduce only the wire. Squirrel put Torque on hold (2026-11-05: full speed on the clients before 3.x), targeted at **v0.0.4**. An unfinished stage 1 script VM (about 3,800 lines of Pascal, never compiled) is parked on branch `claude/project-thread-b0180m` in `common/torque/`, whose README lists the three next steps. #95 (2.22 play layer on the 3.04 wire) closed, on hold. | [#109](https://github.com/squirelworks/graal-delphi/issues/109), [#110](https://github.com/squirelworks/graal-delphi/issues/110), Graal_analysis #242, #243 |
+| 3.04 and later past 0.0.1 | The real 3.x+ clients are Torque applications (scripts, GUI, fonts, `GuiGraalCtrl`); the folders reproduce only the wire. Squirrel put Torque **on hold with no target release** (2026-11-05). The stage 1 script VM (about 3,800 lines of Pascal) is on main in `common/torque/` and compiles under FPC (#145), but no client uses it; its README lists the three next steps. #95 (2.22 play layer on the 3.04 wire) closed, on hold. | [#109](https://github.com/squirelworks/graal-delphi/issues/109), [#110](https://github.com/squirelworks/graal-delphi/issues/110), Graal_analysis #243 |
 | 2.3 as its own client | No real 2.3 exe has been read; the folder is the 2.31 rebuild with 2.3's token. #94 (remove it) closed, so it stays. An unpacked 2.3 is on Squirrel's Drive. | [#111](https://github.com/squirelworks/graal-delphi/issues/111) |
 | Graal3D side by side | The real client needs `d3drm.dll`, which modern Windows lacks; none on the PC, not downloaded from unknown sites. | [#112](https://github.com/squirelworks/graal-delphi/issues/112) |
 | 4.04r2 side by side | The real client crashes on start (access violation; its folder holds only the exe). | [#113](https://github.com/squirelworks/graal-delphi/issues/113) |
 | Code signing, licence | Owner decisions. | [#116](https://github.com/squirelworks/graal-delphi/issues/116) |
 | Graal_analysis items | pyReborn files (#244), 2.1 to 2.16 builds (#245), 1.32 export (#246), 5.x/6.x Login capture (#247). | Graal_analysis |
 
-## 7. Open PRs (2026-11-05)
+## 7. Open PRs
 
-| PR | What | State |
-|---|---|---|
-| graal-delphi #96 | RELEASES.md, latest per client | CI, then merge |
-| graal-delphi #97 | 2.22 heads, NPCs, Training, real start window | lab re-run of test2, CI, then merge |
-| graal-delphi #98 | release-all v0.0.3 and the stress gate | merge after the fixes; then the dry run (#107) |
-| Graal_analysis #242 | Torque study and the 3.04 plan | review by the maintainer |
+None in graal-delphi or Graal_analysis at the handoff. Every branch is in
+the tarball's clones; `BRANCHES.md` lists any PR still open when it was built.
 
-In the tarball each open PR's branch is a local branch of the clone (`git branch` lists them; `BRANCHES.md` maps PR to branch).
+## 8. 0.0.5: the backlog Cursor starts from
 
-## 8. Where things live
+- [ ] Each folder's `Not yet` list in its `RELEASE_NOTES.md` (and the
+  README's "Not yet" checklist): the per-client backlog. Examples: the
+  NewWorld betas' clock and sword, 2.17.1's names, the Training view, the
+  2.22 gani frame rate (the untraced movie step, #143), the 2.31 and 2.3
+  water squares (#142).
+- [ ] The families still open: [#100](https://github.com/squirelworks/graal-delphi/issues/100) precursors and side builds,
+  [#101](https://github.com/squirelworks/graal-delphi/issues/101) 1998 betas to 1.1, [#105](https://github.com/squirelworks/graal-delphi/issues/105) 2.17.1 to 2.31,
+  [#106](https://github.com/squirelworks/graal-delphi/issues/106) 3.x to 6.x; and [#108](https://github.com/squirelworks/graal-delphi/issues/108) for 2.22.
+- [ ] [#107](https://github.com/squirelworks/graal-delphi/issues/107) the stress gate's first run on Actions.
+- [ ] macOS: the framework fix in `darwin-cross.sh` (section 4), then run
+  the Cocoa window on a real Mac ([#115](https://github.com/squirelworks/graal-delphi/issues/115)).
+- [ ] [#114](https://github.com/squirelworks/graal-delphi/issues/114) a real Delphi 5 or 7 build.
+
+## 9. Where things live
 
 **Project files** (the shared folder of the Claude project; copied into the
-tarball under `project-files/` where listed):
+tarball under `project-files/` unless noted):
 
-- `graal-delphi/2.22-test/`: 2.22 test exes (`Graal222-0.0.3-test1.exe`, `-test2.exe`)
+- `graal-delphi/assets-0.0.4/`: the game data the 0.0.4 clients read
+  (`graal-assets-0.0.4.zip`, with `README.txt` for setup, `INVENTORY.txt`,
+  `FILES.txt`). Original files: never commit them, never attach them to a release.
+- `graal-delphi/macos-cross/`: `setup-darwin-cross.sh` and the v0.0.4
+  link failure notes.
+- `graal-delphi/compare*/`, `205-vs-real/`, `222-*`, `hud-129-vs-real/`,
+  `every-client-smoke/`, `notes/`: side-by-side captures and notes.
 - `graal-delphi/handoff/graal-4.04r2-wip-from-3x-thread.tgz`
-- `graal-delphi-assets/graal-assets.zip`: the assets folder the clients read (originals; never commit)
 - `graal-delphi-gui/`, `real-a.png`, `222-serverlist.png`, `ato/`: reference shots
 - `handoff/cursor/`: the Seihai server stack handoff (2026-10-31)
-- the client archives (`*.7z`, `graal clients.zip`) and `graal-decompile/`
-  (raw decompiles): **not** in the tarball, and never in a repo
-- per-version captures and extracted resources from the side-by-side run:
-  copied in when they land (Friday refresh)
+- Not in the tarball: old build outputs (`graal-delphi/*-win*`, `pr*-win`,
+  `v0.0.*-1x-builds`, `2.22-test`, `macos-0.0.4`), the client archives
+  (`*.7z`, `graal clients.zip`), `graal-decompile/` (raw decompiles,
+  except the 3.x lab shots), uploads, the Mac VM. Raw decompiles never go in a repo.
 
 **Squirrel's Windows PC**:
 
@@ -212,10 +223,11 @@ tarball under `project-files/` where listed):
 
 The PC cannot build or push; code changes happen in the cloud or in Cursor.
 
-## 9. Decisions (Squirrel's; D4 is made, the rest are open)
+## 10. Decisions (Squirrel's; D4 is made, the rest are open)
 
 - **D1. Torque layer language**: Object Pascal in graal-delphi
-  (recommended) or C++ in its own tree. [#110](https://github.com/squirelworks/graal-delphi/issues/110).
+  (recommended; the parked VM is Pascal) or C++ in its own tree. Moot while
+  Torque is on hold with no target. [#110](https://github.com/squirelworks/graal-delphi/issues/110).
 - **D2. 2.3**: read the unpacked exe from Drive to make the folder 2.3's
   own, or keep the stand-in. [#111](https://github.com/squirelworks/graal-delphi/issues/111).
 - **D3. d3drm.dll source** for the real Graal3D. [#112](https://github.com/squirelworks/graal-delphi/issues/112).
@@ -231,7 +243,7 @@ The PC cannot build or push; code changes happen in the cloud or in Cursor.
 - **D5. Licence and code signing.** [#116](https://github.com/squirelworks/graal-delphi/issues/116).
 - **D6. 5.x/6.x Login capture** against a public server (Graal_analysis #247).
 
-## 10. How to start in Cursor
+## 11. How to start in Cursor
 
 1. Unpack the tarball. `repos/graal-delphi` and `repos/Graal_analysis` are
    full clones at `main` with every branch (open PR branches are local
@@ -239,7 +251,7 @@ The PC cannot build or push; code changes happen in the cloud or in Cursor.
    repos; `project-files/` has the captures, test exes and reference shots.
    Set each clone's `origin` to GitHub with your own credentials before pushing.
 2. Read `AGENTS.md` here and in Graal_analysis.
-3. Open [ROADMAP.md](ROADMAP.md) and issue #99. Take the next unchecked
-   item, one per branch and PR.
+3. Open [ROADMAP.md](ROADMAP.md) and section 8 above. Take the next
+   unchecked 0.0.5 item, one per branch and PR.
 4. Before starting anything: `git fetch origin main`, check that the PRs
    you depend on are merged and that no open PR already covers the task.
