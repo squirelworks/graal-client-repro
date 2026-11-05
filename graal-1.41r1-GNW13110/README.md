@@ -91,8 +91,8 @@ Files this build opens, for the assets zip:
 
 ## Not yet (0.0.2)
 
-- Drawing from the 1.41 sprite sheet. The wire already carries 1.41 sprite
+- [ ] Drawing from the 1.41 sprite sheet. The wire already carries 1.41 sprite
   numbers, but the rebuild still draws through its own poses.
-- Two to four players on one computer, save games, the F1 options window.
-- The 1.41 HUD (AP bar, sparring label) and the 1.41 GS1 command set (126
+- [ ] Two to four players on one computer, save games, the F1 options window.
+- [ ] The 1.41 HUD (AP bar, sparring label) and the 1.41 GS1 command set (126
   commands; the rebuild still has the 2.05 set).

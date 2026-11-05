@@ -64,7 +64,7 @@ bodies, so those come from the 2.05 rev 2 set.
 
 ## Not yet (0.0.2)
 
-- The test 2 start window layout, with the account fields on the first page.
-- The tabbed options window (General, Video, Audio, Controls).
-- Anything props 43 to 45 do on screen (they are read and dropped).
-- UDP message 27.
+- [ ] The test 2 start window layout, with the account fields on the first page.
+- [ ] The tabbed options window (General, Video, Audio, Controls).
+- [ ] Anything props 43 to 45 do on screen (they are read and dropped).
+- [ ] UDP message 27.
