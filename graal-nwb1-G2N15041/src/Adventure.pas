@@ -513,6 +513,16 @@ begin
           Exit;
         end;
       end;
+  { none in the install: the copy the program carries (GResFiles), in the
+    same folder order }
+  if Assigned(AssetFallback) then
+    for I := 0 to High(Dirs) do
+      for J := 0 to 2 do
+        if Exts[J] <> '' then
+        begin
+          Result := AssetFallback(Dirs[I] + Base + Exts[J]);
+          if Result <> '' then Exit;
+        end;
 end;
 
 function TAssets.Image(const Name, Kind: string): TGSurface;

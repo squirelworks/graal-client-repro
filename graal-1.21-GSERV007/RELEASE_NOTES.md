@@ -14,6 +14,10 @@ program carries only the original's start dialog (its form, pictures and icon,
 taken from the original program). The
 client carries simple graphics of its own.
 
+## What's new in v0.0.4
+
+- Rebuilt from the latest code; the changes for this client are listed here as they land.
+
 ## What's new in v0.0.3
 
 - Stress tested before release: a long soak with several players walking

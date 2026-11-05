@@ -1,5 +1,5 @@
 { GBetaStart: the start dialog of the 1998 and early 1999 clients, built
-  from the client's own TConnectFrame form (GDfm, GVclForm), and what the
+  from the client's own TConnectFrame form (GDfmObj, GVclForm), and what the
   player picked in it.
 
   The forms come in three shapes, recognised by their controls:
@@ -24,7 +24,7 @@ unit GBetaStart;
 interface
 
 uses
-  SysUtils, GSurface, GDfm, GVclForm;
+  SysUtils, GSurface, GDfmObj, GVclForm;
 
 type
   TBetaNames = array of string;

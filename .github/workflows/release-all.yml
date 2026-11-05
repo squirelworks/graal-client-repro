@@ -2,36 +2,41 @@ name: release-all
 
 # Every client released at the same version in ONE run, instead of one
 # release.yml run per folder. Start it from the Actions tab (Run workflow,
-# version defaults to v0.0.3). It:
+# version defaults to v0.0.4). It:
 #   - builds and tests every Delphi client (graal-*/) on Linux and Windows,
 #     stamps the version into each Windows exe and packs each one with the
-#     same scripts release.yml uses (scripts/release/);
-#   - makes one GitHub release per folder, tag <folder>-<version>, titled
-#     with the first heading of the folder's RELEASE_NOTES.md plus the
-#     version, with the notes as its text and that folder's zips attached;
-#   - releases the Java and Game Boy clients through their own workflows
+#     same scripts release.yml uses (scripts/release/), so the release
+#     holds a Linux and a Windows zip of each;
+#   - builds the Java and Game Boy clients through their own workflows
 #     (javagraal, zelda-online1, zelda-online2, graalgb);
-#   - stress tests every Delphi client first (scripts/stress.sh, one job
-#     per client on Linux): a long soak against a local seihai-gserver
-#     with players walking between levels, players connecting and dropping
-#     again and again, a level of 80 scripted NPCs, and a memory check.
-#     Stress gate = block stops the whole release if any client fails;
-#     report releases anyway and leaves the failures in the run;
+#   - makes ONE GitHub release with every client in it: tag <version>
+#     (v0.0.4), titled "Graal clients <version>", every client's zips
+#     attached, and as its text one section per client taken from the
+#     "What's new in <version>" part of its RELEASE_NOTES.md;
+#   - with stress gate = block or report, stress tests every Delphi client
+#     first (scripts/stress.sh, one job per client, on a Linux build of
+#     the same code; not shipped): a long soak against a local
+#     seihai-gserver with players walking between levels, players
+#     connecting and dropping again and again, a level of 80 scripted NPCs,
+#     and a memory check. Block stops the whole release if any client
+#     fails; report releases anyway and leaves the failures in the run;
+#     off (the default) skips it;
 #   - points RELEASES.md at the new releases.
 # Publish = yes publishes them straight away (pressing Run workflow is the
 # go-ahead for all of them at once); no makes drafts as release.yml does.
 # Every folder's RELEASE_NOTES.md must mention the version, so a folder
 # without notes for it stops the run before anything is released.
-# Running it again for the same version replaces the zips and notes.
+# Running it again for the same version replaces the zips and notes
+# (with only = some folders, just those zips).
 # Dry run = yes does everything up to the releases and stops there: no
 # tag, no release, no RELEASES.md commit; the zips stay in the run.
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: Version for every client, e.g. v0.0.3
+        description: Version for every client, e.g. v0.0.4
         required: true
-        default: v0.0.3
+        default: v0.0.4
       publish:
         description: Publish straight away (no = drafts to review)
         type: choice
@@ -46,10 +51,10 @@ on:
         required: true
         default: '120'
       stress_gate:
-        description: A stress failure blocks the release, or is only reported
+        description: Stress test (Linux build, not shipped) - off, or run it and block / only report on failure
         type: choice
-        options: ['block', 'report']
-        default: 'block'
+        options: ['off', 'block', 'report']
+        default: 'off'
       dry_run:
         description: Dry run (yes = plan, build, pack and stress only; nothing is released)
         type: choice
@@ -163,7 +168,7 @@ jobs:
   gserver:
     # seihai-gserver, built once for every stress job
     needs: plan
-    if: needs.plan.outputs.delphi != ''
+    if: needs.plan.outputs.delphi != '' && inputs.stress_gate != 'off'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -204,17 +209,71 @@ jobs:
           chmod +x seihai-gserver/target/release/seihai-gserver
           scripts/stress.sh seihai-gserver/target/release/seihai-gserver "${{ matrix.build }}" "$SOAK"
 
+  javagraal:
+    needs: [plan, stress]
+    if: >-
+      always() && inputs.dry_run != 'yes' && needs.plan.outputs.javagraal == 'yes' &&
+      (needs.stress.result != 'failure' || inputs.stress_gate != 'block')
+    uses: ./.github/workflows/javagraal.yml
+    with:
+      version: ${{ inputs.version }}
+      publish: ${{ inputs.publish }}
+      combined: 'yes'
+
+  zelda-online1:
+    needs: [plan, stress]
+    if: >-
+      always() && inputs.dry_run != 'yes' && needs.plan.outputs.zelda1 == 'yes' &&
+      (needs.stress.result != 'failure' || inputs.stress_gate != 'block')
+    uses: ./.github/workflows/zelda-online1.yml
+    with:
+      version: ${{ inputs.version }}
+      publish: ${{ inputs.publish }}
+      combined: 'yes'
+
+  zelda-online2:
+    needs: [plan, stress]
+    if: >-
+      always() && inputs.dry_run != 'yes' && needs.plan.outputs.zelda2 == 'yes' &&
+      (needs.stress.result != 'failure' || inputs.stress_gate != 'block')
+    uses: ./.github/workflows/zelda-online2.yml
+    with:
+      version: ${{ inputs.version }}
+      publish: ${{ inputs.publish }}
+      combined: 'yes'
+
+  graalgb:
+    needs: [plan, stress]
+    if: >-
+      always() && inputs.dry_run != 'yes' && needs.plan.outputs.graalgb == 'yes' &&
+      (needs.stress.result != 'failure' || inputs.stress_gate != 'block')
+    uses: ./.github/workflows/graalgb.yml
+    with:
+      version: ${{ inputs.version }}
+      publish: ${{ inputs.publish }}
+      combined: 'yes'
+
   release:
-    needs: [plan, build, stress]
+    # ONE release for every client: tag <version> (v0.0.4), every zip of
+    # the run attached, and notes made of each client's section for this
+    # version (scripts/release/combined_notes.py).
+    needs: [plan, build, stress, javagraal, zelda-online1, zelda-online2, graalgb]
     # after the stress jobs; with stress gate = report, also when some failed
     if: >-
       always() && inputs.dry_run != 'yes' && needs.build.result == 'success' &&
-      (needs.stress.result == 'success' || inputs.stress_gate == 'report')
+      (needs.stress.result == 'success' || inputs.stress_gate != 'block') &&
+      !contains(needs.*.result, 'cancelled') &&
+      needs.javagraal.result != 'failure' && needs.zelda-online1.result != 'failure' &&
+      needs.zelda-online2.result != 'failure' && needs.graalgb.result != 'failure'
     runs-on: ubuntu-latest
     env:
-      BUILDS: ${{ needs.plan.outputs.delphi }}
       PUBLISH: ${{ inputs.publish }}
       GH_TOKEN: ${{ github.token }}
+      DELPHI: ${{ needs.plan.outputs.delphi }}
+      JAVAGRAAL: ${{ needs.plan.outputs.javagraal }}
+      ZELDA1: ${{ needs.plan.outputs.zelda1 }}
+      ZELDA2: ${{ needs.plan.outputs.zelda2 }}
+      GRAALGB: ${{ needs.plan.outputs.graalgb }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -222,76 +281,35 @@ jobs:
           path: dist
           pattern: release-all-*
           merge-multiple: true
-      - name: One release per client
+      - name: One release with every client
         run: |
-          DRAFT=""; [ "$PUBLISH" = yes ] || DRAFT="--draft"
-          for B in $BUILDS; do
-            TAG="$B-$VERSION"
-            TITLE="$(head -1 "$B/RELEASE_NOTES.md" | sed 's/^# *//') $VERSION"
-            ZIPS=$(ls dist/"$TAG"-*.zip)
-            if gh release view "$TAG" > /dev/null 2>&1; then
-              echo "== $TAG exists: replacing its zips and notes"
-              gh release upload "$TAG" $ZIPS --clobber
-              gh release edit "$TAG" --title "$TITLE" --notes-file "$B/RELEASE_NOTES.md"
-            else
-              echo "== $TAG"
-              gh release create "$TAG" $ZIPS $DRAFT --title "$TITLE" \
-                --notes-file "$B/RELEASE_NOTES.md" --target "$GITHUB_SHA"
-            fi
-          done
-
-  javagraal:
-    needs: [plan, stress]
-    if: >-
-      always() && inputs.dry_run != 'yes' && needs.plan.outputs.javagraal == 'yes' &&
-      (needs.stress.result != 'failure' || inputs.stress_gate == 'report')
-    uses: ./.github/workflows/javagraal.yml
-    with:
-      version: ${{ inputs.version }}
-      publish: ${{ inputs.publish }}
-
-  zelda-online1:
-    needs: [plan, stress]
-    if: >-
-      always() && inputs.dry_run != 'yes' && needs.plan.outputs.zelda1 == 'yes' &&
-      (needs.stress.result != 'failure' || inputs.stress_gate == 'report')
-    uses: ./.github/workflows/zelda-online1.yml
-    with:
-      version: ${{ inputs.version }}
-      publish: ${{ inputs.publish }}
-
-  zelda-online2:
-    needs: [plan, stress]
-    if: >-
-      always() && inputs.dry_run != 'yes' && needs.plan.outputs.zelda2 == 'yes' &&
-      (needs.stress.result != 'failure' || inputs.stress_gate == 'report')
-    uses: ./.github/workflows/zelda-online2.yml
-    with:
-      version: ${{ inputs.version }}
-      publish: ${{ inputs.publish }}
-
-  graalgb:
-    needs: [plan, stress]
-    if: >-
-      always() && inputs.dry_run != 'yes' && needs.plan.outputs.graalgb == 'yes' &&
-      (needs.stress.result != 'failure' || inputs.stress_gate == 'report')
-    uses: ./.github/workflows/graalgb.yml
-    with:
-      version: ${{ inputs.version }}
-      publish: ${{ inputs.publish }}
+          F="$DELPHI"
+          [ "$JAVAGRAAL" = yes ] && F="$F javagraal-2000"
+          [ "$ZELDA1" = yes ] && F="$F zelda-online1-Z3V102"
+          [ "$ZELDA2" = yes ] && F="$F zelda-online2-Z3V103"
+          [ "$GRAALGB" = yes ] && F="$F graalgb-1.10"
+          ZIPS=$(ls dist/*-"$VERSION"*.zip)
+          echo "$(echo $ZIPS | wc -w) zips for $(echo $F | wc -w) clients"
+          ZIPS="$ZIPS" python3 -I scripts/release/combined_notes.py "$VERSION" $F > notes.md
+          TITLE="Graal clients $VERSION"
+          if gh release view "$VERSION" > /dev/null 2>&1; then
+            echo "== $VERSION exists: replacing its zips and notes"
+            gh release upload "$VERSION" $ZIPS --clobber
+            gh release edit "$VERSION" --title "$TITLE" --notes-file notes.md
+          else
+            DRAFT=""; [ "$PUBLISH" = yes ] || DRAFT="--draft"
+            gh release create "$VERSION" $ZIPS $DRAFT --title "$TITLE" \
+              --notes-file notes.md --target "$GITHUB_SHA"
+          fi
 
   releases-md:
     # Points RELEASES.md at what this run released, so its table stays the
     # newest release of each client. Published runs only: a draft is not
     # downloadable yet. If the branch does not take a push from Actions,
     # this job fails on its own and the releases above still stand.
-    needs: [plan, release, javagraal, zelda-online1, zelda-online2, graalgb]
+    needs: [plan, release]
     if: >-
-      always() && inputs.dry_run != 'yes' && inputs.publish == 'yes' && needs.plan.result == 'success' &&
-      !contains(needs.*.result, 'cancelled') &&
-      needs.release.result != 'failure' && needs.javagraal.result != 'failure' &&
-      needs.zelda-online1.result != 'failure' && needs.zelda-online2.result != 'failure' &&
-      needs.graalgb.result != 'failure'
+      always() && inputs.dry_run != 'yes' && inputs.publish == 'yes' && needs.release.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

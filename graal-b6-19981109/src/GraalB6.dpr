@@ -57,7 +57,7 @@ uses
   GStartScreen in '../../common/GStartScreen.pas',
   StartScreenB6 in 'StartScreenB6.pas',
   RunMode in 'RunMode.pas',
-  GDfm in '../../common/GDfm.pas',
+  GDfmObj in '../../common/GDfmObj.pas',
   GVclForm in '../../common/GVclForm.pas',
   GBetaStart in '../../common/GBetaStart.pas',
   RealResB6 in 'RealResB6.pas'

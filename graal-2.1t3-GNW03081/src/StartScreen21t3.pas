@@ -48,7 +48,12 @@ begin
         Done := True;
         Status := Format('%d servers', [Length(Servers)]);
       end;
-    2: Status := StringReplace(Data, #13, ' ', [rfReplaceAll]);
+    2:
+      begin
+        Status := StringReplace(Data, #13, ' ', [rfReplaceAll]);
+        { kept line by line for the list's message box (Label11) }
+        StatusLines := StringReplace(Data, #13, #10, [rfReplaceAll]);
+      end;
     4:
       begin
         Status := 'listserver: ' + Data;
