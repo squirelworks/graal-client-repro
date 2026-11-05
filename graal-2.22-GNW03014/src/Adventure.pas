@@ -2916,9 +2916,8 @@ begin
       if F <> nil then
       begin
         { fontsize is in points at 96 dots per inch, cut to whole pixels:
-          14 is an em of 18 px, drawn without smoothing (the real 2.22's
-          "Touch to get information" is 195 px wide, not bold, in solid
-          pixels) }
+          14 is an em of 18 px (the real 2.22's "Touch to get
+          information" is 195 px wide, not bold) }
         Px := Trunc(K.FontSize * 96 / 72);
         { shaded: a navy (0,0,128) copy one pixel down and right (the real
           2.22's text under Wine) }
@@ -2927,8 +2926,8 @@ begin
         { the real 2.22 puts the baseline 5 px below the text's dy (4 px
           above its arrow, which is 7 px below dy) }
         Y := Y + 5 - F.Ascent(Px);
-        if K.Shaded then F.DrawText(Screen, X + 1, Y + 1, K.Text, Px, $FF000080, K.Bold, True);
-        F.DrawText(Screen, X, Y, K.Text, Px, Col, K.Bold, True);
+        if K.Shaded then F.DrawText(Screen, X + 1, Y + 1, K.Text, Px, $FF000080, K.Bold);
+        F.DrawText(Screen, X, Y, K.Text, Px, Col, K.Bold);
       end
       else
       begin

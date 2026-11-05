@@ -1936,16 +1936,45 @@ end;
 
 procedure TNpcManager.Draw(Screen: TGSurface; LCamX, LCamY: Integer; Over: Boolean);
 var
-  I, K, DX, DY, TW, SX, SY, SW, SH, CamX, CamY, Lifted, Pass: Integer;
+  I, K, O, DX, DY, TW, SX, SY, SW, SH, CamX, CamY, Lifted, Pass: Integer;
   N: TNpc;
+  Order: array of Integer;
+  KeyY, KeyX: array of Double;
   Img: TGSurface;
   S: string;
 begin
   { the player's level, then the other cells of a gmap: 2.22 draws a
     neighbour cell's NPCs at their place on the map, so they do not pop
     in at the edge }
-  for I := 0 to Npcs.Count + Parked.Count - 1 do
+  { 2.22 sorts what it draws by y, then x, then age (its draw list's
+    compare), so of two NPCs on one row the one to the right is drawn over
+    the other: the tutorial's palm shades the sleeping squirrel }
+  SetLength(Order, Npcs.Count + Parked.Count);
+  SetLength(KeyY, Length(Order));
+  SetLength(KeyX, Length(Order));
+  for I := 0 to High(Order) do
   begin
+    if I < Npcs.Count then N := Npc(I) else N := TNpc(Parked[I - Npcs.Count]);
+    KeyY[I] := N.Y;
+    KeyX[I] := N.X;
+    if (I >= Npcs.Count) and (N.CellX >= 0) and (N.CellY >= 0) then
+    begin
+      KeyY[I] := KeyY[I] + (N.CellY - ScopeY) * 64;
+      KeyX[I] := KeyX[I] + (N.CellX - ScopeX) * 64;
+    end;
+    { insertion keeps equal keys in list order }
+    K := I;
+    while (K > 0) and ((KeyY[Order[K - 1]] > KeyY[I]) or
+      ((KeyY[Order[K - 1]] = KeyY[I]) and (KeyX[Order[K - 1]] > KeyX[I]))) do
+    begin
+      Order[K] := Order[K - 1];
+      Dec(K);
+    end;
+    Order[K] := I;
+  end;
+  for O := 0 to High(Order) do
+  begin
+    I := Order[O];
     CamX := LCamX;
     CamY := LCamY;
     if I < Npcs.Count then N := Npc(I)

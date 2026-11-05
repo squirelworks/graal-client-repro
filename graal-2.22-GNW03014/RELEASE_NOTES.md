@@ -78,7 +78,7 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
   does (blond hair, brown shirt, shield) and puts in its own walking
   ganis. The lamps burn with their gani scripts (light and flame), and the
   teacher's "Touch to get information" sign floats over its arrow in the
-  name font, at the size and in the solid pixels 2.22 draws gani movie text.
+  name font, at the size 2.22 draws gani movie text.
 - Login to a 2.22 server: login type 5, `GNW03014`, the tamper check, and
   gen-5 frames both ways. Checked against frames of a real 2.22 session:
   the rebuild makes the real client's uncompressed frames byte for byte
