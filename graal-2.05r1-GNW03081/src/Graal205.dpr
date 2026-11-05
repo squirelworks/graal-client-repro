@@ -73,6 +73,11 @@ uses
   Map205 in 'Map205.pas',
   GStartScreen in '../../common/GStartScreen.pas',
   StartScreen205 in 'StartScreen205.pas',
+  GDfm in '../../common/GDfm.pas',
+  GUiFont in '../../common/GUiFont.pas',
+  GRes20x in '../../common/GRes20x.pas',
+  ResGraal205 in 'ResGraal205.pas',
+  GRealStart20 in '../../common/GRealStart20.pas',
   RunMode in 'RunMode.pas',
   GLevelWrite in '../../common/GLevelWrite.pas',
   EditorDoc in 'editor/EditorDoc.pas',
@@ -275,6 +280,9 @@ var
   OK, Online, UseWindow, NoDelay, Dropped, Crashed, EditorFirst: Boolean;
   StartUs, GateUs, NowUs, T0, NextStatsUs: Int64;
   WasHeld: array[0..4] of Boolean;
+  Typed: string;
+  K: Integer;
+  Chatting: Boolean;
 
 begin
   Result := 64;
@@ -366,14 +374,15 @@ begin
     end
     else
     begin
+      { placed first: the level's NPCs see playerenters on loading }
+      G.Player.X := StrToFloatDef(Arg('--x', '30'), 30);
+      G.Player.Y := StrToFloatDef(Arg('--y', '30'), 30);
       OK := G.LoadLevelFile(Arg('--level', ''));
       { offline on the tutorial, 2.05 switches to the tutorial maps }
       if Copy(LowerCase(ExtractFileName(Arg('--level', ''))), 1, 9) = 'tutorial_' then
         UseTutorialMaps;
       if OK then
       begin
-        G.Player.X := StrToFloatDef(Arg('--x', '30'), 30);
-        G.Player.Y := StrToFloatDef(Arg('--y', '30'), 30);
         G.Log(Format('%s: %s, %d links, %d signs, %d chests, %d npcs, %d baddies',
           [G.Level.Name, G.Level.Magic, Length(G.Level.Links), Length(G.Level.Signs),
            Length(G.Level.Chests), Length(G.Level.NPCs), Length(G.Level.Baddies)]));
@@ -425,20 +434,36 @@ begin
             EditorKey(Win, G, Online);
             if Win.Closed then Break;
           end;
-          G.Keys[DirUp] := Win.Held[gkUp];
-          G.Keys[DirLeft] := Win.Held[gkLeft];
-          G.Keys[DirDown] := Win.Held[gkDown];
-          G.Keys[DirRight] := Win.Held[gkRight];
+          { the chat line: Tab goes into it and back out; while in it the
+            keys type there and Enter says the line }
+          Typed := Win.TakeChars;
+          for K := 1 to Length(Typed) do
+            if Typed[K] = #9 then G.ChatTyping := not G.ChatTyping
+            else if G.ChatTyping then
+              case Typed[K] of
+                #8: if G.ChatLine <> '' then SetLength(G.ChatLine, Length(G.ChatLine) - 1);
+                #13:
+                  begin
+                    G.Say(G.ChatLine);
+                    G.ChatLine := '';
+                  end;
+                #32..#255: if Length(G.ChatLine) < 300 then G.ChatLine := G.ChatLine + Typed[K];
+              end;
+          Chatting := G.ChatTyping;
+          G.Keys[DirUp] := Win.Held[gkUp] and not Chatting;
+          G.Keys[DirLeft] := Win.Held[gkLeft] and not Chatting;
+          G.Keys[DirDown] := Win.Held[gkDown] and not Chatting;
+          G.Keys[DirRight] := Win.Held[gkRight] and not Chatting;
           { the game keys act on the press, not while held }
-          G.ActionKey := Win.Held[gkAction] and not WasHeld[0];
-          G.AttackKey := Win.Held[gkAttack] and not WasHeld[1];
-          G.ItemKey := Win.Held[gkItem] and not WasHeld[2];
-          G.MapKey := Win.Held[gkMap] and not WasHeld[3];
+          G.ActionKey := Win.Held[gkAction] and not WasHeld[0] and not Chatting;
+          G.AttackKey := Win.Held[gkAttack] and not WasHeld[1] and not Chatting;
+          G.ItemKey := Win.Held[gkItem] and not WasHeld[2] and not Chatting;
+          G.MapKey := Win.Held[gkMap] and not WasHeld[3] and not Chatting;
           WasHeld[0] := Win.Held[gkAction];
           WasHeld[1] := Win.Held[gkAttack];
           WasHeld[2] := Win.Held[gkItem];
           WasHeld[3] := Win.Held[gkMap];
-          G.ItemListKey := Win.Held[gkItemList] and not WasHeld[4];
+          G.ItemListKey := Win.Held[gkItemList] and not WasHeld[4] and not Chatting;
           WasHeld[4] := Win.Held[gkItemList];
         end;
         if Walker.Mode = wmScript then D := Script.DirAt(I)
@@ -541,11 +566,50 @@ end;
 { Training: the tutorial where 2.05 starts it, when it lies next to the
   program; else the built-in starter level (a start.nw next to the program
   replaces it). }
+{ The Training levels this build's original exe carried in its resources
+  (TUTORIALA1 .. TUTORIALC4, TUTORIALB2H the house), compiled into this
+  program (ResGraal205): written out once as tutorial_a-1.graal ..
+  tutorial_c-4.graal and tutorial_b-2_house.graal, the names their links
+  use, into a folder of this build's own under the system's temp folder.
+  Returns that folder's tutorial_b-4.graal, or ''. }
+function WriteTutorials: string;
+const
+  Names: array[0..12] of string = ('A1', 'A2', 'A3', 'A4', 'B1', 'B2', 'B2H', 'B3', 'B4',
+    'C1', 'C2', 'C3', 'C4');
+var
+  Dir, D, F: string;
+  I: Integer;
+  S: TFileStream;
+begin
+  Result := '';
+  Dir := IncludeTrailingPathDelimiter(GetTempDir(False)) + 'graal-delphi-' +
+    ClientBuildLabel + PathDelim;
+  if not ForceDirectories(Dir) then Exit;
+  for I := 0 to High(Names) do
+  begin
+    if not ExeResource('TUTORIAL' + Names[I], D) then Exit;
+    if Names[I] = 'B2H' then F := 'tutorial_b-2_house.graal'
+    else F := 'tutorial_' + LowerCase(Names[I][1]) + '-' + Names[I][2] + '.graal';
+    try
+      S := TFileStream.Create(Dir + F, fmCreate);
+      try
+        S.WriteBuffer(D[1], Length(D));
+      finally
+        S.Free;
+      end;
+    except
+      Exit;
+    end;
+  end;
+  Result := Dir + 'tutorial_b-4.graal';
+end;
+
 procedure TrainingLevel(const Dir: string; out Path, X, Y: string);
 begin
   X := '32';
   Y := '60';
   Path := FirstFileIn(Dir, 'levels/tutorial_b-4.graal;tutorial_b-4.graal');
+  if Path = '' then Path := WriteTutorials;
   if Path = '' then
   begin
     Path := Dir + 'start.nw';
@@ -567,9 +631,11 @@ var
   Fetch: TListFetch205;
   Info: TStartInfo;
   Who: TCharacter205;
+  Art: TRealStart20;
 begin
   Result := 0;
   Dir := ExtractFilePath(ParamStr(0));
+  Art := nil;
   Win := TGWindow.Create('Graal ' + ClientBuildLabel + ' (' + ClientVersionToken + ')',
     ScreenW, ScreenH);
   try
@@ -582,14 +648,23 @@ begin
       Exit;
     end;
     { the asset roots before anything is read from them }
-    SetAssetRoots(Dir, ClientAssetFolders);
+    SetAssetRoots(Dir, ClientBuildLabel);
     { listserver.txt next to the program, else the community listserver in
       place of the 2.05 one, which is gone: listserver.graal.in, port 14923
       for legacy clients (14922 is the supported-clients port) }
     ReadListServer(Dir, DefaultListHost, DefaultListPort, ListHost, ListPort);
     { SIGTERM / Ctrl+C end the program on the start screen too }
     InstallStopHandlers;
+    { the launcher of this build's original, from its own forms and art
+      (compiled in: ResGraal205) }
+    Art := TRealStart20.Create;
+    if Art.Load(ExeResource, Dir) then
+      Win.Reshape(Art.Connect.Str('Caption', 'Graal 2001'), Art.Connect.Int('ClientWidth', 476),
+        Art.Connect.Int('ClientHeight', 330), True)
+    else
+      FreeAndNil(Art);
     FillChar(R, SizeOf(R), 0);
+    if Art <> nil then ReadSavedLogin(R.Nickname, R.Account);
     Msg := '';
     repeat
       Win.TakeChars;
@@ -603,7 +678,10 @@ begin
         Info.Subtitle := '2.05 rev 1 rebuilt';
         Info.DrawCharacter := Who.Draw;
         Info.StopRequested := StopRequested;
-        Picked := RunStartScreen(Win, G.Screen, Fetch, Info, Dir, ListHost, ListPort, Msg, R);
+        if Art <> nil then
+          Picked := RunRealStart20(Win, Art, Fetch, Info, ListHost, ListPort, Msg, R)
+        else
+          Picked := RunStartScreen(Win, G.Screen, Fetch, Info, Dir, ListHost, ListPort, Msg, R);
       finally
         Who.Free;
         Fetch.Free;
@@ -633,6 +711,9 @@ begin
           GuiArgs.Add(R.Account);
         end;
         LastGameError := '';
+        { the game in its own 640 x 480 window, titled as the original's
+          TAdventure ("Graal") }
+        if Art <> nil then Win.Reshape(Art.MainCaption, ScreenW, ScreenH);
         if RunGame(Win, R.Password, R.Nickname) <> 0 then
           Msg := LastGameError
         else
@@ -640,8 +721,12 @@ begin
       finally
         FreeAndNil(GuiArgs);
       end;
+      if (Art <> nil) and not Win.Closed then
+        Win.Reshape(Art.Connect.Str('Caption', 'Graal 2001'), Art.Connect.Int('ClientWidth', 476),
+          Art.Connect.Int('ClientHeight', 330), True);
     until Win.Closed or StopRequested;
   finally
+    Art.Free;
     Win.Free;
   end;
 end;
@@ -665,7 +750,7 @@ begin
       Result := 64;
       Exit;
     end;
-    SetAssetRoots(Dir, ClientAssetFolders);
+    SetAssetRoots(Dir, ClientBuildLabel);
     if ExtractFilePath(Path) <> '' then SetCurrentDir(ExtractFilePath(Path));
     GuiArgs := TStringList.Create;
     try

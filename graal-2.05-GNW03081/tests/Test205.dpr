@@ -1149,9 +1149,9 @@ begin
     G.ReadSign('a'#10'b'#10'c');
     G.Tick;
     Press(DirLeft);
-    Check(G.Reading and (G.SignLine = 3), 'signs: three lines show an empty second page');
-    Press(DirLeft);
-    Check(not G.Reading, 'signs: then close');
+    { the real 2.05 closes a full last page on the next key, with no empty
+      page after it (the tutorial's four three-line pages, under Wine) }
+    Check(not G.Reading, 'signs: a full last page closes on the next key');
   finally
     G.Free;
   end;

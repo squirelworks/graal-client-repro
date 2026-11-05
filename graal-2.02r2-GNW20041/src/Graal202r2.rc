@@ -5,6 +5,10 @@
    0,0,0,0 and "0.0.0-dev" here. */
 1 24 "../../common/win/graal-delphi.manifest"
 
+/* the Graal head, as this build's original Graal.exe carries it
+   (GROUP_ICON MAINICON): the window and the taskbar show it */
+MAINICON ICON "Graal202r2.ico"
+
 1 VERSIONINFO
 FILEVERSION 0,0,0,0
 PRODUCTVERSION 0,0,0,0

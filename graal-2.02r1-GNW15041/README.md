@@ -235,9 +235,16 @@ ganis, heads, bodies and levels are used in the game instead.
 Training starts at `levels/tutorial_b-4.graal` when that file is there,
 else at the built-in `start.nw`.
 
-The start screen is always this project's own layout, wording and art.
-It never draws the original 2.05 start window or its pictures, even when
-they are next to the program.
+The start window and server list are this build's original ones. Every
+RCDATA resource of the original `Graal.exe` (the start and list art, the
+loading screen, `BUTTON1`, all the Delphi forms, the Training levels) is
+compiled into the program as `src/ResGraal202r1.pas`, with the bytes the 2.0x
+exes share kept once in `common/GRes20x.pas`; the Graal head icon is
+`src/Graal202r1.ico`. `scripts/res20x/make_res20x.py` makes them from the
+original installs. `common/GRealStart20.pas` lays the two windows out from
+the forms (`TConnectFrame`, `TServerListFrame`, `TShortMessage`), read
+with `common/GDfm.pas`. The project's own start screen
+(`common/GStartScreen.pas`) is used only if those resources do not load.
 
 ## Stress runs (phase 4)
 

@@ -14,6 +14,50 @@ client carries simple graphics of its own; put a 2.05 install you own next
 to it, or point `--data DIR` at one, for the real tiles, ganis, heads and
 bodies.
 
+## What's new in v0.0.3
+
+- [x] The launcher is this build's own: the start window is the real
+  `TConnectFrame`, a 476 x 330 "Graal 2001" dialog with only the close
+  button, over the real start art (`SCREENIMG1`), with its labels, language
+  box and nickname placed from the form, and the Training, Options and
+  Start buttons drawn from `BUTTON1` where the real one paints them.
+- [x] Start opens the server list as its own 577 x 416 window
+  ("Graalonline.com Server List", `SCREENIMG2`), laid out from this exe's
+  `TServerListFrame`: the 2.03 to 2.05 rev 2 server list form.
+  "Getting server list ..." shows in the `TShortMessage` box while the
+  listserver answers. The account and password are typed on the list, as
+  in the real client, and the list is asked for with id 0 alone first.
+- [x] Every resource of this build's original `Graal.exe` is compiled into
+  the program (`src/ResGraal205.pas`, made by
+  `scripts/res20x/make_res20x.py`): the start and list art, the loading
+  screen, `BUTTON1`, all 46 forms, the Training levels and the Graal
+  head icon (`src/Graal205.ico`, the window and taskbar icon on Windows). No
+  original program or install is needed for the launcher or Training.
+- [x] Training plays the tutorial levels from this build's own exe
+  (`TUTORIALB4` is 10275 bytes here),
+  written out once to a folder of its own under the system's temp folder.
+- [x] The game opens in its own 640 x 480 window titled "Graal", as the
+  real `TAdventure`, and Esc goes back to the start window.
+- [x] The nickname and last account are read from and saved to
+  `HKCU\Software\Graal\Client` (`nickname`, `accountname`) on Windows,
+  as the real client keeps them.
+- [x] A language file next to the program (`language<Name>.txt`) renames
+  the start window's controls by name (`StartScreen-<Name>=`), as the real
+  client does.
+### Not yet
+
+- [ ] Text in the dialogs uses Liberation Sans for the forms' MS Sans
+  Serif, so glyphs differ by a pixel here and there.
+- [ ] The Options window, the Get an account and homepage GO buttons, and
+  the list's right-click menu do nothing yet.
+- [ ] The "Getting server list ..." box is drawn inside the list window,
+  not as a window of its own.
+- [ ] The password is not saved (the real client keeps it in the registry).
+- [ ] Names under characters use this project's pixel font, not the real
+  client's bold system font.
+- [ ] The Windows version block still names this project, not the
+  original's company and product strings.
+
 ## Downloads
 
 | Zip | Runs on | Window |
