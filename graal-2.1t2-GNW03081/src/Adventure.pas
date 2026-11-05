@@ -379,7 +379,7 @@ procedure MakeIndexSheet(Sheet: TGSurface);
 implementation
 
 uses
-  SysUtils, Math, GFont, GSound, Sound21t2, Map21t2, NpcBridge21t2;
+  SysUtils, Math, GPeRes, GFont, GSound, Sound21t2, Map21t2, NpcBridge21t2, GHudFont;
 
 procedure MakeIndexSheet(Sheet: TGSurface);
 var
@@ -505,6 +505,16 @@ begin
           Exit;
         end;
       end;
+  { none in the install: the copy the program carries (GResFiles), in the
+    same folder order }
+  if Assigned(AssetFallback) then
+    for I := 0 to High(Dirs) do
+      for J := 0 to 2 do
+        if Exts[J] <> '' then
+        begin
+          Result := AssetFallback(Dirs[I] + Base + Exts[J]);
+          if Result <> '' then Exit;
+        end;
 end;
 
 function TAssets.Image(const Name, Kind: string): TGSurface;
@@ -2186,12 +2196,39 @@ end;
 
 { ---- level links ---- }
 
+{ A tutorial level the real program carried in its resources
+  (tutorial_a-1.graal .. tutorial_c-4.graal as RCDATA TUTORIALA1 ..
+  TUTORIALC4), linked into this one (src/res/); False for other names. }
+function ExeTutorial(const Name: string; out Data: string): Boolean;
+var
+  N: string;
+begin
+  Result := False;
+  Data := '';
+  N := LowerCase(ExtractFileName(Name));
+  if (Length(N) <> 18) or (Copy(N, 1, 9) <> 'tutorial_') or (Copy(N, 13, 6) <> '.graal') or
+    (N[11] <> '-') or not (N[10] in ['a'..'c']) or not (N[12] in ['1'..'4']) then Exit;
+  Result := OwnResource('TUTORIAL' + UpperCase(N[10]) + N[12], Data) and
+    (Copy(Data, 1, 3) = 'GR-');
+end;
+
 function TAdventure.LoadLevelFile(const FileName: string): Boolean;
 var
   D: string;
 begin
   SetLength(Items, 0);
   SetLength(Thrown, 0);
+  if not FileExists(FileName) and ExeTutorial(FileName, D) then
+  begin
+    { the real program's own tutorial level: links from it look in the
+      install, then here }
+    Result := Level.LoadFromString(D);
+    Level.Name := ExtractFileName(FileName);
+    if Result then FLevelDir := '';
+    if Result then Npcs.LoadLevel(Level);
+    if Result then Baddies.LoadLevel(Level);
+    Exit;
+  end;
   if not FileExists(FileName) and BuiltinFile(ExtractFileName(FileName), D) and
     (LowerCase(ExtractFileExt(FileName)) <> '.png') then
   begin
@@ -2800,10 +2837,10 @@ procedure TAdventure.DrawNames(CamX, CamY: Integer);
     TX, TY: Integer;
   begin
     if Name = '' then Exit;
-    TX := Round(X * TileSize) - CamX + 24 - TextWidth(Name, 2) div 2;
+    TX := Round(X * TileSize) - CamX + 24 - HudNameWidth(Name) div 2;
     TY := Round(Y * TileSize) - CamY + 44;
-    DrawText(Screen, TX + 1, TY + 1, Name, $FF0000FF, 2);
-    DrawText(Screen, TX, TY, Name, $FFFFFFFF, 2);
+    { "Tempus Sans ITC" 24 bold, white on a blue shadow (traced) }
+    HudNameText(Screen, TX, TY, Name, $FFFFFFFF, $FF0000FF);
   end;
 
 var
@@ -2983,13 +3020,11 @@ var
       Part(14 * (Ord(D[J]) - Ord('0')), 81, 14, 16, X0 + (J - 1) * 12, Y);
   end;
 
+  { traced from the real client: ExtTextOut in "Helvetica" 26 bold,
+    black at +1,+1 then white, one pixel in and two down from the tag }
   procedure KeyName(const K: string; BX, BY: Integer);
-  var
-    TX: Integer;
   begin
-    TX := BX + (22 - TextWidth(K, 2)) div 2;
-    DrawText(Screen, TX + 1, BY + 9 + 1, K, $FF000000, 2);
-    DrawText(Screen, TX, BY + 9, K, $FFFFFFFF, 2);
+    HudShadowText(Screen, BX + 1, BY + 2, K, $FFFFFFFF, $FF000000, hfKey);
   end;
 
 begin
@@ -3006,9 +3041,12 @@ begin
       KeyName('S', 80, 30);
       Part(202, 0, 22, 33, 145, 30);
       KeyName('D', 145, 30);
+      { the Q over D, "Helvetica" 10 bold (traced) }
+      HudShadowText(Screen, 146, 27, 'Q', $FFFFFFFF, $FF000000, hfHint);
       if Player.GlovePower >= 2 then
-        DrawText(Screen, 60, 31, IntToStr(Player.GlovePower), $FFFFFFFF, 1);
-      DrawText(Screen, 125, 31, IntToStr(Player.SwordPower), $FFFFFFFF, 1);
+        HudNameText(Screen, 56, 31, IntToStr(Player.GlovePower), $FFFFFFFF, $FF0000FF);
+      { "Tempus Sans ITC" 24 bold, white on a blue shadow (traced) }
+      HudNameText(Screen, 121, 31, IntToStr(Player.SwordPower), $FFFFFFFF, $FF0000FF);
     end;
   end;
   if WeaponsOn then

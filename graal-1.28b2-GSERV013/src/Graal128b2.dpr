@@ -73,6 +73,10 @@ uses
   Map128b2 in 'Map128b2.pas',
   GStartScreen in '../../common/GStartScreen.pas',
   StartScreen128b2 in 'StartScreen128b2.pas',
+  GDfm1x in '../../common/GDfm1x.pas',
+  GUiFont in '../../common/GUiFont.pas',
+  GLaunch1x in '../../common/GLaunch1x.pas',
+  Res128b2 in 'Res128b2.pas',
   RunMode in 'RunMode.pas',
   GLevelWrite in '../../common/GLevelWrite.pas',
   EditorDoc in 'editor/EditorDoc.pas',
@@ -80,7 +84,12 @@ uses
   EditorDialogs in 'editor/EditorDialogs.pas',
   EditorObjSets in 'editor/EditorObjSets.pas',
   EditorView in 'editor/EditorView.pas',
-  EditorMain in 'editor/EditorMain.pas';
+  EditorMain in 'editor/EditorMain.pas',
+  GDfmObj in '../../common/GDfmObj.pas',
+  GVclForm in '../../common/GVclForm.pas',
+  GBetaStart in '../../common/GBetaStart.pas',
+  RealRes128b2 in 'RealRes128b2.pas'
+{$IFDEF MSWINDOWS}, Windows{$ENDIF};
 
 var
   { Set while the start screen runs a game: the arguments it chose, read
@@ -88,6 +97,10 @@ var
   GuiArgs: TStringList = nil;
   { why the last game ended, for the start screen }
   LastGameError: string = '';
+  { the character picked in the start dialog: its head and colours }
+  GuiHasLook: Boolean = False;
+  GuiHead: string = '';
+  GuiColors: array[0..4] of Integer;
 
 function ArgCount: Integer;
 begin
@@ -300,6 +313,11 @@ begin
   G.Echo := GuiWin = nil;
   G.Headless := HasArg('--headless');
   if GuiNick <> '' then G.Player.Nickname := GuiNick;
+  if GuiHasLook then
+  begin
+    G.Player.HeadImage := GuiHead;
+    for I := 0 to 4 do G.Player.Colors[I] := GuiColors[I];
+  end;
   Win := GuiWin;
   Script := TKeyScript.Create;
   Walker := TWalker.Create(Cardinal(StrToIntDef(Arg('--seed', '1'), 1)));
@@ -551,7 +569,7 @@ end;
 
 { No arguments: the start screen, then the game it picks, and back to the
   start screen when the game ends (Esc, or a failed or dropped login). }
-function RunGui: Integer;
+function RunSharedStart: Integer;
 var
   Win: TGWindow;
   G: TAdventure;
@@ -562,8 +580,17 @@ var
   Fetch: TListFetch128b2;
   Info: TStartInfo;
   Who: TCharacter128b2;
+  LaunchChars: TCharList;
+  LaunchCfg: TLaunchConfig;
+  LR: TLaunchResult;
+  Icons: THeadIcons;
+  Langs: TStringList;
+  Offline: Boolean;
+  I: Integer;
 begin
   Result := 0;
+  Icons := nil;
+  Langs := nil;
   Dir := ExtractFilePath(ParamStr(0));
   Win := TGWindow.Create('Graal ' + ClientBuildLabel + ' (' + ClientVersionToken + ')',
     ScreenW, ScreenH);
@@ -586,31 +613,55 @@ begin
     InstallStopHandlers;
     FillChar(R, SizeOf(R), 0);
     Msg := '';
+    { The start dialog is the program's own form (TConnectFrame, compiled
+      in from the real exe: Res128b2); its character list is the
+      install's headsconfig.txt, else the list the exe carries. }
+    LaunchChars := ParseCharacters(InstallText(Dir + 'headsconfig.txt', ResCharacters));
+    Icons := THeadIcons.Create(Dir);
+    Langs := InstallLanguages(Dir);
+    LaunchCfg.Style := ls128;
+    LaunchCfg.ServerEnabled := True;
+    LaunchCfg.DefServer := 'www.graalonline.com';
+    LaunchCfg.DefPort := 14804;
+    LaunchCfg.DefMode := 0;
+    ServerOverride(Dir, LaunchCfg.DefServer, LaunchCfg.DefPort);
     repeat
       Win.TakeChars;
-      G := TAdventure.Create;
-      Fetch := TListFetch128b2.Create;
-      Who := TCharacter128b2.Create;
-      try
-        G.UseInstall(Dir);
-        Who.G := G;
-        Info.Title := 'graal-delphi';
-        Info.Subtitle := ClientBuildTitle + ' rebuilt';
-        Info.DrawCharacter := Who.Draw;
-        Info.StopRequested := StopRequested;
-        Picked := RunStartScreen(Win, G.Screen, Fetch, Info, Dir, ListHost, ListPort, Msg, R);
-      finally
-        Who.Free;
-        Fetch.Free;
-        G.Free;
+      if not RunLaunch1x(Win, ResConnectFrame, LaunchCfg, LaunchChars, Icons.Icon, Langs, LR,
+        StopRequested) then Exit;
+      if Win.Closed or StopRequested then Exit;
+      { the first player's character: head and the five body colours }
+      GuiHasLook := (LR.Chars[0] >= 0) and (LR.Chars[0] <= High(LaunchChars));
+      if GuiHasLook then
+      begin
+        GuiHead := LaunchChars[LR.Chars[0]].Head;
+        for I := 0 to 4 do GuiColors[I] := LaunchChars[LR.Chars[0]].Colors[I];
       end;
-      if not Picked or Win.Closed or StopRequested then Exit;
+      { One Player Online connects; the other modes play offline (two to
+        four players on one keyboard are not rebuilt yet) }
+      Offline := LR.Mode <> 1;
+      R.Host := LR.Server;
+      R.Port := LR.Port;
+      { www.graalonline.com, the dialog's own default, is long gone: it
+        stands for the community server the rebuild used before }
+      if SameText(R.Host, 'www.graalonline.com') then
+      begin
+        R.Host := ListHost;
+        R.Port := ListPort;
+      end;
+      R.Account := LR.Account;
+      if R.Account = '' then R.Account := LR.Nickname;
+      R.Password := LR.Password;
+      R.Nickname := LR.Nickname;
+      if R.Nickname = '' then R.Nickname := 'unknown';
+      { the game window: TAdventure's caption and frame, 472 high }
+      Win.Reshape(FormCaption(ResAdventure, 'Graal'), ScreenW, ScreenH, False, True);
       GuiArgs := TStringList.Create;
       try
         GuiArgs.Add('--window');
         GuiArgs.Add('--data');
         GuiArgs.Add(Dir);
-        if R.Choice = scTraining then
+        if Offline then
         begin
           TrainingLevel(Dir, Lvl, X, Y);
           GuiArgs.Add('--level');
@@ -637,9 +688,148 @@ begin
       end;
     until Win.Closed or StopRequested;
   finally
+    Icons.Free;
+    Langs.Free;
     Win.Free;
   end;
 end;
+
+{ No arguments: the build's own start dialog, built from its TConnectFrame
+  form (src/RealRes128b2.pas, from the real client), then the game in a
+  window shaped as its TAdventure form. Closing the game window ends the
+  program, as in the original; a failed connection is reported and the
+  dialog shown again. Systems without Win32 use the shared start screen. }
+function RunGui: Integer;
+{$IFDEF MSWINDOWS}
+var
+  Info: TBetaStartInfo;
+  Choice: TBetaChoice;
+  GF: TBetaGameForm;
+  Dir, Host, Lvl, X, Y, FormData, HeadsFile: string;
+  Port, I: Integer;
+  Win: TGWindow;
+  HNames, HFiles: TBetaNames;
+begin
+  Result := 0;
+  Info := Default(TBetaStartInfo);
+  Dir := ExtractFilePath(ParamStr(0));
+  if not RealResource('TCONNECTFRAME', Info.FormData) then
+  begin
+    Result := RunSharedStart;
+    Exit;
+  end;
+  InstallStopHandlers;
+  SetAssetRoots(Dir, ClientBuildLabel);
+  ReadServerAddr(Dir, DefaultServerHost, DefaultServerPort, Host, Port);
+  Info.AppTitle := 'Graal';
+  Info.Nick := '';
+  { the real dialog has no owner window and is not stay-on-top }
+  Info.AppOwned := False;
+  Info.StayOnTop := False;
+  { the lists shrink the heads with COLORONCOLOR }
+  Info.HeadPick := True;
+  Info.Heads := nil;
+  SetLength(Info.HeadSheets, 0);
+  SetLength(HFiles, 0);
+  SetLength(HNames, 0);
+  { graalconfig.txt keeps the last session's choices; language*.txt hold the captions }
+  Info.ConfigFile := Dir + 'graalconfig.txt';
+  Info.LanguageDir := Dir;
+  { the lists' ground, heads.gif's own transparent colour }
+  Info.ItemFill := $C6C6C6;
+  { the entries' head and name sit one pixel further left than before }
+  Info.ItemShift := -1;
+  Info.NickRowAlone := True;
+  if ReadHeadsConfig(Dir + 'headsconfig.txt', HNames, HFiles) then
+  begin
+    Info.Names := HNames;
+  end
+  else
+  begin
+    SetLength(Info.Names, Length(CharacterNames));
+    SetLength(HFiles, Length(CharacterHeads));
+    for I := 0 to High(CharacterNames) do Info.Names[I] := CharacterNames[I];
+    for I := 0 to High(CharacterHeads) do HFiles[I] := CharacterHeads[I];
+  end;
+  { each character's own head sheet: heads/ or levels/heads/ in the
+    install, or next to the program }
+  SetLength(Info.HeadSheets, Length(HFiles));
+  for I := 0 to High(HFiles) do
+  begin
+    Info.HeadSheets[I] := nil;
+    HeadsFile := AssetPath('heads/' + HFiles[I]);
+    if HeadsFile = '' then HeadsFile := AssetPath('levels/heads/' + HFiles[I]);
+    if HeadsFile = '' then HeadsFile := AssetPath(HFiles[I]);
+    if HeadsFile <> '' then
+    begin
+      Info.HeadSheets[I] := TGSurface.Create(1, 1);
+      if not LoadImageFile(HeadsFile, Info.HeadSheets[I]) then FreeAndNil(Info.HeadSheets[I]);
+    end;
+  end;
+  try
+    repeat
+      if not RunBetaStart(Info, Choice) or StopRequested then Exit;
+      Info.Nick := Choice.Nick;
+      FormData := '';
+      RealResource('TADVENTURE', FormData);
+      BetaGameForm(FormData, GF);
+      Win := TGWindow.Create(GF.Caption, GF.ViewW, GF.ViewH);
+      GuiArgs := TStringList.Create;
+      try
+        Win.VclFrame(GF.Caption, GF.Width, GF.Height, GF.ViewW, GF.ViewH, GF.ChatH,
+          GF.MinBox, GF.MaxBox);
+        GuiArgs.Add('--window');
+        GuiArgs.Add('--data');
+        GuiArgs.Add(Dir);
+        if Choice.Mode = bmOnline then
+        begin
+          { the dialog's server field, when the player changed it; else the
+            address from listserver.txt or the rebuild's default (the host
+            the original was filled with is gone) }
+          GuiArgs.Add('--server');
+          if Choice.HostEdited and (Trim(Choice.Host) <> '') then
+            GuiArgs.Add(Trim(Choice.Host) + ':' + IntToStr(Choice.Port))
+          else if Choice.Port > 0 then
+            GuiArgs.Add(Host + ':' + IntToStr(Choice.Port))
+          else
+            GuiArgs.Add(Host + ':' + IntToStr(Port));
+          GuiArgs.Add('--account');
+          GuiArgs.Add(Choice.Account);
+        end
+        else
+        begin
+          TrainingLevel(Dir, Lvl, X, Y);
+          GuiArgs.Add('--level');
+          GuiArgs.Add(Lvl);
+          GuiArgs.Add('--x');
+          GuiArgs.Add(X);
+          GuiArgs.Add('--y');
+          GuiArgs.Add(Y);
+        end;
+        LastGameError := '';
+        if (RunGame(Win, Choice.Password, Choice.Nick) <> 0) and (Choice.Mode = bmOnline) and
+          not Win.Closed and not StopRequested then
+        begin
+          MessageBox(0, PChar('Could not connect: ' + LastGameError), 'Graal',
+            MB_OK or MB_ICONEXCLAMATION);
+          Continue;
+        end;
+        Exit;
+      finally
+        FreeAndNil(GuiArgs);
+        Win.Free;
+      end;
+    until StopRequested;
+  finally
+    Info.Heads.Free;
+    for I := 0 to High(Info.HeadSheets) do Info.HeadSheets[I].Free;
+  end;
+end;
+{$ELSE}
+begin
+  Result := RunSharedStart;
+end;
+{$ENDIF}
 
 { Graal128b2 level.graal: like 2.05, open the file in the editor in the
   file's folder, with the local player at 30, 30.5. }

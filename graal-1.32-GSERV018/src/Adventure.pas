@@ -22,7 +22,7 @@ const
   { The game view. 2.05's window size is not yet read from the binary;
     640x480 is the classic default and is marked as an assumption. }
   ScreenW = 640;
-  ScreenH = 480;
+  ScreenH = 472;
 
   { Directions, as the walking routine numbers them. }
   DirUp = 0;
@@ -387,7 +387,7 @@ procedure MakeIndexSheet(Sheet: TGSurface);
 implementation
 
 uses
-  SysUtils, Math, GFont, GSound, Sound132, Map132, NpcBridge132;
+  SysUtils, Math, GFont, GNpcFont, GSound, Sound132, Map132, NpcBridge132;
 
 procedure MakeIndexSheet(Sheet: TGSurface);
 var
@@ -2828,8 +2828,8 @@ end;
 
 { The names under characters: an NPC that shows a character with a #n
   name, and the other players. The player's own is not drawn (2.05 shows
-  none offline). White on a blue shadow, as 2.05 draws them; the font is
-  the built-in one. }
+  none offline). White on a blue shadow in Arial Bold 20 px (GNpcFont),
+  as the real client draws them on Windows 10. }
 procedure TAdventure.DrawNames(CamX, CamY: Integer);
 
   procedure One(const Name: string; X, Y: Double);
@@ -2837,10 +2837,9 @@ procedure TAdventure.DrawNames(CamX, CamY: Integer);
     TX, TY: Integer;
   begin
     if Name = '' then Exit;
-    TX := Round(X * TileSize) - CamX + 24 - TextWidth(Name, 2) div 2;
+    TX := Round(X * TileSize) - CamX + 24 - NpcTextWidth(Name) div 2;
     TY := Round(Y * TileSize) - CamY + 44;
-    DrawText(Screen, TX + 1, TY + 1, Name, $FF0000FF, 2);
-    DrawText(Screen, TX, TY, Name, $FFFFFFFF, 2);
+    NpcDrawShadowed(Screen, TX, TY, Name);
   end;
 
 var
@@ -3003,6 +3002,7 @@ const
 var
   St: TGSurface;
   I, N, Row, Col, X, Half, HX, HY, Hearts2, Down: Integer;
+  Baked: Boolean;
 
   procedure Part(SX, SY, W, H, DX, DY: Integer);
   begin
@@ -3033,19 +3033,35 @@ begin
   St := Assets.Image('state.png', '');
   if St = nil then Exit;
   { buttons with their keys; with weapons off only the first }
+  { up to 1.37 the state picture (224 x 81) has the A, S and D buttons
+    side by side with their letters drawn in; from 1.38 one blank button
+    takes a letter in the program's font }
+  Baked := St.Height < 97;
   if ShowStats and $01 <> 0 then
   begin
-    Part(202, 0, 22, 33, 15, 30);
-    KeyName('A', 15, 30);
+    if Baked then Part(158, 0, 22, 33, 15, 30)
+    else
+    begin
+      Part(202, 0, 22, 33, 15, 30);
+      KeyName('A', 15, 30);
+    end;
     if WeaponsOn then
     begin
-      Part(202, 0, 22, 33, 80, 30);
-      KeyName('S', 80, 30);
-      Part(202, 0, 22, 33, 145, 30);
-      KeyName('D', 145, 30);
-      if Player.GlovePower >= 2 then
-        DrawText(Screen, 60, 31, IntToStr(Player.GlovePower), $FFFFFFFF, 1);
-      DrawText(Screen, 125, 31, IntToStr(Player.SwordPower), $FFFFFFFF, 1);
+      if Baked then
+      begin
+        Part(180, 0, 22, 33, 80, 30);
+        Part(202, 0, 22, 33, 145, 30);
+      end
+      else
+      begin
+        Part(202, 0, 22, 33, 80, 30);
+        KeyName('S', 80, 30);
+        Part(202, 0, 22, 33, 145, 30);
+        KeyName('D', 145, 30);
+        if Player.GlovePower >= 2 then
+          DrawText(Screen, 60, 31, IntToStr(Player.GlovePower), $FFFFFFFF, 1);
+        DrawText(Screen, 125, 31, IntToStr(Player.SwordPower), $FFFFFFFF, 1);
+      end;
     end;
   end;
   if WeaponsOn then

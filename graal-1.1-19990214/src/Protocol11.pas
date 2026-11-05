@@ -41,7 +41,9 @@ const
   { The start levels: One Player starts on level1.graal; online the client
     starts on onlinestart.graal and moves to onlinestartlocal.graal when
     the server says it plays local levels (NL). }
-  OfflineStartLevel = 'level1.graal';
+  { One Player opens house1.graal, as the real 1.1 does (checked side by
+    side under Wine) }
+  OfflineStartLevel = 'house1.graal';
   OnlineStartLevel = 'onlinestart.graal';
   OnlineLocalLevel = 'onlinestartlocal.graal';
 
@@ -175,6 +177,33 @@ const
   PLPROP_GATTRIB30 = 74;
 
 function PLOName(Id: Integer): string;
+
+const
+  { the character lists of the start dialog, in the build's order (the
+    real client's lists); each entry is the head of the same column of
+    heads.gif }
+  CharacterNames: array[0..20] of string = (
+    'Fung Si Yan',
+    'Nick',
+    'Mandi',
+    'Bad Max',
+    'Pachukite',
+    'Blond',
+    'Dino',
+    'Brendan',
+    'Athena',
+    'Bob',
+    'Zoraas',
+    'Raven',
+    'Joe',
+    'Old Man',
+    'Slade',
+    'Azraelite',
+    'NeoKnight',
+    'Thief',
+    'Adventurer',
+    'Ninji Knight',
+    'Fire');
 
 implementation
 

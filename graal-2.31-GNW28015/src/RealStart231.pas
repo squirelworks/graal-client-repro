@@ -31,7 +31,7 @@ unit RealStart231;
 interface
 
 uses
-  Classes, GSurface, GWindow, GStartScreen;
+  Classes, GSurface, GWindow, GStartScreen, Dialogs231;
 
 type
   TRealStartArt = class
@@ -39,6 +39,10 @@ type
     Back1, Back2: TGSurface;
     Btn: array[1..4] of TGSurface;
     Lang: TStringList;
+    { graalconfig.txt (the More options window's settings) and the page
+      Get an account! offers (arrays2.dat line 3) }
+    Config: TGraalConfig;
+    AccountUrl: string;
     constructor Create;
     destructor Destroy; override;
     { The pictures compiled into this program (res/, from Graal_231.exe)
@@ -74,7 +78,7 @@ uses
 {$IFDEF MSWINDOWS}
   Windows,
 {$ENDIF}
-  SysUtils, Res231, GUiFont;
+  SysUtils, Math, Res231, GUiFont, GSysUiFont;
 
 const
   DlgW = 577;
@@ -90,6 +94,7 @@ constructor TRealStartArt.Create;
 begin
   inherited Create;
   Lang := TStringList.Create;
+  Config := TGraalConfig.Create;
 end;
 
 destructor TRealStartArt.Destroy;
@@ -100,6 +105,7 @@ begin
   Back2.Free;
   for I := 1 to 4 do Btn[I].Free;
   Lang.Free;
+  Config.Free;
   inherited Destroy;
 end;
 
@@ -330,12 +336,20 @@ begin
     Right := X;
   end;
   if Masked then T := StringOfChar('*', Length(Text)) else T := Text;
-  while (T <> '') and (UiTextWidth(T, ufRegular) > Right - B.X - 6) do Delete(T, 1, 1);
+  { an edit being typed in keeps its end in view; any other shows its
+    start, cut at the right (the server list's Version: the real 2.31 on
+    Windows) }
+  if Focused and not Combo then
+    while (T <> '') and (UiTextWidth(T, ufRegular) > Right - B.X - 6) do Delete(T, 1, 1)
+  else
+    while (T <> '') and (UiTextWidth(T, ufRegular) > Right - B.X - 6) do
+      Delete(T, Length(T), 1);
   TW := UiTextWidth(T, ufRegular);
   if Focused and Combo and (T <> '') then
   begin
-    { a focused combo shows its text picked }
-    S.FillRect(B.X + 3, B.Y + 3, Right - B.X - 4, B.H - 6, ColSelect);
+    { a focused combo shows its text picked: the blue just behind the
+      text, as the real one }
+    S.FillRect(B.X + 3, B.Y + 3, Min(TW + 2, Right - B.X - 4), B.H - 6, ColSelect);
     UiDrawText(S, B.X + 4, B.Y + (B.H - UiLineH) div 2, T, ColWhite, ufRegular);
   end
   else
@@ -433,10 +447,11 @@ var
   S: TGSurface;
   Page: TPage;
   Focus, Sel, I, N, CX, CY, Row, PressBtn: Integer;
+  AccPicked: Boolean;
   Clicked: Boolean;
   Chars, Note, Lang, Title1, Title2: string;
   BTraining, BEditor, BOptions, BAccount, BStart, FNick, FLang, FAcc, FPw: TBox;
-  BConnect, BGo, LList, FCombo: TBox;
+  BMore, BDonate, BConnect, BGo, LList, FCombo: TBox;
   Tab, T: TListTab;
   Tabs: array of TListTab;
   Rows: array of Integer;
@@ -508,8 +523,11 @@ begin
     Note := Message;
     Lang := 'English';
     { the form says guest / guest, but 2.31 empties both before it shows
-      the window (under Wine, nothing saved) }
-    Focus := 0;
+      the window (under Wine, nothing saved). The account box is first in
+      the tab order: it has the focus on open, its text picked (the real
+      2.31 on Windows, 2026-11-05) }
+    Focus := 2;
+    AccPicked := True;
     Sel := -1;
     Tab := ltClassic;
     PressBtn := 0;
@@ -529,6 +547,12 @@ begin
     { TServerListFrame }
     LList := Box(24, 190, 201, 91);
     FCombo := Box(24, 290, 201, 23);
+    { TSERVERLISTFRAME's PaintButton1 (Show More) and PaintButton3: hidden
+      in the form; Graal_231.exe shows the first when the listserver sends
+      a site page (LSO_SITEURL) and the second for an upgrade page
+      (LSO_UPGURL), and each opens its page through the Open URL box }
+    BMore := Box(120, 375, 105, 26);
+    BDonate := Box(240, 375, 185, 26);
     BConnect := Box(440, 375, 105, 26);
     BGo := Box(528, 288, 28, 26);
     while True do
@@ -565,45 +589,81 @@ begin
             if Pos(#27, Chars) > 0 then Exit;
             if Pos(#9, Chars) > 0 then
             begin
+              { TabOrder: account, password, nickname, language }
               case Focus of
-                0: Focus := 2;
                 2: Focus := 3;
+                3: Focus := 0;
+                0: Focus := 1;
               else
-                Focus := 0;
+                Focus := 2;
               end;
+              AccPicked := Focus = 2;
               Chars := StringReplace(Chars, #9, '', [rfReplaceAll]);
             end;
             case Focus of
               0: TypeInto(R.Nickname, Chars, 20);
-              2: TypeInto(R.Account, Chars, 30);
+              2:
+                begin
+                  { typing over the picked text replaces it }
+                  if (Chars <> '') and (Chars[1] >= ' ') and AccPicked then R.Account := '';
+                  TypeInto(R.Account, Chars, 30);
+                end;
               3: TypeInto(R.Password, Chars, 30);
             end;
+            if Chars <> '' then AccPicked := False;
             if Clicked then
             begin
               if Inside(FNick, CX, CY) then Focus := 0;
               if Inside(FLang, CX, CY) then Focus := 1;
               if Inside(FAcc, CX, CY) then Focus := 2;
+              AccPicked := False;
               if Inside(FPw, CX, CY) then Focus := 3;
               if Inside(BTraining, CX, CY) then
               begin
+                { 2.31's Training starts "GraalEditor.exe -play" from the
+                  Graal folder (seen under Wine and on Windows, 2026-11-05)
+                  and stays on this window; without it, the same error as
+                  Editor. The rebuild then plays the tutorial itself, its
+                  stand-in for the editor's play mode. }
+                Press(1);
                 SaveLogin(R.Nickname, R.Account);
-                R.Choice := scTraining;
-                Result := True;
-                Exit;
+                if not StartProgram(Dir, 'GraalEditor.exe', '-play') then
+                begin
+                  ShowError(Art.Text('StartScreen-GraalEditorError',
+                    'GraalEditor.exe has not been found in the Graal folder!'));
+                  Win.TakeClick(CX, CY);
+                  Win.TakeChars;
+                  R.Choice := scTraining;
+                  Result := True;
+                  Exit;
+                end;
               end;
               if Inside(BEditor, CX, CY) then
               begin
                 Press(5);
                 if not StartProgram(Dir, 'GraalEditor.exe', '') then
-                  Note := Art.Text('StartScreen-GraalEditorError',
-                    'GraalEditor.exe has not been found in the Graal folder!');
+                begin
+                  ShowError(Art.Text('StartScreen-GraalEditorError',
+                    'GraalEditor.exe has not been found in the Graal folder!'));
+                  Win.TakeClick(CX, CY);
+                  Win.TakeChars;
+                end;
               end;
               if Inside(BOptions, CX, CY) then
               begin
                 Press(2);
-                Note := 'Options are not built yet.';
+                { 2.31's More options window, over this one }
+                RunMoreOptions(Art.Config, Art.Text);
+                Win.TakeClick(CX, CY);
+                Win.TakeChars;
               end;
-              if Inside(BAccount, CX, CY) then Press(3);
+              if Inside(BAccount, CX, CY) then
+              begin
+                Press(3);
+                if Art.AccountUrl <> '' then RunOpenUrl(Art.AccountUrl, Art.Text);
+                Win.TakeClick(CX, CY);
+                Win.TakeChars;
+              end;
             end;
             if (Page = pgStart) and ((Clicked and Inside(BStart, CX, CY)) or (Pos(#13, Chars) > 0)) then
             begin
@@ -622,7 +682,7 @@ begin
             UiDrawText(S, 76, 364, Art.Text('ServerList-Label8', 'Password:'), ColText, ufBold);
             Edit(S, FNick, R.Nickname, Focus = 0, False, False);
             Edit(S, FLang, Lang, Focus = 1, False, True);
-            Edit(S, FAcc, R.Account, Focus = 2, False, True);
+            Edit(S, FAcc, R.Account, (Focus = 2) and AccPicked, False, True);
             Edit(S, FPw, R.Password, Focus = 3, True, False);
             PicButton(S, Art.Btn[2], BTraining.X, BTraining.Y,
               Art.Text('StartScreen-Button2', 'Training'), Pressed(1));
@@ -679,7 +739,30 @@ begin
                 Row := (CY - LList.Y - 2) div UiLineH;
                 if (Row >= 0) and (Row <= High(Rows)) then Sel := Rows[Row];
               end;
-              if Inside(BGo, CX, CY) then Press(8);
+              if Inside(BGo, CX, CY) then
+              begin
+                { Go: the picked server's homepage, asked first }
+                Press(8);
+                if (Sel >= 0) and (Sel <= High(Fetch.Servers)) and
+                  (Fetch.Servers[Sel].Url <> '') then
+                  RunOpenUrl(Fetch.Servers[Sel].Url, Art.Text);
+                Win.TakeClick(CX, CY);
+                Win.TakeChars;
+              end;
+            end;
+            if Clicked and (Fetch.SiteUrl <> '') and Inside(BMore, CX, CY) then
+            begin
+              Press(9);
+              RunOpenUrl(Fetch.SiteUrl, Art.Text);
+              Win.TakeClick(CX, CY);
+              Win.TakeChars;
+            end;
+            if Clicked and (Fetch.UpgradeUrl <> '') and Inside(BDonate, CX, CY) then
+            begin
+              Press(10);
+              RunOpenUrl(Fetch.UpgradeUrl, Art.Text);
+              Win.TakeClick(CX, CY);
+              Win.TakeChars;
             end;
             if ((Clicked and Inside(BConnect, CX, CY)) or (Pos(#13, Chars) > 0)) and
               (Sel >= 0) and (Sel <= High(Fetch.Servers)) then
@@ -781,6 +864,12 @@ begin
             if Note <> '' then Wrapped(S, 24, 330, 529, Note, True)
             else if Fetch.StatusLines <> '' then Wrapped(S, 24, 330, 529, Fetch.StatusLines, True)
             else Wrapped(S, 24, 330, 529, Fetch.Status, True);
+            if Fetch.SiteUrl <> '' then
+              PicButton(S, Art.Btn[1], BMore.X, BMore.Y,
+                Art.Text('ServerList-Button2', 'Show More'), Pressed(9));
+            if Fetch.UpgradeUrl <> '' then
+              PicButton(S, Art.Btn[3], BDonate.X, BDonate.Y,
+                Art.Text('ServerList-Button4', 'Donations'), Pressed(10));
             PicButton(S, Art.Btn[1], BConnect.X, BConnect.Y,
               Art.Text('ServerList-Button1', 'Connect'), Pressed(7));
           end;

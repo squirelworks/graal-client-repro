@@ -16,13 +16,11 @@ program carries small default graphics and a starter level of its own, so
 it runs as it is. Put it in the folder of a 2.31 install you own, next to
 its files, or keep those files in a `graal-assets/` folder beside it.
 
-## What's new in v0.0.3
+## What's new in v0.0.4
 
-- Faithfulness pass: compared side by side with the original program it was
-  rebuilt from, and the differences found brought in line with it.
-- Stress tested before release: a long soak with several players walking
-  between levels, others connecting and dropping again and again, and a
-  level with 80 scripted NPCs, with no crash, error or memory growth.
+- Rebuilt from the latest code; the changes for this client are listed here as they land.
+- Faithfulness pass: compared side by side with the real 2.31 (under Wine
+  and on Windows), and the differences found brought in line with it.
 - [x] 2.31's own start window: its background and picture buttons, taken
   out of the real 2.31 program and built into this one, at the places the
   real one shows them. It is its own 577 x 416 window titled
@@ -46,6 +44,49 @@ its files, or keep those files in a `graal-assets/` folder beside it.
   area is the 456 pixels above it.
 - [x] Alt+Enter switches the game to fullscreen and back, as in 2.31.
 - [x] 2.31's own icon in the title bar and the taskbar.
+- [x] The Options button opens 2.31's "More options" window: its Video,
+  Audio, Microphone, Controls and General pages with 2.31's settings,
+  read from and saved to `graalconfig.txt` as 2.31 does. "Start in
+  fullscreen" is honoured when a game starts.
+- [x] Get an account! and Go ask, in 2.31's own "Open URL" box, whether to
+  open the page in the browser, and open it when you say yes.
+- [x] Typing in the chat line: Tab goes to it, Enter says the line, and
+  what you say shows over your head in 2.31's lettering and colours.
+- [x] Esc in a game asks "Do you really want to quit Graal?" first.
+- [x] Training's look: the wizard, the squirrel and the human2 player
+  with its shield, as 2.31 draws them, with the wizard's bobbing green
+  arrow and its "Touch to get information" line.
+- [x] Training's torches burn: the lamp gani's own script shows the flame
+  and its glow, as in 2.31.
+- [x] Training's ground is the height-shaped sand and grass 2.31 draws
+  from the install's `maps/offlinetutorial.gmap`, with people and things
+  standing raised on it.
+- [x] Alt+Enter and "Start in fullscreen" switch the screen to the
+  "Fullscreen mode" picked in More options (graalconfig.txt's
+  fullscreenmode, 1024 x 768 by default), and the game shows more of the
+  level there, as the same engine does in 2.22.
+- [x] Training does what 2.31's does: it starts `GraalEditor.exe -play`
+  from the Graal folder. Without GraalEditor.exe it shows 2.31's
+  "GraalEditor.exe has not been found in the Graal folder!" box, and then
+  the rebuild plays the tutorial itself (the built-in stand-in for the
+  editor's play mode, which 2.31 does not have).
+- [x] Editor's not-found message is the same Error box.
+- [x] The server list's Show More and Donations buttons, traced from
+  Graal_231.exe: hidden in its form, shown when the listserver sends a
+  site page (Show More) or an upgrade page (Donations), each opening its
+  page through the Open URL box. The Version box shows the start of the
+  version, cut at the right.
+- [x] On Windows the windows' text is drawn by Windows in the forms' own
+  font, MS Sans Serif at 14 px (Font.Height -14 in every form), as 2.31's
+  controls draw it; elsewhere the built-in Liberation Sans stands in.
+- [x] The start window and server list have no icon in their caption, and
+  the account box has the focus when the window opens, its text picked.
+
+## What's new in v0.0.3
+
+- Stress tested before release: a long soak with several players walking
+  between levels, others connecting and dropping again and again, and a
+  level with 80 scripted NPCs, with no crash, error or memory growth.
 
 ## Downloads
 
@@ -83,13 +124,13 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 
 ## Not yet
 
-- [ ] The Options window (2.31's TMoreOptions) behind the Options button.
-- [ ] Get an account! and the Go button open nothing yet.
-- [ ] Training's look: 2.31 draws the tutorial with the picso tiles, the
-  torch lights, the wizard and the "Touch to get information" text; the
-  rebuild still shows the level with the install's normal tiles.
-- [ ] Typing in the chat line.
-- [ ] Dialog text is drawn in Liberation Sans, not Windows' MS Sans Serif.
+- [ ] Training's heights: side by side with 2.31 the wizard stands about
+  25 pixels lower and the torches about 10; 2.31's own height rules are
+  not traced yet (the rebuild uses 2.22's). The ground needs the install's
+  `maps/offlinetutorial.gmap`; without it Training is drawn flat.
+- [ ] Small dark squares every 8 tiles over water (seen in fullscreen).
+  They come from the terrain drawing the clients share, not from this
+  client.
 - [ ] `graal://` and `graal3://` links, the F1 window, NPC movement
   messages, UDP. See the build's README for the full list.
 

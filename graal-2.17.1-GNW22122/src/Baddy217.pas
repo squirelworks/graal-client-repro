@@ -1,10 +1,7 @@
-{ Baddy217: the baddies of 2.05 rev 2 (TComputer in the original).
+{ Baddy217: the built-in baddies of 2.22 (TComputer in the original).
 
-  2.17.1 copy of the 2.05 rev 2 unit: 2.17.1 runs it as 2.05 does until a
-  difference is found (see the build's README).
-
-  Read from the 2.05 client's baddy class in the decompile, not copied
-  from it:
+  Follows client-internals/baddies-222.md in Graal_analysis, which was
+  read from the 2.22 client and checked against lab captures:
   - create: the power and image by type, the first direction
     (facing the player when near, else up or down), the mode by type
     (4 rises from the ground, 5 hops about its start, 6 shoots ink);
@@ -13,28 +10,36 @@
       0 walk 0.25 tile (x2 for types 6 and 8), turn at a wall, look
         about when the counter runs out, hunt on sight;
       1 look about (the head turns by a fixed table), then walk a random way;
-      2 hunt 0.5 tile (x1.5 for type 8) toward the player's middle,
-        along the main axis plus the other in proportion; archers (3, 9)
-        go to a spot 11 tiles off the player's line and shoot;
+      2 hunt 0.5 tile (x1.5 for type 8) toward the target's middle,
+        along the main axis plus the other in proportion; the side is
+        probed 0.1 tile outside the body, and a baddy against a wall is
+        unstuck by the points 0.1 tile inside it; archers (3, 9) go to a
+        spot 11 tiles off the target's line and shoot;
       3 hurt and 4 bumped by a shield: knocked back, then hunt or die;
-      5 dying (14 ticks), then gone; 6 type 4's 43-tick cycle; 7 type 5's
-        46-tick hop; 8 type 6's ink shot;
-  - sight: the player inside the 90-degree cone the head
-    faces, within 20 tiles, nothing blocking on the straight line;
-  - touch: the player's middle within a tile of the baddy's
-    middle on both axes hurts the player;
-  - sword: a shield block for types 0, 1, 2 and 7
-    facing the swing, else a hit of the sword's power;
+      5 dying (14 steps), then gone; 6 type 4's 43-step cycle; 7 type 5's
+        46-step hop; 8 type 6's ink shot;
+  - target: the nearest player in the level (the others and this one);
+    the first is taken as is, a nearer one only when it is in sight;
+  - sight: the target inside the 90-degree cone faced, within 20 tiles,
+    nothing blocking on the straight line;
+  - touch: this player's middle within a tile of the baddy's middle on
+    both axes hurts it;
+  - sword: a shield block for types 0, 1, 2 and 7 facing the swing
+    (swordon.wav, and the player is pushed back), else a hit of the
+    sword's power;
+  - sounds: steps.wav, frog.wav, swordon.wav, crush.wav, compudead.wav;
   - drawing: arrays.dat list 20 by ani * 4 + dir,
     list 23 for type 4, list 22 for the death puff; sprites 48 to 63,
     104 to 106 and 117 to 130 from the baddy's image, 111 to 114 from
-    wbow1.gif, the rest from sprites.png;
-  - BDPROP 0 to 10 (written and read by the client), PLO_BADDYPROPS (2), PLO_BADDYHURT
-    (27), PLI_BADDYPROPS (15) and PLI_BADDYHURT (16).
+    wbow1, the rest from sprites.png;
+  - BDPROP 0 to 10: 6 is the step counter, 7 is body * 4 + head;
+    PLO_BADDYPROPS (2), PLO_BADDYHURT (27), PLI_BADDYPROPS (15) and
+    PLI_BADDYHURT (16).
 
-  Not reproduced: the sounds, hunting other players (only this player is
-  a target), water and other special tiles (the blocking test is the
-  game's own), and the shield's push on the player. }
+  Not reproduced: the ground overlays 2.22 draws in place of the shadow
+  on water, grass and lava (the spec does not map which sprite goes with
+  which ground), the swamp soldier's splash, and baddies hit by other
+  players' swords. }
 unit Baddy217;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
@@ -85,12 +90,19 @@ type
     function Arrays: TGArrays; virtual;
     procedure DrawVerse(Screen: TGSurface; CX, Y: Integer; const Text: string); virtual;
     procedure AllDied; virtual; { the last baddy of the level died }
+    { the other players in this level, top-left of their box }
+    function OtherCount: Integer; virtual;
+    function OtherAt(I: Integer; out X, Y: Double): Boolean; virtual;
+    procedure Sound(const Name: string; X, Y: Double); virtual;
+    { a shield block pushes this player back along (KX, KY) }
+    procedure PushPlayer(KX, KY: Double); virtual;
   end;
 
   TBaddy = class
   public
     Id, Kind, Power, Mode, Ani, Dir, Head, Counter, Lost, Steps: Integer;
     X, Y, StartX, StartY, KnockX, KnockY, Dist: Double;
+    TargetX, TargetY: Double;        { the target's middle }
     Hurt, Aiming, Pending, Gone: Boolean;
     Image: string;
     Verses: array[0..2] of string;   { sight, hurt, attack }
@@ -108,8 +120,12 @@ type
     FTick: Integer;
     function Rand(N: Integer): Integer;
     function BlockedAhead(B: TBaddy; D: Integer): Boolean;
+    function BlockedOutside(B: TBaddy; D: Integer): Boolean;
+    function BlockedInside(B: TBaddy; D: Integer): Boolean;
     function BlockedAround(B: TBaddy): Boolean;
+    function PickTarget(B: TBaddy; D: Integer): Boolean;
     function DirToPlayer(B: TBaddy): Integer;
+    function SeesPoint(B: TBaddy; D: Integer; PX, PY: Double): Boolean;
     function Sees(B: TBaddy; D: Integer): Boolean;
     function Active(B: TBaddy): Boolean;
     procedure Move(B: TBaddy; D: Integer; Speed: Double);
@@ -163,6 +179,16 @@ const
     (0.1, 1.0, 1.9), (2.5, 2.5, 2.5));
   AheadY: array[0..3, 0..2] of Double = ((-0.5, -0.5, -0.5), (0.1, 1.0, 1.9),
     (2.5, 2.5, 2.5), (0.1, 1.0, 1.9));
+  { 0.1 tile outside the body (the hunt's side axis) }
+  OutsideX: array[0..3, 0..2] of Double = ((0.1, 1.0, 1.9), (-0.1, -0.1, -0.1),
+    (0.1, 1.0, 1.9), (2.1, 2.1, 2.1));
+  OutsideY: array[0..3, 0..2] of Double = ((-0.1, -0.1, -0.1), (0.1, 1.0, 1.9),
+    (2.1, 2.1, 2.1), (0.1, 1.0, 1.9));
+  { 0.1 tile inside the body (unsticking and knockback) }
+  InsideX: array[0..3, 0..2] of Double = ((0.1, 1.0, 1.9), (0.1, 0.1, 0.1),
+    (0.1, 1.0, 1.9), (1.9, 1.9, 1.9));
+  InsideY: array[0..3, 0..2] of Double = ((0.1, 0.1, 0.1), (0.1, 1.0, 1.9),
+    (1.9, 1.9, 1.9), (0.1, 1.0, 1.9));
   { head turns while looking about, by counter div 4 }
   LookTurn: array[0..10] of Integer = (1, 1, 0, -1, -1, 0, 1, 1, 0, -1, -1);
   { where an archer stands, from the player's middle }
@@ -194,6 +220,15 @@ function TBaddyWorld.Image(const Name: string): TGSurface; begin Result := nil; 
 function TBaddyWorld.Arrays: TGArrays; begin Result := nil; end;
 procedure TBaddyWorld.DrawVerse(Screen: TGSurface; CX, Y: Integer; const Text: string); begin end;
 procedure TBaddyWorld.AllDied; begin end;
+function TBaddyWorld.OtherCount: Integer; begin Result := 0; end;
+function TBaddyWorld.OtherAt(I: Integer; out X, Y: Double): Boolean;
+begin
+  X := 0;
+  Y := 0;
+  Result := False;
+end;
+procedure TBaddyWorld.Sound(const Name: string; X, Y: Double); begin end;
+procedure TBaddyWorld.PushPlayer(KX, KY: Double); begin end;
 
 { ---- TBaddy ---- }
 
@@ -460,10 +495,14 @@ begin
         begin
           B := Add(0, 0, 0, '');
           B.Id := N;
-        end;
-        ApplyProps(B, Copy(Data, 2, MaxInt));
+          ApplyProps(B, Copy(Data, 2, MaxInt));
+          if not B.Gone then World.Sound('crush.wav', B.X + 1, B.Y + 1);
+        end
+        else
+          ApplyProps(B, Copy(Data, 2, MaxInt));
         if B.Gone then
         begin
+          World.Sound('compudead.wav', B.X + 1, B.Y + 1);
           Baddies.Remove(B);
           B.Free;
         end;
@@ -514,12 +553,13 @@ begin
   Result := False;
 end;
 
-function TBaddyManager.BlockedAround(B: TBaddy): Boolean;
+function TBaddyManager.BlockedOutside(B: TBaddy; D: Integer): Boolean;
 var
-  D: Integer;
+  I: Integer;
 begin
-  for D := 0 to 3 do
-    if BlockedAhead(B, D) then
+  D := D and 3;
+  for I := 0 to 2 do
+    if World.Blocked(B.X + OutsideX[D, I], B.Y + OutsideY[D, I]) then
     begin
       Result := True;
       Exit;
@@ -527,12 +567,72 @@ begin
   Result := False;
 end;
 
+function TBaddyManager.BlockedInside(B: TBaddy; D: Integer): Boolean;
+var
+  I: Integer;
+begin
+  D := D and 3;
+  for I := 0 to 2 do
+    if World.Blocked(B.X + InsideX[D, I], B.Y + InsideY[D, I]) then
+    begin
+      Result := True;
+      Exit;
+    end;
+  Result := False;
+end;
+
+{ the twelve inner points }
+function TBaddyManager.BlockedAround(B: TBaddy): Boolean;
+var
+  D: Integer;
+begin
+  for D := 0 to 3 do
+    if BlockedInside(B, D) then
+    begin
+      Result := True;
+      Exit;
+    end;
+  Result := False;
+end;
+
+{ the target: the nearest player in the level by the larger axis distance
+  from the middles; the first candidate is taken without a sight test,
+  each nearer one after it only when D's cone sees it }
+function TBaddyManager.PickTarget(B: TBaddy; D: Integer): Boolean;
+var
+  I: Integer;
+  Best, L, OX, OY: Double;
+  Found: Boolean;
+
+  procedure Consider(PX, PY: Double);
+  begin
+    L := Max(Abs(PX - (B.X + 1)), Abs(PY - (B.Y + 1)));
+    if not Found or ((L < Best) and SeesPoint(B, D, PX, PY)) then
+    begin
+      Found := True;
+      Best := L;
+      B.TargetX := PX;
+      B.TargetY := PY;
+    end;
+  end;
+
+begin
+  Found := False;
+  Best := 1000;
+  if World.Online then
+    for I := 0 to World.OtherCount - 1 do
+      if World.OtherAt(I, OX, OY) then Consider(OX + 1.5, OY + 2);
+  if World.PlayerHere then Consider(World.PlayerX + 1.5, World.PlayerY + 2);
+  Result := Found;
+end;
+
+{ the target's direction from the baddy (the target picked last) }
 function TBaddyManager.DirToPlayer(B: TBaddy): Integer;
 var
   DX, DY: Double;
 begin
-  DX := World.PlayerX + 1.5 - (B.X + 1);
-  DY := World.PlayerY + 2 - (B.Y + 1);
+  DX := B.TargetX - (B.X + 1);
+  DY := B.TargetY - (B.Y + 1);
   B.Dist := Max(Abs(DX), Abs(DY));
   if Abs(DY) <= Abs(DX) then
   begin
@@ -542,18 +642,15 @@ begin
   else Result := 2;
 end;
 
-{ sight: the player in the cone D faces, within 20, nothing in between }
-function TBaddyManager.Sees(B: TBaddy; D: Integer): Boolean;
+{ sight: the point in the cone D faces, within 20, nothing in between }
+function TBaddyManager.SeesPoint(B: TBaddy; D: Integer; PX, PY: Double): Boolean;
 var
-  BX, BY, PX, PY, ADX, ADY, L: Double;
+  BX, BY, ADX, ADY, L: Double;
   I: Integer;
 begin
   Result := False;
-  if not World.PlayerHere then Exit;
   BX := B.X + 1;
   BY := B.Y + 1;
-  PX := World.PlayerX + 1.5;
-  PY := World.PlayerY + 2;
   ADX := Abs(BX - PX);
   ADY := Abs(BY - PY);
   case D and 3 of
@@ -578,6 +675,12 @@ begin
   Result := True;
 end;
 
+{ sight of the target (picked for D) }
+function TBaddyManager.Sees(B: TBaddy; D: Integer): Boolean;
+begin
+  Result := PickTarget(B, D) and SeesPoint(B, D, B.TargetX, B.TargetY);
+end;
+
 { can be hit and can hurt }
 function TBaddyManager.Active(B: TBaddy): Boolean;
 begin
@@ -597,7 +700,7 @@ begin
 end;
 
 { against a wall: onto the half-tile grid, then half a tile off each side
-  that is blocked }
+  whose inner points are in a wall }
 procedure TBaddyManager.Unstick(B: TBaddy);
 var
   D: Integer;
@@ -605,7 +708,7 @@ begin
   B.X := Round(B.X * 2) / 2;
   B.Y := Round(B.Y * 2) / 2;
   for D := 0 to 3 do
-    if BlockedAhead(B, D) then
+    if BlockedInside(B, D) then
       case D of
         0: B.Y := B.Y + 0.5;
         1: B.X := B.X + 0.5;
@@ -618,8 +721,9 @@ procedure TBaddyManager.SightCheck(B: TBaddy);
 var
   D: Integer;
 begin
+  if not Sees(B, B.Head) then Exit;
   D := DirToPlayer(B);
-  if Sees(B, B.Head) and (B.Dist < 20) then
+  if B.Dist < 20 then
   begin
     B.Mode := BdHunt;
     B.Counter := 16;
@@ -643,13 +747,14 @@ var
 begin
   B.Counter := (B.Counter + 3) and 3;
   B.Ani := B.Counter div 2;
+  if B.Counter = 0 then World.Sound('steps.wav', B.X + 1, B.Y + 1);
+  if not PickTarget(B, B.Dir) then Exit;
   DirToPlayer(B);
-  if not World.PlayerHere then Exit;
-  DX := World.PlayerX + 1.5 - (B.X + 1);
-  DY := World.PlayerY + 2 - (B.Y + 1);
+  DX := B.TargetX - (B.X + 1);
+  DY := B.TargetY - (B.Y + 1);
   ADX := Abs(DX);
   ADY := Abs(DY);
-  See := Sees(B, B.Dir);
+  See := SeesPoint(B, B.Dir, B.TargetX, B.TargetY);
   if See then B.Lost := 0
   else
   begin
@@ -677,12 +782,12 @@ begin
   { close and out of sight: keep going the same way }
   if (ADY < 2) and (ADX < 2) and not See then Main := B.Dir;
   MainB := BlockedAhead(B, Main);
-  SideB := BlockedAhead(B, Side);
+  SideB := BlockedOutside(B, Side);
   if (Want <> Main) and MainB then
   begin
     Main := Want;
     MainB := BlockedAhead(B, Main);
-    SideB := BlockedAhead(B, Side);
+    SideB := BlockedOutside(B, Side);
   end;
   B.Dir := Main;
   B.Head := Main;
@@ -726,16 +831,16 @@ begin
     if B.Lost = 0 then B.Counter := 12;
     Exit;
   end;
-  if not World.PlayerHere then Exit;
+  if not PickTarget(B, B.Dir) then Exit;
   D := DirToPlayer(B);
   B.Dir := D;
   B.Head := D;
-  TX := World.PlayerX + 1.5 + AimX[D];
-  TY := World.PlayerY + 2 + AimY[D];
+  TX := B.TargetX + AimX[D];
+  TY := B.TargetY + AimY[D];
   if B.Aiming then
   begin
     B.Aiming := False;
-    if Sees(B, B.Dir) then
+    if SeesPoint(B, B.Dir, B.TargetX, B.TargetY) then
     begin
       B.Mode := BdLook;
       B.Counter := 44;
@@ -763,7 +868,7 @@ begin
     if DX <= 0 then Side := 1 else Side := 3;
   end;
   MainB := BlockedAhead(B, Main);
-  SideB := BlockedAhead(B, Side);
+  SideB := BlockedOutside(B, Side);
   OX := B.X;
   OY := B.Y;
   if not MainB then
@@ -776,6 +881,7 @@ begin
     if ADX >= 1 then B.X := B.X + VecX[Side] * 2;
     if ADY >= 1 then B.Y := B.Y + VecY[Side] * 2;
   end;
+  if (B.X <> OX) or (B.Y <> OY) then World.Sound('steps.wav', B.X + 1, B.Y + 1);
   if MainB then Unstick(B);
   { stuck, or in line with the player: shoot }
   if ((B.X = OX) and (B.Y = OY)) or
@@ -815,7 +921,7 @@ begin
       end;
       B.Mode := BdHunt;
       B.Counter := 12;
-      B.Head := DirToPlayer(B);
+      if PickTarget(B, B.Dir) then B.Head := DirToPlayer(B);
       B.Lost := 0;
     end;
   end
@@ -853,7 +959,8 @@ begin
           else
           begin
             B.Ani := (B.Counter and 3) div 2;
-            if B.Kind = 6 then Inc(B.Ani, 4);
+            if B.Kind = 6 then Inc(B.Ani, 4)
+            else if B.Counter mod 5 = 0 then World.Sound('steps.wav', B.X + 1, B.Y + 1);
           end;
           if B.Mode = BdWalk then
           begin
@@ -907,7 +1014,8 @@ begin
         B.Counter := (B.Counter + 1) mod 43;
         case B.Counter of
           11: B.Dir := 2;
-          22: B.Dir := DirToPlayer(B);
+          17: World.Sound('crush.wav', B.X + 1, B.Y + 1);
+          22: if PickTarget(B, B.Dir) then B.Dir := DirToPlayer(B);
           25: ShootArrow(B);
           33:
             begin
@@ -933,6 +1041,7 @@ begin
     BdHop:
       begin
         B.Counter := (B.Counter + 1) mod 46;
+        if B.Counter = 16 then World.Sound('frog.wav', B.X + 1, B.Y + 1);
         if B.Counter = 0 then
         begin
           Inc(B.Lost);
@@ -995,6 +1104,7 @@ end;
 procedure TBaddyManager.Die(B: TBaddy);
 begin
   B.Mode := BdDead;
+  World.Sound('compudead.wav', B.X + 1, B.Y + 1);
   Baddies.Remove(B);
   B.Free;
   if Baddies.Count = 0 then World.AllDied;
@@ -1041,8 +1151,9 @@ begin
       B.Power := B.Power - Power;
       B.Mode := BdHurt;
       B.Pending := True;
-      World.Send(PLI_BADDYHURT_ID, GChar(B.Id) + GChar(Round(DX * 16) + 64) +
-        GChar(Round(DY * 16) + 64) + GChar(Power));
+      World.Send(PLI_BADDYHURT_ID, GChar(B.Id) +
+        GChar(Round((EnsureRange(DX, -4, 4) + 4) * 16)) +
+        GChar(Round((EnsureRange(DY, -4, 4) + 4) * 16)) + GChar(Power));
     end;
     Exit;
   end;
@@ -1118,6 +1229,11 @@ begin
         2: Hit := not ((PY < BY - 4) or (BY < PY) or (ADX > 2));
         3: Hit := not ((PX < BX - 4) or (BX < PX) or (ADY > 2));
       end;
+    if Block then
+    begin
+      World.Sound('swordon.wav', BX, BY);
+      World.PushPlayer(PX - BX, PY - BY);
+    end;
     if Hit or Block then Hurt(B, Hit, Block, Power, PX - BX, PY - BY);
   end;
 end;
@@ -1179,7 +1295,7 @@ begin
   A := World.Arrays;
   if A = nil then Exit;
   Spr := World.Image('sprites.png');
-  Bow := World.Image('wbow1.gif');
+  Bow := World.Image('wbow1.png');
   for I := 0 to Baddies.Count - 1 do
   begin
     B := Baddy(I);

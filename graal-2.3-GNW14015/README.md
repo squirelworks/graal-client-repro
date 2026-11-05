@@ -24,19 +24,19 @@ the id and prop ranges, no `PUTNPC`).
 
 ## Stand-ins, to be checked against the 2.3 exe (0.0.2)
 
-- **The tamper check bytes.** They are two CRC-32 words over each exe, so
+- [ ] **The tamper check bytes.** They are two CRC-32 words over each exe, so
   2.3's differ from 2.31's. The rebuild sends 2.31's
   (`291655b7602e87c9eb82`) until 2.3's are read. GServer-v2 and
   seihai-gserver read and discard them.
-- The tamper timer (64 ticks), `ENTERLEVEL` (46), `SHOWIMG` (24) always,
+- [ ] The tamper timer (64 ticks), `ENTERLEVEL` (46), `SHOWIMG` (24) always,
   the 81 handled ids and the prop ranges: all 2.31's.
-- 2.31's fixes that 2.3 lacked (NPCs crossing gmap borders, float to
+- [ ] 2.31's fixes that 2.3 lacked (NPCs crossing gmap borders, float to
   string in scripts, the key-config save) are not modelled in either
   folder, so the two behave the same here.
-- `setmap`: GServer-v2 pushes the map files to 2.31 but not to 2.3, which
+- [ ] `setmap`: GServer-v2 pushes the map files to 2.31 but not to 2.3, which
   suggests 2.3 still asked for them. The rebuild does not model `setmap`
   yet.
-- The start window, the server list, the game window and the icon are
+- [ ] The start window, the server list, the game window and the icon are
   2.31's (modelled on 2.31, the nearest real client): 2.31's pictures,
   buttons, icon and Training levels are compiled in from `res/` (see
   `res/README.md`), with 2.31's places and titles as seen under Wine. Whether

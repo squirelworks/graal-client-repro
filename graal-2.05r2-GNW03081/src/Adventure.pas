@@ -16,7 +16,7 @@ interface
 
 uses
   Classes, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GAssetDirs, GraalClient, Protocol205,
-  Npc205, Baddy205;
+  Npc205, Baddy205, GTrueType;
 
 const
   { The game view. 2.05's window size is not yet read from the binary;
@@ -203,6 +203,11 @@ type
     SheetBuiltin: Boolean; { Sheet is the built-in default }
     Arrays: TGArrays;
     Assets: TAssets;
+    { graalconfig.txt's font (Tempus Sans ITC, a cell 24 high) for the
+      names and the powers, as 2.0x draws them with GDI; nil when the
+      font file is nowhere: the pixel font then }
+    NameFont: TTrueTypeFont;
+    NameEm: Integer;
     Frame: Integer;
     WorldTime: Cardinal;
     ServerMessage, DisconnectReason: string;
@@ -432,7 +437,7 @@ procedure MakeIndexSheet(Sheet: TGSurface);
 implementation
 
 uses
-  SysUtils, Math, GFont, GSound, Sound205, Map205, NpcBridge205;
+  SysUtils, Math, GFont, GUiFont, GSysFont, GSound, Sound205, Map205, NpcBridge205;
 
 procedure MakeIndexSheet(Sheet: TGSurface);
 var
@@ -528,9 +533,12 @@ begin
   end;
 end;
 
-{ 2.05 finds a picture by its name in any folder under levels/ (gate1.gif
-  in levels/gifs, light2.png in levels/images), not only in the folder of
-  its kind. The first root that has a file of that name wins. }
+{ 2.0x finds a picture by its exact name in any folder of the install: on
+  start and again on Training it lists the whole folder tree (the root,
+  languages/, levels/ and every folder under it, maps/, sounds/) and then
+  opens head0.gif, sword1.gif, wbomb1.gif, body.png ... from wherever the
+  list has them (traced under Wine). The first root that has a file of that
+  name wins. }
 function TAssets.Indexed(const Name: string): string;
 var
   K, I: Integer;
@@ -541,7 +549,7 @@ begin
     FIndex.Sorted := True;
     FPaths := TStringList.Create;
     for K := 0 to AssetRootCount - 1 do
-      IndexDir(AssetRoot(K) + 'levels' + PathDelim, 0);
+      IndexDir(AssetRoot(K), 0);
   end;
   I := FIndex.IndexOf(LowerCase(Name));
   if I >= 0 then Result := FPaths[PtrInt(FIndex.Objects[I])] else Result := '';
@@ -591,33 +599,13 @@ begin
 end;
 
 function TAssets.FindFile(const Name: string; const Dirs: array of string): string;
-var
-  I, J, K: Integer;
-  Base, Cand: string;
-  Exts: array[0..2] of string;
 begin
-  { the asset roots (GAssetDirs), set by UseInstall }
+  { Dirs is kept for the callers; 2.0x looks a name up in its list of the
+    whole install, as it is asked for: sword1.gif is not found as
+    sword1.png, nor head0.png as head0.gif }
   Result := '';
   if (AssetRootCount = 0) or (Name = '') then Exit;
-  Base := ChangeFileExt(Name, '');
-  Exts[0] := ExtractFileExt(Name);
-  Exts[1] := '.png';
-  Exts[2] := '.gif';
-  for K := 0 to AssetRootCount - 1 do
-    for I := 0 to High(Dirs) do
-      for J := 0 to 2 do
-      begin
-        if Exts[J] = '' then Continue;
-        Cand := AssetRoot(K) + Dirs[I] + Base + Exts[J];
-        if FileExists(Cand) then
-        begin
-          Result := Cand;
-          Exit;
-        end;
-      end;
   Result := Indexed(Name);
-  if Result = '' then Result := Indexed(Base + '.png');
-  if Result = '' then Result := Indexed(Base + '.gif');
 end;
 
 function TAssets.Image(const Name, Kind: string): TGSurface;
@@ -651,8 +639,11 @@ begin
     else Ok := LoadImageKeyed(F, S);
     if not Ok then FreeAndNil(S);
   end;
-  { nothing on disk: the built-in default of that name, if there is one }
-  if (S = nil) and BuiltinFile(Name, D) then
+  { nothing on disk: the built-in default of that name, if there is one,
+    when no install is there at all; an install without the file shows
+    nothing, as 2.0x does }
+  if (S = nil) and ((AssetRootCount = 0) or (Indexed('sprites.png') = '')) and
+    BuiltinFile(Name, D) then
   begin
     S := TGSurface.Create(0, 0);
     if not LoadImageData(D, Name, S, Kind = 'body') then FreeAndNil(S);
@@ -929,6 +920,7 @@ destructor TAdventure.Destroy;
 var
   I: Integer;
 begin
+  FreeAndNil(NameFont);
   FreeAndNil(Baddies);
   FreeAndNil(Npcs);
   FClient.Free;
@@ -978,11 +970,22 @@ end;
 
 procedure TAdventure.UseInstall(const Dir: string);
 var
-  P: string;
+  P, Face: string;
+  Cell: Integer;
 begin
   Assets.Dir := Dir;
   { the folder itself, then graal-assets/<version>/ and graal-assets/common/ }
   SetAssetRoots(Dir, ClientBuildLabel);
+  { the names' font: graalconfig.txt's, from the install or Windows' Fonts }
+  FreeAndNil(NameFont);
+  ConfigFont(Dir, Face, Cell);
+  P := FindFontFile(FontFileName(Face));
+  if P <> '' then
+  begin
+    NameFont := TTrueTypeFont.Create;
+    if NameFont.LoadFromFile(P) then NameEm := EmForCell(NameFont, Cell)
+    else FreeAndNil(NameFont);
+  end;
   if AssetsFolder <> '' then Log('assets: ' + AssetsFolder);
   { the install's tile sheet and tile types replace the built-in ones, but
     not a sheet given with --sheet }
@@ -3112,8 +3115,16 @@ procedure TAdventure.DrawNames(CamX, CamY: Integer);
     TX, TY: Integer;
   begin
     if Name = '' then Exit;
-    TX := Round(X * TileSize) - CamX + 24 - TextWidth(Name, 2) div 2;
     TY := Round(Y * TileSize) - CamY + 44;
+    if NameFont <> nil then
+    begin
+      { GDI text in the configured font, bold: white over blue at +1, +1 }
+      TX := Round(X * TileSize) - CamX + 24 - NameFont.TextWidth(Name, NameEm, True) div 2;
+      NameFont.DrawText(Screen, TX + 1, TY + 1, Name, NameEm, $FF0000FF, True);
+      NameFont.DrawText(Screen, TX, TY, Name, NameEm, $FFFFFFFF, True);
+      Exit;
+    end;
+    TX := Round(X * TileSize) - CamX + 24 - TextWidth(Name, 2) div 2;
     DrawText(Screen, TX + 1, TY + 1, Name, $FF0000FF, 2);
     DrawText(Screen, TX, TY, Name, $FFFFFFFF, 2);
   end;
@@ -3404,19 +3415,27 @@ var
 
   { the key on a button: large, white over a black copy at +1, +1 (2.05
     uses 26 pt Helvetica; this is the project's own font at three times) }
+  { a key letter on its button, as 2.0x draws it (traced under Wine): GDI
+    text in "Helvetica" bold, cell 26 high, black at (BX + 2, BY + 3) and
+    white over it at (BX + 1, BY + 2): A at (16, 32), S at (81, 32), D at
+    (146, 32) }
   procedure KeyName(const K: string; BX, BY: Integer);
-  var
-    TX, Sc: Integer;
   begin
-    if Length(K) = 1 then Sc := 3 else Sc := 2;
-    TX := BX + (22 - TextWidth(K, Sc)) div 2;
-    DrawText(Screen, TX + 1, BY + (33 - 7 * Sc) div 2 + 1, K, $FF000000, Sc);
-    DrawText(Screen, TX, BY + (33 - 7 * Sc) div 2, K, $FFFFFFFF, Sc);
+    UiDrawText(Screen, BX + 2, BY + 3, K, $FF000000, ufHud);
+    UiDrawText(Screen, BX + 1, BY + 2, K, $FFFFFFFF, ufHud);
   end;
 
   { a power beside its icon: white over a blue copy at +1, +1 }
   procedure PowerText(const T: string; X, Y: Integer);
   begin
+    { 2.0x: GDI text in the configured font, bold, white at (X - 6, Y)
+      over blue at +1, +1 (the sword's 1 at (119, 31), traced) }
+    if NameFont <> nil then
+    begin
+      NameFont.DrawText(Screen, X - 5, Y + 1, T, NameEm, $FF0000FF, True);
+      NameFont.DrawText(Screen, X - 6, Y, T, NameEm, $FFFFFFFF, True);
+      Exit;
+    end;
     DrawText(Screen, X + 1, Y + 6, T, $FF0000FF, 2);
     DrawText(Screen, X, Y + 5, T, $FFFFFFFF, 2);
   end;
@@ -3435,9 +3454,10 @@ begin
       KeyName('S', 80, 30);
       Part(202, 0, 22, 33, 145, 30);
       KeyName('D', 145, 30);
-      { the item-list key, small, over the D button }
-      DrawText(Screen, 148, 28, 'Q', $FF000000, 1);
-      DrawText(Screen, 147, 27, 'Q', $FFFFFFFF, 1);
+      { the item-list key, small, over the D button: "Helvetica" bold,
+        cell 10 high, at (146, 27) over black at (147, 28), as traced }
+      UiDrawText(Screen, 147, 28, 'Q', $FF000000, ufHudSmall);
+      UiDrawText(Screen, 146, 27, 'Q', $FFFFFFFF, ufHudSmall);
       { the sword: sprite 17 of the player's sword image, (94, 36, 28, 28),
         at (105, 31), and its power beside it }
       if Player.SwordPower >= 1 then

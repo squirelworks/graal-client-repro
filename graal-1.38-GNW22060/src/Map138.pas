@@ -23,7 +23,8 @@
     place, and the player's own name under its head.
   - Minimap: drawn with the status display, its picture at x 10 with its
     bottom 18 px above the view's bottom, a level being the picture's width
-    over the columns; heads as on the big map, kept above that bottom line
+    over the columns; heads as on the big map, kept above that bottom line;
+    only while the player is on a level of its grid
     (showstats bit 0x100).
 
   Not yet: the text 2.05 writes at (20, 20) on the big map, names of the
@@ -444,6 +445,9 @@ var
   P: TServerPlayer;
 begin
   if (MiniMap.Image = nil) or (MiniMap.Cols <= 0) then Exit;
+  { only on a level of the map's grid: the start cave and the houses
+    show none }
+  if MiniMap.IndexOf(G.Level.Name) < 0 then Exit;
   Bottom := ScreenH - MinimapBottom;
   Top := Bottom - MiniMap.Image.Height;
   G.Screen.Blit(MiniMap.Image, 0, 0, MiniMap.Image.Width, MiniMap.Image.Height,

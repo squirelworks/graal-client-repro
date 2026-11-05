@@ -101,6 +101,9 @@ type
     Power, Rupees, Arrows, Bombs, GlovePower, BombPower, SwordPower,
     ShieldPower, AP: Integer;
     HurtDX, HurtDY: Double;
+    { ticks left to show the hearts over a character after they went down
+      (60, 3 s, measured on the real 2.05) }
+    PowerShown: Integer;
     Save: array[0..9] of Integer;
     { setshape: a fixed blocking rectangle in pixels }
     ShapeW, ShapeH: Integer;
@@ -263,10 +266,10 @@ begin
   Colors[2] := 0;
   Colors[3] := 12;
   Colors[4] := 18;
-  HeadImage := 'head0.png';
+  HeadImage := 'head0.gif';
   BodyImage := 'body.png';
-  SwordImage := 'sword1.png';
-  ShieldImage := 'shield1.png';
+  SwordImage := 'sword1.gif';
+  ShieldImage := 'shield1.gif';
 end;
 
 destructor TNpc.Destroy;
@@ -602,7 +605,7 @@ begin
         begin
           V := R.ReadGChar;
           if V >= 100 then N.HeadImage := R.ReadChars(V - 100)
-          else N.HeadImage := 'head' + IntToStr(V) + '.png';
+          else N.HeadImage := 'head' + IntToStr(V) + '.gif';
         end;
       NPCPROP_SAVE0..NPCPROP_SAVE9: N.Save[P - NPCPROP_SAVE0] := R.ReadGChar;
       NPCPROP_ALIGNMENT: N.AP := R.ReadGChar;
@@ -915,7 +918,12 @@ begin
   else if Name = 'rupees' then begin N.Rupees := Trunc(V); N.MarkDirty(NPCPROP_RUPEES); end
   else if Name = 'darts' then begin N.Arrows := Trunc(V); N.MarkDirty(NPCPROP_ARROWS); end
   else if Name = 'bombs' then begin N.Bombs := Trunc(V); N.MarkDirty(NPCPROP_BOMBS); end
-  else if Name = 'hearts' then begin N.Power := Round(V * 2); N.MarkDirty(NPCPROP_POWER); end
+  else if Name = 'hearts' then
+  begin
+    if Round(V * 2) < N.Power then N.PowerShown := 60;
+    N.Power := Round(V * 2);
+    N.MarkDirty(NPCPROP_POWER);
+  end
   else if Name = 'glovepower' then begin N.GlovePower := Trunc(V); N.MarkDirty(NPCPROP_GLOVEPOWER); end
   else if Name = 'swordpower' then begin N.SwordPower := Trunc(V); N.MarkDirty(NPCPROP_SWORDIMAGE); end
   else if Name = 'shieldpower' then begin N.ShieldPower := Trunc(V); N.MarkDirty(NPCPROP_SHIELDIMAGE); end
@@ -1103,9 +1111,10 @@ end;
 
 function TNpcManager.NpcAt(PX, PY: Double; BlockingOnly: Boolean): TNpc;
 var
-  I: Integer;
+  I, IX, IY: Integer;
   N: TNpc;
   BX, BY, BW, BH: Double;
+  Img: TGSurface;
 begin
   for I := Npcs.Count - 1 downto 0 do
   begin
@@ -1115,6 +1124,24 @@ begin
     Bounds(N, BX, BY, BW, BH);
     if (BW > 0) and (PX >= BX) and (PX < BX + BW) and (PY >= BY) and (PY < BY + BH) then
     begin
+      { a plain image NPC is hit only on a drawn pixel: the open tutorial
+        gate lets the player through between its pillars }
+      if (N.ShapeW <= 0) and not N.Character then
+      begin
+        Img := World.Image(N.Image);
+        if Img <> nil then
+        begin
+          IX := Trunc((PX - BX) * 16);
+          IY := Trunc((PY - BY) * 16);
+          if N.PartSet then
+          begin
+            Inc(IX, N.PX);
+            Inc(IY, N.PY);
+          end;
+          if (IX >= 0) and (IY >= 0) and (IX < Img.Width) and (IY < Img.Height) and
+            (Img.GetPixel(IX, IY) shr 24 = 0) then Continue;
+        end;
+      end;
       Result := N;
       Exit;
     end;
@@ -1252,6 +1279,7 @@ begin
     N := Npc(I);
     Inc(I);
     if N.Gone then Continue;
+    if N.PowerShown > 0 then Dec(N.PowerShown);
     if N.MoveTicks > 0 then
     begin
       N.X := N.X + N.MoveDX;
@@ -1752,8 +1780,12 @@ begin
     if (S = '') and N.Character then S := N.Chat;
     if S <> '' then
     begin
-      TW := TextWidth(S, 1);
-      DrawText(Screen, DX + 24 - TW div 2, DY - 10, S, $FFFFFFFF, 1);
+      { as a name: the size of the nickname, white over a blue copy at
+        +1, +1 (2.05 draws chat in its 24 px font, client-internals/
+        chat-text.md; this is the project's own font) }
+      TW := TextWidth(S, 2);
+      DrawText(Screen, DX + 24 - TW div 2 + 1, DY - 13 + 1, S, $FF0000FF, 2);
+      DrawText(Screen, DX + 24 - TW div 2, DY - 13, S, $FFFFFFFF, 2);
     end;
   end;
 end;

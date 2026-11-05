@@ -235,9 +235,16 @@ ganis, heads, bodies and levels are used in the game instead.
 Training starts at `levels/tutorial_b-4.graal` when that file is there,
 else at the built-in `start.nw`.
 
-The start screen is always this project's own layout, wording and art.
-It never draws the original 2.05 start window or its pictures, even when
-they are next to the program.
+The start window and server list are this build's original ones. Every
+RCDATA resource of the original `Graal.exe` (the start and list art, the
+loading screen, `BUTTON1`, all the Delphi forms, the Training levels) is
+compiled into the program as `src/ResGraal202r1.pas`, with the bytes the 2.0x
+exes share kept once in `common/GRes20x.pas`; the Graal head icon is
+`src/Graal202r1.ico`. `scripts/res20x/make_res20x.py` makes them from the
+original installs. `common/GRealStart20.pas` lays the two windows out from
+the forms (`TConnectFrame`, `TServerListFrame`, `TShortMessage`), read
+with `common/GDfm.pas`. The project's own start screen
+(`common/GStartScreen.pas`) is used only if those resources do not load.
 
 ## Stress runs (phase 4)
 
@@ -288,22 +295,22 @@ Hardening checks, all in CI:
 
 ## Not yet
 
-- Sound: music outside Windows, Winamp, `lift2.wav` for female players,
+- [ ] Sound: music outside Windows, Winamp, `lift2.wav` for female players,
   sounds for actions not built yet (arrows, swimming, signs, horses), the `setmusicvolume` / `play` script commands, asking the server
   for a missing sound file.
-- Maps: the text 2.05 writes at the top left of the big map, names under
+- [ ] Maps: the text 2.05 writes at the top left of the big map, names under
   the mouse, the small head icons, chat marks on the minimap, `setmap` /
   `setminimap` from scripts and maps from the server list entry.
-- The link test point while walking diagonally, standing on a link, and at
+- [ ] The link test point while walking diagonally, standing on a link, and at
   the level edge was not measured; diagonally the two offsets add.
-- `PLI_LEVELWARPMOD` for cached levels; every link sends `PLI_LEVELWARP`.
-- UDP peer traffic.
-- Other players' poses beyond idle and walk, chat bubbles and names.
-- Most of the 59 server ids 2.05 handles. NPCs, baddies, items, weapons
+- [ ] `PLI_LEVELWARPMOD` for cached levels; every link sends `PLI_LEVELWARP`.
+- [ ] UDP peer traffic.
+- [ ] Other players' poses beyond idle and walk, chat bubbles and names.
+- [ ] Most of the 59 server ids 2.05 handles. NPCs, baddies, items, weapons
   and the rest of the game.
-- The GS1 script engine (161 commands), the built-in editors.
-- The listserver host hidden in the 2.05 exe (DES); `listserver.txt` names it instead.
-- The window size (640x480 is assumed, not read from the binary). The
+- [ ] The GS1 script engine (161 commands), the built-in editors.
+- [ ] The listserver host hidden in the 2.05 exe (DES); `listserver.txt` names it instead.
+- [ ] The window size (640x480 is assumed, not read from the binary). The
   board edge is treated as open.
-- Several clients in one process (one per process for now).
-- The Options page, the language and character pickers of the start screen.
+- [ ] Several clients in one process (one per process for now).
+- [ ] The Options page, the language and character pickers of the start screen.

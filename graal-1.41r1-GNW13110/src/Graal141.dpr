@@ -73,6 +73,10 @@ uses
   Map141 in 'Map141.pas',
   StartWindow141 in 'StartWindow141.pas',
   StartScreen141 in 'StartScreen141.pas',
+  GDfm1x in '../../common/GDfm1x.pas',
+  GUiFont in '../../common/GUiFont.pas',
+  GLaunch1x in '../../common/GLaunch1x.pas',
+  Res141 in 'Res141.pas',
   RunMode in 'RunMode.pas',
   GLevelWrite in '../../common/GLevelWrite.pas',
   EditorDoc in 'editor/EditorDoc.pas',
@@ -88,6 +92,10 @@ var
   GuiArgs: TStringList = nil;
   { why the last game ended, for the start screen }
   LastGameError: string = '';
+  { the character picked in the start dialog: its head and colours }
+  GuiHasLook: Boolean = False;
+  GuiHead: string = '';
+  GuiColors: array[0..4] of Integer;
 
 function ArgCount: Integer;
 begin
@@ -300,6 +308,11 @@ begin
   G.Echo := GuiWin = nil;
   G.Headless := HasArg('--headless');
   if GuiNick <> '' then G.Player.Nickname := GuiNick;
+  if GuiHasLook then
+  begin
+    G.Player.HeadImage := GuiHead;
+    for I := 0 to 4 do G.Player.Colors[I] := GuiColors[I];
+  end;
   Win := GuiWin;
   Script := TKeyScript.Create;
   Walker := TWalker.Create(Cardinal(StrToIntDef(Arg('--seed', '1'), 1)));
@@ -366,14 +379,19 @@ begin
     end
     else
     begin
+      { the start position first: the level's NPCs then get playerenters
+        and may move the player (start1.graal puts it at 13.5, 37.5), as
+        in the original }
+      G.Player.X := StrToFloatDef(StringReplace(Arg('--x', '30'), '.',
+        DefaultFormatSettings.DecimalSeparator, []), 30);
+      G.Player.Y := StrToFloatDef(StringReplace(Arg('--y', '30'), '.',
+        DefaultFormatSettings.DecimalSeparator, []), 30);
       OK := G.LoadLevelFile(Arg('--level', ''));
       { offline on the tutorial, 2.05 switches to the tutorial maps }
       if Copy(LowerCase(ExtractFileName(Arg('--level', ''))), 1, 9) = 'tutorial_' then
         UseTutorialMaps;
       if OK then
       begin
-        G.Player.X := StrToFloatDef(Arg('--x', '30'), 30);
-        G.Player.Y := StrToFloatDef(Arg('--y', '30'), 30);
         G.Log(Format('%s: %s, %d links, %d signs, %d chests, %d npcs, %d baddies',
           [G.Level.Name, G.Level.Magic, Length(G.Level.Links), Length(G.Level.Signs),
            Length(G.Level.Chests), Length(G.Level.NPCs), Length(G.Level.Baddies)]));
@@ -418,6 +436,11 @@ begin
         begin
           Win.Pump;
           if Win.Closed or Win.Held[gkEscape] then Break;
+          { Alt+Enter: 640 x 480 full screen and back, as the original's
+            DXDraw does (read on Windows 10: a 640 x 480 pop-up) }
+          if Win.TakeFullscreenToggle then
+            if not Win.Fullscreen then Win.EnterFullscreen(640, 480)
+            else Win.LeaveFullscreen(ScreenW, ScreenH);
           { F4: the built-in level editor (offline only) }
           if Win.WasPressed(gkEditor) or EditorFirst then
           begin
@@ -529,6 +552,7 @@ begin
     SoundEnabled := False;
     MapOpen := False;
     UseDefaultMaps;
+    if (Win <> nil) and Win.Fullscreen then Win.LeaveFullscreen(ScreenW, ScreenH);
     if Win <> GuiWin then Win.Free;
     Script.Free;
     Walker.Free;
@@ -541,11 +565,12 @@ end;
 { One Player: 1.41 has no Training; its single-player game starts on the
   install's start1.graal when it lies next to the program, else on the
   built-in starter level (a start.nw next to the program replaces it).
-  The start point is the rebuild's choice. }
+  The start point is player one's from the table in the original exe
+  (levels, x and y for players one to four): x 21.5, y 28. }
 procedure TrainingLevel(const Dir: string; out Path, X, Y: string);
 begin
-  X := '30';
-  Y := '52';
+  X := '21.5';
+  Y := '28';
   Path := FirstFileIn(Dir, 'levels/start1.graal;start1.graal');
   if Path = '' then
   begin
@@ -568,8 +593,17 @@ var
   Fetch: TListFetch141;
   Info: TStartInfo;
   Who: TCharacter141;
+  LaunchChars: TCharList;
+  LaunchCfg: TLaunchConfig;
+  LR: TLaunchResult;
+  Icons: THeadIcons;
+  Langs: TStringList;
+  Offline: Boolean;
+  I: Integer;
 begin
   Result := 0;
+  Icons := nil;
+  Langs := nil;
   Dir := ExtractFilePath(ParamStr(0));
   Win := TGWindow.Create('Graal ' + ClientBuildLabel + ' (' + ClientVersionToken + ')',
     ScreenW, ScreenH);
@@ -582,6 +616,11 @@ begin
       Result := 64;
       Exit;
     end;
+    { the frames of a Delphi program: the taskbar button is the hidden
+      application window, titled as the original's exe (Graal.exe, no
+      Application.Title in it); the forms are owned by it }
+    Win.FixedAppTitle := True;
+    Win.UseDelphiFrames('Graal');
     { the asset roots before anything is read from them }
     SetAssetRoots(Dir, ClientBuildLabel);
     { listserver.txt next to the program, else the community listserver in
@@ -592,31 +631,86 @@ begin
     InstallStopHandlers;
     FillChar(R, SizeOf(R), 0);
     Msg := '';
+    { The start dialog is the program's own form (TConnectFrame, compiled
+      in from the real exe: Res141); its character list is the
+      install's headsconfig.txt, else the list the exe carries. }
+    LaunchChars := ParseCharacters(InstallText(Dir + 'headsconfig.txt', ResCharacters));
+    Icons := THeadIcons.Create(Dir);
+    { 1.41r1 keeps its language files in languages/ and its words in them }
+    Langs := InstallLanguages(Dir + 'languages');
+    LaunchCfg.Style := ls141;
+    LaunchCfg.ServerEnabled := True;
+    LaunchCfg.DefServer := 'www.graalonline.com';
+    LaunchCfg.DefPort := 14900;
+    { graalconfig.txt's gamemode= is the mode picked at start (the
+      install's says One Player Online) }
+    LaunchCfg.DefMode := ConfigGameMode(Dir, 0);
+    LaunchCfg.LangDir := Dir + 'languages' + PathDelim;
+    ServerOverride(Dir, LaunchCfg.DefServer, LaunchCfg.DefPort);
     repeat
       Win.TakeChars;
-      G := TAdventure.Create;
-      Fetch := TListFetch141.Create;
-      Who := TCharacter141.Create;
-      try
-        G.UseInstall(Dir);
-        Who.G := G;
-        Info.Title := 'graal-delphi';
-        Info.Subtitle := '1.41 rev 1 rebuilt';
-        Info.DrawCharacter := Who.Draw;
-        Info.StopRequested := StopRequested;
-        Picked := RunStartScreen(Win, G.Screen, Fetch, Info, Dir, ListHost, ListPort, Msg, R);
-      finally
-        Who.Free;
-        Fetch.Free;
-        G.Free;
+      if not RunLaunch1x(Win, ResConnectFrame, LaunchCfg, LaunchChars, Icons.Icon, Langs, LR,
+        StopRequested) then Exit;
+      if Win.Closed or StopRequested then Exit;
+      { the first player's character: head and the five body colours }
+      GuiHasLook := (LR.Chars[0] >= 0) and (LR.Chars[0] <= High(LaunchChars));
+      if GuiHasLook then
+      begin
+        GuiHead := LaunchChars[LR.Chars[0]].Head;
+        for I := 0 to 4 do GuiColors[I] := LaunchChars[LR.Chars[0]].Colors[I];
       end;
-      if not Picked or Win.Closed or StopRequested then Exit;
+      { One Player Online connects; the other modes play offline (two to
+        four players on one keyboard are not rebuilt yet) }
+      Offline := LR.Mode <> 1;
+      R.Host := LR.Server;
+      R.Port := LR.Port;
+      { www.graalonline.com, the dialog's own default, is long gone: it
+        stands for the community server the rebuild used before }
+      if SameText(R.Host, 'www.graalonline.com') then
+      begin
+        R.Host := ListHost;
+        R.Port := ListPort;
+      end;
+      R.Account := LR.Account;
+      if R.Account = '' then R.Account := LR.Nickname;
+      R.Password := LR.Password;
+      R.Nickname := LR.Nickname;
+      if R.Nickname = '' then R.Nickname := 'unknown';
+      { 1.41r1: Start in One Player Online opens the server list (the real
+        one is its own form, TServerListFrame; here the rebuild's list
+        page), which holds the account and password; Back returns to the
+        start dialog }
+      if LR.Mode = 1 then
+      begin
+        Win.Reshape('Graal.in Server List', ScreenW, ScreenH, True);
+        G := TAdventure.Create;
+        Fetch := TListFetch141.Create;
+        Who := TCharacter141.Create;
+        try
+          G.UseInstall(Dir);
+          Who.G := G;
+          Info.Title := 'graal-delphi';
+          Info.Subtitle := '1.41 rev 1 rebuilt';
+          Info.DrawCharacter := Who.Draw;
+          Info.StopRequested := StopRequested;
+          Picked := RunStartScreen(Win, G.Screen, Fetch, Info, Dir, ListHost, ListPort, Msg, R,
+            True);
+        finally
+          Who.Free;
+          Fetch.Free;
+          G.Free;
+        end;
+        if Win.Closed or StopRequested then Exit;
+        if not Picked then Continue;
+      end;
+      { the game window: TAdventure's caption and frame, 480 high }
+      Win.Reshape(FormCaption(ResAdventure, 'Graal'), ScreenW, ScreenH, False, True);
       GuiArgs := TStringList.Create;
       try
         GuiArgs.Add('--window');
         GuiArgs.Add('--data');
         GuiArgs.Add(Dir);
-        if R.Choice = scTraining then
+        if Offline then
         begin
           TrainingLevel(Dir, Lvl, X, Y);
           GuiArgs.Add('--level');
@@ -643,6 +737,8 @@ begin
       end;
     until Win.Closed or StopRequested;
   finally
+    Icons.Free;
+    Langs.Free;
     Win.Free;
   end;
 end;

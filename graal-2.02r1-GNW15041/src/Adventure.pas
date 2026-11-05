@@ -16,13 +16,18 @@ interface
 
 uses
   Classes, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GAssetDirs, GraalClient, Protocol202r1,
-  Npc202r1, Baddy202r1;
+  Npc202r1, Baddy202r1, GTrueType;
 
 const
   { The game view. 2.05's window size is not yet read from the binary;
     640x480 is the classic default and is marked as an assumption. }
   ScreenW = 640;
   ScreenH = 480;
+  { 2.05 keeps a chat line along the bottom of its window (a sunken white
+    edit box, 24 pixels high); the board is drawn in the 456 pixels above
+    it and the camera keeps to that, as seen side by side under Wine. }
+  ChatBarH = 24;
+  ViewH = ScreenH - ChatBarH;
 
   { Directions, as the walking routine numbers them. }
   DirUp = 0;
@@ -42,6 +47,10 @@ type
   TAssets = class
   private
     FNames: TStringList;  { lower-case key -> TGSurface or TGraalAni }
+    FIndex: TStringList;  { lower-case file name, every file under levels/ }
+    FPaths: TStringList;  { FIndex.Objects[I] is the index of its path here }
+    procedure IndexDir(const Path: string; Depth: Integer);
+    function Indexed(const Name: string): string;
     function FindFile(const Name: string; const Dirs: array of string): string;
   public
     Dir: string;          { install folder; '' = none }
@@ -53,6 +62,12 @@ type
     function Ani(const Name: string): TGraalAni;
   end;
 
+{ Loads a picture as 2.05 shows it: a palette picture with no transparency
+  of its own is drawn with its palette colour 0 left out (the black frame
+  around tutorialmap2.png is not drawn, side by side under Wine). }
+function LoadImageKeyed(const FileName: string; Dest: TGSurface): Boolean;
+
+type
   TServerPlayer = class
   public
     Id: Integer;
@@ -94,10 +109,17 @@ type
     Permanent: Boolean; { made with a life below 100: shown, never taken }
   end;
 
-  { An object in flight after a throw. }
+  { An object in flight after a throw. X, Y is the top-left of its 2 x 2
+    box on the ground; it is drawn above that by its height. }
   TThrownObject = record
-    X, Y, DX, DY: Double; { top-left of the 2 x 2 object, tiles per tick }
+    X, Y, DX, DY: Double; { tiles; tiles per tick }
     Kind, Age: Integer;   { lift table entry; ticks in the air }
+  end;
+
+  { The pieces of a thrown object that broke, centred on X, Y (tiles). }
+  TBreakEffect = record
+    X, Y: Double;
+    Kind, Age: Integer;
   end;
 
   TBomb = record
@@ -152,6 +174,10 @@ type
     FPropsSent: Boolean;
     FOthers: TList;
     FLevelDir: string;     { folder of the level file played offline }
+    { the boards around this one on the big map, drawn past its edges:
+      index (dy + 1) * 3 + dx + 1, nil where there is none }
+    FNear: array[0..8] of TAdventureLevel;
+    FNearFor: string;
     FWarpPending: Boolean; { a link warp was asked of the server }
     FWarpX, FWarpY: Double;
     FWarpLevel: string;
@@ -177,6 +203,11 @@ type
     SheetBuiltin: Boolean; { Sheet is the built-in default }
     Arrays: TGArrays;
     Assets: TAssets;
+    { graalconfig.txt's font (Tempus Sans ITC, a cell 24 high) for the
+      names and the powers, as 2.0x draws them with GDI; nil when the
+      font file is nowhere: the pixel font then }
+    NameFont: TTrueTypeFont;
+    NameEm: Integer;
     Frame: Integer;
     WorldTime: Cardinal;
     ServerMessage, DisconnectReason: string;
@@ -210,13 +241,15 @@ type
     ActionKey, AttackKey, ItemKey: Boolean;
     { The map key (M) pressed this tick: opens or closes the big map. }
     MapKey: Boolean;
-    { What the player is doing: ModeFree, ModeSword, ModeLift, ModeCarry. }
+    { What the player is doing: ModeFree, ModeSword, ModeLift, ModeCarry,
+      ModeHidden. }
     Mode: Integer;
     { The lift table entry carried (0 bush, 1 sign, 2 pot, 3 stone,
       4 black stone), or -1. }
     CarryKind: Integer;
     Items: array of TFloorItem;
     Thrown: array of TThrownObject;
+    Breaks: array of TBreakEffect;
     Bombs: array of TBomb;
     Blasts: array of TBlast;
     { Reading a sign: its lines and the first line of the page shown. }
@@ -230,6 +263,12 @@ type
     Shots: array of TShot;
     { The item list window (Q); ItemListKey is its key's press this tick. }
     ItemListOpen, ItemListKey: Boolean;
+    { the chat line along the bottom: being typed in, and its text }
+    ChatTyping: Boolean;
+    ChatLine: string;
+    { frames left for the player's own chat once a direction key is
+      pressed; -1 while it stays }
+    ChatLeft: Integer;
     OnSwordHit: TSwordHitEvent;
     OnBombBlast: TBombBlastEvent;
     OnArrowHit: TArrowHitEvent;
@@ -297,6 +336,11 @@ type
     procedure DrawObjectTiles(List, I, X, Y: Integer);
     { A carried or thrown object (lift table entry Kind) at X, Y. }
     procedure DrawCarried(Kind, X, Y: Integer);
+    procedure DrawThrown(CamX, CamY: Integer);
+    procedure LoadNear;
+    function NearLevel(const Name: string): TAdventureLevel;
+    procedure SetHidden(Hide: Boolean);
+    procedure BreakThrown(I: Integer);
     { Not in hurt mode and not dead. }
     function Hurtable: Boolean;
     { The shared hurt routine: Hearts off (clamped to the maximum first),
@@ -306,6 +350,10 @@ type
     procedure HurtFrom(Hearts, FromX, FromY: Double);
     { After death, on a direction key: hearts by AP, at the level's entry. }
     procedure Respawn;
+    function OpenChestAt(PX, PY: Double): Boolean;
+    { Says Text: shown over the player, playerchats for the NPCs, and
+      PLPROP_CURCHAT to the server. }
+    procedure Say(const Text: string);
     { The D key with the bomb: a bomb with a 60-tick fuse. }
     procedure LayBomb;
     procedure AddBlast(X, Y: Double; Reach, Kind: Integer; Mine: Boolean);
@@ -327,6 +375,7 @@ type
     procedure TickShots;
     procedure DrawShots(CamX, CamY: Integer);
     procedure DrawItemList;
+    procedure DrawChatBar;
     { The level sign whose 2 x 2 holds (PX, PY), or -1. }
     function SignAt(PX, PY: Double): Integer;
     { Opens the sign panel on Text (lines split at newlines). }
@@ -363,6 +412,7 @@ const
   ModeLift = 2;
   ModeCarry = 3;
   ModeDead = 5;
+  ModeHidden = 6; { under a carried bush or stone }
   { The sprite of each item (arrays.dat array 24), by item number. }
   ItemSprites: array[0..24] of Integer = (136, 137, 138, 67, 143, 139, 145,
     351, 65, 350, 314, 315, 321, 323, 322, 324, 325, 328, 329, 330, 331, 332,
@@ -370,6 +420,14 @@ const
   ItemShadowSprite = 42;
   { the carry sprite of each lift table entry }
   CarrySprites: array[0..4] of Integer = (261, 267, 265, 263, 239);
+  { a thrown object's top over its box on the ground, by ticks in the air }
+  ThrowHeight: array[0..6] of Integer = (-14, -9, -7, -4, -1, 3, 6);
+  ThrowShadowSprite = 0;
+  HeartSprite = 139;
+  BreakFrames = 4;
+  StonePieceSprites: array[0..3] of Integer = (96, 97, 98, 99);
+  PotPieceSprites: array[0..3] of Integer = (100, 101, 102, 103);
+  BushBreakSprites: array[0..1] of Integer = (115, 116);
   ItemLife = 164;
 { The items that can lie on the floor (PLO_ITEMADD makes only these). }
 function FloorItem(Item: Integer): Boolean;
@@ -379,7 +437,7 @@ procedure MakeIndexSheet(Sheet: TGSurface);
 implementation
 
 uses
-  SysUtils, Math, GFont, GSound, Sound202r1, Map202r1, NpcBridge202r1;
+  SysUtils, Math, GFont, GUiFont, GSysFont, GSound, Sound202r1, Map202r1, NpcBridge202r1;
 
 procedure MakeIndexSheet(Sheet: TGSurface);
 var
@@ -415,6 +473,24 @@ begin
   end;
 end;
 
+function LoadImageKeyed(const FileName: string; Dest: TGSurface): Boolean;
+var
+  I: Integer;
+begin
+  if LoadImageIndexed(FileName, Dest) then
+  begin
+    Result := True;
+    for I := 0 to High(Dest.Pixels) do
+      if Dest.Pixels[I] shr 24 <> $FF then Exit;
+    for I := 0 to High(Dest.Indices) do
+      if Dest.Indices[I] = 0 then Dest.Pixels[I] := 0;
+    SetLength(Dest.Indices, 0);
+    SetLength(Dest.Palette, 0);
+  end
+  else
+    Result := LoadImageFile(FileName, Dest);
+end;
+
 { TAssets }
 
 constructor TAssets.Create;
@@ -433,8 +509,50 @@ var
 begin
   for I := 0 to FNames.Count - 1 do FNames.Objects[I].Free;
   FNames.Free;
+  FIndex.Free;
+  FPaths.Free;
   Missing.Free;
   inherited Destroy;
+end;
+
+procedure TAssets.IndexDir(const Path: string; Depth: Integer);
+var
+  SR: TSearchRec;
+begin
+  if Depth > 8 then Exit;
+  if FindFirst(Path + '*', faAnyFile, SR) = 0 then
+  begin
+    repeat
+      if (SR.Name = '.') or (SR.Name = '..') then Continue;
+      if (SR.Attr and faDirectory) <> 0 then
+        IndexDir(Path + SR.Name + PathDelim, Depth + 1)
+      else if FIndex.IndexOf(LowerCase(SR.Name)) < 0 then
+        FIndex.AddObject(LowerCase(SR.Name), TObject(PtrInt(FPaths.Add(Path + SR.Name))));
+    until FindNext(SR) <> 0;
+    FindClose(SR);
+  end;
+end;
+
+{ 2.0x finds a picture by its exact name in any folder of the install: on
+  start and again on Training it lists the whole folder tree (the root,
+  languages/, levels/ and every folder under it, maps/, sounds/) and then
+  opens head0.gif, sword1.gif, wbomb1.gif, body.png ... from wherever the
+  list has them (traced under Wine). The first root that has a file of that
+  name wins. }
+function TAssets.Indexed(const Name: string): string;
+var
+  K, I: Integer;
+begin
+  if FIndex = nil then
+  begin
+    FIndex := TStringList.Create;
+    FIndex.Sorted := True;
+    FPaths := TStringList.Create;
+    for K := 0 to AssetRootCount - 1 do
+      IndexDir(AssetRoot(K), 0);
+  end;
+  I := FIndex.IndexOf(LowerCase(Name));
+  if I >= 0 then Result := FPaths[PtrInt(FIndex.Objects[I])] else Result := '';
 end;
 
 { ---- the 2.05 sprite prop (graal_analysis client-internals/
@@ -481,30 +599,13 @@ begin
 end;
 
 function TAssets.FindFile(const Name: string; const Dirs: array of string): string;
-var
-  I, J, K: Integer;
-  Base, Cand: string;
-  Exts: array[0..2] of string;
 begin
-  { the asset roots (GAssetDirs), set by UseInstall }
+  { Dirs is kept for the callers; 2.0x looks a name up in its list of the
+    whole install, as it is asked for: sword1.gif is not found as
+    sword1.png, nor head0.png as head0.gif }
   Result := '';
   if (AssetRootCount = 0) or (Name = '') then Exit;
-  Base := ChangeFileExt(Name, '');
-  Exts[0] := ExtractFileExt(Name);
-  Exts[1] := '.png';
-  Exts[2] := '.gif';
-  for K := 0 to AssetRootCount - 1 do
-    for I := 0 to High(Dirs) do
-      for J := 0 to 2 do
-      begin
-        if Exts[J] = '' then Continue;
-        Cand := AssetRoot(K) + Dirs[I] + Base + Exts[J];
-        if FileExists(Cand) then
-        begin
-          Result := Cand;
-          Exit;
-        end;
-      end;
+  Result := Indexed(Name);
 end;
 
 function TAssets.Image(const Name, Kind: string): TGSurface;
@@ -535,11 +636,14 @@ begin
   begin
     S := TGSurface.Create(0, 0);
     if Kind = 'body' then Ok := LoadImageIndexed(F, S)
-    else Ok := LoadImageFile(F, S);
+    else Ok := LoadImageKeyed(F, S);
     if not Ok then FreeAndNil(S);
   end;
-  { nothing on disk: the built-in default of that name, if there is one }
-  if (S = nil) and BuiltinFile(Name, D) then
+  { nothing on disk: the built-in default of that name, if there is one,
+    when no install is there at all; an install without the file shows
+    nothing, as 2.0x does }
+  if (S = nil) and ((AssetRootCount = 0) or (Indexed('sprites.png') = '')) and
+    BuiltinFile(Name, D) then
   begin
     S := TGSurface.Create(0, 0);
     if not LoadImageData(D, Name, S, Kind = 'body') then FreeAndNil(S);
@@ -595,17 +699,19 @@ end;
 constructor TServerPlayer.Create;
 begin
   inherited Create;
-  { a new player: orange, darkred, black, darkred, black; body.png; head0 }
+  { a new player as the real 2.05 makes one: orange, darkred, black,
+    darkred, black; body.png; head26 (what it shows for the default head
+    name), facing up }
   Colors[0] := 2;
   Colors[1] := 5;
   Colors[2] := 18;
   Colors[3] := 5;
   Colors[4] := 18;
   BodyImage := 'body.png';
-  HeadImage := 'head0.gif';
+  HeadImage := 'head26.gif';
   SwordImage := 'sword1.gif';
   ShieldImage := 'shield1.gif';
-  Dir := DirDown;
+  Dir := DirUp;
   AniName := 'idle';
   FixedStep := -1;
 end;
@@ -778,6 +884,7 @@ begin
   Player.GlovePower := 1;
   Player.SwordPower := 1;
   CarryKind := -1;
+  ChatLeft := -1;
   AP := 50;
   ShowStats := $1FF;
   WeaponsOn := True;
@@ -813,9 +920,11 @@ destructor TAdventure.Destroy;
 var
   I: Integer;
 begin
+  FreeAndNil(NameFont);
   FreeAndNil(Baddies);
   FreeAndNil(Npcs);
   FClient.Free;
+  for I := 0 to 8 do FreeAndNil(FNear[I]);
   Level.Free;
   Player.Free;
   Screen.Free;
@@ -861,11 +970,22 @@ end;
 
 procedure TAdventure.UseInstall(const Dir: string);
 var
-  P: string;
+  P, Face: string;
+  Cell: Integer;
 begin
   Assets.Dir := Dir;
   { the folder itself, then graal-assets/<version>/ and graal-assets/common/ }
-  SetAssetRoots(Dir, ClientAssetFolders);
+  SetAssetRoots(Dir, ClientBuildLabel);
+  { the names' font: graalconfig.txt's, from the install or Windows' Fonts }
+  FreeAndNil(NameFont);
+  ConfigFont(Dir, Face, Cell);
+  P := FindFontFile(FontFileName(Face));
+  if P <> '' then
+  begin
+    NameFont := TTrueTypeFont.Create;
+    if NameFont.LoadFromFile(P) then NameEm := EmForCell(NameFont, Cell)
+    else FreeAndNil(NameFont);
+  end;
   if AssetsFolder <> '' then Log('assets: ' + AssetsFolder);
   { the install's tile sheet and tile types replace the built-in ones, but
     not a sheet given with --sheet }
@@ -924,9 +1044,14 @@ begin
     end;
   TX := TileOf(PX);
   TY := TileOf(PY);
-  { outside 0..63 is a gmap neighbour or a fixed tile; neither is modelled
-    yet, so the edge is open and level links can be reached }
-  if (TX < 0) or (TY < 0) or (TX >= BoardW) or (TY >= BoardH) then Exit;
+  { outside 0..63 blocks: links lie on the board's edge rows, so they are
+    reached first, and at an edge with no link the real 2.05 keeps the
+    player on the board (the tutorial start, side by side under Wine) }
+  if (TX < 0) or (TY < 0) or (TX >= BoardW) or (TY >= BoardH) then
+  begin
+    Result := True;
+    Exit;
+  end;
   Result := not Arrays.TilePassable(Level.Tile(TX, TY));
 end;
 
@@ -941,12 +1066,14 @@ const
     (1.025, 1.975, 2.025, 2.975, 3.025, 0.975),
     (0.525, 1.475, 1.525, 2.475, 2.525, 0.475),
     (1.025, 1.975, 2.025, 2.975, 3.025, 0.975));
-  Speed = 1.0; { on foot }
 var
-  NX, NY, F: Double;
+  NX, NY, F, Speed: Double;
   B: array[0..5] of Boolean;
   I: Integer;
 begin
+  { on foot; hidden under a carried object 0.2 of that, 0.1 tile a tick
+    (carry-hide-and-glove.md, seen live) }
+  if Mode = ModeHidden then Speed := 0.2 else Speed := 1.0;
   Player.Dir := Dir;
   NX := Player.X + StepX[Dir] * Speed;
   NY := Player.Y + StepY[Dir] * Speed;
@@ -1084,7 +1211,7 @@ var
   PX, PY: Double;
   OX, OY, E: Integer;
 begin
-  if Mode = ModeCarry then
+  if (Mode = ModeCarry) or (Mode = ModeHidden) then
   begin
     Throw;
     Exit;
@@ -1109,6 +1236,11 @@ var
   PX, PY: Double;
   OX, OY, E, I: Integer;
 begin
+  if Mode = ModeHidden then
+  begin
+    SetHidden(False);
+    Exit;
+  end;
   if Mode = ModeCarry then
   begin
     Throw;
@@ -1128,7 +1260,18 @@ begin
     if A <> nil then FModeUntil := Frame + A.TotalTicks else FModeUntil := Frame + 4;
     Exit;
   end;
-  { a chest record at the probe, not yet opened }
+  { a chest record at the probe, not yet opened; only from below, facing
+    up: from the side the real 2.05 does nothing }
+  if Player.Dir and 3 = DirUp then OpenChestAt(PX, PY);
+end;
+
+{ Opens the chest record at (PX, PY) that is not yet opened. The real 2.05
+  opens one as soon as the player walks up into it, and on A facing up. }
+function TAdventure.OpenChestAt(PX, PY: Double): Boolean;
+var
+  I: Integer;
+begin
+  Result := False;
   for I := 0 to High(Level.Chests) do
     if not Level.Chests[I].Opened and (PX >= Level.Chests[I].X) and
       (PX <= Level.Chests[I].X + 2) and (PY >= Level.Chests[I].Y) and
@@ -1148,6 +1291,7 @@ begin
         ReadSign(Level.Signs[Level.Chests[I].Sign].Text);
       if FClient.Connected then
         FClient.SendPacket(PLI_OPENCHEST, GChar(Level.Chests[I].X) + GChar(Level.Chests[I].Y));
+      Result := True;
       Exit;
     end;
 end;
@@ -1160,16 +1304,24 @@ var
   N: Integer;
 begin
   if CarryKind < 0 then Exit;
-  { it leaves from above the head; the flight itself was not read from
-    2.05: here it travels 0.5 tile a tick for 8 ticks and breaks }
+  { measured against 2.05 at 20 frames a second: it leaves from where it
+    was carried and flies one tile a tick, coming down from 14 px above
+    the player's top over six ticks, then breaks }
   N := Length(Thrown);
   SetLength(Thrown, N + 1);
   Thrown[N].X := Player.X + 0.5;
   Thrown[N].Y := Player.Y;
-  Thrown[N].DX := DX[Player.Dir and 3] * 0.5;
-  Thrown[N].DY := DY[Player.Dir and 3] * 0.5;
+  Thrown[N].DX := DX[Player.Dir and 3];
+  Thrown[N].DY := DY[Player.Dir and 3];
   Thrown[N].Kind := CarryKind;
   Thrown[N].Age := 0;
+  if Mode = ModeHidden then
+  begin
+    { thrown from hiding: the player shows again }
+    Player.Status := Player.Status and not 2;
+    if FClient.Connected then
+      FClient.SendPacket(PLI_PLAYERPROPS, GChar(PLPROP_STATUS) + GChar(Player.Status));
+  end;
   CarryKind := -1;
   Mode := ModeFree;
   Player.SetAni('idle', Frame);
@@ -1270,15 +1422,43 @@ begin
     Thrown[I].X := Thrown[I].X + Thrown[I].DX;
     Thrown[I].Y := Thrown[I].Y + Thrown[I].DY;
     Inc(Thrown[I].Age);
-    if Thrown[I].Age >= 8 then
+    { it breaks once it has come down, or on anything in its way }
+    if (Thrown[I].Age > High(ThrowHeight)) or
+      PointBlocked(Thrown[I].X + 1, Thrown[I].Y + 3) then
     begin
-      PlaySoundAt('crush.wav', Thrown[I].X + 1, Thrown[I].Y + 1);
-      Thrown[I] := Thrown[High(Thrown)];
-      SetLength(Thrown, Length(Thrown) - 1);
+      BreakThrown(I);
       Continue;
     end;
     Inc(I);
   end;
+  I := 0;
+  while I <= High(Breaks) do
+  begin
+    Inc(Breaks[I].Age);
+    if Breaks[I].Age >= BreakFrames then
+    begin
+      Breaks[I] := Breaks[High(Breaks)];
+      SetLength(Breaks, Length(Breaks) - 1);
+      Continue;
+    end;
+    Inc(I);
+  end;
+end;
+
+procedure TAdventure.BreakThrown(I: Integer);
+var
+  N: Integer;
+begin
+  PlaySoundAt('crush.wav', Thrown[I].X + 1, Thrown[I].Y + 1);
+  { the pieces fly apart 2.5 tiles under the box's top-left (measured) }
+  N := Length(Breaks);
+  SetLength(Breaks, N + 1);
+  Breaks[N].X := Thrown[I].X + 1;
+  Breaks[N].Y := Thrown[I].Y + 2.5;
+  Breaks[N].Kind := Thrown[I].Kind;
+  Breaks[N].Age := 0;
+  Thrown[I] := Thrown[High(Thrown)];
+  SetLength(Thrown, Length(Thrown) - 1);
 end;
 
 { ---- combat: being hurt, knockback, dying, other players' swings,
@@ -1288,7 +1468,8 @@ end;
 
 function TAdventure.Hurtable: Boolean;
 begin
-  Result := (FHurtCount = 0) and (Mode <> ModeDead);
+  { a hidden player is not hit }
+  Result := (FHurtCount = 0) and (Mode <> ModeDead) and (Mode <> ModeHidden);
 end;
 
 procedure TAdventure.HurtPlayer(Hearts, KX, KY: Double);
@@ -1336,6 +1517,19 @@ end;
 procedure TAdventure.HurtFrom(Hearts, FromX, FromY: Double);
 begin
   HurtPlayer(Hearts, Player.X + 1.5 - FromX, Player.Y + 2 - FromY);
+end;
+
+procedure TAdventure.Say(const Text: string);
+var
+  T: string;
+begin
+  T := Text;
+  if Length(T) > 256 then T := Copy(T, 1, 253) + '...';
+  Player.Chat := T;
+  ChatLeft := -1;
+  if T <> '' then Npcs.PlayerChats(T);
+  if FClient.Connected then
+    FClient.SendPacket(PLI_PLAYERPROPS, GChar(PLPROP_CURCHAT) + GString(T));
 end;
 
 procedure TAdventure.Respawn;
@@ -1619,8 +1813,50 @@ begin
   Selected := I;
 end;
 
+procedure TAdventure.SetHidden(Hide: Boolean);
+var
+  N: Integer;
+begin
+  if Hide then
+  begin
+    Mode := ModeHidden;
+    Player.Status := Player.Status or 2;
+    Player.SetAni('hiddenstill', Frame);
+  end
+  else
+  begin
+    Mode := ModeCarry;
+    Player.Status := Player.Status and not 2;
+    Player.SetAni('carrystill', Frame);
+    { out from under a bush, its leaves fly }
+    if CarryKind = 0 then
+    begin
+      N := Length(Breaks);
+      SetLength(Breaks, N + 1);
+      Breaks[N].X := Player.X + 1.5;
+      Breaks[N].Y := Player.Y + 2.5;
+      Breaks[N].Kind := 0;
+      Breaks[N].Age := 0;
+    end;
+  end;
+  if FClient.Connected then
+    FClient.SendPacket(PLI_PLAYERPROPS, GChar(PLPROP_STATUS) + GChar(Player.Status));
+end;
+
 procedure TAdventure.UseWeapon;
 begin
+  { D while carrying a bush or a stone hides under it, and D again comes
+    out (a pot or a sign: nothing; carry-hide-and-glove.md) }
+  if Mode = ModeHidden then
+  begin
+    SetHidden(False);
+    Exit;
+  end;
+  if Mode = ModeCarry then
+  begin
+    if CarryKind in [0, 3, 4] then SetHidden(True);
+    Exit;
+  end;
   if (Selected < 0) or (Selected > High(Weapons)) or (Mode <> ModeFree) or not WeaponsOn then Exit;
   case Weapons[Selected].Item of
     8: LayBombOf(1);
@@ -1932,6 +2168,8 @@ end;
 { The picture glyph for '#' and a letter, or -1. #A, #B, #X, #Y and the
   arrows are as read; which of 71 to 75 and 87 the other six take is a
   guess. }
+{ The letters.png cell of a #-glyph: the cell is the glyph's place in the
+  sign alphabet. #h (the face) and #4 take two cells. }
 function ButtonGlyph(C: Char): Integer;
 begin
   case C of
@@ -1943,12 +2181,12 @@ begin
     'd': Result := 78;
     'l': Result := 79;
     'r': Result := 80;
-    'h': Result := 71;
-    'x': Result := 72;
-    'y': Result := 73;
-    'z': Result := 74;
-    '4': Result := 75;
-    '.': Result := 87;
+    'h': Result := 74;
+    'x': Result := 71;
+    'y': Result := 72;
+    'z': Result := 73;
+    '4': Result := 87;
+    '.': Result := 67;
   else
     Result := -1;
   end;
@@ -1970,13 +2208,57 @@ begin
     end;
 end;
 
+{ #K(n) in a sign is the character with code n, for the ones the sign
+  alphabet has no place for; the editor writes each line break as #K(13)
+  and a newline, and the CR is not drawn (graal_analysis
+  formats/sign-text.md). #k(n), small k, is the name of the key set for
+  game key n, in graalconfig.txt's order: the tutorial's "press the #k(8)
+  key" shows "Tab" in the real 2.05. }
+const
+  SignKeyNames: array[0..10] of string = ('Up', 'Left', 'Down', 'Right',
+    'D', 'S', 'A', 'M', 'Tab', 'Q', 'P');
+
+function ExpandSignEscapes(const S: string): string;
+var
+  I, J, N: Integer;
+begin
+  Result := '';
+  I := 1;
+  while I <= Length(S) do
+  begin
+    if (S[I] = '#') and (I + 3 <= Length(S)) and ((S[I + 1] = 'K') or (S[I + 1] = 'k')) and
+      (S[I + 2] = '(') then
+    begin
+      J := I + 3;
+      N := 0;
+      while (J <= Length(S)) and (S[J] in ['0'..'9']) and (N < 1000) do
+      begin
+        N := N * 10 + Ord(S[J]) - Ord('0');
+        Inc(J);
+      end;
+      if (J <= Length(S)) and (S[J] = ')') and (J > I + 3) and (N < 256) then
+      begin
+        if S[I + 1] = 'k' then
+        begin
+          if N <= High(SignKeyNames) then Result := Result + SignKeyNames[N];
+        end
+        else if N <> 13 then Result := Result + Chr(N);
+        I := J + 1;
+        Continue;
+      end;
+    end;
+    Result := Result + S[I];
+    Inc(I);
+  end;
+end;
+
 procedure TAdventure.ReadSign(const Text: string);
 var
   I, St: Integer;
   T: string;
 begin
   SetLength(SignLines, 0);
-  T := Text;
+  T := ExpandSignEscapes(Text);
   while (T <> '') and ((T[Length(T)] = #10) or (T[Length(T)] = #13)) do
     SetLength(T, Length(T) - 1);
   St := 1;
@@ -2008,7 +2290,9 @@ begin
     begin
       if SignLine > 0 then Dec(SignLine, 3);
     end
-    else if Length(SignLines) < SignLine + 3 then
+    { the last page ends reading, full or not: a sign of exactly three
+      lines closes on the next key in the real 2.05, with no empty page }
+    else if Length(SignLines) <= SignLine + 3 then
       Reading := False
     else
       Inc(SignLine, 3);
@@ -2055,8 +2339,9 @@ begin
       Glyph(100, X + I * 16, Y);
       Glyph(101, X + I * 16, Y + H - 32);
     end;
+    { the sides stop where the bottom corners start }
     I := 0;
-    while I * 32 < H do
+    while I * 32 < H - 32 do
     begin
       Glyph(102, X, Y + I * 32);
       Glyph(103, X + W - 16, Y + I * 32);
@@ -2094,6 +2379,11 @@ begin
         if G < 0 then G := 86;
         if L <> nil then Glyph(G, CX, Y + 16 + K * 32);
         Inc(CX, 16);
+        if (S[I] = 'h') or (S[I] = '4') then
+        begin
+          if L <> nil then Glyph(G + 1, CX, Y + 16 + K * 32);
+          Inc(CX, 16);
+        end;
       end
       else
       begin
@@ -2207,6 +2497,7 @@ var
 begin
   SetLength(Items, 0);
   SetLength(Thrown, 0);
+  SetLength(Breaks, 0);
   if not FileExists(FileName) and BuiltinFile(ExtractFileName(FileName), D) and
     (LowerCase(ExtractFileExt(FileName)) <> '.png') then
   begin
@@ -2263,7 +2554,7 @@ end;
 function TAdventure.FollowLink(I: Integer): Boolean;
 var
   L: TLevelLink;
-  NX, NY: Double;
+  NX, NY, OX, OY: Double;
   Path: string;
 begin
   Result := False;
@@ -2296,13 +2587,19 @@ begin
   else if AssetPath(L.Dest) <> '' then
     Path := AssetPath(L.Dest);
   if Path = '' then Path := L.Dest; { LoadLevelFile tries the built-in ones }
+  { the player stands at the new place before the level's NPCs see
+    playerenters, so their scripts read where the player arrived }
+  OX := Player.X;
+  OY := Player.Y;
+  Player.X := NX;
+  Player.Y := NY;
   if not LoadLevelFile(Path) then
   begin
+    Player.X := OX;
+    Player.Y := OY;
     Log('link to ' + L.Dest + ': ' + Level.LastError);
     Exit;
   end;
-  Player.X := NX;
-  Player.Y := NY;
   Player.Level := Level.Name;
   Log(Format('link to %s at %.1f,%.1f', [Level.Name, NX, NY]));
   Result := True;
@@ -2420,6 +2717,7 @@ begin
           while FOthers.Count > 0 do RemoveOther(Others[0].Id);
           SetLength(Items, 0);
           SetLength(Thrown, 0);
+          SetLength(Breaks, 0);
           if FWarpPending and (Data = FWarpLevel) then
           begin
             { the server sends no PLAYERWARP for a link: the client
@@ -2726,7 +3024,8 @@ begin
   AX := 0;
   AY := 0;
   for D := 0 to 3 do
-    if Keys[D] and ((Mode = ModeFree) or (Mode = ModeCarry)) and (FHurtCount < 35) then
+    if Keys[D] and ((Mode = ModeFree) or (Mode = ModeCarry) or (Mode = ModeHidden)) and
+      (FHurtCount < 35) then
     begin
       WalkStep(D);
       Moved := True;
@@ -2737,19 +3036,33 @@ begin
         DirRight: AX := AX + LinkAhead;
       end;
     end;
+  { the own chat stays while the player stands still; the first step
+    starts 60 frames (3 s), then an empty line is sent
+    (client-internals/chat-text.md) }
+  if Moved and (Player.Chat <> '') and (ChatLeft < 0) then ChatLeft := 60;
+  if ChatLeft > 0 then
+  begin
+    Dec(ChatLeft);
+    if ChatLeft = 0 then
+    begin
+      Say('');
+      ChatLeft := -1;
+    end;
+  end;
   case Mode of
     ModeFree:
       if FHurtCount > 0 then
         { the hurt pose holds while the hurt mode runs }
       else if Moved then Player.SetAni('walk', Frame) else Player.SetAni('idle', Frame);
     ModeCarry: if Moved then Player.SetAni('carry', Frame) else Player.SetAni('carrystill', Frame);
+    ModeHidden: if Moved then Player.SetAni('hidden', Frame) else Player.SetAni('hiddenstill', Frame);
   end;
   TickItems;
   TickShots;
   TickCombat;
   { NPCs: pushing into one, walking over one, then timeouts }
   for D := 0 to 3 do
-    if Keys[D] and ((Mode = ModeFree) or (Mode = ModeCarry)) then
+    if Keys[D] and ((Mode = ModeFree) or (Mode = ModeCarry) or (Mode = ModeHidden)) then
       Npcs.PlayerPush(D, Player.X, Player.Y);
   if Moved then Npcs.PlayerMoved(Player.X, Player.Y);
   Npcs.Tick;
@@ -2763,7 +3076,10 @@ begin
   begin
     ProbePoint(AX, AY);
     D := SignAt(Player.X + 1.5, AY);
-    if (D >= 0) and ((Player.Dir and 3) = DirUp) then ReadSign(Level.Signs[D].Text);
+    if (D >= 0) and ((Player.Dir and 3) = DirUp) then ReadSign(Level.Signs[D].Text)
+    { walking up into a chest opens it (the tutorial's glove chest, side by
+      side with the real 2.05) }
+    else if (Player.Dir and 3) = DirUp then OpenChestAt(Player.X + 1.5, AY);
   end;
   SendMovedProps;
   FClient.Flush;
@@ -2822,10 +3138,50 @@ procedure TAdventure.DrawNames(CamX, CamY: Integer);
     TX, TY: Integer;
   begin
     if Name = '' then Exit;
-    TX := Round(X * TileSize) - CamX + 24 - TextWidth(Name, 2) div 2;
     TY := Round(Y * TileSize) - CamY + 44;
+    if NameFont <> nil then
+    begin
+      { GDI text in the configured font, bold: white over blue at +1, +1 }
+      TX := Round(X * TileSize) - CamX + 24 - NameFont.TextWidth(Name, NameEm, True) div 2;
+      NameFont.DrawText(Screen, TX + 1, TY + 1, Name, NameEm, $FF0000FF, True);
+      NameFont.DrawText(Screen, TX, TY, Name, NameEm, $FFFFFFFF, True);
+      Exit;
+    end;
+    TX := Round(X * TileSize) - CamX + 24 - TextWidth(Name, 2) div 2;
     DrawText(Screen, TX + 1, TY + 1, Name, $FF0000FF, 2);
     DrawText(Screen, TX, TY, Name, $FFFFFFFF, 2);
+  end;
+
+  procedure Over(const Text: string; X, Y: Double);
+  var
+    TX, TY: Integer;
+  begin
+    if Text = '' then Exit;
+    TX := Round(X * TileSize) - CamX + 24 - TextWidth(Text, 2) div 2;
+    if TX + TextWidth(Text, 2) > ScreenW then TX := ScreenW - TextWidth(Text, 2);
+    if TX < 0 then TX := 0;
+    TY := Round(Y * TileSize) - CamY - 12;
+    DrawText(Screen, TX + 1, TY + 1, Text, $FF0000FF, 2);
+    DrawText(Screen, TX, TY, Text, $FFFFFFFF, 2);
+  end;
+
+  { the hearts over a character that was just hurt: a heart, then the
+    count under it (measured side by side with 2.05) }
+  procedure Hearts(Power: Integer; X, Y: Double);
+  var
+    T: string;
+    CX, CY, SX, SY, SW, SH: Integer;
+    Img: TGSurface;
+  begin
+    if Power mod 2 = 0 then T := IntToStr(Power div 2)
+    else T := IntToStr(Power div 2) + '.5';
+    CX := Round(X * TileSize) - CamX + 24;
+    CY := Round(Y * TileSize) - CamY;
+    Img := Assets.Image('sprites.png', '');
+    if (Img <> nil) and Arrays.SpriteRect(HeartSprite, SX, SY, SW, SH) then
+      Screen.Blit(Img, SX, SY, SW, SH, CX - SW div 2, CY - 31);
+    DrawText(Screen, CX - TextWidth(T, 2) div 2 + 1, CY - 10, T, $FF0000FF, 2);
+    DrawText(Screen, CX - TextWidth(T, 2) div 2, CY - 11, T, $FFFFFFFF, 2);
   end;
 
 var
@@ -2837,9 +3193,14 @@ begin
     N := Npcs.Npc(I);
     if N.Gone or not N.Visible or not N.Character then Continue;
     One(N.Nickname, N.X, N.Y);
+    if N.PowerShown > 0 then Hearts(N.Power, N.X, N.Y);
   end;
   for I := 0 to FOthers.Count - 1 do
     One(Others[I].Nickname, Others[I].X, Others[I].Y);
+  { chat over the players, as a name but above the head }
+  for I := 0 to FOthers.Count - 1 do
+    Over(Others[I].Chat, Others[I].X, Others[I].Y);
+  Over(Player.Chat, Player.X, Player.Y);
 end;
 
 procedure TAdventure.DrawPlayer(P: TServerPlayer; CamX, CamY: Integer);
@@ -2850,9 +3211,18 @@ var
   Spr: TGraalAniSprite;
   Img: TGSurface;
   SheetName, AttrName: string;
+  HeadX, HeadY: Integer;
+  HasParam: Boolean;
 begin
   BX := Round(P.X * TileSize) - CamX;
   BY := Round(P.Y * TileSize) - CamY;
+  { hidden: only the object shows, over the legs (measured side by side
+    with 2.05) }
+  if (P = Player) and (Mode = ModeHidden) then
+  begin
+    DrawCarried(CarryKind, BX + 8, BY + 24);
+    Exit;
+  end;
   A := Assets.Ani(P.AniName);
   if A = nil then
   begin
@@ -2872,6 +3242,9 @@ begin
     St := A.StepAt(Frame - P.AniStart);
   if St > High(A.Steps) then Exit;
   Parts := A.Steps[St].Dirs[P.Dir and 3];
+  HasParam := False;
+  HeadX := 0;
+  HeadY := -10000;
   for I := 0 to High(Parts) do
   begin
     if Parts[I].Sprite = ParamSprite - 1 then
@@ -2880,6 +3253,7 @@ begin
         its carry sprite from the sprite table (bush 261, sign 267, pot
         265, stone 263, black stone 239: carry-hide-and-glove.md), or from
         its board tiles when there is no table }
+      HasParam := True;
       if (P = Player) and (CarryKind >= 0) then
         DrawCarried(CarryKind, BX + Parts[I].X, BY + Parts[I].Y);
       Continue;
@@ -2918,7 +3292,19 @@ begin
       Img := Assets.Image(Spr.Sheet, '');
     if Img <> nil then
       Screen.Blit(Img, Spr.X, Spr.Y, Spr.W, Spr.H, BX + Parts[I].X, BY + Parts[I].Y);
+    if SheetName = 'HEAD' then
+    begin
+      HeadX := BX + Parts[I].X;
+      HeadY := BY + Parts[I].Y;
+    end
+    else if Parts[I].Sprite = ParamSprite - 1 then
+      HasParam := True;
   end;
+  { the classic lift and carry ganis have no PARAM1 part: 2.05 draws the
+    carried object itself, 16 pixels above the head (side by side under
+    Wine: the light stone sits on the head while carrying) }
+  if (P = Player) and (CarryKind >= 0) and not HasParam and (HeadY > -10000) then
+    DrawCarried(CarryKind, HeadX, HeadY - 16);
 end;
 
 procedure TAdventure.DrawObjectTiles(List, I, X, Y: Integer);
@@ -2946,6 +3332,51 @@ begin
     DrawObjectTiles(11, Kind, X, Y);
 end;
 
+procedure TAdventure.DrawThrown(CamX, CamY: Integer);
+var
+  Img: TGSurface;
+  I, J, A, D, SX, SY, SW, SH, X, Y, X2, Y2: Integer;
+begin
+  Img := Assets.Image('sprites.png', '');
+  for I := 0 to High(Thrown) do
+  begin
+    X := Round(Thrown[I].X * TileSize) - CamX;
+    Y := Round(Thrown[I].Y * TileSize) - CamY;
+    { its shadow keeps to the ground, 44 px under the top }
+    if (Img <> nil) and Arrays.SpriteRect(ThrowShadowSprite, SX, SY, SW, SH) then
+      Screen.Blit(Img, SX, SY, SW, SH, X + 4, Y + 44);
+    A := Thrown[I].Age;
+    if A > High(ThrowHeight) then A := High(ThrowHeight);
+    DrawCarried(Thrown[I].Kind, X, Y + ThrowHeight[A]);
+  end;
+  if Img = nil then Exit;
+  for I := 0 to High(Breaks) do
+  begin
+    X := Round(Breaks[I].X * TileSize) - CamX;
+    Y := Round(Breaks[I].Y * TileSize) - CamY;
+    if Breaks[I].Kind = 0 then
+    begin
+      { a bush: its leaves burst out }
+      if Arrays.SpriteRect(BushBreakSprites[Breaks[I].Age and 1], SX, SY, SW, SH) then
+        Screen.Blit(Img, SX, SY, SW, SH, X - SW div 2, Y - SH div 2);
+      Continue;
+    end;
+    { four quarters spread out diagonally, 4 px further each frame }
+    D := 2 + 4 * Breaks[I].Age;
+    for J := 0 to 3 do
+    begin
+      if Breaks[I].Kind in [1, 2] then
+        A := PotPieceSprites[J]
+      else
+        A := StonePieceSprites[J];
+      if not Arrays.SpriteRect(A, SX, SY, SW, SH) then Continue;
+      if J and 1 = 0 then X2 := X - SW - D else X2 := X + D;
+      if J and 2 = 0 then Y2 := Y - SH - D else Y2 := Y + D;
+      Screen.Blit(Img, SX, SY, SW, SH, X2, Y2);
+    end;
+  end;
+end;
+
 procedure TAdventure.DrawItems(CamX, CamY: Integer);
 var
   I, SX, SY, SW, SH, HX, HY, HW, HH: Integer;
@@ -2958,7 +3389,7 @@ begin
   begin
     It := Items[I];
     { blinks out in its last moments }
-    if (It.Life < 37) and Odd(It.Life) then Continue;
+    if (It.Life < 37) and Odd(It.Life) and not It.Permanent then Continue;
     if (Img = nil) or not Arrays.SpriteRect(ItemSprites[It.Item], SX, SY, SW, SH) then
     begin
       { no sprite table: a marker the size of a rupee }
@@ -2986,8 +3417,8 @@ procedure TAdventure.DrawStatus;
 const
   RowStart: array[0..5] of Integer = (0, 5, 11, 16, 22, 27);
 var
-  St: TGSurface;
-  I, N, Row, Col, X, Half, HX, HY, Hearts2, Down: Integer;
+  St, Img: TGSurface;
+  I, N, Row, Col, X, Half, HX, HY, Hearts2, Down, SX, SY, SW, SH: Integer;
 
   procedure Part(SX, SY, W, H, DX, DY: Integer);
   begin
@@ -3005,13 +3436,31 @@ var
       Part(14 * (Ord(D[J]) - Ord('0')), 81, 14, 16, X0 + (J - 1) * 12, Y);
   end;
 
+  { the key on a button: large, white over a black copy at +1, +1 (2.05
+    uses 26 pt Helvetica; this is the project's own font at three times) }
+  { a key letter on its button, as 2.0x draws it (traced under Wine): GDI
+    text in "Helvetica" bold, cell 26 high, black at (BX + 2, BY + 3) and
+    white over it at (BX + 1, BY + 2): A at (16, 32), S at (81, 32), D at
+    (146, 32) }
   procedure KeyName(const K: string; BX, BY: Integer);
-  var
-    TX: Integer;
   begin
-    TX := BX + (22 - TextWidth(K, 2)) div 2;
-    DrawText(Screen, TX + 1, BY + 9 + 1, K, $FF000000, 2);
-    DrawText(Screen, TX, BY + 9, K, $FFFFFFFF, 2);
+    UiDrawText(Screen, BX + 2, BY + 3, K, $FF000000, ufHud);
+    UiDrawText(Screen, BX + 1, BY + 2, K, $FFFFFFFF, ufHud);
+  end;
+
+  { a power beside its icon: white over a blue copy at +1, +1 }
+  procedure PowerText(const T: string; X, Y: Integer);
+  begin
+    { 2.0x: GDI text in the configured font, bold, white at (X - 6, Y)
+      over blue at +1, +1 (the sword's 1 at (119, 31), traced) }
+    if NameFont <> nil then
+    begin
+      NameFont.DrawText(Screen, X - 5, Y + 1, T, NameEm, $FF0000FF, True);
+      NameFont.DrawText(Screen, X - 6, Y, T, NameEm, $FFFFFFFF, True);
+      Exit;
+    end;
+    DrawText(Screen, X + 1, Y + 6, T, $FF0000FF, 2);
+    DrawText(Screen, X, Y + 5, T, $FFFFFFFF, 2);
   end;
 
 begin
@@ -3028,9 +3477,29 @@ begin
       KeyName('S', 80, 30);
       Part(202, 0, 22, 33, 145, 30);
       KeyName('D', 145, 30);
+      { the item-list key, small, over the D button: "Helvetica" bold,
+        cell 10 high, at (146, 27) over black at (147, 28), as traced }
+      UiDrawText(Screen, 147, 28, 'Q', $FF000000, ufHudSmall);
+      UiDrawText(Screen, 146, 27, 'Q', $FFFFFFFF, ufHudSmall);
+      { the sword: sprite 17 of the player's sword image, (94, 36, 28, 28),
+        at (105, 31), and its power beside it }
+      if Player.SwordPower >= 1 then
+      begin
+        Img := Assets.Image(Player.SwordImage, 'sword');
+        if Img <> nil then Screen.Blit(Img, 94, 36, 28, 28, 105, 31);
+        PowerText(IntToStr(Player.SwordPower), 125, 31);
+      end;
+      { the glove: sprite 145 for power 2, sprite 325 on top for power 3,
+        at (40, 29), and the power beside it }
       if Player.GlovePower >= 2 then
-        DrawText(Screen, 60, 31, IntToStr(Player.GlovePower), $FFFFFFFF, 1);
-      DrawText(Screen, 125, 31, IntToStr(Player.SwordPower), $FFFFFFFF, 1);
+      begin
+        Img := Assets.Image('sprites.png', '');
+        if (Img <> nil) and Arrays.SpriteRect(145, SX, SY, SW, SH) then
+          Screen.Blit(Img, SX, SY, SW, SH, 40, 29);
+        if (Img <> nil) and (Player.GlovePower >= 3) and Arrays.SpriteRect(325, SX, SY, SW, SH) then
+          Screen.Blit(Img, SX, SY, SW, SH, 40, 29);
+        PowerText(IntToStr(Player.GlovePower), 60, 31);
+      end;
     end;
   end;
   if WeaponsOn then
@@ -3101,26 +3570,90 @@ begin
   end;
 end;
 
+function TAdventure.NearLevel(const Name: string): TAdventureLevel;
+var
+  D, Path: string;
+begin
+  Result := nil;
+  if Name = '' then Exit;
+  Result := TAdventureLevel.Create;
+  Path := '';
+  if (FLevelDir <> '') and FileExists(FLevelDir + Name) then
+    Path := FLevelDir + Name
+  else if AssetPath('levels/' + Name) <> '' then
+    Path := AssetPath('levels/' + Name)
+  else if AssetPath(Name) <> '' then
+    Path := AssetPath(Name);
+  if (Path <> '') and Result.LoadFromFile(Path) then Exit;
+  if BuiltinFile(Name, D) and Result.LoadFromString(D) then Exit;
+  FreeAndNil(Result);
+end;
+
+procedure TAdventure.LoadNear;
+var
+  I: Integer;
+begin
+  if FNearFor = Level.Name then Exit;
+  FNearFor := Level.Name;
+  for I := 0 to 8 do
+  begin
+    FreeAndNil(FNear[I]);
+    { online the server has the boards; only the ones played offline }
+    if (I <> 4) and not FClient.Connected then
+      FNear[I] := NearLevel(MapNeighbour(Level.Name, I mod 3 - 1, I div 3 - 1));
+  end;
+end;
+
 procedure TAdventure.Draw;
 var
-  CamX, CamY, TX, TY, X0, Y0, I: Integer;
+  CamX, CamY, TX, TY, X0, Y0, I, MinX, MinY, MaxX, MaxY: Integer;
+  L: TAdventureLevel;
 begin
   Screen.Fill($FF000000);
   if Sheet.Width = 0 then MakeIndexSheet(Sheet);
-  { centre on the player's body (the sprite box is 3 tiles wide) }
+  LoadNear;
+  { centre on the player's body (the sprite box is 3 tiles wide); the
+    view stops at an edge with no board past it on the big map (side by
+    side with the real 2.05 on the tutorial) }
   CamX := Round((Player.X + 1.5) * TileSize) - ScreenW div 2;
-  CamY := Round((Player.Y + 2) * TileSize) - ScreenH div 2;
-  if CamX > BoardW * TileSize - ScreenW then CamX := BoardW * TileSize - ScreenW;
-  if CamY > BoardH * TileSize - ScreenH then CamY := BoardH * TileSize - ScreenH;
-  if CamX < 0 then CamX := 0;
-  if CamY < 0 then CamY := 0;
-  X0 := CamX div TileSize;
-  Y0 := CamY div TileSize;
-  for TY := Y0 to Y0 + ScreenH div TileSize + 1 do
+  CamY := Round((Player.Y + 2) * TileSize) - ViewH div 2;
+  MinX := 0;
+  MinY := 0;
+  MaxX := BoardW * TileSize - ScreenW;
+  MaxY := BoardH * TileSize - ViewH;
+  if FNear[3] <> nil then MinX := -ScreenW;
+  if FNear[5] <> nil then MaxX := BoardW * TileSize;
+  if FNear[1] <> nil then MinY := -ViewH;
+  if FNear[7] <> nil then MaxY := BoardH * TileSize;
+  if CamX > MaxX then CamX := MaxX;
+  if CamY > MaxY then CamY := MaxY;
+  if CamX < MinX then CamX := MinX;
+  if CamY < MinY then CamY := MinY;
+  X0 := Floor(CamX / TileSize);
+  Y0 := Floor(CamY / TileSize);
+  for TY := Y0 to Y0 + ViewH div TileSize + 1 do
     for TX := X0 to X0 + ScreenW div TileSize + 1 do
-      if (TX < BoardW) and (TY < BoardH) then
-        DrawTile(Screen, Sheet, Level.Tile(TX, TY), TX * TileSize - CamX,
-          TY * TileSize - CamY);
+    begin
+      I := 4;
+      if TX < 0 then Dec(I) else if TX >= BoardW then Inc(I);
+      if TY < 0 then Dec(I, 3) else if TY >= BoardH then Inc(I, 3);
+      if I = 4 then L := Level else L := FNear[I];
+      if L <> nil then
+        DrawTile(Screen, Sheet, L.Tile((TX + BoardW) mod BoardW, (TY + BoardH) mod BoardH),
+          TX * TileSize - CamX, TY * TileSize - CamY);
+    end;
+  { a chest not yet opened shows the closed chest (arrays.dat list 13:
+    1784, 1785, 1800, 1801) at its record; the board under it is not
+    changed. The real 2.05 draws it so on the tutorial, where the board
+    there is plain grass. }
+  if (Arrays.Lists[13] <> nil) and (Length(Arrays.Lists[13].Values) >= 4) then
+    for I := 0 to High(Level.Chests) do
+      if not Level.Chests[I].Opened then
+        for TY := 0 to 1 do
+          for TX := 0 to 1 do
+            DrawTile(Screen, Sheet, Arrays.Lists[13].Values[TY * 2 + TX],
+              (Level.Chests[I].X + TX) * TileSize - CamX,
+              (Level.Chests[I].Y + TY) * TileSize - CamY);
   { items under the players (2.05's order is not known), others, then the
     player, then anything in the air }
   DrawItems(CamX, CamY);
@@ -3133,13 +3666,29 @@ begin
   DrawShots(CamX, CamY);
   Npcs.Draw(Screen, CamX, CamY, True);
   DrawNames(CamX, CamY);
-  for I := 0 to High(Thrown) do
-    DrawCarried(Thrown[I].Kind, Round(Thrown[I].X * TileSize) - CamX,
-      Round(Thrown[I].Y * TileSize) - CamY);
+  DrawThrown(CamX, CamY);
   DrawStatus;
   DrawMaps(Self);
   if Reading then DrawSign(CamY);
   if ItemListOpen then DrawItemList;
+  DrawChatBar;
+end;
+
+{ The chat line: a plain sunken edit box across the bottom, with what is
+  being typed in it. }
+procedure TAdventure.DrawChatBar;
+var
+  Y: Integer;
+begin
+  Y := ViewH;
+  Screen.FillRect(0, Y, ScreenW, ChatBarH, $FFFFFFFF);
+  Screen.FillRect(0, Y, ScreenW, 1, $FFA6A6A6);
+  Screen.FillRect(0, Y, 1, ChatBarH - 1, $FFA6A6A6);
+  Screen.FillRect(1, Y + 1, ScreenW - 2, 1, $FF6A6A6A);
+  Screen.FillRect(1, Y + 1, 1, ChatBarH - 3, $FF6A6A6A);
+  Screen.FillRect(1, Y + ChatBarH - 2, ScreenW - 2, 1, $FFE3E3E3);
+  if ChatTyping then
+    DrawText(Screen, 3, Y + 8, ChatLine + '_', $FF000000, 1);
 end;
 
 end.

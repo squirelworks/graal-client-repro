@@ -3,7 +3,6 @@ name: ci
 on:
   push:
     branches: [main]
-    tags: ['*']
   pull_request:
   workflow_dispatch:
 
@@ -14,8 +13,47 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-and-test:
+  # Which client folders this run builds. A pull request builds only the
+  # graal-* folders it touches; one that touches common/, scripts/ or
+  # this file, a push to main and a manual run build every folder.
+  changes:
     runs-on: ubuntu-latest
+    outputs:
+      builds: ${{ steps.pick.outputs.builds }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: pick
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # graal-3d-* is left to graal-3d.yml, which builds and tests it
+          # on Linux and Windows already
+          ALL=$(ls -d graal-*/ | tr -d / | grep -v '^graal-3d-' | tr '\n' ' ')
+          if [ "$GITHUB_EVENT_NAME" != pull_request ]; then B="$ALL"
+          else
+            CHANGED=$(git diff --name-only "$BASE...$HEAD")
+            if echo "$CHANGED" | grep -Eq '^(common|scripts)/|^\.github/workflows/ci\.yml$'; then B="$ALL"
+            else
+              B=""
+              for F in $(echo "$CHANGED" | sed -n 's#^\(graal-[^/]*\)/.*#\1#p' | sort -u); do
+                case "$F" in graal-3d-*) continue ;; esac
+                if [ -d "$F/src" ]; then B="$B $F"; fi
+              done
+            fi
+          fi
+          B=$(echo $B)
+          echo "builds=$B" >> "$GITHUB_OUTPUT"
+          echo "Builds: ${B:-none}"
+
+  build-and-test:
+    needs: changes
+    if: needs.changes.outputs.builds != ''
+    runs-on: ubuntu-latest
+    env:
+      BUILDS: ${{ needs.changes.outputs.builds }}
     steps:
       - uses: actions/checkout@v4
       - name: Install Free Pascal
@@ -23,7 +61,7 @@ jobs:
       - name: Every client has its Windows resources
         run: python3 scripts/win/make_winres.py --check
       - name: Build (Delphi mode)
-        run: scripts/build.sh
+        run: scripts/build.sh $BUILDS
       - name: Unit tests
         run: scripts/test.sh
       - uses: actions/upload-artifact@v4
@@ -32,8 +70,10 @@ jobs:
           path: build/
 
   loopback:
-    needs: build-and-test
+    needs: [changes, build-and-test]
     runs-on: ubuntu-latest
+    env:
+      BUILDS: ${{ needs.changes.outputs.builds }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
@@ -46,19 +86,21 @@ jobs:
       - name: Build seihai-gserver
         run: cargo build --release --manifest-path seihai-gserver/Cargo.toml
       - name: Build clients
-        run: scripts/build.sh
+        run: scripts/build.sh $BUILDS
       - name: Log each rebuild into seihai-gserver
         run: |
-          for B in $(ls -d graal-*/ | tr -d /); do
-            # Graal3D has its own server; graal-3d.yml logs it into that
-            case "$B" in graal-3d-*) continue ;; esac
+          for B in $BUILDS; do
             scripts/loopback.sh seihai-gserver/target/release/seihai-gserver "$B"
           done
 
   windows:
     # Chocolatey's Free Pascal is the 32-bit i386-win32 compiler. That is
     # the target 2.05 itself shipped for, so it is kept.
+    needs: changes
+    if: needs.changes.outputs.builds != ''
     runs-on: windows-latest
+    env:
+      BUILDS: ${{ needs.changes.outputs.builds }}
     steps:
       - uses: actions/checkout@v4
       - name: Install Free Pascal
@@ -73,7 +115,7 @@ jobs:
           # -WR: relocations, so the exe can carry the ASLR flag
           export FPCFLAGS='-O2 -WR -FuC:\tools\freepascal\units\i386-win32\*'
           ls /c/tools/freepascal/units/i386-win32 | head -5
-          scripts/build.sh
+          scripts/build.sh $BUILDS
           scripts/test.sh
       - name: Check the clients carry version info and a manifest
         shell: pwsh

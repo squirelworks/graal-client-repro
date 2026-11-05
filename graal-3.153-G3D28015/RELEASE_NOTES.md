@@ -18,6 +18,16 @@ point it at one with `--data DIR`) and the install's tiles, ganis, heads and
 bodies take their place. The shared `graal-assets/` folder next to the
 program works too (`graal-assets/3.153/`, then `graal-assets/common/`).
 
+## What's new in v0.0.4
+
+- Rebuilt from the latest code; the changes for this client are listed here as they land.
+
+## What's new in v0.0.3
+
+- Stress tested before release: a long soak with several players walking
+  between levels, others connecting and dropping again and again, and a
+  level with 80 scripted NPCs, with no crash, error or memory growth.
+
 ## Downloads
 
 | Zip | Runs on | Window |
@@ -54,6 +64,12 @@ NPCs, baddies, items and weapons; the GS1 script engine; chat; the 3D
 mode; the RC file browser and script uploads; server text, class scripts
 and gani scripts; precise movement; Options; the UDP channel between
 players. See the build's README for the full list.
+
+The original runs on the Torque engine; this release is still the Delphi
+stand-in that speaks its wire protocol. The Torque layer is not done.
+
+The original's own icon: no copy of the original program to take it from
+is in the project yet, so the Windows program has the default icon.
 
 ## Checks behind this release
 

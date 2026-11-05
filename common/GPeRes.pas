@@ -19,10 +19,17 @@ function PeResourceData(const Image: string; TypeId: Integer; const Name: string
 { The same, read from the file ExeFile. }
 function PeResource(const ExeFile: string; TypeId: Integer; const Name: string;
   out Data: string): Boolean;
+{ The RCDATA resource Name linked into this program itself (a build's
+  src/<Program>Res.res, what scripts/res/extract_res.py pulled out of the
+  real exe), on every platform; False when there is none. }
+function OwnResource(const Name: string; out Data: string): Boolean;
 
 implementation
 
 uses
+{$IFNDEF FPC}
+  Windows,
+{$ENDIF}
   SysUtils, Classes;
 
 function U16(const S: string; Off: Int64): Integer;
@@ -168,5 +175,45 @@ begin
   end;
   Result := PeResourceData(S, TypeId, Name, Data);
 end;
+
+function OwnResource(const Name: string; out Data: string): Boolean;
+{$IFDEF FPC}
+var
+  H: TFPResourceHandle;
+  G: TFPResourceHGLOBAL;
+  P: PChar;
+  N: Integer;
+begin
+  Data := '';
+  Result := False;
+  H := System.FindResource(HINSTANCE, PChar(UpperCase(Name)), PChar(10));
+  if H = 0 then Exit;
+  N := System.SizeofResource(HINSTANCE, H);
+  G := System.LoadResource(HINSTANCE, H);
+  if G = 0 then Exit;
+  P := System.LockResource(G);
+  if P = nil then Exit;
+  SetString(Data, P, N);
+  System.UnlockResource(G);
+  System.FreeResource(G);
+  Result := N > 0;
+end;
+{$ELSE}
+var
+  H: HRSRC;
+  G: HGLOBAL;
+  N: Integer;
+begin
+  Data := '';
+  Result := False;
+  H := Windows.FindResource(HInstance, PChar(UpperCase(Name)), PChar(10));
+  if H = 0 then Exit;
+  N := Windows.SizeofResource(HInstance, H);
+  G := Windows.LoadResource(HInstance, H);
+  if G = 0 then Exit;
+  SetString(Data, PChar(Windows.LockResource(G)), N);
+  Result := N > 0;
+end;
+{$ENDIF}
 
 end.

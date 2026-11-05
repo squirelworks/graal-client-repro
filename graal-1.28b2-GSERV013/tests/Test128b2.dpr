@@ -32,6 +32,14 @@ uses
   GFont in '../../common/GFont.pas',
   GWindow in '../../common/GWindow.pas',
   GStartScreen in '../../common/GStartScreen.pas',
+  GDfmObj in '../../common/GDfmObj.pas',
+  GVclForm in '../../common/GVclForm.pas',
+  GBetaStart in '../../common/GBetaStart.pas',
+  RealRes128b2 in '../src/RealRes128b2.pas',
+  GDfm1x in '../../common/GDfm1x.pas',
+  GUiFont in '../../common/GUiFont.pas',
+  GLaunch1x in '../../common/GLaunch1x.pas',
+  Res128b2 in '../src/Res128b2.pas',
   TestNpc128b2 in 'TestNpc128b2.pas',
   TestBaddy128b2 in 'TestBaddy128b2.pas';
 
@@ -1272,8 +1280,97 @@ begin
   end;
 end;
 
+{ the start dialog: the real form compiled in reads back whole, with its
+  pictures, and the character list gives heads and colours }
+procedure TestLaunchForm;
+var
+  F, M: TDfmObject;
+  C: TCharList;
+  D, Bmp: string;
+  W, H: Integer;
+  L: TStringList;
 begin
+  F := ReadDfm(ResConnectFrame);
+  Check(F <> nil, 'launch: TConnectFrame reads');
+  if F = nil then Exit;
+  try
+    Check(F.Str('Caption', '') = 'Graal - The Adventure', 'launch: caption');
+    Check((F.Int('Width', 0) = 441) and (F.Int('Height', 0) = 349), 'launch: outer size');
+    FormClientSize(F, W, H);
+    Check((W = 433) and (H = 315), 'launch: client size');
+    M := F.Find('ModeSelect');
+    Check(M <> nil, 'launch: mode list');
+    if M <> nil then
+    begin
+      L := M.List('Items.Strings');
+      Check(L.Count >= 3, 'launch: modes');
+      L.Free;
+    end;
+    M := F.Find('Image3');
+    Check((M <> nil) and M.Binary('Picture.Data', D) and DfmPictureBmp(D, Bmp), 'launch: the art is a bitmap');
+    M := F.Find('Button1');
+    Check((M <> nil) and (Pos('Start', M.Str('Caption', '')) > 0), 'launch: Start button');
+  finally
+    F.Free;
+  end;
+  Check(FormCaption(ResAdventure, '') = 'Graal', 'launch: game window caption');
+  Check(ScreenH = 472, 'launch: game window height');
+  C := ParseCharacters(ResCharacters);
+  Check(Length(C) = 29, 'launch: character count');
+  if Length(C) > 0 then
+  begin
+    Check(C[0].Name = 'Fung Si Yan', 'launch: first character');
+    Check(C[0].Head = 'head0.gif', 'launch: first head');
+    Check((C[0].Colors[0] = 2) and (C[0].Colors[1] = 0) and (C[0].Colors[4] = 18),
+      'launch: first colours (orange, white, ..., black)');
+  end;
+  C := ParseCharacters('A=head3.gif,female,red,blue,black,white,green'#13#10'broken'#13#10);
+  Check((Length(C) = 1) and (C[0].Gender = 'female') and (C[0].Colors[0] = 4) and
+    (C[0].Colors[4] = 7), 'launch: headsconfig line');
+  Check(ReadDfm('TPF0'#0) = nil, 'launch: a cut form is refused');
+  Check(ReadDfm('junk') = nil, 'launch: not a form');
+end;
+
+{ The start dialog and the game window come from the real client's own
+  forms (src/RealRes128b2.pas, extracted from its exe). }
+procedure TestStartForm;
+var
+  Data: string;
+  O: TDfmObj;
+  F: TVclForm;
+  Img: TGSurface;
+  G: TBetaGameForm;
+begin
+  Check(RealResource('TCONNECTFRAME', Data) and (Copy(Data, 1, 4) = 'TPF0'),
+    'forms: TCONNECTFRAME is in the program');
+  O := ParseDfm(Data);
+  F := TVclForm.Create(O, 'Graal');
+  Img := TGSurface.Create(F.ClientWidth, F.ClientHeight);
+  try
+    Check(SameText(O.ClassName_, 'TConnectFrame'), 'forms: the start dialog is TConnectFrame');
+    Check(F.Caption = 'Graal - The Adventure', 'forms: the dialog''s caption');
+    Check(BetaShape(F) = bsModeList, 'forms: the dialog has the mode list');
+    Check((F.Ctl('Edit4') <> nil) and (F.Ctl('Edit5') <> nil) and (F.Ctl('ComboBox5') <> nil),
+      'forms: account, password and server list fields');
+    Check(F.Ctl('ComboBox6') <> nil, 'forms: the language list');
+    F.Render(Img);
+    Check(Img.Pixels[0] <> 0, 'forms: the dialog draws without Win32');
+  finally
+    Img.Free;
+    F.Free;
+    O.Free;
+  end;
+  Check(RealResource('TADVENTURE', Data), 'forms: TADVENTURE is in the program');
+  Check(BetaGameForm(Data, G) and (G.ViewW = 640) and (G.ViewH = 480) and (G.ChatH = 0),
+    'forms: the game view is 640 x 480, the chat field hidden');
+  Check(G.MinBox and (G.MaxBox = True), 'forms: the game window''s frame buttons');
+  Check(Length(CharacterNames) >= 21, 'forms: the character list is the build''s own');
+end;
+
+begin
+  TestStartForm;
   TestGTypes;
+  TestLaunchForm;
   TestLoginLine;
   TestZlib;
   TestBoardWriter;

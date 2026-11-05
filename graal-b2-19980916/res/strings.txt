@@ -1,0 +1,218 @@
+65312	3D device not found
+65313	Display mode cannot be changed (%dx%d %dbit)
+65314	DIB is invalid
+65315	Bitcount in invalid (%d)
+65316	PixelFormat in invalid
+65317	It should be either of 8 or 16 or 24 or 32
+65318	Invalid owner
+65319	RichEdit line insertion error
+65320	Failed to Load Stream
+65321	Failed to Save Stream
+65328	Menu '%s' is already being used by another form
+65329	Docked control must have a name
+65330	Error removing control from dock tree
+65331	 - Dock zone not found
+65332	 - Dock zone has no control
+65333	DirectDraw
+65334	Direct3D RetainedMode
+65335	Clipper
+65336	Surface
+65337	Primary Surface
+65338	%s not made
+65339	%s cannot be made
+65340	%s cannot be initialized
+65341	%s not loaded
+65342	Form not found
+65343	Necessary since DirectX5
+65344	End
+65345	Home
+65346	Left
+65347	Up
+65348	Right
+65349	Down
+65350	Ins
+65351	Del
+65352	Shift+
+65353	Ctrl+
+65354	Alt+
+65355	Unable to insert a line
+65356	Clipboard does not support Icons
+65357	Text exceeds memo capacity
+65358	There is no default printer currently selected
+65359	Bits index out of range
+65360	OK
+65361	Cancel
+65362	&Help
+65363	&Abort
+65364	&Retry
+65365	&Ignore
+65366	&All
+65367	N&o to All
+65368	Yes to &All
+65369	BkSp
+65370	Tab
+65371	Esc
+65372	Enter
+65373	Space
+65374	PgUp
+65375	PgDn
+65376	&Ignore
+65377	&Retry
+65378	Abort
+65379	&All
+65380	Cannot drag a form
+65381	Metafiles
+65382	Enhanced Metafiles
+65383	Icons
+65384	Bitmaps
+65385	Invalid property value
+65386	Warning
+65387	Error
+65388	Information
+65389	Confirm
+65390	&Yes
+65391	&No
+65392	Menu inserted twice
+65393	Sub-menu is not in menu
+65394	Not enough timers available
+65395	Printer is not currently printing
+65396	Printing in progress
+65397	Printer selected is not valid
+65398	%s on %s
+65399	GroupIndex cannot be less than a previous menu item's GroupIndex
+65400	Cannot create form. No MDI forms are currently active
+65401	A control cannot have itself as its parent
+65402	OK
+65403	Cancel
+65404	&Yes
+65405	&No
+65406	&Help
+65407	&Close
+65408	Out of system resources
+65409	Canvas does not allow drawing
+65410	Invalid image size
+65411	Invalid ImageList
+65412	Unable to Replace Image
+65413	Invalid ImageList Index
+65414	Failed to read ImageList data from stream
+65415	Error creating window device context
+65416	Error creating window class
+65417	Cannot focus a disabled or invisible window
+65418	Control '%s' has no parent window
+65419	Cannot hide an MDI Child Form
+65420	Cannot change Visible in OnShow or OnHide
+65421	Cannot make a visible window modal
+65422	Scrollbar property out of range
+65423	Menu index out of range
+65424	Operation not allowed on sorted string list
+65425	String list does not allow duplicates
+65426	A component named %s already exists
+65427	''%s'' is not a valid component name
+65428	A class named %s already exists
+65429	Invalid property value
+65430	Invalid property path
+65431	Property does not exist
+65432	Property is read-only
+65433	Error reading %s%s%s: %s
+65434	Ancestor for '%s' not found
+65435	Bitmap image is not valid
+65436	Icon image is not valid
+65437	Metafile is not valid
+65438	Cannot change the size of an icon
+65439	Unsupported clipboard format
+65440	Thursday
+65441	Friday
+65442	Saturday
+65443	Cannot assign a %s to a %s
+65444	Cannot create file %s
+65445	Cannot open file %s
+65446	Stream read error
+65447	Stream write error
+65448	Out of memory while expanding memory stream
+65449	Can't write to a read-only resource stream
+65450	Class %s not found
+65451	Invalid stream format
+65452	Resource %s not found
+65453	List index out of bounds (%d)
+65454	List capacity out of bounds (%d)
+65455	List count out of bounds (%d)
+65456	August
+65457	September
+65458	October
+65459	November
+65460	December
+65461	Sun
+65462	Mon
+65463	Tue
+65464	Wed
+65465	Thu
+65466	Fri
+65467	Sat
+65468	Sunday
+65469	Monday
+65470	Tuesday
+65471	Wednesday
+65472	Apr
+65473	May
+65474	Jun
+65475	Jul
+65476	Aug
+65477	Sep
+65478	Oct
+65479	Nov
+65480	Dec
+65481	January
+65482	February
+65483	March
+65484	April
+65485	May
+65486	June
+65487	July
+65488	Read
+65489	Write
+65490	Error creating variant array
+65491	Variant is not an array
+65492	Variant array index out of bounds
+65493	External exception %x
+65494	Assertion failed
+65495	Interface not supported
+65496	%s (%s, line %d)
+65497	Abstract Error
+65498	Access violation at address %p in module '%s'. %s of address %p
+65499	Win32 Error.  Code: %d.\n%s
+65500	A Win32 API function failed
+65501	Jan
+65502	Feb
+65503	Mar
+65504	Floating point division by zero
+65505	Floating point overflow
+65506	Floating point underflow
+65507	Invalid pointer operation
+65508	Invalid class typecast
+65509	Access violation at address %p. %s of address %p
+65510	Stack overflow
+65511	Control-C hit
+65512	Privileged instruction
+65513	Exception %s in module %s at %p.\n%s%s
+65514	Application Error
+65515	Format '%s' invalid or incompatible with argument
+65516	No argument for format '%s'
+65517	Invalid variant type conversion
+65518	Invalid variant operation
+65519	Variant method calls not supported
+65520	'%s' is not a valid integer value
+65521	'%s' is not a valid floating point value
+65522	Invalid argument to time encode
+65523	Out of memory
+65524	I/O error %d
+65525	File not found
+65526	Invalid filename
+65527	Too many open files
+65528	File access denied
+65529	Read beyond end of file
+65530	Disk full
+65531	Invalid numeric input
+65532	Division by zero
+65533	Range check error
+65534	Integer overflow
+65535	Invalid floating point operation
