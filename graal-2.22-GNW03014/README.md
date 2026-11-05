@@ -184,13 +184,14 @@ rebuild on the same files (`--data` pointed at that folder):
 - Different, not done yet:
   - the ground: the tutorial's levels have height grids (the `HEIGHTS`
     blocks of `maps/offlinetutorial.gmap`), and the real client draws
-    their tile 0 as ground picked by height. The rebuild now does too
-    (`Terrain222`), from what was measured by setting the grid to one
-    height at a time under Wine: water below 0, sand to about 3, sand and
-    grass mixed about 4, grass above, flat ground about 30 darker than
-    `picso.png` and slopes lit from the upper left. Side by side it is
-    close but not the same: the real one blends heights with a seeded
-    displacement and its grass has lighter patches;
+    their tile 0 as ground picked by height. The rebuild does the same
+    (`Terrain222`, read from `Graal_222.exe`): seven height bands, the
+    full patch of a band when all four corners reach it (with a
+    decoration when the fraction of the corners' sum falls under 63 in
+    1000), its transition tiles when only some do, each pixel darkened by
+    the slope down the screen (32 on flat ground, 0 to 63), and water
+    below 0 that darkens with depth and foams at the shore. Side by side
+    with the real client the ground matches tile for tile;
   - the player: the tutorial dresses the player with
     `setplayerprop #P1..#P6` and `replaceani idle,human2_idle` (hair, legs,
     arms on the human2 ganis); the rebuild skips both and draws the
