@@ -19,6 +19,35 @@ in that install (or point it at one with `--data DIR`, or keep a
 `graal-assets/` folder inside the program's folder) and the install's tiles, ganis, heads,
 bodies and offline tutorial take their place.
 
+## What's new in v0.0.3
+
+- The Windows program carries its original's own icon (the Graal head, taken from
+  the original exe), so Explorer shows it as the original did.
+- Stress tested before release: a long soak with several players walking
+  between levels, others connecting and dropping again and again, and a
+  level with 80 scripted NPCs, with no crash, error or memory growth.
+- The start window and the server list are the original's own: laid out from
+  the forms inside the original exe, with its background pictures, buttons,
+  captions and colours compiled into the program, so it needs no original exe
+  beside it.
+- The launcher window is the dialog itself, sized to its picture, with only
+  the close button, as on the original.
+- The server list shows the listserver's own status lines and the original's
+  "Getting server list" box while it loads.
+- On Windows the nickname and the last account are read from and saved to the
+  same place the original keeps them, so both programs remember the same
+  login.
+- On Windows the taskbar button carries the original program's name, as a
+  Delphi program's does.
+- Alt+Enter switches the game to fullscreen in its own 640 x 480 mode and
+  back.
+- The game window is titled as the original's (the language file's window name
+  and the server's name).
+- The server list has the original's Graal Gold and Classic tabs, its picture
+  buttons and column headers.
+- Training works without an install: the offline tutorial levels inside the
+  original exe are compiled in.
+
 ## Downloads
 
 | Zip | Runs on | Window |
@@ -76,6 +105,15 @@ Gmaps, the ids 169 to 185, large file downloads, the GS1 commands added
 after 2.05 (beyond `addtiledef` and `replaceani`), gani scripts, chat
 bubbles, Options, UDP peer traffic, and a side-by-side check against the
 real 2.17.1. See the build's README.
+
+- [ ] The Options button: the original's options window is not built yet.
+- [ ] The launcher's text is drawn with the program's own font, not Windows'
+      MS Sans Serif, so some words sit a pixel or two off the original.
+- [ ] The in-game HUD has not yet been compared side by side with the
+      original.
+- [ ] The Training window's title is spaced out (" G r a a l ") on the
+      original; this one is not.
+- [ ] Training does not yet use the offline tutorial's gmap.
 
 ## Checks behind this release
 

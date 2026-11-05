@@ -16,6 +16,33 @@ keep a `graal-assets/` folder next to it, or point it at one with
 `--data DIR`) and the install's tiles, ganis, heads, bodies and levels take
 their place.
 
+## What's new in v0.0.3
+
+- The Windows program carries its original's own icon (the Graal head, taken from
+  the original exe), so Explorer shows it as the original did.
+- Stress tested before release: a long soak with several players walking
+  between levels, others connecting and dropping again and again, and a
+  level with 80 scripted NPCs, with no crash, error or memory growth.
+- The start window and the server list are the original's own: laid out from
+  the forms inside the original exe, with its background pictures, buttons,
+  captions and colours compiled into the program, so it needs no original exe
+  beside it.
+- The launcher window is the dialog itself, sized to its picture, with only
+  the close button, as on the original.
+- The server list shows the listserver's own status lines and the original's
+  "Getting server list" box while it loads.
+- On Windows the nickname and the last account are read from and saved to the
+  same place the original keeps them, so both programs remember the same
+  login.
+- On Windows the taskbar button carries the original program's name, as a
+  Delphi program's does.
+- Alt+Enter switches the game to fullscreen in its own 640 x 480 mode and
+  back.
+- The game window is titled as the original's (the language file's window name
+  and the server's name).
+- Training works without an install: the offline tutorial levels inside the
+  original exe are compiled in.
+
 ## Downloads
 
 | Zip | Runs on | Window |
@@ -58,3 +85,11 @@ Arrow keys walk, Esc leaves the game. `Graal21t3 --help` lists every flag.
 This release has only been smoke-tested against the original: start window
 and login. The test 3 start window layout and its tabbed options window are
 not done.
+
+- [ ] The Options button: the original's options window is not built yet.
+- [ ] The launcher's text is drawn with the program's own font, not Windows'
+      MS Sans Serif, so some words sit a pixel or two off the original.
+- [ ] The in-game HUD has not yet been compared side by side with the
+      original.
+- [ ] The Training window's title and start level are not yet checked against
+      the original.

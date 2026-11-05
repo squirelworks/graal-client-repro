@@ -403,7 +403,7 @@ procedure MakeIndexSheet(Sheet: TGSurface);
 implementation
 
 uses
-  SysUtils, Math, GFont, GSound, Sound217, Map217, NpcBridge217;
+  SysUtils, Math, GPeRes, GFont, GSound, Sound217, Map217, NpcBridge217;
 
 procedure MakeIndexSheet(Sheet: TGSurface);
 var
@@ -2181,12 +2181,41 @@ end;
 
 { ---- level links ---- }
 
+{ An offline tutorial level the real program carried in its resources
+  (offlinetutorial_a-1.graal .. offlinetutorial_c-3.graal as RCDATA
+  TUTORIALA1 .. TUTORIALC3), linked into this one (src/res/); False for
+  other names. }
+function ExeTutorial(const Name: string; out Data: string): Boolean;
+var
+  N: string;
+begin
+  Result := False;
+  Data := '';
+  N := LowerCase(ExtractFileName(Name));
+  if (Length(N) <> 25) or (Copy(N, 1, 16) <> 'offlinetutorial_') or
+    (Copy(N, 20, 6) <> '.graal') or (N[18] <> '-') or not (N[17] in ['a'..'c']) or
+    not (N[19] in ['1'..'3']) then Exit;
+  Result := OwnResource('TUTORIAL' + UpperCase(N[17]) + N[19], Data) and
+    (Copy(Data, 1, 3) = 'GR-');
+end;
+
 function TAdventure.LoadLevelFile(const FileName: string): Boolean;
 var
   D: string;
 begin
   SetLength(Items, 0);
   SetLength(Thrown, 0);
+  if not FileExists(FileName) and ExeTutorial(FileName, D) then
+  begin
+    { the real program's own tutorial level: links from it look in the
+      install, then here }
+    Result := Level.LoadFromString(D);
+    Level.Name := ExtractFileName(FileName);
+    if Result then FLevelDir := '';
+    if Result then Npcs.LoadLevel(Level);
+    if Result then Baddies.LoadLevel(Level);
+    Exit;
+  end;
   if not FileExists(FileName) and BuiltinFile(ExtractFileName(FileName), D) and
     (LowerCase(ExtractFileExt(FileName)) <> '.png') then
   begin
