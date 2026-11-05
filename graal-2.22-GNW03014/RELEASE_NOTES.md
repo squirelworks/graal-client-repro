@@ -82,7 +82,7 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
   does (blond hair, brown shirt, shield) and puts in its own walking
   ganis. The lamps burn with their gani scripts (light and flame), and the
   teacher's "Touch to get information" sign floats over its arrow in the
-  name font, as 2.22 draws gani movie text.
+  name font, at the size 2.22 draws gani movie text.
 - Login to a 2.22 server: login type 5, `GNW03014`, the tamper check, and
   gen-5 frames both ways. Checked against frames of a real 2.22 session:
   the rebuild makes the real client's uncompressed frames byte for byte
@@ -113,11 +113,12 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
   LEVELWARPMOD with its mod time, each followed by the tamper check.
 - The ground of new-world maps, built as 2.22 builds it: the `.gmap`'s
   height field, its seeded random displacement and each level's HEIGHTS
-  points give every tile corner a height. The ground is drawn as water,
-  sand, sand and grass, or grass by height, with slopes lit from the
-  upper left, and it stands raised by its height: the ground, players and
-  NPCs go up 16 px per height step, and the camera follows the player's
-  raised place, so Training's hills and palms sit where 2.22 draws them.
+  points give every tile corner a height. The ground tiles are picked
+  from the corner heights as 2.22 picks them (water, sand, grass and the
+  edges between, with its flowers, mushrooms and stones), each pixel is
+  lit by the slope, and shallow water foams at the shore. It stands
+  raised by its height: the ground, players and NPCs go up 16 px per
+  height step, and the camera follows the player's raised place, so Training's hills and palms sit where 2.22 draws them.
 - Baddies by 2.22's rules: they hunt the nearest player in the level,
   slide along walls, play 2.22's sounds (steps, frog, shield, splash,
   death), and a shield block pushes the player back.
@@ -152,7 +153,7 @@ editors; Options; UDP peer traffic; macOS. See the build's README for the full l
 
 ## Checks behind this release
 
-The test suites (359 checks) run with range and overflow checks and the heap
+The test suites (363 checks) run with range and overflow checks and the heap
 tracer, and must end with no unfreed memory. It includes frames of a real
 2.22 session, a bzip2 round trip against random and repetitive data, and a
 fuzz run of 20000 random messages and 3000 random gen-5 frames through the
