@@ -40,10 +40,12 @@ type
     destructor Destroy; override;
     function Child(I: Integer): TDfmNode;
     function Count: Integer;
+    { the same as Count (the 2.0x launcher's name for it) }
+    function ChildCount: Integer;
     function Has(const Prop: string): Boolean;
-    function Str(const Prop, Default: string): string;
-    function Int(const Prop: string; Default: Integer): Integer;
-    function Bool(const Prop: string; Default: Boolean): Boolean;
+    function Str(const Prop: string; const Default: string = ''): string;
+    function Int(const Prop: string; Default: Integer = 0): Integer;
+    function Bool(const Prop: string; Default: Boolean = False): Boolean;
     function Bin(const Prop: string): string;
     { the component called Name anywhere under this one, or nil }
     function Find(const AName: string): TDfmNode;
@@ -156,6 +158,11 @@ begin
 end;
 
 function TDfmNode.Count: Integer;
+begin
+  Result := Children.Count;
+end;
+
+function TDfmNode.ChildCount: Integer;
 begin
   Result := Children.Count;
 end;

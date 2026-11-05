@@ -125,6 +125,9 @@ type
       design size. Outside Windows the window is the design size. }
     procedure ShowForm(const Title: string; OuterW, OuterH, DesignW, DesignH: Integer;
       AutoScroll: Boolean; FormColor: Cardinal);
+    { A new title, the window left as it is (2.0x's server list drops
+      " (loading...)" once the servers are in). }
+    procedure SetTitle(const Title: string);
     property Width: Integer read FWidth;
     property Height: Integer read FHeight;
     { True once for each press since the last call (for one-shot keys). }
@@ -209,6 +212,17 @@ function TGWindow.TakeChars: string;
 begin
   Result := FChars;
   FChars := '';
+end;
+
+procedure TGWindow.SetTitle(const Title: string);
+begin
+  FTitle := Title;
+{$IFDEF MSWINDOWS}
+  SetWindowText(FWnd, PChar(Title));
+{$ENDIF}
+{$IFNDEF MSWINDOWS}{$IFNDEF GW_NONE}
+  if FDisplay <> nil then XStoreName(FDisplay, FWin, PChar(Title));
+{$ENDIF}{$ENDIF}
 end;
 
 function TGWindow.TakeFullscreenToggle: Boolean;

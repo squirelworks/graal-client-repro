@@ -55,6 +55,7 @@ begin
   Said := TStringList.Create;
   Events := TStringList.Create;
   Img := TGSurface.Create(32, 48);
+  Img.Fill($FF808080); { drawn everywhere: image NPCs are hit on drawn pixels }
   PX := 10;
   PY := 10;
   Laid := -1;
