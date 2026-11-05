@@ -15,8 +15,7 @@ next to it.
 
 ## What's new in v0.0.3
 
-- Faithfulness pass: compared side by side with the original program it was
-  rebuilt from, and the differences found brought in line with it.
+- Rebuilt and released together with every other client.
 
 ## Running it
 

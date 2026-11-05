@@ -15,8 +15,6 @@ Graal3D files next to it for the real ones.
 
 ## What's new in v0.0.3
 
-- Faithfulness pass: compared side by side with the original program it was
-  rebuilt from, and the differences found brought in line with it.
 - Stress tested before release: a long offline run through the stand-in
   level with no crash or error.
 
