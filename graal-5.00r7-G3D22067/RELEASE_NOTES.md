@@ -18,6 +18,10 @@ heads and bodies take their place. The shared `graal-assets/` folder next
 to the program works too (`graal-assets/5.00r7/`, then
 `graal-assets/common/`).
 
+## What's new in v0.0.4
+
+- Rebuilt from the latest code; the changes for this client are listed here as they land.
+
 ## What's new in v0.0.3
 
 - Stress tested before release: a long soak with several players walking

@@ -13,6 +13,10 @@ These zips hold no original Graal3D code, meshes, textures or levels. The
 client carries a simple stand-in level and player of its own; put your
 Graal3D files next to it for the real ones.
 
+## What's new in v0.0.4
+
+- Rebuilt from the latest code; the changes for this client are listed here as they land.
+
 ## What's new in v0.0.3
 
 - Stress tested before release: a long offline run through the stand-in

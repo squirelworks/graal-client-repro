@@ -1,10 +1,22 @@
-{ GDfm: reads a Delphi binary form (the TPF0 stream a Delphi program keeps
-  in its RCDATA, one per form) into a tree of objects and their
-  properties, so a rebuild can lay out a dialog exactly as the original
-  program's form describes it. The format is Delphi's own (TReader):
-  'TPF0', then per object an optional filer flag byte, the class name,
-  the object name, its properties (name, typed value) up to an empty
-  name, its children up to an empty entry. }
+{ GDfm: reads a Delphi form as the original clients carry it in their
+  resources (RCDATA named after the form's class, TCONNECTFRAME,
+  TSERVERLISTFRAME, ...), so a rebuild can lay out its windows exactly as
+  the program it rebuilds did, from that program's own file.
+
+  The data is Delphi's binary form stream ("TPF0"): per component an
+  optional prefix byte ($F0 or more: flags, then an index when bit 2 is
+  set), the class name and the component name as short strings, its
+  properties (a short string name and a typed value each) up to a 0, its
+  child components up to a 0. Values are typed by a first byte: 0 null,
+  1 list, 2/3/4 8/16/32-bit integers, 5 extended, 6 and 7 short string and
+  identifier, 8 False, 9 True, 10 binary, 11 set, 12 long string, 13 nil,
+  14 collection, 15 single, 16 currency, 17 date, 18 wide string, 19
+  64-bit integer, 20 UTF-8 string. A collection holds items, each a list
+  (1) of properties up to a 0, after an optional integer order value.
+
+  Nothing is interpreted: integers, strings, identifiers and sets are kept
+  as text (sets as "[a,b]"), binaries (pictures, glyphs) as bytes, and
+  collections flattened to Name[i].Prop. }
 unit GDfm;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
@@ -15,41 +27,39 @@ uses
   Classes;
 
 type
-  TDfmObject = class
-  private
-    FProps: TStringList;     { Name=text value }
-    FBinary: TStringList;    { Name=index into FBin }
-    FBin: array of string;
-    FChildren: TList;
-    function GetChild(I: Integer): TDfmObject;
+  TDfmNode = class
   public
     ClassName_, Name: string;
-    Parent: TDfmObject;
+    { Prop=Value, in the order the form lists them }
+    Props: TStringList;
+    { binary properties (Picture.Data, Glyph.Data): name -> bytes }
+    Bins: TStringList;
+    Children: TList;
+    Parent: TDfmNode;
     constructor Create;
     destructor Destroy; override;
-    function ChildCount: Integer;
-    property Children[I: Integer]: TDfmObject read GetChild;
-    { the property's text ('' when absent): numbers as digits, strings
-      unquoted, identifiers and sets as written, lists one item a line }
-    function Str(const Prop: string; const Def: string = ''): string;
-    function Int(const Prop: string; Def: Integer = 0): Integer;
-    function Bool(const Prop: string; Def: Boolean): Boolean;
+    function Child(I: Integer): TDfmNode;
+    function Count: Integer;
     function Has(const Prop: string): Boolean;
-    { a list property (Items.Strings, Lines.Strings), one entry a line }
-    function List(const Prop: string): TStringList;
-    { a binary property (Picture.Data); False when absent }
-    function Binary(const Prop: string; out Data: string): Boolean;
-    { the object named N in this subtree (any case), or nil }
-    function Find(const N: string): TDfmObject;
+    function Str(const Prop, Default: string): string;
+    function Int(const Prop: string; Default: Integer): Integer;
+    function Bool(const Prop: string; Default: Boolean): Boolean;
+    function Bin(const Prop: string): string;
+    { the component called Name anywhere under this one, or nil }
+    function Find(const AName: string): TDfmNode;
   end;
 
-{ The form in Data, or nil when it is not a TPF0 stream. }
-function ReadDfm(const Data: string): TDfmObject;
+{ The form in Data (a binary form stream), or nil when it is not one. }
+function ParseDfm(const Data: string): TDfmNode;
 
-{ The picture inside a TImage's Picture.Data: a short class name
-  ('TBitmap', 'TIcon', 'TJPEGImage', ...) and, for a bitmap, a 32-bit
-  size and the .bmp file. False for anything but a bitmap. }
-function DfmPictureBmp(const PictureData: string; out Bmp: string): Boolean;
+{ A Delphi TColor (a number, or clLime, clGreen, clBtnFace, ...) as an
+  ARGB surface colour; Default for names it does not know. }
+function DfmColor(const Value: string; Default: Cardinal): Cardinal;
+
+{ The picture inside a TBitmap property (Glyph.Data, Picture.Data of a
+  bitmap): the bytes after the stream's own size or class name, from 'BM'
+  on; '' when there is none. }
+function DfmBitmap(const Data: string): string;
 
 implementation
 
@@ -57,312 +67,329 @@ uses
   SysUtils;
 
 type
-  EDfm = class(Exception);
-
-  TDfmReader = class
+  TReader_ = class
     S: string;
-    P: Integer;  { 1-based }
+    P: Integer; { 1-based }
+    Bad: Boolean;
     function U8: Integer;
     function I16: Integer;
     function I32: Integer;
     function Bytes(N: Integer): string;
     function SStr: string;
     function Peek: Integer;
-    procedure ReadValue(O: TDfmObject; const PropName: string; out Text: string);
-    function ReadObject(Parent: TDfmObject): TDfmObject;
   end;
 
-{ ---- TDfmObject ---- }
-
-constructor TDfmObject.Create;
+function TReader_.Peek: Integer;
 begin
-  inherited Create;
-  FProps := TStringList.Create;
-  FBinary := TStringList.Create;
-  FChildren := TList.Create;
+  if P > Length(S) then
+  begin
+    Bad := True;
+    Result := 0;
+  end
+  else Result := Ord(S[P]);
 end;
 
-destructor TDfmObject.Destroy;
+function TReader_.U8: Integer;
+begin
+  Result := Peek;
+  Inc(P);
+end;
+
+function TReader_.I16: Integer;
+begin
+  Result := U8 or (U8 shl 8);
+  if Result >= $8000 then Dec(Result, $10000);
+end;
+
+function TReader_.I32: Integer;
+var
+  V: Cardinal;
+begin
+  V := Cardinal(U8) or (Cardinal(U8) shl 8) or (Cardinal(U8) shl 16) or
+    (Cardinal(U8) shl 24);
+  Result := Integer(V);
+end;
+
+function TReader_.Bytes(N: Integer): string;
+begin
+  if (N < 0) or (P + N - 1 > Length(S)) then
+  begin
+    Bad := True;
+    Result := '';
+    P := Length(S) + 1;
+    Exit;
+  end;
+  Result := Copy(S, P, N);
+  Inc(P, N);
+end;
+
+function TReader_.SStr: string;
+begin
+  Result := Bytes(U8);
+end;
+
+{ ---- nodes ---- }
+
+constructor TDfmNode.Create;
+begin
+  inherited Create;
+  Props := TStringList.Create;
+  Bins := TStringList.Create;
+  Children := TList.Create;
+end;
+
+destructor TDfmNode.Destroy;
 var
   I: Integer;
 begin
-  for I := 0 to FChildren.Count - 1 do TDfmObject(FChildren[I]).Free;
-  FChildren.Free;
-  FProps.Free;
-  FBinary.Free;
+  for I := 0 to Children.Count - 1 do TDfmNode(Children[I]).Free;
+  Children.Free;
+  for I := 0 to Bins.Count - 1 do Dispose(PString(Bins.Objects[I]));
+  Bins.Free;
+  Props.Free;
   inherited Destroy;
 end;
 
-function TDfmObject.GetChild(I: Integer): TDfmObject;
+function TDfmNode.Child(I: Integer): TDfmNode;
 begin
-  Result := TDfmObject(FChildren[I]);
+  Result := TDfmNode(Children[I]);
 end;
 
-function TDfmObject.ChildCount: Integer;
+function TDfmNode.Count: Integer;
 begin
-  Result := FChildren.Count;
+  Result := Children.Count;
 end;
 
-function TDfmObject.Has(const Prop: string): Boolean;
+function TDfmNode.Has(const Prop: string): Boolean;
 begin
-  Result := FProps.IndexOfName(Prop) >= 0;
+  Result := Props.IndexOfName(Prop) >= 0;
 end;
 
-function TDfmObject.Str(const Prop, Def: string): string;
+function TDfmNode.Str(const Prop, Default: string): string;
 var
   I: Integer;
 begin
-  I := FProps.IndexOfName(Prop);
-  if I < 0 then Result := Def
-  else Result := Copy(FProps[I], Length(Prop) + 2, MaxInt);
+  I := Props.IndexOfName(Prop);
+  if I < 0 then Result := Default
+  else Result := Copy(Props[I], Length(Prop) + 2, MaxInt);
 end;
 
-function TDfmObject.Int(const Prop: string; Def: Integer): Integer;
+function TDfmNode.Int(const Prop: string; Default: Integer): Integer;
 begin
-  Result := StrToIntDef(Str(Prop, ''), Def);
+  Result := StrToIntDef(Str(Prop, ''), Default);
 end;
 
-function TDfmObject.Bool(const Prop: string; Def: Boolean): Boolean;
+function TDfmNode.Bool(const Prop: string; Default: Boolean): Boolean;
 var
   V: string;
 begin
   V := Str(Prop, '');
   if V = 'True' then Result := True
   else if V = 'False' then Result := False
-  else Result := Def;
+  else Result := Default;
 end;
 
-function TDfmObject.List(const Prop: string): TStringList;
-var
-  V: string;
-  I: Integer;
-begin
-  Result := TStringList.Create;
-  V := Str(Prop, '');
-  { kept as items separated by #1 }
-  I := Pos(#1, V);
-  while I > 0 do
-  begin
-    Result.Add(Copy(V, 1, I - 1));
-    Delete(V, 1, I);
-    I := Pos(#1, V);
-  end;
-end;
-
-function TDfmObject.Binary(const Prop: string; out Data: string): Boolean;
+function TDfmNode.Bin(const Prop: string): string;
 var
   I: Integer;
 begin
-  Data := '';
-  I := FBinary.IndexOfName(Prop);
-  Result := I >= 0;
-  if Result then Data := FBin[StrToInt(Copy(FBinary[I], Length(Prop) + 2, MaxInt))];
+  I := Bins.IndexOf(Prop);
+  if I < 0 then Result := ''
+  else Result := string(PString(Bins.Objects[I])^);
 end;
 
-function TDfmObject.Find(const N: string): TDfmObject;
+function TDfmNode.Find(const AName: string): TDfmNode;
 var
   I: Integer;
 begin
-  if SameText(Name, N) then
+  if SameText(Name, AName) then
   begin
     Result := Self;
     Exit;
   end;
-  for I := 0 to ChildCount - 1 do
+  for I := 0 to Count - 1 do
   begin
-    Result := Children[I].Find(N);
+    Result := Child(I).Find(AName);
     if Result <> nil then Exit;
   end;
   Result := nil;
 end;
 
-{ ---- reader ---- }
+{ ---- the stream ---- }
 
-function TDfmReader.U8: Integer;
-begin
-  if P > Length(S) then raise EDfm.Create('form ends early');
-  Result := Ord(S[P]);
-  Inc(P);
-end;
-
-function TDfmReader.Peek: Integer;
-begin
-  if P > Length(S) then raise EDfm.Create('form ends early');
-  Result := Ord(S[P]);
-end;
-
-function TDfmReader.I16: Integer;
-begin
-  Result := U8 or (U8 shl 8);
-  if Result >= $8000 then Dec(Result, $10000);
-end;
-
-function TDfmReader.I32: Integer;
+{ One value as text; a binary goes to Node.Bins under Name, a collection
+  to Name[i].Prop entries. }
+procedure ReadValue(R: TReader_; Node: TDfmNode; const Name: string; out Text: string);
 var
-  V: Cardinal;
+  T, N, Item: Integer;
+  Sub, PName, V: string;
+  Box: PString;
 begin
-  V := Cardinal(U8);
-  V := V or (Cardinal(U8) shl 8);
-  V := V or (Cardinal(U8) shl 16);
-  V := V or (Cardinal(U8) shl 24);
-  Result := Integer(V);
-end;
-
-function TDfmReader.Bytes(N: Integer): string;
-begin
-  if (N < 0) or (P + N - 1 > Length(S)) then raise EDfm.Create('form ends early');
-  Result := Copy(S, P, N);
-  Inc(P, N);
-end;
-
-function TDfmReader.SStr: string;
-begin
-  Result := Bytes(U8);
-end;
-
-procedure TDfmReader.ReadValue(O: TDfmObject; const PropName: string; out Text: string);
-var
-  T, N, I: Integer;
-  Item, W: string;
-begin
-  T := U8;
+  Text := '';
+  T := R.U8;
   case T of
     0: Text := '';
-    1: { a list: items up to a 0 }
+    1:
       begin
-        Text := '';
-        while Peek <> 0 do
+        Sub := '';
+        while (R.Peek <> 0) and not R.Bad do
         begin
-          ReadValue(O, PropName, Item);
-          Text := Text + Item + #1;
+          ReadValue(R, Node, Name, V);
+          if Sub <> '' then Sub := Sub + ' ';
+          Sub := Sub + V;
         end;
-        Inc(P);
+        R.U8;
+        Text := '(' + Sub + ')';
       end;
-    2: begin N := U8; if N >= $80 then Dec(N, $100); Text := IntToStr(N); end;
-    3: Text := IntToStr(I16);
-    4: Text := IntToStr(I32);
-    5: begin Bytes(10); Text := '0'; end;  { extended: not used by the forms read here }
-    6, 7: Text := SStr;
+    2: begin N := R.U8; if N >= 128 then Dec(N, 256); Text := IntToStr(N); end;
+    3: Text := IntToStr(R.I16);
+    4: Text := IntToStr(R.I32);
+    5: begin R.Bytes(10); Text := '0'; end;
+    6, 7: Text := R.SStr;
     8: Text := 'False';
     9: Text := 'True';
-    10: { binary: kept whole }
+    10:
       begin
-        N := I32;
-        I := Length(O.FBin);
-        SetLength(O.FBin, I + 1);
-        O.FBin[I] := Bytes(N);
-        O.FBinary.Add(PropName + '=' + IntToStr(I));
-        Text := '';
+        N := R.I32;
+        New(Box);
+        Box^ := R.Bytes(N);
+        Node.Bins.AddObject(Name, TObject(Box));
+        Text := '{binary}';
       end;
-    11: { a set }
+    11:
       begin
-        Text := '[';
-        repeat
-          Item := SStr;
-          if Item <> '' then
-          begin
-            if Text <> '[' then Text := Text + ', ';
-            Text := Text + Item;
-          end;
-        until Item = '';
-        Text := Text + ']';
-      end;
-    12: begin N := I32; Text := Bytes(N); end;
-    13: Text := 'nil';
-    14: { a collection: skipped }
-      begin
-        while Peek <> 0 do
+        Sub := '';
+        while not R.Bad do
         begin
-          while Peek <> 0 do
-          begin
-            SStr;
-            ReadValue(O, PropName, Item);
-          end;
-          Inc(P);
+          V := R.SStr;
+          if V = '' then Break;
+          if Sub <> '' then Sub := Sub + ',';
+          Sub := Sub + V;
         end;
-        Inc(P);
-        Text := '';
+        Text := '[' + Sub + ']';
       end;
-    18: { a wide string: kept as Latin-1 }
+    12: begin N := R.I32; Text := R.Bytes(N); end;
+    13: Text := 'nil';
+    14:
       begin
-        N := I32;
-        W := Bytes(N * 2);
-        SetLength(Text, N);
-        for I := 1 to N do
-          if Ord(W[2 * I]) = 0 then Text[I] := W[2 * I - 1] else Text[I] := '?';
+        Item := 0;
+        while (R.Peek <> 0) and not R.Bad do
+        begin
+          if R.Peek in [2, 3, 4] then ReadValue(R, Node, Name, V);
+          if R.Peek = 1 then R.U8;
+          while (R.Peek <> 0) and not R.Bad do
+          begin
+            PName := R.SStr;
+            ReadValue(R, Node, Format('%s[%d].%s', [Name, Item, PName]), V);
+            Node.Props.Add(Format('%s[%d].%s=%s', [Name, Item, PName, V]));
+          end;
+          R.U8;
+          Inc(Item);
+        end;
+        R.U8;
+        Text := IntToStr(Item);
       end;
-    19: begin Bytes(8); Text := '0'; end;
+    15: begin R.Bytes(4); Text := '0'; end;
+    16, 17, 19: begin R.Bytes(8); Text := '0'; end;
+    18: begin N := R.I32; Sub := R.Bytes(2 * N); Text := '';
+          for Item := 0 to N - 1 do
+            if Ord(Sub[2 * Item + 2]) = 0 then Text := Text + Sub[2 * Item + 1]
+            else Text := Text + '?';
+        end;
+    20: begin N := R.I32; Text := R.Bytes(N); end;
   else
-    raise EDfm.CreateFmt('value type %d', [T]);
+    R.Bad := True;
   end;
 end;
 
-function TDfmReader.ReadObject(Parent: TDfmObject): TDfmObject;
+function ReadComponent(R: TReader_; Parent: TDfmNode): TDfmNode;
 var
-  F: Integer;
-  PN, V: string;
+  Flags: Integer;
+  PName, V: string;
 begin
-  F := Peek;
-  if F and $F0 = $F0 then
+  Result := TDfmNode.Create;
+  Result.Parent := Parent;
+  if (R.Peek and $F0) = $F0 then
   begin
-    Inc(P);
-    if F and 2 <> 0 then ReadValue(nil, '', V);
+    Flags := R.U8;
+    if (Flags and 2) <> 0 then ReadValue(R, Result, '', V);
   end;
-  Result := TDfmObject.Create;
-  try
-    Result.Parent := Parent;
-    Result.ClassName_ := SStr;
-    Result.Name := SStr;
-    while Peek <> 0 do
-    begin
-      PN := SStr;
-      ReadValue(Result, PN, V);
-      Result.FProps.Add(PN + '=' + V);
-    end;
-    Inc(P);
-    while Peek <> 0 do
-      Result.FChildren.Add(ReadObject(Result));
-    Inc(P);
-  except
-    Result.Free;
-    raise;
+  Result.ClassName_ := R.SStr;
+  Result.Name := R.SStr;
+  while (R.Peek <> 0) and not R.Bad do
+  begin
+    PName := R.SStr;
+    ReadValue(R, Result, PName, V);
+    Result.Props.Add(PName + '=' + V);
   end;
+  R.U8;
+  while (R.Peek <> 0) and not R.Bad do
+    Result.Children.Add(ReadComponent(R, Result));
+  R.U8;
 end;
 
-function ReadDfm(const Data: string): TDfmObject;
+function ParseDfm(const Data: string): TDfmNode;
 var
-  R: TDfmReader;
+  R: TReader_;
 begin
   Result := nil;
   if Copy(Data, 1, 4) <> 'TPF0' then Exit;
-  R := TDfmReader.Create;
+  R := TReader_.Create;
   try
     R.S := Data;
     R.P := 5;
-    try
-      Result := R.ReadObject(nil);
-    except
-      on EDfm do Result := nil;
-    end;
+    Result := ReadComponent(R, nil);
+    if R.Bad then FreeAndNil(Result);
   finally
     R.Free;
   end;
 end;
 
-function DfmPictureBmp(const PictureData: string; out Bmp: string): Boolean;
+function DfmColor(const Value: string; Default: Cardinal): Cardinal;
 var
-  L, N: Integer;
+  V: Integer;
+  C: Cardinal;
 begin
-  Result := False;
-  Bmp := '';
-  if Length(PictureData) < 1 then Exit;
-  L := Ord(PictureData[1]);
-  if Copy(PictureData, 2, L) <> 'TBitmap' then Exit;
-  if Length(PictureData) < 1 + L + 4 then Exit;
-  N := Ord(PictureData[L + 2]) or (Ord(PictureData[L + 3]) shl 8) or
-    (Ord(PictureData[L + 4]) shl 16) or (Ord(PictureData[L + 5]) shl 24);
-  Bmp := Copy(PictureData, L + 6, N);
-  Result := (Length(Bmp) = N) and (Copy(Bmp, 1, 2) = 'BM');
+  Result := Default;
+  if Value = '' then Exit;
+  if (Value[1] = '-') or ((Value[1] >= '0') and (Value[1] <= '9')) then
+  begin
+    V := StrToIntDef(Value, -1);
+    if V < 0 then Exit;
+    { TColor is $00BBGGRR }
+    C := Cardinal(V);
+    Result := $FF000000 or ((C and $FF) shl 16) or (C and $FF00) or ((C shr 16) and $FF);
+    Exit;
+  end;
+  if SameText(Value, 'clBlack') then Result := $FF000000
+  else if SameText(Value, 'clMaroon') then Result := $FF800000
+  else if SameText(Value, 'clGreen') then Result := $FF008000
+  else if SameText(Value, 'clOlive') then Result := $FF808000
+  else if SameText(Value, 'clNavy') then Result := $FF000080
+  else if SameText(Value, 'clPurple') then Result := $FF800080
+  else if SameText(Value, 'clTeal') then Result := $FF008080
+  else if SameText(Value, 'clGray') then Result := $FF808080
+  else if SameText(Value, 'clSilver') then Result := $FFC0C0C0
+  else if SameText(Value, 'clRed') then Result := $FFFF0000
+  else if SameText(Value, 'clLime') then Result := $FF00FF00
+  else if SameText(Value, 'clYellow') then Result := $FFFFFF00
+  else if SameText(Value, 'clBlue') then Result := $FF0000FF
+  else if SameText(Value, 'clFuchsia') then Result := $FFFF00FF
+  else if SameText(Value, 'clAqua') then Result := $FF00FFFF
+  else if SameText(Value, 'clWhite') then Result := $FFFFFFFF
+  else if SameText(Value, 'clWindow') then Result := $FFFFFFFF
+  else if SameText(Value, 'clWindowText') then Result := $FF000000
+  else if SameText(Value, 'clBtnFace') then Result := $FFD4D0C8
+  else if SameText(Value, 'clBtnText') then Result := $FF000000;
+end;
+
+function DfmBitmap(const Data: string): string;
+var
+  P: Integer;
+begin
+  P := Pos('BM', Data);
+  if (P = 0) or (P > 40) then Result := ''
+  else Result := Copy(Data, P, MaxInt);
 end;
 
 end.

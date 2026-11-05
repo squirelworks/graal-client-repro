@@ -32,7 +32,7 @@ uses
   GFont in '../../common/GFont.pas',
   GWindow in '../../common/GWindow.pas',
   GStartScreen in '../../common/GStartScreen.pas',
-  GDfm in '../../common/GDfm.pas',
+  GDfm1x in '../../common/GDfm1x.pas',
   GUiFont in '../../common/GUiFont.pas',
   GLaunch1x in '../../common/GLaunch1x.pas',
   Res137 in '../src/Res137.pas',

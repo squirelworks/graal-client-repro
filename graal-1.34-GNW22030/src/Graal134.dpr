@@ -73,7 +73,7 @@ uses
   Map134 in 'Map134.pas',
   GStartScreen in '../../common/GStartScreen.pas',
   StartScreen134 in 'StartScreen134.pas',
-  GDfm in '../../common/GDfm.pas',
+  GDfm1x in '../../common/GDfm1x.pas',
   GUiFont in '../../common/GUiFont.pas',
   GLaunch1x in '../../common/GLaunch1x.pas',
   Res134 in 'Res134.pas',

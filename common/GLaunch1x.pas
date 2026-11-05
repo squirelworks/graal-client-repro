@@ -36,7 +36,7 @@ unit GLaunch1x;
 interface
 
 uses
-  Classes, GSurface, GWindow, GDfm;
+  Classes, GSurface, GWindow, GDfm1x;
 
 type
   TLaunchStyle = (ls11, ls128, ls141);

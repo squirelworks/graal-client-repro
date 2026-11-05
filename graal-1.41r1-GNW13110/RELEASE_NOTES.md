@@ -17,6 +17,10 @@ keep a `graal-assets/` folder next to it, or point it at one with
 `--data DIR`) and the install's tiles, heads, bodies and levels take their
 place.
 
+## What's new in v0.0.4
+
+- Rebuilt from the latest code; the changes for this client are listed here as they land.
+
 ## What's new in v0.0.3
 
 - [x] **The real start dialog.** It opens on 1.41r1's own form, "Graal - The Adventure" (TConnectFrame), compiled in from the real Graal.exe with its pictures, labels and controls in their places (`res/ConnectFrame.txt`). There is no bigger window behind it.

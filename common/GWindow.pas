@@ -466,6 +466,14 @@ begin
     Style := (WS_OVERLAPPEDWINDOW and not WS_THICKFRAME) or WS_VISIBLE;
     ExStyle := WS_EX_APPWINDOW;
   end;
+  { a Delphi dialog's caption has no icon: drop the icons before the new
+    frame is drawn, or Windows keeps a generic one in the caption }
+  if FDelphi and Dialog then
+  begin
+    SendMessage(FWnd, WM_SETICON, ICON_BIG, 0);
+    SendMessage(FWnd, WM_SETICON, ICON_SMALL, 0);
+    SendMessage(FWnd, WM_SETICON, 2 { ICON_SMALL2 }, 0);
+  end;
   SetWindowLong(FWnd, GWL_STYLE, LONG(Style));
   SetWindowLong(FWnd, GWL_EXSTYLE, LONG(ExStyle));
   R.Left := 0; R.Top := 0; R.Right := AWidth; R.Bottom := AHeight;
@@ -478,9 +486,11 @@ begin
     caption }
   if FDelphi and Dialog then
   begin
-    { a Delphi dialog's caption has no icon }
+    { a Delphi dialog's caption has no icon; redraw the frame without it }
     SendMessage(FWnd, WM_SETICON, ICON_BIG, 0);
     SendMessage(FWnd, WM_SETICON, ICON_SMALL, 0);
+    SetWindowPos(FWnd, 0, 0, 0, 0, 0, SWP_NOMOVE or SWP_NOSIZE or SWP_NOZORDER or
+      SWP_FRAMECHANGED);
   end
   else
   begin

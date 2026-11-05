@@ -13,6 +13,10 @@ Apart from the start dialog and the icon, which are taken from the real
 Graal.exe and compiled in, the zips hold no original Graal code, graphics,
 sounds or levels. The client carries simple graphics of its own.
 
+## What's new in v0.0.4
+
+- Rebuilt from the latest code; the changes for this client are listed here as they land.
+
 ## What's new in v0.0.3
 
 - [x] **The real start dialog.** It opens on 1.37's own form, "Graal - The Adventure" (TConnectFrame), compiled in from the real Graal.exe with its pictures, labels and controls in their places (`res/ConnectFrame.txt`). There is no bigger window behind it.

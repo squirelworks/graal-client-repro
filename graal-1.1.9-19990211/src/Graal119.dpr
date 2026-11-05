@@ -75,7 +75,7 @@ uses
   Map119 in 'Map119.pas',
   GStartScreen in '../../common/GStartScreen.pas',
   StartScreen119 in 'StartScreen119.pas',
-  GDfm in '../../common/GDfm.pas',
+  GDfm1x in '../../common/GDfm1x.pas',
   GUiFont in '../../common/GUiFont.pas',
   GLaunch1x in '../../common/GLaunch1x.pas',
   Res119 in 'Res119.pas',

@@ -31,7 +31,7 @@ uses
   GFont in '../../common/GFont.pas',
   GWindow in '../../common/GWindow.pas',
   StartWindow141 in '../src/StartWindow141.pas',
-  GDfm in '../../common/GDfm.pas',
+  GDfm1x in '../../common/GDfm1x.pas',
   GUiFont in '../../common/GUiFont.pas',
   GLaunch1x in '../../common/GLaunch1x.pas',
   Res141 in '../src/Res141.pas',
