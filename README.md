@@ -10,6 +10,11 @@ The findings these rebuilds are based on live in
 servers they are tested against are the Seihai stack, mainly
 [seihai-gserver](https://github.com/squirelworks/seihai-gserver).
 
+**Working on this repo?** Start with [HANDOFF-CURSOR.md](HANDOFF-CURSOR.md)
+(state, rules, what is on hold), [AGENTS.md](AGENTS.md) (binding rules) and
+[ROADMAP.md](ROADMAP.md) (what is next, as checklists). Every client's
+latest release is in [RELEASES.md](RELEASES.md).
+
 > **Not affiliated.** graal-delphi is an independent fan project. It is not
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad"). "Graal",
@@ -45,6 +50,10 @@ common/                     code that is the same across builds
   GAssetDirs.pas            where a build finds the player's own Graal files (graal-assets/)
   builtin/                  those assets as files (scripts/builtin/make_builtin.py)
   win/                      the Windows manifest every client compiles in
+graal-<version>-<token>/    one folder per build (67, from graal-b1-19980906 to
+                            graal-6.03r7-G3D0511C); four shown here
+javagraal-2000/, zelda-online1-Z3V102/, zelda-online2-Z3V103/   the Java clients
+graalgb-1.10/               the Game Boy Color demo
 graal-2.05-GNW03081/        Graal 2.05
   src/                      the client (Graal205.dpr and its units)
   tests/                    Test205.dpr
@@ -57,6 +66,9 @@ graal-2.17.1-GNW22122/      Graal 2.17.1
 graal-2.22-GNW03014/        Graal 2.22
   src/                      the client (Graal222.dpr and its units)
   tests/                    Test222.dpr
+HANDOFF-CURSOR.md           state, rules, on-hold work and open decisions
+AGENTS.md                   binding rules for agents (and .cursor/rules/)
+ROADMAP.md                  the project checklist
 scripts/
   build.sh                  build every rebuild and its tests
   test.sh                   run every test program
@@ -174,12 +186,16 @@ steps and are required before a build counts as done.
 
 ## Status
 
-| Build | Token | Wire | World | Play | Harden | Release |
-|---|---|---|---|---|---|---|
-| [2.05](graal-2.05-GNW03081/) | `GNW03081` | as 2.05 rev 2 | as 2.05 rev 2 | as 2.05 rev 2 | as 2.05 rev 2 | v0.0.1 after merge |
-| [2.05 rev 2](graal-2.05r2-GNW03081/) | `GNW03081` | done | board, player from ganis, window | walking and collision; props out; other players; level links | headless stress mode, fuzzed receive path, leak checks | v0.0.1 draft |
-| [2.17.1](graal-2.17.1-GNW22122/) | `GNW22122` | login with tamper check; all 79 server ids accepted | board, players and NPCs from ganis (ATTACHSPRITE, #P1 to #P30), addtiledef sheets, window | everything 2.05 plays (items, combat, NPCs and GS1, baddies, sound, maps, editor); GANI and direction props out; replaceani | from 2.05: headless stress mode, fuzzed receive path, leak checks | not yet |
-| [2.22](graal-2.22-GNW03014/) | `GNW03014` | done (gen 5, bzip2); start screen and 2.22 listserver step | board, level cache, gmaps | walking and collision; props out; other players; level links; gmap edges; Training on the offline tutorial; from 2.05: sword, items, combat, signs, weapons, NPCs and GS1, baddies, sound, maps | headless stress mode, fuzzed receive path, leak checks | v0.0.1 after merge |
+71 client folders: 67 Delphi rebuilds from the 1998 betas to 6.03r7, the
+three Java clients and the Game Boy Color demo. Each folder's README has what works and a
+"Not yet" checklist; [RELEASES.md](RELEASES.md) has each client's latest
+release and level; [ROADMAP.md](ROADMAP.md) has the project checklist.
+
+As of 2026-11-05: 2.05 rev 2 and 2.22 are at 0.0.2 (checked side by side
+with the original), 2.17.1 at 0.0.1.1, every other client at 0.0.1. The
+next release is v0.0.3 for all clients at once ([#99](https://github.com/squirelworks/graal-delphi/issues/99)).
+The 3.x to 6.x folders reproduce the wire only and stay at 0.0.1 in level
+until the Torque layer exists ([#109](https://github.com/squirelworks/graal-delphi/issues/109)).
 
 ## Windows says "Windows protected your PC"
 

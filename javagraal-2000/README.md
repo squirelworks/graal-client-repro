@@ -89,8 +89,11 @@ copy: the four top files plus the levels and the GIFs and sounds in
 
 ## Not yet
 
-The player sprite from `sprites.gif` (a stand-in figure is drawn), sword,
-bushes, baddies, chests, board changes over the wire, sound. Whether the
-walkable-tile list in a Graal `arrays.dat` is read the same way as Zelda
-Online's has only been checked by walking; the full tile-type table is
-0.0.2 work. The original start position is not known.
+- [ ] The player sprite from `sprites.gif` (a stand-in figure is drawn).
+- [ ] Sword, bushes, baddies, chests.
+- [ ] Board changes over the wire.
+- [ ] Sound.
+- [ ] The full tile-type table: whether the walkable-tile list in a Graal
+  `arrays.dat` is read the same way as Zelda Online's has only been
+  checked by walking.
+- [ ] The original start position (not known).
