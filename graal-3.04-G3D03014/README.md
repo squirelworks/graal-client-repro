@@ -5,8 +5,9 @@ a C++ program on the Torque game engine, built in January 2004, not a
 Delphi program. On the wire it is the Windows 2.22 client with its own
 token: the same gen-5 login, cipher, framing and compression. So this
 folder starts from `graal-2.22-GNW03014` and changes only what the notes
-say 3.04 does differently. This is the 0.0.1 reproduction: hit or miss,
-the lab run is the yardstick.
+say 3.04 does differently. 0.0.2 brings in the 2.22 rebuild's play layer
+(NPCs and GS1, baddies, items, combat, sound, maps, and the ground drawn
+from the height grid) on top of the 3.04 wire.
 
 ## Sources
 
@@ -45,6 +46,11 @@ decompiled code:
 | `src/ListServer304.pas` | the 3.04 listserver step and `license.graal` |
 | `src/StartScreen304.pas` | what 3.04 plugs into the shared start screen |
 | `src/RunMode.pas` | stress-run support (as 2.22's) |
+| `src/Npc304.pas`, `src/NpcBridge304.pas` | level NPCs and the bridge to the shared GS1 engine (`common/GGs1.pas`), as 2.22's |
+| `src/Baddy304.pas` | baddies, by the 2.22 spec (`client-internals/baddies-222.md`) |
+| `src/Sound304.pas` | gani sounds each tick, played through `common/GSound.pas` from `sounds/` |
+| `src/Map304.pas` | the M map and Q item list, from `maps/` |
+| `src/Terrain304.pas` | the ground of a level with a `HEIGHTS` grid in its `.gmap`, as 2.22 draws it |
 
 ## Running it
 
@@ -76,9 +82,13 @@ Graal304 --server HOST:PORT --account NAME --headless --seconds 600 \
   5.1 s message), so `UDPPORT` is sent as 0.
 - `GSERVL01` text levels and `GR-V1.04` heights; the licence file's RSA
   signature; the `GWEBL001` level cache.
-- Everything still missing from the 2.22 rebuild: NPCs, baddies, items,
-  weapons, GS1, chat bubbles, Options.
-- Which offline tutorial level the Tutorial button opens, and where: the
-  rebuild opens `levels/tutorial/offlinetutorial_b-2.graal` at (30, 30),
-  else its starter level.
-- No side-by-side run against the real 3.04 yet; that is 0.0.2 work.
+- Everything still missing from the 2.22 rebuild: 2.22's additions to GS1
+  and its NPC props past 40, NPCs in gmap cells other than the player's,
+  chat bubbles and the chat bar, Options.
+- Which offline tutorial level the Tutorial button opens, and where, is not
+  traced: the rebuild opens `levels/tutorial/offlinetutorial_b-2.graal` at
+  (27.5, 31.5), below the cauldron, where the 2.22 rebuild starts (the
+  level has 2.22's layout), else its starter level.
+- Whatever the 3.04 engine does differently in play (NPCs, baddies, the
+  ground) is not known: the play layer is 2.22's, and no side-by-side run
+  against the real 3.04 has been made yet.

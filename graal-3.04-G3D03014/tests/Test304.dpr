@@ -18,16 +18,27 @@ uses
   GZlib in '../../common/GZlib.pas',
   GBzip2 in '../../common/GBzip2.pas',
   GSocket in '../../common/GSocket.pas',
+  GAssetDirs in '../../common/GAssetDirs.pas',
   GLevel in '../../common/GLevel.pas',
   GSurface in '../../common/GSurface.pas',
   GArrays in '../../common/GArrays.pas',
   GAni in '../../common/GAni.pas',
   Protocol304 in '../src/Protocol304.pas',
   GraalClient in '../src/GraalClient.pas',
+  GGs1 in '../../common/GGs1.pas',
+  Npc304 in '../src/Npc304.pas',
+  Baddy304 in '../src/Baddy304.pas',
+  NpcBridge304 in '../src/NpcBridge304.pas',
   Adventure in '../src/Adventure.pas',
+  GSound in '../../common/GSound.pas',
+  Sound304 in '../src/Sound304.pas',
+  Map304 in '../src/Map304.pas',
+  Terrain304 in '../src/Terrain304.pas',
   GBuiltin in '../../common/GBuiltin.pas',
   GStartScreen in '../../common/GStartScreen.pas',
-  ListServer304 in '../src/ListServer304.pas';
+  ListServer304 in '../src/ListServer304.pas',
+  TestNpc304 in 'TestNpc304.pas',
+  TestBaddy304 in 'TestBaddy304.pas';
 
 {$I Capture304.inc}
 
@@ -36,7 +47,7 @@ type
   TClientAccess = class(TAdventureClient);
 
 var
-  Passed, Failed, Skipped: Integer;
+  Passed, Failed, Skipped, NpcSkipped: Integer;
 
 procedure Check(Cond: Boolean; const What: string);
 begin
@@ -291,6 +302,114 @@ begin
       'login: 5 (key, G3D03014, account, password), 37, 34 bigmap, 34 minimap in one plain zlib frame');
     Check(Length(Wire) = Len + 2, 'login: nothing after the login frame (no tamper check)');
   finally
+    C.Free;
+  end;
+end;
+
+procedure PutText(const Path, Text: string);
+var
+  L: TStringList;
+begin
+  ForceDirectories(ExtractFilePath(Path));
+  L := TStringList.Create;
+  try
+    L.Text := Text;
+    L.SaveToFile(Path);
+  finally
+    L.Free;
+  end;
+end;
+
+{ The program's folder and the graal-assets next to it come first; the
+  folder given with --data is searched last. }
+procedure TestAssetOrder;
+var
+  Root, Exe, Data: string;
+begin
+  Root := IncludeTrailingPathDelimiter(GetTempDir) + 'assetorder-' + IntToStr(Random(1000000)) + PathDelim;
+  Exe := Root + 'exe' + PathDelim;
+  Data := Root + 'data' + PathDelim;
+  PutText(Exe + 'a.txt', 'exe');
+  PutText(Exe + 'graal-assets' + PathDelim + '3.04' + PathDelim + 'b.txt', 'assets');
+  PutText(Data + 'a.txt', 'data');
+  PutText(Data + 'b.txt', 'data');
+  PutText(Data + 'c.txt', 'data');
+  SetAssetRootsFor(Exe, Data, '3.04');
+  Check(AssetPath('a.txt') = Exe + 'a.txt', 'assets: the program folder wins over --data');
+  Check(Pos('graal-assets', AssetPath('b.txt')) > 0, 'assets: graal-assets next to the program wins over --data');
+  Check(AssetPath('c.txt') = Data + 'c.txt', 'assets: --data is still searched, last');
+  SetAssetRootsFor('', '', '');
+end;
+
+{ The HEIGHTS blocks of a generator gmap, and the height between points. }
+procedure TestTerrainHeights;
+var
+  St: THeightStore;
+  G: THeightGrid;
+  Txt: string;
+  R: Integer;
+begin
+  St := THeightStore.Create;
+  try
+    Txt := 'GRMAP001'#10'WIDTH 1'#10'HEIGHT 1'#10'HEIGHTS lev_a-1.graal 8 8'#10;
+    for R := 0 to 8 do
+      Txt := Txt + Format('%d,%d,0,0,0,0,0,0,%d', [R, R * 2, 8 - R]) + #10;
+    Txt := Txt + 'HEIGHTSEND'#10'HEIGHTS other.graal 8 8'#10'1.5'#10'HEIGHTSEND'#10;
+    Check(St.AddGmap(Txt) = 2, 'terrain: two HEIGHTS blocks read');
+    Check(St.Find('LEV_A-1.graal', G) and (G[3, 0] = 3) and (G[3, 1] = 6) and (G[3, 8] = 5),
+      'terrain: the grid of a level, row by row, found by name in any case');
+    Check(Abs(HeightAt(G, 0, 12) - 1.5) < 1e-6, 'terrain: halfway between rows 1 and 2');
+    Check(Abs(HeightAt(G, 4, 8) - 1.5) < 1e-6, 'terrain: halfway between columns 0 and 1');
+    Check(Abs(HeightAt(G, 64, 64) - 0) < 1e-6, 'terrain: the far corner');
+    Check(St.Find('other.graal', G) and (G[0, 0] = 1.5) and (G[1, 0] = 0),
+      'terrain: a short block keeps the rest at 0');
+    Check(not St.Find('missing.graal', G), 'terrain: no grid for another level');
+  finally
+    St.Free;
+  end;
+end;
+
+{ A name, not only a dotted address, is resolved on every platform. The
+  Windows builds once read dotted addresses only, so listserver.graal.in
+  never connected there. Port 1 on this machine is closed: the connect
+  fails, but past the name lookup. }
+procedure TestResolveName;
+var
+  S: TGSocket;
+begin
+  S := TGSocket.Create;
+  try
+    S.Connect('localhost', 1);
+    Check(Pos('cannot resolve', S.LastError) = 0,
+      'socket: the name localhost resolves (' + S.LastError + ')');
+  finally
+    S.Free;
+  end;
+end;
+
+{ The public listserver's frames end in two NULs after the last LF; the
+  status line in the next frame must still read. }
+procedure TestListTrailingNuls;
+var
+  C: TListServerClient;
+  SCodec: TGen5;
+begin
+  C := TListServerClient.Create;
+  SCodec := TGen5.Create(CaptureKey);
+  try
+    C.StartOffline(CaptureKey);
+    C.Sink := True;
+    C.FeedRaw(ServerFrame(SCodec, GChar(0) + GChar(1) + GChar(8) +
+      GString('One') + GString('English') + GString('') + GString('') +
+      GString('2.22') + GString('0') + GString('127.0.0.1') + GString('14802') +
+      #10#0#0));
+    C.FeedRaw(ServerFrame(SCodec, GChar(2) + 'Welcome' + #10 + GChar(3) +
+      'http://site' + #10#0#0));
+    Check(C.GotList and (Length(C.Servers) = 1), 'list: a frame ending in NULs still gives the list');
+    Check((C.Status = 'Welcome') and (C.SiteUrl = 'http://site'),
+      'list: the status after a NUL-ended frame reads (' + C.Status + ')');
+  finally
+    SCodec.Free;
     C.Free;
   end;
 end;
@@ -1104,6 +1223,12 @@ begin
   end;
 end;
 
+{ a GSTRING: c(length) + text }
+function GS(const S: string): string;
+begin
+  Result := Chr(Length(S) + 32) + S;
+end;
+
 { The built-in defaults: a game with nothing next to it still has a tile
   sheet, the starter level and the walking gani. }
 procedure TestBuiltins;
@@ -1133,12 +1258,417 @@ begin
   end;
 end;
 
+procedure TestStatus;
+var
+  G: TAdventure;
+
+  function Lit(X, Y, W, H: Integer): Boolean;
+  var
+    I, J: Integer;
+  begin
+    Result := False;
+    for J := Y to Y + H - 1 do
+      for I := X to X + W - 1 do
+        if G.Screen.GetPixel(I, J) and $FFFFFF <> 0 then
+        begin
+          Result := True;
+          Exit;
+        end;
+  end;
+
 begin
+  G := TAdventure.Create;
+  try
+    G.Headless := True;
+    Check((G.Player.MaxPower = 3) and (G.Player.Power = 6) and (G.Player.Bombs = 10) and
+      (G.Player.Arrows = 5) and (G.AP = 50), 'status: a new account starts at 3 hearts, 10 bombs, 5 arrows');
+    G.Screen.Fill($FF000000);
+    G.DrawStatus;
+    Check(Lit(ScreenW - 198, 24, 40, 44), 'status: the first big heart is drawn');
+    Check(Lit(ScreenW - 198 + 90, 24, 40, 44), 'status: the third big heart is drawn');
+    Check(not Lit(ScreenW - 198 + 135, 24, 40, 44), 'status: no fourth heart with three containers');
+    Check(Lit(15, 30, 22, 33) and Lit(145, 30, 22, 33), 'status: the A and D buttons');
+    Check(Lit(326, 48, 26, 16), 'status: the bomb count');
+    G.Screen.Fill($FF000000);
+    G.Player.MaxPower := 6;
+    G.Player.Power := 3;
+    G.DrawStatus;
+    Check(Lit(ScreenW - 198, 34, 31, 33) and not Lit(ScreenW - 198 + 70, 34, 31, 33),
+      'status: small hearts past four containers, only while power remains');
+    G.Screen.Fill($FF000000);
+    G.ShowStats := 0;
+    G.DrawStatus;
+    Check(not Lit(0, 0, ScreenW, 120), 'status: showstats 0 hides everything');
+  finally
+    G.Free;
+  end;
+end;
+
+procedure TestActions;
+var
+  G: TAdventure;
+  A: TGraalAni;
+  OX, OY, I, R0: Integer;
+  X, Y, W, H: Integer;
+begin
+  { the sprite table packing, against two rectangles the HUD notes give }
+  G := TAdventure.Create;
+  try
+    G.Arrays.Lists[24].Free;
+    G.Arrays.Lists[24] := TGArray.Create;
+    SetLength(G.Arrays.Lists[24].Values, 2);
+    G.Arrays.Lists[24].Values[0] := Integer($0E06A390);
+    G.Arrays.Lists[24].Values[1] := Integer($2F01238E);
+    Check(G.Arrays.SpriteRect(0, X, Y, W, H) and (X = 28) and (Y = 212) and (W = 28) and (H = 32),
+      'sprites: table entry 145 is (28, 212, 28, 32)');
+    Check(G.Arrays.SpriteRect(1, X, Y, W, H) and (X = 94) and (Y = 36) and (W = 28) and (H = 28),
+      'sprites: table entry 17 is (94, 36, 28, 28)');
+  finally
+    G.Free;
+  end;
+  { PARAM placements keep their row (the carry ganis have one per row) }
+  A := TGraalAni.Create;
+  try
+    Check(A.LoadFromString('SPRITE 1 BODY 0 0 36 36 b'#10'DEFAULTPARAM1 20'#10'ANI'#10 +
+      ' 1 0 0, PARAM1 8 -18'#10' 1 0 0'#10' 1 0 0'#10' 1 0 0, PARAM1 8 -18'#10'ANIEND'#10) and
+      (Length(A.Steps) = 1) and (Length(A.Steps[0].Dirs[3]) = 2) and
+      (A.Steps[0].Dirs[3][1].Sprite = ParamSprite - 1) and (A.DefaultParam[1] = '20'),
+      'gani: a PARAM1 placement is read, not dropped');
+  finally
+    A.Free;
+  end;
+  G := TAdventure.Create;
+  try
+    G.Headless := True;
+    Check(G.LoadLevelFile('start.nw'), 'actions: the built-in level loads');
+    { the sword cuts the bush below: built-in bush 36, 26 }
+    G.Player.X := 35;
+    G.Player.Y := 22;
+    G.Player.Dir := DirDown;
+    Check(G.MatchObject(9, 99, 36.5, 26, OX, OY) = 0, 'actions: the bush matches the cut table');
+    G.Attack;
+    Check((G.Mode = ModeSword) and (G.Level.Tile(36, 26) = G.Arrays.ObjectTile(10, 0, 0, 0)),
+      'actions: a swing cuts the bush at the tip');
+    G.Mode := ModeFree;
+    { the pot lifts with glove 1, the stone needs glove 2 }
+    G.Player.X := 24.5;
+    G.Player.Y := 32;
+    G.Action;
+    Check((G.Mode = ModeLift) and (G.CarryKind = 2) and
+      (G.Level.Tile(26, 36) = G.Arrays.ObjectTile(12, 2, 0, 0)), 'actions: A lifts the pot');
+    for I := 1 to 10 do G.Tick;
+    Check(G.Mode = ModeCarry, 'actions: the lift ends in carrying');
+    G.AttackKey := True;
+    G.Tick;
+    Check((G.Mode = ModeFree) and (G.CarryKind = -1) and (Length(G.Thrown) = 1),
+      'actions: S throws what is carried');
+    for I := 1 to 10 do G.Tick;
+    Check(Length(G.Thrown) = 0, 'actions: the thrown pot lands');
+    G.Player.X := 34.5;
+    G.Player.Y := 33;
+    G.Action;
+    Check(G.Mode = ModeFree, 'actions: glove 1 does not lift a stone');
+    G.Player.GlovePower := 2;
+    G.Action;
+    Check((G.Mode = ModeLift) and (G.CarryKind = 3), 'actions: glove 2 lifts it');
+    G.Mode := ModeFree;
+    G.CarryKind := -1;
+    { the chest gives its red rupee once }
+    G.Player.X := 25;
+    G.Player.Y := 27;
+    G.Player.Dir := DirUp;
+    R0 := G.Player.Rupees;
+    G.Action;
+    Check((G.Player.Rupees = R0 + 30) and G.Level.Chests[0].Opened, 'actions: the chest gives 30 rupees');
+    G.Action;
+    Check(G.Player.Rupees = R0 + 30, 'actions: an open chest gives nothing more');
+    { floor items: taken after the first four ticks, offline given at once }
+    SetLength(G.Items, 0);
+    G.AddItem(G.Player.X + 0.5, G.Player.Y + 1, 5, ItemLife);
+    G.Player.Power := 2;
+    G.Tick;
+    Check(Length(G.Items) = 1, 'items: not taken in the first ticks');
+    for I := 1 to 4 do G.Tick;
+    Check((Length(G.Items) = 0) and (G.Player.Power = 4), 'items: a heart is taken and gives a heart');
+    G.AddItem(10, 10, 0, ItemLife);
+    for I := 1 to ItemLife do G.Tick;
+    Check(Length(G.Items) = 1, 'items: still there at life 0');
+    G.Tick;
+    Check(Length(G.Items) = 0, 'items: gone when the life runs out');
+    { from the server }
+    G.Receive(PLO_ITEMADD, GChar(20) + GChar(20) + GChar(3));
+    G.Receive(PLO_ITEMADD, GChar(22) + GChar(20) + GChar(6));
+    Check((Length(G.Items) = 1) and (G.Items[0].X = 10) and (G.Items[0].Item = 3),
+      'items: ITEMADD makes floor items only');
+    G.Receive(PLO_ITEMDEL, GChar(20) + GChar(20));
+    Check(Length(G.Items) = 0, 'items: ITEMDEL removes it');
+    G.Receive(PLO_BOARDMODIFY, GChar(5) + GChar(6) + GChar(2) + GChar(1) + GShort(100) + GShort(101));
+    Check((G.Level.Tile(5, 6) = 100) and (G.Level.Tile(6, 6) = 101), 'board: BOARDMODIFY writes its tiles');
+  finally
+    G.Free;
+  end;
+end;
+
+procedure TestCombat;
+var
+  G: TAdventure;
+  P: TServerPlayer;
+  I, T0: Integer;
+  X0, Y0: Double;
+begin
+  G := TAdventure.Create;
+  try
+    G.Headless := True;
+    Check(G.LoadLevelFile('start.nw'), 'combat: the built-in level loads');
+    G.Tick;
+    G.Player.X := 30;
+    G.Player.Y := 30;
+    { a hit clamps CURPOWER to the maximum first, then takes half hearts }
+    G.Player.MaxPower := 3;
+    G.Player.Power := 9;
+    X0 := G.Player.X;
+    G.HurtPlayer(1, 1, 0);
+    Check(G.Player.Power = 4, 'combat: power is clamped to the maximum before the hit');
+    Check(not G.Hurtable, 'combat: hurt mode after a hit');
+    G.HurtPlayer(1, 1, 0);
+    Check(G.Player.Power = 4, 'combat: no second hit in hurt mode');
+    for I := 1 to 5 do G.Tick;
+    Check(Abs(G.Player.X - (X0 + 5)) < 0.01, 'combat: five ticks of knockback, a tile each');
+    for I := 1 to 10 do G.Tick;
+    Check(Abs(G.Player.X - (X0 + 5)) < 0.01, 'combat: no knockback after the fifth tick');
+    for I := 1 to 25 do G.Tick;
+    Check(G.Hurtable, 'combat: hurt mode ends after 40 ticks');
+    { death, then a direction key respawns at the entry point }
+    G.AP := 10;
+    G.HurtPlayer(2, 0, 1);
+    Check((G.Mode = ModeDead) and (G.Player.Power = 0), 'combat: no hearts left is death');
+    G.Player.MaxPower := 5;
+    G.Respawn;
+    Check((G.Mode = ModeFree) and (G.Player.Power = 6), 'combat: AP under 20 respawns with three hearts');
+    G.AP := 30;
+    G.Mode := ModeDead;
+    G.Respawn;
+    Check(G.Player.Power = 10, 'combat: AP under 40 respawns with five hearts');
+    G.AP := 50;
+    G.Respawn;
+    Check(G.Player.Power = 10, 'combat: else all hearts (5)');
+    { PLO_HURTPLAYER: known attackers within 10 tiles, players only }
+    G.Player.X := 30;
+    G.Player.Y := 30;
+    P := G.FindOther(7, True);
+    P.X := 33;
+    P.Y := 30;
+    G.Receive(PLO_HURTPLAYER, GShort(7) + GChar($60 - 32 + 16) + GChar($60 - 32) + GChar(5) +
+      GChar(0) + GChar(0) + GChar(0));
+    Check(G.Player.Power = 10, 'combat: HURTPLAYER with the NPC field is refused');
+    G.Receive(PLO_HURTPLAYER, GShort(8) + GChar($60 - 32 + 16) + GChar($60 - 32) + GChar(2));
+    Check(G.Player.Power = 10, 'combat: HURTPLAYER from an unknown player is refused');
+    P.X := 41;
+    G.Receive(PLO_HURTPLAYER, GShort(7) + GChar($60 - 32 + 16) + GChar($60 - 32) + GChar(2));
+    Check(G.Player.Power = 10, 'combat: HURTPLAYER from over 10 tiles is refused');
+    P.X := 33;
+    G.Receive(PLO_HURTPLAYER, GShort(7) + GChar($60 - 32 + 16) + GChar($60 - 32) + GChar(5));
+    Check(G.Player.Power = 8, 'combat: HURTPLAYER power is capped at two half hearts');
+    for I := 1 to 40 do G.Tick;
+    { another player's swing: facing the player, two tiles off }
+    G.Player.X := 30;
+    G.Player.Y := 30;
+    P.X := 28;
+    P.Y := 30;
+    P.Dir := DirRight;
+    P.SwordPower := 2;
+    P.Sprite := 6 * 4 + DirRight;
+    G.Tick;
+    Check(G.Player.Power = 6, 'combat: a swing from another player takes SwordPower / 2 hearts');
+    P.Sprite := 0;
+    for I := 1 to 40 do G.Tick;
+    P.Dir := DirLeft;
+    P.Sprite := 6 * 4 + DirLeft;
+    G.Tick;
+    Check(G.Player.Power = 6, 'combat: a swing facing away misses');
+    G.RemoveOther(7);
+    { a bomb: laid ahead, goes off after 60 ticks, cuts the bush and hurts }
+    G.Player.X := 35;
+    G.Player.Y := 22;
+    G.Player.Dir := DirDown;
+    G.Player.Bombs := 3;
+    G.WeaponsOn := True;
+    G.LayBomb;
+    Check((Length(G.Bombs) = 1) and (G.Player.Bombs = 2), 'bombs: D lays a bomb');
+    T0 := G.Player.Power;
+    G.Bombs[0].X := 36;
+    G.Bombs[0].Y := 24;
+    G.Player.Y := 23;
+    for I := 1 to 59 do G.Tick;
+    Check((Length(G.Bombs) = 1) and (Length(G.Blasts) = 0), 'bombs: the fuse is 60 ticks');
+    G.Tick;
+    Check((Length(G.Bombs) = 0) and (Length(G.Blasts) = 1), 'bombs: then it explodes');
+    Check(G.Level.Tile(36, 26) = G.Arrays.ObjectTile(10, 0, 0, 0), 'bombs: the blast destroys the bush');
+    Check(G.Player.Power = T0 - 1, 'bombs: the blast hurts the player half a heart');
+    for I := 1 to 12 do G.Tick;
+    Check(Length(G.Blasts) = 0, 'bombs: the blast is gone after 11 ticks');
+  finally
+    G.Free;
+  end;
+end;
+
+procedure TestSigns;
+var
+  G: TAdventure;
+  I: Integer;
+
+  procedure Press(D: Integer);
+  begin
+    G.Keys[D] := True;
+    G.Tick;
+    G.Keys[D] := False;
+    G.Tick;
+  end;
+
+begin
+  G := TAdventure.Create;
+  try
+    G.Headless := True;
+    Check(G.LoadLevelFile('start.nw') and (G.SignAt(24.5, 27.5) = 0) and (G.SignAt(22, 27) = -1),
+      'signs: the sign covers its 2 x 2');
+    G.Player.X := 23;
+    G.Player.Y := 30;
+    G.Player.Dir := DirUp;
+    for I := 1 to 30 do
+    begin
+      G.Keys[DirUp] := True;
+      G.Tick;
+      if G.Reading then Break;
+    end;
+    Check(G.Reading and (Length(G.SignLines) = 7) and (G.SignLine = 0), 'signs: walking up into a sign reads it');
+    G.Keys[DirUp] := True;
+    G.Tick;
+    Check(G.SignLine = 0, 'signs: the key that opened it does nothing while held');
+    G.Keys[DirUp] := False;
+    G.Tick;
+    Press(DirRight);
+    Check(G.SignLine = 3, 'signs: another key turns the page');
+    G.AttackKey := True;
+    G.Tick;
+    Check((G.SignLine = 6) and (G.Mode = ModeFree), 'signs: S turns the page, no swing');
+    G.Tick;
+    Press(DirUp);
+    Check(G.SignLine = 3, 'signs: Up turns back');
+    Press(DirDown);
+    Check(G.Reading and (G.SignLine = 6), 'signs: the last page');
+    Press(DirDown);
+    Check(not G.Reading, 'signs: a key on a page that is not full ends reading');
+    G.ReadSign('a'#10'b'#10'c');
+    G.Tick;
+    Press(DirLeft);
+    Check(G.Reading and (G.SignLine = 3), 'signs: three lines show an empty second page');
+    Press(DirLeft);
+    Check(not G.Reading, 'signs: then close');
+  finally
+    G.Free;
+  end;
+end;
+
+procedure TestWeapons;
+var
+  G: TAdventure;
+  I, A0, P0: Integer;
+begin
+  G := TAdventure.Create;
+  try
+    G.Headless := True;
+    Check(G.LoadLevelFile('start.nw'), 'weapons: the built-in level loads');
+    G.Tick;
+    Check((Length(G.Weapons) = 1) and (G.Weapons[0].Name = 'Bomb') and (G.Selected = 0),
+      'weapons: offline the list starts with the bomb');
+    G.GiveItem(7);
+    Check((Length(G.Weapons) = 2) and (G.Weapons[1].Name = 'Bow') and
+      (G.Weapons[1].Image = 'wbowi1.gif') and (G.Selected = 1), 'weapons: the bow is added and selected');
+    G.GiveItem(7);
+    Check(Length(G.Weapons) = 2, 'weapons: a name already listed is not added again');
+    G.AddWeapon('-hidden', '', -1);
+    G.SelectWeapon(2);
+    Check(G.Selected = 0, 'weapons: selecting skips names starting with -');
+    G.RemoveWeapon('-hidden');
+    G.Selected := 1;
+    G.RemoveWeapon('Bow');
+    Check(G.Selected = 0, 'weapons: deleting the last entry selects the new last');
+    G.GiveItem(7);
+    { the bow: an arrow flies a tile a tick and stops at a wall }
+    G.Player.X := 20;
+    G.Player.Y := 30;
+    G.Player.Dir := DirRight;
+    A0 := G.Player.Arrows;
+    G.ItemKey := True;
+    G.Tick;
+    Check((Length(G.Shots) = 1) and (G.Player.Arrows = A0 - 1) and G.Shots[0].Mine,
+      'weapons: D with the bow shoots an arrow');
+    Check(G.Shots[0].Sprite = 110, 'weapons: the arrow sprite is 107 + direction');
+    for I := 1 to 80 do G.Tick;
+    Check(Length(G.Shots) = 0, 'weapons: the arrow is gone at the edge or a wall');
+    G.Player.Arrows := 0;
+    G.ItemKey := True;
+    G.Tick;
+    Check(Length(G.Shots) = 0, 'weapons: no arrows, no shot');
+    { another player's arrow hurts half a heart; a shield facing it stops it }
+    P0 := G.Player.Power;
+    G.Receive(PLO_ARROWADD, GShort(9) + GChar(Round((G.Player.X - 3) * 2)) +
+      GChar(Round((G.Player.Y + 1.5) * 2)) + GChar(DirRight) + GChar(110) + GChar(1));
+    Check((Length(G.Shots) = 1) and not G.Shots[0].Mine, 'weapons: ARROWADD makes a shot');
+    for I := 1 to 6 do G.Tick;
+    Check(G.Player.Power = P0 - 1, 'weapons: an arrow takes half a heart');
+    for I := 1 to 40 do G.Tick;
+    G.Player.Dir := DirLeft;
+    G.Player.ShieldPower := 1;
+    P0 := G.Player.Power;
+    G.Receive(PLO_ARROWADD, GShort(9) + GChar(Round((G.Player.X - 3) * 2)) +
+      GChar(Round((G.Player.Y + 1.5) * 2)) + GChar(DirRight) + GChar(110) + GChar(1));
+    for I := 1 to 6 do G.Tick;
+    Check(G.Player.Power = P0, 'weapons: a shield facing the arrow stops it');
+    for I := 1 to 6 do G.Tick;
+    Check(Length(G.Shots) = 0, 'weapons: a power-1 shield knocks it back for three ticks');
+    { the server's list }
+    G.Receive(PLO_DEFAULTWEAPON, GChar(20));
+    Check((G.Weapons[High(G.Weapons)].Name = 'Fireball') and (G.Selected = High(G.Weapons)),
+      'weapons: DEFAULTWEAPON adds a built-in weapon');
+    G.Receive(PLO_DEFAULTWEAPON, GChar(5));
+    Check(G.Weapons[High(G.Weapons)].Name = 'Fireball', 'weapons: a pickup number adds no weapon');
+    G.Receive(PLO_NPCWEAPONADD, GS('Lantern') + 'xx');
+    Check(G.Weapons[High(G.Weapons)].Name = 'Lantern', 'weapons: NPCWEAPONADD adds by name');
+    G.Receive(PLO_NPCWEAPONDEL, 'Lantern');
+    Check(G.Weapons[High(G.Weapons)].Name = 'Fireball', 'weapons: NPCWEAPONDEL removes it');
+    { the item list: Q opens it, arrows move the selection, other keys close }
+    G.Selected := 0;
+    A0 := Round(G.Player.X * 2);
+    G.ItemListKey := True;
+    G.Tick;
+    Check(G.ItemListOpen, 'item list: Q opens it');
+    G.Tick;
+    G.Keys[DirRight] := True;
+    G.Tick;
+    G.Keys[DirRight] := False;
+    Check(G.Selected = 1, 'item list: Right takes the next cell');
+    Check(Round(G.Player.X * 2) = A0, 'item list: the player does not walk');
+    G.Tick;
+    G.AttackKey := True;
+    G.Tick;
+    Check(not G.ItemListOpen and (G.Mode = ModeFree), 'item list: another game key closes it');
+  finally
+    G.Free;
+  end;
+end;
+
+begin
+  Skipped := 0;
   TestGTypes;
   TestBzip2;
   TestGen5Capture;
   TestLogin;
   TestListServer;
+  TestResolveName;
+  TestTerrainHeights;
+  TestAssetOrder;
+  TestListTrailingNuls;
   TestBuiltins;
   TestLoginBurst;
   TestWalkProps;
@@ -1150,6 +1680,14 @@ begin
   TestBoardModify;
   TestFuzz;
   TestReceiveLimits;
+  TestStatus;
+  TestActions;
+  RunNpcTests(Check, NpcSkipped);
+  Inc(Skipped, NpcSkipped);
+  RunBaddyTests(Check);
+  TestCombat;
+  TestSigns;
+  TestWeapons;
   WriteLn(Format('%d passed, %d failed, %d skipped', [Passed, Failed, Skipped]));
   if Failed > 0 then Halt(1);
 end.
