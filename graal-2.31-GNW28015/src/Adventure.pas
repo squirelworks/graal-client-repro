@@ -23,10 +23,15 @@ uses
   Npc231, Baddy231;
 
 const
-  { The game view. 640x480 is assumed for 2.22 as for 2.05; not read from
-    the binary. }
+  { The game window: TAdventure's client area is 640 x 480 (its form is
+    644 x 507 with the frame; 2.31 under Wine shows 640 x 480). }
   ScreenW = 640;
   ScreenH = 480;
+  { the chat line under the play area: TAdventure's Edit1, a white
+    sunken edit box 24 high across the bottom; the play area is the 456
+    above it (2.31 under Wine, Training) }
+  ChatBarH = 24;
+  ViewH = ScreenH - ChatBarH;
 
   { Directions, as the walking routine numbers them. }
   DirUp = 0;
@@ -336,6 +341,8 @@ type
     { One frame: network in, game step, network out, draw. }
     procedure Tick;
     procedure Draw;
+    { the white chat line under the play area }
+    procedure DrawChatBar;
     { Loads a level (or a .gmap and its levels) from disk for offline play;
       links then look for their levels next to it, then in the install. }
     function LoadLevelFile(const FileName: string): Boolean;
@@ -3906,9 +3913,9 @@ begin
   end;
   { centre on the player's body (the sprite box is 3 tiles wide) }
   CamX := Round((Player.X + PX + 1.5) * TileSize) - ScreenW div 2;
-  CamY := Round((Player.Y + PY + 2) * TileSize) - ScreenH div 2;
+  CamY := Round((Player.Y + PY + 2) * TileSize) - ViewH div 2;
   if CamX > WorldW * TileSize - ScreenW then CamX := WorldW * TileSize - ScreenW;
-  if CamY > WorldH * TileSize - ScreenH then CamY := WorldH * TileSize - ScreenH;
+  if CamY > WorldH * TileSize - ViewH then CamY := WorldH * TileSize - ViewH;
   if CamX < 0 then CamX := 0;
   if CamY < 0 then CamY := 0;
   X0 := CamX div TileSize;
@@ -3943,6 +3950,23 @@ begin
   DrawMaps(Self);
   if Reading then DrawSign(LCamY);
   if ItemListOpen then DrawItemList;
+  DrawChatBar;
+end;
+
+procedure TAdventure.DrawChatBar;
+var
+  Y: Integer;
+begin
+  Y := ViewH;
+  Screen.FillRect(0, Y, ScreenW, ChatBarH, $FFFFFFFF);
+  { the sunken edge: grey 166 then 106 on the top and left, 227 then
+    white on the bottom and right }
+  Screen.FillRect(0, Y, ScreenW, 1, $FFA6A6A6);
+  Screen.FillRect(0, Y, 1, ChatBarH, $FFA6A6A6);
+  Screen.FillRect(1, Y + 1, ScreenW - 2, 1, $FF6A6A6A);
+  Screen.FillRect(1, Y + 1, 1, ChatBarH - 2, $FF6A6A6A);
+  Screen.FillRect(1, Y + ChatBarH - 2, ScreenW - 2, 1, $FFE3E3E3);
+  Screen.FillRect(ScreenW - 2, Y + 1, 1, ChatBarH - 2, $FFE3E3E3);
 end;
 
 end.

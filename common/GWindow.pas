@@ -45,6 +45,22 @@ type
     FRightX, FRightY: Integer;
     FWheel: Integer;
     FChars: string;
+    { Alt+Enter fullscreen: on, the size and place the picture is shown
+      at inside the window (FWidth x FHeight scaled), and the window's own
+      size }
+    FFull: Boolean;
+    FOffX, FOffY, FShowW, FShowH, FWinW, FWinH: Integer;
+{$IFDEF MSWINDOWS}
+    FSavedStyle, FSavedExStyle: LongInt;
+    FSavedL, FSavedT, FSavedR, FSavedB: Integer;
+{$ENDIF}
+{$IFNDEF MSWINDOWS}{$IFNDEF GW_NONE}
+    FBigImage: Pointer;
+    FBigBuf: Pointer;
+    FBigScale: Integer;
+{$ENDIF}{$ENDIF}
+    { window pixels to picture pixels (the same unless fullscreen) }
+    procedure MapPoint(var X, Y: Integer);
     procedure AddClick(X, Y: Integer);
     procedure AddRightClick(X, Y: Integer);
 {$IFNDEF MSWINDOWS}{$IFNDEF GW_NONE}
@@ -60,6 +76,13 @@ type
     ArrowHeld: array[0..3] of Boolean;
     Held: array[TGKey] of Boolean;
     Closed: Boolean;
+    { Alt+Enter switches between the window and fullscreen, as the
+      DelphiX clients (2.31 and on) do; off unless a build sets it. In
+      fullscreen the picture is scaled up to the screen, keeping its
+      shape, with black bars. }
+    AllowFullscreen: Boolean;
+    procedure ToggleFullscreen;
+    property Fullscreen: Boolean read FFull;
     constructor Create(const Title: string; AWidth, AHeight: Integer);
     destructor Destroy; override;
     function Ok: Boolean;
@@ -107,8 +130,16 @@ begin
   Held[K] := Down;
 end;
 
+procedure TGWindow.MapPoint(var X, Y: Integer);
+begin
+  if not FFull or (FShowW <= 0) or (FShowH <= 0) then Exit;
+  X := (X - FOffX) * FWidth div FShowW;
+  Y := (Y - FOffY) * FHeight div FShowH;
+end;
+
 procedure TGWindow.AddClick(X, Y: Integer);
 begin
+  MapPoint(X, Y);
   FClicked := True;
   FClickX := X;
   FClickY := Y;
@@ -118,6 +149,7 @@ end;
 
 procedure TGWindow.AddRightClick(X, Y: Integer);
 begin
+  MapPoint(X, Y);
   FRightClicked := True;
   FRightX := X;
   FRightY := Y;
@@ -211,6 +243,15 @@ begin
           Exit;
         end;
       WM_CHAR: begin ActiveWindow.AddChar(Chr(WP and $FF)); Exit; end;
+      WM_SYSKEYDOWN:
+        if (WP = VK_RETURN) and ActiveWindow.AllowFullscreen then
+        begin
+          ActiveWindow.ToggleFullscreen;
+          Exit;
+        end;
+      WM_SYSCHAR:
+        { no beep for Alt+Enter }
+        if (WP = 13) and ActiveWindow.AllowFullscreen then Exit;
       WM_LBUTTONDOWN:
         begin
           ActiveWindow.MouseLeft := True;
@@ -247,6 +288,7 @@ begin
         begin
           ActiveWindow.MouseX := SmallInt(LP and $FFFF);
           ActiveWindow.MouseY := SmallInt((LP shr 16) and $FFFF);
+          ActiveWindow.MapPoint(ActiveWindow.MouseX, ActiveWindow.MouseY);
           Exit;
         end;
       WM_CLOSE: begin ActiveWindow.Closed := True; Exit; end;
@@ -310,6 +352,7 @@ var
   W, H: Integer;
   Style, ExStyle: DWORD;
 begin
+  if FFull then ToggleFullscreen;
   SetWindowText(FWnd, PChar(Title));
   FWidth := AWidth;
   FHeight := AHeight;
@@ -339,11 +382,63 @@ begin
   SendMessage(FWnd, WM_SETICON, ICON_SMALL, LPARAM(LoadIcon(HInstance, 'MAINICON')));
 end;
 
+procedure TGWindow.ToggleFullscreen;
+var
+  W, H: Integer;
+  R: TRect;
+begin
+  if FWnd = 0 then Exit;
+  if not FFull then
+  begin
+    FSavedStyle := GetWindowLong(FWnd, GWL_STYLE);
+    FSavedExStyle := GetWindowLong(FWnd, GWL_EXSTYLE);
+    GetWindowRect(FWnd, R);
+    FSavedL := R.Left;
+    FSavedT := R.Top;
+    FSavedR := R.Right;
+    FSavedB := R.Bottom;
+    W := GetSystemMetrics(SM_CXSCREEN);
+    H := GetSystemMetrics(SM_CYSCREEN);
+    SetWindowLong(FWnd, GWL_STYLE, LONG(WS_POPUP or WS_VISIBLE));
+    SetWindowLong(FWnd, GWL_EXSTYLE, LONG(WS_EX_APPWINDOW));
+    SetWindowPos(FWnd, HWND_TOP, 0, 0, W, H, SWP_FRAMECHANGED or SWP_SHOWWINDOW);
+    FWinW := W;
+    FWinH := H;
+    FFull := True;
+  end
+  else
+  begin
+    FFull := False;
+    SetWindowLong(FWnd, GWL_STYLE, FSavedStyle);
+    SetWindowLong(FWnd, GWL_EXSTYLE, FSavedExStyle);
+    SetWindowPos(FWnd, HWND_NOTOPMOST, FSavedL, FSavedT, FSavedR - FSavedL, FSavedB - FSavedT,
+      SWP_FRAMECHANGED or SWP_SHOWWINDOW);
+  end;
+  InvalidateRect(FWnd, nil, True);
+end;
+
 procedure TGWindow.Present(Surface: TGSurface);
 var
   BI: TBitmapInfo;
   DC: HDC;
+  R: TRect;
 begin
+  if FFull then
+  begin
+    { the largest size of the picture's shape that fits the screen }
+    if FWinW * FHeight <= FWinH * FWidth then
+    begin
+      FShowW := FWinW;
+      FShowH := FWinW * FHeight div FWidth;
+    end
+    else
+    begin
+      FShowH := FWinH;
+      FShowW := FWinH * FWidth div FHeight;
+    end;
+    FOffX := (FWinW - FShowW) div 2;
+    FOffY := (FWinH - FShowH) div 2;
+  end;
   FillChar(BI, SizeOf(BI), 0);
   BI.bmiHeader.biSize := SizeOf(BI.bmiHeader);
   BI.bmiHeader.biWidth := Surface.Width;
@@ -352,8 +447,24 @@ begin
   BI.bmiHeader.biBitCount := 32;
   BI.bmiHeader.biCompression := BI_RGB;
   DC := GetDC(FWnd);
-  StretchDIBits(DC, 0, 0, FWidth, FHeight, 0, 0, Surface.Width, Surface.Height,
-    @Surface.Pixels[0], BI, DIB_RGB_COLORS, SRCCOPY);
+  if FFull then
+  begin
+    { black bars round the picture }
+    R.Left := 0; R.Top := 0; R.Right := FWinW; R.Bottom := FOffY;
+    FillRect(DC, R, HBRUSH(GetStockObject(BLACK_BRUSH)));
+    R.Top := FOffY + FShowH; R.Bottom := FWinH;
+    FillRect(DC, R, HBRUSH(GetStockObject(BLACK_BRUSH)));
+    R.Top := 0; R.Right := FOffX;
+    FillRect(DC, R, HBRUSH(GetStockObject(BLACK_BRUSH)));
+    R.Left := FOffX + FShowW; R.Right := FWinW;
+    FillRect(DC, R, HBRUSH(GetStockObject(BLACK_BRUSH)));
+    SetStretchBltMode(DC, COLORONCOLOR);
+    StretchDIBits(DC, FOffX, FOffY, FShowW, FShowH, 0, 0, Surface.Width, Surface.Height,
+      @Surface.Pixels[0], BI, DIB_RGB_COLORS, SRCCOPY);
+  end
+  else
+    StretchDIBits(DC, 0, 0, FWidth, FHeight, 0, 0, Surface.Width, Surface.Height,
+      @Surface.Pixels[0], BI, DIB_RGB_COLORS, SRCCOPY);
   ReleaseDC(FWnd, DC);
 end;
 
@@ -391,6 +502,10 @@ procedure TGWindow.Reshape(const Title: string; AWidth, AHeight: Integer;
 begin
   FWidth := AWidth;
   FHeight := AHeight;
+end;
+
+procedure TGWindow.ToggleFullscreen;
+begin
 end;
 
 {$ENDIF}
@@ -484,6 +599,12 @@ begin
       XDestroyImage(FImage);
     end;
     if FImageBuf <> nil then FreeMem(FImageBuf);
+    if FBigImage <> nil then
+    begin
+      PXImage(FBigImage)^.data := nil;
+      XDestroyImage(FBigImage);
+      FreeMem(FBigBuf);
+    end;
     if FGC <> nil then XFreeGC(D, FGC);
     XDestroyWindow(D, FWin);
     XCloseDisplay(D);
@@ -515,6 +636,12 @@ begin
           Sym := XLookupKeysym(@E.xkey, 0);
           if (Sym = XK_Control_L) or (Sym = XK_Control_R) then CtrlHeld := True;
           if (Sym = XK_Shift_L) or (Sym = XK_Shift_R) then ShiftHeld := True;
+          if ((Sym = XK_Return) or (Sym = XK_KP_Enter)) and
+            (E.xkey.state and Mod1Mask <> 0) and AllowFullscreen then
+          begin
+            ToggleFullscreen;
+            Continue;
+          end;
           SetArrow(Sym, True);
           SetKey(KeySymToKey(Sym), True);
           if Sym = XK_BackSpace then AddChar(#8)
@@ -545,6 +672,12 @@ begin
         begin
           MouseX := E.xmotion.x;
           MouseY := E.xmotion.y;
+          MapPoint(MouseX, MouseY);
+        end;
+      ConfigureNotify:
+        begin
+          FWinW := E.xconfigure.width;
+          FWinH := E.xconfigure.height;
         end;
       KeyRelease:
         begin
@@ -578,6 +711,7 @@ var
 begin
   D := FDisplay;
   if D = nil then Exit;
+  if FFull then ToggleFullscreen;
   XStoreName(D, FWin, PChar(Title));
   { _MOTIF_WM_HINTS: a dialog may only be moved and closed; the game may
     also be minimised }
@@ -627,13 +761,105 @@ begin
   XFlush(D);
 end;
 
+{ _NET_WM_STATE_FULLSCREEN through the window manager; the size limits
+  are lifted while it is on }
+procedure TGWindow.ToggleFullscreen;
+var
+  D: PDisplay;
+  E: TXEvent;
+  Hints: PXSizeHints;
+  Scr: cint;
+begin
+  D := FDisplay;
+  if D = nil then Exit;
+  Scr := DefaultScreen(D);
+  FFull := not FFull;
+  Hints := XAllocSizeHints;
+  if FFull then
+    Hints^.flags := 0
+  else
+  begin
+    Hints^.flags := PMinSize or PMaxSize;
+    Hints^.min_width := FWidth;
+    Hints^.max_width := FWidth;
+    Hints^.min_height := FHeight;
+    Hints^.max_height := FHeight;
+  end;
+  XSetWMNormalHints(D, FWin, Hints);
+  XFree(Hints);
+  FillChar(E, SizeOf(E), 0);
+  E.xclient._type := ClientMessage;
+  E.xclient.window := FWin;
+  E.xclient.message_type := XInternAtom(D, '_NET_WM_STATE', False);
+  E.xclient.format := 32;
+  if FFull then E.xclient.data.l[0] := 1 else E.xclient.data.l[0] := 0;
+  E.xclient.data.l[1] := clong(XInternAtom(D, '_NET_WM_STATE_FULLSCREEN', False));
+  E.xclient.data.l[3] := 1;
+  XSendEvent(D, RootWindow(D, Scr), False, SubstructureRedirectMask or
+    SubstructureNotifyMask, @E);
+  if FFull then
+  begin
+    FWinW := DisplayWidth(D, Scr);
+    FWinH := DisplayHeight(D, Scr);
+  end
+  else
+  begin
+    FWinW := FWidth;
+    FWinH := FHeight;
+  end;
+  XClearWindow(D, FWin);
+  XFlush(D);
+end;
+
 procedure TGWindow.Present(Surface: TGSurface);
 var
   D: PDisplay;
-  N: Integer;
+  N, K, X, Y, I: Integer;
+  Src, Dst: PCardinal;
 begin
   D := FDisplay;
   if (D = nil) or (FImage = nil) then Exit;
+  if FFull and (FWinW > 0) and (FWinH > 0) then
+  begin
+    { a whole-number scale (nearest pixels), centred }
+    K := FWinW div FWidth;
+    if FWinH div FHeight < K then K := FWinH div FHeight;
+    if K < 1 then K := 1;
+    if (FBigImage = nil) or (K <> FBigScale) then
+    begin
+      if FBigImage <> nil then
+      begin
+        PXImage(FBigImage)^.data := nil;
+        XDestroyImage(FBigImage);
+        FreeMem(FBigBuf);
+      end;
+      FBigScale := K;
+      GetMem(FBigBuf, FWidth * K * FHeight * K * 4);
+      FBigImage := XCreateImage(D, DefaultVisual(D, DefaultScreen(D)), 24, ZPixmap, 0,
+        FBigBuf, FWidth * K, FHeight * K, 32, FWidth * K * 4);
+    end;
+    FShowW := FWidth * K;
+    FShowH := FHeight * K;
+    FOffX := (FWinW - FShowW) div 2;
+    FOffY := (FWinH - FShowH) div 2;
+    if (Surface.Width = FWidth) and (Surface.Height >= FHeight) then
+    begin
+      Dst := FBigBuf;
+      for Y := 0 to FShowH - 1 do
+      begin
+        Src := @Surface.Pixels[(Y div K) * FWidth];
+        for X := 0 to FShowW - 1 do
+        begin
+          I := X div K;
+          Dst^ := PCardinal(PAnsiChar(Src) + I * 4)^;
+          Inc(Dst);
+        end;
+      end;
+    end;
+    XPutImage(D, FWin, FGC, FBigImage, 0, 0, FOffX, FOffY, FShowW, FShowH);
+    XFlush(D);
+    Exit;
+  end;
   N := Surface.Width * Surface.Height;
   if N > FWidth * FHeight then N := FWidth * FHeight;
   if N > 0 then Move(Surface.Pixels[0], FImageBuf^, N * 4);

@@ -32,6 +32,10 @@ uses
   GBuiltin in '../../common/GBuiltin.pas',
   GStartScreen in '../../common/GStartScreen.pas',
   ListServer231 in '../src/ListServer231.pas',
+  GWindow in '../../common/GWindow.pas',
+  GUiFont in '../../common/GUiFont.pas',
+  Res231 in '../src/Res231.pas',
+  RealStart231 in '../src/RealStart231.pas',
   TestNpc231 in 'TestNpc231.pas',
   TestBaddy231 in 'TestBaddy231.pas';
 
@@ -1602,8 +1606,49 @@ begin
   end;
 end;
 
+{ What the rebuild carries from 2.31's own program: the start window's
+  pictures (and their sizes in Graal_231.exe), the tutorial levels, and
+  the server list's tabs as 2.31 names them. }
+procedure TestRealStart;
+var
+  Art: TRealStartArt;
+  D: string;
+  L: TAdventureLevel;
+  C: Char;
+  N, K: Integer;
+begin
+  Art := TRealStartArt.Create;
+  try
+    Check(Art.Load(''), 'real start: the compiled-in pictures decode');
+    Check((Art.Back1.Width = 577) and (Art.Back1.Height = 416), 'real start: SCREENIMG1 is 577 x 416');
+    Check((Art.Back2.Width = 577) and (Art.Back2.Height = 416), 'real start: SCREENIMG2 is 577 x 416');
+    Check(Art.Btn[2].Width > Art.Btn[1].Width, 'real start: BUTTON2 is the wide button');
+    Check(Art.Text('StartScreen-Button5', 'Editor') = 'Editor', 'real start: no language file, the defaults');
+  finally
+    Art.Free;
+  end;
+  Check(ServerTab('P Gold Server') = ltGold, 'tabs: P is Graal Gold');
+  Check(ServerTab('3 A 3D Server') = lt3D, 'tabs: 3 is Graal 3D');
+  Check(ServerTab('H Someone''s') = ltHosted, 'tabs: H is Hosted');
+  Check(ServerTab('Classic One') = ltClassic, 'tabs: no prefix is Classic');
+  Check(ServerTab('U Hidden') = ltNone, 'tabs: U is on no tab');
+  N := 0;
+  for C := 'A' to 'C' do
+    for K := 1 to 3 do
+      if ResFile('TUTORIAL' + C + IntToStr(K), D) and (Copy(D, 1, 8) = 'GR-V1.03') then Inc(N);
+  Check(N = 9, 'tutorial: the nine levels are compiled in, GR-V1.03');
+  L := TAdventureLevel.Create;
+  try
+    Check(ResFile('TUTORIALB2', D) and L.LoadFromString(D),
+      'tutorial: b-2 parses');
+  finally
+    L.Free;
+  end;
+end;
+
 begin
   Skipped := 0;
+  TestRealStart;
   TestGTypes;
   TestBzip2;
   TestGen5Capture;
