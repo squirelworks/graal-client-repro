@@ -9,7 +9,6 @@ name: graal-3d
 on:
   push:
     branches: [main]
-    tags: ['graal-3d-*']
   pull_request:
     paths:
       - 'graal-3d-20000205/**'

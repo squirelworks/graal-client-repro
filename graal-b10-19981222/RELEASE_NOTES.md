@@ -21,6 +21,14 @@ unblock the zip before you extract it: right-click it, **Properties**,
 tick **Unblock**, **OK**. Then nothing in the folder is asked about again.
 See [Windows says "Windows protected your PC"](https://github.com/squirelworks/graal-delphi#windows-says-windows-protected-your-pc).
 
+## What's new in v0.0.3
+
+- The Windows program carries its original's own icon (the sword, taken from
+  the original exe), so Explorer shows it as the original did.
+- Stress tested before release: a long soak with several players on one
+  relay and others connecting and dropping again and again, with no crash,
+  error or memory growth.
+
 ## What works
 
 - The start screen: nick name, Training, and Start with the relay server

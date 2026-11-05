@@ -169,16 +169,16 @@ The notes leave these open; each is marked "this build" in the code.
 
 ## Not yet (0.0.2 and on)
 
-- "Hardware options" (F1) and "Player look" (F2) windows; Ctrl+Enter full
+- [ ] "Hardware options" (F1) and "Player look" (F2) windows; Ctrl+Enter full
   screen. Their settings are read from `graal3dconfig.txt` meanwhile.
-- The registry store of nickname, account and the DES-hidden password.
-- Arm and leg swing while walking (only the body bob is drawn).
-- The "Graal execution file is corrupted" self-check.
-- A side-by-side check of play against the real client. Under Wine the
+- [ ] The registry store of nickname, account and the DES-hidden password.
+- [ ] Arm and leg swing while walking (only the body bob is drawn).
+- [ ] The "Graal execution file is corrupted" self-check.
+- [ ] A side-by-side check of play against the real client. Under Wine the
   real client's start window opens, but past it the client needs
   Microsoft's `d3drm.dll` (Wine's is a stub, see the lab notes), so no
   real login could be compared here; the rebuild's login was checked
   against the reference server.
-- The server drop-down list of the start window.
-- Admin login (id 1) and its account and player lists: no admin client
+- [ ] The server drop-down list of the start window.
+- [ ] Admin login (id 1) and its account and player lists: no admin client
   shipped for Graal3D.

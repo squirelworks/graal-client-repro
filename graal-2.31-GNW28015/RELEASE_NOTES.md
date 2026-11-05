@@ -16,13 +16,10 @@ program carries small default graphics and a starter level of its own, so
 it runs as it is. Put it in the folder of a 2.31 install you own, next to
 its files, or keep those files in a `graal-assets/` folder beside it.
 
-## What's new in v0.0.3
+## What's new in v0.0.4
 
-- Faithfulness pass: compared side by side with the original program it was
-  rebuilt from, and the differences found brought in line with it.
-- Stress tested before release: a long soak with several players walking
-  between levels, others connecting and dropping again and again, and a
-  level with 80 scripted NPCs, with no crash, error or memory growth.
+- Faithfulness pass: compared side by side with the real 2.31 (under Wine
+  and on Windows), and the differences found brought in line with it.
 - [x] 2.31's own start window: its background and picture buttons, taken
   out of the real 2.31 program and built into this one, at the places the
   real one shows them. It is its own 577 x 416 window titled
@@ -81,6 +78,12 @@ its files, or keep those files in a `graal-assets/` folder beside it.
   controls draw it; elsewhere the built-in Liberation Sans stands in.
 - [x] The start window and server list have no icon in their caption, and
   the account box has the focus when the window opens, its text picked.
+
+## What's new in v0.0.3
+
+- Stress tested before release: a long soak with several players walking
+  between levels, others connecting and dropping again and again, and a
+  level with 80 scripted NPCs, with no crash, error or memory growth.
 
 ## Downloads
 

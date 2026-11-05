@@ -17,6 +17,14 @@ point it at one with `--data DIR`) and the install's tiles, ganis, heads and
 bodies take their place. The shared `graal-assets/` folder next to the
 program works too (`graal-assets/4.04r2/`, then `graal-assets/common/`).
 
+## What's new in v0.0.3
+
+- The Windows program carries its original's own icon (the Graal head, taken from
+  the original exe), so Explorer shows it as the original did.
+- Stress tested before release: a long soak with several players walking
+  between levels, others connecting and dropping again and again, and a
+  level with 80 scripted NPCs, with no crash, error or memory growth.
+
 ## Downloads
 
 | Zip | Runs on | Window |
@@ -55,6 +63,9 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 NPCs, baddies, items and weapons; the GS1 and GS2 script engines; chat;
 the server list as the original shows it; update packages; the 3D mode;
 saved passwords; Options. See the build's README for the full list.
+
+The original runs on the Torque engine; this release is still the Delphi
+stand-in that speaks its wire protocol. The Torque layer is not done.
 
 ## Checks behind this release
 

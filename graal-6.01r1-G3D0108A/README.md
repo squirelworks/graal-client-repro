@@ -84,15 +84,15 @@ From the program's folder (or `--data`), then `graal-assets/6.01r1/`, then
 
 ## Not yet, or not known
 
-- Whether 6.01r1 draws tiles in Login mode: not recorded; 6.03r7's "no" is
+- [ ] Whether 6.01r1 draws tiles in Login mode: not recorded; 6.03r7's "no" is
   used.
-- The Login server's scripted GUI and GS2: 140 and 197 (scripts and the
+- [ ] The Login server's scripted GUI and GS2: 140 and 197 (scripts and the
   `GRESCR01` cache), 195 (gani scripts) and 190 are accepted and ignored.
-- 109 (probably a file redirect) and 198 are accepted and ignored.
-- 46 (ENTERLEVEL) on level entry, 162 (the ping answer), the base-file
+- [ ] 109 (probably a file redirect) and 198 are accepted and ignored.
+- [ ] 46 (ENTERLEVEL) on level entry, 162 (the ping answer), the base-file
   requests and the keep-alive 24 are not sent.
-- `GR-V1.05` levels and `GRPKG001` update packages.
-- The chat font (Tempus Sans ITC 24) and nickname colours by AP.
-- Whether 6.01r1 plays offline at all is not traced; Training keeps 3.153's.
-- No side-by-side run against the real 6.01r1; that is 0.0.2 work.
-- Everything still missing from the 6.03r7 rebuild.
+- [ ] `GR-V1.05` levels and `GRPKG001` update packages.
+- [ ] The chat font (Tempus Sans ITC 24) and nickname colours by AP.
+- [ ] Whether 6.01r1 plays offline at all is not traced; Training keeps 3.153's.
+- [ ] No side-by-side run against the real 6.01r1; that is 0.0.2 work.
+- [ ] Everything still missing from the 6.03r7 rebuild.

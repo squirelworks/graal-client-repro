@@ -94,11 +94,11 @@ next to the program, or the install's `arrays2.dat`, wins over it.
   Open URL windows, the chat line and the quit box. Training's torches,
   text and ground are in; some things stand a little lower than in 2.31
   (see RELEASE_NOTES "Not yet").
-- The payload of 24 in 2.31 (2.22's value, 9, is sent).
-- Whether 2.31 sends its own position as X2 / Y2; the rebuild sends X / Y
+- [ ] The payload of 24 in 2.31 (2.22's value, 9, is sent).
+- [ ] Whether 2.31 sends its own position as X2 / Y2; the rebuild sends X / Y
   in half tiles, as 2.22 does.
-- `LARGEFILESIZE` and `MOVE2` are accepted and ignored; NPC moves are not
+- [ ] `LARGEFILESIZE` and `MOVE2` are accepted and ignored; NPC moves are not
   animated.
-- `graal://` links.
-- The F1 window with four buttons, the key-config fix, GS1's `timevar2`, `downloadsize`, `onwall2`, `onwater2`.
-- Everything listed under "Not yet" in the 2.22 README.
+- [ ] `graal://` links.
+- [ ] The F1 window with four buttons, the key-config fix, GS1's `timevar2`, `downloadsize`, `onwall2`, `onwater2`.
+- [ ] Everything listed under "Not yet" in the 2.22 README.
