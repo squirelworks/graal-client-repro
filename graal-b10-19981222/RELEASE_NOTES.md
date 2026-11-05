@@ -24,6 +24,8 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 
 ## What's new in v0.0.3
 
+- The Windows program carries its original's own icon (the sword, taken from
+  the original exe), so Explorer shows it as the original did.
 - Stress tested before release: a long soak with several players on one
   relay and others connecting and dropping again and again, with no crash,
   error or memory growth.

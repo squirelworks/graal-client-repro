@@ -361,7 +361,7 @@ begin
     S := GInt3(7) + GChar(NPCPROP_SCRIPT) + GShort(5) + 'hide;' + GChar(NPCPROP_X) + GChar(40);
     M.Receive(3, S);
     C((N.Script = Script) and (N.X = 20), 'NPCPROPS: a second script is ignored, later props still apply');
-    { an id above 40 ends the stream in 2.05 }
+    { 48 is not a 2.22 prop: it ends the stream }
     S := GInt3(7) + GChar(NPCPROP_Y) + GChar(10) + GChar(48) + GChar(NPCPROP_X) + GChar(2);
     M.Receive(3, S);
     C((N.Y = 5) and (N.X = 20), 'NPCPROPS: an unknown prop id ends the stream');
@@ -487,6 +487,123 @@ begin
   end;
 end;
 
+{ online, NPCs are kept with the level (and gmap cell) they came for }
+procedure TestNpcScope;
+var
+  W: TTestWorld;
+  M: TNpcManager;
+  N: TNpc;
+  Scr: TGSurface;
+begin
+  W := TTestWorld.Create;
+  W.IsOnline := True;
+  M := TNpcManager.Create(W);
+  try
+    M.SetScope('a.nw', 'world.gmap', 1, 0);
+    M.ObjectLevel := 'world.gmap';
+    { an NPC of the player's cell, and one of the next cell west }
+    M.DataCellX := 1;
+    M.DataCellY := 0;
+    M.Receive(3, GInt3(5) + GChar(NPCPROP_X) + GChar(20) + GChar(NPCPROP_Y) + GChar(20));
+    M.DataCellX := 0;
+    M.Receive(3, GInt3(6) + GChar(NPCPROP_X) + GChar(40) + GChar(NPCPROP_Y) + GChar(40));
+    C((M.FindById(5) <> nil) and (M.FindById(6) = nil) and (M.FindAnyById(6) <> nil),
+      'scope: an NPC of another gmap cell waits, not drawn in this one');
+    { the cell props (41, 42) override the data level's cell }
+    M.Receive(3, GInt3(7) + GChar(NPCPROP_X) + GChar(2) + GChar(NPCPROP_GMAPLEVELX) + GChar(1) +
+      GChar(NPCPROP_GMAPLEVELY) + GChar(0) + GChar(NPCPROP_Z) + GChar(52));
+    N := M.FindById(7);
+    C((N <> nil) and (N.CellX = 1) and (N.Z = 2) and (N.X = 1),
+      'NPCPROPS: GMAPLEVELX/Y and Z (2.22) are read and place the NPC');
+    { walking into the west cell brings its NPC in and parks the others }
+    M.SetScope('b.nw', 'world.gmap', 0, 0);
+    C((M.FindById(6) <> nil) and (M.FindById(5) = nil) and (M.FindAnyById(5) <> nil),
+      'scope: crossing into a cell brings its NPCs and keeps the left ones');
+    { the east cell's waiting NPC is drawn at its place on the map: x 10
+      of cell 1 is 1184 px from cell 0's left edge }
+    M.FindAnyById(5).Image := 'block.png';
+    W.Img.Fill($FFFF0000);
+    Scr := TGSurface.Create(1300, 200);
+    try
+      M.Draw(Scr, 0, 0, False);
+      C((Scr.GetPixel(1190, 170) = $FFFF0000) and (Scr.GetPixel(170, 170) <> $FFFF0000),
+        'scope: a neighbour cell''s NPC is drawn at its global place');
+    finally
+      Scr.Free;
+      W.Img.Fill(0);
+    end;
+    { props past 40 up to 73 are read through; 48 still ends the stream }
+    M.Receive(3, GInt3(6) + GChar(NPCPROP_GATTRIB6) + GString('x') + GChar(NPCPROP_SCRIPTER) +
+      GString('s') + GChar(NPCPROP_GATTRIB30) + GString('y') + GChar(NPCPROP_X) + GChar(10));
+    C(M.FindById(6).X = 5, 'NPCPROPS: string props 44 to 73 are read through');
+    { NPCDEL2: c n, level name, i3 id }
+    M.Receive(150, GString('world.gmap') + GInt3(5));
+    C(M.FindAnyById(5) = nil, 'NPCDEL2 removes a waiting NPC');
+    { a plain level's NPCs are dropped when the player leaves: the server
+      sends them again }
+    M.SetScope('house.nw', '', -1, -1);
+    M.ObjectLevel := 'house.nw';
+    M.Receive(3, GInt3(9) + GChar(NPCPROP_X) + GChar(20));
+    C(M.FindById(9) <> nil, 'scope: an NPC of the player''s level is in it');
+    M.SetScope('a.nw', 'world.gmap', 1, 0);
+    C((M.FindAnyById(9) = nil) and (M.FindById(7) <> nil),
+      'scope: a left level''s NPCs go; the gmap''s come back');
+  finally
+    M.Free;
+    W.Free;
+  end;
+end;
+
+{ files from the server: pictures the install lacks are asked once, and
+  a copy that arrives is used }
+type
+  TWantLog = class
+    Names: TStringList;
+    Up: Boolean;
+    function Want(const Name: string): Boolean;
+  end;
+
+function TWantLog.Want(const Name: string): Boolean;
+begin
+  Result := Up;
+  if Up then Names.Add(Name);
+end;
+
+procedure TestDownloads;
+const
+  { a 1 x 1 red PNG }
+  Png = #$89'PNG'#13#10#$1A#10#0#0#0#13'IHDR'#0#0#0#1#0#0#0#1#8#2#0#0#0#$90'wS'#$DE +
+    #0#0#0#12'IDAT'#8#$D7'c'#$F8#$CF#$C0#0#0#3#1#1#0#$18#$DD#$8D#$B0#0#0#0#0'IEND'#$AE'B'#$60#$82;
+var
+  A: TAssets;
+  L: TWantLog;
+begin
+  A := TAssets.Create;
+  L := TWantLog.Create;
+  L.Names := TStringList.Create;
+  try
+    A.OnWant := L.Want;
+    C(A.Image('head-custom.png', 'head') = nil, 'files: a missing head is nil');
+    C(L.Names.Count = 0, 'files: nothing asked before the session is up');
+    L.Up := True;
+    A.WantMissing;
+    A.Image('head-custom.png', 'head');
+    C((L.Names.Count = 1) and (L.Names[0] = 'head-custom.png'),
+      'files: once up, a missing head is asked for once');
+    A.AddDownload('head-custom.png', Png);
+    C((A.Image('head-custom.png', 'head') <> nil) and (A.Image('head-custom.png', 'head').Width = 1),
+      'files: the copy the server sent is drawn');
+    A.Image('../x.png', '');
+    C(L.Names.Count = 1, 'files: names with a path are not asked');
+    C(A.Image('#c#', '') = nil, 'files: the showcharacter marker is no picture');
+    C(L.Names.Count = 1, 'files: the showcharacter marker is not asked');
+  finally
+    L.Names.Free;
+    L.Free;
+    A.Free;
+  end;
+end;
+
 procedure RunNpcTests(Check: TCheckProc; out Skipped: Integer);
 begin
   Skipped := 0;
@@ -494,6 +611,8 @@ begin
   TestLanguage;
   TestNpcCommands;
   TestNpcProps;
+  TestNpcScope;
+  TestDownloads;
   TestLibrary(Skipped);
   TestInGame;
 end;
