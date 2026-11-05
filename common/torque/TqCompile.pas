@@ -765,7 +765,7 @@ var
   N, F, V: TNode;
   FieldName: string;
 begin
-  { new Class(name[ : parent][, args...]) [{ fields; objects }] }
+  // new Class(name[ : parent][, args...]) [{ fields; objects }]
   Next;
   N := NewNode(nkNew);
   if IsOp('(') then

@@ -202,7 +202,7 @@ function TqAtoi(const S: string): Int64;
 implementation
 
 uses
-  TqCompile;
+  Math, TqCompile;
 
 const
   FirstDynamicId = 1027; { TGE 1.x: datablock ids 3..1026, then dynamic ids }
@@ -227,7 +227,8 @@ begin
   Fmt := DefaultFormatSettings;
   Fmt.DecimalSeparator := '.';
   Prec := 6;
-  S := FloatToStrF(Abs(D), ffExponent, Prec, 0, Fmt); { d.ddddE+xx }
+  { d.dddddE+xxx; FPC's FloatToStrF(ffExponent, ..., 0) drops the exponent }
+  S := Format('%.*e', [Prec - 1, Abs(D)], Fmt);
   E := StrToInt(Copy(S, Pos('E', S) + 1, MaxInt));
   if (E < -4) or (E >= Prec) then
   begin
@@ -870,7 +871,15 @@ begin
   Inc(FrameCount);
   if FrameCount > Length(Frames) then
     SetLength(Frames, FrameCount * 2);
-  Frames[FrameCount - 1] := Frames[Saved - 1];
+  if Saved > 0 then
+    Frames[FrameCount - 1] := Frames[Saved - 1]
+  else
+  begin
+    { called from outside any script: a top-level frame, as CompileAndRun }
+    Frames[FrameCount - 1].Ns := '';
+    Frames[FrameCount - 1].Layer := 0;
+    Frames[FrameCount - 1].Locals := nil;
+  end;
   Frames[FrameCount - 1].Block := Blk;
   try
     Result := Exec(Blk, 0, False);
@@ -949,7 +958,7 @@ var
   K: Integer;
   V: TTqVar;
 begin
-  if L.Native <> nil then
+  if Assigned(L.Native) then
     Exit(L.Native(Self, Argv));
   D := L.Def;
   Locals := TTqDict.Create;

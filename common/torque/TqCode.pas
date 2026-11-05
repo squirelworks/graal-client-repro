@@ -257,7 +257,7 @@ var
   end;
 
 var
-  N, I, J, Cnt, CodeLen, LineBreaks, IdentCnt, Off, Uses, IpAt: Cardinal;
+  N, I, J, Cnt, CodeLen, LineBreaks, IdentCnt, Off, UseCnt, IpAt: Cardinal;
   GFPos, FFPos, GFCnt, FFCnt: Integer;
   LittleOk, BigOk: Boolean;
   B: Byte;
@@ -331,9 +331,9 @@ begin
     which is also the empty identifier. }
   for J := 1 to IdentCnt do
   begin
-    if not U32(Off) or not U32(Uses) then Exit;
+    if not U32(Off) or not U32(UseCnt) then Exit;
     Id := TqIntern(CStr(GStr, Off));
-    for I := 1 to Uses do
+    for I := 1 to UseCnt do
     begin
       if not U32(IpAt) then Exit;
       if IpAt < CodeLen then
