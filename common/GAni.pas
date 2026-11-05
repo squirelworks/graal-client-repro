@@ -7,8 +7,12 @@
   before it; PLAYSOUND name x y cues a sound on it. Keywords are matched
   case-insensitively, as the parser lowercases each line.
 
-  Movie mode (GANI0002) is not read: 2.05 plays player animations from
-  sprite-mode files.
+  2.2 additions read here: a SCRIPT .. SCRIPTEND block (GS1 the game runs
+  for whoever shows the gani) and movie mode (GANI0002: FRAMES n, then
+  MOVIE .. MOVIEEND with ACTOR SPRITE / ACTOR TEXT blocks of keyframes
+  "FRAME n key=value,..."). A keyframe keeps what the one before it set
+  and dx, dy run straight from one keyframe to the next; the frame rate
+  is not traced (20 a second is assumed by the caller).
 
   ATTACHSPRITE parent child dx dy (2.1 on) hangs a sprite on another: every
   placement of the parent also places the child dx, dy pixels from it,
@@ -52,6 +56,22 @@ type
     Sound: string;
   end;
 
+  { one keyframe of a movie actor, with everything earlier ones set }
+  TGaniKey = record
+    Frame: Integer;
+    DX, DY: Double;
+    Sprite, Layer: Integer;
+    Text, Font: string;
+    Color: Cardinal;         { $RRGGBB }
+    FontSize: Double;
+    Bold, Italic, Centered, Shaded, Visible: Boolean;
+  end;
+
+  TGaniActor = record
+    IsText: Boolean;
+    Keys: array of TGaniKey;
+  end;
+
   TGraalAni = class
   private
     FSpriteIndex: array of Integer; { sprite id -> index into Sprites, or -1 }
@@ -64,6 +84,14 @@ type
     SetBackTo, DefaultHead, DefaultBody: string;
     DefaultAttr: array[1..30] of string; { #P1 to #P30 (2.16 added 10 to 30) }
     DefaultParam: array[1..20] of string;
+    { the SCRIPT block, without its SCRIPT / SCRIPTEND lines }
+    Script: string;
+    { movie mode: FRAMES and the actors; empty for sprite mode }
+    MovieFrames: Integer;
+    Actors: array of TGaniActor;
+    { Actor A at movie frame F (looped over MovieFrames, between frames
+      dx and dy run straight). False when it has no keyframe yet. }
+    function ActorAt(A: Integer; F: Double; out K: TGaniKey): Boolean;
     function LoadFromString(const Text: string): Boolean;
     { Parts with every attached sprite placed (see ATTACHSPRITE above). }
     function ExpandAttachments(const Parts: TGraalAniPartList): TGraalAniPartList;
@@ -212,11 +240,76 @@ var
     for J := 0 to 3 do SetLength(Step.Dirs[J], 0);
   end;
 
+  procedure MovieFrame(const Line: string);
+  var
+    Rest, Item, K, V: string;
+    P, A, N, Q: Integer;
+    Key: TGaniKey;
+  begin
+    A := High(Actors);
+    if A < 0 then Exit;
+    N := Length(Actors[A].Keys);
+    if N > 0 then Key := Actors[A].Keys[N - 1]
+    else
+    begin
+      Key.Frame := 0;
+      Key.Text := '';
+      Key.Font := '';
+      Key.DX := 0; Key.DY := 0; Key.Sprite := -1; Key.Layer := 0;
+      Key.Color := $FFFFFF; Key.FontSize := 12;
+      Key.Bold := False; Key.Italic := False; Key.Centered := False;
+      Key.Shaded := False; Key.Visible := True;
+    end;
+    { "FRAME n k=v,k=v": a value may hold spaces (text=...) but no comma }
+    Rest := TrimLeft(Copy(TrimLeft(Line), 6, MaxInt));
+    P := Pos(' ', Rest);
+    if P = 0 then begin Key.Frame := StrToIntDef(Rest, 0); Rest := ''; end
+    else
+    begin
+      Key.Frame := StrToIntDef(Copy(Rest, 1, P - 1), 0);
+      Rest := Copy(Rest, P + 1, MaxInt);
+    end;
+    while Rest <> '' do
+    begin
+      P := Pos(',', Rest);
+      if P = 0 then begin Item := Rest; Rest := ''; end
+      else begin Item := Copy(Rest, 1, P - 1); Rest := Copy(Rest, P + 1, MaxInt); end;
+      Q := Pos('=', Item);
+      if Q = 0 then Continue;
+      K := LowerCase(Trim(Copy(Item, 1, Q - 1)));
+      V := Copy(Item, Q + 1, MaxInt);
+      if K = 'dx' then Key.DX := StrToFloatDef(Trim(V), 0, DefaultFormatSettings)
+      else if K = 'dy' then Key.DY := StrToFloatDef(Trim(V), 0, DefaultFormatSettings)
+      else if K = 'sprite #' then Key.Sprite := StrToIntDef(Trim(V), -1)
+      else if K = 'layer' then Key.Layer := StrToIntDef(Trim(V), 0)
+      else if K = 'text' then Key.Text := V
+      else if K = 'font' then Key.Font := Trim(V)
+      else if K = 'fontsize' then Key.FontSize := StrToFloatDef(Trim(V), 12, DefaultFormatSettings)
+      else if K = 'color' then Key.Color := Cardinal(StrToIntDef('$' + Trim(V), $FFFFFF))
+      else if K = 'bold' then Key.Bold := LowerCase(Trim(V)) = 'true'
+      else if K = 'italic' then Key.Italic := LowerCase(Trim(V)) = 'true'
+      else if K = 'centered' then Key.Centered := LowerCase(Trim(V)) = 'true'
+      else if K = 'shaded' then Key.Shaded := LowerCase(Trim(V)) = 'true'
+      else if K = 'visible' then Key.Visible := LowerCase(Trim(V)) = 'true';
+    end;
+    SetLength(Actors[A].Keys, N + 1);
+    Actors[A].Keys[N] := Key;
+  end;
+
+var
+  InScript, InMovie: Boolean;
+  ScriptLines: string;
 begin
   Result := False;
   SetLength(Sprites, 0);
   SetLength(Steps, 0);
   SetLength(Attachments, 0);
+  SetLength(Actors, 0);
+  Script := '';
+  MovieFrames := 0;
+  InScript := False;
+  InMovie := False;
+  ScriptLines := '';
   Lines := TStringList.Create;
   W := TStringList.Create;
   try
@@ -228,7 +321,32 @@ begin
     for I := 0 to Lines.Count - 1 do
     begin
       S := Lines[I];
+      if InScript then
+      begin
+        if UpperCase(Trim(S)) = 'SCRIPTEND' then InScript := False
+        else ScriptLines := ScriptLines + S + #10;
+        Continue;
+      end;
+      if (not InAni) and (UpperCase(Trim(S)) = 'SCRIPT') then
+      begin
+        InScript := True;
+        Continue;
+      end;
       SplitWords(S, W);
+      if InMovie then
+      begin
+        if W.Count = 0 then Continue;
+        Key := LowerCase(W[0]);
+        if Key = 'movieend' then InMovie := False
+        else if (Key = 'actor') and (W.Count > 1) then
+        begin
+          N := Length(Actors);
+          SetLength(Actors, N + 1);
+          Actors[N].IsText := LowerCase(W[1]) = 'text';
+        end
+        else if Key = 'frame' then MovieFrame(S);
+        Continue;
+      end;
       if W.Count = 0 then
       begin
         if InAni and (D > 0) then FinishStep;
@@ -274,6 +392,8 @@ begin
           K := StrToIntDef(Copy(Key, 12, 2), 0);
           if (K >= 1) and (K <= 30) then DefaultAttr[K] := W[1];
         end
+        else if (Key = 'frames') and (W.Count > 1) then MovieFrames := StrToIntDef(W[1], 0)
+        else if Key = 'movie' then InMovie := True
         else if Key = 'ani' then InAni := True;
         Continue;
       end;
@@ -321,7 +441,8 @@ begin
     for I := 0 to High(FSpriteIndex) do FSpriteIndex[I] := -1;
     for I := 0 to High(Sprites) do
       if Sprites[I].Id >= 0 then FSpriteIndex[Sprites[I].Id] := I;
-    Result := Length(Steps) > 0;
+    Script := ScriptLines;
+    Result := (Length(Steps) > 0) or (Length(Actors) > 0);
   finally
     W.Free;
     Lines.Free;
@@ -332,6 +453,30 @@ function TGraalAni.FindSprite(Id: Integer; out S: TGraalAniSprite): Boolean;
 begin
   Result := (Id >= 0) and (Id <= High(FSpriteIndex)) and (FSpriteIndex[Id] >= 0);
   if Result then S := Sprites[FSpriteIndex[Id]];
+end;
+
+function TGraalAni.ActorAt(A: Integer; F: Double; out K: TGaniKey): Boolean;
+var
+  I, N: Integer;
+  T: Double;
+begin
+  Result := False;
+  if (A < 0) or (A > High(Actors)) then Exit;
+  N := Length(Actors[A].Keys);
+  if N = 0 then Exit;
+  if MovieFrames > 0 then
+    F := F - Trunc(F / MovieFrames) * MovieFrames;
+  I := 0;
+  while (I < N - 1) and (Actors[A].Keys[I + 1].Frame <= F) do Inc(I);
+  if F < Actors[A].Keys[0].Frame then Exit;
+  K := Actors[A].Keys[I];
+  if (I < N - 1) and (Actors[A].Keys[I + 1].Frame > K.Frame) then
+  begin
+    T := (F - K.Frame) / (Actors[A].Keys[I + 1].Frame - K.Frame);
+    K.DX := K.DX + (Actors[A].Keys[I + 1].DX - K.DX) * T;
+    K.DY := K.DY + (Actors[A].Keys[I + 1].DY - K.DY) * T;
+  end;
+  Result := True;
 end;
 
 function TGraalAni.TotalTicks: Integer;

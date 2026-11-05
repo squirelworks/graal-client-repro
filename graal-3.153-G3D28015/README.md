@@ -53,14 +53,14 @@ Graal3153 --level some.nw                  # offline
 
 ## Not yet, or not known
 
-- The ids 3.153 handles beyond 3.04 are accepted and ignored: 67 (folder
+- [ ] The ids 3.153 handles beyond 3.04 are accepted and ignored: 67 (folder
   log), 74 (RC chat), 82 (server text), 104, 131 to 134 (class and gani
   scripts), 187 and 189 (precise movement).
-- What 3.153 sends beyond 3.04: 46 ENTERLEVEL, 50, the RC file browser,
+- [ ] What 3.153 sends beyond 3.04: 46 ENTERLEVEL, 50, the RC file browser,
   152/154 text, 155/156 uploads, 157/158 gani and script requests; the
   precise-move props (X2, Y2, Z2).
-- The 3D mode (Torque on UDP, the listed port + 1, `Graal3D` protocol 19).
-- 3.153's own login frame and first props are not captured; 3.04's are used.
-- The code page prop (1250) is 3.04's lab value.
-- Everything still missing from the 3.04 rebuild.
-- No side-by-side run against the real 3.153; that is 0.0.2 work.
+- [ ] The 3D mode (Torque on UDP, the listed port + 1, `Graal3D` protocol 19).
+- [ ] 3.153's own login frame and first props are not captured; 3.04's are used.
+- [ ] The code page prop (1250) is 3.04's lab value.
+- [ ] Everything still missing from the 3.04 rebuild.
+- [ ] No side-by-side run against the real 3.153; that is 0.0.2 work.

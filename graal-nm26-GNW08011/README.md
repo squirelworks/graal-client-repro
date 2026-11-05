@@ -73,7 +73,7 @@ Files this build opens, for the assets zip: `pics1.png`, `arrays.dat`,
 
 ## Not yet (0.0.2)
 
-- The file requests at login (`sword1.png`, `shield1.png`, `head0.png`,
+- [ ] The file requests at login (`sword1.png`, `shield1.png`, `head0.png`,
   `body.png`, `water.wav`).
-- The first gani system as NewMain had it, and the NewMain start window art.
-- The 1.42 level and NPC features listed in `newfeatures142.txt`.
+- [ ] The first gani system as NewMain had it, and the NewMain start window art.
+- [ ] The 1.42 level and NPC features listed in `newfeatures142.txt`.

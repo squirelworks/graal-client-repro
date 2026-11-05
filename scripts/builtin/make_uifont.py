@@ -2,7 +2,8 @@
 """Writes common/GUiFont.pas: the dialog text of the original-style
 windows (the 2.22 start window and server list), 14 px high as their
 forms ask (Font.Height -14, MS Sans Serif), in a regular and a bold face,
-and the bigger bold of the 2.0x start window's buttons (16 px, as 12 pt
+the 2.22 start window's larger bold labels (the lab measured "Nickname:"
+72 px wide on the real 2.22), and the bigger bold of the 2.0x start window's buttons (16 px, as 12 pt
 bold draws on Windows). Characters 32 to 255 as Windows-1252 has them
 (the 2.0x language box lists Espa\xf1ol, Fran\xe7ais, Portugu\xeas).
 
@@ -76,6 +77,7 @@ def pas_face(name, glyphs, line=LINE):
 
 reg = face(REG)
 bold = face(BOLD)
+label = face(BOLD, 14)
 btn = face(BOLD, BTN_SIZE, BTN_LINE)
 HUD_LINE = 26
 hud = face(BOLD, *cell(26))
@@ -96,8 +98,8 @@ type
   { ufButton: the 2.0x start window's button captions, bold and bigger;
     ufHud, ufHudSmall: the 2.0x status display's key letters, as GDI draws
     "Helvetica" bold with a cell 26 (A, S, D) and 10 (Q) high, Y the top of
-    the cell }
-  TUiFace = (ufRegular, ufBold, ufButton, ufHud, ufHudSmall);
+    the cell; ufLabel: the 2.22 start window's labels }
+  TUiFace = (ufRegular, ufBold, ufButton, ufHud, ufHudSmall, ufLabel);
 
 const
   UiLineH = %d;
@@ -118,6 +120,7 @@ const
 %s
 %s
 %s
+%s
 
 function UiTextWidth(const S: string; Face: TUiFace): Integer;
 var
@@ -131,6 +134,7 @@ begin
     case Face of
       ufBold: Inc(Result, BoldAdv[C]);
       ufButton: Inc(Result, BtnAdv[C]);
+      ufLabel: Inc(Result, LabAdv[C]);
       ufHud: Inc(Result, HudAdv[C]);
       ufHudSmall: Inc(Result, HudsAdv[C]);
     else
@@ -152,6 +156,7 @@ begin
     case Face of
       ufBold: W := BoldW[C];
       ufButton: W := BtnW[C];
+      ufLabel: W := LabW[C];
       ufHud: W := HudW[C];
       ufHudSmall: W := HudsW[C];
     else
@@ -169,6 +174,7 @@ begin
       case Face of
         ufBold: Bits := BoldRows[C, R];
         ufButton: Bits := BtnRows[C, R];
+        ufLabel: Bits := LabRows[C, R];
         ufHud: Bits := HudRows[C, R];
         ufHudSmall: Bits := HudsRows[C, R];
       else
@@ -187,6 +193,7 @@ begin
     case Face of
       ufBold: Inc(X, BoldAdv[C]);
       ufButton: Inc(X, BtnAdv[C]);
+      ufLabel: Inc(X, LabAdv[C]);
       ufHud: Inc(X, HudAdv[C]);
       ufHudSmall: Inc(X, HudsAdv[C]);
     else
@@ -198,6 +205,6 @@ end;
 end.
 ''' % (LINE, HUD_LINE,
        pas_face('Reg', reg), pas_face('Bold', bold), pas_face('Btn', btn, BTN_LINE),
-       pas_face('Hud', hud, HUD_LINE), pas_face('Huds', hud_small, 10),
+       pas_face('Hud', hud, HUD_LINE), pas_face('Huds', hud_small, 10), pas_face('Lab', label),
        FIRST, LAST, FIRST, LAST, BTN_LINE - 1, (BTN_LINE - LINE) // 2)
 open(sys.argv[3] if len(sys.argv) > 3 else 'common/GUiFont.pas', 'w').write(src)

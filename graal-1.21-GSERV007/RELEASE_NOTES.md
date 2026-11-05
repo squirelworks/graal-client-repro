@@ -12,6 +12,12 @@ offline. It is early and many parts still behave like a later Graal: see
 The zips hold no original Graal code, graphics, sounds or levels. The
 client carries simple graphics of its own.
 
+## What's new in v0.0.3
+
+- Stress tested before release: a long soak with several players walking
+  between levels, others connecting and dropping again and again, and a
+  level with 80 scripted NPCs, with no crash, error or memory growth.
+
 ## Downloads
 
 | Zip | Runs on | Window |
@@ -53,6 +59,9 @@ and starter level.
 Most of the game still follows a later Graal: the script commands, the
 item list, sound and the editor have not been checked against 1.21.
 No local 2 to 4 player modes, no UDP, no options page.
+
+The original's own icon: 1.21's program is still packed inside its 1999
+InstallShield installer, so the Windows program has the default icon.
 
 ## Checks behind this release
 

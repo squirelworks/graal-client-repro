@@ -5,8 +5,9 @@
    0,0,0,0 and "0.0.0-dev" here. */
 1 24 "../../common/win/graal-delphi.manifest"
 
-/* the Graal head, as this build's original Graal.exe carries it
-   (GROUP_ICON MAINICON): the window and the taskbar show it */
+/* the original 2.01r1 program's own icon (GROUP_ICON MAINICON, taken
+   from its exe), so Explorer and the taskbar show the program as the
+   original did */
 MAINICON ICON "Graal201r1.ico"
 
 1 VERSIONINFO

@@ -113,21 +113,21 @@ the original files (2.22's `levels/`), and checked against the frames the
 
 ## Not yet
 
-- Which ids other players' prop stream stops at was not isolated in the
+- [ ] Which ids other players' prop stream stops at was not isolated in the
   notes; it takes the same range as the own stream here [inf].
-- Gmaps, the ids 169 to 185 (ghost mode, server maps, serverwarp, RPG
+- [ ] Gmaps, the ids 169 to 185 (ghost mode, server maps, serverwarp, RPG
   window, status list, process list, screenshots, level heights), large
   file downloads.
-- The `arrays2.sig` check of `arrays2.dat`.
-- The arrival point on `offlinetutorial_b-2.graal` (30, 30 is a guess).
-- `addtiledef2`, `replaceani` for other players' NPC characters, gani
+- [ ] The `arrays2.sig` check of `arrays2.dat`.
+- [ ] The arrival point on `offlinetutorial_b-2.graal` (30, 30 is a guess).
+- [ ] `addtiledef2`, `replaceani` for other players' NPC characters, gani
   scripts (`SCRIPT ... SCRIPTEND`), string arrays, `play2`, `showimg2`,
   `seteffectmode` and the rest of the GS1 2.1 to 2.17 added: the GS1 table
   is still 2.05's.
-- A side-by-side check with the real 2.17.1 under Wine.
-- Chat-line emoticons and the rest of what 2.17.1 added over 2.05.
-- The link test point was measured on 2.05, not on 2.17.1.
-- Everything listed under "Not yet" for 2.05.
+- [ ] A side-by-side check with the real 2.17.1 under Wine.
+- [ ] Chat-line emoticons and the rest of what 2.17.1 added over 2.05.
+- [ ] The link test point was measured on 2.05, not on 2.17.1.
+- [ ] Everything listed under "Not yet" for 2.05.
 
 ## Build and run
 

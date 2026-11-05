@@ -16,6 +16,12 @@ program carries small default graphics and a starter level of its own, so
 it runs as it is. Put it in the folder of a 2.31 install you own, next to
 its files, or keep those files in a `graal-assets/` folder beside it.
 
+## What's new in v0.0.3
+
+- Stress tested before release: a long soak with several players walking
+  between levels, others connecting and dropping again and again, and a
+  level with 80 scripted NPCs, with no crash, error or memory growth.
+
 ## Downloads
 
 | Zip | Runs on | Window |

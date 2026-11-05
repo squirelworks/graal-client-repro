@@ -67,9 +67,11 @@ uses
 {$IFDEF MSWINDOWS}
   Windows,
 {$ENDIF}
-  SysUtils, GPeRes, GUiFont;
+  SysUtils, Math, GPeRes, GUiFont, Res222;
 
 const
+  { the server list's rows: 17 px apart, as the real list box's }
+  ListRowH = 17;
   DlgW = 577;
   DlgH = 416;
   ColText = $FFCCCC99;     { the dialogs' text }
@@ -103,7 +105,8 @@ function TRealStartArt.Load(const ExeFile, LangFile: string): Boolean;
     D: string;
   begin
     Result := nil;
-    if not PeResource(ExeFile, RT_RCDATA, Name, D) then Exit;
+    { the copy compiled in (Res222); the real exe's only as a fallback }
+    if not EmbeddedRes(Name, D) and not PeResource(ExeFile, RT_RCDATA, Name, D) then Exit;
     Result := TGSurface.Create(0, 0);
     if not LoadImageData(D, Name, Result, False) or (Result.Width = 0) then
       FreeAndNil(Result);
@@ -111,13 +114,16 @@ function TRealStartArt.Load(const ExeFile, LangFile: string): Boolean;
 
 var
   I: Integer;
+  D: string;
 begin
   Back1 := Pic('SCREENIMG1');
   Back2 := Pic('SCREENIMG2');
   for I := 1 to 4 do Btn[I] := Pic('BUTTON' + IntToStr(I));
   Result := (Back1 <> nil) and (Back2 <> nil) and (Btn[1] <> nil) and (Btn[2] <> nil) and
     (Btn[3] <> nil) and (Btn[4] <> nil);
-  if (LangFile <> '') and FileExists(LangFile) then
+  if EmbeddedRes('LANGUAGEENGLISH', D) then
+    Lang.Text := D
+  else if (LangFile <> '') and FileExists(LangFile) then
     try
       Lang.LoadFromFile(LangFile);
     except
@@ -290,12 +296,19 @@ begin
     Right := X;
   end;
   if Masked then T := StringOfChar('*', Length(Text)) else T := Text;
-  while (T <> '') and (UiTextWidth(T, ufRegular) > Right - B.X - 6) do Delete(T, 1, 1);
+  { an edit being typed in keeps its end in view; any other shows its
+    start, cut at the right (the server list's Graal version) }
+  if Focused and not Combo then
+    while (T <> '') and (UiTextWidth(T, ufRegular) > Right - B.X - 6) do Delete(T, 1, 1)
+  else
+    while (T <> '') and (UiTextWidth(T, ufRegular) > Right - B.X - 6) do
+      Delete(T, Length(T), 1);
   TW := UiTextWidth(T, ufRegular);
   if Focused and Combo and (T <> '') then
   begin
-    { a focused combo shows its text picked }
-    S.FillRect(B.X + 3, B.Y + 3, Right - B.X - 4, B.H - 6, ColSelect);
+    { a focused combo shows its text picked: the blue just behind the
+      text, as the real one }
+    S.FillRect(B.X + 3, B.Y + 3, Min(TW + 2, Right - B.X - 4), B.H - 6, ColSelect);
     UiDrawText(S, B.X + 4, B.Y + (B.H - UiLineH) div 2, T, ColWhite, ufRegular);
   end
   else
@@ -305,7 +318,15 @@ begin
 end;
 
 { a picture button: the left half up, the right half pressed; the caption
-  bold and centred }
+  bold and centred (the lab's screenshots of the real one) }
+{ A start-window label: the larger bold face over a faint dark shadow one
+  pixel down and right, as the lab saw on the real 2.22. }
+procedure ShadowLabel(S: TGSurface; X, Y: Integer; const Text: string);
+begin
+  UiDrawText(S, X + 1, Y + 1, Text, $FF143214, ufLabel);
+  UiDrawText(S, X, Y, Text, ColText, ufLabel);
+end;
+
 procedure PicButton(S, Img: TGSurface; X, Y: Integer; const Caption: string; Down: Boolean);
 var
   W, D: Integer;
@@ -467,7 +488,9 @@ begin
     Note := Message;
     Lang := 'English';
     if R.Account = '' then R.Account := 'guest';
-    Focus := 0;
+    { the account box is first in the tab order (TabOrder 0): it has the
+      focus on open, its text picked }
+    Focus := 2;
     Sel := -1;
     Tab := ltSilver;
     PressBtn := 0;
@@ -520,17 +543,24 @@ begin
             if Pos(#27, Chars) > 0 then Exit;
             if Pos(#9, Chars) > 0 then
             begin
+              { TabOrder: account, password, nickname, language }
               case Focus of
-                0: Focus := 2;
                 2: Focus := 3;
+                3: Focus := 0;
+                0: Focus := 1;
               else
-                Focus := 0;
+                Focus := 2;
               end;
               Chars := StringReplace(Chars, #9, '', [rfReplaceAll]);
             end;
             case Focus of
               0: TypeInto(R.Nickname, Chars, 20);
-              2: TypeInto(R.Account, Chars, 30);
+              2:
+                begin
+                  { typing over the picked text replaces it }
+                  if (Chars <> '') and (Chars[1] >= ' ') then R.Account := '';
+                  TypeInto(R.Account, Chars, 30);
+                end;
               3: TypeInto(R.Password, Chars, 30);
             end;
             if Clicked then
@@ -563,11 +593,11 @@ begin
             end;
             { drawing }
             Fill(Art.Back1);
-            Centred(S, 80, 212, 281, Art.Text('StartScreen-Label1', 'Welcome to Graal!'), ufBold);
-            UiDrawText(S, 72, 246, Art.Text('StartScreen-Label5', 'Nick Name:'), ColText, ufBold);
-            UiDrawText(S, 72, 274, Art.Text('StartScreen-Label2', 'Language:'), ColText, ufBold);
-            UiDrawText(S, 76, 332, Art.Text('ServerList-Label7', 'Account:'), ColText, ufBold);
-            UiDrawText(S, 76, 364, Art.Text('ServerList-Label8', 'Password:'), ColText, ufBold);
+            Centred(S, 80, 209, 281, Art.Text('StartScreen-Label1', 'Welcome to Graal!'), ufBold);
+            ShadowLabel(S, 72, 246, Art.Text('StartScreen-Label5', 'Nick Name:'));
+            ShadowLabel(S, 72, 274, Art.Text('StartScreen-Label2', 'Language:'));
+            ShadowLabel(S, 76, 332, Art.Text('ServerList-Label7', 'Account:'));
+            ShadowLabel(S, 76, 364, Art.Text('ServerList-Label8', 'Password:'));
             Edit(S, FNick, R.Nickname, Focus = 0, False, False);
             Edit(S, FLang, Lang, Focus = 1, False, True);
             Edit(S, FAcc, R.Account, Focus = 2, False, True);
@@ -622,7 +652,7 @@ begin
               end;
               if Inside(LList, CX, CY) then
               begin
-                Row := (CY - LList.Y - 2) div UiLineH;
+                Row := (CY - LList.Y - 2) div ListRowH;
                 if (Row >= 0) and (Row <= High(Rows)) then Sel := Rows[Row];
               end;
               if Inside(BMore, CX, CY) then Press(5);
@@ -677,22 +707,22 @@ begin
             S.FillRect(LList.X, LList.Y, LList.W, 1, $FFAEAEAE);
             S.FillRect(LList.X, LList.Y, 1, LList.H, $FFAEAEAE);
             S.FillRect(LList.X + 2, LList.Y + 2, LList.W - 4, LList.H - 4, ColFill);
-            N := (LList.H - 4) div UiLineH;
+            N := (LList.H - 4) div ListRowH;
             for I := 0 to High(Rows) do
             begin
               if I >= N then Break;
               Srv := Fetch.Servers[Rows[I]];
-              CY := LList.Y + 2 + I * UiLineH + 1;
+              CY := LList.Y + 2 + I * ListRowH + 1;
               if Rows[I] = Sel then
               begin
-                S.FillRect(LList.X + 4, CY, 177, UiLineH, ColSelect);
-                UiDrawText(S, LList.X + 9, CY, ServerDisplayName(Srv.Name), ColWhite, ufRegular);
+                S.FillRect(LList.X + 4, CY, 177, ListRowH, ColSelect);
+                UiDrawText(S, LList.X + 6, CY, ServerDisplayName(Srv.Name), ColWhite, ufRegular);
                 UiDrawText(S, LList.X + 179 - UiTextWidth(Srv.Players, ufRegular), CY,
                   Srv.Players, ColWhite, ufRegular);
               end
               else
               begin
-                UiDrawText(S, LList.X + 9, CY, ServerDisplayName(Srv.Name), ColText, ufRegular);
+                UiDrawText(S, LList.X + 6, CY, ServerDisplayName(Srv.Name), ColText, ufRegular);
                 UiDrawText(S, LList.X + 179 - UiTextWidth(Srv.Players, ufRegular), CY,
                   Srv.Players, ColText, ufRegular);
               end;
@@ -712,6 +742,9 @@ begin
             if Art.Btn[4] <> nil then
               S.Blit(Art.Btn[4], Ord(Pressed(8)) * (Art.Btn[4].Width div 2), 0,
                 Art.Btn[4].Width div 2, Art.Btn[4].Height, BGo.X, BGo.Y);
+            { an empty drop-down under the list (the real 2.22 shows one
+              here, under the list at its left edge, 10 px below it) }
+            Edit(S, Box(24, 290, 201, 23), '', False, False, True);
             { the listserver's lines }
             if Fetch.StatusLines <> '' then Wrapped(S, 24, 330, 529, Fetch.StatusLines, True)
             else Wrapped(S, 24, 330, 529, Fetch.Status, True);

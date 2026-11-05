@@ -93,6 +93,10 @@ var
   GuiArgs: TStringList = nil;
   { why the last game ended, for the start screen }
   LastGameError: string = '';
+  { Alt+Enter's screen mode (graalconfig.txt fullscreenmode), set by the
+    start screen; 0: Alt+Enter does nothing }
+  GuiFullW: Integer = 0;
+  GuiFullH: Integer = 0;
 
 function ArgCount: Integer;
 begin
@@ -427,6 +431,11 @@ begin
         begin
           Win.Pump;
           if Win.Closed or Win.Held[gkEscape] then Break;
+          { Alt+Enter: the configured screen mode, the 640 x 480 picture
+            filling it, and back }
+          if Win.TakeFullscreenToggle and (GuiFullW > 0) then
+            if not Win.Fullscreen then Win.EnterFullscreen(GuiFullW, GuiFullH)
+            else Win.LeaveFullscreen(ScreenW, ScreenH);
           { F4: the built-in level editor (offline only) }
           if Win.WasPressed(gkEditor) or EditorFirst then
           begin
@@ -636,9 +645,6 @@ begin
   Result := 0;
   Dir := ExtractFilePath(ParamStr(0));
   Art := nil;
-  { a Delphi 5 program: the forms are owned by its TApplication window
-    ("Graal"), which is the taskbar entry }
-  GWDelphiApp := 'Graal';
   Win := TGWindow.Create('Graal ' + ClientBuildLabel + ' (' + ClientVersionToken + ')',
     ScreenW, ScreenH);
   try
@@ -650,6 +656,9 @@ begin
       Result := 64;
       Exit;
     end;
+    { a Delphi 5 program: the forms are owned by its TApplication window
+      ("Graal"), which is the taskbar entry }
+    Win.UseDelphiFrames('Graal');
     { the asset roots before anything is read from them }
     SetAssetRoots(Dir, ClientBuildLabel);
     { listserver.txt next to the program, else the community listserver in
@@ -719,8 +728,8 @@ begin
         if Art <> nil then
         begin
           { Alt+Enter: the screen mode of graalconfig.txt fullscreenmode }
-          Win.FullScreenW := Art.FullScreenW;
-          Win.FullScreenH := Art.FullScreenH;
+          GuiFullW := Art.FullScreenW;
+          GuiFullH := Art.FullScreenH;
           Win.Reshape(Art.MainCaption, ScreenW, ScreenH);
         end;
         if RunGame(Win, R.Password, R.Nickname) <> 0 then
@@ -730,6 +739,7 @@ begin
       finally
         FreeAndNil(GuiArgs);
       end;
+      if Win.Fullscreen then Win.LeaveFullscreen(ScreenW, ScreenH);
       if (Art <> nil) and not Win.Closed then
         Win.Reshape(Art.Connect.Str('Caption', 'Graal 2001'), Art.Connect.Int('ClientWidth', 476),
           Art.Connect.Int('ClientHeight', 330), True);

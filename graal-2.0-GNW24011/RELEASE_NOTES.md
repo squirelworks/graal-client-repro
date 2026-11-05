@@ -55,8 +55,7 @@ their place.
 - [x] The windows behave as the real Delphi program's do on Windows: the
   taskbar entry is the program's hidden "Graal" application window, the
   start window and server list have no title-bar icon, and the game
-  window can be resized, minimised and maximised (the picture stretched to
-  it).
+  window can be resized, minimised and maximised.
 - [x] Alt+Enter in the game switches to full screen at `graalconfig.txt`'s
   `fullscreenmode` (640x480 when not set) and back.
 - [x] The language box drops down its list (8 rows and a scroll bar, the
@@ -94,6 +93,14 @@ their place.
 - [ ] The password is not saved (the real client keeps it in the registry).
 - [ ] The Windows version block still names this project, not the
   original's company and product strings.
+
+## What's new in v0.0.3
+
+- The Windows program carries its original's own icon (the Graal head, taken from
+  the original exe), so Explorer shows it as the original did.
+- Stress tested before release: a long soak with several players walking
+  between levels, others connecting and dropping again and again, and a
+  level with 80 scripted NPCs, with no crash, error or memory growth.
 
 ## Downloads
 
