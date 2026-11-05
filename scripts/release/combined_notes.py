@@ -20,7 +20,7 @@ REPO = 'https://github.com/squirelworks/graal-delphi'
 
 HEADER = """Every Graal client rebuilt in graal-delphi, released together at {release}. \
 Each client's zip is attached below and named after its folder: \
-`<folder>-{version}-windows.zip` is the Windows program. \
+`<folder>-{version}-windows.zip` is the Windows program and `-linux.zip` the Linux one. \
 [RELEASES.md]({repo}/blob/main/RELEASES.md) has one row per client with what it is and a direct download link.
 
 > **Not affiliated.** graal-delphi is an independent fan project. It is not

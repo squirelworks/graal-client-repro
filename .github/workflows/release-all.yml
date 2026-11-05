@@ -3,9 +3,10 @@ name: release-all
 # Every client released at the same version in ONE run, instead of one
 # release.yml run per folder. Start it from the Actions tab (Run workflow,
 # version defaults to v0.0.4). It:
-#   - builds and tests every Delphi client (graal-*/) on Windows only,
-#     stamps the version into each exe and packs it with the same scripts
-#     release.yml uses (scripts/release/). Only Windows zips are released;
+#   - builds and tests every Delphi client (graal-*/) on Linux and Windows,
+#     stamps the version into each Windows exe and packs each one with the
+#     same scripts release.yml uses (scripts/release/), so the release
+#     holds a Linux and a Windows zip of each;
 #   - builds the Java and Game Boy clients through their own workflows
 #     (javagraal, zelda-online1, zelda-online2, graalgb);
 #   - makes ONE GitHub release with every client in it: tag <version>
@@ -117,9 +118,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        # Windows only: the Windows exe is what is tested and shipped (ci.yml
-        # still compiles every client on Linux for each pull request)
-        os: [windows-latest]
+        os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     env:
       BUILDS: ${{ needs.plan.outputs.delphi }}
