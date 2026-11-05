@@ -49,7 +49,9 @@ its files, or keep those files in a `graal-assets/` folder beside it.
   the install's `maps/offlinetutorial.gmap`), the burning torches, the
   wizard with its arrow and "Touch to get information", the squirrel and
   the human2 player.
-- [x] Alt+Enter switches to a real 640 x 480 fullscreen mode and back.
+- [x] Alt+Enter and "Start in fullscreen" switch to the "Fullscreen mode"
+  picked in More options (1024 x 768 by default), showing more of the
+  level there.
 - [x] Training does what 2.31's does: it starts `GraalEditor.exe -play`
   from the Graal folder; without it, the "GraalEditor.exe has not been
   found in the Graal folder!" box, and then the rebuild plays the tutorial
@@ -112,7 +114,6 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 - [ ] Training's heights: some things stand a little lower than in 2.31
   (the wizard about 25 pixels); without the install's gmap Training is
   drawn flat.
-- [ ] Fullscreen uses 640 x 480, not the "Fullscreen mode" in More options.
 - [ ] The F1 window, NPC movement messages, UDP. See the build's README.
 
 ## Checks behind this release

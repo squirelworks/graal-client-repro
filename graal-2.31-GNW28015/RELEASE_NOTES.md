@@ -61,8 +61,10 @@ its files, or keep those files in a `graal-assets/` folder beside it.
 - [x] Training's ground is the height-shaped sand and grass 2.31 draws
   from the install's `maps/offlinetutorial.gmap`, with people and things
   standing raised on it.
-- [x] Alt+Enter and "Start in fullscreen" switch the screen to a real
-  640 x 480 fullscreen mode.
+- [x] Alt+Enter and "Start in fullscreen" switch the screen to the
+  "Fullscreen mode" picked in More options (graalconfig.txt's
+  fullscreenmode, 1024 x 768 by default), and the game shows more of the
+  level there, as the same engine does in 2.22.
 - [x] Training does what 2.31's does: it starts `GraalEditor.exe -play`
   from the Graal folder. Without GraalEditor.exe it shows 2.31's
   "GraalEditor.exe has not been found in the Graal folder!" box, and then
@@ -126,8 +128,6 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
   25 pixels lower and the torches about 10; 2.31's own height rules are
   not traced yet (the rebuild uses 2.22's). The ground needs the install's
   `maps/offlinetutorial.gmap`; without it Training is drawn flat.
-- [ ] Fullscreen uses 640 x 480, not the "Fullscreen mode" picked in More
-  options.
 - [ ] `graal://` and `graal3://` links, the F1 window, NPC movement
   messages, UDP. See the build's README for the full list.
 
