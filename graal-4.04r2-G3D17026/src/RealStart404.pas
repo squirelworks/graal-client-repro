@@ -44,6 +44,10 @@ type
   Start (R.Choice scOnline, R.Host and R.Port from Host and Port) or
   Offline Test (scTraining). SignupUrl is what Become a Member opens.
   False: closed, or Esc. }
+{ Alt+Enter: switches the 640 x 480 screen to fullscreen and back, as
+  Graal4.exe does. Call after each Win.Pump. }
+procedure PollFullscreen(Win: TGWindow);
+
 function RunRealStart(Win: TGWindow; S: TGSurface; Art: TRealStartArt;
   const Host: string; Port: Integer; const SignupUrl, Message: string;
   StopRequested: TStopCheck; var R: TStartResult): Boolean;
@@ -311,6 +315,13 @@ end;
 
 { ---- the screen ---- }
 
+procedure PollFullscreen(Win: TGWindow);
+begin
+  if (Win = nil) or not Win.TakeFullscreenToggle then Exit;
+  if Win.Fullscreen then Win.LeaveFullscreen(640, 480)
+  else Win.EnterFullscreen(640, 480);
+end;
+
 function RunRealStart(Win: TGWindow; S: TGSurface; Art: TRealStartArt;
   const Host: string; Port: Integer; const SignupUrl, Message: string;
   StopRequested: TStopCheck; var R: TStartResult): Boolean;
@@ -354,6 +365,7 @@ begin
   while True do
   begin
     Win.Pump;
+    PollFullscreen(Win);
     if Win.Closed or (Assigned(StopRequested) and StopRequested()) then Exit;
     Clicked := Win.TakeClick(CX, CY);
     Chars := Win.TakeChars;

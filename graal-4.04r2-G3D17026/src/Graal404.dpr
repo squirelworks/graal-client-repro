@@ -375,8 +375,6 @@ begin
         G.Log('no display: running without a window');
         FreeAndNil(Win);
       end
-      else
-        Win.AllowFullscreen := True;
     end;
 
     { the frame loop: a 50 ms gate; a late frame is not made up }
@@ -397,6 +395,8 @@ begin
         if Win <> nil then
         begin
           Win.Pump;
+          { Alt+Enter: full screen and back, as in Graal4.exe }
+          PollFullscreen(Win);
           if Win.Closed or Win.Held[gkEscape] then Break;
           G.Keys[DirUp] := Win.Held[gkUp];
           G.Keys[DirLeft] := Win.Held[gkLeft];
@@ -545,8 +545,6 @@ begin
       Result := 64;
       Exit;
     end;
-    { Alt+Enter: full screen and back, as in Graal4.exe }
-    Win.AllowFullscreen := True;
     { SIGTERM / Ctrl+C end the program on the start screen too }
     InstallStopHandlers;
     SetAssetRoots(Dir, ClientBuildLabel);
