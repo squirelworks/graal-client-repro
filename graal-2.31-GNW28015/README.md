@@ -91,8 +91,9 @@ next to the program, or the install's `arrays2.dat`, wins over it.
 - Side by side with the real `Graal_231.exe` under Wine (2026-11-05): the
   start window, its title, buttons and places, the Training window's size,
   title and chat line, and Alt+Enter match; so do the More options and
-  Open URL windows, the chat line and the quit box. Training matches but
-  for the torch flames and light (see RELEASE_NOTES "Not yet").
+  Open URL windows, the chat line and the quit box. Training's torches,
+  text and ground are in; some things stand a little lower than in 2.31
+  (see RELEASE_NOTES "Not yet").
 - The payload of 24 in 2.31 (2.22's value, 9, is sent).
 - Whether 2.31 sends its own position as X2 / Y2; the rebuild sends X / Y
   in half tiles, as 2.22 does.
