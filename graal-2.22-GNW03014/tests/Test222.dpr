@@ -786,6 +786,9 @@ begin
     Check(G.FollowLink(0), 'links: online, a link asks the server');
     G.Client.Flush;
     ServerReadAll(Codec, G.Client.Sent, Msgs);
+    { requests for pictures this test install lacks go out too }
+    for I := Msgs.Count - 1 downto 0 do
+      if (Msgs[I] <> '') and (Msgs[I][1] = GChar(PLI_WANTFILE)) then Msgs.Delete(I);
     Check((Msgs.Count >= 2) and (Msgs[0] = GChar(PLI_LEVELWARP) + GChar(20) + GChar(22) + 'b.nw') and
       (Msgs[1] = GChar(PLI_TAMPERCHECK) + TamperCheck222),
       'links: LEVELWARP x*2, y*2, level, then 39 in the same frame');

@@ -51,13 +51,30 @@ const
 
 type
   { Images and ganis from the player's install, loaded once and kept. }
+  { True when the request went out }
+  TWantFile = function(const Name: string): Boolean of object;
+
   TAssets = class
   private
     FNames: TStringList;  { lower-case key -> TGSurface or TGraalAni }
+    FDownNames: TStringList; { lower-case name -> index into FDownData }
+    FDownData: array of string;
+    FAsked: TStringList;
     function FindFile(const Name: string; const Dirs: array of string): string;
+    procedure Want(const Name: string);
   public
     Dir: string;          { install folder; '' = none }
     Missing: TStringList; { names looked for and not found, once each }
+    { Online: asks the server for a file the install lacks (WANTFILE), as
+      2.22 does for other players' heads, bodies, ganis and NPC images }
+    OnWant: TWantFile;
+    { A file the server sent (kept in memory for the session). Whatever
+      was looked up under that name before is looked up again. }
+    procedure AddDownload(const Name, Data: string);
+    function Downloaded(const Name: string; out Data: string): Boolean;
+    function WantedCount: Integer;
+    { asks for every name looked up and not found so far }
+    procedure WantMissing;
     constructor Create;
     destructor Destroy; override;
     { Nil when not found. Kind picks the sub-folders searched. }
@@ -215,10 +232,19 @@ type
     { the level that LEVELNAME named last: the data after it is its own
       (a gmap neighbour's data goes to that neighbour, not the player's) }
     FCurrentData: TCachedLevel;
+    { the level NPC messages go to: SETACTIVELEVEL, or LEVELNAME when the
+      server has no NPC server (protocol/packet-layouts.md) }
+    FObjectLevel: string;
+    { a large file coming in chunks (LARGEFILESTART ... LARGEFILEEND) }
+    FLargeName, FLargeData: string;
     procedure WarpDone;
     { The player's level changed: what lived in the old one goes, and
       offline the new level's own NPCs and baddies start. }
     procedure LevelEntered;
+    function WantFile(const Name: string): Boolean;
+    procedure ReceiveLarge(Id: Integer; const Data: string);
+    procedure ScopeNpcs;
+    procedure SetNpcTarget;
     procedure HandleMessage(Id: Integer; const Data: string);
     procedure ClientLog(const Line: string);
     procedure SendLoginFrame;
@@ -531,6 +557,89 @@ begin
   Missing := TStringList.Create;
   Missing.Sorted := True;
   Missing.Duplicates := dupIgnore;
+  FDownNames := TStringList.Create;
+  FDownNames.Sorted := True;
+  FAsked := TStringList.Create;
+  FAsked.Sorted := True;
+end;
+
+procedure TAssets.WantMissing;
+var
+  I: Integer;
+  L: TStringList;
+begin
+  L := TStringList.Create;
+  try
+    L.Assign(Missing);
+    for I := 0 to L.Count - 1 do Want(L[I]);
+  finally
+    L.Free;
+  end;
+end;
+
+function TAssets.WantedCount: Integer;
+begin
+  Result := FAsked.Count;
+end;
+
+procedure TAssets.Want(const Name: string);
+var
+  K: string;
+begin
+  if not Assigned(OnWant) or (Name = '') then Exit;
+  { plain file names only, and not without end }
+  if (Pos('/', Name) > 0) or (Pos('\', Name) > 0) or (Pos('..', Name) > 0) or
+    (Length(Name) > 100) or (FAsked.Count >= 500) then Exit;
+  K := LowerCase(Name);
+  if FAsked.IndexOf(K) >= 0 then Exit;
+  if OnWant(Name) then FAsked.Add(K);
+end;
+
+procedure TAssets.AddDownload(const Name, Data: string);
+var
+  K, B: string;
+  I: Integer;
+
+  procedure Forget(const Key: string);
+  var
+    J: Integer;
+  begin
+    J := FNames.IndexOf(Key);
+    if J >= 0 then
+    begin
+      FNames.Objects[J].Free;
+      FNames.Delete(J);
+    end;
+  end;
+
+begin
+  if Name = '' then Exit;
+  K := LowerCase(Name);
+  I := FDownNames.IndexOf(K);
+  if I >= 0 then FDownData[PtrInt(FDownNames.Objects[I])] := Data
+  else
+  begin
+    SetLength(FDownData, Length(FDownData) + 1);
+    FDownData[High(FDownData)] := Data;
+    FDownNames.AddObject(K, TObject(PtrInt(High(FDownData))));
+  end;
+  { forget what was found (or not) under this name }
+  B := K;
+  if EndsWith(B, '.gani') then SetLength(B, Length(B) - 5);
+  Forget('img:' + K);
+  Forget('ani:' + B);
+  I := Missing.IndexOf(Name);
+  if I >= 0 then Missing.Delete(I);
+end;
+
+function TAssets.Downloaded(const Name: string; out Data: string): Boolean;
+var
+  I: Integer;
+begin
+  Data := '';
+  I := FDownNames.IndexOf(LowerCase(Name));
+  Result := I >= 0;
+  if Result then Data := FDownData[PtrInt(FDownNames.Objects[I])];
 end;
 
 destructor TAssets.Destroy;
@@ -540,6 +649,8 @@ begin
   for I := 0 to FNames.Count - 1 do FNames.Objects[I].Free;
   FNames.Free;
   Missing.Free;
+  FDownNames.Free;
+  FAsked.Free;
   inherited Destroy;
 end;
 
@@ -659,13 +770,23 @@ begin
     else Ok := LoadImageFile(F, S);
     if not Ok then FreeAndNil(S);
   end;
+  { a copy the server sent }
+  if (S = nil) and Downloaded(Name, D) then
+  begin
+    S := TGSurface.Create(0, 0);
+    if not LoadImageData(D, Name, S, Kind = 'body') then FreeAndNil(S);
+  end;
   { nothing on disk: the built-in default of that name, if there is one }
   if (S = nil) and BuiltinFile(Name, D) then
   begin
     S := TGSurface.Create(0, 0);
     if not LoadImageData(D, Name, S, Kind = 'body') then FreeAndNil(S);
   end;
-  if S = nil then Missing.Add(Name);
+  if S = nil then
+  begin
+    Missing.Add(Name);
+    Want(Name);
+  end;
   FNames.AddObject(Key, S);
   Result := S;
 end;
@@ -705,12 +826,21 @@ begin
       if not A.LoadFromFile(F) then FreeAndNil(A);
     end;
   end;
+  if (A = nil) and (N <> '') and Downloaded(N + '.gani', F) then
+  begin
+    A := TGraalAni.Create;
+    if not A.LoadFromString(F) then FreeAndNil(A);
+  end;
   if (A = nil) and BuiltinFile(N + '.gani', F) then
   begin
     A := TGraalAni.Create;
     if not A.LoadFromString(F) then FreeAndNil(A);
   end;
-  if A = nil then Missing.Add(N + '.gani');
+  if (A = nil) and (N <> '') then
+  begin
+    Missing.Add(N + '.gani');
+    Want(N + '.gani');
+  end;
   FNames.AddObject(Key, A);
   Result := A;
 end;
@@ -1006,6 +1136,7 @@ begin
   Sheet := TGSurface.Create(0, 0);
   Arrays := TGArrays.Create;
   Assets := TAssets.Create;
+  Assets.OnWant := WantFile;
   FOthers := TList.Create;
   FTileDefs := TStringList.Create;
   FHeights := THeightStore.Create;
@@ -1165,6 +1296,11 @@ begin
   LoginMs := -1;
   SetLength(Weapons, 0);
   Selected := -1;
+  FObjectLevel := '';
+  FLargeName := '';
+  FLargeData := '';
+  Npcs.Clear;
+  Npcs.HasNpcServer := False;
   Result := FClient.Connect(Host, Port);
   if not Result then
   begin
@@ -2754,13 +2890,81 @@ procedure TAdventure.LevelEntered;
 begin
   SetLength(Items, 0);
   SetLength(Thrown, 0);
-  Npcs.Clear;
   Baddies.Clear;
-  { online the server sends the level's NPCs and baddies }
-  if not FClient.Connected and Level.HasBoard then
+  { online the server sends the level's NPCs and baddies; NPCs it sent
+    earlier for this level (a gmap's other cells) come in now }
+  if FClient.Connected then ScopeNpcs
+  else
   begin
-    Npcs.LoadLevel(Level);
-    Baddies.LoadLevel(Level);
+    Npcs.Clear;
+    if Level.HasBoard then
+    begin
+      Npcs.LoadLevel(Level);
+      Baddies.LoadLevel(Level);
+    end;
+  end;
+end;
+
+{ a file the install lacks, asked from the server once the session is up }
+function TAdventure.WantFile(const Name: string): Boolean;
+begin
+  Result := FClient.Connected and FPropsSent;
+  if not Result then Exit;
+  FClient.SendPacket(PLI_WANTFILE, Name);
+  Log('WANTFILE ' + Name);
+end;
+
+{ LARGEFILESTART (68) and LARGEFILEEND (69): rest = the file's name; the
+  FILE messages between carry its pieces (protocol/file-transfer.md) }
+procedure TAdventure.ReceiveLarge(Id: Integer; const Data: string);
+begin
+  if Id = PLO_LARGEFILESTART then
+  begin
+    FLargeName := Data;
+    FLargeData := '';
+  end
+  else if SameText(Data, FLargeName) and (FLargeName <> '') then
+  begin
+    FLargeName := '';
+    Log(Format('FILE %s (%d bytes, large)', [Data, Length(FLargeData)]));
+    Assets.AddDownload(Data, FLargeData);
+    FLargeData := '';
+  end;
+end;
+
+procedure TAdventure.ScopeNpcs;
+begin
+  if Level = nil then Exit;
+  if Gmap <> nil then Npcs.SetScope(Level.Name, GmapName, Player.GmapX, Player.GmapY)
+  else if (GmapName <> '') and SameText(Player.Level, GmapName) then
+    Npcs.SetScope(Level.Name, GmapName, Player.GmapX, Player.GmapY)
+  else Npcs.SetScope(Level.Name, '', -1, -1);
+end;
+
+{ before an NPC message: which level it is for and, on a gmap, which cell
+  (the level whose data came last; the player's cell for the player's) }
+procedure TAdventure.SetNpcTarget;
+var
+  T: TCachedLevel;
+  CX, CY: Integer;
+begin
+  if FObjectLevel <> '' then Npcs.ObjectLevel := FObjectLevel
+  else if Level <> nil then Npcs.ObjectLevel := Level.Name
+  else Npcs.ObjectLevel := '';
+  Npcs.DataCellX := -1;
+  Npcs.DataCellY := -1;
+  T := FCurrentData;
+  if T = nil then T := Level;
+  if T = nil then Exit;
+  if (Gmap <> nil) and Gmap.FindCell(T.Name, CX, CY) then
+  begin
+    Npcs.DataCellX := CX;
+    Npcs.DataCellY := CY;
+  end
+  else if T = Level then
+  begin
+    Npcs.DataCellX := Player.GmapX;
+    Npcs.DataCellY := Player.GmapY;
   end;
 end;
 
@@ -2816,6 +3020,7 @@ begin
   Level.Name := N;
   BoardLoaded := Level.HasBoard;
   while FOthers.Count > 0 do RemoveOther(Others[0].Id);
+  if FClient.Connected then ScopeNpcs;
   Log(Format('crossed into %s (cell %d,%d)', [N, Player.GmapX, Player.GmapY]));
   if FClient.Connected then
   begin
@@ -2875,6 +3080,8 @@ begin
   FSentGmapX := Player.GmapX;
   FSentGmapY := Player.GmapY;
   FPropsSent := True;
+  { pictures and ganis looked for before the session was up }
+  Assets.WantMissing;
 end;
 
 procedure TAdventure.SendMovedProps;
@@ -2925,7 +3132,19 @@ begin
   finally
     R.Free;
   end;
+  if (FLargeName <> '') and SameText(Name, FLargeName) then
+  begin
+    { a piece of a large file }
+    if Length(FLargeData) + Length(Body) <= 16 * 1024 * 1024 then
+      FLargeData := FLargeData + Body;
+    Exit;
+  end;
   Log(Format('FILE %s (%d bytes)', [Name, Length(Body)]));
+  if not EndsWith(Name, '.gmap') then
+  begin
+    Assets.AddDownload(Name, Body);
+    Exit;
+  end;
   if EndsWith(Name, '.gmap') and (LowerCase(Name) = LowerCase(GmapName)) then
   begin
     FreeAndNil(Gmap);
@@ -2997,6 +3216,7 @@ begin
     Exit;
   end;
   { NPC and baddy messages go to their units }
+  SetNpcTarget;
   if Npcs.Receive(Id, Data) or Baddies.Receive(Id, Data) then
   begin
     if (Id >= 0) and (Id <= 255) then Inc(Handled[Id]);
@@ -3069,6 +3289,7 @@ begin
         end;
       PLO_LEVELNAME:
         begin
+          if not Npcs.HasNpcServer then FObjectLevel := Data;
           if EndsWith(Data, '.gmap') then
           begin
             { the "named level" goes back to the gmap after a level's data }
@@ -3328,8 +3549,10 @@ begin
           Log('WARPFAILED ' + Data);
         end;
       PLO_FILE: ReceiveFile(Data);
+      PLO_LARGEFILESTART, PLO_LARGEFILEEND: ReceiveLarge(Id, Data);
       PLO_SETACTIVELEVEL:
         begin
+          FObjectLevel := Data;
           if EndsWith(Data, '.gmap') then SetGmap(Data);
           FCurrentData := nil;
           Log('SETACTIVELEVEL ' + Data);

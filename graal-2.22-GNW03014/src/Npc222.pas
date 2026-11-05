@@ -42,6 +42,11 @@ const
   NPCPROP_GATTRIB1 = 36; NPCPROP_GATTRIB5 = 40;
   { 2.05 parses 0 to 40; a higher id ends the stream }
   NpcPropLast205 = 40;
+  { 2.22 also parses 41 to 73 (protocol/player-props.md); 48 ends it }
+  NPCPROP_GMAPLEVELX = 41; NPCPROP_GMAPLEVELY = 42; NPCPROP_Z = 43;
+  NPCPROP_GATTRIB6 = 44; NPCPROP_GATTRIB9 = 47; NPCPROP_SCRIPTER = 49;
+  NPCPROP_CURLEVEL = 52; NPCPROP_GATTRIB10 = 53; NPCPROP_GATTRIB30 = 73;
+  NpcPropLast222 = 73;
 
   VisVisible = 1; VisOver = 2; VisUnder = 4;
   BlockNone = 1;
@@ -58,6 +63,7 @@ const
   PLO_NPCDEL_ID = 29;
   PLO_FLAGDEL_ID = 31;
   PLO_HASNPCSERVER_ID = 44;
+  PLO_NPCDEL2_ID = 150;
 
   TickSeconds = 0.05;
 
@@ -115,6 +121,11 @@ type
     Script: string;
     Gone: Boolean;           { destroyed: removed after the run }
     Local: Boolean;          { made offline or by putnpc: nothing to sync }
+    { online: the level the server sent it for (the object level), lower
+      case, and its gmap cell when that level is a gmap (-1 if none) }
+    Home: string;
+    CellX, CellY: Integer;
+    Z: Integer;
     Dirty: array[0..NpcPropLast205] of Boolean;
     constructor Create;
     destructor Destroy; override;
@@ -174,12 +185,25 @@ type
     function CharProp(N: TNpc; const Code, Value: string): Boolean;
     procedure ShowImg(N: TNpc; Index: Integer; const Img: string; X, Y: Double);
     function FindImg(N: TNpc; Index: Integer): Integer;
+    function InScope(N: TNpc): Boolean;
+    procedure Rescope(N: TNpc);
   public
     World: TNpcWorld;
     OwnsWorld: Boolean;
     Npcs: TList;
     Flags: TStringList;      { the player's flags: name or name=value }
     IsLeader, HasNpcServer: Boolean;
+    { Online, NPCs of other levels and other gmap cells wait here until
+      the player is there (the server sends them with the level's data). }
+    Parked: TList;
+    { Set by the game before each message: the level NPC messages go to
+      (SETACTIVELEVEL, else the last LEVELNAME) and, on a gmap, the cell
+      of the level whose data came last }
+    ObjectLevel: string;
+    DataCellX, DataCellY: Integer;
+    { Where the player is: the level, and on a gmap its name and cell }
+    ScopeLevel, ScopeGmap: string;
+    ScopeX, ScopeY: Integer;
     Log: TStringList;        { script errors, newest last (kept short) }
     constructor Create(AWorld: TNpcWorld);
     destructor Destroy; override;
@@ -187,6 +211,12 @@ type
     function Npc(I: Integer): TNpc;
     function FindById(Id: Integer): TNpc;
     procedure Clear;
+    { Online: the player is now in Level (on gmap Gmap, cell CX, CY). NPCs
+      of the old level are dropped (the server sends them again on a
+      return) unless they belong to a gmap; NPCs waiting for the new one
+      come in and get playerenters. }
+    procedure SetScope(const Level, Gmap: string; CX, CY: Integer);
+    function FindAnyById(Id: Integer): TNpc;
     { Offline: the level's NPCs, each then gets playerenters. }
     procedure LoadLevel(Level: TAdventureLevel);
     { Adds an NPC and compiles its script (no event yet). }
@@ -257,6 +287,8 @@ begin
   Dir := 2;
   Sprite := 2;
   Male := True;
+  CellX := -1;
+  CellY := -1;
   Gani := 'idle';
   Colors[0] := 0; { white skin? the player defaults: see ColorTable }
   Colors[1] := 9;
@@ -377,6 +409,11 @@ begin
     OwnsWorld := True;
   end;
   Npcs := TList.Create;
+  Parked := TList.Create;
+  DataCellX := -1;
+  DataCellY := -1;
+  ScopeX := -1;
+  ScopeY := -1;
   Flags := TStringList.Create;
   Log := TStringList.Create;
 end;
@@ -385,6 +422,7 @@ destructor TNpcManager.Destroy;
 begin
   Clear;
   Npcs.Free;
+  Parked.Free;
   Flags.Free;
   Log.Free;
   if OwnsWorld then World.Free;
@@ -420,7 +458,94 @@ var
 begin
   for I := 0 to Npcs.Count - 1 do Npc(I).Free;
   Npcs.Clear;
+  for I := 0 to Parked.Count - 1 do TNpc(Parked[I]).Free;
+  Parked.Clear;
   IsLeader := False;
+end;
+
+function TNpcManager.FindAnyById(Id: Integer): TNpc;
+var
+  I: Integer;
+begin
+  Result := FindById(Id);
+  if Result <> nil then Exit;
+  for I := 0 to Parked.Count - 1 do
+    if TNpc(Parked[I]).Id = Id then
+    begin
+      Result := TNpc(Parked[I]);
+      Exit;
+    end;
+end;
+
+{ an NPC with no home (offline, putnpc), of the player's level, or of the
+  player's cell of the player's gmap }
+function TNpcManager.InScope(N: TNpc): Boolean;
+begin
+  if N.Local or (N.Home = '') then Result := True
+  else if (ScopeGmap <> '') and (N.Home = ScopeGmap) then
+    Result := ((N.CellX < 0) and (N.CellY < 0)) or
+      ((N.CellX = ScopeX) and (N.CellY = ScopeY))
+  else
+    Result := N.Home = ScopeLevel;
+end;
+
+{ moves an NPC between the level's list and the waiting list }
+procedure TNpcManager.Rescope(N: TNpc);
+var
+  I: Integer;
+begin
+  if InScope(N) then
+  begin
+    I := Parked.IndexOf(N);
+    if I < 0 then Exit;
+    Parked.Delete(I);
+    Npcs.Add(N);
+    Fire(N, 'playerenters');
+  end
+  else
+  begin
+    I := Npcs.IndexOf(N);
+    if (I < 0) or N.Ctx.Running then Exit;
+    Npcs.Delete(I);
+    Parked.Add(N);
+  end;
+end;
+
+procedure TNpcManager.SetScope(const Level, Gmap: string; CX, CY: Integer);
+var
+  I: Integer;
+  N: TNpc;
+  Come: TList;
+begin
+  ScopeLevel := LowerCase(Level);
+  ScopeGmap := LowerCase(Gmap);
+  ScopeX := CX;
+  ScopeY := CY;
+  IsLeader := False;
+  Come := TList.Create;
+  try
+    for I := Npcs.Count - 1 downto 0 do
+    begin
+      N := Npc(I);
+      if InScope(N) then Continue;
+      Npcs.Delete(I);
+      { a gmap's NPCs stay for when the player walks into their cell }
+      if (N.Home <> '') and (LowerCase(ExtractFileExt(N.Home)) = '.gmap') then Parked.Add(N)
+      else N.Free;
+    end;
+    for I := Parked.Count - 1 downto 0 do
+    begin
+      N := TNpc(Parked[I]);
+      if not InScope(N) then Continue;
+      Parked.Delete(I);
+      Npcs.Add(N);
+      Come.Add(N);
+    end;
+    for I := 0 to Come.Count - 1 do
+      if Npcs.IndexOf(Come[I]) >= 0 then Fire(TNpc(Come[I]), 'playerenters');
+  finally
+    Come.Free;
+  end;
 end;
 
 function TNpcManager.Ctx2Npc(Ctx: TGsContext): TNpc;
@@ -519,7 +644,7 @@ begin
   while not R.Eof do
   begin
     P := R.ReadGChar;
-    if (P < 0) or (P > NpcPropLast205) then Exit;
+    if (P < 0) or (P > NpcPropLast222) or (P = 48) then Exit;
     case P of
       NPCPROP_IMAGE:
         begin
@@ -617,6 +742,11 @@ begin
       NPCPROP_BODYIMAGE: N.BodyImage := R.ReadGString;
       NPCPROP_GATTRIB1..NPCPROP_GATTRIB5:
         N.Attr[P - NPCPROP_GATTRIB1 + 1] := R.ReadGString;
+      NPCPROP_GMAPLEVELX: N.CellX := R.ReadGChar;
+      NPCPROP_GMAPLEVELY: N.CellY := R.ReadGChar;
+      NPCPROP_Z: N.Z := R.ReadGChar - 50;
+      NPCPROP_GATTRIB6..NPCPROP_GATTRIB9, NPCPROP_SCRIPTER..NPCPROP_GATTRIB30:
+        R.ReadGString;
     end;
     if R.Overrun then Exit;
   end;
@@ -695,27 +825,47 @@ begin
           if R.Remaining <= 2 then Exit;
           NId := R.ReadGInt3;
           if NId <= 0 then Exit;
-          N := FindById(NId);
+          N := FindAnyById(NId);
           IsNew := N = nil;
-          if IsNew then N := Add(NId, 0, 0, '', '');
+          if IsNew then
+          begin
+            N := Add(NId, 0, 0, '', '');
+            N.Home := LowerCase(ObjectLevel);
+            if (LowerCase(ExtractFileExt(N.Home)) = '.gmap') then
+            begin
+              N.CellX := DataCellX;
+              N.CellY := DataCellY;
+            end;
+          end;
           ApplyProps(N, R, True);
           if IsNew then
           begin
             Fire(N, 'created');
-            Fire(N, 'playerenters');
+            if InScope(N) then Fire(N, 'playerenters')
+            else Rescope(N);
             RemoveGone;
-          end;
+          end
+          else
+            Rescope(N);
         finally
           R.Free;
         end;
       end;
-    PLO_NPCDEL_ID:
+    PLO_NPCDEL_ID, PLO_NPCDEL2_ID:
       begin
         R := TGReader.Create(Data);
         try
+          { NPCDEL2: c n, the level's name (n chars), then the id }
+          if Id = PLO_NPCDEL2_ID then R.ReadGString;
           NId := R.ReadGInt3;
-          N := FindById(NId);
-          if N <> nil then
+          if R.Overrun then Exit;
+          N := FindAnyById(NId);
+          if (N <> nil) and (Parked.IndexOf(N) >= 0) then
+          begin
+            Parked.Remove(N);
+            N.Free;
+          end
+          else if N <> nil then
           begin
             N.Gone := True;
             RemoveGone;

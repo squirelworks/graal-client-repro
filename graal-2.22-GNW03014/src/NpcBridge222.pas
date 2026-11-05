@@ -527,7 +527,7 @@ end;
 function TAdventureBaddyWorld.Image(const Name: string): TGSurface;
 begin
   { 2.05 keeps the baddies in their own folder, 2.22 in levels/baddies }
-  if SameText(Name, 'wbow1.gif') then
+  if SameText(Name, 'wbow1.png') then
   begin
     Result := FAdv.Assets.Image(Name, 'weapon');
     Exit;
