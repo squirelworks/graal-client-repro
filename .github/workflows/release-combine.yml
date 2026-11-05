@@ -3,7 +3,8 @@ name: release-combine
 # Gathers the per-client releases of one version (tags <folder>-<version>,
 # as release-all made them up to v0.0.3) into ONE release, tag <version>,
 # titled "Graal clients <version>", with every zip attached and one notes
-# text listing every client (scripts/release/combined_notes.py). Hide =
+# text listing every client (scripts/release/combined_notes.py). Linux
+# zips are left out: releases are Windows only for now. Hide =
 # yes then turns the per-client releases back into drafts, so the releases
 # page shows only the one; that is undone by publishing a draft again, and
 # happens only once the one release holds every zip. Start it from the
@@ -47,9 +48,10 @@ jobs:
           mkdir dist
           WANT=0
           while read -r T; do
-            N=$(gh release view "$T" --json assets -q '.assets | length')
+            N=$(gh release view "$T" --json assets -q '[.assets[] | select(.name | endswith("-linux.zip") | not)] | length')
             WANT=$((WANT + N))
             gh release download "$T" -D dist
+            rm -f dist/*-linux.zip
           done < tags.txt
           GOT=$(ls dist | wc -l)
           echo "$GOT files (expected $WANT)"
