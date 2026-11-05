@@ -89,6 +89,9 @@ Most of the game still follows a later Graal: the script commands, the
 item list, sound and the editor have not been checked against 1.21.
 No local 2 to 4 player modes, no UDP, no options page.
 
+The original's own icon: 1.21's program is still packed inside its 1999
+InstallShield installer, so the Windows program has the default icon.
+
 ## Checks behind this release
 
 The test programs run with range and overflow checks and the heap tracer

@@ -140,8 +140,8 @@ begin
   try
     M.Seed(1);
     B := M.Add(2, 30, 30, 'I see you\Ouch\Take that');
-    Check((B.Power = 4) and (B.Image = 'baddyred.gif') and (B.Mode = BdWalk),
-      'baddy: type 2 has power 4 and baddyred.gif, and walks');
+    Check((B.Power = 4) and (B.Image = 'baddyred.png') and (B.Mode = BdWalk),
+      'baddy: type 2 has power 4 and baddyred.png, and walks');
     Check((B.Verses[0] = 'I see you') and (B.Verses[1] = 'Ouch') and (B.Verses[2] = 'Take that'),
       'baddy: the level''s verses split at \');
     Check(B.Dir = 0, 'baddy: far from the player, it faces up toward it');
@@ -319,7 +319,7 @@ begin
       'props: BADDYPROPS taken');
     B := M.Find(5);
     Check((B <> nil) and (Abs(B.X - 10) < 1E-9) and (Abs(B.Y - 11) < 1E-9) and (B.Kind = 7) and
-      (B.Power = 6) and (B.Image = 'baddygold.gif') and (B.Verses[0] = 'Hi'),
+      (B.Power = 6) and (B.Image = 'baddygold.png') and (B.Verses[0] = 'Hi'),
       'props: a new baddy 5, type 7, at 10,11, power 6, verse Hi');
     B := M.Find(5);
     Check((B <> nil) and (M.Prop(B, 4) = GChar(6) + GChar(0)) and (M.Prop(B, 8) = GChar(2) + 'Hi'),

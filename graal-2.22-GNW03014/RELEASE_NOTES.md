@@ -16,11 +16,16 @@ chat are not there yet.
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").
 
-These zips hold no original Graal code, graphics, sounds or levels. The
-program carries small original default graphics and a starter level of its
-own, so it runs as it is. Put it in a 2.22 install you own (or point it at
-one with `--data DIR`) and the install's tiles, ganis, heads, bodies,
-start-window picture and offline tutorial take their place.
+The program carries what 2.22's own `Graal_222.exe` carries: the start
+window and server list art and buttons, the nine Training levels, the
+English words of its windows and the Graal head icon. It also carries the
+2.22 install's art that the start screen and Training use: the tiles
+(`pics1.png`, `picso.png`), the sprites, status and letters pictures, the
+bombs, `arrays.dat`, the name font, the offline tutorial map with its
+levels, ganis and pictures, and the default body, head, sword and shield.
+So it runs on its own, with nothing beside it, and looks like 2.22. Put
+it in a 2.22 install (or point it at one with `--data DIR`) and it uses
+what that install holds first.
 
 Files are looked for in the program's own folder first, then in
 `graal-assets/2.22` and `graal-assets/common` beside it, then in the
@@ -51,13 +56,29 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 
 ## What works
 
-- The start screen: nick name, Training, Start. Start fetches the server
+- 2.22's own start window, in a 577 x 416 window of its own with only a
+  close button: the GraalOnline art and buttons of `Graal_222.exe`,
+  Nickname, Language, Account and Password laid out as the original's
+  form, the words from `languages/languageEnglish.txt`, and the nickname
+  and last account 2.22 saved in the registry. Start fetches the server
   list (hosts from the install's `arrays2.dat`, or `listserver.txt` next
-  to the program, else `listserver.graal.in:14922`), then account,
-  password and Connect. When no listserver answers, the status line
-  names each host that failed and why.
-- Training: the offline tutorial levels, when they lie next to the
-  program, with the tutorial's own tile set; else a built-in starter level.
+  to the program, else `listserver.graal.in:14922`) and opens 2.22's
+  server list: Gold, Silver and Bronze tabs, the server's language,
+  version, description and homepage, the listserver's message, and
+  Connect. The game then opens in its own 640 x 480 window titled
+  "Graal: <server>". The windows have the original's frames, and the
+  taskbar shows one Graal button with the Graal head.
+- Alt+Enter switches to fullscreen and back, as 2.22 does: the screen
+  goes to `fullscreenmode` from the install's `graalconfig.txt`
+  (1024 x 768 when it has none) and more of the level is shown.
+  `startinfullscreen=true`, or Shift held on Start or Training, starts
+  the game in fullscreen.
+- Training: the real offline tutorial with its nine levels, starting
+  below the cauldron. The tutorial's script dresses the player as 2.22
+  does (blond hair, brown shirt, shield) and puts in its own walking
+  ganis. The lamps burn with their gani scripts (light and flame), and the
+  teacher's "Touch to get information" sign floats over its arrow in the
+  name font, as 2.22 draws gani movie text.
 - Login to a 2.22 server: login type 5, `GNW03014`, the tamper check, and
   gen-5 frames both ways. Checked against frames of a real 2.22 session:
   the rebuild makes the real client's uncompressed frames byte for byte
@@ -65,7 +86,18 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 - The 2.1+ player props (GANI as text, OSTYPE, TEXTCODEPAGE, gmap cells),
   stopping where 2.22's own parsers stop.
 - The board, the player and other players drawn from the install's tiles
-  and ganis.
+  and ganis, with every head shown: a gani's default hat is not drawn
+  over anyone. Bodies change only their key colours (skin, coat,
+  sleeves, shoes, belt), so bodies drawn in other colours show as they
+  are. Gani attributes `#P1` to `#P30`, pictures found in any folder of
+  `levels/`.
+- Server NPCs on gmaps: each in its own cell, the cells around the
+  player drawn at their place on the map, and names under character
+  NPCs in the install's `TEMPSITC.TTF`, white over dark blue.
+- The sword and glove icons in the status display, and the white chat
+  line under the play area.
+- On Windows, the Graal head as the program's icon in the title bar and
+  the taskbar.
 - Walking and collision, with props sent every 100 ms as 2.22 does.
 - S sword, A lift / throw / open, D weapon, Q item list, M map; items,
   bombs, hearts, death and respawn; signs.
@@ -75,9 +107,13 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 - Sound effects in a window (`--nosound` turns them off).
 - Level links, asked with LEVELWARP or, for a level already seen,
   LEVELWARPMOD with its mod time, each followed by the tamper check.
-- The ground of new-world maps: a level with a height grid in its
-  `.gmap` is drawn as water, sand, sand and grass, or grass by height,
-  with slopes lit from the upper left, as measured on the real 2.22.
+- The ground of new-world maps, built as 2.22 builds it: the `.gmap`'s
+  height field, its seeded random displacement and each level's HEIGHTS
+  points give every tile corner a height. The ground is drawn as water,
+  sand, sand and grass, or grass by height, with slopes lit from the
+  upper left, and it stands raised by its height: the ground, players and
+  NPCs go up 16 px per height step, and the camera follows the player's
+  raised place, so Training's hills and palms sit where 2.22 draws them.
 - Baddies by 2.22's rules: they hunt the nearest player in the level,
   slide along walls, play 2.22's sounds (steps, frog, shield, splash,
   death), and a shield block pushes the player back.
@@ -106,13 +142,13 @@ when it was started from there). Run `Graal222 --help` for every flag.
 
 ## Not yet
 
-2.22's additions to GS1 and its NPC props past 40; NPCs in gmap cells
-other than the player's; the editors; chat bubbles, names and the chat
-bar; Options; UDP peer traffic; macOS. See the build's README for the full list.
+Most of 2.22's additions to GS1; the account and language drop-downs,
+Get an account!, Show More and Donations; typing in the chat line; the
+editors; Options; UDP peer traffic; macOS. See the build's README for the full list.
 
 ## Checks behind this release
 
-The test suites (327 checks) run with range and overflow checks and the heap
+The test suites (359 checks) run with range and overflow checks and the heap
 tracer, and must end with no unfreed memory. It includes frames of a real
 2.22 session, a bzip2 round trip against random and repetitive data, and a
 fuzz run of 20000 random messages and 3000 random gen-5 frames through the

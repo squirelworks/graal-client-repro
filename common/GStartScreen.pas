@@ -36,6 +36,8 @@ type
     Choice: TStartChoice;
     Nickname, Account, Password, Host: string;
     Port: Integer;
+    { the picked server's name as listed, without its type prefix }
+    ServerName: string;
   end;
 
   { Fetches the server list. A build subclasses it with its own listserver
@@ -45,6 +47,9 @@ type
   public
     Servers: TListServers;
     Status: string;
+    { the listserver's own status lines (#10 between them), when it sent
+      some }
+    StatusLines: string;
     Done, Failed: Boolean;
     { Account and Password are what the list page holds when the list is
       asked for; builds whose list step does not send them ignore them. }
@@ -449,6 +454,7 @@ begin
           R.Choice := scOnline;
           R.Host := Srv.Host;
           R.Port := Srv.Port;
+          R.ServerName := ServerDisplayName(Srv.Name);
           Result := True;
           Exit;
         end;

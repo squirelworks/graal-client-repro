@@ -66,9 +66,9 @@ const
   PLI_BADDYPROPS_ID = 15;
   PLI_BADDYHURT_ID = 16;
 
-  BaddyImages: array[0..9] of string = ('baddygray.gif', 'baddyblue.gif',
-    'baddyred.gif', 'baddyblue.gif', 'baddygray.gif', 'baddyhare.gif',
-    'baddyoctopus.gif', 'baddygold.gif', 'baddylizardon.gif', 'baddydragon.gif');
+  BaddyImages: array[0..9] of string = ('baddygray.png', 'baddyblue.png',
+    'baddyred.png', 'baddyblue.png', 'baddygray.png', 'baddyhare.png',
+    'baddyoctopus.png', 'baddygold.png', 'baddylizardon.png', 'baddydragon.png');
   BaddyPowers: array[0..9] of Integer = (2, 3, 4, 3, 2, 1, 1, 6, 12, 8);
 
 type
@@ -1295,7 +1295,7 @@ begin
   A := World.Arrays;
   if A = nil then Exit;
   Spr := World.Image('sprites.png');
-  Bow := World.Image('wbow1.gif');
+  Bow := World.Image('wbow1.png');
   for I := 0 to Baddies.Count - 1 do
   begin
     B := Baddy(I);
