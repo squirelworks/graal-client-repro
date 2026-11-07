@@ -10,8 +10,11 @@
 #include "surface.hpp"
 
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <string>
+#include <unistd.h>
+#include <vector>
 
 namespace {
 
@@ -26,6 +29,74 @@ void usage() {
       << "The default port is the lab port 14900.\n";
 }
 
+bool fileExists(const std::string &path) {
+  std::ifstream in(path.c_str());
+  return static_cast<bool>(in);
+}
+
+std::string parentDir(const std::string &path) {
+  const std::string::size_type slash = path.find_last_of('/');
+  if (slash == std::string::npos || slash == 0) {
+    return "";
+  }
+  return path.substr(0, slash);
+}
+
+std::string exeDir() {
+  char buf[4096];
+  const ssize_t n = ::readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+  if (n <= 0) {
+    return ".";
+  }
+  buf[n] = 0;
+  return parentDir(buf);
+}
+
+std::string findUp(const std::string &rel) {
+  std::string dir = exeDir();
+  for (int up = 0; up < 8 && !dir.empty(); ++up) {
+    const std::string candidate = dir + "/" + rel;
+    if (fileExists(candidate)) {
+      return candidate;
+    }
+    dir = parentDir(dir);
+  }
+  if (fileExists(rel)) {
+    return rel;
+  }
+  return "";
+}
+
+bool loadModuleList(const std::string &path, std::vector<std::string> &names,
+                    std::string &error) {
+  std::ifstream in(path.c_str());
+  if (!in) {
+    error = "cannot open " + path;
+    return false;
+  }
+  std::string line;
+  while (std::getline(in, line)) {
+    std::size_t a = 0;
+    while (a < line.size() && (line[a] == ' ' || line[a] == '\t' || line[a] == '\r')) {
+      ++a;
+    }
+    std::size_t b = line.size();
+    while (b > a && (line[b - 1] == ' ' || line[b - 1] == '\t' || line[b - 1] == '\r')) {
+      --b;
+    }
+    const std::string trimmed = line.substr(a, b - a);
+    if (trimmed.empty() || trimmed[0] == '#') {
+      continue;
+    }
+    names.push_back(trimmed);
+  }
+  if (names.size() != 4) {
+    error = "4.2.0.8-engine.list does not name four modules";
+    return false;
+  }
+  return true;
+}
+
 bool take(int &i, int argc, char **argv, std::string &value) {
   if (i + 1 >= argc) {
     return false;
@@ -37,7 +108,7 @@ bool take(int &i, int argc, char **argv, std::string &value) {
 } // namespace
 
 int main(int argc, char **argv) {
-  std::string script = "scripts/set-content.cs";
+  std::string script = "scripts/level-tile.cs";
   std::string host;
   std::string account = "lab";
   std::string password = "lab";
@@ -99,12 +170,43 @@ int main(int argc, char **argv) {
     return 2;
   }
 
-  std::cout << "host4208: 4.2.0.8 engine host (C++; no Torque console)\n";
+  std::cout << "host4208: 4.2.0.8 engine host (C++ residual surface)\n";
   std::cout << "host4208: token " << kVersionToken
             << " (documented Windows 4.20r8 game-server token)\n";
 
-  SurfaceResult surface;
   std::string error;
+  const std::string listPath = findUp("common/torque/manifests/4.2.0.8-engine.list");
+  if (listPath.empty()) {
+    std::cerr << "host4208: cannot find 4.2.0.8-engine.list\n";
+    return 1;
+  }
+  std::vector<std::string> modules;
+  if (!loadModuleList(listPath, modules, error)) {
+    std::cerr << "host4208: " << error << "\n";
+    return 1;
+  }
+  bool sawGui = false;
+  bool sawGraal = false;
+  bool sawGame = false;
+  for (std::size_t i = 0; i < modules.size(); ++i) {
+    std::cout << "host4208: registered module " << modules[i] << "\n";
+    if (modules[i] == "gui") sawGui = true;
+    if (modules[i] == "guigraal") sawGraal = true;
+    if (modules[i] == "game-tge" || modules[i] == "gameobject") sawGame = true;
+  }
+  if (!sawGui || !sawGraal || sawGame) {
+    std::cerr << "host4208: module list is not the 4.2.0.8 engine set\n";
+    return 1;
+  }
+
+  if (!fileExists(script)) {
+    const std::string beside = findUp("common/torque/host4208/scripts/level-tile.cs");
+    if (!beside.empty()) {
+      script = beside;
+    }
+  }
+
+  SurfaceResult surface;
   if (!runSurfaceFile(script, surface, error)) {
     std::cerr << "host4208: " << error << "\n";
     return 1;

@@ -6,13 +6,13 @@ unchanged. This directory is not a FreePascal unit, and it is not the
 Delphi launcher in `graal-4.20r8-G3D20126`.
 
 The 4.2.0.8 engine has no Torque console, no `SimObject` and no `.dso`.
-This program does not run TorqueScript. `scripts/set-content.cs` is two
-residual statements: a `new GuiGraalCtrl` that is discarded, and
-`setContentControl(MainMenuGui2D)`, which sets the canvas content.
+`scripts/level-tile.cs` is a provisional line script: it opens a
+`TServerLevel` and places one tile. `Shell420` in the client folder is
+the Delphi shell that starts this program.
 
 ## Build and run
 
-From this directory, with the system compiler (`g++` or `clang++`) and zlib:
+`scripts/build.sh graal-4.20r8-G3D20126` runs this Makefile and the Delphi shell. From this directory, with the system compiler (`g++` or `clang++`) and zlib:
 
 ```
 make

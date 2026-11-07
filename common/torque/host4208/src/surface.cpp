@@ -24,7 +24,36 @@ std::string stripSemi(std::string s) {
   return trim(s);
 }
 
-bool execLine(const std::string &raw, bool &canvas, SurfaceResult &out, std::string &error) {
+// provisional: body not yet known
+void stubOpenLevel(SurfaceResult &out, const std::string &name) {
+  out.levelOpened = true;
+  out.log.push_back("TServerLevel.openLevel called " + name);
+}
+
+// provisional: body not yet known
+void stubPlaceTile(SurfaceResult &out, const std::string &x, const std::string &y,
+                   const std::string &tile) {
+  out.tilePlaced = true;
+  out.tileLine = "tile placed " + x + " " + y + " " + tile;
+  out.log.push_back("TServerLevel.placeTile called " + x + " " + y + " " + tile);
+  out.log.push_back(out.tileLine);
+}
+
+// provisional: body not yet known
+void stubOther(SurfaceResult &out, const std::string &line) {
+  out.log.push_back("residual stub: " + line);
+}
+
+std::string unquote(std::string s) {
+  s = trim(s);
+  if (s.size() >= 2 && s[0] == '"' && s[s.size() - 1] == '"') {
+    return s.substr(1, s.size() - 2);
+  }
+  return s;
+}
+
+bool execLine(const std::string &raw, bool &canvas, bool &level, SurfaceResult &out,
+              std::string &error) {
   const std::string line = stripSemi(raw);
   if (line.empty() || line.compare(0, 2, "//") == 0) {
     return true;
@@ -58,7 +87,57 @@ bool execLine(const std::string &raw, bool &canvas, SurfaceResult &out, std::str
     return true;
   }
 
-  out.log.push_back("residual stub: " + line);
+  const std::string neuLevel = "new TServerLevel(";
+  if (line.compare(0, neuLevel.size(), neuLevel) == 0 && line[line.size() - 1] == ')') {
+    const std::string name =
+        trim(line.substr(neuLevel.size(), line.size() - neuLevel.size() - 1));
+    if (name.empty()) {
+      error = "new TServerLevel needs a name";
+      return false;
+    }
+    level = true;
+    out.log.push_back("new TServerLevel " + name);
+    return true;
+  }
+
+  const std::size_t dot = line.find('.');
+  const std::size_t paren = line.find('(');
+  if (dot != std::string::npos && paren != std::string::npos && dot < paren &&
+      line[line.size() - 1] == ')') {
+    const std::string method = trim(line.substr(dot + 1, paren - dot - 1));
+    const std::string inside = line.substr(paren + 1, line.size() - paren - 2);
+    if (!level && (method == "openLevel" || method == "placeTile")) {
+      error = "level call with no TServerLevel";
+      return false;
+    }
+    if (method == "openLevel") {
+      const std::string name = unquote(inside);
+      if (name.empty()) {
+        error = "openLevel needs a name";
+        return false;
+      }
+      stubOpenLevel(out, name);
+      return true;
+    }
+    if (method == "placeTile") {
+      std::string x, y, tile, rest = inside;
+      const std::size_t c1 = rest.find(',');
+      const std::size_t c2 = c1 == std::string::npos ? std::string::npos : rest.find(',', c1 + 1);
+      if (c1 == std::string::npos || c2 == std::string::npos) {
+        error = "placeTile needs three arguments";
+        return false;
+      }
+      x = unquote(rest.substr(0, c1));
+      y = unquote(rest.substr(c1 + 1, c2 - c1 - 1));
+      tile = unquote(rest.substr(c2 + 1));
+      stubPlaceTile(out, x, y, tile);
+      return true;
+    }
+    stubOther(out, line);
+    return true;
+  }
+
+  stubOther(out, line);
   return true;
 }
 
@@ -67,11 +146,15 @@ bool execLine(const std::string &raw, bool &canvas, SurfaceResult &out, std::str
 bool runSurfaceFile(const std::string &path, SurfaceResult &out, std::string &error) {
   out.contentSet = false;
   out.contentLine.clear();
+  out.levelOpened = false;
+  out.tilePlaced = false;
+  out.tileLine.clear();
   out.log.clear();
 
   // Boot order from the engine note: the canvas exists before content is set.
   // Point2I and GBitmap are linked. No size and no pixels are recovered here.
   bool canvas = true;
+  bool level = false;
   out.log.push_back(
       "registered residual surface: GuiCanvas, GuiControl, Point2I, GBitmap");
   out.log.push_back("Point2I registered (no size recovered this pass)");
@@ -79,7 +162,8 @@ bool runSurfaceFile(const std::string &path, SurfaceResult &out, std::string &er
   out.log.push_back(
       "registered engine types GuiGraalCtrl, GuiGraal3DCtrl "
       "(a script new of either is discarded)");
-  out.log.push_back("TorqueScript is not run (no console and no .dso in this engine)");
+  out.log.push_back(
+      "script runner is provisional (this engine has no Torque console and no .dso)");
   out.log.push_back("GuiCanvas created");
 
   std::ifstream in(path.c_str());
@@ -91,13 +175,13 @@ bool runSurfaceFile(const std::string &path, SurfaceResult &out, std::string &er
   int number = 0;
   while (std::getline(in, line)) {
     ++number;
-    if (!execLine(line, canvas, out, error)) {
+    if (!execLine(line, canvas, level, out, error)) {
       error = path + ":" + std::to_string(number) + ": " + error;
       return false;
     }
   }
-  if (!out.contentSet) {
-    error = "script did not set canvas content";
+  if (!out.levelOpened || !out.tilePlaced) {
+    error = "script did not open a level and place a tile";
     return false;
   }
   return true;

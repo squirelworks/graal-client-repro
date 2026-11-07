@@ -30,4 +30,19 @@ for B in $BUILDS; do
       -Fu../../common -Fu../src -FE"../../build/$B" -FU"$UNITS" \
       "$(basename "$P")")
   done
+  # 4.2.0.8's residual engine host is common/torque/host4208.
+  # The Delphi shell is Shell420.dpr, compiled above. The Pascal units
+  # under common/torque stay off the Free Pascal path.
+  if [ "$B" = "graal-4.20r8-G3D20126" ] && [ -f "$ROOT/common/torque/host4208/Makefile" ]; then
+    echo "== common/torque/host4208"
+    CXXBIN=${CXX:-g++}
+    if command -v "$CXXBIN" >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
+      make -C "$ROOT/common/torque/host4208" clean all CXX="$CXXBIN"
+    else
+      case "$(uname -s)" in
+        Linux) echo "g++ and make are required for the 4.2.0.8 host"; exit 1 ;;
+        *) echo "no g++ or make; 4.2.0.8 C++ host skipped" ;;
+      esac
+    fi
+  fi
 done

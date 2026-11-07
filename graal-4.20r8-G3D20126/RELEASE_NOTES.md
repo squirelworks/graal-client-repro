@@ -17,6 +17,14 @@ point it at one with `--data DIR`) and the install's tiles, ganis, heads and
 bodies take their place. The shared `graal-assets/` folder next to the
 program works too (`graal-assets/4.20r8/`, then `graal-assets/common/`).
 
+## What's new in v0.0.5
+
+- `Shell420` is the Delphi-shaped shell. It starts
+  `common/torque/host4208`, which reads the four-module engine list,
+  opens a level-shaped object, places a tile, and sends the documented
+  `G3D20126` login line to loopback. The script runner is provisional:
+  this engine has no Torque console. Later frames are not built.
+
 ## What's new in v0.0.4
 
 - Rebuilt from the latest code; the changes for this client are listed here as they land.

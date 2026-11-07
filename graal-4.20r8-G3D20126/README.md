@@ -72,11 +72,18 @@ Graal420 --level some.nw                  # offline
 
 ## Engine host
 
-`common/torque/host4208` is a C++ program for the residual Torque surface
-in the 4.2.0.8 engine DLL (`GuiCanvas`, `GuiControl`, `Point2I`,
-`GBitmap`, and the `GuiGraalCtrl` names). The engine has no Torque
-console. That program is not this Delphi launcher, and it does not run
-TorqueScript. The login token it sends is `G3D20126`, the documented Windows 4.20r8 token.
+`common/torque/host4208` is the C++ residual surface. `Shell420` is the
+Delphi-shaped shell: it finds that program and runs it. The engine list
+is `manifests/4.2.0.8-engine.list` (gui, gbitmap, math, guigraal). The
+boot script opens a `TServerLevel` and places one tile. That runner is
+provisional: this engine has no Torque console. The login token is
+`G3D20126`, the documented Windows 4.20r8 token. The first frame is the
+login line only.
+
+```
+scripts/build.sh graal-4.20r8-G3D20126
+build/graal-4.20r8-G3D20126/Shell420 --port 14900
+```
 
 ## Not yet, or not known
 
@@ -86,3 +93,8 @@ TorqueScript. The login token it sends is `G3D20126`, the documented Windows 4.2
 - [ ] Everything still missing from the 4.04r2 rebuild: the scripted server
   list, update packages, the GUI texts after login, the 3D plug-in.
 - [ ] No side-by-side run against the real 4.20r8; that is 0.0.2 work.
+- [x] A Delphi shell starts the C++ engine host, which reads the engine
+  module list, opens a level-shaped object, places a tile, and sends the
+  login-shaped first frame to loopback (`Shell420`, `common/torque/host4208`).
+- [ ] The engine host is not the real `GraalEngine.dll`. Tile drawing,
+  `GuiCanvas` input, and frames after the login line are not built.

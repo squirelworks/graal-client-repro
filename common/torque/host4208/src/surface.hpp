@@ -18,6 +18,9 @@
 struct SurfaceResult {
   bool contentSet;
   std::string contentLine;
+  bool levelOpened;
+  bool tilePlaced;
+  std::string tileLine;
   std::vector<std::string> log;
 };
 
