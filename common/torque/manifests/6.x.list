@@ -1,0 +1,3 @@
+# 6.x is quattro_lib, not this tree. Not passed to fpc.
+# Residual names only: GuiGraalCtrl and GuiGraal3DCtrl.
+# No unit from this tree.

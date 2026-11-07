@@ -1,0 +1,11 @@
+# 3.04 Linux monolith. Not passed to fpc.
+# One directory per line, relative to common/torque/.
+console
+sim
+gui
+actionmap
+gbitmap
+math
+game-tge
+net-torque
+guigraal

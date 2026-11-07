@@ -1,0 +1,8 @@
+# 4.04r2 Graal3DEngine.dll. Not passed to fpc.
+# Early 4.x 3D still has the stock TGE game layer. No gameobject.
+sim
+gui
+actionmap
+gbitmap
+game-tge
+net-torque

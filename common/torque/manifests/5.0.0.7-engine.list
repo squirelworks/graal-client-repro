@@ -1,0 +1,5 @@
+# 5.0.0.7 GraalEngine.dll (2D session). Not passed to fpc.
+gui
+gbitmap
+math
+guigraal
