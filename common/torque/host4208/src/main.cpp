@@ -172,7 +172,7 @@ int main(int argc, char **argv) {
 
   std::cout << "host4208: 4.2.0.8 engine host (C++ residual surface)\n";
   std::cout << "host4208: token " << kVersionToken
-            << " (provisional neighbour of Linux 6.037; 4.2.0.8 has no exact row)\n";
+            << " (documented Windows 4.20r8 game-server token)\n";
 
   std::string error;
   const std::string listPath = findUp("common/torque/manifests/4.2.0.8-engine.list");

@@ -83,7 +83,7 @@ std::string formatAddr(const sockaddr_in &addr) {
 
 } // namespace
 
-const char kVersionToken[] = "G3D0511C";
+const char kVersionToken[] = "G3D20126";
 
 bool buildLoginFrame(int key, const std::string &account, const std::string &password,
                      LoginFrame &out, std::string &error) {
@@ -97,7 +97,7 @@ bool buildLoginFrame(int key, const std::string &account, const std::string &pas
   }
 
   // First frame only: id 5. GCHAR(id) is id + 0x20.
-  // Provisional: 4.2.0.8 has no exact row. Neighbour is Linux 6.037.
+  // Token kVersionToken is the documented 4.20r8 row.
   // Machine fields stay empty, as in Test420.
   // Ids 37 and 23 are later gen-5 frames and are not appended here.
   const int kLogin = 5;
@@ -154,7 +154,7 @@ bool loginFrameRoundTrip(const LoginFrame &frame, std::string &error) {
   // Id and key are one byte each. The next eight bytes are the token.
   if (back.size() < 2 + token.size() || back.compare(2, token.size(), token) != 0 ||
       back.find("G3D") != 2) {
-    error = "login plain does not send G3D0511C";
+    error = "login plain does not send G3D20126";
     return false;
   }
   return true;

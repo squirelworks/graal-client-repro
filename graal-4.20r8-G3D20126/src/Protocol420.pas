@@ -16,8 +16,9 @@ unit Protocol420;
 interface
 
 const
-  { Provisional: 4.2.0.8 has no exact row. Neighbour is Linux 6.037. }
-  ClientVersionToken = 'G3D0511C';
+  { The 8-byte version token in the login line (v4x-clients.md, "Version
+    tokens": 20 December 2006). }
+  ClientVersionToken = 'G3D20126';
   ClientBuildLabel = '4.20r8';
   { After the password the login line carries an unprefixed comma list:
     the platform and three machine fields. }
