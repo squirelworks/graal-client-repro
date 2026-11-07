@@ -77,8 +77,8 @@ The password is never written and never logged. A host other than
 `scripts/build.sh` compiles the Pascal shell, `worlds-host` (no zlib), and
 `worlds-player` with `dotnet` or `mcs`. Linux fails the build if neither
 C# compiler exists. Windows and macOS still build the Pascal shell when
-the C# compiler is missing. A Windows runner without a C++ compiler still
-skips `worlds-host`.
+the C# compiler is missing. Windows does not build `worlds-host`; that
+connector uses POSIX sockets.
 
 ## Running it
 

@@ -34,27 +34,22 @@ for B in $BUILDS; do
   # portable C# (mcs or dotnet). Neither is a Unity player.
   if [ -f "$B/src/worlds_host.cpp" ]; then
     echo "== $B/src/worlds_host.cpp"
-    CXX=""
-    if command -v g++ >/dev/null 2>&1; then CXX=g++
-    elif command -v c++ >/dev/null 2>&1; then CXX=c++
-    fi
-    HOSTOUT="$OUT/worlds-host"
     case "$(uname -s)" in
-      MINGW*|MSYS*|CYGWIN*) HOSTOUT="$OUT/worlds-host.exe" ;;
-    esac
-    if [ -z "$CXX" ]; then
-      case "$(uname -s)" in
-        MINGW*|MSYS*|CYGWIN*)
-          echo "worlds-host: no C++ compiler on this runner; Pascal shell still builds"
-          ;;
-        *)
+      MINGW*|MSYS*|CYGWIN*)
+        echo "worlds-host: POSIX connector is not built on Windows"
+        ;;
+      *)
+        CXX=""
+        if command -v g++ >/dev/null 2>&1; then CXX=g++
+        elif command -v c++ >/dev/null 2>&1; then CXX=c++
+        fi
+        if [ -z "$CXX" ]; then
           echo "worlds-host: no C++ compiler" >&2
           exit 1
-          ;;
-      esac
-    else
-      "$CXX" -std=c++17 -O2 -Wall -Wextra -o "$HOSTOUT" "$B/src/worlds_host.cpp"
-    fi
+        fi
+        "$CXX" -std=c++17 -O2 -Wall -Wextra -o "$OUT/worlds-host" "$B/src/worlds_host.cpp"
+        ;;
+    esac
   fi
   if [ -f "$B/player/PlayerProgram.cs" ]; then
     echo "== $B/player"
