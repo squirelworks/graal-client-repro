@@ -8,7 +8,8 @@ program TestQuattro603;
 uses
   SysUtils,
   Protocol603 in '../src/Protocol603.pas',
-  Quattro603 in '../src/Quattro603.pas';
+  Quattro603 in '../src/Quattro603.pas',
+  Controls603 in '../src/Controls603.pas';
 
 var
   Passed, Failed: Integer;
@@ -98,10 +99,42 @@ begin
   Check(Unlisted > 0, 'unnamed numbers stay unlisted');
 end;
 
+procedure TestControls;
+var
+  I: Integer;
+  SawLevel, SawTiles, SawDrawable, SawAbsent: Boolean;
+  Log: string;
+begin
+  Check(ControlCount = 71, 'seventy-one 6.037 controls');
+  SawLevel := False;
+  SawTiles := False;
+  SawDrawable := False;
+  SawAbsent := False;
+  for I := 0 to ControlCount - 1 do
+  begin
+    if ControlName(I) = 'GuiGraalCtrl' then SawLevel := True;
+    if ControlName(I) = 'GuiTilesCtrl' then SawTiles := True;
+    if ControlName(I) = 'TDrawableObject' then SawDrawable := True;
+    if (ControlName(I) = 'GuiBrowserCtrl') or (ControlName(I) = 'GuiTSCtrl') or
+      (ControlName(I) = 'TFontData') then
+      SawAbsent := True;
+  end;
+  Check(SawLevel, 'GuiGraalCtrl is registered');
+  Check(SawTiles, 'GuiTilesCtrl is registered');
+  Check(SawDrawable, 'TDrawableObject stays on 6.037');
+  Check(not SawAbsent, 'browser, Torque scene view and TFontData are absent');
+  Check(not LinksTorque, 'controls stay off Torque');
+  Log := LevelViewLog;
+  Check(Pos('level view opened: GraalControl (GuiGraalCtrl)', Log) > 0,
+    'the level view opens');
+  Check(Pos('script-bound action attack', Log) > 0, 'attack stays script-bound');
+end;
+
 begin
   Passed := 0;
   Failed := 0;
   TestToken;
+  TestControls;
   TestGrescr;
   TestSend;
   TestCases;

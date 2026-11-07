@@ -28,6 +28,9 @@ to the program works too (`graal-assets/6.03r7/`, then
   length is logged. The three `onSendWant*` events write their name and
   a length. The numeric outgoing id is not invented. The CRC and the
   opcode bodies are still not read.
+- `Graal603` registers the 6.037 control names and opens `GraalControl`
+  as a stub before the existing client runs. The token stays `G3D0511C`.
+  Torque is not linked.
 
 ## What's new in v0.0.4
 

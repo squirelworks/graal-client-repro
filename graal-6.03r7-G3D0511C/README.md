@@ -110,6 +110,9 @@ From the program's folder (or `--data`), then `graal-assets/6.03r7/`, then
 - [x] `onSendWantClassScript`, `onSendWantWeaponScript` and
   `onSendWantGaniScript` write the event name and the payload length.
   The numeric id is not in the outgoing table, so none is invented.
+- [x] The 6.037 control names, including `GuiGraalCtrl` and `GuiTilesCtrl`,
+  are registered when `Graal603` starts. The bodies are stubs. The token
+  stays `G3D0511C`.
 - [ ] GS2 opcode bodies, and the case numbers from 11 through 242 that
   `docs/v6-repro.md` does not name. `Quattro603` marks only the named
   ones. The 6.1.1.3 connector, UDP and package rows are not this folder.
