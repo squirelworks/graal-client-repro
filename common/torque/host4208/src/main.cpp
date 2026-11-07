@@ -100,8 +100,8 @@ int main(int argc, char **argv) {
   }
 
   std::cout << "host4208: 4.2.0.8 engine host (C++; no Torque console)\n";
-  std::cout << "host4208: token G3D20126 PROVISIONAL "
-               "(folder name; not re-read from the DLL this pass)\n";
+  std::cout << "host4208: token " << kVersionToken
+            << " (documented Windows 4.20r8 game-server token)\n";
 
   SurfaceResult surface;
   std::string error;

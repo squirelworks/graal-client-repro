@@ -83,6 +83,8 @@ std::string formatAddr(const sockaddr_in &addr) {
 
 } // namespace
 
+const char kVersionToken[] = "G3D20126";
+
 bool buildLoginFrame(int key, const std::string &account, const std::string &password,
                      LoginFrame &out, std::string &error) {
   if (key < 0 || key > 127) {
@@ -95,15 +97,15 @@ bool buildLoginFrame(int key, const std::string &account, const std::string &pas
   }
 
   // First frame only: id 5. GCHAR(id) is id + 0x20.
-  // PROVISIONAL token G3D20126: folder name, not re-read from the DLL.
-  // PROVISIONAL machine fields: empty, as in Test420, not real hashes.
+  // Token kVersionToken is the documented 4.20r8 row.
+  // Machine fields stay empty, as in Test420.
   // Ids 37 and 23 are later gen-5 frames and are not appended here.
   const int kLogin = 5;
 
   std::string plain;
   plain += gChar(kLogin);
   plain += gChar(key);
-  plain += "G3D20126";
+  plain += kVersionToken;
   plain += gString(account);
   plain += gString(password);
   plain += "win,\"\",\"\",\"\"";
@@ -148,8 +150,11 @@ bool loginFrameRoundTrip(const LoginFrame &frame, std::string &error) {
     error = "inflated login does not match the plain body";
     return false;
   }
-  if (back.find("G3D20126") == std::string::npos) {
-    error = "login plain is missing G3D20126";
+  const std::string token = kVersionToken;
+  // Id and key are one byte each. The next eight bytes are the token.
+  if (back.size() < 2 + token.size() || back.compare(2, token.size(), token) != 0 ||
+      back.find("G3D") != 2) {
+    error = "login plain does not send G3D20126";
     return false;
   }
   return true;

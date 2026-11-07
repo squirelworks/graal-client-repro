@@ -76,7 +76,7 @@ Graal420 --level some.nw                  # offline
 in the 4.2.0.8 engine DLL (`GuiCanvas`, `GuiControl`, `Point2I`,
 `GBitmap`, and the `GuiGraalCtrl` names). The engine has no Torque
 console. That program is not this Delphi launcher, and it does not run
-TorqueScript. The login token it sends is marked provisional there.
+TorqueScript. The login token it sends is `G3D20126`, the documented Windows 4.20r8 token.
 
 ## Not yet, or not known
 

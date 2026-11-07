@@ -28,7 +28,7 @@ If nothing is listening, the program still prints the frame and exits 0.
 
 | Item | Status |
 |---|---|
-| Token `G3D20126` | Provisional. It is the folder name and the token `protocol/v4x-clients.md` lists for Windows 4.20r8. That note tags the line `[bin][inf]` because the characters are assembled one at a time, and the readable engine is a third-party packet-logger copy. This host did not re-read the DLL. |
+| Token `G3D20126` | The documented game-server token for Windows 4.20r8 (`protocol/v4x-clients.md`). The original assembles it one character at a time, so the image has no string literal. This host sends that row. |
 | Residual types | `GuiCanvas`, `GuiControl`, `Point2I`, `GBitmap`, plus the engine types `GuiGraalCtrl` and `GuiGraal3DCtrl`. From `torque/4208-engine.md` and `manifests/4.2.0.8-engine.list`. |
 | `new GuiGraalCtrl` | Discarded. The note says the script builder does not construct that type. |
 | `setContentControl(MainMenuGui2D)` | The note's content switch when setup passes. |
