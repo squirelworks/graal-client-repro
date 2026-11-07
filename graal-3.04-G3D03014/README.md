@@ -85,4 +85,5 @@ Graal304 --server HOST:PORT --account NAME --headless --seconds 600 \
 - [ ] No side-by-side run against the real 3.04 yet; that is 0.0.2 work.
 - [ ] A running Torque console. `TorqueHost304` names GuiGraalCtrl's 31
   methods and the `common/torque` modules 3.04 links. It does not execute
-  `main.cs`.
+  `main.cs`. `common/torque/host304` runs one camera statement and logs
+  stub calls; that program is not this console.
