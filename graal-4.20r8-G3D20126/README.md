@@ -28,7 +28,7 @@ from decompiled code:
 
 | | 4.04r2 | 4.20r8 (this folder) |
 |---|---|---|
-| Game token | `G3D17026` | `G3D20126` |
+| Game token | `G3D17026` | `G3D0511C` (provisional neighbour of Linux 6.037) |
 | Server ids handled | 98 | 101: adds 107, 108, 196 |
 | 107 (board change on a layer) | not handled | layer 0 changes the board; other layers are read and dropped |
 | 108 | not handled | accepted; subtype 0 would be answered with 162, whose value is not in the notes, so no answer is sent |
@@ -77,8 +77,8 @@ Delphi-shaped shell: it finds that program and runs it. The engine list
 is `manifests/4.2.0.8-engine.list` (gui, gbitmap, math, guigraal). The
 boot script opens a `TServerLevel` and places one tile. That runner is
 provisional: this engine has no Torque console. The login token is
-`G3D20126`, the documented Windows 4.20r8 token. The first frame is the
-login line only.
+`G3D0511C`, provisional neighbour of Linux 6.037, because 4.2.0.8 has
+no exact row. The first frame is the login line only.
 
 ```
 scripts/build.sh graal-4.20r8-G3D20126

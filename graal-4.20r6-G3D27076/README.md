@@ -25,7 +25,7 @@ from decompiled code:
 
 | | 4.20r8 | 4.20r6 (this folder) |
 |---|---|---|
-| Game token | `G3D20126` | `G3D27076` |
+| Game token | `G3D0511C` (provisional neighbour of Linux 6.037) | `G3D27076` |
 | Login line platform | `win` | `mac` (the hash fields are sent empty) |
 | OSTYPE, code page | `wind`, 1252 (assumed) | `mac`, 0 (seen in the qemu run) |
 | 44 (in the login burst and the answer to 182) | the program's name | empty, as the qemu run saw |

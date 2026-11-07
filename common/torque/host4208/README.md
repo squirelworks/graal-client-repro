@@ -28,7 +28,7 @@ If nothing is listening, the program still prints the frame and exits 0.
 
 | Item | Status |
 |---|---|
-| Token `G3D20126` | The documented game-server token for Windows 4.20r8 (`protocol/v4x-clients.md`). The original assembles it one character at a time, so the image has no string literal. This host sends that row. |
+| Token `G3D0511C` | Provisional. 4.2.0.8 has no exact row. Neighbour is Linux 6.037. |
 | Residual types | `GuiCanvas`, `GuiControl`, `Point2I`, `GBitmap`, plus the engine types `GuiGraalCtrl` and `GuiGraal3DCtrl`. From `torque/4208-engine.md` and `manifests/4.2.0.8-engine.list`. |
 | `new GuiGraalCtrl` | Discarded. The note says the script builder does not construct that type. |
 | `setContentControl(MainMenuGui2D)` | The note's content switch when setup passes. |

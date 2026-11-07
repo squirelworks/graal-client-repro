@@ -21,8 +21,9 @@ program works too (`graal-assets/4.20r8/`, then `graal-assets/common/`).
 
 - `Shell420` is the Delphi-shaped shell. It starts
   `common/torque/host4208`, which reads the four-module engine list,
-  opens a level-shaped object, places a tile, and sends the documented
-  `G3D20126` login line to loopback. The script runner is provisional:
+  opens a level-shaped object, places a tile, and sends `G3D0511C`
+  to loopback. Provisional: 4.2.0.8 has no exact row. Neighbour is
+  Linux 6.037. The script runner is provisional:
   this engine has no Torque console. Later frames are not built.
 
 ## What's new in v0.0.4
@@ -58,7 +59,7 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
   `listserver.graal.in` on port 14922 for a list; the Login server named
   in the install's `license/license.graal` is added as an extra row.
   Then account, password and Connect.
-- Login with `G3D20126`, the platform `win` and three machine fields,
+- Login with `G3D0511C`, the platform `win` and three machine fields,
   which the rebuild leaves empty. No tamper check.
 - The Login server: its level is shown with no players on it, and the
   server's hand-over (178) takes the client to the game server.

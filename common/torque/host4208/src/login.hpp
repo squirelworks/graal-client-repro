@@ -1,9 +1,7 @@
 // Login-shaped first frame for the 4.2.0.8 host.
 //
-// Token G3D20126 is the documented game-server token for Windows 4.20r8
-// (protocol/v4x-clients.md). The characters are assembled one at a time
-// in the original, so the image has no string literal. The token this
-// host sends is that documented row.
+// Provisional: 4.2.0.8 has no exact row. Neighbour is Linux 6.037,
+// token G3D0511C.
 //
 // The first frame is the login line alone: plain zlib, no compression
 // byte, id 5, key, token, account, password, then win and three fields.
@@ -20,7 +18,7 @@
 #include <cstdint>
 #include <string>
 
-// Documented Windows 4.20r8 game-server token.
+// Provisional neighbour of Linux 6.037. 4.2.0.8 has no exact row.
 extern const char kVersionToken[];
 
 struct LoginFrame {
