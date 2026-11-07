@@ -6,10 +6,11 @@ Linux Cyberjoueurs. The engine name in the image is `quattro_lib`. Torque
 class names are absent. This folder does not build a player and does not
 speak to a server.
 
-The folder name stays `graal-5.31r4`. The login line sends `G3D0511C`,
-the documented Linux 6.037 token, because 5.31r4 has no exact row. The
-earlier 5.0.0.7 split (a host plus a 2D engine and a 3D plugin) is a
-different program. This folder does not load those DLLs.
+No eight-character token is stored in either image, so the folder name
+stays `graal-5.31r4`. The login line sends `G3D26090`, the documented
+token for 5.30r3 and 5.31r4. The earlier 5.0.0.7 split (a host plus a
+2D engine and a 3D plugin) is a different program. This folder does not
+load those DLLs.
 
 > **Not affiliated.** graal-delphi is an independent fan project. It is not
 > affiliated with, endorsed by, or connected to Graal Online, Cyberjoueurs,
@@ -24,7 +25,7 @@ Where a layout was not recovered, the unit leaves it unwritten.
 |---|---|
 | Shape | One executable. No engine DLL beside it |
 | Engine | `quattro_lib`. No Torque class names |
-| Token | Login line sends `G3D0511C`, the Linux 6.037 neighbour |
+| Token | No stored eight-character literal. The login line sends `G3D26090` |
 | Login | A host is baked beside port 14900. The host name is not copied here |
 | Outbound | Opcode plus 32, the body, a newline. A newline in the body is rejected |
 | Internal opcodes | Two opcodes skip that check. Their length-wrap bytes were not recovered, so they are not written |
@@ -43,7 +44,7 @@ Where a layout was not recovered, the unit leaves it unwritten.
 
 ## Not yet
 
-- [x] ~~A login token, once one is recovered. Do not invent an eight-character literal~~ The login line sends `G3D0511C`, provisional neighbour of Linux 6.037, because 5.31r4 has no exact row.
+- [x] ~~A login token, once one is recovered. Do not invent an eight-character literal~~ The login line sends `G3D26090` for 5.30r3 and 5.31r4. The images store no literal.
 - [ ] Numeric client-to-server opcodes. None were recovered as a fixed list
 - [ ] The length-wrap bytes for the two internal opcodes
 - [ ] The byte pattern that produces "illegal data (2)"

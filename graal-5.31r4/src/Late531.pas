@@ -5,7 +5,8 @@
   quattro_lib. Torque class names are absent, so this folder does not
   link a Torque unit and does not load the earlier 5.0.0.7 engine DLLs.
 
-  The login line sends ClientVersionToken.
+  Neither image stores an eight-character G3D, GNW or GNP literal. The
+  login line still sends G3D26090, the documented token for both builds.
 
   Outbound lines are the classic GCHAR form: opcode plus 32, the body,
   then a newline. A newline inside the body is rejected, except the two
@@ -38,8 +39,9 @@ const
   FileVersion531 = '5.314';
   BuildLabel530 = '5.30r3';
   BuildLabel531 = '5.31r4';
-  { Provisional: 5.31r4 has no exact row. Neighbour is Linux 6.037. }
-  ClientVersionToken = 'G3D0511C';
+  { Documented game-server token for 5.30r3 and 5.31r4. The images do
+    not store this literal. LoginPlain sends it anyway. }
+  ClientVersionToken = 'G3D26090';
   { After the password: platform, three empty machine hashes, and an
     empty quoted OS field. The original fills the hashes and the OS
     string. This rebuild reads no machine values. }

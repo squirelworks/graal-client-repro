@@ -2,8 +2,8 @@
   executable (5.30r3 and 5.31r4, FileVersion 5.303 and 5.314). This
   program names that cut and exits. It does not open a socket.
 
-  The folder is graal-5.31r4. The login line sends G3D0511C, the
-  Linux 6.037 neighbour, because 5.31r4 has no exact row.
+  No eight-character token is stored in those images, so the folder is
+  graal-5.31r4. The login line sends G3D26090.
 
   Command line:
     Graal531            exit 0
