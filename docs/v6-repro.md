@@ -95,8 +95,8 @@ Sources, all static reads: `protocol/v6113-hello.md`,
       is still id plus 32, the body, and a newline.
 - [ ] While 6.1.1.3 is on the generation-5 framer, ids 93 and 163 first
       send id 50. That body is a three-byte length of the original body
-      length plus 2, capped at the raw-data cap, each byte a seven-bit
-      group plus 32. The original packet follows as id plus 32, the body,
+      length plus 2, capped at 3670015, each byte a seven-bit group plus
+      32. The original packet follows as id plus 32, the body,
       and a newline. Those two ids skip the newline refusal. Any other
       generation-5 body that contains a newline is refused with "Illegal
       characters in the outgoing data". The out buffer flushes once its
