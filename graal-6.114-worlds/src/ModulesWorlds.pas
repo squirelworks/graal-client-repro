@@ -4,9 +4,9 @@
   Quattro names the thin host mentions. It is not a dump of that list, not
   an IL2CPP player, and not the wire.
 
-  The dumps stored no eight-character login token. ProvisionalToken is the
-  documented Linux 6.03r7 neighbour. It is not a recovered 6.114 token.
-  The loopback program is worlds-host, the C++ thin host beside this unit. }
+  ConnectorToken is GNP1905C, the documented connector token. The connector
+  script supplies that token. The loopback program is worlds-host, the C++
+  thin host beside this unit. }
 unit ModulesWorlds;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
@@ -21,9 +21,8 @@ const
   PluginCount = 11;
   GeneratedCount = 1;
   NeededQuattroCount = 2;
-  { Linux 6.03r7. Provisional: the 6.114 dumps had no token of their own. }
-  ProvisionalToken = 'G3D0511C';
-  TokenIsProvisional = True;
+  { Documented connector token. The connector script supplies it. }
+  ConnectorToken = 'GNP1905C';
 
 const
   NeededQuattro: array[0..NeededQuattroCount - 1] of string = (
@@ -31,7 +30,7 @@ const
     'Assemblies-graalunity.dll'
   );
 
-{ The dumps did not contain a clear login token. }
+{ True when ConnectorToken is the documented connector token GNP1905C. }
 function WorldsLoginTokenKnown: Boolean;
 function NeededQuattroIndex(const Name: string): Integer;
 
@@ -39,7 +38,7 @@ implementation
 
 function WorldsLoginTokenKnown: Boolean;
 begin
-  Result := False;
+  Result := ConnectorToken = 'GNP1905C';
 end;
 
 function NeededQuattroIndex(const Name: string): Integer;

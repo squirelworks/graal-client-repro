@@ -3,7 +3,7 @@
 # seihai-gserver. Both must log in and load the board, and the second must
 # see the first in its level. Then one walks through a level link.
 # A folder that builds worlds-host is pointed at 127.0.0.1 instead. That
-# path sends one provisional frame and does not require a finished login.
+# path sends one login-shaped frame and does not require a finished login.
 #   scripts/loopback.sh GSERVER_BIN [BUILD]
 # GSERVER_BIN: a built seihai-gserver (https://github.com/squirelworks/seihai-gserver).
 # BUILD: folder name, default graal-2.05r2-GNW03081.
@@ -15,7 +15,7 @@ B=${2:-graal-2.05r2-GNW03081}
 if grep -qs "ClientGeneration = 1;" "$ROOT/$B"/src/Protocol*.pas; then
   exec "$ROOT/scripts/loopback-relay.sh" "$B"
 fi
-# worlds-host sends one provisional frame to 127.0.0.1. A finished login
+# worlds-host sends one login-shaped frame to 127.0.0.1. A finished login
 # is not required. A scaffold that only names modules still skips below.
 HOSTBIN="$ROOT/build/$B/worlds-host"
 if [ -x "$HOSTBIN" ]; then
@@ -75,8 +75,12 @@ open(outp, "wb").write(data)
     echo "worlds-host exited $RC"
     exit "$RC"
   fi
-  if ! grep -q "provisional login frame" "$WORK/host.log"; then
-    echo "worlds-host did not log a provisional frame"
+  if ! grep -q "login frame" "$WORK/host.log"; then
+    echo "worlds-host did not log a login frame"
+    exit 1
+  fi
+  if ! grep -q "GNP1905C" "$WORK/host.log"; then
+    echo "worlds-host did not log token GNP1905C"
     exit 1
   fi
   if [ ! -s "$WORK/got.bin" ]; then

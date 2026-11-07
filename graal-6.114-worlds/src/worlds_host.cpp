@@ -2,12 +2,12 @@
 
    Worlds is a Unity player plus the native Graal3DEngine. This program is
    neither, and it is not the Torque engine. It does not start an IL2CPP
-   player. It can be pointed at 127.0.0.1 on a lab port. It sends one
-   provisional login-shaped frame and logs it.
+   player. It can be pointed at the loopback address on a lab port. It
+   sends one login-shaped frame and logs it.
 
-   The 6.114 dumps stored no eight-character login token. The token below
-   is the documented Linux 6.03r7 neighbour. It is provisional. The frame
-   uses that neighbour's login shape (a plain zlib member, no cipher byte).
+   The token bytes are GNP1905C from the 6.1.1.3 connector note. This
+   host marks them provisional: the 6.114 dump did not store a clear
+   login literal. The frame is a plain zlib member with no cipher byte.
    It is not a 6.114 wire map.
 
    An unknown call logs its name and returns. Peer bytes are an unknown
@@ -30,12 +30,15 @@
 
 namespace {
 
-/* Provisional. Linux 6.03r7's game token. Not recovered from 6.114. */
-const char *kProvisionalToken = "G3D0511C";
-const bool kTokenIsProvisional = true;
+/* Connector token from the 6.1.1.3 note. Provisional for this host. */
+const char *kLoginToken = "GNP1905C";
+/* The one native export name the 71243 read published. Earlier builds
+   use an obfuscated name that was not recovered. */
+const char *kNativeExport = "Flavor0";
 /* A 7-bit key, fixed so a lab log can be compared. Not a recovered key. */
 const int kAttemptKey = 1;
 
+// provisional: body not yet known
 int unknown_call(const std::string &name) {
   std::cout << "unknown call " << name << "\n";
   return 0;
@@ -52,11 +55,12 @@ std::string gstring(const std::string &s) {
   return std::string(1, gchar(static_cast<int>(t.size()))) + t;
 }
 
+// provisional: body not yet known
 std::string login_plain(const std::string &account, const std::string &password) {
   std::string plain;
   plain += gchar(5);
   plain += gchar(kAttemptKey);
-  plain += kProvisionalToken;
+  plain += kLoginToken;
   plain += gstring(account);
   plain += gstring(password);
   plain += "linux,\"\",\"\",\"\",\"\"";
@@ -85,15 +89,13 @@ std::vector<unsigned char> login_frame(const std::vector<unsigned char> &z) {
 }
 
 void log_preamble() {
-  std::cout << "provisional token " << kProvisionalToken
-            << " (Linux 6.03r7 neighbour; 6.114 dumps had none)\n";
-  std::cout << "token is provisional: " << (kTokenIsProvisional ? "yes" : "no")
-            << "\n";
+  std::cout << "token " << kLoginToken << " provisional\n";
+  std::cout << "native export " << kNativeExport << "\n";
   std::cout << "not a wire map\n";
 }
 
 void log_frame(const std::vector<unsigned char> &frame) {
-  std::cout << "provisional login frame " << frame.size() << " bytes\n";
+  std::cout << "login frame " << frame.size() << " bytes\n";
   std::cout << "frame:";
   for (size_t i = 0; i < frame.size(); ++i) {
     if (i % 24 == 0) std::cout << "\n";
@@ -148,10 +150,7 @@ int connect_loopback(int port) {
     std::memset(&addr, 0, sizeof addr);
     addr.sin_family = AF_INET;
     addr.sin_port = htons(static_cast<uint16_t>(port));
-    if (inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr) != 1) {
-      ::close(fd);
-      return -1;
-    }
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     if (::connect(fd, reinterpret_cast<sockaddr *>(&addr), sizeof addr) == 0)
       return fd;
     ::close(fd);
@@ -168,7 +167,8 @@ int run_self_check() {
     std::cout << "self-check: frame did not build\n";
     return 1;
   }
-  if (plain.find(kProvisionalToken) == std::string::npos) return 1;
+  if (std::strcmp(kLoginToken, "GNP1905C") != 0) return 1;
+  if (plain.find("GNP1905C") == std::string::npos) return 1;
   if (plain[0] != gchar(5) || plain[1] != gchar(kAttemptKey)) return 1;
   if (plain[plain.size() - 1] != '\n') return 1;
   log_frame(frame);
@@ -181,8 +181,10 @@ void print_list() {
   std::cout << "6.114 Worlds thin host\n";
   std::cout << "Unity player plus native Graal3DEngine. This program is neither.\n";
   std::cout << "No IL2CPP player. No Torque.\n";
-  std::cout << "Provisional token " << kProvisionalToken
-            << " (Linux 6.03r7 neighbour). Not a recovered 6.114 token.\n";
+  std::cout << "Token " << kLoginToken << " provisional.\n";
+  std::cout << "Native export " << kNativeExport
+            << " (build 71243). Earlier builds use an obfuscated export name "
+               "that was not recovered.\n";
   std::cout << "Build 614 dump counted 108 assemblies "
                "(6 Quattro, 80 Unity, 10 runtime, 11 plugin, 1 generated).\n";
   std::cout << "Quattro names kept: Assemblies-Quattro.dll, "
@@ -221,7 +223,7 @@ int run_connect(const std::string &server, const std::string &account) {
   std::vector<unsigned char> frame;
   if (!build_frame(account, password, plain, frame)) return 1;
   std::cout << "plain login shape: type 5, key " << kAttemptKey << ", token "
-            << kProvisionalToken << ", account " << account << ", password length "
+            << kLoginToken << ", account " << account << ", password length "
             << password.size() << ", tail linux and four empty machine fields\n";
   log_frame(frame);
   std::cout.flush();

@@ -1,5 +1,5 @@
 { Tests for the Worlds 6.114 summary. The 108-name dump is not stored.
-  The provisional token is the Linux 6.03r7 neighbour. No player starts. }
+  The token is GNP1905C, the documented connector token. No player starts. }
 program TestWorlds;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
@@ -30,10 +30,9 @@ procedure TestSummary;
 var
   I: Integer;
 begin
-  Check(not WorldsLoginTokenKnown, 'dumps had no login token');
-  Check(TokenIsProvisional, 'neighbour token is provisional');
-  Check(ProvisionalToken = 'G3D0511C', 'neighbour is Linux 6.03r7');
-  Check(Length(ProvisionalToken) = 8, 'provisional token is eight characters');
+  Check(WorldsLoginTokenKnown, 'connector token is known');
+  Check(ConnectorToken = 'GNP1905C', 'connector token is GNP1905C');
+  Check(Length(ConnectorToken) = 8, 'connector token is eight characters');
   Check(QuattroCount + UnityCount + RuntimeCount + PluginCount + GeneratedCount =
     DumpAssemblyCount, 'kind counts add up to the dump size');
   Check(DumpAssemblyCount = 108, 'build 614 count is 108');

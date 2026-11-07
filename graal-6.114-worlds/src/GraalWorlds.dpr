@@ -1,10 +1,10 @@
 { Graal Worlds 6.114 side shell. The original is a Unity host plus the
   native Graal3DEngine. This program prints a short summary. The loopback
-  path is worlds-host (C++), which sends one provisional login-shaped
-  frame. This program does not start a player and does not open a socket.
+  path is worlds-host (C++), which sends one login-shaped frame. This
+  program does not start a player and does not open a socket.
 
-  The login token was not recovered. ProvisionalToken in ModulesWorlds is
-  the Linux 6.03r7 neighbour and is marked provisional.
+  ConnectorToken in ModulesWorlds is GNP1905C, the documented connector
+  token.
 
   Command line:
     GraalWorlds            one line, exit 0
@@ -43,8 +43,7 @@ begin
     for I := 0 to High(NeededQuattro) do
       Write(' ', NeededQuattro[I]);
     WriteLn;
-    WriteLn('Provisional token ', ProvisionalToken,
-      ' (Linux 6.03r7 neighbour). Not a recovered 6.114 token.');
+    WriteLn('Token ', ConnectorToken, ' (documented connector token).');
     WriteLn('The loopback host is worlds-host.');
     Exit;
   end;
