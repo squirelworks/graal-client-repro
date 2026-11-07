@@ -46,6 +46,10 @@ The rebuild reads none of them and sends each as `""`.
 
 As in 5.00r7, with the suffix `603`: `Protocol603`, `GraalClient`,
 `Adventure`, `Graal603.dpr`, `ListServer603`, `StartScreen603`, `RunMode`.
+`Quattro603` records the 6.037 checks from `docs/v6-repro.md` that do not
+need a script VM: the Windows image's stored token (not this folder's),
+the generation-5 framer with no `setprotocol`, and the GS2 cases that
+note names. It does not change the wire client.
 
 ## Running it
 
@@ -97,3 +101,6 @@ From the program's folder (or `--data`), then `graal-assets/6.03r7/`, then
 - [ ] Whether 6.03r7 plays offline at all is not traced; Training keeps 3.153's.
 - [ ] No side-by-side run against the real 6.03r7; that is 0.0.2 work.
 - [ ] Everything still missing from the 5.00r7 rebuild.
+- [ ] GS2 opcode bodies, and the case numbers from 11 through 242 that
+  `docs/v6-repro.md` does not name. `Quattro603` marks only the named
+  ones. The 6.1.1.3 connector, UDP and package rows are not this folder.
