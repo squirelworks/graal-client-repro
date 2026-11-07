@@ -27,4 +27,11 @@ for T in "$ROOT"/build/*/Test*; do
     echo "leak: $T left memory unfreed"; FAIL=1
   fi
 done
+for HOST in "$ROOT/build/graal-6.114-worlds/worlds-host" \
+            "$ROOT/build/graal-6.114-worlds/worlds-host.exe"; do
+  if [ -x "$HOST" ]; then
+    echo "== $HOST --self-check"
+    "$HOST" --self-check || FAIL=1
+  fi
+done
 exit $FAIL

@@ -1,14 +1,14 @@
-{ Graal Worlds 6.114 scaffold. The original is a Unity host plus a native
-  Graal plugin. This program is the empty shell: it names the IL2CPP
-  assemblies and exits. It does not start a player, load a plugin, or
-  open a socket.
+{ Graal Worlds 6.114 side shell. The original is a Unity host plus the
+  native Graal3DEngine. This program prints a short summary. The loopback
+  path is worlds-host (C++), which sends one provisional login-shaped
+  frame. This program does not start a player and does not open a socket.
 
-  The login token was not recovered, so the folder is graal-6.114-worlds
-  and not graal-6.114-<token>.
+  The login token was not recovered. ProvisionalToken in ModulesWorlds is
+  the Linux 6.03r7 neighbour and is marked provisional.
 
   Command line:
-    GraalWorlds            exit 0
-    GraalWorlds --list     print each assembly and what it is for
+    GraalWorlds            one line, exit 0
+    GraalWorlds --list     the counts and the two Quattro names
   Any other argument exits 64. }
 program GraalWorlds;
 
@@ -27,14 +27,27 @@ var
   I: Integer;
 
 begin
-  if ParamCount = 0 then Exit;
-  if (ParamCount = 1) and (ParamStr(1) = '--list') then
+  if ParamCount = 0 then
   begin
-    for I := 0 to High(WorldsAssemblies) do
-      WriteLn(WorldsAssemblies[I].Name, '  ',
-        WorldsAssemblyPurpose(WorldsAssemblies[I].Name));
+    WriteLn('GraalWorlds: summary shell. The loopback host is worlds-host.');
     Exit;
   end;
-  WriteLn('scaffold only: no player and no network');
+  if (ParamCount = 1) and (ParamStr(1) = '--list') then
+  begin
+    WriteLn('6.114 Worlds. Unity player plus native Graal3DEngine. This shell is neither.');
+    WriteLn('Build 614 dump: ', DumpAssemblyCount, ' assemblies (',
+      QuattroCount, ' Quattro, ', UnityCount, ' Unity, ',
+      RuntimeCount, ' runtime, ', PluginCount, ' plugin, ',
+      GeneratedCount, ' generated).');
+    Write('Quattro names kept:');
+    for I := 0 to High(NeededQuattro) do
+      Write(' ', NeededQuattro[I]);
+    WriteLn;
+    WriteLn('Provisional token ', ProvisionalToken,
+      ' (Linux 6.03r7 neighbour). Not a recovered 6.114 token.');
+    WriteLn('The loopback host is worlds-host.');
+    Exit;
+  end;
+  WriteLn('the loopback host is worlds-host');
   Halt(64);
 end.

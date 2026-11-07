@@ -1,5 +1,5 @@
-{ Tests for the Worlds 6.114 scaffold. The catalogue is the build 614
-  assembly list. No player is started. }
+{ Tests for the Worlds 6.114 summary. The 108-name dump is not stored.
+  The provisional token is the Linux 6.03r7 neighbour. No player starts. }
 program TestWorlds;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
@@ -26,46 +26,31 @@ begin
   end;
 end;
 
-procedure TestCatalogue;
+procedure TestSummary;
 var
-  I, J: Integer;
-  Seen: array[0..WorldsAssemblyCount - 1] of Boolean;
+  I: Integer;
 begin
-  Check(ScaffoldOnly, 'scaffold only, no wire client');
-  Check(not WorldsLoginTokenKnown, 'login token was not recovered');
-  Check(Length(WorldsAssemblies) = WorldsAssemblyCount, '614 assembly count');
-  Check(WorldsAssemblies[0].Name = 'Assemblies-Quattro.dll', 'gameplay assembly is first');
-  Check(WorldsAssemblyIndex('Assemblies-graalunity.dll') >= 0, 'native-bridge assembly is listed');
-  Check(WorldsAssemblyIndex('Graal3DEngine.dll') < 0, 'native plugin is not an IL2CPP assembly');
-  Check(WorldsAssemblyIndex('Firebase.App.dll') < 0, '614 list has no Firebase assembly');
-  Check(WorldsAssemblyIndex('Assembly-CSharp-firstpass.dll') < 0,
-    '614 list has no firstpass assembly');
-  Check(Pos('type bodies were not recovered',
-    WorldsAssemblyPurpose('Assemblies-Quattro.dll')) > 0,
-    'gameplay types are not invented');
-  Check(Pos('native bridge', WorldsAssemblyPurpose('Assemblies-graalunity.dll')) > 0,
-    'graalunity is the bridge');
-  Check(WorldsAssemblyPurpose('mscorlib.dll') = 'Language runtime.', 'runtime role');
-  Check(WorldsAssemblyPurpose('UnityEngine.CoreModule.dll') =
-    'Unity engine module or Unity package.', 'Unity role');
-  for I := 0 to High(Seen) do
-    Seen[I] := False;
-  for I := 0 to High(WorldsAssemblies) do
-  begin
-    Check(WorldsAssemblies[I].Name <> '', 'name ' + IntToStr(I));
-    Check(WorldsAssemblyPurpose(WorldsAssemblies[I].Name) <> '',
-      'purpose ' + WorldsAssemblies[I].Name);
-    J := WorldsAssemblyIndex(WorldsAssemblies[I].Name);
-    Check((J = I) and not Seen[I], 'unique ' + WorldsAssemblies[I].Name);
-    if (J >= 0) and (J <= High(Seen)) then
-      Seen[J] := True;
-  end;
+  Check(not WorldsLoginTokenKnown, 'dumps had no login token');
+  Check(TokenIsProvisional, 'neighbour token is provisional');
+  Check(ProvisionalToken = 'G3D0511C', 'neighbour is Linux 6.03r7');
+  Check(Length(ProvisionalToken) = 8, 'provisional token is eight characters');
+  Check(QuattroCount + UnityCount + RuntimeCount + PluginCount + GeneratedCount =
+    DumpAssemblyCount, 'kind counts add up to the dump size');
+  Check(DumpAssemblyCount = 108, 'build 614 count is 108');
+  Check(NeededQuattroCount = 2, 'only two Quattro names are kept');
+  Check(Length(NeededQuattro) = NeededQuattroCount, 'name array matches the count');
+  Check(NeededQuattroIndex('Assemblies-Quattro.dll') = 0, 'gameplay assembly is named');
+  Check(NeededQuattroIndex('Assemblies-graalunity.dll') = 1, 'bridge assembly is named');
+  Check(NeededQuattroIndex('Graal3DEngine.dll') < 0, 'native plugin is not an IL2CPP assembly');
+  Check(NeededQuattroIndex('mscorlib.dll') < 0, 'runtime names are not listed');
+  for I := 0 to High(NeededQuattro) do
+    Check(NeededQuattro[I] <> '', 'name ' + IntToStr(I));
 end;
 
 begin
   Passed := 0;
   Failed := 0;
-  TestCatalogue;
+  TestSummary;
   WriteLn(Format('%d passed, %d failed', [Passed, Failed]));
   if Failed > 0 then Halt(1);
 end.

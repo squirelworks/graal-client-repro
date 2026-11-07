@@ -57,7 +57,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Free Pascal
-        run: sudo apt-get update && sudo apt-get install -y fp-compiler fp-units-base fp-units-fcl libx11-dev
+        run: sudo apt-get update && sudo apt-get install -y fp-compiler fp-units-base fp-units-fcl libx11-dev g++ zlib1g-dev
       - name: Every client has its Windows resources
         run: python3 scripts/win/make_winres.py --check
       - name: Build (Delphi mode)
@@ -81,7 +81,7 @@ jobs:
           repository: squirelworks/seihai-gserver
           path: seihai-gserver
       - name: Install Free Pascal
-        run: sudo apt-get update && sudo apt-get install -y fp-compiler fp-units-base fp-units-fcl libx11-dev
+        run: sudo apt-get update && sudo apt-get install -y fp-compiler fp-units-base fp-units-fcl libx11-dev g++ zlib1g-dev
       - uses: dtolnay/rust-toolchain@stable
       - name: Build seihai-gserver
         run: cargo build --release --manifest-path seihai-gserver/Cargo.toml

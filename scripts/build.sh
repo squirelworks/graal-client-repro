@@ -30,4 +30,29 @@ for B in $BUILDS; do
       -Fu../../common -Fu../src -FE"../../build/$B" -FU"$UNITS" \
       "$(basename "$P")")
   done
+  # 6.114's loopback path is a C++ thin host beside the Pascal shell.
+  if [ -f "$B/src/worlds_host.cpp" ]; then
+    echo "== $B/src/worlds_host.cpp"
+    CXX=""
+    if command -v g++ >/dev/null 2>&1; then CXX=g++
+    elif command -v c++ >/dev/null 2>&1; then CXX=c++
+    fi
+    HOSTOUT="$OUT/worlds-host"
+    case "$(uname -s)" in
+      MINGW*|MSYS*|CYGWIN*) HOSTOUT="$OUT/worlds-host.exe" ;;
+    esac
+    if [ -z "$CXX" ]; then
+      case "$(uname -s)" in
+        MINGW*|MSYS*|CYGWIN*)
+          echo "worlds-host: no C++ compiler on this runner; Pascal shell still builds"
+          ;;
+        *)
+          echo "worlds-host: no C++ compiler" >&2
+          exit 1
+          ;;
+      esac
+    else
+      "$CXX" -std=c++17 -O2 -Wall -Wextra -o "$HOSTOUT" "$B/src/worlds_host.cpp" -lz
+    fi
+  fi
 done

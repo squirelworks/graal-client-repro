@@ -2,6 +2,8 @@
 # Loopback acceptance check: log two copies of a rebuilt client into
 # seihai-gserver. Both must log in and load the board, and the second must
 # see the first in its level. Then one walks through a level link.
+# A folder that builds worlds-host is pointed at 127.0.0.1 instead. That
+# path sends one provisional frame and does not require a finished login.
 #   scripts/loopback.sh GSERVER_BIN [BUILD]
 # GSERVER_BIN: a built seihai-gserver (https://github.com/squirelworks/seihai-gserver).
 # BUILD: folder name, default graal-2.05r2-GNW03081.
@@ -13,7 +15,77 @@ B=${2:-graal-2.05r2-GNW03081}
 if grep -qs "ClientGeneration = 1;" "$ROOT/$B"/src/Protocol*.pas; then
   exec "$ROOT/scripts/loopback-relay.sh" "$B"
 fi
-# a scaffold names its modules and compiles; it has no wire client yet
+# worlds-host sends one provisional frame to 127.0.0.1. A finished login
+# is not required. A scaffold that only names modules still skips below.
+HOSTBIN="$ROOT/build/$B/worlds-host"
+if [ -x "$HOSTBIN" ]; then
+  PORT=${LOOPBACK_PORT:-14862}
+  WORK=$(mktemp -d)
+  LPID=""
+  trap 'if [ -n "$LPID" ]; then kill "$LPID" 2>/dev/null || true; fi; rm -rf "$WORK"' EXIT
+  python3 -c '
+import socket, sys
+port = int(sys.argv[1])
+ready = sys.argv[2]
+outp = sys.argv[3]
+s = socket.socket()
+s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+s.bind(("127.0.0.1", port))
+s.listen(1)
+open(ready, "w").close()
+s.settimeout(8)
+try:
+    c, _ = s.accept()
+except socket.timeout:
+    sys.exit(0)
+c.settimeout(2)
+data = b""
+try:
+    while True:
+        b = c.recv(65536)
+        if not b:
+            break
+        data += b
+except socket.timeout:
+    pass
+c.close()
+s.close()
+open(outp, "wb").write(data)
+' "$PORT" "$WORK/ready" "$WORK/got.bin" &
+  LPID=$!
+  i=0
+  while [ ! -f "$WORK/ready" ]; do
+    i=$((i + 1))
+    if [ "$i" -gt 50 ]; then
+      echo "listener did not bind 127.0.0.1:$PORT"
+      exit 1
+    fi
+    sleep 0.1
+  done
+  set +e
+  GRAAL_PW=${GRAAL_PW:-loopbackpw} "$HOSTBIN" --server "127.0.0.1:$PORT" --account loop1 \
+    > "$WORK/host.log" 2>&1
+  RC=$?
+  set -e
+  wait "$LPID" || true
+  LPID=""
+  echo "--- worlds-host"
+  cat "$WORK/host.log"
+  if [ "$RC" -ne 0 ]; then
+    echo "worlds-host exited $RC"
+    exit "$RC"
+  fi
+  if ! grep -q "provisional login frame" "$WORK/host.log"; then
+    echo "worlds-host did not log a provisional frame"
+    exit 1
+  fi
+  if [ ! -s "$WORK/got.bin" ]; then
+    echo "listener got no bytes"
+    exit 1
+  fi
+  echo "loopback attempt received $(wc -c < "$WORK/got.bin") bytes"
+  exit 0
+fi
 if grep -qs "ScaffoldOnly = True;" "$ROOT/$B"/src/*.pas; then
   echo "scaffold only, no loopback: $B"
   exit 0
