@@ -25,7 +25,8 @@ uses
   GSurface in '../../common/GSurface.pas',
   GWindow in '../../common/GWindow.pas',
   Lab6113 in 'Lab6113.pas',
-  Play6113 in 'Play6113.pas';
+  Play6113 in 'Play6113.pas',
+  Controls6113 in 'Controls6113.pas';
 
 function ArgCount: Integer;
 begin
@@ -148,9 +149,9 @@ var
   Session: TSession;
   Surf: TGSurface;
   Win: TGWindow;
-  LevelPath, Keys, DumpPath, Server, PwName, Pw: string;
+  LevelPath, Keys, DumpPath, Server, PwName, Pw, CtrlText, CtrlLine: string;
   Port: Integer;
-  Frames, I, KeyN, Dir, Seconds: Integer;
+  Frames, I, KeyN, Dir, Seconds, CtrlAt: Integer;
   Dirs: array[0..4095] of Integer;
   WantWindow, Shown, Lab: Boolean;
   Code: Integer;
@@ -249,6 +250,27 @@ begin
 
     if HasArg('--server') and Lab then
       if not Session.WaitForLab(2000) then Code := 1;
+
+    if Code = 0 then
+    begin
+      LogLine('engine quattro_lib');
+      LogLine('token GNP1905C');
+      for I := 0 to ControlCount - 1 do
+        LogLine('registered control ' + ControlName(I));
+      CtrlText := LevelViewLog;
+      while CtrlText <> '' do
+      begin
+        CtrlAt := Pos(#10, CtrlText);
+        if CtrlAt = 0 then
+        begin
+          LogLine(CtrlText);
+          Break;
+        end;
+        CtrlLine := Copy(CtrlText, 1, CtrlAt - 1);
+        Delete(CtrlText, 1, CtrlAt);
+        if CtrlLine <> '' then LogLine(CtrlLine);
+      end;
+    end;
 
     Shown := False;
     if (Code = 0) and WantWindow then

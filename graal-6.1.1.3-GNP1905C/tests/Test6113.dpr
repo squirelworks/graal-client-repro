@@ -15,7 +15,8 @@ uses
   Gs26113 in '../src/Gs26113.pas',
   Level6113 in '../src/Level6113.pas',
   Lab6113 in '../src/Lab6113.pas',
-  Play6113 in '../src/Play6113.pas';
+  Play6113 in '../src/Play6113.pas',
+  Controls6113 in '../src/Controls6113.pas';
 
 var
   Passed, Failed: Integer;
@@ -420,9 +421,41 @@ begin
   end;
 end;
 
+procedure TestControls;
+var
+  I: Integer;
+  SawLevel, SawTiles, SawFont, Log: string;
+  Bad: Boolean;
+begin
+  Check(ControlCount = 71, 'seventy-one 6.1.1.3 controls');
+  Bad := False;
+  SawLevel := '';
+  SawTiles := '';
+  SawFont := '';
+  for I := 0 to ControlCount - 1 do
+  begin
+    if ControlName(I) = 'GuiGraalCtrl' then SawLevel := ControlName(I);
+    if ControlName(I) = 'GuiTilesCtrl' then SawTiles := ControlName(I);
+    if ControlName(I) = 'TFontData' then SawFont := ControlName(I);
+    if (ControlName(I) = 'TDrawableObject') or (ControlName(I) = 'GuiTSCtrl') or
+      (ControlName(I) = 'GuiBrowserCtrl') then
+      Bad := True;
+  end;
+  Check(SawLevel = 'GuiGraalCtrl', 'GuiGraalCtrl is registered');
+  Check(SawTiles = 'GuiTilesCtrl', 'GuiTilesCtrl is registered');
+  Check(SawFont = 'TFontData', 'TFontData is the 6.1.1.3 font record');
+  Check(not Bad, '6.037 drawable, browser and Torque scene view are absent');
+  Log := LevelViewLog;
+  Check(Pos('level view opened: GraalControl (GuiGraalCtrl)', Log) > 0,
+    'the level view opens');
+  Check(Pos('StartScript_Connector', Log) > 0, 'the connector script is named');
+  Check(Pos('provisional', Log) = 0, 'the level-view log does not call the token provisional');
+end;
+
 begin
   Passed := 0;
   Failed := 0;
+  TestControls;
   Logs := TStringList.Create;
   SessionLog := Capture;
   try

@@ -146,6 +146,7 @@ the rest of graal-delphi. No C++ was added. No decompiled body was copied.
 ## Not yet
 
 - [ ] Cipher, template, and property value widths. See the table above.
+- [x] The 6.1.1.3 control names, including `GuiGraalCtrl` and `GuiTilesCtrl`, are registered when the client runs. The bodies are stubs. The window stays the software surface. The clear hello stays `GNP1905C`.
 - [ ] OpenGL and the real playfield classes.
 - [ ] GS2 execution.
 - [ ] Side-by-side against the real 6.1.1.3 client.

@@ -14,6 +14,8 @@ host and it does not borrow another version's token.
   player, and lab-only collision on `levels/lab-yard.lvl`.
 - TCP to `127.0.0.1`. The documented clear hello is `GNP1905C` with no
   header. The session stops there unless `--lab` is set.
+- The client registers the 6.1.1.3 control names and opens `GraalControl`
+  as a stub. The window is unchanged. The hello stays `GNP1905C`.
 - `--lab` is a labeled lab-only fixture: one other entity, its properties,
   and a movement round trip. It is not 6.1.1.3 ciphertext and not v7.
 
