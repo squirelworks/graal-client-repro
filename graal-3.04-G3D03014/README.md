@@ -2,9 +2,8 @@
 
 The 3.04 Linux client (3.04 revision 1, "3.041"), rebuilt. The original is
 a C++ program on the Torque game engine, built in January 2004, not a
-Delphi program. On the wire it is the Windows 2.22 client. The login token is
-`GNW03014`, provisional because 3.04 has no exact row. Neighbour is
-2.22. The gen-5 login, cipher, framing and compression match. So this
+Delphi program. On the wire it is the Windows 2.22 client with its own
+token: the same gen-5 login, cipher, framing and compression. So this
 folder starts from `graal-2.22-GNW03014` and changes only what the notes
 say 3.04 does differently. This is the 0.0.1 reproduction: hit or miss,
 the lab run is the yardstick.
@@ -26,7 +25,7 @@ decompiled code:
 
 | | 2.22 | 3.04 (this folder) |
 |---|---|---|
-| Game token | `GNW03014` | `GNW03014` (provisional neighbour of 2.22) |
+| Game token | `GNW03014` | `G3D03014` |
 | Listserver | id 7 `GNW30123newmain` in a plain frame, then id 1 in gen 5 | id 7 `G3D30123newmain` and id 1 together in one plain zlib frame |
 | Listserver hosts | `arrays2.dat` | `listserver.graal.in:14922` first, always; then the hosts of `license/license.graal` (lines 0, 5 and 6) |
 | Login frame | 5 alone, then 37 + 39 in gen 5 | 5, 37, 34 `bigmap.txt`, 34 `minimap.txt`, all in the plain login frame |

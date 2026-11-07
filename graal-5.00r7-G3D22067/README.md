@@ -27,7 +27,7 @@ from decompiled code:
 
 | | 3.153 | 5.00r7 (this folder) |
 |---|---|---|
-| Game token | `G3D28015` | `G3D0511C` (provisional neighbour of Linux 6.037) |
+| Game token | `G3D28015` | `G3D22067` |
 | Login line | ends at the password | then `win,"","",""` (platform and three machine fields) |
 | First frame | 5, 37, 34 bigmap, 34 minimap | 5 alone; 37 in its own gen-5 frame |
 | Listserver | `G3D30123newmain` | none: the first server is a game server named `Login` |

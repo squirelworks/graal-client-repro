@@ -24,7 +24,7 @@ from decompiled code:
 
 | | 3.04 | 3.153 (this folder) |
 |---|---|---|
-| Game token | `GNW03014` (provisional neighbour of 2.22) | `G3D28015` (2.31's date) |
+| Game token | `G3D03014` (2.22's date) | `G3D28015` (2.31's date) |
 | OSTYPE prop | `linux` | `mac` |
 | Server ids handled | 79 | 88: no 44; adds 67, 74, 82, 104, 131 to 134, 187, 189 |
 

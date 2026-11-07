@@ -183,7 +183,7 @@ int main(int argc, char **argv) {
   }
 
   std::cout << "host304: 3.04-shaped TGE host (line runner, not a full console)\n";
-  std::cout << "host304: token GNW03014 (provisional neighbour of 2.22; 3.04 has no exact row)\n";
+  std::cout << "host304: token G3D03014 (folder name; lab login token)\n";
 
   std::string error;
   const std::string listPath = findUp("common/torque/manifests/3.04.list");

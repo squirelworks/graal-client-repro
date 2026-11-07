@@ -13,8 +13,9 @@ unit Protocol304;
 interface
 
 const
-  { Provisional: 3.04 has no exact row. Neighbour is 2.22. }
-  ClientVersionToken = 'GNW03014';
+  { The 8-byte version token in the login line (v3x-clients.md, "Version
+    tokens"; the same date stamp as 2.22's GNW03014, with G3D for GNW). }
+  ClientVersionToken = 'G3D03014';
   ClientBuildLabel = '3.04';
   { Login type 5, gen-5 cipher on the server, as 2.22. }
   ClientType = 5;
