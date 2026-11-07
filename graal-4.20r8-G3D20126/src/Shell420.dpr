@@ -34,12 +34,32 @@ begin
   end;
 end;
 
+procedure RegisterShell;
+begin
+  WriteLn('shell form TGraalWindow: GraalWindow play window');
+  WriteLn('shell form TOptions: Options');
+  WriteLn('shell form TControlsFrame: Change Controls');
+  WriteLn('shell form TPlayerList: PlayerList');
+  WriteLn('shell form TPlayerListOptions: PlayerList Options');
+  WriteLn('shell form TMessageEditor: Send Message');
+  WriteLn('shell form TShortMessage: Message');
+  WriteLn('shell form TProfileEdit: Profile');
+  WriteLn('shell form TServerMessage: Server message');
+  WriteLn('shell form TLogFrame: Log');
+  WriteLn('shell form TOpenURL: Open URL');
+  WriteLn('shell surface TDrawingPanel TDXDraw TDXForm');
+  WriteLn('shell: no login form; account nickname and password are engine calls');
+  WriteLn('shell menu: StartScript_MainMenu MainMenuGui2D');
+  Flush(Output);
+end;
+
 var
   Exe: string;
   Args: array of RawByteString;
   I: Integer;
 begin
   WriteLn('shell 4.2.0.8 Delphi');
+  RegisterShell;
   Flush(Output);
   Exe := HostPath;
   if Exe = '' then

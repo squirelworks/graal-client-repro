@@ -6,6 +6,7 @@
 //
 // The frame helper is local to this directory.
 
+#include "controls.hpp"
 #include "login.hpp"
 #include "surface.hpp"
 
@@ -214,6 +215,24 @@ int main(int argc, char **argv) {
   std::cout << "host4208: script " << script << "\n";
   for (std::size_t i = 0; i < surface.log.size(); ++i) {
     std::cout << "host4208: " << surface.log[i] << "\n";
+  }
+  if (!surface.levelOpened || !surface.tilePlaced) {
+    std::cerr << "host4208: level was not opened or no tile was placed\n";
+    return 1;
+  }
+
+  std::vector<std::string> keyLog;
+  onEngineKey(0x1B, 0, keyLog);
+  onEngineKey(0x1A, 0, keyLog);
+  onEngineKey(0x1C, 0, keyLog);
+  onEngineKey(0x21, 0x0C, keyLog);
+  onEngineKey(0x32, 0, keyLog);
+  onEngineKey(0x15, 0, keyLog);
+  onEngineKey(0x03, 0, keyLog);
+  onEngineKey(0x20, 0, keyLog);
+  onEngineKey(0x26, 0, keyLog);
+  for (std::size_t i = 0; i < keyLog.size(); ++i) {
+    std::cout << "host4208: " << keyLog[i] << "\n";
   }
 
   LoginFrame frame;

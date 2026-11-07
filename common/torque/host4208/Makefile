@@ -3,7 +3,7 @@ CXX ?= g++
 CXXFLAGS ?= -std=c++17 -Wall -Wextra -Werror -O2
 LDFLAGS ?= -lz
 
-SRC = src/main.cpp src/surface.cpp src/login.cpp
+SRC = src/main.cpp src/surface.cpp src/controls.cpp src/login.cpp
 OUT = build/host4208
 
 .PHONY: all clean
@@ -13,7 +13,7 @@ all: $(OUT)
 build:
 	mkdir -p build
 
-$(OUT): $(SRC) src/surface.hpp src/login.hpp | build
+$(OUT): $(SRC) src/surface.hpp src/controls.hpp src/login.hpp | build
 	$(CXX) $(CXXFLAGS) -o $@ $(SRC) $(LDFLAGS)
 
 clean:

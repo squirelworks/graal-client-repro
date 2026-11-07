@@ -1,5 +1,7 @@
 #include "surface.hpp"
 
+#include "controls.hpp"
+
 #include <fstream>
 
 namespace {
@@ -24,22 +26,26 @@ std::string stripSemi(std::string s) {
   return trim(s);
 }
 
-// provisional: body not yet known
+// provisional: open the named level on TServerLevel
 void stubOpenLevel(SurfaceResult &out, const std::string &name) {
   out.levelOpened = true;
+  out.log.push_back("level opened: TServerLevel " + name);
   out.log.push_back("TServerLevel.openLevel called " + name);
+  out.log.push_back("GuiGraalCtrl is the level view");
+  logLevelGaps(out.log);
 }
 
-// provisional: body not yet known
+// provisional: record the tile and leave the blit to graal_setDraw2DTile
 void stubPlaceTile(SurfaceResult &out, const std::string &x, const std::string &y,
                    const std::string &tile) {
   out.tilePlaced = true;
   out.tileLine = "tile placed " + x + " " + y + " " + tile;
   out.log.push_back("TServerLevel.placeTile called " + x + " " + y + " " + tile);
   out.log.push_back(out.tileLine);
+  out.log.push_back("stub graal_setDraw2DTile: blit from paintGraphics was not followed");
 }
 
-// provisional: body not yet known
+// provisional: log a residual line the runner does not execute
 void stubOther(SurfaceResult &out, const std::string &line) {
   out.log.push_back("residual stub: " + line);
 }
@@ -104,11 +110,16 @@ bool execLine(const std::string &raw, bool &canvas, bool &level, SurfaceResult &
   const std::size_t paren = line.find('(');
   if (dot != std::string::npos && paren != std::string::npos && dot < paren &&
       line[line.size() - 1] == ')') {
+    const std::string obj = trim(line.substr(0, dot));
     const std::string method = trim(line.substr(dot + 1, paren - dot - 1));
     const std::string inside = line.substr(paren + 1, line.size() - paren - 2);
     if (!level && (method == "openLevel" || method == "placeTile")) {
       error = "level call with no TServerLevel";
       return false;
+    }
+    if (obj == "keyset" && method == "bind") {
+      const std::string name = unquote(inside);
+      return addKeysetAction(name, out.log, error);
     }
     if (method == "openLevel") {
       const std::string name = unquote(inside);
@@ -165,6 +176,9 @@ bool runSurfaceFile(const std::string &path, SurfaceResult &out, std::string &er
   out.log.push_back(
       "script runner is provisional (this engine has no Torque console and no .dso)");
   out.log.push_back("GuiCanvas created");
+  if (!logEngineControls(out.log, error)) {
+    return false;
+  }
 
   std::ifstream in(path.c_str());
   if (!in) {

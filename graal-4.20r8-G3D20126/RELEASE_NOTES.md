@@ -19,11 +19,11 @@ program works too (`graal-assets/4.20r8/`, then `graal-assets/common/`).
 
 ## What's new in v0.0.5
 
-- `Shell420` is the Delphi-shaped shell. It starts
-  `common/torque/host4208`, which reads the four-module engine list,
-  opens a level-shaped object, places a tile, and sends the documented
-  `G3D20126` login line to loopback. The script runner is provisional:
-  this engine has no Torque console. Later frames are not built.
+- `Shell420` is the Delphi-shaped shell for the window and the menus.
+  It starts `common/torque/host4208`, which reads the four-module engine
+  list, registers the engine controls, opens a level-shaped object,
+  places a tile, and sends the documented `G3D20126` login line to
+  loopback. This engine has no Torque console. Later frames are not built.
 
 ## What's new in v0.0.4
 
