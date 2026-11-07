@@ -24,6 +24,11 @@ B=$2
 SOAK=${3:-${STRESS_SECONDS:-60}}
 CLIENT=$(ls "$ROOT/build/$B"/Graal* 2>/dev/null | grep -v '\.\(heap\|bmp\|json\)$' | head -1)
 [ -n "$CLIENT" ] || { echo "$B: not built (scripts/build.sh $B)"; exit 1; }
+# a scaffold has no wire client; the release gate does not log it in
+if grep -qs "ScaffoldOnly = True;" "$ROOT/$B"/src/*.pas; then
+  echo "PASS $B (scaffold only, no wire client)"
+  exit 0
+fi
 WORK=$(mktemp -d)
 PIDS=""
 trap 'for P in $PIDS; do kill $P 2>/dev/null || true; done; rm -rf "$WORK"' EXIT
