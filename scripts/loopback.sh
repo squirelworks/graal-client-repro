@@ -13,6 +13,11 @@ B=${2:-graal-2.05r2-GNW03081}
 if grep -qs "ClientGeneration = 1;" "$ROOT/$B"/src/Protocol*.pas; then
   exec "$ROOT/scripts/loopback-relay.sh" "$B"
 fi
+# a scaffold names its modules and compiles; it has no wire client yet
+if grep -qs "ScaffoldOnly = True;" "$ROOT/$B"/src/*.pas; then
+  echo "scaffold only, no loopback: $B"
+  exit 0
+fi
 GSDIR=$(cd "$(dirname "$GS")/../.." && pwd)
 WORK=$(mktemp -d)
 trap 'kill $PID 2>/dev/null || true; rm -rf "$WORK"' EXIT
