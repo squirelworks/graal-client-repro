@@ -18,6 +18,13 @@ point it at one with `--data DIR`) and the install's tiles, ganis, heads and
 bodies take their place. The shared `graal-assets/` folder next to the
 program works too (`graal-assets/3.04/`, then `graal-assets/common/`).
 
+## What's new in v0.0.5
+
+- The TGE 1.2 surface already in `common/torque` stays the engine. This
+  folder now names the game hosted in it: GuiGraalCtrl's 31 methods, the
+  draw types that are not console classes, and the module list 3.04 links.
+  The console does not run a script yet.
+
 ## What's new in v0.0.4
 
 - Rebuilt from the latest code; the changes for this client are listed here as they land.
