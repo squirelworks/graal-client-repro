@@ -3,7 +3,7 @@ CXX ?= g++
 CXXFLAGS ?= -std=c++17 -Wall -Wextra -Werror -O2
 LDFLAGS ?= -lz
 
-SRC = src/main.cpp src/guigraal.cpp src/script.cpp src/login.cpp
+SRC = src/main.cpp src/guigraal.cpp src/controls.cpp src/input.cpp src/script.cpp src/login.cpp
 OUT = build/host304
 
 .PHONY: all clean
@@ -13,7 +13,7 @@ all: $(OUT)
 build:
 	mkdir -p build
 
-$(OUT): $(SRC) src/guigraal.hpp src/script.hpp src/login.hpp | build
+$(OUT): $(SRC) src/guigraal.hpp src/controls.hpp src/input.hpp src/script.hpp src/login.hpp | build
 	$(CXX) $(CXXFLAGS) -o $@ $(SRC) $(LDFLAGS)
 
 clean:

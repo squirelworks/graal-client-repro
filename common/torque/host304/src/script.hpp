@@ -12,6 +12,7 @@
 
 struct ScriptResult {
   bool cameraMoved;
+  bool levelOpened;
   std::string cameraLine;
   std::vector<std::string> log;
 };

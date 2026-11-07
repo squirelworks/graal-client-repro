@@ -1,11 +1,14 @@
 #include "script.hpp"
 
+#include "controls.hpp"
 #include "guigraal.hpp"
+#include "input.hpp"
 
 #include <cmath>
 #include <fstream>
 #include <map>
 #include <sstream>
+#include <vector>
 
 namespace {
 
@@ -67,6 +70,35 @@ bool parseVec3(const std::string &text, double &x, double &y, double &z) {
   return true;
 }
 
+std::string unquote(std::string s) {
+  s = trim(s);
+  if (s.size() >= 2 && s[0] == '"' && s[s.size() - 1] == '"') {
+    return s.substr(1, s.size() - 2);
+  }
+  return s;
+}
+
+bool splitCommas(const std::string &inside, std::vector<std::string> &fields) {
+  std::string cur;
+  bool quote = false;
+  for (std::size_t i = 0; i < inside.size(); ++i) {
+    const char c = inside[i];
+    if (c == '"') {
+      quote = !quote;
+      cur.push_back(c);
+    } else if (c == ',' && !quote) {
+      fields.push_back(unquote(cur));
+      cur.clear();
+    } else {
+      cur.push_back(c);
+    }
+  }
+  if (!trim(inside).empty()) {
+    fields.push_back(unquote(cur));
+  }
+  return !quote;
+}
+
 int countArgs(const std::string &inside) {
   const std::string t = trim(inside);
   if (t.empty()) {
@@ -107,6 +139,62 @@ bool execLine(const std::string &raw, std::map<std::string, Camera> &cameras,
   const std::string line = stripSemi(raw);
   if (line.empty() || line.compare(0, 2, "//") == 0) {
     return true;
+  }
+
+  const std::string neuMap = "new ActionMap(";
+  if (line.compare(0, neuMap.size(), neuMap) == 0 && line[line.size() - 1] == ')') {
+    const std::string name = trim(line.substr(neuMap.size(), line.size() - neuMap.size() - 1));
+    if (name.empty()) {
+      error = "new ActionMap needs a name";
+      return false;
+    }
+    out.log.push_back("new ActionMap " + name);
+    return true;
+  }
+
+  const std::string setContent = "Canvas.setContent(";
+  if (line.compare(0, setContent.size(), setContent) == 0 && line[line.size() - 1] == ')') {
+    const std::string name =
+        trim(line.substr(setContent.size(), line.size() - setContent.size() - 1));
+    if (name != "AdventureGui") {
+      error = "Canvas.setContent expected AdventureGui";
+      return false;
+    }
+    return openLevelView(out.log, error);
+  }
+
+  const std::string bindMark = ".bind(";
+  const std::string bindCmdMark = ".bindCmd(";
+  const std::size_t bindAt = line.find(bindMark);
+  const std::size_t bindCmdAt = line.find(bindCmdMark);
+  if ((bindAt != std::string::npos || bindCmdAt != std::string::npos) &&
+      line[line.size() - 1] == ')') {
+    const bool cmd = bindCmdAt != std::string::npos &&
+                     (bindAt == std::string::npos || bindCmdAt < bindAt);
+    const std::size_t at = cmd ? bindCmdAt : bindAt;
+    const std::size_t mark = cmd ? bindCmdMark.size() : bindMark.size();
+    const std::string map = trim(line.substr(0, at));
+    const std::string inside = line.substr(at + mark, line.size() - (at + mark) - 1);
+    std::vector<std::string> fields;
+    if (!splitCommas(inside, fields) || fields.size() != 3) {
+      error = "bind needs a device, a key and a command";
+      return false;
+    }
+    return addScriptBind(map, fields[1], fields[2], out.log, error);
+  }
+
+  const std::string fireMark = ".fire(";
+  const std::size_t fireAt = line.find(fireMark);
+  if (fireAt != std::string::npos && line[line.size() - 1] == ')') {
+    const std::string map = trim(line.substr(0, fireAt));
+    const std::string inside = line.substr(fireAt + fireMark.size(),
+                                           line.size() - (fireAt + fireMark.size()) - 1);
+    std::vector<std::string> fields;
+    if (!splitCommas(inside, fields) || fields.empty() || fields.size() > 2) {
+      error = "fire needs a key";
+      return false;
+    }
+    return fireScriptBind(map, fields[0], out.log, error);
   }
 
   const std::string neu = "new Camera(";
@@ -153,9 +241,7 @@ bool execLine(const std::string &raw, std::map<std::string, Camera> &cameras,
     cam->second.y = y;
     cam->second.z = z;
     const std::string to = fmtNum(x) + " " + fmtNum(y) + " " + fmtNum(z);
-    // provisional: body not yet known
-    // engine-304.md says Camera has three methods and does not name them.
-    // setTransform is the call this runner understands. It is not a recovered name.
+    // provisional: move the camera to the first three numbers of the transform
     out.cameraLine = "camera position " + to;
     out.cameraMoved = true;
     out.log.push_back("camera moved: " + name + " from " + from + " to " + to);
@@ -185,8 +271,13 @@ bool execLine(const std::string &raw, std::map<std::string, Camera> &cameras,
 
 bool runScriptFile(const std::string &path, ScriptResult &out, std::string &error) {
   out.cameraMoved = false;
+  out.levelOpened = false;
   out.cameraLine.clear();
   out.log.clear();
+
+  if (!logRegisteredControls(out.log, error)) {
+    return false;
+  }
 
   std::ifstream in(path.c_str());
   if (!in) {
@@ -220,8 +311,17 @@ bool runScriptFile(const std::string &path, ScriptResult &out, std::string &erro
       return false;
     }
   }
+  out.levelOpened = levelViewOpen();
+  if (!out.levelOpened) {
+    error = "script did not open the level view";
+    return false;
+  }
   if (!out.cameraMoved) {
     error = "script did not move a camera";
+    return false;
+  }
+  if (scriptBindCount("moveMap") < 16 || scriptBindCount("GlobalActionMap") < 3) {
+    error = "script did not install the play and global binds";
     return false;
   }
   return true;

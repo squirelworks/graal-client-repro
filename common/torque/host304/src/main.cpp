@@ -228,6 +228,20 @@ int main(int argc, char **argv) {
   for (std::size_t i = 0; i < scriptResult.log.size(); ++i) {
     std::cout << "host304: " << scriptResult.log[i] << "\n";
   }
+  if (!scriptResult.levelOpened || !levelViewOpen()) {
+    std::cerr << "host304: level view did not open\n";
+    return 1;
+  }
+
+  // Hardcoded key bytes. The script bind file does not own these.
+  std::vector<std::string> keyLog;
+  onHardcodedKey(0x21, 0x0C, keyLog);
+  onHardcodedKey(0x19, 0x30, keyLog);
+  onHardcodedKey(0x26, 0x00, keyLog);
+  onHardcodedKey(2, 0x00, keyLog);
+  for (std::size_t i = 0; i < keyLog.size(); ++i) {
+    std::cout << "host304: " << keyLog[i] << "\n";
+  }
 
   LoginFrame frame;
   if (!buildLoginFrame(key, account, password, language, frame, error)) {
