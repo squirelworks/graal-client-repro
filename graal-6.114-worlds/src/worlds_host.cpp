@@ -1,19 +1,17 @@
-/* Thin host for the 6.114 Worlds folder.
+/* Connector for the 6.114 Worlds folder.
 
-   Worlds is a Unity player plus the native Graal3DEngine. This program is
-   neither, and it is not the Torque engine. It does not start an IL2CPP
-   player. It can be pointed at the loopback address on a lab port.
-   It sends one login-shaped frame and logs it.
+   Worlds is a Unity player plus a native plugin. This program is neither,
+   and it is not the Torque engine. The playable stand-in is worlds-player
+   (portable C#). This program only writes the documented connector hello.
 
-   The token bytes are GNP1905C from the 6.1.1.3 connector note. This
-   host marks them provisional: the 6.114 dump did not store a clear
-   login literal. The frame is a plain zlib member with no cipher byte.
-   It is not a 6.114 wire map.
+   The hello is the eight bytes GNP1905C. A running 6.113 client sends
+   those bytes before it reads the server. They are not marked provisional.
+   The bytes after that hello in the 6.113 capture are unidentified, so
+   this program does not send a header, a zlib member, a cipher, or a
+   6.0x type-5 login. The password is not written.
 
    An unknown call logs its name and returns. Peer bytes are an unknown
    call. They are not parsed. */
-
-#include <zlib.h>
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -30,106 +28,39 @@
 
 namespace {
 
-/* Connector token from the 6.1.1.3 note. Provisional for this host. */
+/* Documented connector token. Not provisional. */
 const char *kLoginToken = "GNP1905C";
-/* Build 71243 publishes this native export. Earlier builds use an
-   obfuscated name that was not recovered. */
+/* Build 71243 publishes this native export. This program does not call it. */
 const char *kNativeExport = "Flavor0";
-/* A 7-bit key, fixed so a lab log can be compared. Not a recovered key. */
-const int kAttemptKey = 1;
 
-// provisional: body not yet known
 int unknown_call(const std::string &name) {
   std::cout << "unknown call " << name << "\n";
   return 0;
 }
 
-char gchar(int v) {
-  if (v < 0) v = 0;
-  if (v > 223) v = 223;
-  return static_cast<char>(v + 0x20);
-}
-
-std::string gstring(const std::string &s) {
-  std::string t = s.size() > 223 ? s.substr(0, 223) : s;
-  return std::string(1, gchar(static_cast<int>(t.size()))) + t;
-}
-
-// provisional: body not yet known
-std::string login_plain(const std::string &account, const std::string &password) {
-  std::string plain;
-  plain += gchar(5);
-  plain += gchar(kAttemptKey);
-  plain += kLoginToken;
-  plain += gstring(account);
-  plain += gstring(password);
-  plain += "linux,\"\",\"\",\"\",\"\"";
-  plain += '\n';
-  return plain;
-}
-
-std::vector<unsigned char> zlib_member(const std::string &plain) {
-  uLongf bound = compressBound(static_cast<uLong>(plain.size()));
-  std::vector<unsigned char> out(bound);
-  uLongf len = bound;
-  int rc = compress2(out.data(), &len,
-                     reinterpret_cast<const Bytef *>(plain.data()),
-                     static_cast<uLong>(plain.size()), Z_DEFAULT_COMPRESSION);
-  if (rc != Z_OK) return {};
-  out.resize(len);
-  return out;
-}
-
-std::vector<unsigned char> login_frame(const std::vector<unsigned char> &z) {
-  std::vector<unsigned char> frame;
-  frame.push_back(static_cast<unsigned char>((z.size() >> 8) & 0xff));
-  frame.push_back(static_cast<unsigned char>(z.size() & 0xff));
-  frame.insert(frame.end(), z.begin(), z.end());
-  return frame;
+std::vector<unsigned char> hello_bytes() {
+  std::vector<unsigned char> hello;
+  for (const char *p = kLoginToken; *p; ++p)
+    hello.push_back(static_cast<unsigned char>(*p));
+  return hello;
 }
 
 void log_preamble() {
-  std::cout << "token " << kLoginToken << " provisional\n";
+  std::cout << "connector token " << kLoginToken << "\n";
   std::cout << "native export " << kNativeExport << "\n";
-  std::cout << "not a wire map\n";
+  std::cout << "not a 6.114 wire map\n";
+  std::cout << "unity player built: no\n";
 }
 
-void log_frame(const std::vector<unsigned char> &frame) {
-  std::cout << "login frame " << frame.size() << " bytes\n";
+void log_hello(const std::vector<unsigned char> &hello) {
+  std::cout << "connector hello " << hello.size() << " bytes\n";
   std::cout << "frame:";
-  for (size_t i = 0; i < frame.size(); ++i) {
-    if (i % 24 == 0) std::cout << "\n";
+  for (size_t i = 0; i < hello.size(); ++i) {
     char hex[8];
-    std::snprintf(hex, sizeof hex, " %02x", frame[i]);
+    std::snprintf(hex, sizeof hex, " %02x", hello[i]);
     std::cout << hex;
   }
   std::cout << "\n";
-}
-
-bool inflate_matches(const std::string &plain, const std::vector<unsigned char> &z) {
-  if (z.size() < 2) return false;
-  std::vector<unsigned char> back(plain.size() + 64);
-  uLongf got = static_cast<uLongf>(back.size());
-  int rc = uncompress(back.data(), &got, z.data(), static_cast<uLong>(z.size()));
-  if (rc != Z_OK || got != plain.size()) return false;
-  return std::memcmp(back.data(), plain.data(), plain.size()) == 0;
-}
-
-bool build_frame(const std::string &account, const std::string &password,
-                 std::string &plain, std::vector<unsigned char> &frame) {
-  if (account.find('\n') != std::string::npos ||
-      password.find('\n') != std::string::npos) {
-    std::cout << "account or password contains a newline\n";
-    return false;
-  }
-  plain = login_plain(account, password);
-  std::vector<unsigned char> z = zlib_member(plain);
-  if (z.empty() || z.size() >= 65535) return false;
-  if (!inflate_matches(plain, z)) return false;
-  frame = login_frame(z);
-  if (frame.size() != z.size() + 2) return false;
-  unsigned int declared = (static_cast<unsigned int>(frame[0]) << 8) | frame[1];
-  return declared == z.size();
 }
 
 int send_all(int fd, const std::vector<unsigned char> &frame) {
@@ -161,28 +92,23 @@ int connect_loopback(int port) {
 
 int run_self_check() {
   log_preamble();
-  std::string plain;
-  std::vector<unsigned char> frame;
-  if (!build_frame("loop1", "loopbackpw", plain, frame)) {
-    std::cout << "self-check: frame did not build\n";
-    return 1;
-  }
+  std::vector<unsigned char> hello = hello_bytes();
+  if (hello.size() != 8) return 1;
+  if (std::string(hello.begin(), hello.end()) != kLoginToken) return 1;
   if (std::strcmp(kLoginToken, "GNP1905C") != 0) return 1;
-  if (plain.find("GNP1905C") == std::string::npos) return 1;
-  if (plain[0] != gchar(5) || plain[1] != gchar(kAttemptKey)) return 1;
-  if (plain[plain.size() - 1] != '\n') return 1;
-  log_frame(frame);
+  if (std::strcmp(kLoginToken, "G3D0511C") == 0) return 1;
+  log_hello(hello);
   if (unknown_call("self-check-probe") != 0) return 1;
   std::cout << "self-check ok\n";
   return 0;
 }
 
 void print_list() {
-  std::cout << "6.114 Worlds thin host\n";
-  std::cout << "Unity player plus native Graal3DEngine. This program is neither.\n";
+  std::cout << "6.114 Worlds connector\n";
+  std::cout << "The playable stand-in is worlds-player. This program is not a Unity player.\n";
   std::cout << "No IL2CPP player. No Torque.\n";
-  std::cout << "Token " << kLoginToken << " provisional.\n";
-  std::cout << "Native export " << kNativeExport << ".\n";
+  std::cout << "Connector token " << kLoginToken << ".\n";
+  std::cout << "Native export " << kNativeExport << " (not called).\n";
   std::cout << "Build 614 dump counted 108 assemblies "
                "(6 Quattro, 80 Unity, 10 runtime, 11 plugin, 1 generated).\n";
   std::cout << "Quattro names kept: Assemblies-Quattro.dll, "
@@ -205,23 +131,16 @@ bool parse_port(const std::string &text, int &port) {
 int run_connect(int port, const std::string &account) {
   log_preamble();
   if (port <= 0 || port > 65535) {
-    std::cout << "port out of range\n";
+    std::cout << "state Error reason=port-out-of-range\n";
     return 2;
   }
   if (account.empty()) {
-    std::cout << "missing --account\n";
+    std::cout << "state Error reason=missing-account\n";
     return 2;
   }
-  const char *env = std::getenv("GRAAL_PW");
-  std::string password = env ? env : "";
-  std::string plain;
-  std::vector<unsigned char> frame;
-  if (!build_frame(account, password, plain, frame)) return 1;
-  std::cout << "plain login shape provisional: type 5, key " << kAttemptKey
-            << ", token " << kLoginToken << ", account " << account
-            << ", password length " << password.size()
-            << ", tail linux and four empty machine fields\n";
-  log_frame(frame);
+  std::vector<unsigned char> hello = hello_bytes();
+  std::cout << "account " << account << "\n";
+  log_hello(hello);
   std::cout.flush();
   char numeric[64];
   in_addr loop;
@@ -231,15 +150,16 @@ int run_connect(int port, const std::string &account) {
   std::cout << "connect " << numeric << ":" << port << "\n";
   int fd = connect_loopback(port);
   if (fd < 0) {
-    std::cout << "connect failed\n";
+    std::cout << "state Error reason=connect-failed\n";
     return 1;
   }
-  if (send_all(fd, frame) != 0) {
-    std::cout << "send failed\n";
+  if (send_all(fd, hello) != 0) {
+    std::cout << "state Error reason=send-failed\n";
     ::close(fd);
     return 1;
   }
-  std::cout << "sent " << frame.size() << " bytes\n";
+  std::cout << "sent " << hello.size() << " bytes\n";
+  std::cout << "state HelloSent\n";
   timeval tv;
   tv.tv_sec = 0;
   tv.tv_usec = 200000;
@@ -273,7 +193,7 @@ int main(int argc, char **argv) {
       self = true;
     } else if (arg == "--port" && i + 1 < argc) {
       if (!parse_port(argv[++i], port)) {
-        std::cout << "bad port\n";
+        std::cout << "state Error reason=port-out-of-range\n";
         return 2;
       }
       have_port = true;
@@ -293,7 +213,7 @@ int main(int argc, char **argv) {
   }
   if (have_port) return run_connect(port, account);
   if (!calls.empty()) return 0;
-  std::cout << "worlds-host: thin host for 6.114. "
+  std::cout << "worlds-host: connector for 6.114. "
                "--port PORT --account NAME\n";
   return 0;
 }

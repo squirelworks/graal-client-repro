@@ -1,5 +1,6 @@
 { Tests for the Worlds 6.114 summary. The 108-name dump is not stored.
-  The token is GNP1905C, the documented connector token. No player starts. }
+  The token is GNP1905C, the documented connector token. It is not
+  provisional. The playable stand-in is worlds-player. }
 program TestWorlds;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
@@ -31,7 +32,6 @@ var
   I: Integer;
 begin
   Check(WorldsLoginTokenKnown, 'connector token bytes are GNP1905C');
-  Check(ConnectorTokenProvisional, 'the 6.114 token is marked provisional');
   Check(NativeExport = 'Flavor0', 'the known native export is Flavor0');
   Check(ConnectorToken = 'GNP1905C', 'connector token is GNP1905C');
   Check(Length(ConnectorToken) = 8, 'connector token is eight characters');

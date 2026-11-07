@@ -4,9 +4,9 @@
   Quattro names the thin host mentions. It is not a dump of that list, not
   an IL2CPP player, and not the wire.
 
-  ConnectorToken is GNP1905C, the documented connector token. The connector
-  script supplies that token. The loopback program is worlds-host, the C++
-  thin host beside this unit. }
+  ConnectorToken is GNP1905C, the documented connector token. It is not
+  provisional. The playable stand-in is worlds-player. worlds-host only
+  writes the eight-byte hello. }
 unit ModulesWorlds;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
@@ -21,10 +21,9 @@ const
   PluginCount = 11;
   GeneratedCount = 1;
   NeededQuattroCount = 2;
-  { Connector token from the 6.1.1.3 note. Provisional for this host:
-    the 6.114 dump did not store a clear login literal. }
+  { Documented connector token. Not provisional. The 6.114 image was not
+    shown to store this literal; the 6.113 capture sends these bytes. }
   ConnectorToken = 'GNP1905C';
-  ConnectorTokenProvisional = True;
   { Build 71243 publishes the native plugin under this export name.
     Builds 548 through 614 use an obfuscated name that was not recovered. }
   NativeExport = 'Flavor0';

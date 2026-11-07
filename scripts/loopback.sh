@@ -2,8 +2,10 @@
 # Loopback acceptance check: log two copies of a rebuilt client into
 # seihai-gserver. Both must log in and load the board, and the second must
 # see the first in its level. Then one walks through a level link.
-# A folder that builds worlds-host is pointed at 127.0.0.1 instead. That
-# path sends one login-shaped frame and does not require a finished login.
+# A folder that builds worlds-player runs that portable player against
+# its own local-only yard server on 127.0.0.1. That session is not a
+# 6.114 wire map. worlds-host, if it is the only binary, sends the
+# eight-byte connector hello and does not require a finished login.
 #   scripts/loopback.sh GSERVER_BIN [BUILD]
 # GSERVER_BIN: a built seihai-gserver (https://github.com/squirelworks/seihai-gserver).
 # BUILD: folder name, default graal-2.05r2-GNW03081.
@@ -15,8 +17,48 @@ B=${2:-graal-2.05r2-GNW03081}
 if grep -qs "ClientGeneration = 1;" "$ROOT/$B"/src/Protocol*.pas; then
   exec "$ROOT/scripts/loopback-relay.sh" "$B"
 fi
-# worlds-host sends one login-shaped frame to 127.0.0.1. A finished login
-# is not required. A scaffold that only names modules still skips below.
+# worlds-player runs a local-only session on 127.0.0.1. A scaffold that
+# only names modules still skips below. worlds-host sends the hello only.
+PLAYER="$ROOT/build/$B/worlds-player"
+if [ -x "$PLAYER" ]; then
+  PORT=${LOOPBACK_PORT:-14923}
+  WORK=$(mktemp -d)
+  trap 'rm -rf "$WORK"' EXIT
+  set +e
+  GRAAL_PW=${GRAAL_PW:-loopbackpw} "$PLAYER" --smoke --port "$PORT" \
+    --account loop1 --world "$ROOT/$B/worlds/local-yard.txt" \
+    --raster "$WORK/local-yard.ppm" > "$WORK/player.log" 2>&1
+  RC=$?
+  set -e
+  echo "--- worlds-player"
+  cat "$WORK/player.log"
+  if [ "$RC" -ne 0 ]; then
+    echo "worlds-player exited $RC"
+    exit "$RC"
+  fi
+  if ! grep -q "connector token GNP1905C" "$WORK/player.log"; then
+    echo "worlds-player did not log connector token GNP1905C"
+    exit 1
+  fi
+  if ! grep -q "local-only fixture" "$WORK/player.log"; then
+    echo "worlds-player did not log the local-only fixture"
+    exit 1
+  fi
+  if ! grep -q "state InWorld" "$WORK/player.log"; then
+    echo "worlds-player did not enter the local yard"
+    exit 1
+  fi
+  if ! grep -q "entity id=1" "$WORK/player.log"; then
+    echo "worlds-player did not see the local entity"
+    exit 1
+  fi
+  if ! grep -q "unity player built: no" "$WORK/player.log"; then
+    echo "worlds-player claimed a Unity build"
+    exit 1
+  fi
+  echo "loopback local-only session ok"
+  exit 0
+fi
 HOSTBIN="$ROOT/build/$B/worlds-host"
 if [ -x "$HOSTBIN" ]; then
   PORT=${LOOPBACK_PORT:-14862}
@@ -75,8 +117,8 @@ open(outp, "wb").write(data)
     echo "worlds-host exited $RC"
     exit "$RC"
   fi
-  if ! grep -q "login frame" "$WORK/host.log"; then
-    echo "worlds-host did not log a login frame"
+  if ! grep -q "connector hello" "$WORK/host.log"; then
+    echo "worlds-host did not log a connector hello"
     exit 1
   fi
   if ! grep -q "GNP1905C" "$WORK/host.log"; then

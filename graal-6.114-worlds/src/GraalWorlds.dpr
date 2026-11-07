@@ -1,10 +1,11 @@
 { Graal Worlds 6.114 side shell. The original is a Unity host plus the
   native Graal3DEngine. This program prints a short summary. The loopback
-  path is worlds-host (C++), which sends one login-shaped frame. This
-  program does not start a player and does not open a socket.
+  path is worlds-player (portable C#). worlds-host only writes the
+  eight-byte connector hello. This program does not start a player and
+  does not open a socket.
 
   ConnectorToken in ModulesWorlds is GNP1905C, the documented connector
-  token.
+  token. It is not provisional.
 
   Command line:
     GraalWorlds            one line, exit 0
@@ -29,7 +30,7 @@ var
 begin
   if ParamCount = 0 then
   begin
-    WriteLn('GraalWorlds: summary shell. The loopback host is worlds-host.');
+    WriteLn('GraalWorlds: summary shell. The player is worlds-player.');
     Exit;
   end;
   if (ParamCount = 1) and (ParamStr(1) = '--list') then
@@ -43,11 +44,11 @@ begin
     for I := 0 to High(NeededQuattro) do
       Write(' ', NeededQuattro[I]);
     WriteLn;
-    WriteLn('Token ', ConnectorToken, ' provisional.');
-    WriteLn('Native export ', NativeExport, '.');
-    WriteLn('The loopback host is worlds-host.');
+    WriteLn('Connector token ', ConnectorToken, '.');
+    WriteLn('Native export ', NativeExport, ' (not called).');
+    WriteLn('The player is worlds-player. Unity player was not built.');
     Exit;
   end;
-  WriteLn('the loopback host is worlds-host');
+  WriteLn('the player is worlds-player');
   Halt(64);
 end.
