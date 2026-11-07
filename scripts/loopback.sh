@@ -132,6 +132,7 @@ open(outp, "wb").write(data)
   echo "loopback attempt received $(wc -c < "$WORK/got.bin") bytes"
   exit 0
 fi
+# a scaffold names its modules and compiles; it has no wire client yet
 if grep -qs "ScaffoldOnly = True;" "$ROOT/$B"/src/*.pas; then
   echo "scaffold only, no loopback: $B"
   exit 0
