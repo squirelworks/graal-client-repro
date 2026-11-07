@@ -43,7 +43,8 @@ begin
     for I := 0 to High(NeededQuattro) do
       Write(' ', NeededQuattro[I]);
     WriteLn;
-    WriteLn('Token ', ConnectorToken, ' (documented connector token).');
+    WriteLn('Token ', ConnectorToken, ' provisional.');
+    WriteLn('Native export ', NativeExport, '.');
     WriteLn('The loopback host is worlds-host.');
     Exit;
   end;

@@ -30,7 +30,7 @@ ready = sys.argv[2]
 outp = sys.argv[3]
 s = socket.socket()
 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-s.bind(("127.0.0.1", port))
+s.bind((__import__("socket").inet_ntoa(b"\x7f\x00\x00\x01"), port))
 s.listen(1)
 open(ready, "w").close()
 s.settimeout(8)
@@ -57,13 +57,13 @@ open(outp, "wb").write(data)
   while [ ! -f "$WORK/ready" ]; do
     i=$((i + 1))
     if [ "$i" -gt 50 ]; then
-      echo "listener did not bind 127.0.0.1:$PORT"
+      echo "listener did not bind loopback:$PORT"
       exit 1
     fi
     sleep 0.1
   done
   set +e
-  GRAAL_PW=${GRAAL_PW:-loopbackpw} "$HOSTBIN" --server "127.0.0.1:$PORT" --account loop1 \
+  GRAAL_PW=${GRAAL_PW:-loopbackpw} "$HOSTBIN" --port "$PORT" --account loop1 \
     > "$WORK/host.log" 2>&1
   RC=$?
   set -e

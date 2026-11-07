@@ -37,7 +37,7 @@ metadata stays at v29. This folder does not invent an IL2CPP player.
 
 | Program | What it does |
 |---|---|
-| `src/worlds_host.cpp` | the thin host `worlds-host`. Point it at `127.0.0.1` on a lab port. It sends one login-shaped frame and logs it. Unknown calls log and return. `--list` prints this summary |
+| `src/worlds_host.cpp` | the thin host `worlds-host`. Point it at `loopback` on a lab port. It sends one login-shaped frame and logs it. Unknown calls log and return. `--list` prints this summary |
 | `src/ModulesWorlds.pas` | the dump counts, the two Quattro names, and the connector token |
 | `src/GraalWorlds.dpr` | a side shell: no arguments prints one line; `--list` prints the summary |
 | `tests/TestWorlds.dpr` | the counts add up, the token is `GNP1905C`, and the dump is not stored as a name table |
@@ -50,10 +50,10 @@ shell and skips `worlds-host`.
 
 ```
 GRAAL_PW=... build/graal-6.114-worlds/worlds-host \
-  --server 127.0.0.1:14802 --account NAME
+  --port 14802 --account NAME
 ```
 
-The host refuses any address other than `127.0.0.1`. A connection that
+The host refuses any address other than `loopback`. A connection that
 sends the frame is enough. A finished login is not claimed.
 `scripts/loopback.sh` points this host at loopback the same way and does
 not require the server to accept the login.

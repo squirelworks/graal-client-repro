@@ -30,7 +30,9 @@ procedure TestSummary;
 var
   I: Integer;
 begin
-  Check(WorldsLoginTokenKnown, 'connector token is known');
+  Check(WorldsLoginTokenKnown, 'connector token bytes are GNP1905C');
+  Check(ConnectorTokenProvisional, 'the 6.114 token is marked provisional');
+  Check(NativeExport = 'Flavor0', 'the known native export is Flavor0');
   Check(ConnectorToken = 'GNP1905C', 'connector token is GNP1905C');
   Check(Length(ConnectorToken) = 8, 'connector token is eight characters');
   Check(QuattroCount + UnityCount + RuntimeCount + PluginCount + GeneratedCount =

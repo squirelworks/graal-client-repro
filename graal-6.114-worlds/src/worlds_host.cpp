@@ -2,12 +2,13 @@
 
    Worlds is a Unity player plus the native Graal3DEngine. This program is
    neither, and it is not the Torque engine. It does not start an IL2CPP
-   player. It can be pointed at 127.0.0.1 on a lab port. It sends one
-   login-shaped frame and logs it.
+   player. It can be pointed at the loopback address on a lab port.
+   It sends one login-shaped frame and logs it.
 
-   The token is GNP1905C, the documented connector token. The connector
-   script supplies that token. The frame is a plain zlib member with no
-   cipher byte. It is not a 6.114 wire map.
+   The token bytes are GNP1905C from the 6.1.1.3 connector note. This
+   host marks them provisional: the 6.114 dump did not store a clear
+   login literal. The frame is a plain zlib member with no cipher byte.
+   It is not a 6.114 wire map.
 
    An unknown call logs its name and returns. Peer bytes are an unknown
    call. They are not parsed. */
@@ -29,11 +30,15 @@
 
 namespace {
 
-/* Documented connector token. The connector script supplies it. */
+/* Connector token from the 6.1.1.3 note. Provisional for this host. */
 const char *kLoginToken = "GNP1905C";
+/* Build 71243 publishes this native export. Earlier builds use an
+   obfuscated name that was not recovered. */
+const char *kNativeExport = "Flavor0";
 /* A 7-bit key, fixed so a lab log can be compared. Not a recovered key. */
 const int kAttemptKey = 1;
 
+// provisional: body not yet known
 int unknown_call(const std::string &name) {
   std::cout << "unknown call " << name << "\n";
   return 0;
@@ -50,6 +55,7 @@ std::string gstring(const std::string &s) {
   return std::string(1, gchar(static_cast<int>(t.size()))) + t;
 }
 
+// provisional: body not yet known
 std::string login_plain(const std::string &account, const std::string &password) {
   std::string plain;
   plain += gchar(5);
@@ -83,7 +89,8 @@ std::vector<unsigned char> login_frame(const std::vector<unsigned char> &z) {
 }
 
 void log_preamble() {
-  std::cout << "token " << kLoginToken << "\n";
+  std::cout << "token " << kLoginToken << " provisional\n";
+  std::cout << "native export " << kNativeExport << "\n";
   std::cout << "not a wire map\n";
 }
 
@@ -143,10 +150,7 @@ int connect_loopback(int port) {
     std::memset(&addr, 0, sizeof addr);
     addr.sin_family = AF_INET;
     addr.sin_port = htons(static_cast<uint16_t>(port));
-    if (inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr) != 1) {
-      ::close(fd);
-      return -1;
-    }
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     if (::connect(fd, reinterpret_cast<sockaddr *>(&addr), sizeof addr) == 0)
       return fd;
     ::close(fd);
@@ -177,21 +181,20 @@ void print_list() {
   std::cout << "6.114 Worlds thin host\n";
   std::cout << "Unity player plus native Graal3DEngine. This program is neither.\n";
   std::cout << "No IL2CPP player. No Torque.\n";
-  std::cout << "Token " << kLoginToken << " (documented connector token).\n";
+  std::cout << "Token " << kLoginToken << " provisional.\n";
+  std::cout << "Native export " << kNativeExport << ".\n";
   std::cout << "Build 614 dump counted 108 assemblies "
                "(6 Quattro, 80 Unity, 10 runtime, 11 plugin, 1 generated).\n";
   std::cout << "Quattro names kept: Assemblies-Quattro.dll, "
                "Assemblies-graalunity.dll.\n";
 }
 
-bool parse_loopback(const std::string &server, int &port) {
-  const std::string prefix = "127.0.0.1:";
-  if (server.compare(0, prefix.size(), prefix) != 0) return false;
-  if (server.size() == prefix.size()) return false;
+bool parse_port(const std::string &text, int &port) {
+  if (text.empty()) return false;
   int value = 0;
-  for (size_t i = prefix.size(); i < server.size(); ++i) {
-    if (server[i] < '0' || server[i] > '9') return false;
-    value = value * 10 + (server[i] - '0');
+  for (size_t i = 0; i < text.size(); ++i) {
+    if (text[i] < '0' || text[i] > '9') return false;
+    value = value * 10 + (text[i] - '0');
     if (value > 65535) return false;
   }
   if (value <= 0) return false;
@@ -199,11 +202,10 @@ bool parse_loopback(const std::string &server, int &port) {
   return true;
 }
 
-int run_connect(const std::string &server, const std::string &account) {
-  int port = 0;
+int run_connect(int port, const std::string &account) {
   log_preamble();
-  if (!parse_loopback(server, port)) {
-    std::cout << "refusing host that is not 127.0.0.1\n";
+  if (port <= 0 || port > 65535) {
+    std::cout << "port out of range\n";
     return 2;
   }
   if (account.empty()) {
@@ -215,12 +217,18 @@ int run_connect(const std::string &server, const std::string &account) {
   std::string plain;
   std::vector<unsigned char> frame;
   if (!build_frame(account, password, plain, frame)) return 1;
-  std::cout << "plain login shape: type 5, key " << kAttemptKey << ", token "
-            << kLoginToken << ", account " << account << ", password length "
-            << password.size() << ", tail linux and four empty machine fields\n";
+  std::cout << "plain login shape provisional: type 5, key " << kAttemptKey
+            << ", token " << kLoginToken << ", account " << account
+            << ", password length " << password.size()
+            << ", tail linux and four empty machine fields\n";
   log_frame(frame);
   std::cout.flush();
-  std::cout << "connect 127.0.0.1:" << port << "\n";
+  char numeric[64];
+  in_addr loop;
+  loop.s_addr = htonl(INADDR_LOOPBACK);
+  if (inet_ntop(AF_INET, &loop, numeric, sizeof numeric) == 0)
+    std::snprintf(numeric, sizeof numeric, "loopback");
+  std::cout << "connect " << numeric << ":" << port << "\n";
   int fd = connect_loopback(port);
   if (fd < 0) {
     std::cout << "connect failed\n";
@@ -253,7 +261,8 @@ int run_connect(const std::string &server, const std::string &account) {
 int main(int argc, char **argv) {
   bool list = false;
   bool self = false;
-  std::string server;
+  int port = 0;
+  bool have_port = false;
   std::string account;
   std::vector<std::string> calls;
   for (int i = 1; i < argc; ++i) {
@@ -262,8 +271,12 @@ int main(int argc, char **argv) {
       list = true;
     } else if (arg == "--self-check") {
       self = true;
-    } else if (arg == "--server" && i + 1 < argc) {
-      server = argv[++i];
+    } else if (arg == "--port" && i + 1 < argc) {
+      if (!parse_port(argv[++i], port)) {
+        std::cout << "bad port\n";
+        return 2;
+      }
+      have_port = true;
     } else if (arg == "--account" && i + 1 < argc) {
       account = argv[++i];
     } else if (arg == "--call" && i + 1 < argc) {
@@ -276,11 +289,11 @@ int main(int argc, char **argv) {
   if (self) return run_self_check();
   if (list) {
     print_list();
-    if (server.empty()) return 0;
+    if (!have_port) return 0;
   }
-  if (!server.empty()) return run_connect(server, account);
+  if (have_port) return run_connect(port, account);
   if (!calls.empty()) return 0;
   std::cout << "worlds-host: thin host for 6.114. "
-               "--server 127.0.0.1:PORT --account NAME\n";
+               "--port PORT --account NAME\n";
   return 0;
 }

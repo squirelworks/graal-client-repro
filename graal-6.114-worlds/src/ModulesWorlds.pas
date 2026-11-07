@@ -21,8 +21,13 @@ const
   PluginCount = 11;
   GeneratedCount = 1;
   NeededQuattroCount = 2;
-  { Documented connector token. The connector script supplies it. }
+  { Connector token from the 6.1.1.3 note. Provisional for this host:
+    the 6.114 dump did not store a clear login literal. }
   ConnectorToken = 'GNP1905C';
+  ConnectorTokenProvisional = True;
+  { Build 71243 publishes the native plugin under this export name.
+    Builds 548 through 614 use an obfuscated name that was not recovered. }
+  NativeExport = 'Flavor0';
 
 const
   NeededQuattro: array[0..NeededQuattroCount - 1] of string = (

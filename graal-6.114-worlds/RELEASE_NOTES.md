@@ -10,7 +10,7 @@ login-shaped frame to loopback. It does not play the game.
 
 ## What's new in v0.0.5
 
-- `worlds-host` opens `127.0.0.1` on a lab port and sends one
+- `worlds-host` opens `loopback` on a lab port and sends one
   login-shaped frame. The token is `GNP1905C`, the documented connector
   token. The frame is not a 6.114 wire map. No IL2CPP player and no
   Torque.
