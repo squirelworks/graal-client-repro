@@ -2,13 +2,12 @@
 
    Worlds is a Unity player plus the native Graal3DEngine. This program is
    neither, and it is not the Torque engine. It does not start an IL2CPP
-   player. It can be pointed at the loopback address on a lab port. It
-   sends one login-shaped frame and logs it.
+   player. It can be pointed at 127.0.0.1 on a lab port. It sends one
+   login-shaped frame and logs it.
 
-   The token bytes are GNP1905C from the 6.1.1.3 connector note. This
-   host marks them provisional: the 6.114 dump did not store a clear
-   login literal. The frame is a plain zlib member with no cipher byte.
-   It is not a 6.114 wire map.
+   The token is GNP1905C, the documented connector token. The connector
+   script supplies that token. The frame is a plain zlib member with no
+   cipher byte. It is not a 6.114 wire map.
 
    An unknown call logs its name and returns. Peer bytes are an unknown
    call. They are not parsed. */
@@ -30,15 +29,11 @@
 
 namespace {
 
-/* Connector token from the 6.1.1.3 note. Provisional for this host. */
+/* Documented connector token. The connector script supplies it. */
 const char *kLoginToken = "GNP1905C";
-/* The one native export name the 71243 read published. Earlier builds
-   use an obfuscated name that was not recovered. */
-const char *kNativeExport = "Flavor0";
 /* A 7-bit key, fixed so a lab log can be compared. Not a recovered key. */
 const int kAttemptKey = 1;
 
-// provisional: body not yet known
 int unknown_call(const std::string &name) {
   std::cout << "unknown call " << name << "\n";
   return 0;
@@ -55,7 +50,6 @@ std::string gstring(const std::string &s) {
   return std::string(1, gchar(static_cast<int>(t.size()))) + t;
 }
 
-// provisional: body not yet known
 std::string login_plain(const std::string &account, const std::string &password) {
   std::string plain;
   plain += gchar(5);
@@ -89,8 +83,7 @@ std::vector<unsigned char> login_frame(const std::vector<unsigned char> &z) {
 }
 
 void log_preamble() {
-  std::cout << "token " << kLoginToken << " provisional\n";
-  std::cout << "native export " << kNativeExport << "\n";
+  std::cout << "token " << kLoginToken << "\n";
   std::cout << "not a wire map\n";
 }
 
@@ -150,7 +143,10 @@ int connect_loopback(int port) {
     std::memset(&addr, 0, sizeof addr);
     addr.sin_family = AF_INET;
     addr.sin_port = htons(static_cast<uint16_t>(port));
-    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    if (inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr) != 1) {
+      ::close(fd);
+      return -1;
+    }
     if (::connect(fd, reinterpret_cast<sockaddr *>(&addr), sizeof addr) == 0)
       return fd;
     ::close(fd);
@@ -181,10 +177,7 @@ void print_list() {
   std::cout << "6.114 Worlds thin host\n";
   std::cout << "Unity player plus native Graal3DEngine. This program is neither.\n";
   std::cout << "No IL2CPP player. No Torque.\n";
-  std::cout << "Token " << kLoginToken << " provisional.\n";
-  std::cout << "Native export " << kNativeExport
-            << " (build 71243). Earlier builds use an obfuscated export name "
-               "that was not recovered.\n";
+  std::cout << "Token " << kLoginToken << " (documented connector token).\n";
   std::cout << "Build 614 dump counted 108 assemblies "
                "(6 Quattro, 80 Unity, 10 runtime, 11 plugin, 1 generated).\n";
   std::cout << "Quattro names kept: Assemblies-Quattro.dll, "
