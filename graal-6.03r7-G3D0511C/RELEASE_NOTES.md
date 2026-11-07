@@ -24,6 +24,10 @@ to the program works too (`graal-assets/6.03r7/`, then
   `.code` file that is shorter than the `GRESCR01` magic, and marks only
   the GS2 case numbers the 6.x checklist names. Opcode bodies are not
   implemented.
+- A `GRESCR01` buffer of at least eight bytes is accepted and the payload
+  length is logged. The three `onSendWant*` events write their name and
+  a length. The numeric outgoing id is not invented. The CRC and the
+  opcode bodies are still not read.
 
 ## What's new in v0.0.4
 

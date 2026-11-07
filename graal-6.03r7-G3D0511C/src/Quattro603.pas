@@ -48,16 +48,79 @@ type
   );
 
 function GrescrAccepted(const Buf: string): Boolean;
+{ Loads a minimal GRESCR01 buffer. Sets GrescrPayloadLen and GrescrLog
+  on the accept path. A buffer shorter than eight bytes is rejected. }
+function GrescrLoad(const Buf: string): Boolean;
 { 1-based index of the first byte the CRC covers. The CRC itself is not
   computed here. }
 function GrescrCrcStart: Integer;
 function Gs2CaseOf(Op: Integer): TGs2Case;
 
+{ Outgoing load events named in docs/v6-repro.md. The numeric wire id
+  is not in that note's outgoing table, so these write the name and the
+  payload length. They do not invent an id number. }
+function SendWantClassScript(const Payload: string): string;
+function SendWantWeaponScript(const Payload: string): string;
+function SendWantGaniScript(const Payload: string): string;
+
+var
+  { -1 after a reject. The byte count after the eight-byte magic after
+    an accept. }
+  GrescrPayloadLen: Integer = -1;
+  GrescrLog: string = '';
+
 implementation
+
+uses
+  SysUtils;
+
+{ provisional: body not yet known }
+function GrescrLoad(const Buf: string): Boolean;
+begin
+  GrescrPayloadLen := -1;
+  GrescrLog := '';
+  if Length(Buf) < 8 then
+  begin
+    Result := False;
+    Exit;
+  end;
+  if Copy(Buf, 1, 8) <> GrescrMagic then
+  begin
+    Result := False;
+    Exit;
+  end;
+  GrescrPayloadLen := Length(Buf) - 8;
+  GrescrLog := 'GRESCR01 payload ' + IntToStr(GrescrPayloadLen);
+  Result := True;
+end;
 
 function GrescrAccepted(const Buf: string): Boolean;
 begin
-  Result := (Length(Buf) >= 8) and (Copy(Buf, 1, 8) = GrescrMagic);
+  Result := GrescrLoad(Buf);
+end;
+
+{ provisional: body not yet known }
+function SendNamed(const EventName, Payload: string): string;
+begin
+  Result := EventName + ' id=provisional len=' + IntToStr(Length(Payload));
+end;
+
+{ provisional: body not yet known }
+function SendWantClassScript(const Payload: string): string;
+begin
+  Result := SendNamed('onSendWantClassScript', Payload);
+end;
+
+{ provisional: body not yet known }
+function SendWantWeaponScript(const Payload: string): string;
+begin
+  Result := SendNamed('onSendWantWeaponScript', Payload);
+end;
+
+{ provisional: body not yet known }
+function SendWantGaniScript(const Payload: string): string;
+begin
+  Result := SendNamed('onSendWantGaniScript', Payload);
 end;
 
 function GrescrCrcStart: Integer;

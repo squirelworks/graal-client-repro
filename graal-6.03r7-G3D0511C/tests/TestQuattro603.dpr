@@ -48,9 +48,26 @@ begin
   Check(not GrescrAccepted('GRESCR00'), 'wrong magic rejected');
   Check(GrescrAccepted(GrescrMagic), 'eight-byte magic accepted');
   Check(GrescrAccepted(GrescrMagic + 'tail'), 'magic plus a body accepted');
+  Check(GrescrPayloadLen = 4, 'payload length is the bytes after the magic');
+  Check(GrescrLog = 'GRESCR01 payload 4', 'accept path logs the payload length');
+  Check(not GrescrAccepted('short'), 'a short buffer is still rejected');
+  Check(GrescrPayloadLen = -1, 'a reject clears the payload length');
+  Check(GrescrLog = '', 'a reject does not log a payload');
   Check(GrescrCrcStart = 9, 'CRC covers the bytes after the magic');
   Check(Copy(GrescrMagic + 'tail', GrescrCrcStart, MaxInt) = 'tail',
     'covered bytes are the tail');
+end;
+
+procedure TestSend;
+begin
+  Check(SendWantClassScript('abc') = 'onSendWantClassScript id=provisional len=3',
+    'class-script send writes the name and the length');
+  Check(SendWantWeaponScript('') = 'onSendWantWeaponScript id=provisional len=0',
+    'weapon-script send allows an empty payload');
+  Check(SendWantGaniScript('gani') = 'onSendWantGaniScript id=provisional len=4',
+    'gani-script send writes the name and the length');
+  Check(Pos('id=23', SendWantClassScript('abc')) = 0,
+    'the outgoing table id is not invented');
 end;
 
 procedure TestCases;
@@ -86,6 +103,7 @@ begin
   Failed := 0;
   TestToken;
   TestGrescr;
+  TestSend;
   TestCases;
   WriteLn(Format('%d passed, %d failed', [Passed, Failed]));
   if Failed > 0 then Halt(1);

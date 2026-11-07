@@ -49,7 +49,10 @@ As in 5.00r7, with the suffix `603`: `Protocol603`, `GraalClient`,
 `Quattro603` records the 6.037 checks from `docs/v6-repro.md` that do not
 need a script VM: the Windows image's stored token (not this folder's),
 the generation-5 framer with no `setprotocol`, and the GS2 cases that
-note names. It does not change the wire client.
+note names. It accepts a minimal `GRESCR01` buffer and logs the payload
+length, and the three `onSendWant*` events write their name and a length.
+The numeric outgoing id is not in the note, so it is not invented. It
+does not change the wire client.
 
 ## Running it
 
@@ -101,6 +104,12 @@ From the program's folder (or `--data`), then `graal-assets/6.03r7/`, then
 - [ ] Whether 6.03r7 plays offline at all is not traced; Training keeps 3.153's.
 - [ ] No side-by-side run against the real 6.03r7; that is 0.0.2 work.
 - [ ] Everything still missing from the 5.00r7 rebuild.
+- [x] A `.code` buffer of at least eight bytes starting with `GRESCR01`
+  is accepted and the payload length is logged. A shorter buffer is
+  rejected. The CRC and the script body are not read (`Quattro603`).
+- [x] `onSendWantClassScript`, `onSendWantWeaponScript` and
+  `onSendWantGaniScript` write the event name and the payload length.
+  The numeric id is not in the outgoing table, so none is invented.
 - [ ] GS2 opcode bodies, and the case numbers from 11 through 242 that
   `docs/v6-repro.md` does not name. `Quattro603` marks only the named
   ones. The 6.1.1.3 connector, UDP and package rows are not this folder.
