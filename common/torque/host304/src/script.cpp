@@ -93,14 +93,12 @@ bool callGui(const std::string &method, const std::string &inside, ScriptResult 
     return true;
   }
   const int expect = guiScriptArgs(*m);
-  std::ostringstream line;
-  line << "stub GuiGraalCtrl::" << method << " args=" << argc;
+  runGuiStub(method, argc, out.log);
   if (expect >= 0 && argc != expect) {
-    line << " expected=" << expect;
+    std::ostringstream line;
+    line << "GuiGraalCtrl." << method << " arity " << argc << " expected " << expect;
+    out.log.push_back(line.str());
   }
-  // Body is unknown. The call is logged and does not change the camera.
-  line << " (body unknown)";
-  out.log.push_back(line.str());
   return true;
 }
 
@@ -155,11 +153,12 @@ bool execLine(const std::string &raw, std::map<std::string, Camera> &cameras,
     cam->second.y = y;
     cam->second.z = z;
     const std::string to = fmtNum(x) + " " + fmtNum(y) + " " + fmtNum(z);
-    // PROVISIONAL method name. engine-304.md says Camera has three
-    // methods and does not name them. setTransform is the stock TGE
-    // call this runner understands. It is not a recovered 3.04 name.
-    out.cameraLine = "camera moved: " + name + " from " + from + " to " + to;
+    // provisional: body not yet known
+    // engine-304.md says Camera has three methods and does not name them.
+    // setTransform is the call this runner understands. It is not a recovered name.
+    out.cameraLine = "camera position " + to;
     out.cameraMoved = true;
+    out.log.push_back("camera moved: " + name + " from " + from + " to " + to);
     out.log.push_back(out.cameraLine);
     return true;
   }

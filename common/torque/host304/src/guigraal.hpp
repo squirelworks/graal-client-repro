@@ -16,6 +16,7 @@
 #define HOST304_GUIGRAAL_HPP
 
 #include <string>
+#include <vector>
 
 struct GuiMethod {
   const char *name;
@@ -33,5 +34,8 @@ const GuiMethod *findGuiMethod(const std::string &name);
 // Script arguments the count allows. -1 when min and max disagree
 // (they do not, on this table).
 int guiScriptArgs(const GuiMethod &method);
+
+// One stub per method. Each logs the call and returns. The body is not known.
+void runGuiStub(const std::string &name, int argc, std::vector<std::string> &log);
 
 #endif

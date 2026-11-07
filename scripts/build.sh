@@ -30,4 +30,18 @@ for B in $BUILDS; do
       -Fu../../common -Fu../src -FE"../../build/$B" -FU"$UNITS" \
       "$(basename "$P")")
   done
+  # 3.04's C++ host is common/torque/host304 (its own Makefile).
+  # The Pascal units under common/torque stay off the Free Pascal path.
+  if [ "$B" = "graal-3.04-G3D03014" ] && [ -f "$ROOT/common/torque/host304/Makefile" ]; then
+    echo "== common/torque/host304"
+    CXXBIN=${CXX:-g++}
+    if command -v "$CXXBIN" >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
+      make -C "$ROOT/common/torque/host304" clean all CXX="$CXXBIN"
+    else
+      case "$(uname -s)" in
+        Linux) echo "g++ and make are required for the 3.04 host"; exit 1 ;;
+        *) echo "no g++ or make; 3.04 C++ host skipped" ;;
+      esac
+    fi
+  fi
 done

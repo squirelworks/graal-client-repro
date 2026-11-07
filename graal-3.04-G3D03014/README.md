@@ -46,6 +46,7 @@ decompiled code:
 | `src/StartScreen304.pas` | what 3.04 plugs into the shared start screen |
 | `src/RunMode.pas` | stress-run support (as 2.22's) |
 | `src/TorqueHost304.pas` | the game hosted in TGE 1.2: GuiGraalCtrl's 31 methods, the draw types that are not console classes, and the `common/torque` modules this build links |
+| `common/torque/host304` | C++ boot: reads `manifests/3.04.list`, runs one TorqueScript, stubs the 31 methods, sends the folder's login-shaped first frame to loopback |
 
 ## Running it
 
@@ -63,6 +64,7 @@ It reads the 3.04 install's own layout: tile sheets in `levels/tiles/`
 ```
 GRAAL_PW=... Graal304 --server HOST:PORT --account NAME
 Graal304 --level some.nw                  # offline
+scripts/build.sh graal-3.04-G3D03014 && common/torque/host304/build/host304 --port 14802
 Graal304 --server HOST:PORT --account NAME --headless --seconds 600 \
   --walk random --link-every 5 --stats-every 10   # stress run
 ```
@@ -83,7 +85,8 @@ Graal304 --server HOST:PORT --account NAME --headless --seconds 600 \
   rebuild opens `levels/tutorial/offlinetutorial_b-2.graal` at (30, 30),
   else its starter level.
 - [ ] No side-by-side run against the real 3.04 yet; that is 0.0.2 work.
-- [ ] A running Torque console. `TorqueHost304` names GuiGraalCtrl's 31
-  methods and the `common/torque` modules 3.04 links. It does not execute
-  `main.cs`. `common/torque/host304` runs one camera statement and logs
-  stub calls; that program is not this console.
+- [x] A C++ host boots the nine TGE 1.2 modules, runs one TorqueScript
+  that creates a camera and logs its position, and stubs GuiGraalCtrl's
+  31 methods (`common/torque/host304`).
+- [ ] The install's `main.cs` is not executed. The script runner is a
+  line runner, and frames after the login frame are not built.

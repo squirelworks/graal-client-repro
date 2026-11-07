@@ -1,5 +1,162 @@
 #include "guigraal.hpp"
 
+#include <sstream>
+
+namespace {
+
+void stubLog(std::vector<std::string> &log, const char *name, int argc) {
+  std::ostringstream line;
+  line << "GuiGraalCtrl." << name << " called argc=" << argc;
+  log.push_back(line.str());
+}
+
+// provisional: body not yet known
+void stub_moveUp(int argc, std::vector<std::string> &log) { stubLog(log, "moveUp", argc); }
+// provisional: body not yet known
+void stub_moveLeft(int argc, std::vector<std::string> &log) { stubLog(log, "moveLeft", argc); }
+// provisional: body not yet known
+void stub_moveDown(int argc, std::vector<std::string> &log) { stubLog(log, "moveDown", argc); }
+// provisional: body not yet known
+void stub_moveRight(int argc, std::vector<std::string> &log) { stubLog(log, "moveRight", argc); }
+// provisional: body not yet known
+void stub_doA(int argc, std::vector<std::string> &log) { stubLog(log, "doA", argc); }
+// provisional: body not yet known
+void stub_doS(int argc, std::vector<std::string> &log) { stubLog(log, "doS", argc); }
+// provisional: body not yet known
+void stub_doD(int argc, std::vector<std::string> &log) { stubLog(log, "doD", argc); }
+// provisional: body not yet known
+void stub_doQ(int argc, std::vector<std::string> &log) { stubLog(log, "doQ", argc); }
+// provisional: body not yet known
+void stub_doP(int argc, std::vector<std::string> &log) { stubLog(log, "doP", argc); }
+// provisional: body not yet known
+void stub_doM(int argc, std::vector<std::string> &log) { stubLog(log, "doM", argc); }
+// provisional: body not yet known
+void stub_doMicro(int argc, std::vector<std::string> &log) { stubLog(log, "doMicro", argc); }
+// provisional: body not yet known
+void stub_setChat(int argc, std::vector<std::string> &log) { stubLog(log, "setChat", argc); }
+// provisional: body not yet known
+void stub_setPassWord(int argc, std::vector<std::string> &log) { stubLog(log, "setPassWord", argc); }
+// provisional: body not yet known
+void stub_openServerList(int argc, std::vector<std::string> &log) {
+  stubLog(log, "openServerList", argc);
+}
+// provisional: body not yet known
+void stub_selectServer(int argc, std::vector<std::string> &log) { stubLog(log, "selectServer", argc); }
+// provisional: body not yet known
+void stub_selectServerCategory(int argc, std::vector<std::string> &log) {
+  stubLog(log, "selectServerCategory", argc);
+}
+// provisional: body not yet known
+void stub_startOfflineMode(int argc, std::vector<std::string> &log) {
+  stubLog(log, "startOfflineMode", argc);
+}
+// provisional: body not yet known
+void stub_connectToSelectedServer(int argc, std::vector<std::string> &log) {
+  stubLog(log, "connectToSelectedServer", argc);
+}
+// provisional: body not yet known
+void stub_serverDirectConnect(int argc, std::vector<std::string> &log) {
+  stubLog(log, "serverDirectConnect", argc);
+}
+// provisional: body not yet known
+void stub_privateMessageSend(int argc, std::vector<std::string> &log) {
+  stubLog(log, "privateMessageSend", argc);
+}
+// provisional: body not yet known
+void stub_playerListOpenPlayer(int argc, std::vector<std::string> &log) {
+  stubLog(log, "playerListOpenPlayer", argc);
+}
+// provisional: body not yet known
+void stub_playerListProfile(int argc, std::vector<std::string> &log) {
+  stubLog(log, "playerListProfile", argc);
+}
+// provisional: body not yet known
+void stub_updateLoadLevelFields(int argc, std::vector<std::string> &log) {
+  stubLog(log, "updateLoadLevelFields", argc);
+}
+// provisional: body not yet known
+void stub_loadLevel(int argc, std::vector<std::string> &log) { stubLog(log, "loadLevel", argc); }
+// provisional: body not yet known
+void stub_updatePlayerProfile(int argc, std::vector<std::string> &log) {
+  stubLog(log, "updatePlayerProfile", argc);
+}
+// provisional: body not yet known
+void stub_updatePlayerMuted(int argc, std::vector<std::string> &log) {
+  stubLog(log, "updatePlayerMuted", argc);
+}
+// provisional: body not yet known
+void stub_updateMidiVolume(int argc, std::vector<std::string> &log) {
+  stubLog(log, "updateMidiVolume", argc);
+}
+// provisional: body not yet known
+void stub_updateMp3Volume(int argc, std::vector<std::string> &log) {
+  stubLog(log, "updateMp3Volume", argc);
+}
+// provisional: body not yet known
+void stub_updateRadioVolume(int argc, std::vector<std::string> &log) {
+  stubLog(log, "updateRadioVolume", argc);
+}
+// provisional: body not yet known
+void stub_updateMicroActivationLevel(int argc, std::vector<std::string> &log) {
+  stubLog(log, "updateMicroActivationLevel", argc);
+}
+// provisional: body not yet known
+void stub_updateGraalOptions(int argc, std::vector<std::string> &log) {
+  stubLog(log, "updateGraalOptions", argc);
+}
+
+struct StubFn {
+  const char *name;
+  void (*fn)(int, std::vector<std::string> &);
+};
+
+const StubFn kStubs[] = {
+    {"moveUp", stub_moveUp},
+    {"moveLeft", stub_moveLeft},
+    {"moveDown", stub_moveDown},
+    {"moveRight", stub_moveRight},
+    {"doA", stub_doA},
+    {"doS", stub_doS},
+    {"doD", stub_doD},
+    {"doQ", stub_doQ},
+    {"doP", stub_doP},
+    {"doM", stub_doM},
+    {"doMicro", stub_doMicro},
+    {"setChat", stub_setChat},
+    {"setPassWord", stub_setPassWord},
+    {"openServerList", stub_openServerList},
+    {"selectServer", stub_selectServer},
+    {"selectServerCategory", stub_selectServerCategory},
+    {"startOfflineMode", stub_startOfflineMode},
+    {"connectToSelectedServer", stub_connectToSelectedServer},
+    {"serverDirectConnect", stub_serverDirectConnect},
+    {"privateMessageSend", stub_privateMessageSend},
+    {"playerListOpenPlayer", stub_playerListOpenPlayer},
+    {"playerListProfile", stub_playerListProfile},
+    {"updateLoadLevelFields", stub_updateLoadLevelFields},
+    {"loadLevel", stub_loadLevel},
+    {"updatePlayerProfile", stub_updatePlayerProfile},
+    {"updatePlayerMuted", stub_updatePlayerMuted},
+    {"updateMidiVolume", stub_updateMidiVolume},
+    {"updateMp3Volume", stub_updateMp3Volume},
+    {"updateRadioVolume", stub_updateRadioVolume},
+    {"updateMicroActivationLevel", stub_updateMicroActivationLevel},
+    {"updateGraalOptions", stub_updateGraalOptions},
+};
+
+} // namespace
+
+void runGuiStub(const std::string &name, int argc, std::vector<std::string> &log) {
+  const int n = static_cast<int>(sizeof(kStubs) / sizeof(kStubs[0]));
+  for (int i = 0; i < n; ++i) {
+    if (name == kStubs[i].name) {
+      kStubs[i].fn(argc, log);
+      return;
+    }
+  }
+  stubLog(log, name.c_str(), argc);
+}
+
 namespace {
 
 const GuiMethod kMethods[] = {

@@ -11,7 +11,7 @@ load `.dso` files, and it does not simulate the stock sim set. Unknown
 
 ## Build and run
 
-From this directory, with the system compiler (`g++` or `clang++`) and zlib:
+`scripts/build.sh graal-3.04-G3D03014` runs this Makefile. From this directory, with the system compiler (`g++` or `clang++`) and zlib:
 
 ```
 make

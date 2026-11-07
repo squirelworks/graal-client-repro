@@ -23,7 +23,11 @@ program works too (`graal-assets/3.04/`, then `graal-assets/common/`).
 - The TGE 1.2 surface already in `common/torque` stays the engine. This
   folder now names the game hosted in it: GuiGraalCtrl's 31 methods, the
   draw types that are not console classes, and the module list 3.04 links.
-  The console does not run a script yet.
+- `common/torque/host304` reads the nine-module list, runs one
+  TorqueScript that moves a camera, logs each GuiGraalCtrl stub, and
+  sends this folder's login-shaped first frame to the loopback address.
+  `scripts/build.sh` builds it. The script is not the install's
+  `main.cs`. Later frames are not built.
 
 ## What's new in v0.0.4
 

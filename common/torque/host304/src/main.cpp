@@ -11,8 +11,11 @@
 #include "login.hpp"
 #include "script.hpp"
 
+#include <fstream>
 #include <iostream>
 #include <string>
+#include <unistd.h>
+#include <vector>
 
 namespace {
 
@@ -25,6 +28,74 @@ void usage() {
       << "and sends the login-shaped first frame to loopback.\n"
       << "The default address is loopback. A non-loopback host is refused.\n"
       << "The default port is the lab port 14802.\n";
+}
+
+bool fileExists(const std::string &path) {
+  std::ifstream in(path.c_str());
+  return static_cast<bool>(in);
+}
+
+std::string parentDir(const std::string &path) {
+  const std::string::size_type slash = path.find_last_of('/');
+  if (slash == std::string::npos || slash == 0) {
+    return "";
+  }
+  return path.substr(0, slash);
+}
+
+std::string exeDir() {
+  char buf[4096];
+  const ssize_t n = ::readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+  if (n <= 0) {
+    return ".";
+  }
+  buf[n] = 0;
+  return parentDir(buf);
+}
+
+std::string findUp(const std::string &rel) {
+  std::string dir = exeDir();
+  for (int up = 0; up < 8 && !dir.empty(); ++up) {
+    const std::string candidate = dir + "/" + rel;
+    if (fileExists(candidate)) {
+      return candidate;
+    }
+    dir = parentDir(dir);
+  }
+  if (fileExists(rel)) {
+    return rel;
+  }
+  return "";
+}
+
+bool loadModuleList(const std::string &path, std::vector<std::string> &names,
+                    std::string &error) {
+  std::ifstream in(path.c_str());
+  if (!in) {
+    error = "cannot open " + path;
+    return false;
+  }
+  std::string line;
+  while (std::getline(in, line)) {
+    std::size_t a = 0;
+    while (a < line.size() && (line[a] == ' ' || line[a] == '\t' || line[a] == '\r')) {
+      ++a;
+    }
+    std::size_t b = line.size();
+    while (b > a && (line[b - 1] == ' ' || line[b - 1] == '\t' || line[b - 1] == '\r')) {
+      --b;
+    }
+    const std::string trimmed = line.substr(a, b - a);
+    if (trimmed.empty() || trimmed[0] == '#') {
+      continue;
+    }
+    names.push_back(trimmed);
+  }
+  if (names.size() != 9) {
+    error = "3.04.list does not name nine modules";
+    return false;
+  }
+  return true;
 }
 
 bool take(int &i, int argc, char **argv, std::string &value) {
@@ -114,8 +185,41 @@ int main(int argc, char **argv) {
   std::cout << "host304: 3.04-shaped TGE host (line runner, not a full console)\n";
   std::cout << "host304: token G3D03014 (folder name; lab login token)\n";
 
-  ScriptResult scriptResult;
   std::string error;
+  const std::string listPath = findUp("common/torque/manifests/3.04.list");
+  if (listPath.empty()) {
+    std::cerr << "host304: cannot find manifests/3.04.list\n";
+    return 1;
+  }
+  std::vector<std::string> modules;
+  if (!loadModuleList(listPath, modules, error)) {
+    std::cerr << "host304: " << error << "\n";
+    return 1;
+  }
+  bool sawGuiGraal = false;
+  bool sawGameObject = false;
+  for (std::size_t i = 0; i < modules.size(); ++i) {
+    std::cout << "host304: registered module " << modules[i] << "\n";
+    if (modules[i] == "guigraal") {
+      sawGuiGraal = true;
+    }
+    if (modules[i] == "gameobject") {
+      sawGameObject = true;
+    }
+  }
+  if (!sawGuiGraal || sawGameObject) {
+    std::cerr << "host304: module list is not the 3.04 TGE set\n";
+    return 1;
+  }
+
+  if (!fileExists(script)) {
+    const std::string beside = findUp("common/torque/host304/scripts/camera-move.cs");
+    if (!beside.empty()) {
+      script = beside;
+    }
+  }
+
+  ScriptResult scriptResult;
   if (!runScriptFile(script, scriptResult, error)) {
     std::cerr << "host304: " << error << "\n";
     return 1;
