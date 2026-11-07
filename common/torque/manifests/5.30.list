@@ -1,0 +1,3 @@
+# Unpacked 5.30r3 and 5.31r4. Not passed to fpc.
+# One quattro_lib executable. No unit from this tree.
+# Residual names only: GuiGraalCtrl, GuiGraal3DCtrl, and stock Gui* names.

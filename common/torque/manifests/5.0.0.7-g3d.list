@@ -1,0 +1,10 @@
+# 5.0.0.7 Graal3DEngine.dll. Not passed to fpc.
+# Same split as 4.2.0.8 3D, plus classes this DLL's note names.
+# Protocol window accepts only 24. No game-tge.
+sim
+gui
+actionmap
+gbitmap
+math
+gameobject
+net-torque
