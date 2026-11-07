@@ -17,6 +17,9 @@ exits. It does not play the game.
   the buffer is longer than 4095 bytes. A newline in an ordinary body is
   rejected. The two internal opcodes are recognised and not given a
   guessed wrap. Inbound frames use the 2-byte length and the long form.
+- The login line sends `G3D26090` for 5.30r3 and 5.31r4. The images
+  store no eight-character literal. The line still carries this
+  documented token.
 
 ## What's new in v0.0.4
 
@@ -24,6 +27,6 @@ exits. It does not play the game.
 
 ## Not yet
 
-A login token, client-to-server opcode numbers, the length-wrap bytes,
+Client-to-server opcode numbers, the length-wrap bytes,
 the second inbound failure, and every property and script body. See the
 folder README.

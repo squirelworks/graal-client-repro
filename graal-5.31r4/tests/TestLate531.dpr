@@ -1,7 +1,7 @@
 { Checks for the 5.303 / 5.314 scaffold in Late531.
 
-  No login token is invented. The two length-wrap opcodes are not given
-  a guessed header. "illegal data (2)" is named and not raised. }
+  The login line sends G3D26090. The two length-wrap opcodes are not
+  given a guessed header. "illegal data (2)" is named and not raised. }
 program TestLate531;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
@@ -43,6 +43,8 @@ begin
   Check(not HasSimObject, 'no SimObject');
   Check(not StoresEightCharToken, 'no stored eight-character token');
   Check(TokenLiteral = '', 'token literal stays empty');
+  Check(ClientVersionToken = 'G3D26090', '5.30r3 and 5.31r4 send G3D26090');
+  Check(Length(ClientVersionToken) = 8, 'the sent token is eight characters');
   Check(BakesLoginHost, 'a login host is baked');
   Check(BakedLoginPort = 14900, 'baked login port');
   Check(HasScriptUdp, 'script UDP hook is present');
@@ -63,6 +65,21 @@ begin
     'inbound (2) text says illegal');
   Check(KnownReject('inbound-3') = '', 'no third reject text');
   Check(KnownReject('socket') = '', 'absent socket text is empty');
+end;
+
+procedure TestLogin;
+var
+  Line: string;
+begin
+  Line := LoginPlain(1, 'acc', 'pw');
+  Check(Line = '%' + '!' + 'G3D26090' + '#' + 'acc' + '"' + 'pw' +
+    LoginTail + #10, 'login line is id 5, key, G3D26090, account, password, tail');
+  Check(Copy(Line, 3, 8) = 'G3D26090', 'the token sits after the id and the key');
+  Check(Pos('G3D15010', Line) = 0, 'the line does not send the 5.24 token');
+  Check(Pos('G3D22067', Line) = 0, 'the line does not send the 5.00r7 token');
+  Check(Pos('G3D14097', Line) = 0, 'the line does not send the 5.12 token');
+  Check(LoginPlain(1, 'acc', 'p' + #10 + 'w') = '', 'a newline in the password is not sent');
+  Check(LoginPlain(1, 'a' + #10, 'pw') = '', 'a newline in the account is not sent');
 end;
 
 procedure TestSend;
@@ -166,6 +183,7 @@ begin
   Passed := 0;
   Failed := 0;
   TestCut;
+  TestLogin;
   TestSend;
   TestRecv;
   WriteLn(Format('%d passed, %d failed', [Passed, Failed]));

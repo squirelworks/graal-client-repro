@@ -1,12 +1,12 @@
-{ Late531: the 5.30r3 / 5.31r4 cut a repro can check without a login token.
+{ Late531: the 5.30r3 / 5.31r4 cut.
 
   Both images are one executable. FileVersion is 5.303 and 5.314. The
   company string is Linux Cyberjoueurs. The engine name in the image is
   quattro_lib. Torque class names are absent, so this folder does not
   link a Torque unit and does not load the earlier 5.0.0.7 engine DLLs.
 
-  Neither image stores an eight-character G3D, GNW or GNP literal. This
-  unit does not mint one.
+  Neither image stores an eight-character G3D, GNW or GNP literal. The
+  login line still sends G3D26090, the documented token for both builds.
 
   Outbound lines are the classic GCHAR form: opcode plus 32, the body,
   then a newline. A newline inside the body is rejected, except the two
@@ -32,13 +32,20 @@ unit Late531;
 interface
 
 const
-  { No login, no board, no server. }
+  { No socket, no board, no server. LoginPlain still builds the line. }
   ScaffoldOnly = True;
 
   FileVersion530 = '5.303';
   FileVersion531 = '5.314';
   BuildLabel530 = '5.30r3';
   BuildLabel531 = '5.31r4';
+  { Documented game-server token for 5.30r3 and 5.31r4. The images do
+    not store this literal. LoginPlain sends it anyway. }
+  ClientVersionToken = 'G3D26090';
+  { After the password: platform, three empty machine hashes, and an
+    empty quoted OS field. The original fills the hashes and the OS
+    string. This rebuild reads no machine values. }
+  LoginTail = 'win,"","","",""';
   CompanyName = 'Linux Cyberjoueurs';
   ProductName = 'Graal';
   EngineLibrary = 'quattro_lib';
@@ -107,8 +114,12 @@ type
     Killed: Boolean;
   end;
 
-{ Always empty. A token is not stored in either image. }
+{ Always empty. Neither image stores an eight-character literal. }
 function TokenLiteral: string;
+{ Login line for both builds: id 5, key, ClientVersionToken, account,
+  password, LoginTail, and a newline. Empty when a field contains a
+  newline. }
+function LoginPlain(Key: Integer; const Account, Password: string): string;
 function IsLengthWrapOpcode(Op: Integer): Boolean;
 { '' for a kind these images do not say. }
 function KnownReject(const Kind: string): string;
@@ -123,9 +134,23 @@ function PushInbound(var R: TLate5In; const Chunk: string;
 
 implementation
 
+uses
+  GTypes;
+
 function TokenLiteral: string;
 begin
   Result := '';
+end;
+
+function LoginPlain(Key: Integer; const Account, Password: string): string;
+begin
+  if (Pos(#10, Account) > 0) or (Pos(#10, Password) > 0) then
+  begin
+    Result := '';
+    Exit;
+  end;
+  Result := GChar(5) + GChar(Key) + ClientVersionToken + GString(Account) +
+    GString(Password) + LoginTail + #10;
 end;
 
 function IsLengthWrapOpcode(Op: Integer): Boolean;

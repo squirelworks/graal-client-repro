@@ -3,11 +3,12 @@
   program names that cut and exits. It does not open a socket.
 
   No eight-character token is stored in those images, so the folder is
-  graal-5.31r4 and not graal-5.31r4-<token>.
+  graal-5.31r4. The login line sends G3D26090.
 
   Command line:
     Graal531            exit 0
-    Graal531 --show     print the two file versions, the engine, the port
+    Graal531 --show     print the two file versions, the engine, the port,
+                        and the token the login line sends
   Any other argument exits 64. }
 program Graal531;
 
@@ -32,9 +33,10 @@ begin
     WriteLn('torque=', LowerCase(BoolToStr(LinksTorque, True)));
     WriteLn('processes=', ProcessCount);
     WriteLn('port=', BakedLoginPort);
-    WriteLn('token=', TokenLiteral);
+    WriteLn('stored=', TokenLiteral);
+    WriteLn('sends=', ClientVersionToken);
     Exit;
   end;
-  WriteLn('scaffold only: no login token and no network');
+  WriteLn('scaffold only: no network');
   Halt(64);
 end.
