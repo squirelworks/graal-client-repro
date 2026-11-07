@@ -30,7 +30,7 @@ from decompiled code:
 
 | | 5.00r7 | 6.03r7 Linux (this folder) |
 |---|---|---|
-| Game token | `G3D22067` | `G3D0511C` |
+| Game token | `G3D0511C` (provisional neighbour of this build) | `G3D0511C` (documented Linux 6.037) |
 | Login line tail | `win` and three machine fields | `linux` and four machine fields |
 | Login mode | level drawn, no characters | no tiles and no characters (chests and image NPCs only) |
 | Long frames | none | 0xFFFF bytes or more: length 0xFFFF, then a u32be length |

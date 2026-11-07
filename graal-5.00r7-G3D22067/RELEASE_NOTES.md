@@ -21,6 +21,7 @@ to the program works too (`graal-assets/5.00r7/`, then
 ## What's new in v0.0.4
 
 - Rebuilt from the latest code; the changes for this client are listed here as they land.
+- Login token is `G3D0511C`. Provisional: 5.00r7 has no exact row. Neighbour is Linux 6.037.
 
 ## What's new in v0.0.3
 
@@ -50,7 +51,7 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 - The start screen: nick name, Training, Start. Start fetches the server
   list from `listserver.txt` next to the program, or else
   `listserver.graal.in` on port 14922. Then account, password and Connect.
-- Login with `G3D22067`, the platform `win` and three empty machine
+- Login with `G3D0511C` (provisional neighbour of Linux 6.037; 5.00r7 has no exact row), the platform `win` and three empty machine
   fields; the language in its own frame; no tamper check.
 - The Login server: a server reached by its address alone is called
   Login, and there the level is drawn but no characters, until the server

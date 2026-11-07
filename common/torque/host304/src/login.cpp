@@ -117,7 +117,7 @@ bool buildLoginFrame(int key, const std::string &account, const std::string &pas
   std::string plain;
   plain += gChar(kLogin);
   plain += gChar(key);
-  plain += "G3D03014";
+  plain += "GNW03014";
   plain += gString(account);
   plain += gString(password);
   plain += '\n';
@@ -173,8 +173,8 @@ bool loginFrameRoundTrip(const LoginFrame &frame, std::string &error) {
     error = "inflated login does not match the plain body";
     return false;
   }
-  if (back.find("G3D03014") == std::string::npos) {
-    error = "login plain is missing G3D03014";
+  if (back.find("GNW03014") == std::string::npos) {
+    error = "login plain is missing GNW03014";
     return false;
   }
   return true;

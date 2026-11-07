@@ -284,11 +284,11 @@ begin
     Wire := C.Sent;
     Len := (Ord(Wire[1]) shl 8) or Ord(Wire[2]);
     Check(ZDecompress(Copy(Wire, 3, Len), Plain) and
-      (Plain = '%' + Chr(CaptureKey + 32) + 'G3D03014' + GString('acc') + GString('pw') + #10 +
+      (Plain = '%' + Chr(CaptureKey + 32) + 'GNW03014' + GString('acc') + GString('pw') + #10 +
         GChar(PLI_LANGUAGE) + 'English'#10 +
         GChar(PLI_UPDATEFILE) + GInt5(0) + 'bigmap.txt'#10 +
         GChar(PLI_UPDATEFILE) + GInt5(0) + 'minimap.txt'#10),
-      'login: 5 (key, G3D03014, account, password), 37, 34 bigmap, 34 minimap in one plain zlib frame');
+      'login: 5 (key, GNW03014, account, password), 37, 34 bigmap, 34 minimap in one plain zlib frame');
     Check(Length(Wire) = Len + 2, 'login: nothing after the login frame (no tamper check)');
   finally
     C.Free;

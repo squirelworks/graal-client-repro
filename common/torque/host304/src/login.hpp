@@ -1,8 +1,6 @@
 // Login-shaped first frame for the 3.04 host.
 //
-// Token G3D03014 is the folder name and the game-server token in
-// Graal_analysis protocol/v3x-clients.md, confirmed on the wire in
-// version-profiles/lab-304-linux-2026-10-30.md. It is not provisional.
+// Provisional: 3.04 has no exact row. Neighbour is 2.22, token GNW03014.
 //
 // The message list (5, 37, 34 bigmap.txt, 34 minimap.txt) in one plain
 // zlib frame, no compression byte and no XOR, is that lab note. The

@@ -289,9 +289,9 @@ begin
     Wire := C.Sent;
     Len := (Ord(Wire[1]) shl 8) or Ord(Wire[2]);
     Check(ZDecompress(Copy(Wire, 3, Len), Plain) and
-      (Plain = '%' + Chr(CaptureKey + 32) + 'G3D22067' + GString('acc') + GString('pw') +
+      (Plain = '%' + Chr(CaptureKey + 32) + 'G3D0511C' + GString('acc') + GString('pw') +
         'win,"","",""' + #10),
-      'login: 5 (key, G3D22067, account, password, win and three machine fields) alone in the plain zlib frame');
+      'login: 5 (key, G3D0511C, account, password, win and three machine fields) alone in the plain zlib frame');
     Check(ServerReadAll(Codec, Copy(Wire, Len + 3, MaxInt), Msgs) and
       (Msgs.Count = 1) and (Msgs[0] = GChar(PLI_LANGUAGE) + 'English'),
       'login: 37 English in its own gen-5 frame, and no tamper check');

@@ -26,6 +26,8 @@ program works too (`graal-assets/3.04/`, then `graal-assets/common/`).
 - `common/torque/host304` reads the nine-module list, runs one
   TorqueScript that moves a camera, logs each GuiGraalCtrl stub, and
   sends this folder's login-shaped first frame to the loopback address.
+  The token is `GNW03014`. Provisional: 3.04 has no exact row. Neighbour
+  is 2.22.
   `scripts/build.sh` builds it. The script is not the install's
   `main.cs`. Later frames are not built.
 
@@ -64,7 +66,7 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
   `license/license.graal` are tried after it. Then account, password and Connect.
 - The 3.04 listserver login: id 7 (`G3D30123newmain`) and the account in
   one frame, the list back in gen 5.
-- Login to a server as 3.04 does it: `G3D03014`, then the language and the
+- Login to a server as 3.04 does it: `GNW03014` (provisional neighbour of 2.22; 3.04 has no exact row), then the language and the
   two map files in the same first frame, and no tamper check, ever.
 - The first props as 3.04 sends them (`linux`, code page 1250), and no
   periodic message over TCP.

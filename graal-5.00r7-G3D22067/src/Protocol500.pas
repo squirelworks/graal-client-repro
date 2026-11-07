@@ -16,9 +16,8 @@ unit Protocol500;
 interface
 
 const
-  { The 8-byte version token in the login line (v5x-clients.md, "Login";
-    the lab saw it on the wire). }
-  ClientVersionToken = 'G3D22067';
+  { Provisional: 5.00r7 has no exact row. Neighbour is Linux 6.037. }
+  ClientVersionToken = 'G3D0511C';
   ClientBuildLabel = '5.00r7';
   { Login type 5, gen-5 cipher on the server, as 2.22. }
   ClientType = 5;

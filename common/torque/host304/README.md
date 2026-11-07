@@ -31,7 +31,7 @@ move. `Adventure.moveUp(1)` hits the registered control so the stub logs.
 
 | Item | Status |
 |---|---|
-| Token `G3D03014` | The folder name, and the game-server token the 3.04 lab saw. Not provisional. |
+| Token `GNW03014` | Provisional. 3.04 has no exact row. Neighbour is 2.22. |
 | `GuiGraalCtrl` method names and argument counts | From `torque/engine-304.md`, same table as `TorqueHost304.pas`. |
 | `GuiGraalCtrl` method bodies | Unknown. Stubs that compile and log the call. |
 | `Camera.setTransform` | Provisional name. The 3.04 note says `Camera` has three methods and does not name them. The runner applies the first three numbers as the position and logs the move. |
