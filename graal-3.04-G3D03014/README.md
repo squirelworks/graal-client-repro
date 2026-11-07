@@ -45,7 +45,7 @@ decompiled code:
 | `src/ListServer304.pas` | the 3.04 listserver step and `license.graal` |
 | `src/StartScreen304.pas` | what 3.04 plugs into the shared start screen |
 | `src/RunMode.pas` | stress-run support (as 2.22's) |
-| `src/TorqueHost304.pas` | the game hosted in TGE 1.2: GuiGraalCtrl's 31 methods, the draw types that are not console classes, and the `common/torque` modules this build links |
+| `src/TorqueNames304.pas` | a name table of GuiGraalCtrl methods, draw types, and module names. Not the engine host. The engine host is the C++ / TorqueScript work, not this unit |
 
 ## Running it
 
@@ -83,6 +83,6 @@ Graal304 --server HOST:PORT --account NAME --headless --seconds 600 \
   rebuild opens `levels/tutorial/offlinetutorial_b-2.graal` at (30, 30),
   else its starter level.
 - [ ] No side-by-side run against the real 3.04 yet; that is 0.0.2 work.
-- [ ] A running Torque console. `TorqueHost304` names GuiGraalCtrl's 31
-  methods and the `common/torque` modules 3.04 links. It does not execute
-  `main.cs`.
+- [ ] A running Torque console. The engine host is the C++ / TorqueScript
+  work, not `TorqueNames304`. That unit is a name table. It does not
+  execute `main.cs`, and this folder does not boot through it.
