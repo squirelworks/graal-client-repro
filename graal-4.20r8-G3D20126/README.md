@@ -70,6 +70,14 @@ GRAAL_PW=... Graal420 --server HOST:14900 --account NAME --server-name Login
 Graal420 --level some.nw                  # offline
 ```
 
+## Engine host
+
+`common/torque/host4208` is a C++ program for the residual Torque surface
+in the 4.2.0.8 engine DLL (`GuiCanvas`, `GuiControl`, `Point2I`,
+`GBitmap`, and the `GuiGraalCtrl` names). The engine has no Torque
+console. That program is not this Delphi launcher, and it does not run
+TorqueScript. The login token it sends is marked provisional there.
+
 ## Not yet, or not known
 
 - [ ] Board layers other than 0 (no `GR-V1.05` file format yet either).

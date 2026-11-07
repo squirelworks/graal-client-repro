@@ -1,6 +1,6 @@
 # common/torque: parked Torque layer, scaffold only
 
-Status on 2026-11-05: **on hold** by Squirrel's call ("hold off on torque, full speed ahead on less than V3"). Torque is on hold with no target release. Nothing here is built or used by any client folder. `scripts/build.sh` passes `-Fu../../common` only. It does not pass `common/torque` or any directory under it, and it does not read `manifests/`.
+Status on 2026-11-05: **on hold** by Squirrel's call ("hold off on torque, full speed ahead on less than V3"). Torque is on hold with no target release. The Pascal units are not built by `scripts/build.sh`, and no client folder links them. `scripts/build.sh` passes `-Fu../../common` only. It does not pass `common/torque` or any directory under it, and it does not read `manifests/`. A C++ host, when one is in this tree, lives in its own directory with its own Makefile and is not on that path.
 
 This tree is the Torque surface Graal 3.x–5.0 actually linked, plus the names that linger after that. It is not an implementation. The script VM, the GUI and the network are not in these units.
 
