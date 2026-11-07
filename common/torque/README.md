@@ -14,6 +14,20 @@ These three units are an unfinished stage-1 interpreter. They are not part of a 
 
 They are known to compile on their own under FPC 3.2.2 in Delphi mode. This scaffold does not add that command to `scripts/build.sh`.
 
+## What this module is
+
+The 3.04 Linux client is the Torque module. It is stock TGE 1.2 (console, sim objects, GUI canvas, fonts, themes, `ActionMap`) with Graal's 2D game as one console class, `GuiGraalCtrl`, not a redrawn menu and not a replacement of Torque's `Player`. Later clients drop pieces of that stock game layer (`Player`, vehicles, items, projectiles, datablocks). A module shaped like 3.04 can drop those for 4.20 and 5.12. It cannot be grown backwards out of 5.12.
+
+The read of that binary is Graal_analysis `torque/engine-304.md`. Argument counts, the 31 `GuiGraalCtrl` methods and the empty usage strings are in that note; the registry note is `torque/console-registrar.md`. Counts include the command name and, on a method, the object id. `GuiGraalCtrl` has 31 methods. `moveUp` takes one script argument (count 3–3). `openServerList` takes none (2–2). `loadLevel` takes three (5–5). `updatePlayerProfile` takes ten (12–12). `setNickName`, `setAccountName`, `setLanguage` and `retrieveAccountFields` are not on the 3.04 table; nickname, account and language are `$pref::Graal::` variables. Those four methods are 3.153's.
+
+Graal's draw types (`TDrawableObject` and the types under it, and `TGraalConnection`) are C++ inside the control. They are not console classes, so this module does not expose them to script.
+
+## Next step when work resumes
+
+1. Write `TqBuiltins.pas` (echo, exec, export, packages, string functions, isObject, FileObject, schedule, video stubs) and `TqGui.pas` (createCanvas, setContent/pushDialog with awaken order, GuiControl/ActionMap stubs, `Adventure` stubs for the 31 `GuiGraalCtrl` methods in the 3.04 note, not the 3.153 nickname methods).
+2. Add `common/torque` to the `build.sh` unit path.
+3. Add `graal-3.04-G3D03014/tests/TestScript304.dpr`: run the 3.04 install's `main.cs` and `.dso` files (path from an env var, skip when absent) and compare against the stage 0 captures: the `exec` order, the echo lines in `console.log`, and the exported `prefs.cs` and `config.cs`.
+
 ## Modules
 
 One directory per surface, each with a stub unit (no types, no allocated state) and a README. Kind is stock TGE 1.2, patched, or Graal-only.
