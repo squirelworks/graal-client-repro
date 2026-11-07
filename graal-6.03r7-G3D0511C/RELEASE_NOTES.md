@@ -17,6 +17,14 @@ heads and bodies take their place. The shared `graal-assets/` folder next
 to the program works too (`graal-assets/6.03r7/`, then
 `graal-assets/common/`).
 
+## What's new in v0.0.5
+
+- A quattro scaffold beside the wire client. It records the Windows
+  6.037 stored token without changing this folder's `G3D0511C`, rejects a
+  `.code` file that is shorter than the `GRESCR01` magic, and marks only
+  the GS2 case numbers the 6.x checklist names. Opcode bodies are not
+  implemented.
+
 ## What's new in v0.0.4
 
 - Rebuilt from the latest code; the changes for this client are listed here as they land.
