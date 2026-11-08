@@ -2,6 +2,13 @@
 CXX ?= g++
 CXXFLAGS ?= -std=c++17 -Wall -Wextra -Werror -O2
 LDFLAGS ?= -lz
+UNAME_S := $(shell uname -s)
+ifneq ($(filter MINGW% MSYS% CYGWIN%,$(UNAME_S)),)
+  LDFLAGS += -lws2_32
+endif
+ifeq ($(OS),Windows_NT)
+  LDFLAGS += -lws2_32
+endif
 
 SRC = src/main.cpp src/guigraal.cpp src/controls.cpp src/input.cpp src/script.cpp src/login.cpp
 OUT = build/host304

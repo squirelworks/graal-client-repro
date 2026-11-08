@@ -20,9 +20,10 @@ program works too (`graal-assets/3.04/`, then `graal-assets/common/`).
 
 ## What's new in v0.0.5
 
-- The TGE 1.2 surface already in `common/torque` stays the engine. This
-  folder now names the game hosted in it: GuiGraalCtrl's 31 methods, the
-  draw types that are not console classes, and the module list 3.04 links.
+- GuiGraalCtrl's method names, the draw types, and the nine module names
+  stay in `TorqueNames304` as a name table. That unit is not the booting
+  host, and this folder does not link the Pascal units under
+  `common/torque`. The TGE 1.2 module list stays where it was.
 - `common/torque/host304` reads the nine-module list, registers the
   3.04 controls, runs one TorqueScript that opens the level view and
   moves a camera, logs each GuiGraalCtrl stub, and sends this folder's

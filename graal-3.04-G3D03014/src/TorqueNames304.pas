@@ -1,10 +1,10 @@
-{ TorqueHost304: the 3.04 game hosted in stock TGE 1.2.
+{ TorqueNames304: names recorded for the 3.04 game. Not the engine host.
 
-  The engine modules live in common/torque (console, sim, gui, actionmap,
-  gbitmap, math, game-tge, net-torque, guigraal). This unit is the game
-  file beside that engine. It names GuiGraalCtrl's registration and the
-  draw types that are not console classes. It does not execute TorqueScript
-  and it does not copy an engine source.
+  The engine host is the C++ / TorqueScript work, not this unit. This
+  folder does not boot through it. The TGE 1.2 module list stays in
+  common/torque. This unit only names GuiGraalCtrl's registration and the
+  draw types that are not console classes. It does not execute
+  TorqueScript and it does not link an engine source.
 
   Counts include the command name. On a method they also include the
   object, so a minimum of 2 is a method with no script argument.
@@ -14,7 +14,7 @@
 
   Sources: Graal_analysis torque/engine-304.md. The module order is the
   same list as common/torque/manifests/3.04.list. }
-unit TorqueHost304;
+unit TorqueNames304;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
 
@@ -25,7 +25,7 @@ const
   GuiGraal3DCtrlRegistered = False;
   TorqueModuleCount = 9;
   GraalPrefCount = 13;
-  GraalHostTypeCount = 7;
+  GraalDrawTypeCount = 7;
 
 type
   TGuiGraalMethod = record
@@ -34,7 +34,7 @@ type
     MaxCount: Integer;
   end;
 
-  TGraalHostType = record
+  TGraalDrawType = record
     Name: string;
     Parent: string; { empty when no parent was recorded }
   end;
@@ -74,8 +74,8 @@ const
     (Name: 'updateGraalOptions'; MinCount: 2; MaxCount: 2)
   );
 
-  { Linked directories under common/torque, in manifest order.
-    gameobject is not a 3.04 module. }
+  { Directory names under common/torque, in manifest order.
+    gameobject is not a 3.04 module. Naming them here does not link them. }
   TorqueModules: array[0..TorqueModuleCount - 1] of string = (
     'console',
     'sim',
@@ -106,7 +106,7 @@ const
   );
 
   { C++ types inside the control. None of them is a console class. }
-  GraalHostTypes: array[0..GraalHostTypeCount - 1] of TGraalHostType = (
+  GraalDrawTypes: array[0..GraalDrawTypeCount - 1] of TGraalDrawType = (
     (Name: 'TDrawableObject'; Parent: ''),
     (Name: 'TLevelObject'; Parent: 'TDrawableObject'),
     (Name: 'TGaniObject'; Parent: 'TLevelObject'),
@@ -120,7 +120,7 @@ function GuiGraalMethodIndex(const Name: string): Integer;
 { Script arguments, or -1 when the name is not on the table. }
 function GuiGraalScriptArgs(const Name: string): Integer;
 function GraalPrefIndex(const Name: string): Integer;
-function GraalHostTypeIndex(const Name: string): Integer;
+function GraalDrawTypeIndex(const Name: string): Integer;
 
 implementation
 
@@ -159,13 +159,13 @@ begin
     end;
 end;
 
-function GraalHostTypeIndex(const Name: string): Integer;
+function GraalDrawTypeIndex(const Name: string): Integer;
 var
   I: Integer;
 begin
   Result := -1;
-  for I := 0 to High(GraalHostTypes) do
-    if GraalHostTypes[I].Name = Name then
+  for I := 0 to High(GraalDrawTypes) do
+    if GraalDrawTypes[I].Name = Name then
     begin
       Result := I;
       Exit;

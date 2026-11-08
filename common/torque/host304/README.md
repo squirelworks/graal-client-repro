@@ -35,7 +35,7 @@ script-bound keys. Hardcoded key bytes stay in `GuiGraalCtrl`.
 | Item | Status |
 |---|---|
 | Token `G3D03014` | The folder name, and the game-server token the 3.04 lab saw. Not provisional. |
-| `GuiGraalCtrl` method names and argument counts | From the 3.04 GUI notes, same console table as `TorqueHost304.pas`. |
+| `GuiGraalCtrl` method names and argument counts | From the 3.04 GUI notes, same console table as `TorqueNames304.pas`. |
 | Registered controls | The 3.04 class-rep list, including `GuiGraalCtrl` as the level view and `GuiControlProfile`. Demo HUD classes are registered and not instanced. |
 | `GuiGraalCtrl` method bodies | Stubs. Each comment says what the call should do. |
 | Input | Arrows, A/S/D/Q/P/M, T, and the function keys are script binds. Key byte 2, the emoticon modifier band, and key byte `0x19` with modifier `0x30` are hardcoded on the control. |

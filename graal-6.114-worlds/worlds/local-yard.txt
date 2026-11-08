@@ -1,0 +1,16 @@
+# local-only yard. Not a Graal level and not a 6.114 asset.
+# Loaded by worlds-player. Solid cells are '#'. '@' is the local player
+# start. 'E' is the local-only fixture entity start.
+name local-yard
+tile 8
+color floor 46 120 64
+color wall 92 64 48
+color player 230 200 40
+color entity 40 120 200
+color outline 255 255 255
+grid
+##########
+#@.......#
+#...##...#
+#......E.#
+##########

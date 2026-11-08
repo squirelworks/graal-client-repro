@@ -11,11 +11,20 @@
 #include "login.hpp"
 #include "script.hpp"
 
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
+
 #include <fstream>
 #include <iostream>
 #include <string>
-#include <unistd.h>
 #include <vector>
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 
 namespace {
 
@@ -36,7 +45,7 @@ bool fileExists(const std::string &path) {
 }
 
 std::string parentDir(const std::string &path) {
-  const std::string::size_type slash = path.find_last_of('/');
+  const std::string::size_type slash = path.find_last_of("/\\");
   if (slash == std::string::npos || slash == 0) {
     return "";
   }
@@ -45,11 +54,24 @@ std::string parentDir(const std::string &path) {
 
 std::string exeDir() {
   char buf[4096];
+#ifdef _WIN32
+  const unsigned n = GetModuleFileNameA(0, buf, sizeof buf);
+  if (n == 0 || n >= sizeof buf) {
+    return ".";
+  }
+  buf[n] = 0;
+  for (unsigned i = 0; i < n; ++i) {
+    if (buf[i] == '\\') {
+      buf[i] = '/';
+    }
+  }
+#else
   const ssize_t n = ::readlink("/proc/self/exe", buf, sizeof(buf) - 1);
   if (n <= 0) {
     return ".";
   }
   buf[n] = 0;
+#endif
   return parentDir(buf);
 }
 

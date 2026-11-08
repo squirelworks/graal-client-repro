@@ -45,7 +45,7 @@ decompiled code:
 | `src/ListServer304.pas` | the 3.04 listserver step and `license.graal` |
 | `src/StartScreen304.pas` | what 3.04 plugs into the shared start screen |
 | `src/RunMode.pas` | stress-run support (as 2.22's) |
-| `src/TorqueHost304.pas` | the game hosted in TGE 1.2: GuiGraalCtrl's 31 methods, the draw types that are not console classes, and the `common/torque` modules this build links |
+| `src/TorqueNames304.pas` | a name table of GuiGraalCtrl methods, draw types, and module names. Not the engine host. The engine host is the C++ / TorqueScript work, not this unit |
 | `common/torque/host304` | C++ boot: reads `manifests/3.04.list`, registers the 3.04 controls, opens the level view from one TorqueScript, moves a camera, stubs GuiGraalCtrl, sends the folder's login-shaped first frame to loopback |
 
 ## Running it
@@ -90,3 +90,4 @@ Graal304 --server HOST:PORT --account NAME --headless --seconds 600 \
   and moves a camera, and stubs GuiGraalCtrl (`common/torque/host304`).
 - [ ] The install's `main.cs` is not executed. The script runner is a
   line runner, and frames after the login frame are not built.
+  `TorqueNames304` is a name table. This folder does not boot through it.
