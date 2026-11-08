@@ -134,9 +134,9 @@ jobs:
           path: build/*/*.exe
 
   macos:
-    # macOS runners can wait for hours; it is built for releases only (a
-    # manual run or a tag), not for every push.
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+    # macOS runners can wait for hours. A pull request, a manual run, and a
+    # tag run this job. A push to main does not.
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/')
     # Homebrew's Free Pascal (aarch64-darwin). The window is Cocoa
     # (common/GWindowCocoa.inc); the tests open none.
     runs-on: macos-latest

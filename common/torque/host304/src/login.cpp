@@ -48,6 +48,11 @@ static const sock_t kBadSock = -1;
 static void close_sock(sock_t fd) { close(fd); }
 static int sock_err() { return errno; }
 static bool sock_start(std::string &) { return true; }
+// Linux defines this in sys/socket.h. macOS does not. Defining it as 0
+// leaves the Linux send flags alone.
+#ifndef MSG_NOSIGNAL
+#define MSG_NOSIGNAL 0
+#endif
 #endif
 
 namespace {

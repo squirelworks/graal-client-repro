@@ -389,11 +389,14 @@ begin
     Check(LabDecodeProps(S.Props.Other, Body) and (Pos('name=other', Body) > 0),
       'that entity''s lab properties decoded');
     S.MoveBy(LabStep, 0);
+    { The props frame follows the move echo. Loopback can deliver that
+      second write on a later pump, so wait for step=2, not only Moves. }
     for I := 1 to 40 do
     begin
       Srv.Pump;
       S.Pump;
-      if Srv.Moves > 0 then Break;
+      if (Srv.Moves > 0) and (S.MyX = LabStep) and
+        (Pos('step=2', S.Props.Other) > 0) then Break;
       Sleep(5);
     end;
     Check(S.MovesSent = 1, 'a move was sent');

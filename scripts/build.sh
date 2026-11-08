@@ -44,6 +44,21 @@ for B in $BUILDS; do
       esac
     fi
   fi
+  # 4.2.0.8's residual engine host is common/torque/host4208.
+  # The Delphi shell is Shell420.dpr, compiled above. The Pascal units
+  # under common/torque stay off the Free Pascal path.
+  if [ "$B" = "graal-4.20r8-G3D20126" ] && [ -f "$ROOT/common/torque/host4208/Makefile" ]; then
+    echo "== common/torque/host4208"
+    CXXBIN=${CXX:-g++}
+    if command -v "$CXXBIN" >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
+      make -C "$ROOT/common/torque/host4208" clean all CXX="$CXXBIN"
+    else
+      case "$(uname -s)" in
+        Linux) echo "g++ and make are required for the 4.2.0.8 host"; exit 1 ;;
+        *) echo "no g++ or make; 4.2.0.8 C++ host skipped" ;;
+      esac
+    fi
+  fi
   # 6.114's connector is a small C++ program. The playable stand-in is
   # portable C# (mcs or dotnet). Neither is a Unity player.
   if [ -f "$B/src/worlds_host.cpp" ]; then
@@ -84,6 +99,22 @@ exec "$DIR/worlds-player.exe" "$@"
 EOF
         chmod +x "$PLAYOUT"
       fi
+      # The macOS app host does not look where the dotnet muxer is
+      # installed, so it exits with libhostfxr missing. Launch the dll
+      # through the muxer that just built it. Linux keeps the app host.
+      case "$(uname -s)" in
+        Darwin)
+          if [ -f "$OUT/worlds-player.dll" ] && [ -e "$PLAYOUT" ]; then
+            mv "$PLAYOUT" "$OUT/worlds-player.apphost"
+            cat > "$PLAYOUT" << 'EOF'
+#!/bin/sh
+DIR=$(cd "$(dirname "$0")" && pwd)
+exec dotnet "$DIR/worlds-player.dll" "$@"
+EOF
+            chmod +x "$PLAYOUT"
+          fi
+          ;;
+      esac
     elif command -v mcs >/dev/null 2>&1; then
       # shellcheck disable=SC2086
       mcs -sdk:4.5 -optimize -out:"$OUT/worlds-player.exe" "$B"/player/*.cs
