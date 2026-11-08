@@ -70,8 +70,7 @@ uses
   GStartScreen in '../../common/GStartScreen.pas',
   ListServer603 in 'ListServer603.pas',
   StartScreen603 in 'StartScreen603.pas',
-  RunMode in 'RunMode.pas',
-  Controls603 in 'Controls603.pas';
+  RunMode in 'RunMode.pas';
 
 var
   { Set while the start screen runs a game: the arguments it chose, read
@@ -600,34 +599,9 @@ begin
   end;
 end;
 
-procedure LogControls;
-var
-  I, P: Integer;
-  Text, Line: string;
-begin
-  WriteLn(ErrOutput, 'engine quattro_lib');
-  WriteLn(ErrOutput, 'token ', ClientVersionToken);
-  for I := 0 to ControlCount - 1 do
-    WriteLn(ErrOutput, 'registered control ', ControlName(I));
-  Text := LevelViewLog;
-  while Text <> '' do
-  begin
-    P := Pos(#10, Text);
-    if P = 0 then
-    begin
-      WriteLn(ErrOutput, Text);
-      Break;
-    end;
-    Line := Copy(Text, 1, P - 1);
-    Delete(Text, 1, P);
-    if Line <> '' then WriteLn(ErrOutput, Line);
-  end;
-  Flush(ErrOutput);
-end;
 
 begin
   Randomize;
-  LogControls;
   if ParamCount = 0 then
     Halt(RunGui);
   OpenConsoleIO;

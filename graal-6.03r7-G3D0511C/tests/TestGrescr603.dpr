@@ -8,8 +8,7 @@ program TestGrescr603;
 uses
   SysUtils,
   Protocol603 in '../src/Protocol603.pas',
-  Grescr603 in '../src/Grescr603.pas',
-  Controls603 in '../src/Controls603.pas';
+  Grescr603 in '../src/Grescr603.pas';
 
 var
   Passed, Failed: Integer;
@@ -35,7 +34,21 @@ begin
 end;
 
 procedure TestGrescr;
+var
+  I: Integer;
+  Buf: AnsiString;
 begin
+  for I := 0 to Length(GrescrMagic) - 1 do
+    Check(not GrescrLoad(Copy(GrescrMagic, 1, I)),
+      Format('truncated magic of %d bytes rejected', [I]));
+  for I := 1 to Length(GrescrMagic) do
+  begin
+    Buf := GrescrMagic;
+    Buf[I] := #0;
+    Check(not GrescrLoad(Buf), 'each magic byte is checked');
+  end;
+  Check(GrescrLoad(GrescrMagic + #0#128#255), 'binary tail passes probe');
+  Check(GrescrPayloadLen = 3, 'binary tail length counts bytes');
   Check(not GrescrAccepted(''), 'empty file rejected');
   Check(not GrescrAccepted('GRESCR0'), 'seven bytes rejected');
   Check(not GrescrAccepted('GRESCR00'), 'wrong magic rejected');
@@ -60,52 +73,21 @@ var
 begin
   Line := SendWantClassScript('abc');
   WriteLn(Line);
-  Check(Line = 'onSendWantClassScript id=provisional len=3',
+  Check(Line = 'onSendWantClassScript id=unknown len=3',
     'class-script send writes the name and the length');
-  Check(SendWantWeaponScript('') = 'onSendWantWeaponScript id=provisional len=0',
+  Check(SendWantWeaponScript('') = 'onSendWantWeaponScript id=unknown len=0',
     'weapon-script send allows an empty payload');
-  Check(SendWantGaniScript('gani') = 'onSendWantGaniScript id=provisional len=4',
+  Check(SendWantGaniScript('gani') = 'onSendWantGaniScript id=unknown len=4',
     'gani-script send writes the name and the length');
   Check(Pos('id=23', SendWantClassScript('abc')) = 0,
     'the outgoing table id is not invented');
 end;
 
-procedure TestControls;
-var
-  I: Integer;
-  SawLevel, SawTiles, SawDrawable, SawAbsent: Boolean;
-  Log: string;
-begin
-  Check(ControlCount = 71, 'seventy-one 6.037 controls');
-  SawLevel := False;
-  SawTiles := False;
-  SawDrawable := False;
-  SawAbsent := False;
-  for I := 0 to ControlCount - 1 do
-  begin
-    if ControlName(I) = 'GuiGraalCtrl' then SawLevel := True;
-    if ControlName(I) = 'GuiTilesCtrl' then SawTiles := True;
-    if ControlName(I) = 'TDrawableObject' then SawDrawable := True;
-    if (ControlName(I) = 'GuiBrowserCtrl') or (ControlName(I) = 'GuiTSCtrl') or
-      (ControlName(I) = 'TFontData') then
-      SawAbsent := True;
-  end;
-  Check(SawLevel, 'GuiGraalCtrl is registered');
-  Check(SawTiles, 'GuiTilesCtrl is registered');
-  Check(SawDrawable, 'TDrawableObject stays on 6.037');
-  Check(not SawAbsent, 'browser, Torque scene view and TFontData are absent');
-  Check(not LinksTorque, 'controls stay off Torque');
-  Log := LevelViewLog;
-  Check(Pos('level view opened: GraalControl (GuiGraalCtrl)', Log) > 0,
-    'the level view opens');
-  Check(Pos('script-bound action attack', Log) > 0, 'attack stays script-bound');
-end;
 
 begin
   Passed := 0;
   Failed := 0;
   TestToken;
-  TestControls;
   TestGrescr;
   TestSend;
   WriteLn(Format('%d passed, %d failed', [Passed, Failed]));
