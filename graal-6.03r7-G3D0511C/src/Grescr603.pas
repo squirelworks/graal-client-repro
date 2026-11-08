@@ -1,51 +1,23 @@
-{ Quattro603: the 6.037 facts a repro can check without a script VM.
+{ Grescr603: the minimal .code buffer the 6.037 client can accept.
 
-  This folder's wire token stays Protocol603.ClientVersionToken
-  (G3D0511C, the Linux build). The Windows 6.037 image stores a different
-  string and sends it upper-cased. That string is not this folder's token.
+  This folder stays on quattro_lib. The Linux token stays
+  Protocol603.ClientVersionToken (G3D0511C). This unit does not restate
+  the 6.037 rows of docs/v6-repro.md, and it does not invent an outgoing
+  packet id.
 
-  6.037 stays on the generation-5 framer. It has no setprotocol, sendraw
-  or senddata, and none of the tclient property-script names.
-
-  The GS2 note names 152 dispatch cases from 11 through 242, says 48, 49
-  and 200 are absent, and says 54, 121 and 201 through 242 are present.
-  The other numbers in that span are not listed, so this unit does not
-  mark them present or absent. No opcode body is implemented. No packet
-  id is added.
-
-  6.1.1.3 rows (connector framing, UDP, chat events, package file names)
-  are not this folder. They stay in docs/v6-repro.md.
-
-  Sources: docs/v6-repro.md. The engine is quattro_lib, not Torque. }
-unit Quattro603;
+  A buffer shorter than eight bytes is rejected. A buffer of at least
+  eight bytes that starts with GRESCR01 is accepted and the payload
+  length is logged. The CRC and the script body are not read. }
+unit Grescr603;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
 
 interface
 
 const
-  { Not the Linux token. Upper-case is what the Windows image sends. }
-  WindowsStoredToken = 'g3d0311c';
-
   LinksTorque = False;
-  UsesGeneration5 = True;
-  HasSetProtocol = False;
-  HasSendRaw = False;
-  HasSendData = False;
-  HasTclientPropertyScripts = False;
 
   GrescrMagic = 'GRESCR01';
-  Gs2CaseTotal = 152;
-  Gs2SpanLow = 11;
-  Gs2SpanHigh = 242;
-
-type
-  TGs2Case = (
-    gscOutside,  { not in 11..242 }
-    gscAbsent,   { the note says this number is missing }
-    gscPresent,  { the note says this number is dispatched }
-    gscUnlisted  { inside the span, and not named either way }
-  );
 
 function GrescrAccepted(const Buf: string): Boolean;
 { Loads a minimal GRESCR01 buffer. Sets GrescrPayloadLen and GrescrLog
@@ -54,7 +26,6 @@ function GrescrLoad(const Buf: string): Boolean;
 { 1-based index of the first byte the CRC covers. The CRC itself is not
   computed here. }
 function GrescrCrcStart: Integer;
-function Gs2CaseOf(Op: Integer): TGs2Case;
 
 { Outgoing load events named in docs/v6-repro.md. The numeric wire id
   is not in that note's outgoing table, so these write the name and the
@@ -74,7 +45,6 @@ implementation
 uses
   SysUtils;
 
-{ provisional: body not yet known }
 function GrescrLoad(const Buf: string): Boolean;
 begin
   GrescrPayloadLen := -1;
@@ -99,25 +69,21 @@ begin
   Result := GrescrLoad(Buf);
 end;
 
-{ provisional: body not yet known }
 function SendNamed(const EventName, Payload: string): string;
 begin
   Result := EventName + ' id=provisional len=' + IntToStr(Length(Payload));
 end;
 
-{ provisional: body not yet known }
 function SendWantClassScript(const Payload: string): string;
 begin
   Result := SendNamed('onSendWantClassScript', Payload);
 end;
 
-{ provisional: body not yet known }
 function SendWantWeaponScript(const Payload: string): string;
 begin
   Result := SendNamed('onSendWantWeaponScript', Payload);
 end;
 
-{ provisional: body not yet known }
 function SendWantGaniScript(const Payload: string): string;
 begin
   Result := SendNamed('onSendWantGaniScript', Payload);
@@ -126,16 +92,6 @@ end;
 function GrescrCrcStart: Integer;
 begin
   Result := 9;
-end;
-
-function Gs2CaseOf(Op: Integer): TGs2Case;
-begin
-  if (Op < Gs2SpanLow) or (Op > Gs2SpanHigh) then Result := gscOutside
-  else if (Op = 48) or (Op = 49) or (Op = 200) then Result := gscAbsent
-  else if (Op = 54) or (Op = 121) or ((Op >= 201) and (Op <= 242)) then
-    Result := gscPresent
-  else
-    Result := gscUnlisted;
 end;
 
 end.

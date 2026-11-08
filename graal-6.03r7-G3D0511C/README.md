@@ -45,14 +45,20 @@ The rebuild reads none of them and sends each as `""`.
 ## Units
 
 As in 5.00r7, with the suffix `603`: `Protocol603`, `GraalClient`,
-`Adventure`, `Graal603.dpr`, `ListServer603`, `StartScreen603`, `RunMode`.
-`Quattro603` records the 6.037 checks from `docs/v6-repro.md` that do not
-need a script VM: the Windows image's stored token (not this folder's),
-the generation-5 framer with no `setprotocol`, and the GS2 cases that
-note names. It accepts a minimal `GRESCR01` buffer and logs the payload
-length, and the three `onSendWant*` events write their name and a length.
-The numeric outgoing id is not in the note, so it is not invented. It
-does not change the wire client.
+`Adventure`, `Graal603.dpr`, `ListServer603`, `StartScreen603`, `RunMode`,
+`Controls603`. The Linux token stays `G3D0511C` in `Protocol603`. This
+folder does not carry a checklist unit, and it does not link Torque. The
+engine is `quattro_lib`.
+
+`Grescr603` accepts a `.code` buffer of at least eight bytes that starts
+with `GRESCR01` and logs the payload length. A shorter buffer is rejected.
+`onSendWantClassScript`, `onSendWantWeaponScript` and
+`onSendWantGaniScript` write the event name and the length. The numeric
+outgoing id is not in the note, so none is invented. The CRC and the
+script body are not read.
+
+`Controls603` registers the 6.037 control names, including `GuiGraalCtrl`
+and `GuiTilesCtrl`, when `Graal603` starts. The bodies are stubs.
 
 ## Running it
 
@@ -106,13 +112,13 @@ From the program's folder (or `--data`), then `graal-assets/6.03r7/`, then
 - [ ] Everything still missing from the 5.00r7 rebuild.
 - [x] A `.code` buffer of at least eight bytes starting with `GRESCR01`
   is accepted and the payload length is logged. A shorter buffer is
-  rejected. The CRC and the script body are not read (`Quattro603`).
+  rejected. The CRC and the script body are not read (`Grescr603`).
 - [x] `onSendWantClassScript`, `onSendWantWeaponScript` and
   `onSendWantGaniScript` write the event name and the payload length.
   The numeric id is not in the outgoing table, so none is invented.
 - [x] The 6.037 control names, including `GuiGraalCtrl` and `GuiTilesCtrl`,
   are registered when `Graal603` starts. The bodies are stubs. The token
-  stays `G3D0511C`.
-- [ ] GS2 opcode bodies, and the case numbers from 11 through 242 that
-  `docs/v6-repro.md` does not name. `Quattro603` marks only the named
-  ones. The 6.1.1.3 connector, UDP and package rows are not this folder.
+  stays `G3D0511C`. The engine stays `quattro_lib`.
+- [ ] GS2 opcode bodies. The case numbers `docs/v6-repro.md` does not name
+  are not filled in here. The 6.1.1.3 connector, UDP and package rows are
+  not this folder.

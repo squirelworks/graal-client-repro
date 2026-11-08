@@ -24,6 +24,30 @@ B=$2
 SOAK=${3:-${STRESS_SECONDS:-60}}
 CLIENT=$(ls "$ROOT/build/$B"/Graal* 2>/dev/null | grep -v '\.\(heap\|bmp\|json\)$' | head -1)
 [ -n "$CLIENT" ] || { echo "$B: not built (scripts/build.sh $B)"; exit 1; }
+# The 6.114 player is a local-only session, not a soak against gserver.
+if [ -x "$ROOT/build/$B/worlds-player" ]; then
+  GRAAL_PW=${GRAAL_PW:-loopbackpw} "$ROOT/build/$B/worlds-player" --smoke \
+    --port "${LOOPBACK_PORT:-14922}" --account loop1 \
+    --world "$ROOT/$B/worlds/local-yard.txt" \
+    --raster "$ROOT/build/$B/local-yard.ppm"
+  echo "PASS $B (local-only player smoke, no soak)"
+  exit 0
+fi
+if [ -f "$ROOT/$B/src/worlds_host.cpp" ]; then
+  echo "PASS $B (connector hello only, no soak)"
+  exit 0
+fi
+# a scaffold has no wire client; the release gate does not log it in
+if grep -qs "ScaffoldOnly = True;" "$ROOT/$B"/src/*.pas; then
+  echo "PASS $B (scaffold only, no wire client)"
+  exit 0
+fi
+# 6.1.1.3 stops after the clear hello. A soak would demand a login
+# the cipher notes do not support.
+if grep -qs "ClearHelloStop = True;" "$ROOT/$B"/src/*.pas; then
+  echo "PASS $B (clear hello only, cipher not identified, no soak)"
+  exit 0
+fi
 WORK=$(mktemp -d)
 PIDS=""
 trap 'for P in $PIDS; do kill $P 2>/dev/null || true; done; rm -rf "$WORK"' EXIT

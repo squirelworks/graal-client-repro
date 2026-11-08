@@ -1,6 +1,6 @@
-{ Checks for the 6.037 scaffold in Quattro603. The Linux token is not
-  changed. Opcode bodies and unlisted case numbers stay unknown. }
-program TestQuattro603;
+{ Checks the 6.037 GRESCR01 accept path and the want-script stubs.
+  The Linux token is not changed. No numeric packet id is invented. }
+program TestGrescr603;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
 {$IFDEF MSWINDOWS}{$APPTYPE CONSOLE}{$ENDIF}
@@ -8,7 +8,7 @@ program TestQuattro603;
 uses
   SysUtils,
   Protocol603 in '../src/Protocol603.pas',
-  Quattro603 in '../src/Quattro603.pas',
+  Grescr603 in '../src/Grescr603.pas',
   Controls603 in '../src/Controls603.pas';
 
 var
@@ -31,14 +31,6 @@ end;
 procedure TestToken;
 begin
   Check(ClientVersionToken = 'G3D0511C', 'Linux folder keeps G3D0511C');
-  Check(UpperCase(WindowsStoredToken) = 'G3D0311C', 'Windows stored string upper-cases');
-  Check(UpperCase(WindowsStoredToken) <> ClientVersionToken,
-    'Windows string is not this folder''s token');
-  Check(UsesGeneration5, '6.037 stays on the generation-5 framer');
-  Check(not HasSetProtocol, 'no setprotocol');
-  Check(not HasSendRaw, 'no sendraw');
-  Check(not HasSendData, 'no senddata');
-  Check(not HasTclientPropertyScripts, 'no tclient property-script names');
   Check(not LinksTorque, 'quattro_lib, not a Torque link');
 end;
 
@@ -47,8 +39,11 @@ begin
   Check(not GrescrAccepted(''), 'empty file rejected');
   Check(not GrescrAccepted('GRESCR0'), 'seven bytes rejected');
   Check(not GrescrAccepted('GRESCR00'), 'wrong magic rejected');
+  Check(GrescrLog = '', 'a wrong magic does not log a payload');
   Check(GrescrAccepted(GrescrMagic), 'eight-byte magic accepted');
+  Check(GrescrPayloadLen = 0, 'magic alone has an empty payload');
   Check(GrescrAccepted(GrescrMagic + 'tail'), 'magic plus a body accepted');
+  WriteLn(GrescrLog);
   Check(GrescrPayloadLen = 4, 'payload length is the bytes after the magic');
   Check(GrescrLog = 'GRESCR01 payload 4', 'accept path logs the payload length');
   Check(not GrescrAccepted('short'), 'a short buffer is still rejected');
@@ -60,8 +55,12 @@ begin
 end;
 
 procedure TestSend;
+var
+  Line: string;
 begin
-  Check(SendWantClassScript('abc') = 'onSendWantClassScript id=provisional len=3',
+  Line := SendWantClassScript('abc');
+  WriteLn(Line);
+  Check(Line = 'onSendWantClassScript id=provisional len=3',
     'class-script send writes the name and the length');
   Check(SendWantWeaponScript('') = 'onSendWantWeaponScript id=provisional len=0',
     'weapon-script send allows an empty payload');
@@ -69,34 +68,6 @@ begin
     'gani-script send writes the name and the length');
   Check(Pos('id=23', SendWantClassScript('abc')) = 0,
     'the outgoing table id is not invented');
-end;
-
-procedure TestCases;
-var
-  Op, Present, Unlisted: Integer;
-begin
-  Check(Gs2CaseTotal = 152, 'the note''s case count is 152');
-  Check(Gs2CaseOf(10) = gscOutside, '10 is outside the span');
-  Check(Gs2CaseOf(243) = gscOutside, '243 is outside the span');
-  Check(Gs2CaseOf(48) = gscAbsent, '48 is absent');
-  Check(Gs2CaseOf(49) = gscAbsent, '49 is absent');
-  Check(Gs2CaseOf(200) = gscAbsent, '200 is absent');
-  Check(Gs2CaseOf(54) = gscPresent, '54 is present');
-  Check(Gs2CaseOf(121) = gscPresent, '121 is present');
-  Check(Gs2CaseOf(201) = gscPresent, '201 is present');
-  Check(Gs2CaseOf(242) = gscPresent, '242 is present');
-  Check(Gs2CaseOf(12) = gscUnlisted, 'an unnamed number is not invented');
-  Present := 0;
-  Unlisted := 0;
-  for Op := Gs2SpanLow to Gs2SpanHigh do
-    case Gs2CaseOf(Op) of
-      gscPresent: Inc(Present);
-      gscUnlisted: Inc(Unlisted);
-      gscAbsent, gscOutside: ;
-    end;
-  Check(Present = 44, 'only the named cases are marked present');
-  Check(Present < Gs2CaseTotal, 'the full 152 are not filled in');
-  Check(Unlisted > 0, 'unnamed numbers stay unlisted');
 end;
 
 procedure TestControls;
@@ -137,7 +108,6 @@ begin
   TestControls;
   TestGrescr;
   TestSend;
-  TestCases;
   WriteLn(Format('%d passed, %d failed', [Passed, Failed]));
   if Failed > 0 then Halt(1);
 end.

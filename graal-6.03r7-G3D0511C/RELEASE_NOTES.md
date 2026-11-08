@@ -19,15 +19,14 @@ to the program works too (`graal-assets/6.03r7/`, then
 
 ## What's new in v0.0.5
 
-- A quattro scaffold beside the wire client. It records the Windows
-  6.037 stored token without changing this folder's `G3D0511C`, rejects a
-  `.code` file that is shorter than the `GRESCR01` magic, and marks only
-  the GS2 case numbers the 6.x checklist names. Opcode bodies are not
-  implemented.
+- The Linux token stays `G3D0511C` in `Protocol603`. A unit whose only job
+  was to restate the 6.037 rows of `docs/v6-repro.md` is not part of this
+  client. No Torque link and no opcode bodies. The engine stays
+  `quattro_lib`.
 - A `GRESCR01` buffer of at least eight bytes is accepted and the payload
-  length is logged. The three `onSendWant*` events write their name and
-  a length. The numeric outgoing id is not invented. The CRC and the
-  opcode bodies are still not read.
+  length is logged. A shorter buffer is rejected. The three `onSendWant*`
+  events write their name and a length. The numeric outgoing id is not
+  invented. The CRC and the script body are not read.
 - `Graal603` registers the 6.037 control names and opens `GraalControl`
   as a stub before the existing client runs. The token stays `G3D0511C`.
   Torque is not linked.
