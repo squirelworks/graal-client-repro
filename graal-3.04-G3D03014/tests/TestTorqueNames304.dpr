@@ -1,26 +1,16 @@
-{ Tests for the 3.04 game hosted in TGE 1.2.
+{ Tests for the 3.04 name table in TorqueNames304.
 
-  The method table is TorqueHost304. The engine units compiled below are
-  the common/torque modules 3.04 links. They stay empty stubs; this test
-  only checks that they still compile next to the game table, and that
-  the table matches manifests/3.04.list. }
-program TestHost304;
+  The table is not the engine host. This program does not compile the
+  common/torque units and it does not boot a console. It checks the names
+  against manifests/3.04.list, which stays the TGE 1.2 module list. }
+program TestTorqueNames304;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
 {$IFDEF MSWINDOWS}{$APPTYPE CONSOLE}{$ENDIF}
 
 uses
   SysUtils, Classes,
-  TorqueHost304 in '../src/TorqueHost304.pas',
-  TqConsole in '../../common/torque/console/TqConsole.pas',
-  TqSim in '../../common/torque/sim/TqSim.pas',
-  TqGui in '../../common/torque/gui/TqGui.pas',
-  TqActionMap in '../../common/torque/actionmap/TqActionMap.pas',
-  TqGBitmap in '../../common/torque/gbitmap/TqGBitmap.pas',
-  TqMath in '../../common/torque/math/TqMath.pas',
-  TqGameTge in '../../common/torque/game-tge/TqGameTge.pas',
-  TqNetTorque in '../../common/torque/net-torque/TqNetTorque.pas',
-  TqGuiGraal in '../../common/torque/guigraal/TqGuiGraal.pas';
+  TorqueNames304 in '../src/TorqueNames304.pas';
 
 var
   Passed, Failed: Integer;
@@ -96,16 +86,16 @@ procedure TestTypes;
 var
   I: Integer;
 begin
-  I := GraalHostTypeIndex('TServerPlayer');
+  I := GraalDrawTypeIndex('TServerPlayer');
   Check(I >= 0, 'TServerPlayer is a draw type');
-  Check(GraalHostTypes[I].Parent = 'TGaniObject', 'TServerPlayer parent is TGaniObject');
-  I := GraalHostTypeIndex('TGaniObject');
-  Check(GraalHostTypes[I].Parent = 'TLevelObject', 'TGaniObject parent is TLevelObject');
-  I := GraalHostTypeIndex('TLevelObject');
-  Check(GraalHostTypes[I].Parent = 'TDrawableObject', 'TLevelObject parent is TDrawableObject');
-  I := GraalHostTypeIndex('TGraalConnection');
-  Check((I >= 0) and (GraalHostTypes[I].Parent = ''), 'TGraalConnection has no recorded parent');
-  Check(GraalHostTypeIndex('TGraalUniverse') < 0, 'TGraalUniverse is not a 3.04 type');
+  Check(GraalDrawTypes[I].Parent = 'TGaniObject', 'TServerPlayer parent is TGaniObject');
+  I := GraalDrawTypeIndex('TGaniObject');
+  Check(GraalDrawTypes[I].Parent = 'TLevelObject', 'TGaniObject parent is TLevelObject');
+  I := GraalDrawTypeIndex('TLevelObject');
+  Check(GraalDrawTypes[I].Parent = 'TDrawableObject', 'TLevelObject parent is TDrawableObject');
+  I := GraalDrawTypeIndex('TGraalConnection');
+  Check((I >= 0) and (GraalDrawTypes[I].Parent = ''), 'TGraalConnection has no recorded parent');
+  Check(GraalDrawTypeIndex('TGraalUniverse') < 0, 'TGraalUniverse is not a 3.04 type');
 end;
 
 procedure TestModules;
@@ -116,12 +106,12 @@ begin
   L := TStringList.Create;
   try
     LoadManifest(L);
-    Check(L.Count = TorqueModuleCount, 'manifest length matches the host');
+    Check(L.Count = TorqueModuleCount, 'manifest length matches the name table');
     for I := 0 to High(TorqueModules) do
-      Check((I < L.Count) and (L[I] = TorqueModules[I]), 'module ' + TorqueModules[I]);
-    Check(L.IndexOf('game-tge') >= 0, 'stock TGE game layer is linked');
-    Check(L.IndexOf('gameobject') < 0, 'GameObject is not a 3.04 module');
-    Check(L.IndexOf('guigraal') >= 0, 'GuiGraalCtrl module is linked');
+      Check((I < L.Count) and (L[I] = TorqueModules[I]), 'module name ' + TorqueModules[I]);
+    Check(L.IndexOf('game-tge') >= 0, 'name table includes game-tge');
+    Check(L.IndexOf('gameobject') < 0, 'GameObject is not a 3.04 module name');
+    Check(L.IndexOf('guigraal') >= 0, 'name table includes guigraal');
   finally
     L.Free;
   end;
