@@ -23,8 +23,13 @@ program works too (`graal-assets/3.04/`, then `graal-assets/common/`).
 - GuiGraalCtrl's method names, the draw types, and the nine module names
   stay in `TorqueNames304` as a name table. That unit is not the booting
   host, and this folder does not link the Pascal units under
-  `common/torque`. The engine host is the C++ / TorqueScript work. The
-  TGE 1.2 module list stays where it was.
+  `common/torque`. The TGE 1.2 module list stays where it was.
+- `common/torque/host304` reads the nine-module list, registers the
+  3.04 controls, runs one TorqueScript that opens the level view and
+  moves a camera, logs each GuiGraalCtrl stub, and sends this folder's
+  login-shaped first frame (`G3D03014`) to the loopback address.
+  `scripts/build.sh` builds it. The script is not the install's
+  `main.cs`. Later frames are not built.
 
 ## What's new in v0.0.4
 
