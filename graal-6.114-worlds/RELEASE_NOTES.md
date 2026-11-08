@@ -21,6 +21,8 @@ Unity player was not built.
 - The build 614 assembly dump is not stored as a name table. The folder
   keeps the counts (6 Quattro, 80 Unity, 10 runtime, 11 plugin,
   1 generated) and two Quattro names.
+- On macOS, `worlds-player` starts through the `dotnet` muxer so
+  `--self-check` runs. The native app host does not find `libhostfxr`.
 
 ## What's new in v0.0.4
 

@@ -78,7 +78,9 @@ The password is never written and never logged. A host other than
 `worlds-player` with `dotnet` or `mcs`. Linux fails the build if neither
 C# compiler exists. Windows and macOS still build the Pascal shell when
 the C# compiler is missing. Windows does not build `worlds-host`; that
-connector uses POSIX sockets.
+connector uses POSIX sockets. On macOS a `dotnet` build is started with
+`dotnet worlds-player.dll`. The native app host does not find
+`libhostfxr` on that system.
 
 ## Running it
 

@@ -99,6 +99,22 @@ exec "$DIR/worlds-player.exe" "$@"
 EOF
         chmod +x "$PLAYOUT"
       fi
+      # The macOS app host does not look where the dotnet muxer is
+      # installed, so it exits with libhostfxr missing. Launch the dll
+      # through the muxer that just built it. Linux keeps the app host.
+      case "$(uname -s)" in
+        Darwin)
+          if [ -f "$OUT/worlds-player.dll" ] && [ -e "$PLAYOUT" ]; then
+            mv "$PLAYOUT" "$OUT/worlds-player.apphost"
+            cat > "$PLAYOUT" << 'EOF'
+#!/bin/sh
+DIR=$(cd "$(dirname "$0")" && pwd)
+exec dotnet "$DIR/worlds-player.dll" "$@"
+EOF
+            chmod +x "$PLAYOUT"
+          fi
+          ;;
+      esac
     elif command -v mcs >/dev/null 2>&1; then
       # shellcheck disable=SC2086
       mcs -sdk:4.5 -optimize -out:"$OUT/worlds-player.exe" "$B"/player/*.cs
