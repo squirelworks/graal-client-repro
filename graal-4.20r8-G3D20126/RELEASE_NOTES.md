@@ -24,6 +24,8 @@ program works too (`graal-assets/4.20r8/`, then `graal-assets/common/`).
   list, registers the engine controls, opens a level-shaped object,
   places a tile, and sends the documented `G3D20126` login line to
   loopback. This engine has no Torque console. Later frames are not built.
+- On Windows the engine host calls `WSAStartup` before `getaddrinfo`,
+  then sends `G3D20126`. The Linux path is unchanged.
 
 ## What's new in v0.0.4
 

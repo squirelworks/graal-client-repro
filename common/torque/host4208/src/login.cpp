@@ -48,6 +48,11 @@ static const sock_t kBadSock = -1;
 static void close_sock(sock_t fd) { close(fd); }
 static int sock_err() { return errno; }
 static bool sock_start(std::string &) { return true; }
+// Linux defines this in sys/socket.h. macOS does not. Defining it as 0
+// leaves the Linux send flags alone.
+#ifndef MSG_NOSIGNAL
+#define MSG_NOSIGNAL 0
+#endif
 #endif
 
 namespace {
@@ -199,6 +204,12 @@ SendResult sendLoginFrame(const std::string &host, std::uint16_t port,
   SendResult result;
   result.status = SendStatus::Error;
 
+  // Winsock has to be up before getaddrinfo, not only before socket().
+  // On Linux sock_start does nothing.
+  if (!sock_start(result.detail)) {
+    return result;
+  }
+
   sockaddr_in addr;
   std::memset(&addr, 0, sizeof addr);
   addr.sin_family = AF_INET;
@@ -229,9 +240,6 @@ SendResult sendLoginFrame(const std::string &host, std::uint16_t port,
     return result;
   }
 
-  if (!sock_start(result.detail)) {
-    return result;
-  }
   const sock_t fd = socket(AF_INET, SOCK_STREAM, 0);
   if (fd == kBadSock) {
     result.detail = "socket failed";
