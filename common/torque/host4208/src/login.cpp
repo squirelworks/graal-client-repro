@@ -1,20 +1,54 @@
 #include "login.hpp"
 
-#include <arpa/inet.h>
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
+
+#include <sstream>
+#include <vector>
+
+#include <zlib.h>
+
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <winsock2.h>
+#include <ws2tcpip.h>
+using sock_t = SOCKET;
+static const sock_t kBadSock = INVALID_SOCKET;
+static void close_sock(sock_t fd) { closesocket(fd); }
+static int sock_err() { return WSAGetLastError(); }
+static bool sock_start(std::string &error) {
+  static bool ready = false;
+  if (ready) {
+    return true;
+  }
+  WSADATA data;
+  if (WSAStartup(MAKEWORD(2, 2), &data) != 0) {
+    error = "WSAStartup failed";
+    return false;
+  }
+  ready = true;
+  return true;
+}
+#ifndef MSG_NOSIGNAL
+#define MSG_NOSIGNAL 0
+#endif
+#else
+#include <arpa/inet.h>
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
-
-#include <sstream>
-#include <vector>
-
-#include <zlib.h>
+using sock_t = int;
+static const sock_t kBadSock = -1;
+static void close_sock(sock_t fd) { close(fd); }
+static int sock_err() { return errno; }
+static bool sock_start(std::string &) { return true; }
+#endif
 
 namespace {
 
@@ -195,77 +229,118 @@ SendResult sendLoginFrame(const std::string &host, std::uint16_t port,
     return result;
   }
 
-  const int fd = socket(AF_INET, SOCK_STREAM, 0);
-  if (fd < 0) {
+  if (!sock_start(result.detail)) {
+    return result;
+  }
+  const sock_t fd = socket(AF_INET, SOCK_STREAM, 0);
+  if (fd == kBadSock) {
     result.detail = "socket failed";
     return result;
   }
-  const int flags = fcntl(fd, F_GETFL, 0);
-  if (flags < 0 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0) {
-    close(fd);
+#ifdef _WIN32
+  u_long nb = 1;
+  if (ioctlsocket(fd, FIONBIO, &nb) != 0) {
+    close_sock(fd);
     result.detail = "could not set non-blocking";
     return result;
   }
+  const int would_block = WSAEWOULDBLOCK;
+  const int again = WSAEWOULDBLOCK;
+#else
+  const int flags = fcntl(fd, F_GETFL, 0);
+  if (flags < 0 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0) {
+    close_sock(fd);
+    result.detail = "could not set non-blocking";
+    return result;
+  }
+  const int would_block = EINPROGRESS;
+  const int again = EAGAIN;
+#endif
 
   const int cr = connect(fd, reinterpret_cast<sockaddr *>(&addr), sizeof addr);
-  if (cr < 0 && errno != EINPROGRESS) {
-    const int err = errno;
-    close(fd);
-    if (err == ECONNREFUSED || err == ENETUNREACH || err == EHOSTUNREACH) {
+  if (cr < 0 && sock_err() != would_block) {
+    const int err = sock_err();
+    close_sock(fd);
+    if (err == ECONNREFUSED || err == ENETUNREACH || err == EHOSTUNREACH
+#ifdef _WIN32
+        || err == WSAECONNREFUSED || err == WSAENETUNREACH || err == WSAEHOSTUNREACH
+#endif
+    ) {
       result.status = SendStatus::Refused;
       result.detail = "no listener on " + formatAddr(addr);
       return result;
     }
-    result.detail = std::string("connect failed: ") + std::strerror(err);
+    result.detail = "connect failed";
     return result;
   }
 
+#ifdef _WIN32
+  WSAPOLLFD pfd;
+  pfd.fd = fd;
+  pfd.events = POLLOUT;
+  pfd.revents = 0;
+  const int pr = WSAPoll(&pfd, 1, 500);
+#else
   pollfd pfd;
   pfd.fd = fd;
   pfd.events = POLLOUT;
   pfd.revents = 0;
   const int pr = poll(&pfd, 1, 500);
+#endif
   if (pr <= 0) {
-    close(fd);
+    close_sock(fd);
     result.status = SendStatus::Refused;
     result.detail = "no listener on " + formatAddr(addr);
     return result;
   }
   int soerr = 0;
   socklen_t slen = sizeof soerr;
-  getsockopt(fd, SOL_SOCKET, SO_ERROR, &soerr, &slen);
+  getsockopt(fd, SOL_SOCKET, SO_ERROR, reinterpret_cast<char *>(&soerr), &slen);
   if (soerr != 0) {
-    close(fd);
-    if (soerr == ECONNREFUSED || soerr == ENETUNREACH || soerr == EHOSTUNREACH) {
+    close_sock(fd);
+    if (soerr == ECONNREFUSED || soerr == ENETUNREACH || soerr == EHOSTUNREACH
+#ifdef _WIN32
+        || soerr == WSAECONNREFUSED || soerr == WSAENETUNREACH || soerr == WSAEHOSTUNREACH
+#endif
+    ) {
       result.status = SendStatus::Refused;
       result.detail = "no listener on " + formatAddr(addr);
       return result;
     }
-    result.detail = std::string("connect failed: ") + std::strerror(soerr);
+    result.detail = "connect failed";
     return result;
   }
 
   std::size_t sent = 0;
   while (sent < wire.size()) {
-    const ssize_t n = send(fd, wire.data() + sent, wire.size() - sent, MSG_NOSIGNAL);
+    const int n = static_cast<int>(
+        send(fd, wire.data() + sent, static_cast<int>(wire.size() - sent), MSG_NOSIGNAL));
     if (n < 0) {
-      if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) {
+      const int err = sock_err();
+      if (err == EINTR || err == again
+#ifdef _WIN32
+          || err == WSAEINTR
+#endif
+      ) {
         continue;
       }
-      const int err = errno;
-      close(fd);
-      result.detail = std::string("send failed: ") + std::strerror(err);
+      close_sock(fd);
+      result.detail = "send failed";
       return result;
     }
     if (n == 0) {
-      close(fd);
+      close_sock(fd);
       result.detail = "send returned no bytes";
       return result;
     }
     sent += static_cast<std::size_t>(n);
   }
+#ifdef _WIN32
+  shutdown(fd, SD_SEND);
+#else
   shutdown(fd, SHUT_WR);
-  close(fd);
+#endif
+  close_sock(fd);
   result.status = SendStatus::Sent;
   result.detail = "sent " + std::to_string(wire.size()) + " bytes to " + formatAddr(addr);
   return result;
