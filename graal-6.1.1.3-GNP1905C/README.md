@@ -9,6 +9,11 @@ notes and does not link `common/torque`.
 The token on the wire is `GNP1905C`. It is not stored in the image, and
 this folder does not invent a second token or a formula for `1905`.
 
+`scripts/loopback.sh` runs that hello against a local gserver and expects
+the documented stop (`stopped at clear hello; cipher not identified`).
+It does not treat a gserver login as success, and it does not add bytes
+after the hello. `scripts/stress.sh` does not soak this folder.
+
 Three layers are marked in the units and below.
 
 > **Not affiliated.** graal-delphi is an independent fan project. It is not

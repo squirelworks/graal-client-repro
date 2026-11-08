@@ -27,6 +27,10 @@ interface
 const
   { Observed on the wire. Not a string in the image. }
   ClearHello = 'GNP1905C';
+  { The connect path stops after those eight bytes. The session cipher
+    was not identified, so loopback and stress must not demand a gserver
+    login and must not pad the hello. }
+  ClearHelloStop = True;
   CannotSend = 'Cannot send data, socket is not in a state where data can be sent';
   IllegalChars = 'Illegal characters in the outgoing data';
   Id50Gap = 'id 50 prefix byte order was not recovered';

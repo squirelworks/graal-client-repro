@@ -21,6 +21,9 @@ host and it does not borrow another version's token.
 
 ## Not yet
 
+- `scripts/loopback.sh` expects the clear `GNP1905C` hello and the
+  documented stop. It does not invent the cipher or count a gserver
+  login. `scripts/stress.sh` does not soak this folder.
 - [ ] The cipher after the clear hello. `setencryptionout` names `AES` and
   `RC4`, and the notes disagree on the generation-5 step (`+ 1` versus
   `+ key`). Neither mix is applied on the socket.
