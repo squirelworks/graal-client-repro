@@ -19,9 +19,13 @@ to the program works too (`graal-assets/6.03r7/`, then
 
 ## What's new in v0.0.5
 
-- The Linux token stays `G3D0511C` in `Protocol603`. A unit whose only job
-  was to restate the 6.037 rows of `docs/v6-repro.md` is not part of this
-  client. No Torque link and no opcode bodies.
+- Preserves #164's removal of the checklist-only unit and test. The
+  Linux token stays `G3D0511C`; no Torque engine is linked.
+- Adds a provisional standalone `GRESCR01` header probe. It has no
+  client call site, CRC/cache validation or script execution. Want-script
+  helpers return diagnostics only, with unknown wire ids.
+- Removes startup messages claiming controls were registered and a level
+  view opened. Those messages did not implement a Quattro engine.
 
 ## What's new in v0.0.4
 

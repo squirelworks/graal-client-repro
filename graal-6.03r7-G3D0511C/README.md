@@ -46,8 +46,19 @@ The rebuild reads none of them and sends each as `""`.
 
 As in 5.00r7, with the suffix `603`: `Protocol603`, `GraalClient`,
 `Adventure`, `Graal603.dpr`, `ListServer603`, `StartScreen603`, `RunMode`.
-The Linux token stays `G3D0511C` in `Protocol603`. This folder does not
-carry a checklist unit, and it does not link Torque.
+The Linux token stays `G3D0511C`. No Torque engine is linked.
+
+Observed: `docs/v6-repro.md` identifies the original Windows 6.0.3.7
+engine as `quattro_lib` and documents GS2 magic and CRC coverage.
+This Pascal rebuild does not implement that engine.
+
+Provisional: `Grescr603` is a standalone header probe tested independently
+of the client, with no client call site. It checks eight bytes of magic
+and records the tail byte count. Passing is not script acceptance: CRC,
+cache flags, decoding and execution remain unimplemented. An eight-byte
+header alone passes the probe; original-loader acceptance is unknown.
+The three want-script helpers return diagnostic strings only. They
+raise no event and send no packet. Wire ids are unknown (`id=unknown`).
 
 ## Running it
 
@@ -99,3 +110,10 @@ From the program's folder (or `--data`), then `graal-assets/6.03r7/`, then
 - [ ] Whether 6.03r7 plays offline at all is not traced; Training keeps 3.153's.
 - [ ] No side-by-side run against the real 6.03r7; that is 0.0.2 work.
 - [ ] Everything still missing from the 5.00r7 rebuild.
+- [x] Provisional standalone header probe and diagnostic-only want-script
+  helpers, tested independently of the client.
+- [ ] CRC/cache validation, client integration and script execution.
+- [ ] Actual Quattro controls and level view; printing class names does
+  not register controls or open a view.
+- [ ] GS2 opcode bodies and wire ids; the 6.1.1.3 connector, UDP and
+  package rows are not this folder.
