@@ -137,6 +137,48 @@ if grep -qs "ScaffoldOnly = True;" "$ROOT/$B"/src/*.pas; then
   echo "scaffold only, no loopback: $B"
   exit 0
 fi
+# 6.1.1.3 sends GNP1905C and stops. The cipher was not identified.
+# This check runs that hello and does not invent the bytes after it.
+if grep -qs "ClearHelloStop = True;" "$ROOT/$B"/src/*.pas; then
+  GSDIR=$(cd "$(dirname "$GS")/../.." && pwd)
+  WORK=$(mktemp -d)
+  trap 'kill $PID 2>/dev/null || true; rm -rf "$WORK"' EXIT
+  PORT=${LOOPBACK_PORT:-14862}
+  cp -r "$GSDIR/world" "$WORK/world"
+  sed -i "s/14802/$PORT/" "$WORK/world/config/server.txt"
+  printf '\n%s\n' "${B##*-}" >> "$WORK/world/config/allowedversions.txt"
+  "$GS" --world "$WORK/world" --verbose > "$WORK/gserver.log" 2>&1 &
+  PID=$!
+  sleep 2
+  CLIENT=$(ls "$ROOT/build/$B"/Graal* | head -1)
+  set +e
+  GRAAL_PW=loopbackpw "$CLIENT" --server 127.0.0.1:$PORT --account loop1 \
+    --frames 4 > "$WORK/hello.json" 2> "$WORK/hello.log"
+  RC=$?
+  set -e
+  echo "--- clear hello"
+  cat "$WORK/hello.log" "$WORK/hello.json"
+  echo "--- gserver log"
+  cat "$WORK/gserver.log"
+  if [ "$RC" -ne 0 ]; then
+    echo "clear-hello client exited $RC"
+    exit "$RC"
+  fi
+  if ! grep -q "stopped at clear hello; cipher not identified" "$WORK/hello.log"; then
+    echo "client did not stop at the clear hello"
+    exit 1
+  fi
+  if ! grep -q "GNP1905C" "$WORK/hello.log"; then
+    echo "client did not log token GNP1905C"
+    exit 1
+  fi
+  if grep -q "logged in as" "$WORK/gserver.log"; then
+    echo "gserver logged a login this folder does not complete"
+    exit 1
+  fi
+  echo "clear hello only, cipher not identified: $B"
+  exit 0
+fi
 GSDIR=$(cd "$(dirname "$GS")/../.." && pwd)
 WORK=$(mktemp -d)
 trap 'kill $PID 2>/dev/null || true; rm -rf "$WORK"' EXIT

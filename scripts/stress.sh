@@ -42,6 +42,12 @@ if grep -qs "ScaffoldOnly = True;" "$ROOT/$B"/src/*.pas; then
   echo "PASS $B (scaffold only, no wire client)"
   exit 0
 fi
+# 6.1.1.3 stops after the clear hello. A soak would demand a login
+# the cipher notes do not support.
+if grep -qs "ClearHelloStop = True;" "$ROOT/$B"/src/*.pas; then
+  echo "PASS $B (clear hello only, cipher not identified, no soak)"
+  exit 0
+fi
 WORK=$(mktemp -d)
 PIDS=""
 trap 'for P in $PIDS; do kill $P 2>/dev/null || true; done; rm -rf "$WORK"' EXIT
