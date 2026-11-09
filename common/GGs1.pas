@@ -1594,17 +1594,23 @@ constructor TGsVars.Create;
 begin
   FNames := TStringList.Create;
   FNames.Sorted := True;
-  FNames.OwnsObjects := True;
 end;
 
 destructor TGsVars.Destroy;
 begin
+  Clear;
   FNames.Free;
   inherited;
 end;
 
 procedure TGsVars.Clear;
+var
+  I: Integer;
 begin
+  { Historical TStringList has no OwnsObjects property. This list owns
+    variable boxes; the command/function index lists elsewhere do not. }
+  if FNames = nil then Exit;
+  for I := 0 to FNames.Count - 1 do FNames.Objects[I].Free;
   FNames.Clear;
 end;
 
