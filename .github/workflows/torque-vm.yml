@@ -1,0 +1,50 @@
+name: torque-vm
+
+on:
+  pull_request:
+    paths:
+      - 'common/torque/console/vm/**'
+      - '.github/workflows/torque-vm.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'common/torque/console/vm/**'
+      - '.github/workflows/torque-vm.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: torque-vm-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unix:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and test bounded executor
+        run: make -C common/torque/console/vm test
+      - name: Check with address and undefined behavior sanitizers
+        if: runner.os == 'Linux'
+        run: |
+          make -C common/torque/console/vm clean
+          make -C common/torque/console/vm test CXXFLAGS='-std=c++17 -Wall -Wextra -Werror -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer'
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: make mingw-w64-ucrt-x86_64-gcc
+      - name: Build and test changed executor
+        shell: msys2 {0}
+        run: make -C common/torque/console/vm test
