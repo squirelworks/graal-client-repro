@@ -293,3 +293,16 @@ Hardening checks, all in CI:
   board edge is treated as open.
 - [ ] Several clients in one process (one per process for now).
 - [ ] The Options page, the language and character pickers of the start screen.
+
+## Historical Pascal compatibility work
+
+- [x] The shared GS1 variable store frees its owned values explicitly,
+  without the newer TStringList.OwnsObjects property. Its public scalar,
+  array, clear, reuse and destruction behavior has checked lifetime tests.
+- [ ] Remove remaining newer compiler/RTL dependencies, including pointer
+  integer aliases and locale-aware numeric helpers, and verify an actual
+  historical Delphi build. Free Pascal in Delphi mode alone is not proof.
+
+This ownership change preserves the shared unit's behavior for all its
+client profiles. It does not change GS1 condition parsing or truth rules;
+those require their own exact-build behavioral work.

@@ -22,11 +22,13 @@
 #include <cstdint>
 #include <string>
 
-struct LoginFrame {
-  std::string plain;
-  std::string wire;
-  int key;
-};
+#include "../../shared/first_frame.hpp"
+using HostNet::LoginFrame;
+using HostNet::SendStatus;
+using HostNet::SendResult;
+using HostNet::sendLoginFrame;
+using HostNet::hexBytes;
+using HostNet::escapeBytes;
 
 // key is 0..127, as the client sends (rand masked to 7 bits).
 // language is the raw id-37 body (the folder test uses "English").
@@ -37,20 +39,11 @@ bool buildLoginFrame(int key, const std::string &account,
 // Inflate wire and compare to plain. Used as a boot check.
 bool loginFrameRoundTrip(const LoginFrame &frame, std::string &error);
 
-enum class SendStatus { Sent, Refused, RejectedHost, Error };
 
-struct SendResult {
-  SendStatus status;
-  std::string detail;
-};
 
 // Connect to loopback only. An empty host means the loopback address.
 // A resolved address outside the loopback range is rejected and nothing
 // is sent. port is the caller's lab port.
-SendResult sendLoginFrame(const std::string &host, std::uint16_t port,
-                          const std::string &wire);
 
-std::string hexBytes(const std::string &bytes);
-std::string escapeBytes(const std::string &bytes);
 
 #endif
