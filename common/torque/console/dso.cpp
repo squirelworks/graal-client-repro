@@ -94,6 +94,7 @@ bool load_dso(const std::vector<std::uint8_t>& bytes, FloatOrder order,
     }
     const auto ident_size = in.count(8);
     block.identifiers.reserve(ident_size);
+    std::size_t name_bytes = 0;
     for (std::uint32_t i = 0; i < ident_size; ++i) {
       DsoIdentifier ident;
       ident.string_offset = in.u32();
@@ -104,7 +105,11 @@ bool load_dso(const std::vector<std::uint8_t>& bytes, FloatOrder order,
         const auto end = block.global_strings.find('\0', ident.string_offset);
         if (end == std::string::npos)
           in.fail(DsoErrorKind::identifier, "unterminated identifier");
-        ident.name = block.global_strings.substr(ident.string_offset, end - ident.string_offset);
+        const auto size = end - ident.string_offset;
+        if (size > dso_max_bytes - name_bytes)
+          in.fail(DsoErrorKind::limit, "DSO identifier name budget exceeded");
+        name_bytes += size;
+        ident.name = block.global_strings.substr(ident.string_offset, size);
       }
       const auto use_size = in.count(4);
       ident.uses.reserve(use_size);

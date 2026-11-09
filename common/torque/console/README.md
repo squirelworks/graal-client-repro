@@ -44,7 +44,8 @@ oversized counts, bad version, invalid/unterminated identifier references,
 out-of-range relocation uses, trailing bytes, empty tables and unchanged
 caller state after failure. Resource limits (16 MiB input, 1,048,576 items
 per counted table), strict trailing-byte rejection and malformed-reference
-rejection are reproduction hardening policies, not claims about original
+rejection and a 16 MiB total copied-identifier-name budget are reproduction
+hardening policies, not claims about original
 error handling. Relocation targets are checked against code length; their
 instruction/operand role and line-table semantics require the later VM.
 

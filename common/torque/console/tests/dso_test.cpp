@@ -92,6 +92,17 @@ int main() {
   bad = original; put32(bad, 46, 100); reject(bad, Torque::DsoErrorKind::truncated);
   reject(Bytes(Torque::dso_max_bytes+1, 0), Torque::DsoErrorKind::limit);
 
+  // A small on-disk reference table must not multiply one large name into
+  // unbounded decoded allocations. Three copies exceed the total name budget.
+  const std::size_t name_size = Torque::dso_max_bytes / 2;
+  Bytes repeated_name(name_size + 1 + 32 + 24, 0);
+  repeated_name[0] = 33;
+  put32(repeated_name, 4, static_cast<std::uint32_t>(name_size + 1));
+  for (std::size_t i = 8; i < 8 + name_size; ++i) repeated_name[i] = 'X';
+  // Empty floats/function strings/code/lines, then three no-use name groups.
+  put32(repeated_name, name_size + 1 + 28, 3);
+  reject(repeated_name, Torque::DsoErrorKind::limit);
+
   // Empty tables and no code are structurally legal; no execution is implied.
   Bytes empty(32, 0); empty[0] = 33;
   error = {Torque::DsoErrorKind::version, 8, "stale error"};
