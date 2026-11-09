@@ -733,10 +733,10 @@ begin
   end;
 end;
 
-{ ---- walking: exact 1st Graal probe and nudge geometry, recorded in
-  Graal_analysis workingpapers/v0/first-movement-static.md
-  (GRAAL-FIRST-MOVEMENT-20261109-01). These constants apply to this
-  build only; the remaining movement state gates are not yet matched. ---- }
+{ ---- walking: researcher-supplied exact 1st Graal geometry, evidence
+  GRAAL-FIRST-MOVEMENT-20261109-01 (see ../MOVEMENT_EVIDENCE.md).
+  These constants apply to this build only; the remaining movement
+  state gates are not yet matched. ---- }
 
 function TileOf(V: Double): Integer;
 begin

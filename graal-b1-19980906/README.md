@@ -74,12 +74,15 @@ screenshotted side by side and match pixel for pixel.
 - [ ] Match the rest of the movement state machine: pushing counters,
   ledge/hop gates and exceptional movement states.
 
-The source is the address-free behavior record
-`GRAAL-FIRST-MOVEMENT-20261109-01` (`workingpapers/v0/first-movement-static.md`
-in the REA investigation), checked against the 654,336-byte executable
-identified above. It establishes static geometry, not measured input timing
-or a complete gameplay match. Its exact-build SHA-256 is
-`03d8121711f41ac7b5a6e3fe549145d8fdfd44d22040f6706329ae83c6a1a37b`.
+The source is researcher-supplied behavior record
+`GRAAL-FIRST-MOVEMENT-20261109-01`, reproduced as original prose in the
+[sanitized evidence handoff](MOVEMENT_EVIDENCE.md). The REA researcher
+supplied the executable identity, hash verification and static observations;
+this implementation PR and its supervisor have not independently verified
+the original executable or its hash. The newer record narrows the older
+public Appendix E307, which has not yet incorporated these findings. It
+establishes static geometry, not measured input timing or a complete
+gameplay match.
 
 Each walking candidate moves half a tile in the facing direction. The six
 blocked-point tests are taken at these offsets from that candidate, in order:

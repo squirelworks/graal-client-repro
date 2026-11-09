@@ -27,6 +27,8 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 - [x] Walking uses the 1st Graal executable's own collision probes and
   0.125-tile corner nudges. Directional synthetic-board tests distinguish
   these rules from the later-build constants previously used.
+- [x] Include an address-free evidence handoff with explicit researcher
+  attribution and limits, including the older public Appendix E307 status.
 - [ ] Complete the remaining pushing, ledge/hop and exceptional movement
   states; this geometry correction does not certify the whole movement loop.
 
