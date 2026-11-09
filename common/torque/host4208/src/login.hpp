@@ -23,28 +23,21 @@
 // Documented Windows 4.20r8 game-server token.
 extern const char kVersionToken[];
 
-struct LoginFrame {
-  std::string plain;
-  std::string wire;
-  int key;
-};
+#include "../../shared/first_frame.hpp"
+using HostNet::LoginFrame;
+using HostNet::SendStatus;
+using HostNet::SendResult;
+using HostNet::sendLoginFrame;
+using HostNet::hexBytes;
+using HostNet::escapeBytes;
 
 bool buildLoginFrame(int key, const std::string &account, const std::string &password,
                      LoginFrame &out, std::string &error);
 
 bool loginFrameRoundTrip(const LoginFrame &frame, std::string &error);
 
-enum class SendStatus { Sent, Refused, RejectedHost, Error };
 
-struct SendResult {
-  SendStatus status;
-  std::string detail;
-};
 
-SendResult sendLoginFrame(const std::string &host, std::uint16_t port,
-                          const std::string &wire);
 
-std::string hexBytes(const std::string &bytes);
-std::string escapeBytes(const std::string &bytes);
 
 #endif

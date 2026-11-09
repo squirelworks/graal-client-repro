@@ -20,6 +20,13 @@ program works too (`graal-assets/3.04/`, then `graal-assets/common/`).
 
 ## What's new in v0.0.5
 
+- The C++ host now shares first-frame framing and loopback transport with
+  the other existing host. Version-specific wire fields stay in its adapter;
+  independent codec and TCP delivery tests do not establish historical login.
+
+- The C++ host honors an explicit --script path: a missing file fails
+  before frame construction instead of silently running the bundled demo.
+
 - GuiGraalCtrl's method names, the draw types, and the nine module names
   stay in `TorqueNames304` as a name table. That unit is not the booting
   host, and this folder does not link the Pascal units under
