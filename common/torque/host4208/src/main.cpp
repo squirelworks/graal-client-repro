@@ -4,7 +4,7 @@
 // run TorqueScript. The Delphi launcher in graal-4.20r8-G3D20126 is a
 // different program and is not replaced here.
 //
-// The frame helper is local to this directory.
+// Version-specific fields are local; codec and lab transport are shared.
 
 #include "controls.hpp"
 #include "login.hpp"

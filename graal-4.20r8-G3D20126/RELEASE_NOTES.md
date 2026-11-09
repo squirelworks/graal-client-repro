@@ -19,6 +19,10 @@ program works too (`graal-assets/4.20r8/`, then `graal-assets/common/`).
 
 ## What's new in v0.0.5
 
+- The C++ host now shares first-frame framing and loopback transport with
+  the other existing host. Version-specific wire fields stay in its adapter;
+  independent codec and TCP delivery tests do not establish historical login.
+
 - `Shell420` is the Delphi-shaped shell for the window and the menus.
   It starts `common/torque/host4208`, which reads the four-module engine
   list, registers the engine controls, opens a level-shaped object,
