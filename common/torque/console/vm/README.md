@@ -1,7 +1,7 @@
 # Bounded Torque code-word executor
 
 First execution slice for [#172](https://github.com/squirelworks/graal-client-repro/issues/172),
-independent of the DSO reader in PR #181. `execute_words` takes a vector of
+using the merged DSO reader through `execute_dso`. `execute_words` takes a vector of
 decoded 32-bit words and returns a string result, instruction count and word
 position, or a typed error. It has no files, network, global state or native
 call hooks. Each invocation owns a fresh integer stack and string result.
@@ -58,13 +58,36 @@ stack consumption, fresh invocation state, exact budgets, infinite loops,
 stack growth, unsupported instructions, operand/target validation and
 discarding a partial result on failure. No external client install is needed.
 
+## Serialized execution
+
+`execute_dso(bytes, float_order, limits)` validates a complete DSO33 file with
+the shared reader, then executes its decoded words using the same bounded VM.
+It returns separate format, unresolved-relocation and VM failure statuses.
+Check `DsoRunResult::returned()` before using the execution result; the nested
+VM result is not run on format or relocation failure. Format diagnostics retain
+the reader's byte position, while VM diagnostics use decoded word positions.
+
+Identifier groups with any use sites are rejected before execution: there is
+no linker or interning implementation yet. Unused groups are allowed. String
+and float tables are parsed but the seven supported operations do not read
+them. The explicit float profile does not certify platform execution fidelity.
+Whole-file validation, relocation rejection and these statuses are reproduction
+composition policies, not claims about original-client error handling.
+
+The serialized test uses a literal 40-byte synthetic file with an escaped
+integer payload. It verifies the signed result, every truncated prefix, trailing
+bytes, unsupported code, execution/stack budgets and a valid unresolved-use
+fixture that must execute zero instructions. Existing word-level branch tests
+remain independent. No original file or native callback is used.
+
 ## Remaining gates
 
 - [x] Execute the bounded integer/branch/return subset with deterministic results.
 - [x] Reject malformed/unsupported code and bound execution and stack growth.
 - [x] Match the published selected Linux3.04 static contract and seven vectors.
 - [ ] Compare those vectors at runtime against the exact original build.
-- [ ] Connect decoded DSO blocks after the independent reader PR merges.
+- [x] Connect decoded DSO blocks through a bounded serialized execution API.
+- [ ] Link identifier uses and execute original runtime conformance fixtures.
 - [ ] Add native-call, object/namespace, function, float/string-table and lifecycle contracts.
 - [ ] Integrate the verified shipped boot sequence, GUI/input and gameplay.
 
