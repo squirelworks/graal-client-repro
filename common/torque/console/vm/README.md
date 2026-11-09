@@ -10,15 +10,22 @@ The supported subset is `LOADIMMED_UINT` (65), `UINT_TO_STR` (63),
 `UINT_TO_NONE` (64), `JMP` (12), `JMPIFNOT` (7), `JMPIF` (9) and `RETURN`
 (13). Loads push the immediate word; conversion pops an integer into the
 current string; discard pops it; conditional branches pop their condition;
-return yields the current string. Branch operands are absolute word indices.
+return yields the current string. Integer loads preserve all32 payload bits;
+conversion interprets them as signed32 decimal (`0x80000000` becomes
+`-2147483648`, `0xffffffff` becomes `-1`). Branch operands are absolute word indices.
 
 Opcode numbers and operand widths come from the published behavior-only
 [Graal 3.x scripting description](https://github.com/squirelworks/Graal_analysis/blob/main/torque/scripting.md#graals-opcode-table).
-The execution contract follows this repository's parked `TqVM.pas` experiment
-for this narrow subset. That experiment is not an original-client oracle:
-branch stack effects, return behavior and unsigned decimal formatting remain
-**provisional** until an exact-build original-lab comparison is published.
-No proprietary TGE source, recovered code or original script body is used.
+Selected execution behavior now follows the published
+[Linux3.04 seven-operation static contract](https://github.com/squirelworks/Graal_analysis/blob/fbec314cf32a7d7e988581553637c9540fc6d546/torque/linux-304-seven-operation-contract.md)
+and its independently authored conformance vectors (analysis PR348).
+It confirms bit-preserving loads, consuming branches/discard, absolute
+word targets, signed decimal conversion and return of the current string.
+This is exact-build researcher-supplied static evidence, not an original-client
+runtime oracle or a cross-platform semantic guarantee. Fresh-state, errors,
+returned-storage lifetime and instruction-count rules remain reproduction
+policies; comparison on the original client remains pending. No proprietary
+TGE source, recovered code or original script body is used.
 
 ## Validation and limits
 
@@ -44,7 +51,9 @@ The hand-authored branch fixture `{65,0,7,8,65,99,63,13,65,42,63,13}` must
 return `"42"` in five instructions at word 11. Changing its condition to 1
 must return `"99"` in five instructions at word 7. The literal word stream,
 expected results and counts are independent of a compiler, loader or encoder
-under test. Other tests cover both conditional paths, unconditional jumps,
+under test. The seven independently authored published static-derived vectors
+also check signed-format boundaries, one-entry discard, condition consumption
+and an absolute jump preserving the lower stack value. Other tests cover both conditional paths, unconditional jumps,
 stack consumption, fresh invocation state, exact budgets, infinite loops,
 stack growth, unsupported instructions, operand/target validation and
 discarding a partial result on failure. No external client install is needed.
@@ -53,7 +62,8 @@ discarding a partial result on failure. No external client install is needed.
 
 - [x] Execute the bounded integer/branch/return subset with deterministic results.
 - [x] Reject malformed/unsupported code and bound execution and stack growth.
-- [ ] Confirm the provisional semantics against the exact original build.
+- [x] Match the published selected Linux3.04 static contract and seven vectors.
+- [ ] Compare those vectors at runtime against the exact original build.
 - [ ] Connect decoded DSO blocks after the independent reader PR merges.
 - [ ] Add native-call, object/namespace, function, float/string-table and lifecycle contracts.
 - [ ] Integrate the verified shipped boot sequence, GUI/input and gameplay.

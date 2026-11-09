@@ -66,7 +66,12 @@ VmResult execute_words(const std::vector<std::uint32_t>& code, VmLimits limits) 
       const auto value = integers.back();
       integers.pop_back();
       if (op == uint_to_string) {
-        result.value = std::to_string(value);
+        // Preserve the immediate's bits on the integer stack, but selector63
+        // formats that payload as signed32 (Linux3.04 static contract).
+        // Arithmetic avoids implementation-defined out-of-range signed casts.
+        std::int64_t decimal = value;
+        if (value & 0x80000000u) decimal -= 0x100000000ll;
+        result.value = std::to_string(decimal);
       } else if (op != discard_uint) {
         const auto target = code[ip++];
         if ((op == jump_if && value != 0) || (op == jump_if_not && value == 0))

@@ -14,6 +14,29 @@ void error(const std::vector<std::uint32_t>& words, Torque::VmError expected,
 }
 int main() {
   using Torque::VmError;
+  // Independently authored static-derived vectors published by analysis348.
+  // These are not original-client runtime recordings. Result/count assertions
+  // are explicit; implementation instruction counts remain our own policy.
+  struct ContractCase {
+    std::vector<std::uint32_t> words;
+    const char* text;
+    std::size_t steps, return_ip;
+  };
+  const std::vector<ContractCase> contract = {
+    {{65,2147483647u,63,13}, "2147483647", 3,3},
+    {{65,2147483648u,63,13}, "-2147483648", 3,3},
+    {{65,4294967295u,63,13}, "-1", 3,3},
+    {{65,17,65,99,64,63,13}, "17", 5,6},
+    {{65,17,65,0,7,8,65,99,63,13}, "17", 5,9},
+    {{65,17,65,4294967295u,9,8,65,99,63,13}, "17", 5,9},
+    {{65,17,12,6,65,99,63,13}, "17", 4,7}
+  };
+  for (const auto& test : contract) {
+    const auto actual = Torque::execute_words(test.words);
+    require(actual.returned() && actual.value == test.text &&
+            actual.steps == test.steps && actual.ip == test.return_ip,
+            "published Linux3.04 static-derived contract differs");
+  }
   // Hand-authored oracle: condition 0 branches to word 8, yielding "42".
   // No loader/compiler/encoder under test produces this fixture or its oracle.
   const std::vector<std::uint32_t> branch = {65,0,7,8,65,99,63,13,65,42,63,13};
