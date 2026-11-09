@@ -21,7 +21,7 @@ decompiled code:
 | Level rooms | `client-internals/relay-room-bridge.md` |
 | Build facts (date, size, MD5, magics) | `client-internals/build-catalogue.md` |
 | Levels | `formats/level-binary-client.md` |
-| Walking and collision | `client-internals/decomp-findings-2026-10-25-m/01-walking-rule.md` (later builds; not yet checked on this one) |
+| Walking probe and nudge geometry | Exact-build behavior record `GRAAL-FIRST-MOVEMENT-20261109-01`, summarized below |
 
 ## Units
 
@@ -66,6 +66,41 @@ The window is owned by the program's hidden application window, as in the 1st to
 Start opens the game in a window shaped as the `TAdventure` form
 (`res/TADVENTURE.dfm`). Under Wine, real and rebuilt dialogs were
 screenshotted side by side and match pixel for pixel.
+
+## Exact-build walking geometry (v0.0.5)
+
+- [x] Use this executable's half-tile step, six ordered probes and
+  eighth-tile corner nudges, rather than later builds' constants.
+- [ ] Match the rest of the movement state machine: pushing counters,
+  ledge/hop gates and exceptional movement states.
+
+The source is the address-free behavior record
+`GRAAL-FIRST-MOVEMENT-20261109-01` (`workingpapers/v0/first-movement-static.md`
+in the REA investigation), checked against the 654,336-byte executable
+identified above. It establishes static geometry, not measured input timing
+or a complete gameplay match. Its exact-build SHA-256 is
+`03d8121711f41ac7b5a6e3fe549145d8fdfd44d22040f6706329ae83c6a1a37b`.
+
+Each walking candidate moves half a tile in the facing direction. The six
+blocked-point tests are taken at these offsets from that candidate, in order:
+
+- Up: X offsets 0.6, 1.4, 1.6, 2.4, 2.525, 0.475, all at Y + 1.05.
+- Left: Y offsets 1.1, 1.9, 2.1, 2.9, 3.025, 0.975, all at X + 0.55.
+- Down: the up X offsets, all at Y + 2.95.
+- Right: the left Y offsets, all at X + 2.45.
+
+When probe 0 blocks and probes 2, 3 and 4 are clear, the free axis moves
++0.125 tiles. When probes 0 and 1 are clear, probe 3 blocks and probe 5 is
+clear, it moves -0.125. Up/down nudge X; left/right nudge Y. If any of
+probes 0 through 3 blocks, the facing step is undone while the nudge stays.
+The probes are not collected again after nudging. Synthetic-board tests
+exercise both nudge signs and free movement in every direction, plus
+boundary cases that distinguish this build from the previous constants.
+
+The existing final near-grid snap and tile classification remain inherited
+behavior; this bounded evidence does not establish them as exact for this
+build. The remaining movement state gates are also not certified by these
+tests.
 
 ## Not yet (0.0.2 and later)
 
