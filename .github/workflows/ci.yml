@@ -15,7 +15,7 @@ concurrency:
 jobs:
   # Which client folders this run builds. A pull request builds only the
   # Pascal code folders it touches. Shared Pascal/build glue selects all.
-  # Torque-only C++ slices use their dedicated scoped workflows.
+  # Dedicated host workflows do not replace this shared-code coverage.
   changes:
     runs-on: ubuntu-latest
     outputs:
