@@ -1,0 +1,50 @@
+name: torque-native
+
+on:
+  pull_request:
+    paths:
+      - 'common/torque/console/native/**'
+      - '.github/workflows/torque-native.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'common/torque/console/native/**'
+      - '.github/workflows/torque-native.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: torque-native-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unix:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and test native dispatch
+        run: make -C common/torque/console/native test
+      - name: Check with address and undefined behavior sanitizers
+        if: runner.os == 'Linux'
+        run: |
+          make -C common/torque/console/native clean
+          make -C common/torque/console/native test CXXFLAGS='-std=c++17 -Wall -Wextra -Werror -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer'
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: make mingw-w64-ucrt-x86_64-gcc
+      - name: Build and test changed native dispatch
+        shell: msys2 {0}
+        run: make -C common/torque/console/native test
