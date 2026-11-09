@@ -4,11 +4,15 @@ on:
   pull_request:
     paths:
       - 'common/torque/console/vm/**'
+      - 'common/torque/console/dso.cpp'
+      - 'common/torque/console/dso.hpp'
       - '.github/workflows/torque-vm.yml'
   push:
     branches: [main]
     paths:
       - 'common/torque/console/vm/**'
+      - 'common/torque/console/dso.cpp'
+      - 'common/torque/console/dso.hpp'
       - '.github/workflows/torque-vm.yml'
   workflow_dispatch:
 
