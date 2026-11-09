@@ -56,6 +56,36 @@ instruction/operand role and line-table semantics require the later VM.
 - [ ] Execute an independently specified bounded VM result and native-call trace.
 - [ ] Implement object/namespace lifetime and integrate the shipped boot sequence.
 
+## Instruction structure inspection
+
+`dso-inspect --little-floats FILE.dso --instructions` optionally decodes
+instruction boundaries and checks absolute branch, object-failure and
+function-body end targets. The default invocation remains format-only.
+`instructions.hpp` exposes the structural decoder without depending on a VM.
+It uses the published Graal3.x opcode numbers/operand widths, including the
+variable function declaration header and argument list. Undocumented2/3/72
+and out-of-range opcodes fail explicitly; operand values are not opcodes.
+
+Targets must identify an instruction or the stream-end boundary; function
+body ends cannot precede their header's end. These are structural validation
+policies, not proof that a branch is reachable or executable. Identifier
+relocations, string/float reference types, function nesting, line-table
+semantics and runtime behavior are not validated. A stream-end target may be
+structurally valid even when a particular executor rejects falling off code.
+The decoder limits input to1,048,576 words and leaves caller output unchanged
+on failure. No original script payloads are bundled.
+
+Independent fixtures check declaration argument widths, reserved-looking
+operand values, fixed-width instruction families, truncated headers/operands,
+bad targets and output atomicity. The test target also exercises the real
+inspection CLI against synthetic valid/unknown-opcode DSO bytes, checking
+that optional decoding succeeds or returns exactly exit1 as appropriate.
+
+- [x] Decode documented instruction widths and validate structural targets.
+- [x] Connect optional instruction inspection to the external-file tool.
+- [ ] Compare structure against original shipped files in the research lab.
+- [ ] Integrate runtime semantics only after the independent executor is merged.
+
 ## Historical surface inventory
 
 The inventory below describes the earlier research snapshot, not completed
