@@ -1,0 +1,45 @@
+name: cpp-hosts
+on:
+  pull_request:
+    paths:
+      - 'common/torque/**'
+      - '.github/workflows/cpp-hosts.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  posix:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y g++ make zlib1g-dev python3
+      - name: Build and exercise both profiles
+        run: |
+          make -C common/torque/host304 test
+          make -C common/torque/host4208 test
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            make
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-zlib
+            mingw-w64-ucrt-x86_64-python
+      - name: Build and exercise both profiles
+        shell: msys2 {0}
+        run: |
+          make -C common/torque/host304 test
+          make -C common/torque/host4208 test

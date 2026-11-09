@@ -132,6 +132,7 @@ bool take(int &i, int argc, char **argv, std::string &value) {
 
 int main(int argc, char **argv) {
   std::string script = "scripts/camera-move.cs";
+  bool scriptExplicit = false;
   std::string host;
   std::string account = "lab";
   std::string password = "lab";
@@ -152,6 +153,7 @@ int main(int argc, char **argv) {
         return 2;
       }
       script = value;
+      scriptExplicit = true;
     } else if (arg == "--host") {
       if (!take(i, argc, argv, value)) {
         usage();
@@ -234,7 +236,9 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  if (!fileExists(script)) {
+  // Only the implicit demo may be resolved from the bundled location.
+  // An explicit path must fail at that path, never run a different script.
+  if (!scriptExplicit && !fileExists(script)) {
     const std::string beside = findUp("common/torque/host304/scripts/camera-move.cs");
     if (!beside.empty()) {
       script = beside;

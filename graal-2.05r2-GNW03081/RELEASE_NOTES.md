@@ -14,6 +14,15 @@ client carries simple graphics of its own; put a 2.05 install you own next
 to it, or point `--data DIR` at one, for the real tiles, ganis, heads and
 bodies.
 
+## What's new in v0.0.5
+
+- [x] Shared GS1 variable storage releases its scalar and array values
+  explicitly, removing the newer TStringList.OwnsObjects dependency while
+  preserving clear/reuse/destruction behavior. Lifetime tests run with
+  the heap tracer. This change benefits every client using the shared unit.
+- [ ] Finish the other historical Delphi compatibility work and verify a
+  build with an actual period compiler; modern FPC tests do not certify it.
+
 ## What's new in v0.0.4
 
 - Rebuilt from the latest code; the changes for this client are listed here as they land.
