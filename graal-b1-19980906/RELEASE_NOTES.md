@@ -22,6 +22,16 @@ unblock the zip before you extract it: right-click it, **Properties**,
 tick **Unblock**, **OK**. Then nothing in the folder is asked about again.
 See [Windows says "Windows protected your PC"](https://github.com/squirelworks/graal-delphi#windows-says-windows-protected-your-pc).
 
+## What's new in v0.0.5
+
+- [x] Walking uses the 1st Graal executable's own collision probes and
+  0.125-tile corner nudges. Directional synthetic-board tests distinguish
+  these rules from the later-build constants previously used.
+- [x] Include an address-free evidence handoff with explicit researcher
+  attribution and limits, including the older public Appendix E307 status.
+- [ ] Complete the remaining pushing, ledge/hop and exceptional movement
+  states; this geometry correction does not certify the whole movement loop.
+
 ## What's new in v0.0.4
 
 - Rebuilt from the latest code; the changes for this client are listed here as they land.
