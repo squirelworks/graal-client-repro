@@ -733,9 +733,10 @@ begin
   end;
 end;
 
-{ ---- walking: the rule of the later builds (graal_analysis
-  client-internals/decomp-findings-2026-10-25-m/01-walking-rule.md),
-  half a tile a step; not yet checked against a 1998 build ---- }
+{ ---- walking: researcher-supplied exact 1st Graal geometry, evidence
+  GRAAL-FIRST-MOVEMENT-20261109-01 (see ../MOVEMENT_EVIDENCE.md).
+  These constants apply to this build only; the remaining movement
+  state gates are not yet matched. ---- }
 
 function TileOf(V: Double): Integer;
 begin
@@ -764,12 +765,12 @@ procedure TAdventure.WalkStep(Dir: Integer);
 const
   StepX: array[0..3] of Double = (0, -0.5, 0, 0.5);
   StepY: array[0..3] of Double = (-0.5, 0, 0.5, 0);
-  Fixed: array[0..3] of Double = (1.0, 0.5, 3.0, 2.5);
+  Fixed: array[0..3] of Double = (1.05, 0.55, 2.95, 2.45);
   Along: array[0..3, 0..5] of Double = (
-    (0.525, 1.475, 1.525, 2.475, 2.525, 0.475),
-    (1.025, 1.975, 2.025, 2.975, 3.025, 0.975),
-    (0.525, 1.475, 1.525, 2.475, 2.525, 0.475),
-    (1.025, 1.975, 2.025, 2.975, 3.025, 0.975));
+    (0.6, 1.4, 1.6, 2.4, 2.525, 0.475),
+    (1.1, 1.9, 2.1, 2.9, 3.025, 0.975),
+    (0.6, 1.4, 1.6, 2.4, 2.525, 0.475),
+    (1.1, 1.9, 2.1, 2.9, 3.025, 0.975));
 var
   NX, NY, F: Double;
   B: array[0..5] of Boolean;
@@ -787,11 +788,11 @@ begin
   begin
     if B[0] and not B[2] and not B[3] and not B[4] then
     begin
-      if (Dir = DirUp) or (Dir = DirDown) then NX := NX + 0.1 else NY := NY + 0.1;
+      if (Dir = DirUp) or (Dir = DirDown) then NX := NX + 0.125 else NY := NY + 0.125;
     end
     else if not B[0] and not B[1] and B[3] and not B[5] then
     begin
-      if (Dir = DirUp) or (Dir = DirDown) then NX := NX - 0.1 else NY := NY - 0.1;
+      if (Dir = DirUp) or (Dir = DirDown) then NX := NX - 0.125 else NY := NY - 0.125;
     end;
     NX := NX - StepX[Dir];
     NY := NY - StepY[Dir];

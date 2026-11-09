@@ -47,6 +47,13 @@ script-bound keys. Hardcoded key bytes stay in `GuiGraalCtrl`.
 
 Packet ids in the frame are 5, 37 and 34. No unknown packet id is sent.
 
+## Shared first-frame component
+
+The plain first-frame builder remains version-specific in src/login.cpp.
+Compression, framing and loopback sending come from ../shared/first_frame.cpp.
+Run make test for independent byte/decoding checks and a local TCP fixture.
+These checks establish first-frame delivery only, not login or gameplay.
+
 ## Explicit script paths
 
 --script FILE runs that exact path. A missing file fails before building or
