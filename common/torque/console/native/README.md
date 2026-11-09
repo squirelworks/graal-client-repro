@@ -4,7 +4,7 @@ Independent C++ console slice toward #172. `NativeFunctions` registers real
 callbacks and invokes them with ordered byte-string arguments, rather than
 logging command names as if their bodies ran. It is not yet wired to the
 DSO reader, bytecode executor, client boot hosts or original command bodies.
-It has no dependency on the unmerged181/182 branches.
+It builds independently alongside the merged DSO reader and bounded VM.
 
 The published [Linux3.04 argument-count contract](https://github.com/squirelworks/Graal_analysis/blob/main/torque/engine-304.md#argument-counts)
 states that counts include the command name and max0 means no upper bound.
@@ -52,7 +52,7 @@ No original command, script, executable, native layout or game asset is used.
 
 - [x] Register and invoke functions with command-inclusive arity checks.
 - [x] Preserve callback state and active lifetime with explicit failure results.
-- [ ] Add the evidence-backed VM call adapter after181/182 disposition.
+- [ ] Add the evidence-backed VM call adapter after this registry is reviewed.
 - [ ] Verify original lookup, native argument/result and namespace behavior.
 - [ ] Add real builtins and object-method/lifecycle contracts with their own tests.
 
