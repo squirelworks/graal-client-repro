@@ -1,13 +1,15 @@
 #include "dso.hpp"
+#include "instructions.hpp"
 
 #include <fstream>
 #include <iostream>
 #include <string>
 
 int main(int argc, char** argv) {
-  if (argc != 3 || (std::string(argv[1]) != "--little-floats" &&
+  if ((argc != 3 && argc != 4) || (argc == 4 && std::string(argv[3]) != "--instructions") ||
+      (std::string(argv[1]) != "--little-floats" &&
                     std::string(argv[1]) != "--big-floats")) {
-    std::cerr << "usage: dso-inspect --little-floats|--big-floats FILE\n";
+    std::cerr << "usage: dso-inspect --little-floats|--big-floats FILE [--instructions]\n";
     return 2;
   }
   std::ifstream input(argv[2], std::ios::binary | std::ios::ate);
@@ -34,4 +36,13 @@ int main(int argc, char** argv) {
   std::cout << "DSO33 format-only: " << block.code.size() << " code words, "
             << block.lines.size() << " line pairs, " << block.identifiers.size()
             << " identifier groups; not executed\n";
+  if (argc == 4) {
+    std::vector<Torque::DsoInstruction> instructions;
+    Torque::InstructionError instruction_error;
+    if (!Torque::decode_instructions(block.code, instructions, instruction_error)) {
+      std::cerr << "DSO word " << instruction_error.ip << ": " << instruction_error.message << '\n';
+      return 1;
+    }
+    std::cout << instructions.size() << " instructions; not executed\n";
+  }
 }
