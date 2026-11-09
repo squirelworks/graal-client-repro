@@ -43,3 +43,10 @@ If nothing is listening, the program still prints the frame and exits 0.
 Packet id in the first frame is 5. No unknown packet id is sent.
 
 The frame code in this directory is its own copy.
+
+## Explicit script paths
+
+--script FILE runs that exact path. A missing file fails before building or
+sending the login-shaped frame; it never falls back to the bundled demo.
+With no --script argument the existing bundled demo lookup is retained.
+This is a rebuild startup rule, not evidence of original Torque boot order.

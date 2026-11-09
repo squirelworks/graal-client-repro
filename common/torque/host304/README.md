@@ -46,3 +46,10 @@ script-bound keys. Hardcoded key bytes stay in `GuiGraalCtrl`.
 | Console | A line runner for this file. Not the stock console. |
 
 Packet ids in the frame are 5, 37 and 34. No unknown packet id is sent.
+
+## Explicit script paths
+
+--script FILE runs that exact path. A missing file fails before building or
+sending the login-shaped frame; it never falls back to the bundled demo.
+With no --script argument the existing bundled demo lookup is retained.
+This is a rebuild startup rule, not evidence of original Torque boot order.
