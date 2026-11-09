@@ -42,4 +42,11 @@ If nothing is listening, the program still prints the frame and exits 0.
 
 Packet id in the first frame is 5. No unknown packet id is sent.
 
-The frame code in this directory is its own copy.
+The version-specific frame builder uses ../shared/first_frame.cpp for framing and loopback transport.
+
+## Shared first-frame component
+
+The plain first-frame builder remains version-specific in src/login.cpp.
+Compression, framing and loopback sending come from ../shared/first_frame.cpp.
+Run make test for independent byte/decoding checks and a local TCP fixture.
+These checks establish first-frame delivery only, not login or gameplay.
