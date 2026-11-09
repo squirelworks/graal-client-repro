@@ -215,6 +215,100 @@ begin
   end;
 end;
 
+{ Synthetic boards isolate the exact 1st Graal probe and nudge rules.
+  No original level or arrays.dat is needed: only tile 0 is passable. }
+procedure TestCollisionGeometry;
+var
+  G: TAdventure;
+  I, Dir, Side: Integer;
+  X, Y, EX, EY: Double;
+  Data: string;
+
+  function BE(V: Integer): string;
+  begin
+    Result := Chr((V shr 24) and 255) + Chr((V shr 16) and 255) +
+      Chr((V shr 8) and 255) + Chr(V and 255);
+  end;
+
+  procedure Board;
+  var
+    J: Integer;
+  begin
+    for J := 0 to BoardSize - 1 do G.Level.Tiles[J] := 0;
+  end;
+
+  procedure Step(D: Integer; AX, AY, WantX, WantY: Double; const Name: string);
+  begin
+    G.Player.X := AX;
+    G.Player.Y := AY;
+    G.WalkStep(D);
+    Check((Abs(G.Player.X - WantX) < 1e-9) and
+      (Abs(G.Player.Y - WantY) < 1e-9), Name);
+  end;
+
+begin
+  G := TAdventure.Create;
+  try
+    Data := BE(1) + BE(0); { list 0 contains only tile 0 }
+    for I := 1 to 24 do Data := Data + BE(0);
+    Check(G.Arrays.LoadFromString(Data) and not G.Arrays.TilePassable(1),
+      'collision: synthetic table makes tile 1 solid');
+    for Dir := DirUp to DirRight do
+    begin
+      Board;
+      X := 30.5;
+      Y := 5;
+      EX := X;
+      EY := Y;
+      case Dir of
+        DirUp: EY := Y - 0.5;
+        DirLeft: EX := X - 0.5;
+        DirDown: EY := Y + 0.5;
+        DirRight: EX := X + 0.5;
+      end;
+      Step(Dir, X, Y, EX, EY, 'collision: free half-tile step ' + IntToStr(Dir));
+      for Side := 0 to 1 do
+      begin
+        Board;
+        X := 30.5;
+        Y := 5;
+        EX := X;
+        EY := Y;
+        if (Dir = DirUp) or (Dir = DirDown) then
+        begin
+          X := 30;
+          EX := X + 0.125 * (1 - 2 * Side);
+          if Dir = DirUp then I := 5 else I := 8;
+          G.Level.Tiles[30 + 2 * Side + I * BoardW] := 1;
+        end
+        else
+        begin
+          EY := Y + 0.125 * (1 - 2 * Side);
+          if Dir = DirLeft then I := 30 else I := 33;
+          G.Level.Tiles[I + (6 + Side) * BoardW] := 1;
+        end;
+        Step(Dir, X, Y, EX, EY, 'collision: blocked step retains eighth-tile nudge ' +
+          IntToStr(Dir) + '/' + IntToStr(Side));
+      end;
+    end;
+    { Boundary boards distinguish this build's probes from later offsets. }
+    Board;
+    G.Level.Tiles[10 + 10 * BoardW] := 1;
+    Step(DirUp, 10, 10.45, 10, 10, 'collision: up uses leading edge 1.05');
+    Board;
+    G.Level.Tiles[10 + 13 * BoardW] := 1;
+    Step(DirDown, 10, 10.5, 10.125, 11, 'collision: down uses leading edge 2.95');
+    Board;
+    G.Level.Tiles[10 + 13 * BoardW] := 1;
+    Step(DirLeft, 10, 10.025, 9.5, 10, 'collision: left outer probe does not block a step');
+    Board;
+    G.Level.Tiles[12 + 11 * BoardW] := 1;
+    Step(DirRight, 10, 10, 10.5, 10.125, 'collision: right uses leading edge 2.45');
+  finally
+    G.Free;
+  end;
+end;
+
 procedure TestFuzz;
 var
   G: TAdventure;
@@ -292,6 +386,7 @@ begin
   TestPeerData;
   TestLevels;
   TestWalking;
+  TestCollisionGeometry;
   TestFuzz;
   WriteLn(Format('%d passed, %d failed', [Passed, Failed]));
   if Failed > 0 then Halt(1);
