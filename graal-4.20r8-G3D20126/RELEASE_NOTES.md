@@ -23,6 +23,9 @@ program works too (`graal-assets/4.20r8/`, then `graal-assets/common/`).
   the other existing host. Version-specific wire fields stay in its adapter;
   independent codec and TCP delivery tests do not establish historical login.
 
+- The C++ host honors an explicit --script path: a missing file fails
+  before frame construction instead of silently running the bundled demo.
+
 - `Shell420` is the Delphi-shaped shell for the window and the menus.
   It starts `common/torque/host4208`, which reads the four-module engine
   list, registers the engine controls, opens a level-shaped object,
