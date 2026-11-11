@@ -159,7 +159,7 @@ A new folder needs `python3 scripts/win/make_winres.py` or CI fails.
 - **Release**: v0.0.4.1 workflow and notes (#186 to #188).
 - **New issues**: per-family roadmaps #172 to #178 (TGE slice, GS2, v0 to
   v2 gameplay, GraalX, 39ster, Android vx, overall plan), client fixes
-  #179 and #180, Seihai ideas #148 to #150 and #153, #151 and #152
+  #179 and #180, Seihai ideas #148 to #150 (#153 closed as a duplicate), #151 and #152
   (per-build contracts and manifests), #154 (Worlds research, optional).
 - **Launchers, per build** (#110 retired the blanket claim): the Delphi
   launcher plus C++ engine DLL is the 4.04r2 to 5.12 split. From 6.00
@@ -206,7 +206,7 @@ decision (#110) and the work is active under #109 (section 5).
 
 | Item | Why | Issue |
 |---|---|---|
-| 2.3 as its own client | No real 2.3 exe has been read; the folder is the 2.31 rebuild with 2.3's token. #94 (remove it) closed, so it stays. An unpacked 2.3 is on Squirrel's Drive. | [#111](https://github.com/squirelworks/graal-client-repro/issues/111) |
+| 2.3 as its own client | No distinct 2.3 exe has been verified; the folder is the 2.31 rebuild with 2.3's token. #94 (remove it) closed, so it stays. The archive labelled 2.3 holds an exe byte-identical to the 2.31 one (version 2.3.1.0; #111, 2026-11-09), so it does not settle this. | [#111](https://github.com/squirelworks/graal-client-repro/issues/111) |
 | Graal3D side by side | The real client needs `d3drm.dll`, which modern Windows lacks; none on the PC, not downloaded from unknown sites. | [#112](https://github.com/squirelworks/graal-client-repro/issues/112) |
 | 4.04r2 side by side | The real client crashes on start (access violation; its folder holds only the exe). | [#113](https://github.com/squirelworks/graal-client-repro/issues/113) |
 | Code signing, licence | Owner decisions. | [#116](https://github.com/squirelworks/graal-client-repro/issues/116) |

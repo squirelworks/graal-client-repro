@@ -116,14 +116,15 @@ task lists mechanically on 2026-11-05 and some are older than the code).
 
 - [ ] #173 GS2: serialized scripts, envelopes, cache and event delivery
 - [ ] #150 Seihai mode: extras only when the server is Seihai
-- [ ] #153 a better login as a Seihai module, historical code untouched
-- [ ] #148 encrypted login channel for the server-capable rebuilds
+- [ ] #148 encrypted login channel for the server-capable rebuilds, original
+  login kept as the fallback (#153 closed as its duplicate)
 - [ ] #149 mixed-build stress in one level on seihai-gserver
 - [ ] #178 implementation roadmap: v0 to v2 and vx, verified completion
 
 ## On hold
 
-- [ ] #111 2.3 from a real 2.3 exe
+- [ ] #111 2.3 from a real 2.3 exe (the supplied "2.3" archive turned out
+  to hold the 2.31 exe)
 - [ ] #112 Graal3D side by side (d3drm.dll)
 - [ ] #113 4.04r2 side by side (the real client crashes)
 - [ ] #116 licence and code signing (Squirrel decides)
