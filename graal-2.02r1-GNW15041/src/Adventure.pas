@@ -525,8 +525,12 @@ begin
     repeat
       if (SR.Name = '.') or (SR.Name = '..') then Continue;
       if (SR.Attr and faDirectory) <> 0 then
-        IndexDir(Path + SR.Name + PathDelim, Depth + 1)
-      else if FIndex.IndexOf(LowerCase(SR.Name)) < 0 then
+      begin
+        if AssetAllowed(Path + SR.Name + PathDelim) then
+          IndexDir(Path + SR.Name + PathDelim, Depth + 1);
+      end
+      else if AssetAllowed(Path + SR.Name) and
+        (FIndex.IndexOf(LowerCase(SR.Name)) < 0) then
         FIndex.AddObject(LowerCase(SR.Name), TObject(PtrInt(FPaths.Add(Path + SR.Name))));
     until FindNext(SR) <> 0;
     FindClose(SR);
@@ -674,8 +678,9 @@ begin
   if (F = '') and (Dir <> '') then
   begin
     F := IncludeTrailingPathDelimiter(Dir) + 'levels/ganis/' + Name + '.gani';
-    if not FileExists(F) then
+    if not (FileExists(F) and AssetAllowed(F)) then
       F := IncludeTrailingPathDelimiter(Dir) + 'ganis/' + Name + '.gani';
+    if not AssetAllowed(F) then F := '';
   end;
   begin
     if (F <> '') and FileExists(F) then
@@ -2580,8 +2585,8 @@ begin
     Exit;
   end;
   Path := '';
-  if (FLevelDir <> '') and FileExists(FLevelDir + L.Dest) then
-    Path := FLevelDir + L.Dest
+  if (FLevelDir <> '') and (LevelSibling(FLevelDir, L.Dest) <> '') then
+    Path := LevelSibling(FLevelDir, L.Dest)
   else if AssetPath('levels/' + L.Dest) <> '' then
     Path := AssetPath('levels/' + L.Dest)
   else if AssetPath(L.Dest) <> '' then
@@ -3578,8 +3583,8 @@ begin
   if Name = '' then Exit;
   Result := TAdventureLevel.Create;
   Path := '';
-  if (FLevelDir <> '') and FileExists(FLevelDir + Name) then
-    Path := FLevelDir + Name
+  if (FLevelDir <> '') and (LevelSibling(FLevelDir, Name) <> '') then
+    Path := LevelSibling(FLevelDir, Name)
   else if AssetPath('levels/' + Name) <> '' then
     Path := AssetPath('levels/' + Name)
   else if AssetPath(Name) <> '' then

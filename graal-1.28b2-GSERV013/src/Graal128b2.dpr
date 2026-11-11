@@ -565,7 +565,7 @@ begin
   Y := OfflineStartY;
   Path := FirstFileIn(Dir, 'levels/start1.graal;start1.graal;levels/house1.graal;house1.graal');
   if Path = '' then
-    Path := Dir + 'start.nw';
+    Path := InstallPath(Dir, 'start.nw');
 end;
 
 { No arguments: the start screen, then the game it picks, and back to the
@@ -617,7 +617,7 @@ begin
     { The start dialog is the program's own form (TConnectFrame, compiled
       in from the real exe: Res128b2); its character list is the
       install's headsconfig.txt, else the list the exe carries. }
-    LaunchChars := ParseCharacters(InstallText(Dir + 'headsconfig.txt', ResCharacters));
+    LaunchChars := ParseCharacters(InstallText(InstallPath(Dir, 'headsconfig.txt'), ResCharacters));
     Icons := THeadIcons.Create(Dir);
     Langs := InstallLanguages(Dir);
     LaunchCfg.Style := ls128;
@@ -741,7 +741,7 @@ begin
   { the entries' head and name sit one pixel further left than before }
   Info.ItemShift := -1;
   Info.NickRowAlone := True;
-  if ReadHeadsConfig(Dir + 'headsconfig.txt', HNames, HFiles) then
+  if ReadHeadsConfig(InstallPath(Dir, 'headsconfig.txt'), HNames, HFiles) then
   begin
     Info.Names := HNames;
   end

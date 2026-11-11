@@ -212,7 +212,7 @@ begin
       begin
         if Exts[J] = '' then Continue;
         Cand := AssetRoot(K) + Dirs[I] + Base + Exts[J];
-        if FileExists(Cand) then
+        if FileExists(Cand) and AssetAllowed(Cand) then
         begin
           Result := Cand;
           Exit;
@@ -848,7 +848,7 @@ begin
   NX := Arrival(L.NewX, Player.X);
   NY := Arrival(L.NewY, Player.Y);
   Path := '';
-  if (FLevelDir <> '') and FileExists(FLevelDir + L.Dest) then Path := FLevelDir + L.Dest
+  if (FLevelDir <> '') and (LevelSibling(FLevelDir, L.Dest) <> '') then Path := LevelSibling(FLevelDir, L.Dest)
   else Path := Assets.LevelFile(L.Dest);
   if Path = '' then Path := L.Dest;
   { the partners hear that this player went to a link }

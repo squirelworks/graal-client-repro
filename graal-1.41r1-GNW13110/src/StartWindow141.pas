@@ -566,7 +566,7 @@ begin
     begin
       P := AssetPath(L[I]);
       if P = '' then P := Dir + StringReplace(L[I], '/', PathDelim, [rfReplaceAll]);
-      if FileExists(P) then
+      if FileExists(P) and AssetAllowed(P) then
       begin
         Result := P;
         Exit;

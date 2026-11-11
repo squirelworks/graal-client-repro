@@ -362,7 +362,7 @@ begin
       begin
         if Exts[J] = '' then Continue;
         Cand := AssetRoot(K) + Dirs[I] + Base + Exts[J];
-        if FileExists(Cand) then
+        if FileExists(Cand) and AssetAllowed(Cand) then
         begin
           Result := Cand;
           Exit;
@@ -440,8 +440,9 @@ begin
   if (Dir <> '') and (N <> '') and (Pos('..', N) = 0) then
   begin
     F := IncludeTrailingPathDelimiter(Dir) + 'levels/ganis/' + N + '.gani';
-    if not FileExists(F) then
+    if not (FileExists(F) and AssetAllowed(F)) then
       F := IncludeTrailingPathDelimiter(Dir) + 'ganis/' + N + '.gani';
+    if not AssetAllowed(F) then F := '';
     if FileExists(F) then
     begin
       A := TGraalAni.Create;
@@ -1098,7 +1099,7 @@ begin
   FAdjacentAsked.Clear;
   { the install (or the folder of an offline level) first, then the server }
   F := '';
-  if (FLevelDir <> '') and FileExists(FLevelDir + Name) then F := FLevelDir + Name
+  if (FLevelDir <> '') and (LevelSibling(FLevelDir, Name) <> '') then F := LevelSibling(FLevelDir, Name)
   else F := Assets.LevelFile(Name);
   if (F <> '') and ReadFileText(F, Data) then
   begin
@@ -1167,7 +1168,7 @@ begin
       begin
         N := Gmap.CellName(CX, CY);
         if N = '' then Continue;
-        P := FLevelDir + N;
+        P := LevelSibling(FLevelDir, N);
         if not FileExists(P) then P := Assets.LevelFile(N);
         L := CachedLevel(N, True);
         if (P <> '') and L.LoadFromFile(P) then L.HasBoard := True;
@@ -1265,8 +1266,8 @@ begin
     Exit;
   end;
   Path := '';
-  if (FLevelDir <> '') and FileExists(FLevelDir + L.Dest) then
-    Path := FLevelDir + L.Dest
+  if (FLevelDir <> '') and (LevelSibling(FLevelDir, L.Dest) <> '') then
+    Path := LevelSibling(FLevelDir, L.Dest)
   else
     Path := Assets.LevelFile(L.Dest);
   if Path = '' then Path := L.Dest; { LoadLevelFile tries the built-in ones }

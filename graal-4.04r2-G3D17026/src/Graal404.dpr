@@ -502,7 +502,7 @@ begin
   Path := FirstFileIn(Dir, 'levels/tutorial/offlinetutorial_b-2.graal;levels/offlinetutorial_b-2.nw;levels/offlinetutorial_b-2.graal;offlinetutorial_b-2.nw;offlinetutorial_b-2.graal');
   if Path = '' then
   begin
-    Path := Dir + 'start.nw';
+    Path := InstallPath(Dir, 'start.nw');
     X := '30';
     Y := '30';
   end;
@@ -549,7 +549,7 @@ begin
     InstallStopHandlers;
     SetAssetRoots(Dir, ClientBuildLabel);
     Lic := AssetPath('license/license.graal');
-    if Lic = '' then Lic := Dir + 'license' + PathDelim + 'license.graal';
+    if Lic = '' then Lic := InstallPath(Dir, 'license' + PathDelim + 'license.graal');
     Hosts := LoadListHosts(Lic);
     Signup := DefaultSignupUrl;
     if FileExists(Lic) then

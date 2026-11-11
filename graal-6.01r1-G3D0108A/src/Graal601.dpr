@@ -489,7 +489,7 @@ begin
   Path := FirstFileIn(Dir, 'levels/offlinetutorial_b-2.nw;levels/offlinetutorial_b-2.graal;offlinetutorial_b-2.nw;offlinetutorial_b-2.graal');
   if Path = '' then
   begin
-    Path := Dir + 'start.nw';
+    Path := InstallPath(Dir, 'start.nw');
     X := '30';
     Y := '30';
   end;

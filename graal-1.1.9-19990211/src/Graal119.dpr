@@ -564,7 +564,7 @@ begin
   Y := OfflineStartY;
   Path := FirstFileIn(Dir, 'levels/' + OfflineStartLevel + ';' + OfflineStartLevel +
     ';levels/level1.graal;level1.graal');
-  if Path = '' then Path := Dir + 'start.nw';
+  if Path = '' then Path := InstallPath(Dir, 'start.nw');
 end;
 
 { No arguments: the game mode and the connect dialog, then the game it
