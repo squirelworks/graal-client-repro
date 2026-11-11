@@ -2,7 +2,7 @@ name: release-all
 
 # Every client released at the same version in ONE run, instead of one
 # release.yml run per folder. Start it from the Actions tab (Run workflow,
-# version defaults to v4.0.1). It:
+# version defaults to v0.0.4.1). It:
 #   - builds and tests every Delphi client (graal-*/) on Linux and Windows,
 #     stamps the version into each Windows exe and packs each one with the
 #     same scripts release.yml uses (scripts/release/), so the release
@@ -13,7 +13,7 @@ name: release-all
 #   - builds the Java and Game Boy clients through their own workflows
 #     (javagraal, zelda-online1, zelda-online2, graalgb);
 #   - makes ONE GitHub release with every client in it: tag <version>
-#     (v4.0.1), titled "Graal clients <version>", every client's zips
+#     (v0.0.4.1), titled "Graal clients <version>", every client's zips
 #     attached, and as its text one section per client taken from the
 #     "What's new in <version>" part of its RELEASE_NOTES.md;
 #   - with stress gate = block or report, stress tests every Delphi client
@@ -27,7 +27,7 @@ name: release-all
 #   - points RELEASES.md at the new releases.
 # Publish defaults to no (draft). Publish = yes publishes them straight away (pressing Run workflow is the
 # go-ahead for all of them at once); no makes drafts as release.yml does.
-# v4.0.1 uses the consolidated docs/releases/v4.0.1.md checkpoint notes.
+# v0.0.4.1 uses the consolidated docs/releases/v0.0.4.1.md checkpoint notes.
 # Other versions: every folder's RELEASE_NOTES.md must mention the version, so a folder
 # without notes for it stops the run before anything is released.
 # Running it again for the same version replaces the zips and notes
@@ -38,9 +38,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Version for every client, e.g. v4.0.1
+        description: Version for every client, e.g. v0.0.4.1
         required: true
-        default: v4.0.1
+        default: v0.0.4.1
       publish:
         description: Publish straight away (no = drafts to review)
         type: choice
@@ -99,11 +99,11 @@ jobs:
           case "$VERSION" in v[0-9]*) ;; *) echo "version must look like v0.0.3"; exit 1 ;; esac
           if [ -n "$ONLY" ]; then ALL="$ONLY"
           else ALL="$(ls -d graal-*/ graalgb-*/ javagraal-*/ zelda-online*/ | tr -d /)"; fi
-          if [ "$VERSION" = v4.0.1 ]; then test -s docs/releases/v4.0.1.md; fi
+          if [ "$VERSION" = v0.0.4.1 ]; then test -s docs/releases/v0.0.4.1.md; fi
           DELPHI=""; BAD=0
           for B in $ALL; do
             if [ ! -f "$B/RELEASE_NOTES.md" ]; then echo "::error::$B: no RELEASE_NOTES.md"; BAD=1; continue; fi
-            if [ "$VERSION" != v4.0.1 ] && ! grep -qF "$VERSION" "$B/RELEASE_NOTES.md"; then
+            if [ "$VERSION" != v0.0.4.1 ] && ! grep -qF "$VERSION" "$B/RELEASE_NOTES.md"; then
               echo "::error::$B: RELEASE_NOTES.md says nothing about $VERSION"; BAD=1; continue
             fi
             case "$B" in
@@ -329,7 +329,7 @@ jobs:
       combined: 'yes'
 
   release:
-    # ONE release for every client: tag <version> (v4.0.1), every zip of
+    # ONE release for every client: tag <version> (v0.0.4.1), every zip of
     # the run attached, and notes made of each client's section for this
     # version (scripts/release/combined_notes.py).
     needs: [plan, build, macos, stress, javagraal, zelda-online1, zelda-online2, graalgb]
@@ -367,8 +367,8 @@ jobs:
           [ "$GRAALGB" = yes ] && F="$F graalgb-1.10"
           ZIPS=$(ls dist/*-"$VERSION"*.zip)
           echo "$(echo $ZIPS | wc -w) zips for $(echo $F | wc -w) clients"
-          if [ "$VERSION" = v4.0.1 ]; then
-            cp docs/releases/v4.0.1.md notes.md
+          if [ "$VERSION" = v0.0.4.1 ]; then
+            cp docs/releases/v0.0.4.1.md notes.md
             printf '\n## Attached artifacts\n\n' >> notes.md
             for ZIP in $ZIPS; do printf '%s\n' "- $(basename "$ZIP")" >> notes.md; done
           else
