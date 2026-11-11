@@ -41,8 +41,8 @@ release yet. v0.0.4.1 is being cut; the next release after it is 0.0.5.
 
 ## Release v0.0.4.1
 
-- [ ] release-all restores the Worlds player (the job's `VERSION` was read
-  by MSBuild as the package version, runs 8 and 9 failed)
+- [x] release-all restores the Worlds player (the job's `VERSION` was read
+  by MSBuild as the package version, runs 8 and 9 failed; #189)
 - [ ] Run release-all for v0.0.4.1 and check the Linux and Windows results
   before publishing (Squirrel)
 
