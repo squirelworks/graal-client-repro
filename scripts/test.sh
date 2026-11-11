@@ -3,8 +3,16 @@
 set -eu
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 FAIL=0
+. "$ROOT/scripts/v7.sh"
+# blocks the run, unless FOLDER is a v7 client (scripts/v7.sh)
+fail() {
+  if [ "${V7_STRICT:-}" != 1 ] && is_v7 "$1"; then v7_warn "$1" "$2"
+  else FAIL=1
+  fi
+}
 for T in "$ROOT"/build/*/Test*; do
   [ -x "$T" ] || continue
+  TB=$(basename "$(dirname "$T")")
   echo "== $T"
   # The tests are built with the heap tracer. It writes its report from a
   # unit finalization, which runs after the runtime has already flushed
@@ -19,25 +27,25 @@ for T in "$ROOT"/build/*/Test*; do
   case $(uname -s) in
     MINGW*|MSYS*|CYGWIN*) LOG=$(cygpath -w "$HEAPLOG") ;;
   esac
-  HEAPTRC="log=$LOG" "$T" || FAIL=1
+  HEAPTRC="log=$LOG" "$T" || fail "$TB" "$(basename "$T") failed"
   if [ -f "$HEAPLOG" ]; then
     cat "$HEAPLOG" >&2
   fi
   if [ ! -f "$HEAPLOG" ] || ! grep -q "^0 unfreed memory blocks" "$HEAPLOG"; then
-    echo "leak: $T left memory unfreed"; FAIL=1
+    echo "leak: $T left memory unfreed"; fail "$TB" "$(basename "$T") left memory unfreed"
   fi
 done
 for HOST in "$ROOT/build/graal-6.114-worlds/worlds-host" \
             "$ROOT/build/graal-6.114-worlds/worlds-host.exe"; do
   if [ -x "$HOST" ]; then
     echo "== $HOST --self-check"
-    "$HOST" --self-check || FAIL=1
+    "$HOST" --self-check || fail graal-6.114-worlds "worlds-host --self-check failed"
   fi
 done
 PLAYER="$ROOT/build/graal-6.114-worlds/worlds-player"
 WORLD="$ROOT/graal-6.114-worlds/worlds/local-yard.txt"
 if [ -x "$PLAYER" ]; then
   echo "== $PLAYER --self-check"
-  "$PLAYER" --self-check --world "$WORLD" || FAIL=1
+  "$PLAYER" --self-check --world "$WORLD" || fail graal-6.114-worlds "worlds-player --self-check failed"
 fi
 exit $FAIL
