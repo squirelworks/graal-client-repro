@@ -37,6 +37,7 @@ program works too (`graal-assets/3.04/`, then `graal-assets/common/`).
   login-shaped first frame (`G3D03014`) to the loopback address.
   `scripts/build.sh` builds it. The script is not the install's
   `main.cs`. Later frames are not built.
+- [x] **Pictures by kind.** The picture cache keeps each name once per kind (head, body, sword, shield, hat, weapon), because each kind searches its own folders. A picture first asked for without its kind got the built-in stand-in and kept it, so an install's own picture could stay hidden behind the stand-in (in 1.33, `levels/weapons/wbomb1.gif` beside the D button).
 
 ## What's new in v0.0.4
 

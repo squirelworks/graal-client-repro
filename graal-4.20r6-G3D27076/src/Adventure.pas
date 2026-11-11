@@ -396,7 +396,11 @@ var
 begin
   Result := nil;
   if Name = '' then Exit;
+  { one entry per name and kind: each kind searches its own folders, and a
+    miss under one kind (the built-in stand-in) must not hide the file
+    another kind finds, e.g. levels/weapons/wbomb1.gif }
   Key := 'img:' + LowerCase(Name);
+  if Kind <> '' then Key := Key + '|' + Kind;
   I := FNames.IndexOf(Key);
   if I >= 0 then
   begin

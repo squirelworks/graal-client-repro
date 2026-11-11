@@ -522,7 +522,7 @@ begin
     Exit;
   end;
   InstallStopHandlers;
-  SetAssetRoots(Dir, ClientBuildLabel);
+  SetAssetRoots(Dir, ClientAssetFolders);
   ReadListServer(Dir, DialogHost, DialogPort, Host, Port);
   Info.AppTitle := 'Graal';
   Info.Nick := '';

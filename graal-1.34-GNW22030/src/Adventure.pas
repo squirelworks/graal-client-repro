@@ -524,7 +524,11 @@ var
 begin
   Result := nil;
   if Name = '' then Exit;
+  { one entry per name and kind: each kind searches its own folders, and a
+    miss under one kind (the built-in stand-in) must not hide the file
+    another kind finds, e.g. levels/weapons/wbomb1.gif }
   Key := 'img:' + LowerCase(Name);
+  if Kind <> '' then Key := Key + '|' + Kind;
   I := FNames.IndexOf(Key);
   if I >= 0 then
   begin
@@ -3004,10 +3008,30 @@ var
   St: TGSurface;
   I, N, Row, Col, X, Half, HX, HY, Hearts2, Down: Integer;
   Baked: Boolean;
+  Sw: TGSurface;
 
   procedure Part(SX, SY, W, H, DX, DY: Integer);
   begin
     Screen.Blit(St, SX, SY, W, H, DX, DY);
+  end;
+
+  { a digit of the counts: row 81 of a state picture that has one (1.38
+    on); a state picture without it (224 x 81, up to 1.37) leaves the
+    digits to the sprite sheet, sprites 268 to 277 of arrays.dat (0 to 8 in
+    a row, 9 above the 7), as the 1998-99 clients draw them }
+  procedure Num(D, DX, DY: Integer);
+  var
+    Sp: TGSurface;
+    SX, SY, SW, SH: Integer;
+  begin
+    if not Baked then
+    begin
+      Part(14 * D, 81, 14, 16, DX, DY);
+      Exit;
+    end;
+    Sp := Assets.Image('sprites.png', '');
+    if (Sp <> nil) and Arrays.SpriteRect(268 + D, SX, SY, SW, SH) then
+      Screen.Blit(Sp, SX, SY, SW, SH, DX, DY);
   end;
 
   procedure Digits(V, CX, Y: Integer; Centred: Boolean);
@@ -3018,7 +3042,7 @@ var
     D := IntToStr(V);
     if Centred then X0 := CX - (Length(D) * 12) div 2 else X0 := CX;
     for J := 1 to Length(D) do
-      Part(14 * (Ord(D[J]) - Ord('0')), 81, 14, 16, X0 + (J - 1) * 12, Y);
+      Num(Ord(D[J]) - Ord('0'), X0 + (J - 1) * 12, Y);
   end;
 
   procedure KeyName(const K: string; BX, BY: Integer);
@@ -3048,6 +3072,10 @@ begin
     end;
     if WeaponsOn then
     begin
+      { the player's sword beside S: the swing picture of its sheet, as the
+        1998-99 status display places it }
+      Sw := Assets.Image(Player.SwordImage, 'sword');
+      if Sw <> nil then Screen.Blit(Sw, 94, 36, 28, 28, 105, 31);
       if Baked then
       begin
         Part(180, 0, 22, 33, 80, 30);
@@ -3071,13 +3099,13 @@ begin
     if ShowStats and $04 <> 0 then Digits(Player.Rupees, 280, 48, True);
     if ShowStats and $08 <> 0 then
     begin
-      Part(14 * ((Player.Bombs div 10) mod 10), 81, 14, 16, 326, 48);
-      Part(14 * (Player.Bombs mod 10), 81, 14, 16, 338, 48);
+      Num((Player.Bombs div 10) mod 10, 326, 48);
+      Num(Player.Bombs mod 10, 338, 48);
     end;
     if ShowStats and $10 <> 0 then
     begin
-      Part(14 * ((Player.Arrows div 10) mod 10), 81, 14, 16, 374, 48);
-      Part(14 * (Player.Arrows mod 10), 81, 14, 16, 386, 48);
+      Num((Player.Arrows div 10) mod 10, 374, 48);
+      Num(Player.Arrows mod 10, 386, 48);
     end;
   end;
   { the selected weapon's whole image beside the D button: x 170, centred
