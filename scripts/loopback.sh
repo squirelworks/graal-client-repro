@@ -137,6 +137,55 @@ if grep -qs "ScaffoldOnly = True;" "$ROOT/$B"/src/*.pas; then
   echo "scaffold only, no loopback: $B"
   exit 0
 fi
+# 6.11 has no fixed hello: it logs in through a connector. The folder's
+# own signed conf.gs is served on loopback; the script sends the
+# placeholder SEI00001, which the gserver does not accept yet
+# (seihai-gserver-v2). This checks the connector login reaches the
+# gserver with SEI00001 and stops there.
+if grep -qs "ConnectorOnly = True;" "$ROOT/$B"/src/*.pas; then
+  GSDIR=$(cd "$(dirname "$GS")/../.." && pwd)
+  WORK=$(mktemp -d)
+  CPID=""
+  trap 'kill $PID 2>/dev/null || true; if [ -n "$CPID" ]; then kill "$CPID" 2>/dev/null || true; fi; rm -rf "$WORK"' EXIT
+  PORT=${LOOPBACK_PORT:-14862}
+  CPORT=$((PORT + 1))
+  cp -r "$GSDIR/world" "$WORK/world"
+  sed -i "s/14802/$PORT/" "$WORK/world/config/server.txt"
+  "$GS" --world "$WORK/world" --verbose > "$WORK/gserver.log" 2>&1 &
+  PID=$!
+  CLIENT=$(ls "$ROOT/build/$B"/Graal* | head -1)
+  "$CLIENT" --connector-serve "$CPORT" --conf "$ROOT/$B/connector/sei00001-conf.gs" \
+    --seconds 10 > "$WORK/connector.log" 2>&1 &
+  CPID=$!
+  sleep 2
+  set +e
+  GRAAL_PW=loopbackpw "$CLIENT" --server 127.0.0.1:$PORT \
+    --connector 127.0.0.1:$CPORT --account loop1 --frames 4 \
+    > "$WORK/hello.json" 2> "$WORK/hello.log"
+  RC=$?
+  set -e
+  echo "--- connector login"
+  cat "$WORK/hello.log" "$WORK/hello.json"
+  echo "--- gserver log"
+  cat "$WORK/gserver.log"
+  if [ "$RC" -ne 0 ]; then
+    echo "connector client exited $RC"
+    exit "$RC"
+  fi
+  for WANT in "signature verified" "header template EILLLT set" \
+      "connector hello sent: SEI00001" "stopped after SEI00001 hello"; do
+    if ! grep -q "$WANT" "$WORK/hello.log"; then
+      echo "client log is missing: $WANT"
+      exit 1
+    fi
+  done
+  if grep -q "logged in as" "$WORK/gserver.log"; then
+    echo "gserver logged a login this folder does not complete"
+    exit 1
+  fi
+  echo "connector login to SEI00001 only (not yet usable): $B"
+  exit 0
+fi
 # 6.1.1.3 sends GNP1905C and stops. The cipher was not identified.
 # This check runs that hello and does not invent the bytes after it.
 if grep -qs "ClearHelloStop = True;" "$ROOT/$B"/src/*.pas; then
