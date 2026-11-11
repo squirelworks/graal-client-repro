@@ -48,7 +48,7 @@ BEGIN
       VALUE "OriginalFilename", "{prog}.exe"
       VALUE "ProductName", "graal-delphi"
       VALUE "ProductVersion", "0.0.0-dev"
-      VALUE "Comments", "https://github.com/squirelworks/graal-delphi"
+      VALUE "Comments", "https://github.com/squirelworks/graal-client-repro"
     END
   END
   BLOCK "VarFileInfo"
