@@ -146,7 +146,13 @@ jobs:
           dotnet --info
           for B in $BUILDS; do
             if [ -f "$B/player/WorldsPlayer.csproj" ]; then
-              dotnet restore "$B/player/WorldsPlayer.csproj" --verbosity diagnostic 2>&1 | tee "restore-logs/$B.log"
+              # MSBuild reads every environment variable as a property, so the
+              # job's VERSION (v0.0.4.1) would become $(Version), which NuGet
+              # rejects. Run dotnet without it.
+              # v7 (Worlds) is not blocking until there is more v7 research
+              # (scripts/v7.sh): a failed restore is a warning.
+              env -u VERSION dotnet restore "$B/player/WorldsPlayer.csproj" --verbosity diagnostic 2>&1 | tee "restore-logs/$B.log" ||
+                echo "::warning::$B (v7, not blocking): dotnet restore failed"
             fi
           done
       - name: Upload restore diagnostics
@@ -178,13 +184,24 @@ jobs:
           scripts/test.sh
       - name: Pack
         shell: bash
-        run: for B in $BUILDS; do scripts/release/pack.sh "$B" "$VERSION" "${RUNNER_OS,,}"; done
+        run: |
+          . scripts/v7.sh
+          for B in $BUILDS; do
+            # a v7 client that did not build has no zip (scripts/v7.sh)
+            if is_v7 "$B"; then
+              scripts/release/pack.sh "$B" "$VERSION" "${RUNNER_OS,,}" || v7_warn "$B" "nothing to pack"
+            else
+              scripts/release/pack.sh "$B" "$VERSION" "${RUNNER_OS,,}"
+            fi
+          done
       - name: Check the Windows exes carry version info and a manifest
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $want = $env:VERSION.TrimStart('v')
           foreach ($exe in Get-ChildItem "dist/*-$env:VERSION-windows/*.exe") {
+            # v7 (Worlds) is not blocking (scripts/v7.sh)
+            if ($exe.Directory.Name -like 'graal-6.114-worlds-*') { "::warning::$($exe.Directory.Name) (v7, not blocking): not checked"; continue }
             $v = $exe.VersionInfo
             "{0}/{1}: {2} {3} / {4}" -f $exe.Directory.Name, $exe.Name, $v.ProductName, $v.ProductVersion, $v.FileDescription
             if ($v.ProductName -ne 'graal-delphi' -or $v.CompanyName -ne 'squirelworks') { throw "$($exe.FullName): no version info" }

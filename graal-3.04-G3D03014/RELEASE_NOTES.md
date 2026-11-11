@@ -63,7 +63,7 @@ is SmartScreen meeting an unsigned program it has not seen before, not a
 virus warning. Either click **More info**, then **Run anyway** (once), or
 unblock the zip before you extract it: right-click it, **Properties**,
 tick **Unblock**, **OK**. Then nothing in the folder is asked about again.
-See [Windows says "Windows protected your PC"](https://github.com/squirelworks/graal-delphi#windows-says-windows-protected-your-pc).
+See [Windows says "Windows protected your PC"](https://github.com/squirelworks/graal-client-repro#windows-says-windows-protected-your-pc).
 
 ## What works
 

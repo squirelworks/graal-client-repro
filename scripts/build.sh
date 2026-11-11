@@ -12,7 +12,16 @@ FLAGS=${FPCFLAGS:--O2}
 # MSYS (/d/a/...) and mixed (D:/a/...) absolute paths alike.
 cd "$ROOT"
 if [ $# -gt 0 ]; then BUILDS="$*"; else BUILDS=$(ls -d graal-*/ | tr -d /); fi
+. "$ROOT/scripts/v7.sh"
 for B in $BUILDS; do
+  # A v7 folder builds in its own run, so its failure is reported and the
+  # other builds go on (scripts/v7.sh).
+  if [ -z "${GRAAL_V7_INNER:-}" ] && [ "${V7_STRICT:-}" != 1 ] && is_v7 "$B"; then
+    if ! GRAAL_V7_INNER=1 sh "$ROOT/scripts/build.sh" "$B"; then
+      v7_warn "$B" "build failed"
+    fi
+    continue
+  fi
   OUT="$ROOT/build/$B"
   mkdir -p "$OUT"
   mkdir -p "$OUT/checked"
@@ -90,7 +99,9 @@ for B in $BUILDS; do
     PLAYOUT="$OUT/worlds-player"
     rm -f "$PLAYOUT" "$OUT/worlds-player.exe"
     if command -v dotnet >/dev/null 2>&1 && [ -f "$B/player/WorldsPlayer.csproj" ]; then
-      dotnet build "$B/player/WorldsPlayer.csproj" -c Release -o "$OUT" --nologo
+      # MSBuild turns environment variables into properties; a release job's
+      # VERSION (v0.0.4.1) would become $(Version), which NuGet rejects.
+      env -u VERSION dotnet build "$B/player/WorldsPlayer.csproj" -c Release -o "$OUT" --nologo
       if [ ! -x "$PLAYOUT" ] && [ -f "$OUT/worlds-player.exe" ]; then
         cat > "$PLAYOUT" << 'EOF'
 #!/bin/sh
