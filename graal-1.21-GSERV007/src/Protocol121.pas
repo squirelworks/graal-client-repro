@@ -107,7 +107,7 @@ const
   PLO_FILE = 102;
   PLO_SAY2 = 153;
   PLO_SETACTIVELEVEL = 156;
-  PLO_UNKNOWN168 = 168;
+  PLO_ONLINEMODE = 168;  { was PLO_UNKNOWN168 }
 
   { player props (pre-2.1 forms, as the server sends them to GNW03081) }
   PLPROP_NICKNAME = 0;
@@ -297,7 +297,7 @@ begin
     PLO_FILE: Result := 'FILE';
     PLO_SAY2: Result := 'SAY2';
     PLO_SETACTIVELEVEL: Result := 'SETACTIVELEVEL';
-    PLO_UNKNOWN168: Result := 'UNKNOWN168';
+    PLO_ONLINEMODE: Result := 'UNKNOWN168';
   else
     Result := 'PLO_' + IntToStr(Id);
   end;

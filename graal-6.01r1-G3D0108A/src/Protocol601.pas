@@ -160,7 +160,7 @@ const
   PLO_SETACTIVELEVEL = 156;
   PLO_MOVE = 165;
   PLO_SHOWIMGNPC = 166;
-  PLO_UNKNOWN168 = 168;
+  PLO_ONLINEMODE = 168;  { was PLO_UNKNOWN168 }
   PLO_UPGRADEURL = 169;
   PLO_GHOSTMODE = 170;
   PLO_BIGMAP = 171;
@@ -173,17 +173,17 @@ const
   PLO_SERVERWARP = 178;
   PLO_RPGWINDOW = 179;
   PLO_STATUSLIST = 180;
-  PLO_UNKNOWN181 = 181;
+  PLO_PLAYERNOUDP = 181;  { was PLO_UNKNOWN181 }
   PLO_LISTPROCESSES = 182;
   PLO_HASPROCESSRUNNING = 183;
   PLO_TAKESCREENSHOT = 184;
   PLO_BOARDHEIGHTS = 185;
   PLO_BOARDMODIFY2 = 186;
-  PLO_UNKNOWN190 = 190;  { raises onServerListerConnect on the Login server }
-  PLO_CLEARWEAPONS = 194;
+  PLO_SERVERLISTCONNECTED = 190;  { raises onServerListerConnect on the Login server; was PLO_UNKNOWN190 }
+  PLO_RESETCLIENT = 194;  { was PLO_CLEARWEAPONS }
   PLO_GANISCRIPT = 195;
   PLO_FILEREDIRECT = 109;   { i5 time, two strings (probably a file redirect) }
-  PLO_UNKNOWN198 = 198;     { one i5, stored on the connection }
+  PLO_SERVEROPTIONS = 198;     { one i5, stored on the connection; was PLO_UNKNOWN198 }
 
   { player props (2.1+ forms). No 6.x prop parser was read: the sets are
     3.153's, plus X2 / Y2 / Z2 (78 to 80), which the lab saw 5.x and 6.x
@@ -313,15 +313,15 @@ begin
     PLO_FILE: Result := 'FILE';
     PLO_SAY2: Result := 'SAY2';
     PLO_SETACTIVELEVEL: Result := 'SETACTIVELEVEL';
-    PLO_UNKNOWN168: Result := 'UNKNOWN168';
+    PLO_ONLINEMODE: Result := 'UNKNOWN168';
     PLO_GHOSTICON: Result := 'GHOSTICON';
     PLO_RPGWINDOW: Result := 'RPGWINDOW';
     PLO_STATUSLIST: Result := 'STATUSLIST';
     PLO_SERVERWARP: Result := 'SERVERWARP';
     PLO_BOARDMODIFY2: Result := 'BOARDMODIFY2';
     PLO_LISTPROCESSES: Result := 'LISTPROCESSES';
-    PLO_UNKNOWN190: Result := 'UNKNOWN190';
-    PLO_CLEARWEAPONS: Result := 'CLEARWEAPONS';
+    PLO_SERVERLISTCONNECTED: Result := 'UNKNOWN190';
+    PLO_RESETCLIENT: Result := 'RESETCLIENT';
     PLO_GANISCRIPT: Result := 'GANISCRIPT';
   else
     Result := 'PLO_' + IntToStr(Id);
