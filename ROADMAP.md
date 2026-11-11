@@ -17,13 +17,14 @@ in the PR that does it. Per-folder detail lives in each folder's README
   fidelity release.
 
 v0.0.4 is the last published release ([RELEASES.md](RELEASES.md)). The
-three folders added after it (5.31r4, 6.1.1.3, Worlds 6.114) have no
-release yet. v0.0.4.1 is being cut; the next release after it is 0.0.5.
+folders added after it (5.31r4, 6.1.1.3 and the seven Worlds builds) have
+no release yet. v0.0.4.1 is being cut; the next release after it is 0.0.5.
 
 ## Done
 
 - [x] Every client in a folder of its own (#56 to #90), plus 5.31r4 (#161),
-  6.1.1.3 (#166) and Worlds 6.114 (#158): 74 client folders
+  6.1.1.3 (#166), Worlds 614 (#158) and the six other Worlds builds: 80
+  client folders
 - [x] RELEASES.md, latest release per client (#96)
 - [x] One-click release-all (#98) and the combined releases v0.0.3 and v0.0.4
 - [x] Faithfulness pass from each real exe: #102 (1.21 to 1.41r1), #103

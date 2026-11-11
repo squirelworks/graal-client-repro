@@ -1,6 +1,6 @@
-# Graal Worlds 6.114
+# Graal Worlds 614
 
-The Worlds host, FileVersion 6.114. The original is a Unity player plus a
+Worlds build 614 (plugin FileVersion 6.114). The original is a Unity player plus a
 native plugin. This folder builds a portable C# stand-in that loads a
 local yard, walks it, and talks to a local-only server on loopback. The
 Unity player was not built.
@@ -11,6 +11,9 @@ Unity player was not built.
 
 ## What's new in v0.0.5
 
+- The folder is now `graal-worlds-614-20240421`, named for the build
+  and its date. 6.114 is the plugin's version, shared by builds 548 to
+  614, and the build stores no token.
 - `worlds-player` loads `worlds/local-yard.txt`, moves with collision, and
   opens a local-only session on `127.0.0.1`. The connector hello is the
   eight bytes `GNP1905C`. It is not marked provisional. Lines after the

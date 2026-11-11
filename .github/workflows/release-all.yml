@@ -201,7 +201,7 @@ jobs:
           $want = $env:VERSION.TrimStart('v')
           foreach ($exe in Get-ChildItem "dist/*-$env:VERSION-windows/*.exe") {
             # v7 (Worlds) is not blocking (scripts/v7.sh)
-            if ($exe.Directory.Name -like 'graal-6.114-worlds-*') { "::warning::$($exe.Directory.Name) (v7, not blocking): not checked"; continue }
+            if ($exe.Directory.Name -like 'graal-worlds-*') { "::warning::$($exe.Directory.Name) (v7, not blocking): not checked"; continue }
             $v = $exe.VersionInfo
             "{0}/{1}: {2} {3} / {4}" -f $exe.Directory.Name, $exe.Name, $v.ProductName, $v.ProductVersion, $v.FileDescription
             if ($v.ProductName -ne 'graal-delphi' -or $v.CompanyName -ne 'squirelworks') { throw "$($exe.FullName): no version info" }

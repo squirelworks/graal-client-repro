@@ -122,7 +122,7 @@ jobs:
         run: |
           foreach ($exe in Get-ChildItem build/*/Graal*.exe) {
             # v7 (Worlds) is not blocking (scripts/v7.sh)
-            if ($exe.Directory.Name -eq 'graal-6.114-worlds') { "::warning::graal-6.114-worlds (v7, not blocking): not checked"; continue }
+            if ($exe.Directory.Name -like 'graal-worlds-*') { "::warning::$($exe.Directory.Name) (v7, not blocking): not checked"; continue }
             $v = $exe.VersionInfo
             "{0}: {1} {2} / {3}" -f $exe.Directory.Name, $v.ProductName, $v.ProductVersion, $v.FileDescription
             if ($v.ProductName -ne 'graal-delphi' -or $v.CompanyName -ne 'squirelworks') { throw "$($exe.FullName): no version info" }

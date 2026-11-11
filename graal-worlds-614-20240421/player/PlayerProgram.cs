@@ -124,7 +124,7 @@ public static class PlayerProgram {
 
     static string DefaultWorld() {
         string[] candidates = new string[] {
-            Path.Combine("graal-6.114-worlds", "worlds", "local-yard.txt"),
+            Path.Combine("graal-worlds-614-20240421", "worlds", "local-yard.txt"),
             Path.Combine("worlds", "local-yard.txt")
         };
         for (int i = 0; i < candidates.Length; i++) {

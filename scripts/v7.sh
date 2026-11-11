@@ -3,12 +3,12 @@
 # (Squirrel, 2026-11-11; ROADMAP #154): a failing v7 build, test, pack or
 # check prints a warning and the run goes on. V7_STRICT=1 makes them block
 # again.
-V7_BUILDS="graal-6.114-worlds"
+# Every Worlds folder is v7: graal-worlds-<build>-<date>.
 
 # is_v7 FOLDER: true for a v7 client folder (a path or a bare name)
 is_v7() {
-  case " $V7_BUILDS " in
-    *" $(basename "$1") "*) return 0 ;;
+  case "$(basename "$1")" in
+    graal-worlds-*) return 0 ;;
   esac
   return 1
 }

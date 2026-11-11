@@ -53,8 +53,8 @@ common/                     code that is the same across builds
   GAssetDirs.pas            where a build finds the player's own Graal files (graal-assets/)
   builtin/                  those assets as files (scripts/builtin/make_builtin.py)
   win/                      the Windows manifest every client compiles in
-graal-<version>-<token>/    one folder per build (70, from graal-b1-19980906 to
-                            graal-6.114-worlds); four shown here
+graal-<version>-<token>/    one folder per build (76, from graal-b1-19980906 to
+                            graal-worlds-7.0.1.7.5.0-20260403); four shown here
 javagraal-2000/, zelda-online1-Z3V102/, zelda-online2-Z3V103/   the Java clients
 graalgb-1.10/               the Game Boy Color demo
 graal-2.05-GNW03081/        Graal 2.05
@@ -189,11 +189,12 @@ steps and are required before a build counts as done.
 
 ## Status
 
-74 client folders: 70 Graal builds from the 1998 betas to Worlds 6.114,
-the three Java clients and the Game Boy Color demo. The Graal builds are
+80 client folders: 76 Graal builds from the 1998 betas to the seven Worlds
+builds (548 to 7.0.1.7.5.0), the three Java clients and the Game Boy Color
+demo. The Graal builds are
 Object Pascal rebuilds, except that 3.04 and 4.20r8 also carry C++ boot
-hosts (`common/torque/host304`, `host4208`) and Worlds 6.114 is a portable
-C# stand-in for a Unity player. Several real builds have no folder yet
+hosts (`common/torque/host304`, `host4208`) and Worlds 614 is a portable
+C# stand-in for a Unity player. The other six Worlds builds are scaffolds. Several real builds have no folder yet
 (ROADMAP.md, "Builds with no folder"). Each folder's README has what works and a
 "Not yet" checklist; [RELEASES.md](RELEASES.md) has each client's latest
 release and level; [ROADMAP.md](ROADMAP.md) has the project checklist.
