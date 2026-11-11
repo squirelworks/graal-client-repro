@@ -36,7 +36,7 @@ const
   Id50Gap = 'id 50 prefix byte order was not recovered';
   { protocol/unpacked-6113-wire.md. Decimal so the constant is not written
     as an address. }
-  Gen5Seed = 78121912;
+  Gen5Seed = 78121784;
   Gen5Mul = 134777861;
   ZlibAt = 48;
   BzipAt = 4096;
