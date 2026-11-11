@@ -224,7 +224,7 @@ rebuild on the same files (`--data` pointed at that folder):
 - [ ] The GS1 additions of 2.22 (gravity, textwidth, isthisflagset, ...),
   the 2.22 NPC props past 40 (`plo-npcprops-layouts.tsv`: 44 to 47 and
   53 to 73), NPCs in gmap cells other than the player's, the built-in
-  editors (F4 / F6), chat bubbles and names.
+  editors (F4 / F6) and names.
 - [ ] The 2.22 status display's sword and glove pictures beside S and A, and
   the chat bar under the game (the real 2.22 draws both).
 - [ ] Files other than `.gmap` are not saved; `LARGEFILESTART` / `END`.

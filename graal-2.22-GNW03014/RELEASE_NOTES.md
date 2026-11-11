@@ -9,8 +9,8 @@ walks across gmap edges, and takes level links. It also carries the
 game layer of the 2.05 rebuild: the sword, lifting and throwing, chests,
 items, combat and bombs, the status display, signs, weapons, level NPCs
 with the GS1 script engine, baddies, sound effects and the maps. It is an
-early version: 2.22's own additions to the script engine, the editors and
-chat are not there yet.
+early version: 2.22's own additions to the script engine and the editors
+are not there yet.
 
 > **Not affiliated.** graal-delphi is an independent fan project. It is not
 > affiliated with, endorsed by, or connected to GraalOnline or
@@ -32,6 +32,12 @@ Files are looked for in the program's own folder first, then in
 `--data` folder. Nothing above the program's folder is read.
 
 ## What's new in v0.0.5
+
+- [x] **Walking in Training.** The tutorial's `addtiledef picso.png,offlinetutorial,1` now keeps its sheet type, and a type 1 or 2 sheet tells walls from the tile number (the newer tile order) instead of from `arrays.dat`, whose lists hold none of the tutorial's ground. The player could only turn on the spot before.
+
+- [x] **The chat line.** Tab gives the keys to the white line under the game and back; Enter says what is typed, and what each player says is drawn over the head (in `TEMPSITC.TTF` when the install has it).
+
+- [x] **System weapons stay out of Q.** A weapon whose name starts with `-` (the Reborn server's `-gr_movement`) runs but is not shown in the item list.
 
 - [x] **Pictures by kind.** The picture cache keeps each name once per kind (head, body, sword, shield, hat, weapon), because each kind searches its own folders. A picture first asked for without its kind got the built-in stand-in and kept it, so an install's own picture could stay hidden behind the stand-in (in 1.33, `levels/weapons/wbomb1.gif` beside the D button).
 
@@ -152,7 +158,7 @@ when it was started from there). Run `Graal222 --help` for every flag.
 ## Not yet
 
 Most of 2.22's additions to GS1; the account and language drop-downs,
-Get an account!, Show More and Donations; typing in the chat line; the
+Get an account!, Show More and Donations; the
 editors; Options; UDP peer traffic; macOS. Gani movies advance one
 frame per 50 ms game tick, a step not yet traced from `Graal_222.exe`.
 See the build's README for the full list.

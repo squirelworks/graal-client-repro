@@ -2182,6 +2182,13 @@ end;
 { The item list window: from (16, 80) to 16 pixels from the right and
   bottom edges, cells from (48, 112), packed left to right then down;
   each cell is the image (or a 32 x 32 place) over its name. }
+{ A weapon whose name starts with '-' is a system weapon: it runs but is
+  left out of the item list. }
+function HiddenWeapon(const Name: string): Boolean;
+begin
+  Result := (Name = '') or (Name[1] = '-');
+end;
+
 procedure ListCells(G: TAdventure; out CX, CY, CW, CH: array of Integer);
 var
   I, X, Y, RowH, W, H: Integer;
@@ -2193,6 +2200,14 @@ begin
   for I := 0 to High(G.Weapons) do
   begin
     if I > High(CX) then Break;
+    if HiddenWeapon(G.Weapons[I].Name) then
+    begin
+      CX[I] := 0;
+      CY[I] := 0;
+      CW[I] := 0;
+      CH[I] := 0;
+      Continue;
+    end;
     Img := nil;
     if G.Weapons[I].Image <> '' then Img := G.Assets.Image(G.Weapons[I].Image, 'weapon');
     if Img <> nil then
@@ -2289,6 +2304,7 @@ begin
   ListCells(Self, CX, CY, CW, CH);
   for I := 0 to Min(High(Weapons), 63) do
   begin
+    if HiddenWeapon(Weapons[I].Name) then Continue;
     if CY[I] + CH[I] > ScreenH - 64 then Break;
     if I = Selected then Screen.FillRect(CX[I], CY[I], CW[I], CH[I], $FFFFD480);
     Img := nil;

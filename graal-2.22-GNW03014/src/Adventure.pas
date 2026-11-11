@@ -346,6 +346,11 @@ type
     Blasts: array of TBlast;
     { Reading a sign: its lines and the first line of the page shown. }
     Reading: Boolean;
+    { the chat line: what is typed in it, whether it has the keys (Tab
+      gives them to it and back), and whether its text is picked (Tab
+      picks it all, so typing replaces it) }
+    ChatInput: string;
+    ChatFocus, ChatPicked: Boolean;
     SignLines: array of string;
     SignLine: Integer;
     { The weapon list (2.05 keeps one, in arrival order) and the selected
@@ -379,6 +384,11 @@ type
     procedure UseBuiltins;
     { Notes the addtiledef lines in L's NPC scripts. }
     procedure NoteTileDefs(L: TAdventureLevel);
+    { Adds one addtiledef (image, level-name prefix, sheet TYPE), newest
+      first. }
+    procedure AddTileDef(const Img, Prefix: string; Kind: Integer);
+    { The addtiledef TYPE that covers a level (0 when none does). }
+    function TileDefKind(const LevelName: string): Integer;
     { Raises the flat ground in FGround onto Screen by the heights. }
     procedure LiftGround(CamX, CamY: Integer);
     { The tile sheet for a level: an addtiledef image whose prefix starts
@@ -423,6 +433,17 @@ type
     procedure Draw;
     { the white chat line under the play area }
     procedure DrawChatBar;
+    { Typed characters for the chat line: Enter says the line (it stays
+      in the chat line, emptied), backspace, printable characters. }
+    procedure TypeChat(const Chars: string);
+    { Tab: the chat line takes the keys, or gives them back. }
+    procedure ToggleChat;
+    { Sets what the player says (PLPROP_CURCHAT), sent when online. }
+    procedure Say(const Text: string);
+    { Text centred on CX in the names' font, or the built-in font without it. }
+    procedure DrawChatText(CX, Y: Integer; const Text: string);
+    { P's chat over its head }
+    procedure DrawSaid(P: TServerPlayer; CamX, CamY: Integer);
     { Loads a level (or a .gmap and its levels) from disk for offline play;
       links then look for their levels next to it, then in the install. }
     function LoadLevelFile(const FileName: string): Boolean;
@@ -1483,6 +1504,33 @@ begin
   Result := L.Tile(GX - CX * BoardW, GY - CY * BoardH);
 end;
 
+{ The wall test of the new tile order (sheet types 1 and 2), from the tile
+  id alone (client-internals/decomp-findings-2026-10-28-b/01-tile-type-tests.md). }
+function NewSheetWall(Tile: Integer): Boolean;
+var
+  Row, Col: Integer;
+begin
+  Row := Tile div 16;
+  Col := Tile mod 16;
+  Result := (Tile = 32) or
+    (((Row = 26) or (Row = 27)) and (Col >= 2)) or
+    ((Row >= 30) and (Row <= 47)) or ((Row >= 84) and (Row <= 95)) or
+    ((Row >= 116) and (Row <= 127)) or
+    ((Row >= 128) and Odd(Row div 16));
+end;
+
+{ A board tile's wall test under a level's addtiledef TYPE: 1 and 2 use
+  the new tile order, 5 has no board rule, the rest go by arrays.dat. }
+function KindBlocked(Kind, Tile: Integer; A: TGArrays): Boolean;
+begin
+  case Kind of
+    1, 2: Result := NewSheetWall(Tile);
+    5: Result := False;
+  else
+    Result := not A.TilePassable(Tile);
+  end;
+end;
+
 function TAdventure.PointBlocked(PX, PY: Double): Boolean;
 var
   TX, TY, I, T: Integer;
@@ -1505,14 +1553,16 @@ begin
       2.05; run-222d: the player reaches x = -0.5 on the level's left
       edge) }
     if (TX < 0) or (TY < 0) or (TX >= BoardW) or (TY >= BoardH) then Exit;
-    Result := not Arrays.TilePassable(Level.Tile(TX, TY));
+    Result := KindBlocked(TileDefKind(Level.Name), Level.Tile(TX, TY), Arrays);
     Exit;
   end;
   { on a gmap the neighbours' boards decide; the outer edge of the map
     and cells whose level has not arrived are walls (not measured) }
   T := WorldTile(TX + Player.GmapX * BoardW, TY + Player.GmapY * BoardH);
   if T < 0 then Result := True
-  else Result := not Arrays.TilePassable(T);
+  else Result := KindBlocked(TileDefKind(Gmap.CellName(
+    Floor((TX + Player.GmapX * BoardW) / BoardW),
+    Floor((TY + Player.GmapY * BoardH) / BoardH))), T, Arrays);
 end;
 
 procedure TAdventure.WalkStep(Dir: Integer);
@@ -2391,6 +2441,13 @@ end;
 { The item list window: from (16, 80) to 16 pixels from the right and
   bottom edges, cells from (48, 112), packed left to right then down;
   each cell is the image (or a 32 x 32 place) over its name. }
+{ A weapon whose name starts with '-' is a system weapon: it runs but is
+  left out of the item list. }
+function HiddenWeapon(const Name: string): Boolean;
+begin
+  Result := (Name = '') or (Name[1] = '-');
+end;
+
 procedure ListCells(G: TAdventure; out CX, CY, CW, CH: array of Integer);
 var
   I, X, Y, RowH, W, H: Integer;
@@ -2402,6 +2459,14 @@ begin
   for I := 0 to High(G.Weapons) do
   begin
     if I > High(CX) then Break;
+    if HiddenWeapon(G.Weapons[I].Name) then
+    begin
+      CX[I] := 0;
+      CY[I] := 0;
+      CW[I] := 0;
+      CH[I] := 0;
+      Continue;
+    end;
     Img := nil;
     if G.Weapons[I].Image <> '' then Img := G.Assets.Image(G.Weapons[I].Image, 'weapon');
     if Img <> nil then
@@ -2498,6 +2563,7 @@ begin
   ListCells(Self, CX, CY, CW, CH);
   for I := 0 to Min(High(Weapons), 63) do
   begin
+    if HiddenWeapon(Weapons[I].Name) then Continue;
     if CY[I] + CH[I] > ScreenH - 64 then Break;
     if I = Selected then Screen.FillRect(CX[I], CY[I], CW[I], CH[I], $FFFFD480);
     Img := nil;
@@ -4389,7 +4455,7 @@ end;
   reads the line wherever it is in a level's NPCs, without its condition. }
 procedure TAdventure.NoteTileDefs(L: TAdventureLevel);
 var
-  I, P, E: Integer;
+  I, P, E, Kind: Integer;
   Src, Low, Args, Img, Prefix: string;
   Parts: TStringList;
 begin
@@ -4416,13 +4482,10 @@ begin
         if Parts.Count >= 2 then
         begin
           Img := Trim(Parts[0]);
-          Prefix := LowerCase(Trim(Parts[1]));
-          if (Img <> '') and (Pos('#', Img) = 0) and (Pos('..', Img) = 0) then
-          begin
-            if FTileDefs.IndexOf(Prefix + #9 + Img) >= 0 then
-              FTileDefs.Delete(FTileDefs.IndexOf(Prefix + #9 + Img));
-            FTileDefs.Insert(0, Prefix + #9 + Img);
-          end;
+          Prefix := Trim(Parts[1]);
+          if Parts.Count >= 3 then Kind := StrToIntDef(Trim(Parts[2]), 0)
+          else Kind := 0;
+          if Pos('#', Img) = 0 then AddTileDef(Img, Prefix, Kind);
         end;
         Delete(Low, 1, E - 1);
         Delete(Src, 1, E - 1);
@@ -4431,6 +4494,36 @@ begin
     end;
   finally
     Parts.Free;
+  end;
+end;
+
+procedure TAdventure.AddTileDef(const Img, Prefix: string; Kind: Integer);
+var
+  I: Integer;
+  E: string;
+begin
+  if (Trim(Img) = '') or (Pos('..', Img) > 0) then Exit;
+  E := LowerCase(Trim(Prefix)) + #9 + Trim(Img);
+  I := FTileDefs.IndexOf(E);
+  if I >= 0 then FTileDefs.Delete(I);
+  FTileDefs.InsertObject(0, E, TObject(PtrInt(Kind)));
+end;
+
+function TAdventure.TileDefKind(const LevelName: string): Integer;
+var
+  I, T: Integer;
+  N: string;
+begin
+  Result := 0;
+  N := LowerCase(LevelName);
+  for I := 0 to FTileDefs.Count - 1 do
+  begin
+    T := Pos(#9, FTileDefs[I]);
+    if Copy(N, 1, T - 1) = Copy(FTileDefs[I], 1, T - 1) then
+    begin
+      Result := Integer(PtrInt(FTileDefs.Objects[I]));
+      Exit;
+    end;
   end;
 end;
 
@@ -4707,6 +4800,10 @@ begin
   for I := 0 to FOthers.Count - 1 do
     DrawPlayer(Others[I], CamX, CamY);
   DrawPlayer(Player, CamX, CamY);
+  { what each player says, over the head }
+  for I := 0 to FOthers.Count - 1 do
+    DrawSaid(Others[I], CamX, CamY);
+  DrawSaid(Player, CamX, CamY);
   DrawCombat(LCamX, LCamY);
   DrawShots(LCamX, LCamY);
   Npcs.Draw(Screen, LCamX, LCamY, True);
@@ -4734,6 +4831,98 @@ begin
   Screen.FillRect(1, Y + 1, 1, ChatBarH - 2, $FF6A6A6A);
   Screen.FillRect(1, Y + ChatBarH - 2, ScreenW - 2, 1, $FFE3E3E3);
   Screen.FillRect(ScreenW - 2, Y + 1, 1, ChatBarH - 2, $FFE3E3E3);
+  { what is typed, black; picked: white on the highlight; the caret
+    while the line has the keys }
+  if ChatPicked then
+  begin
+    Screen.FillRect(3, Y + 4, TextWidth(ChatInput, 1) + 1, GlyphH, $FF000080);
+    DrawText(Screen, 3, Y + 4, ChatInput, $FFFFFFFF, 1);
+  end
+  else
+    DrawText(Screen, 3, Y + 4, ChatInput, $FF000000, 1);
+  if ChatFocus and not ChatPicked and ((Frame div 10) mod 2 = 0) then
+    Screen.FillRect(3 + TextWidth(ChatInput, 1), Y + 4, 1, GlyphH - 1, $FF000000);
+end;
+
+procedure TAdventure.DrawChatText(CX, Y: Integer; const Text: string);
+const
+  ChatFontPx = 18;
+var
+  F: TTrueTypeFont;
+  TW: Integer;
+begin
+  F := NameFont;
+  if F = nil then
+  begin
+    TW := TextWidth(Text, 1);
+    DrawText(Screen, CX - TW div 2 + 1, Y + 1, Text, $FF000080, 1);
+    DrawText(Screen, CX - TW div 2, Y, Text, $FFFFFFFF, 1);
+    Exit;
+  end;
+  TW := F.TextWidth(Text, ChatFontPx, True);
+  F.DrawText(Screen, CX - TW div 2 + 1, Y + 1, Text, ChatFontPx, $FF000080, True);
+  F.DrawText(Screen, CX - TW div 2, Y, Text, ChatFontPx, $FFFFFFFF, True);
+end;
+
+procedure TAdventure.DrawSaid(P: TServerPlayer; CamX, CamY: Integer);
+var
+  BX, BY: Integer;
+begin
+  if P.Chat = '' then Exit;
+  { where DrawPlayer puts the body, lifted by the ground }
+  if Gmap <> nil then
+  begin
+    BX := Round((P.X + P.GmapX * BoardW) * TileSize) - CamX;
+    BY := Round((P.Y + P.GmapY * BoardH) * TileSize) - CamY;
+    Dec(BY, WorldLift(P.X + P.GmapX * BoardW + 1.5, P.Y + P.GmapY * BoardH + 3));
+  end
+  else
+  begin
+    BX := Round(P.X * TileSize) - CamX;
+    BY := Round(P.Y * TileSize) - CamY;
+    Dec(BY, WorldLift(P.X + 1.5, P.Y + 3));
+  end;
+  DrawChatText(BX + 24, BY - 6, P.Chat);
+end;
+
+procedure TAdventure.ToggleChat;
+begin
+  ChatFocus := not ChatFocus;
+  ChatPicked := ChatFocus and (ChatInput <> '');
+end;
+
+procedure TAdventure.Say(const Text: string);
+begin
+  Player.Chat := Text;
+  if (FClient <> nil) and FClient.Connected then
+    FClient.SendPacket(PLI_PLAYERPROPS, GChar(PLPROP_CURCHAT) + GString(Text));
+end;
+
+procedure TAdventure.TypeChat(const Chars: string);
+var
+  I: Integer;
+begin
+  for I := 1 to Length(Chars) do
+    case Chars[I] of
+      #13:
+        begin
+          Say(ChatInput);
+          ChatInput := '';
+          ChatPicked := False;
+        end;
+      #8:
+        begin
+          if ChatPicked then ChatInput := ''
+          else if ChatInput <> '' then Delete(ChatInput, Length(ChatInput), 1);
+          ChatPicked := False;
+        end;
+      ' '..'~', #160..#255:
+        begin
+          if ChatPicked then ChatInput := '';
+          ChatPicked := False;
+          if Length(ChatInput) < 220 then ChatInput := ChatInput + Chars[I];
+        end;
+    end;
 end;
 
 end.

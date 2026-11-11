@@ -1456,6 +1456,15 @@ begin
     Check(G.TileSheetFor('offlinetutorial_a-1.graal') = G.Sheet,
       'addtiledef: a missing image keeps pics1');
     Check(G.TileSheetFor('start.nw') = G.Sheet, 'addtiledef: other levels keep pics1');
+    Check(G.TileDefKind('offlinetutorial_b-2.graal') = 1, 'addtiledef: the sheet type is kept');
+    Check(G.TileDefKind('start.nw') = 0, 'addtiledef: other levels have type 0');
+    { a type 1 sheet answers walls from the tile id, not from arrays.dat }
+    G.AddTileDef('picso.png', 'start', 1);
+    G.Arrays.LoadFromString(MakeArrays([0]));
+    G.Level.Tiles[10 + 10 * 64] := 1265; { new order floor, in no arrays.dat list }
+    G.Level.Tiles[12 + 10 * 64] := 480;  { new order row 30: a wall }
+    Check(not G.PointBlocked(10.5, 10.5) and G.PointBlocked(12.5, 10.5),
+      'addtiledef: a type 1 sheet walks by the new tile order');
   finally
     G.Free;
   end;
@@ -1861,9 +1870,33 @@ begin
   end;
 end;
 
+{ The chat line: Tab, typing, Enter says it. }
+procedure TestChat;
+var
+  G: TAdventure;
+begin
+  G := TAdventure.Create;
+  try
+    G.Headless := True;
+    G.ToggleChat;
+    Check(G.ChatFocus and not G.ChatPicked, 'chat: Tab gives the keys to the chat line');
+    G.TypeChat('hix'#8'!'#13);
+    Check((G.Player.Chat = 'hi!') and (G.ChatInput = ''), 'chat: Enter says the line and empties it');
+    G.TypeChat('again');
+    G.ToggleChat;
+    G.ToggleChat;
+    Check(G.ChatPicked, 'chat: Tab back picks what is typed');
+    G.TypeChat('new');
+    Check((G.ChatInput = 'new') and not G.ChatPicked, 'chat: typing replaces the picked text');
+  finally
+    G.Free;
+  end;
+end;
+
 begin
   Skipped := 0;
   TestGTypes;
+  TestChat;
   TestBzip2;
   TestGen5Capture;
   TestLogin;
