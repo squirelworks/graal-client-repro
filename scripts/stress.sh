@@ -42,6 +42,12 @@ if grep -qs "ScaffoldOnly = True;" "$ROOT/$B"/src/*.pas; then
   echo "PASS $B (scaffold only, no wire client)"
   exit 0
 fi
+# 6.11 stops after the SEI00001 connector hello until seihai-gserver-v2
+# handles it, so there is no login to soak.
+if grep -qs "ConnectorOnly = True;" "$ROOT/$B"/src/*.pas; then
+  echo "PASS $B (connector hello SEI00001 only, not yet usable, no soak)"
+  exit 0
+fi
 # 6.1.1.3 stops after the clear hello. A soak would demand a login
 # the cipher notes do not support.
 if grep -qs "ClearHelloStop = True;" "$ROOT/$B"/src/*.pas; then
