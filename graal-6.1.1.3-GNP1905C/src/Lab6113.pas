@@ -10,7 +10,12 @@
     every length-prefixed message below. The marker is the text LABONLY.
     This is not a 6.1.1.3 session and not a v7 session.
 
-  The listener binds 127.0.0.1 only. It does not open a datagram socket. }
+  TLabServer also accepts the SEI00001 connector hello. It records it and
+  sends nothing back: the game side of SEI00001 is pending in
+  seihai-gserver-v2. TLabConnector answers GET /conf.gs with one reply
+  given by the caller, so the connector path can run on loopback.
+
+  The listeners bind 127.0.0.1 only. They do not open a datagram socket. }
 unit Lab6113;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
@@ -47,6 +52,10 @@ type
     LastError: string;
     GotHello: Boolean;
     HelloCount: Integer;
+    { The eight hello bytes the peer sent: GNP1905C or SEI00001. }
+    Hello: string;
+    { Bytes after an SEI00001 hello, kept and not parsed. }
+    AfterSei: string;
     Moves: Integer;
     PlayerX, PlayerY: Integer;
     constructor Create;
@@ -64,10 +73,31 @@ type
     function SendAll(const Data: string): Boolean;
   end;
 
+  { Plain HTTP/1.0 responder for GET /conf.gs on 127.0.0.1. One request
+    per connection, then it closes. Reply is the body it serves. }
+  TLabConnector = class
+  public
+    Port: Word;
+    LastError: string;
+    Reply: string;
+    Requests: Integer;
+    LastRequest: string;
+    constructor Create;
+    destructor Destroy; override;
+    function Listen(APort: Word): Boolean;
+    procedure Pump;
+    procedure Close;
+  private
+    FListen: Integer;
+    FPeer: Integer;
+    FReq: string;
+    procedure DropPeer;
+  end;
+
 implementation
 
 uses
-  SysUtils, Frame6113, Props6113,
+  SysUtils, Frame6113, Props6113, Connector6113,
 {$IFDEF FPC}
   {$IFDEF WINDOWS} WinSock2, {$ENDIF}
   sockets,
@@ -202,6 +232,7 @@ begin
   FAcc := '';
   FBuf := '';
   GotHello := False;
+  Hello := '';
 end;
 
 procedure TLabServer.Close;
@@ -214,54 +245,79 @@ begin
   end;
 end;
 
-function TLabServer.Listen(APort: Word): Boolean;
+function OpenLoopListener(APort: Word; out Sock: Integer; out BoundPort: Word;
+  out Err: string): Boolean;
 var
   SA: sockaddr_in;
   Len: TSockLen;
   Opt: Integer;
 begin
   Result := False;
-  LastError := '';
-  Close;
+  Err := '';
+  Sock := -1;
+  BoundPort := 0;
 {$IFNDEF FPC}
-  LastError := 'the lab listener needs Free Pascal sockets';
+  Err := 'the lab listener needs Free Pascal sockets';
   Exit;
 {$ENDIF}
-  FListen := fpSocket(AF_INET, SOCK_STREAM, 0);
-  if FListen < 0 then
+  Sock := fpSocket(AF_INET, SOCK_STREAM, 0);
+  if Sock < 0 then
   begin
-    LastError := 'socket() failed';
+    Err := 'socket() failed';
     Exit;
   end;
   Opt := 1;
-  fpSetSockOpt(FListen, SOL_SOCKET, SO_REUSEADDR, @Opt, SizeOf(Opt));
+  fpSetSockOpt(Sock, SOL_SOCKET, SO_REUSEADDR, @Opt, SizeOf(Opt));
   FillChar(SA, SizeOf(SA), 0);
   SA.sin_family := AF_INET;
   SA.sin_port := htons(APort);
   SA.sin_addr.s_addr := LoopAddr;
-  if fpBind(FListen, @SA, SizeOf(SA)) <> 0 then
+  if fpBind(Sock, @SA, SizeOf(SA)) <> 0 then
+    Err := 'bind failed'
+  else if fpListen(Sock, 1) <> 0 then
+    Err := 'listen failed'
+  else
   begin
-    LastError := 'bind failed';
-    Close;
+    Len := SizeOf(SA);
+    FillChar(SA, SizeOf(SA), 0);
+    if fpGetSockName(Sock, @SA, @Len) <> 0 then
+      Err := 'getsockname failed';
+  end;
+  if Err <> '' then
+  begin
+    CloseSocket(Sock);
+    Sock := -1;
     Exit;
   end;
-  if fpListen(FListen, 1) <> 0 then
-  begin
-    LastError := 'listen failed';
-    Close;
-    Exit;
-  end;
+  BoundPort := ntohs(SA.sin_port);
+  SetNonBlock(Sock);
+  Result := True;
+end;
+
+{ Accepts one waiting loopback peer, non-blocking. -1 when none. }
+function AcceptLoopPeer(Listener: Integer): Integer;
+var
+  SA: sockaddr_in;
+  Len: TSockLen;
+begin
   Len := SizeOf(SA);
   FillChar(SA, SizeOf(SA), 0);
-  if fpGetSockName(FListen, @SA, @Len) <> 0 then
+  Result := fpAccept(Listener, @SA, @Len);
+  if Result < 0 then Exit;
+  if SA.sin_addr.s_addr <> LoopAddr then
   begin
-    LastError := 'getsockname failed';
-    Close;
+    CloseSocket(Result);
+    Result := -1;
     Exit;
   end;
-  Port := ntohs(SA.sin_port);
-  SetNonBlock(FListen);
-  Result := True;
+  SetNonBlock(Result);
+end;
+
+function TLabServer.Listen(APort: Word): Boolean;
+begin
+  Close;
+  LastError := '';
+  Result := OpenLoopListener(APort, FListen, Port, LastError);
 end;
 
 function TLabServer.SendAll(const Data: string): Boolean;
@@ -297,6 +353,17 @@ begin
   begin
     FAcc := FAcc + Chunk;
     if Length(FAcc) < 8 then Exit;
+    if Copy(FAcc, 1, 8) = SeiToken then
+    begin
+      { Connector path. The game side of SEI00001 is pending in
+        seihai-gserver-v2, so the lab records the hello and stays quiet. }
+      GotHello := True;
+      Hello := SeiToken;
+      Inc(HelloCount);
+      AfterSei := Copy(FAcc, 9, MaxInt);
+      FAcc := '';
+      Exit;
+    end;
     if Copy(FAcc, 1, 8) <> ClearHello then
     begin
       LastError := 'lab peer did not send the clear hello';
@@ -304,11 +371,17 @@ begin
       Exit;
     end;
     GotHello := True;
+    Hello := ClearHello;
     Inc(HelloCount);
     FBuf := Copy(FAcc, 9, MaxInt);
     FAcc := '';
     if not SendAll(LabReadyMsg + LabYourIdMsg(LabSelfId) +
       LabSpawnMsg(LabOtherId, 2, 64, 48, LabOtherProps(1))) then Exit;
+  end
+  else if Hello = SeiToken then
+  begin
+    AfterSei := AfterSei + Chunk;
+    Exit;
   end
   else
     FBuf := FBuf + Chunk;
@@ -330,8 +403,6 @@ end;
 
 procedure TLabServer.Pump;
 var
-  SA: sockaddr_in;
-  Len: TSockLen;
   N, Peer: Integer;
   Buf: array[0..2047] of Byte;
   Chunk: string;
@@ -339,17 +410,9 @@ begin
   if FListen < 0 then Exit;
   if FPeer < 0 then
   begin
-    Len := SizeOf(SA);
-    FillChar(SA, SizeOf(SA), 0);
-    Peer := fpAccept(FListen, @SA, @Len);
+    Peer := AcceptLoopPeer(FListen);
     if Peer < 0 then Exit;
-    if SA.sin_addr.s_addr <> LoopAddr then
-    begin
-      CloseSocket(Peer);
-      Exit;
-    end;
     FPeer := Peer;
-    SetNonBlock(FPeer);
     FAcc := '';
     FBuf := '';
     GotHello := False;
@@ -364,6 +427,102 @@ begin
     DropPeer
   else if not WouldBlock then
     DropPeer;
+end;
+
+{ ---- TLabConnector ---- }
+
+constructor TLabConnector.Create;
+begin
+  inherited Create;
+  FListen := -1;
+  FPeer := -1;
+end;
+
+destructor TLabConnector.Destroy;
+begin
+  Close;
+  inherited Destroy;
+end;
+
+procedure TLabConnector.DropPeer;
+begin
+  if FPeer >= 0 then
+  begin
+    CloseSocket(FPeer);
+    FPeer := -1;
+  end;
+  FReq := '';
+end;
+
+procedure TLabConnector.Close;
+begin
+  DropPeer;
+  if FListen >= 0 then
+  begin
+    CloseSocket(FListen);
+    FListen := -1;
+  end;
+end;
+
+function TLabConnector.Listen(APort: Word): Boolean;
+begin
+  Close;
+  LastError := '';
+  Result := OpenLoopListener(APort, FListen, Port, LastError);
+end;
+
+procedure TLabConnector.Pump;
+var
+  N, Done: Integer;
+  Buf: array[0..2047] of Byte;
+  Chunk, Line, Answer: string;
+begin
+  if FListen < 0 then Exit;
+  if FPeer < 0 then
+  begin
+    FPeer := AcceptLoopPeer(FListen);
+    if FPeer < 0 then Exit;
+    FReq := '';
+  end;
+  N := fpRecv(FPeer, @Buf[0], SizeOf(Buf), 0);
+  if N > 0 then
+  begin
+    SetString(Chunk, PAnsiChar(@Buf[0]), N);
+    FReq := FReq + Chunk;
+  end
+  else if (N = 0) or not WouldBlock then
+  begin
+    DropPeer;
+    Exit;
+  end;
+  if Pos(#13#10#13#10, FReq) = 0 then
+  begin
+    if Length(FReq) > 8192 then DropPeer;
+    Exit;
+  end;
+  Inc(Requests);
+  Line := Copy(FReq, 1, Pos(#13#10, FReq) - 1);
+  LastRequest := Line;
+  if (Copy(Line, 1, Length('GET ' + ConfPath)) = 'GET ' + ConfPath) and (Reply <> '') then
+    Answer := 'HTTP/1.0 200 OK' + #13#10 + 'Content-Type: application/octet-stream' +
+      #13#10 + 'Content-Length: ' + IntToStr(Length(Reply)) + #13#10#13#10 + Reply
+  else
+    Answer := 'HTTP/1.0 404 Not Found' + #13#10 + 'Content-Length: 0' + #13#10#13#10;
+  Done := 0;
+  while Done < Length(Answer) do
+  begin
+    N := fpSend(FPeer, @Answer[Done + 1], Length(Answer) - Done, 0);
+    if N > 0 then
+      Inc(Done, N)
+    else if (N < 0) and WouldBlock then
+      Sleep(1)
+    else
+    begin
+      LastError := 'connector send failed';
+      Break;
+    end;
+  end;
+  DropPeer;
 end;
 
 end.

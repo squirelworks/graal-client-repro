@@ -572,7 +572,7 @@ begin
   if (Path = '') and OwnResource('TUTORIALB4', D) then Path := 'tutorial_b-4.graal';
   if Path = '' then
   begin
-    Path := Dir + 'start.nw';
+    Path := InstallPath(Dir, 'start.nw');
     X := '30';
     Y := '30';
   end;

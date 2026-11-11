@@ -646,7 +646,7 @@ begin
   if (Path = '') and OwnResource('TUTORIALB2', D) then Path := 'offlinetutorial_b-2.graal';
   if Path = '' then
   begin
-    Path := Dir + 'start.nw';
+    Path := InstallPath(Dir, 'start.nw');
     X := '30';
     Y := '30';
   end;

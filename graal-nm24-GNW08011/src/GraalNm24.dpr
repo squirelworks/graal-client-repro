@@ -569,7 +569,7 @@ begin
   Path := FirstFileIn(Dir, 'levels/tutorial/tutorial_b-4.graal;levels/tutorial_b-4.graal;tutorial_b-4.graal');
   if Path = '' then
   begin
-    Path := Dir + 'start.nw';
+    Path := InstallPath(Dir, 'start.nw');
     X := '30';
     Y := '30';
   end;

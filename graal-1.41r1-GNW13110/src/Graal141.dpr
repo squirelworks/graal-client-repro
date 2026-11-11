@@ -574,7 +574,7 @@ begin
   Path := FirstFileIn(Dir, 'levels/start1.graal;start1.graal');
   if Path = '' then
   begin
-    Path := Dir + 'start.nw';
+    Path := InstallPath(Dir, 'start.nw');
     X := '30';
     Y := '30';
   end;
@@ -634,7 +634,7 @@ begin
     { The start dialog is the program's own form (TConnectFrame, compiled
       in from the real exe: Res141); its character list is the
       install's headsconfig.txt, else the list the exe carries. }
-    LaunchChars := ParseCharacters(InstallText(Dir + 'headsconfig.txt', ResCharacters));
+    LaunchChars := ParseCharacters(InstallText(InstallPath(Dir, 'headsconfig.txt'), ResCharacters));
     Icons := THeadIcons.Create(Dir);
     { 1.41r1 keeps its language files in languages/ and its words in them }
     Langs := InstallLanguages(Dir + 'languages');

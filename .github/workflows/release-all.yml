@@ -385,9 +385,8 @@ jobs:
           ZIPS=$(ls dist/*-"$VERSION"*.zip)
           echo "$(echo $ZIPS | wc -w) zips for $(echo $F | wc -w) clients"
           if [ "$VERSION" = v0.0.4.1 ]; then
+            # GitHub already lists the zips under Assets, so the notes do not.
             cp docs/releases/v0.0.4.1.md notes.md
-            printf '\n## Attached artifacts\n\n' >> notes.md
-            for ZIP in $ZIPS; do printf '%s\n' "- $(basename "$ZIP")" >> notes.md; done
           else
             ZIPS="$ZIPS" python3 -I scripts/release/combined_notes.py "$VERSION" $F > notes.md
           fi

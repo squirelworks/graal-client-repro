@@ -502,7 +502,7 @@ begin
       begin
         if Exts[J] = '' then Continue;
         Cand := AssetRoot(K) + Dirs[I] + Base + Exts[J];
-        if FileExists(Cand) then
+        if FileExists(Cand) and AssetAllowed(Cand) then
         begin
           Result := Cand;
           Exit;
@@ -573,8 +573,9 @@ begin
   if (F = '') and (Dir <> '') then
   begin
     F := IncludeTrailingPathDelimiter(Dir) + 'levels/ganis/' + Name + '.gani';
-    if not FileExists(F) then
+    if not (FileExists(F) and AssetAllowed(F)) then
       F := IncludeTrailingPathDelimiter(Dir) + 'ganis/' + Name + '.gani';
+    if not AssetAllowed(F) then F := '';
   end;
   begin
     if (F <> '') and FileExists(F) then
@@ -2271,8 +2272,8 @@ begin
     Exit;
   end;
   Path := '';
-  if (FLevelDir <> '') and FileExists(FLevelDir + L.Dest) then
-    Path := FLevelDir + L.Dest
+  if (FLevelDir <> '') and (LevelSibling(FLevelDir, L.Dest) <> '') then
+    Path := LevelSibling(FLevelDir, L.Dest)
   else if AssetPath('levels/' + L.Dest) <> '' then
     Path := AssetPath('levels/' + L.Dest)
   else if AssetPath(L.Dest) <> '' then

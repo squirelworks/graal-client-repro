@@ -122,7 +122,7 @@ function RunLaunch1x(Win: TGWindow; const FormData: string; const Cfg: TLaunchCo
 implementation
 
 uses
-  SysUtils, GUiFont;
+  SysUtils, GUiFont, GAssetDirs;
 
 const
   { Windows' classic system colours (Windows 10 values), as an unthemed
@@ -469,8 +469,9 @@ begin
   Base := ChangeFileExt(HeadFile, '');
   for Ext in ['.gif', '.png', '.mng'] do
   begin
-    for F in [FDir + 'levels/heads/' + Base + Ext, FDir + 'levels/' + Base + Ext,
-      FDir + Base + Ext] do
+    { LevelSibling: FDir + name, or under a shared root this build's copy }
+    for F in [LevelSibling(FDir, 'levels/heads/' + Base + Ext),
+      LevelSibling(FDir, 'levels/' + Base + Ext), LevelSibling(FDir, Base + Ext)] do
       if FileExists(F) and LoadImageFile(F, Img) and (Img.Height >= 96) then
       begin
         Found := True;
@@ -491,7 +492,8 @@ begin
     begin
       FSheetTried := True;
       FSheet := TGSurface.Create(0, 0);
-      if not (FileExists(FDir + 'heads.gif') and LoadImageFile(FDir + 'heads.gif', FSheet)) then
+      F := LevelSibling(FDir, 'heads.gif');
+      if not ((F <> '') and LoadImageFile(F, FSheet)) then
         FreeAndNil(FSheet);
     end;
     N := StrToIntDef(Copy(Base, 5, MaxInt), -1);

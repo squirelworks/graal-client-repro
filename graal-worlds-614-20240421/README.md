@@ -140,6 +140,7 @@ and the 6.113 capture does not show them in the clear.
 - [x] Portable player: local yard, camera, input, movement, collision, and a loopback session with one updating entity. Local-only after the hello.
 - [ ] A Unity editor build. No editor was installed, so the Unity player was not built.
 - [ ] A 6.114 login frame. The 6.113 header, zlib block, and ciphertext are not reproduced.
+- [ ] TODO: the connector login (signed `conf.gs`, then `setProtocol("EILLLT")`, `sendRaw`, `setEncryptionOut`) is pending verification on a real Worlds client. It was verified only on the 6.11 desktop clients, so it is scaffolded only in `graal-6.1.1.3-GNP1905C` (with the placeholder token `SEI00001`). This folder does not use it until a live Worlds trace confirms it.
 - [ ] The native plugin. `Flavor0` is named and not called.
 - [ ] Quattro gameplay types.
 - [ ] Packet ids, opcodes, ciphers, asset formats, and GS2 from the 7.x notes.

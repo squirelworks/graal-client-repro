@@ -98,6 +98,51 @@ keys or `--keys` move by 4 pixels when the destination does not overlap a
 Without `--window` the same frames are computed and can be written with
 `--dump`. A dump is not the window.
 
+## Connector login (SEI00001 scaffold, not yet usable)
+
+The 6.11 desktop client does not hold its token. It fetches `conf.gs`
+from a connector, checks the reply's RSA-2048 signature over the bare
+SHA-256 digest of the payload, and only then decrypts and runs the
+payload as the connector script. That script calls `setProtocol("EILLLT")`,
+then `sendRaw` with the eight-byte token, then `setEncryptionOut`
+(Graal_analysis `protocol/v6-login-token-explained.md`,
+`protocol/v6x-clients.md`).
+
+`--connector 127.0.0.1:PORT` runs that pipeline, clean-room:
+
+| Step | Unit | What this folder does |
+|---|---|---|
+| GET `conf.gs` | `Connector6113.FetchConfReply` | Plain `GET /conf.gs HTTP/1.0` to loopback. No HTTPS step and no `p=` blob |
+| Split the reply | `ParseConfReply` | u32 length, 256-byte signature, u32 length, payload. This project writes the lengths big-endian |
+| Signature first | `VerifyConfReply`, `Rsa6113`, `Sha6113` | PKCS #1 v1.5 type 1 over the bare digest, no DigestInfo, e = 65537. Checked against **this project's own public key**, not the operator's |
+| Decrypt | `DecryptConfPayload` | Pending. The project's payload cipher is not chosen, so the payload is read as clear |
+| Run the script | `ParseConnectorScript`, `RunConnectorSteps` | Only `setProtocol`, `sendRaw`, `setEncryptionOut`, optionally inside `onCreated`. Anything else is refused |
+| Token | `SeiToken` in `Connector6113` | **`SEI00001`, a placeholder.** `SeiTokenUsable = False` |
+
+The project script is `connector/sei00001-connector.gs`, signed into
+`connector/sei00001-conf.gs` by `connector/make-conf.sh`. The private key
+is not in the repo. `setEncryptionOut` is called with the name
+`SEI-PENDING`, which selects no cipher; the session cipher and key are
+not chosen.
+
+**Not yet usable.** No game server accepts `SEI00001` until the matching
+handling lands in seihai-gserver-v2. Until then the client stops after
+the hello (`stopped after SEI00001 hello`, summary `"end":"sei-pending"`)
+and counts later server bytes without decoding them. A stock 6.11 reply
+does not verify against the project key, and a stock client does not
+accept a reply signed for it.
+
+```
+build/graal-6.1.1.3-GNP1905C/Graal6113 --connector-serve 14901 \
+  --conf graal-6.1.1.3-GNP1905C/connector/sei00001-conf.gs --seconds 20
+build/graal-6.1.1.3-GNP1905C/Graal6113 --lab-serve 14900 --seconds 20
+build/graal-6.1.1.3-GNP1905C/Graal6113 \
+  --server 127.0.0.1:14900 --connector 127.0.0.1:14901 --frames 4
+```
+
+Without `--connector` the client still sends the clear `GNP1905C` hello
+described below, and `scripts/loopback.sh` still checks that path.
+
 ## Wire
 
 1. TCP connect. No datagram socket is opened.
@@ -106,8 +151,10 @@ Without `--window` the same frames are computed and can be written with
 4. `--lab` then uses length-prefixed lab messages: ready, your id, a spawn
    of one other entity, a property update, and a move echo.
 
-`setprotocol` is implemented and tested. The connect path does not call it,
-because the template string is not in the image. A test template of six
+`setprotocol` is implemented and tested. The clear-hello connect path does
+not call it, because the template string is not in the image. The
+connector path above calls it with `EILLLT`, the template the connector
+script sets. A test template of six
 bytes with a 273-byte body writes `L` as 279. That is the size check from
 the hello note. It is not the captured header `01 02 00 01 17 fd`.
 
@@ -130,8 +177,13 @@ numbers the note names. It does not execute any opcode.
 - [ ] Chat send. `onToall` can be parsed. No PLO id is assigned to it, so
   nothing is sent for it.
 - [ ] File transfer, `basepackage.gupd` requests, `creationtime.dat`.
-- [ ] The script connector (`StartScript_Connector` / `StartScript_Fail`)
-  and the bytes that script would send.
+- [ ] The script connector as a GS2 object (`StartScript_Connector` /
+  `StartScript_Fail`, `scriptip` and the SSL fields). The connector login
+  above reads only the three connector calls.
+- [ ] TODO(seihai-gserver-v2): `SEI00001` handling on the game server.
+  Until it lands, the connector login stops after the hello.
+- [ ] The project's `conf.gs` payload cipher and the session cipher that
+  `setEncryptionOut` selects.
 - [ ] UDP bind. The image can open a datagram socket from script. This
   connect path does not, and the bind method is not implemented.
 - [ ] AES, RC4, and the generation-5 XOR mix. The mix width (12 dwords, or
@@ -147,10 +199,17 @@ New code in this folder is original Pascal written for this rebuild. No
 new dependency. It uses Free Pascal and the units already in this repo
 (`GWindow`, `GSurface`, `GSocket`, `GZlib`, `GBzip2`), on the same terms as
 the rest of graal-delphi. No C++ was added. No decompiled body was copied.
+SHA-256 and the RSA check are written from FIPS 180-4 and RFC 8017. The
+connector public key is this project's own; no operator key, connector
+host, `p=` value or captured reply is in the repo.
 
 ## Not yet
 
 - [ ] Cipher, template, and property value widths. See the table above.
+- [x] Connector login: `conf.gs` fetch, project-key signature check before
+  anything runs, and the connector script (`setProtocol("EILLLT")`,
+  `sendRaw`, `setEncryptionOut`). Token scaffolded as `SEI00001`, not yet
+  usable.
 - [x] The 6.1.1.3 control names, including `GuiGraalCtrl` and `GuiTilesCtrl`, are registered when the client runs. The bodies are stubs. The window stays the software surface. The clear hello stays `GNP1905C`.
 - [ ] OpenGL and the real playfield classes.
 - [ ] GS2 execution.

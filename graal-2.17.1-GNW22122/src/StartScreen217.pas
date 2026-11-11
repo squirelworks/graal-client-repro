@@ -137,7 +137,7 @@ var
   P: string;
 begin
   P := AssetPath('arrays2.dat');
-  if P = '' then P := Dir + 'arrays2.dat';
+  if P = '' then P := InstallPath(Dir, 'arrays2.dat');
   if not FileExists(P) then Exit;
   L := TStringList.Create;
   try

@@ -569,7 +569,7 @@ begin
   Y := '28';
   Path := FirstFileIn(Dir, 'levels/start1.graal;start1.graal');
   if Path = '' then
-    Path := Dir + 'start.nw';
+    Path := InstallPath(Dir, 'start.nw');
 end;
 
 { No arguments: the start screen, then the game it picks, and back to the
@@ -626,7 +626,7 @@ begin
     { The start dialog is the program's own form (TConnectFrame, compiled
       in from the real exe: Res132); its character list is the
       install's headsconfig.txt, else the list the exe carries. }
-    LaunchChars := ParseCharacters(InstallText(Dir + 'headsconfig.txt', ResCharacters));
+    LaunchChars := ParseCharacters(InstallText(InstallPath(Dir, 'headsconfig.txt'), ResCharacters));
     Icons := THeadIcons.Create(Dir);
     Langs := InstallLanguages(Dir);
     LaunchCfg.Style := ls128;
