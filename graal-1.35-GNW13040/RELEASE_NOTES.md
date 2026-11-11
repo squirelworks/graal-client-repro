@@ -16,6 +16,7 @@ sounds or levels. The client carries simple graphics of its own.
 ## What's new in v0.0.5
 
 - [x] **Default server.** The server field now starts on the rebuild's own default (listserver.txt, else `listserver.graal.in`) instead of the original's long-gone host, so the code that swapped that host out on connect is gone.
+- [x] **Other players.** OTHERPLPROPS reads the one-byte player id 1.35 sends before the props (the two-byte id starts with 1.36), so another player's props are no longer read one byte off.
 
 ## What's new in v0.0.4
 
