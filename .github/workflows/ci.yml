@@ -50,18 +50,44 @@ jobs:
       BUILDS: ${{ needs.changes.outputs.builds }}
     steps:
       - uses: actions/checkout@v4
+      # Free Pascal and the other build packages come from a cache of
+      # their .deb files, keyed on the runner image, so a run needs the
+      # Ubuntu mirrors only when the image changes. A mirror outage then
+      # fails this job only on an image change, not on every PR.
+      - name: Cached build packages
+        id: debs
+        uses: actions/cache@v4
+        with:
+          path: ~/fpc-debs
+          key: fpc-debs-${{ runner.arch }}-${{ env.ImageOS }}-${{ env.ImageVersion }}-v1
+      - name: Download the build packages
+        if: steps.debs.outputs.cache-hit != 'true'
+        run: |
+          # A second mirror, outside Azure, for when the runners cannot
+          # resolve the Ubuntu archive (2026-11-11). apt's mirror list
+          # falls back to it in order.
+          echo "http://mirrors.edge.kernel.org/ubuntu/" | sudo tee -a /etc/apt/apt-mirrors.txt
+          sudo apt-get -o Acquire::Retries=5 update
+          sudo apt-get -o Acquire::Retries=5 install -y --download-only fp-compiler fp-units-base fp-units-fcl libx11-dev g++ zlib1g-dev mono-devel
+          mkdir -p ~/fpc-debs
+          cp /var/cache/apt/archives/*.deb ~/fpc-debs/
       - name: Install Free Pascal
-        run: sudo apt-get update && sudo apt-get install -y fp-compiler fp-units-base fp-units-fcl libx11-dev g++ zlib1g-dev mono-devel
+        run: |
+          sudo dpkg -i --skip-same-version ~/fpc-debs/*.deb
+          fpc -iV
       - name: Every client has its Windows resources
         run: python3 scripts/win/make_winres.py --check
       - name: Build (Delphi mode)
         run: scripts/build.sh $BUILDS
       - name: Unit tests
         run: scripts/test.sh
+      # A tar keeps the execute bits that loopback needs; artifacts drop them.
+      - name: Pack the build
+        run: tar cf linux-build.tar build
       - uses: actions/upload-artifact@v4
         with:
           name: linux-build
-          path: build/
+          path: linux-build.tar
 
   loopback:
     needs: [changes, build-and-test]
@@ -74,13 +100,21 @@ jobs:
         with:
           repository: squirelworks/seihai-gserver
           path: seihai-gserver
-      - name: Install Free Pascal
-        run: sudo apt-get update && sudo apt-get install -y fp-compiler fp-units-base fp-units-fcl libx11-dev g++ zlib1g-dev mono-devel
       - uses: dtolnay/rust-toolchain@stable
+      # The gserver's dependencies are cached between runs; only its own
+      # crates are rebuilt.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: seihai-gserver
       - name: Build seihai-gserver
         run: cargo build --release --manifest-path seihai-gserver/Cargo.toml
-      - name: Build clients
-        run: scripts/build.sh $BUILDS
+      # The clients build-and-test just built and tested, so loopback needs
+      # no compiler and no apt step of its own.
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-build
+      - name: Unpack the build
+        run: tar xf linux-build.tar
       - name: Log each rebuild into seihai-gserver
         run: |
           . scripts/v7.sh
@@ -139,9 +173,9 @@ jobs:
     needs: changes
     env:
       BUILDS: ${{ needs.changes.outputs.builds }}
-    # macOS runners can wait for hours. A pull request, a manual run, and a
-    # tag run this job. A push to main does not.
-    if: needs.changes.outputs.builds != '' && (github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/'))
+    # macOS runners can wait for hours, and macOS is not a merge gate until
+    # the polishing phase. Only a manual run and a tag run this job.
+    if: needs.changes.outputs.builds != '' && (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/'))
     # Homebrew's Free Pascal (aarch64-darwin). The window is Cocoa
     # (common/GWindowCocoa.inc); the tests open none.
     runs-on: macos-latest
