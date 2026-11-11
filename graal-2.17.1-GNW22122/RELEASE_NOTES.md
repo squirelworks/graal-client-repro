@@ -25,6 +25,10 @@ come first.
 
 ## What's new in v0.0.5
 
+- [x] **The chat line.** Tab gives the keys to the white line under the game and back; Enter says what is typed, and what each player says is drawn over the head (in `TEMPSITC.TTF` when the install has it).
+
+- [x] **System weapons stay out of Q.** A weapon whose name starts with `-` (the Reborn server's `-gr_movement`) runs but is not shown in the item list.
+
 - [x] **Its fallback install files.** Every place that sets up the asset search now passes the build's whole version list (`graal-assets/2.17.1/` then `graal-assets/2.22/`). Some passed the bare version, so with only `graal-assets/` next to the program those parts found nothing and drew the built-in stand-in art.
 - [x] **Pictures by kind.** The picture cache keeps each name once per kind (head, body, sword, shield, hat, weapon), because each kind searches its own folders. A picture first asked for without its kind got the built-in stand-in and kept it, so an install's own picture could stay hidden behind the stand-in (in 1.33, `levels/weapons/wbomb1.gif` beside the D button).
 
@@ -132,8 +136,8 @@ weapon, Q the item list, M the map; Esc leaves the game. Run
 ## Not yet
 
 Most of the ids 169 to 185, the GS1 commands added
-after 2.05 (beyond `addtiledef` and `replaceani`), gani scripts, chat
-bubbles, Options, UDP peer traffic, and a side-by-side check against the
+after 2.05 (beyond `addtiledef` and `replaceani`), gani scripts,
+Options, UDP peer traffic, and a side-by-side check against the
 real 2.17.1. See the build's README.
 
 - [ ] The Options button: the original's options window is not built yet.

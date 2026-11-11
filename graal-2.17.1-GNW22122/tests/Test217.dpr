@@ -1384,8 +1384,32 @@ begin
   end;
 end;
 
+{ The chat line: Tab, typing, Enter says it. }
+procedure TestChat;
+var
+  G: TAdventure;
+begin
+  G := TAdventure.Create;
+  try
+    G.Headless := True;
+    G.ToggleChat;
+    Check(G.ChatFocus and not G.ChatPicked, 'chat: Tab gives the keys to the chat line');
+    G.TypeChat('hix'#8'!'#13);
+    Check((G.Player.Chat = 'hi!') and (G.ChatInput = ''), 'chat: Enter says the line and empties it');
+    G.TypeChat('again');
+    G.ToggleChat;
+    G.ToggleChat;
+    Check(G.ChatPicked, 'chat: Tab back picks what is typed');
+    G.TypeChat('new');
+    Check((G.ChatInput = 'new') and not G.ChatPicked, 'chat: typing replaces the picked text');
+  finally
+    G.Free;
+  end;
+end;
+
 begin
   TestGTypes;
+  TestChat;
   TestGen3Capture;
   TestLoginLine;
   TestZlib;

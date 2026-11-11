@@ -469,7 +469,11 @@ begin
     GsOpDisableWeapons: FAdv.WeaponsOn := False;
     GsOpShowStats: FAdv.ShowStats := Trunc(A.Num[0]);
   else
-    if GsCommands[Op - GsFirstOp].Name = 'replaceani' then
+    { addtiledef IMAGE,PREFIX[,TYPE]: the offline tutorial sets its tile
+      sheet, and with it the wall rule, this way }
+    if GsCommands[Op - GsFirstOp].Name = 'addtiledef' then
+      FAdv.AddTileDef(A.Str[0], A.Str[1], Trunc(A.Num[2]))
+    else if GsCommands[Op - GsFirstOp].Name = 'replaceani' then
       FAdv.ReplaceAni(A.Str[0], A.Str[1])
     else
       FAdv.Log('GS1 ' + GsCommands[Op - GsFirstOp].Name + ' (not modelled)');

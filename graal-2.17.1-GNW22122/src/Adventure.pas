@@ -337,6 +337,11 @@ type
     Blasts: array of TBlast;
     { Reading a sign: its lines and the first line of the page shown. }
     Reading: Boolean;
+    { the chat line: what is typed in it, whether it has the keys (Tab
+      gives them to it and back), and whether its text is picked (Tab
+      picks it all, so typing replaces it) }
+    ChatInput: string;
+    ChatFocus, ChatPicked: Boolean;
     SignLines: array of string;
     SignLine: Integer;
     { The weapon list (2.05 keeps one, in arrival order) and the selected
@@ -408,6 +413,17 @@ type
     procedure Draw;
     { the white chat line under the play area }
     procedure DrawChatBar;
+    { Typed characters for the chat line: Enter says the line (it stays
+      in the chat line, emptied), backspace, printable characters. }
+    procedure TypeChat(const Chars: string);
+    { Tab: the chat line takes the keys, or gives them back. }
+    procedure ToggleChat;
+    { Sets what the player says (PLPROP_CURCHAT), sent when online. }
+    procedure Say(const Text: string);
+    { Text centred on CX in the names' font, or the built-in font without it. }
+    procedure DrawChatText(CX, Y: Integer; const Text: string);
+    { P's chat over its head }
+    procedure DrawSaid(P: TServerPlayer; CamX, CamY: Integer);
     { Loads a level (or a .gmap and its levels) from disk for offline play;
       links then look for their levels next to it, then in the install. }
     function LoadLevelFile(const FileName: string): Boolean;
@@ -2395,6 +2411,13 @@ end;
 { The item list window: from (16, 80) to 16 pixels from the right and
   bottom edges, cells from (48, 112), packed left to right then down;
   each cell is the image (or a 32 x 32 place) over its name. }
+{ A weapon whose name starts with '-' is a system weapon: it runs but is
+  left out of the item list. }
+function HiddenWeapon(const Name: string): Boolean;
+begin
+  Result := (Name = '') or (Name[1] = '-');
+end;
+
 procedure ListCells(G: TAdventure; out CX, CY, CW, CH: array of Integer);
 var
   I, X, Y, RowH, W, H: Integer;
@@ -2406,6 +2429,14 @@ begin
   for I := 0 to High(G.Weapons) do
   begin
     if I > High(CX) then Break;
+    if HiddenWeapon(G.Weapons[I].Name) then
+    begin
+      CX[I] := 0;
+      CY[I] := 0;
+      CW[I] := 0;
+      CH[I] := 0;
+      Continue;
+    end;
     Img := nil;
     if G.Weapons[I].Image <> '' then Img := G.Assets.Image(G.Weapons[I].Image, 'weapon');
     if Img <> nil then
@@ -2502,6 +2533,7 @@ begin
   ListCells(Self, CX, CY, CW, CH);
   for I := 0 to Min(High(Weapons), 63) do
   begin
+    if HiddenWeapon(Weapons[I].Name) then Continue;
     if CY[I] + CH[I] > ScreenH - 64 then Break;
     if I = Selected then Screen.FillRect(CX[I], CY[I], CW[I], CH[I], $FFFFD480);
     Img := nil;
@@ -4528,6 +4560,10 @@ begin
   for I := 0 to FOthers.Count - 1 do
     DrawPlayer(Others[I], CamX, CamY);
   DrawPlayer(Player, CamX, CamY);
+  { what each player says, over the head }
+  for I := 0 to FOthers.Count - 1 do
+    DrawSaid(Others[I], CamX, CamY);
+  DrawSaid(Player, CamX, CamY);
   DrawCombat(LCamX, LCamY);
   DrawShots(LCamX, LCamY);
   Npcs.Draw(Screen, LCamX, LCamY, True);
@@ -4555,6 +4591,95 @@ begin
   Screen.FillRect(1, Y + 1, 1, ChatBarH - 2, $FF6A6A6A);
   Screen.FillRect(1, Y + ChatBarH - 2, ScreenW - 2, 1, $FFE3E3E3);
   Screen.FillRect(ScreenW - 2, Y + 1, 1, ChatBarH - 2, $FFE3E3E3);
+  { what is typed, black; picked: white on the highlight; the caret
+    while the line has the keys }
+  if ChatPicked then
+  begin
+    Screen.FillRect(3, Y + 4, TextWidth(ChatInput, 1) + 1, GlyphH, $FF000080);
+    DrawText(Screen, 3, Y + 4, ChatInput, $FFFFFFFF, 1);
+  end
+  else
+    DrawText(Screen, 3, Y + 4, ChatInput, $FF000000, 1);
+  if ChatFocus and not ChatPicked and ((Frame div 10) mod 2 = 0) then
+    Screen.FillRect(3 + TextWidth(ChatInput, 1), Y + 4, 1, GlyphH - 1, $FF000000);
+end;
+
+procedure TAdventure.DrawChatText(CX, Y: Integer; const Text: string);
+const
+  ChatFontPx = 18;
+var
+  F: TTrueTypeFont;
+  TW: Integer;
+begin
+  F := NameFont;
+  if F = nil then
+  begin
+    TW := TextWidth(Text, 1);
+    DrawText(Screen, CX - TW div 2 + 1, Y + 1, Text, $FF000080, 1);
+    DrawText(Screen, CX - TW div 2, Y, Text, $FFFFFFFF, 1);
+    Exit;
+  end;
+  TW := F.TextWidth(Text, ChatFontPx, True);
+  F.DrawText(Screen, CX - TW div 2 + 1, Y + 1, Text, ChatFontPx, $FF000080, True);
+  F.DrawText(Screen, CX - TW div 2, Y, Text, ChatFontPx, $FFFFFFFF, True);
+end;
+
+procedure TAdventure.DrawSaid(P: TServerPlayer; CamX, CamY: Integer);
+var
+  BX, BY: Integer;
+begin
+  if P.Chat = '' then Exit;
+  if Gmap <> nil then
+  begin
+    BX := Round((P.X + P.GmapX * BoardW) * TileSize) - CamX;
+    BY := Round((P.Y + P.GmapY * BoardH) * TileSize) - CamY;
+  end
+  else
+  begin
+    BX := Round(P.X * TileSize) - CamX;
+    BY := Round(P.Y * TileSize) - CamY;
+  end;
+  DrawChatText(BX + 24, BY - 6, P.Chat);
+end;
+
+procedure TAdventure.ToggleChat;
+begin
+  ChatFocus := not ChatFocus;
+  ChatPicked := ChatFocus and (ChatInput <> '');
+end;
+
+procedure TAdventure.Say(const Text: string);
+begin
+  Player.Chat := Text;
+  if (FClient <> nil) and FClient.Connected then
+    FClient.SendPacket(PLI_PLAYERPROPS, GChar(PLPROP_CURCHAT) + GString(Text));
+end;
+
+procedure TAdventure.TypeChat(const Chars: string);
+var
+  I: Integer;
+begin
+  for I := 1 to Length(Chars) do
+    case Chars[I] of
+      #13:
+        begin
+          Say(ChatInput);
+          ChatInput := '';
+          ChatPicked := False;
+        end;
+      #8:
+        begin
+          if ChatPicked then ChatInput := ''
+          else if ChatInput <> '' then Delete(ChatInput, Length(ChatInput), 1);
+          ChatPicked := False;
+        end;
+      ' '..'~', #160..#255:
+        begin
+          if ChatPicked then ChatInput := '';
+          ChatPicked := False;
+          if Length(ChatInput) < 220 then ChatInput := ChatInput + Chars[I];
+        end;
+    end;
 end;
 
 end.
