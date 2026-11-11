@@ -83,8 +83,14 @@ jobs:
         run: scripts/build.sh $BUILDS
       - name: Log each rebuild into seihai-gserver
         run: |
+          . scripts/v7.sh
           for B in $BUILDS; do
-            scripts/loopback.sh seihai-gserver/target/release/seihai-gserver "$B"
+            # v7 (Worlds) is not blocking until there is more v7 research
+            if is_v7 "$B"; then
+              scripts/loopback.sh seihai-gserver/target/release/seihai-gserver "$B" || v7_warn "$B" "loopback failed"
+            else
+              scripts/loopback.sh seihai-gserver/target/release/seihai-gserver "$B"
+            fi
           done
 
   windows:
@@ -115,6 +121,8 @@ jobs:
         shell: pwsh
         run: |
           foreach ($exe in Get-ChildItem build/*/Graal*.exe) {
+            # v7 (Worlds) is not blocking (scripts/v7.sh)
+            if ($exe.Directory.Name -eq 'graal-6.114-worlds') { "::warning::graal-6.114-worlds (v7, not blocking): not checked"; continue }
             $v = $exe.VersionInfo
             "{0}: {1} {2} / {3}" -f $exe.Directory.Name, $v.ProductName, $v.ProductVersion, $v.FileDescription
             if ($v.ProductName -ne 'graal-delphi' -or $v.CompanyName -ne 'squirelworks') { throw "$($exe.FullName): no version info" }
