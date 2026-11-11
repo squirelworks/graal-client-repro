@@ -618,8 +618,8 @@ begin
     Langs := InstallLanguages(Dir);
     LaunchCfg.Style := ls11;
     LaunchCfg.ServerEnabled := True;
-    LaunchCfg.DefServer := 'www.graalonline.com';
-    LaunchCfg.DefPort := 14802;
+    LaunchCfg.DefServer := DefHost;
+    LaunchCfg.DefPort := DefPort;
     LaunchCfg.DefMode := 0;
     ServerOverride(Dir, LaunchCfg.DefServer, LaunchCfg.DefPort);
     repeat
@@ -639,13 +639,6 @@ begin
       Offline := LR.Mode <> 1;
       R.Host := LR.Server;
       R.Port := LR.Port;
-      { www.graalonline.com, the dialog's own default, is long gone: it
-        stands for the community server the rebuild used before }
-      if SameText(R.Host, 'www.graalonline.com') then
-      begin
-        R.Host := DefHost;
-        R.Port := DefPort;
-      end;
       R.Account := LR.Account;
       if R.Account = '' then R.Account := LR.Nickname;
       R.Password := LR.Password;

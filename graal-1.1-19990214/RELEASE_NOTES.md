@@ -16,6 +16,10 @@ own, so it runs as it is. Put it at the top of a 1.1 install you own (or
 keep a `graal-assets/` folder next to it, or point it at one with
 `--data DIR`) and the install's tiles and levels take their place.
 
+## What's new in v0.0.5
+
+- [x] **Default server.** The server field now starts on the rebuild's own default (listserver.txt, else `listserver.graal.in`) instead of the original's long-gone host, so the code that swapped that host out on connect is gone.
+
 ## What's new in v0.0.4
 
 - Rebuilt from the latest code; the changes for this client are listed here as they land.
@@ -27,7 +31,7 @@ keep a `graal-assets/` folder next to it, or point it at one with
 - [x] **Modes, as the real one switches them.** One Player, One Player Online, Two Players. One Player shows no panel. One Player Online shows Nick Name, Server and Port. The Server field is greyed, as in 1.1. Two or more players show one more character list per player.
 - [x] **The character list.** 23 entries (Fung Si Yan ... Pach Soldier) come from the exe's own table (1.1 has no headsconfig.txt). Each is drawn with its head's front at half size, owner-drawn as the original. Fung Si Yan is the default, and Nick, Mandi and Bad Max are the defaults for players 2 to 4. The pick sets the player's head and five body colours in the game.
 - [x] **Heads from heads.gif.** The heads come from the install's heads.gif, where head N is column N, in the dialog and in the game.
-- [x] **Online defaults.** The server field holds www.graalonline.com and the port is 14802, as the real one fills them. graalconfig.txt (`serveraddr=`, `serverport=`) or listserver.txt fills them instead. www.graalonline.com is gone, so it stands for the community server.
+- [x] **Online defaults.** The server field held the original's default host and the port is 14802, as the real one fills them. graalconfig.txt (`serveraddr=`, `serverport=`) or listserver.txt fills them instead. That host is gone, so it stood for the community server.
 - [x] **Icon.** The program's icon is MAINICON, taken from the real exe.
 - [x] **Game window.** It is titled "Graal" (TAdventure's caption), with a 640 x 448 client, as the real 1.1 opens it. That is checked under Wine.
 - [x] **One Player start level.** One Player opens house1.graal, as the real one does.

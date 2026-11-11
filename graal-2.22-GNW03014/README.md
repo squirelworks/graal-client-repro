@@ -62,7 +62,7 @@ captures of the real 2.22 client, not from decompiled code:
 - **The listserver step**: hosts from `arrays2.dat` (line 0, then the
   fallbacks on lines 5 and 6), `listserver.txt` next to the program wins
   over it, and with neither it asks `listserver.graal.in` on port 14922
-  (the original pointed at GraalOnline's listserver); id 7 (key, `GNW30123`, `newmain`) in a plain zlib frame, then
+  (the original pointed at its own default host, which is gone); id 7 (key, `GNW30123`, `newmain`) in a plain zlib frame, then
   id 1 (account, password) in gen 5; the list (id 0), status (2), site (3),
   error (4) and upgrade (5) lines back (tests; tried against a stand-in
   2.22 listserver and then seihai-gserver on a virtual screen).

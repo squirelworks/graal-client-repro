@@ -1277,8 +1277,8 @@ begin
   Check(not ResFile('NOSUCH', D), 'res: an unknown name');
   Check(LicenseSignupUrl('h'#13#10'14900'#13#10'x'#13#10'http://a/b.php'#13#10) = 'http://a/b.php',
     'licence: line 3 is the sign-up page');
-  Check(LicenseSignupUrl('h'#13#10'14900'#13#10) = DefaultSignupUrl,
-    'licence: no line 3, the default sign-up page');
+  Check((DefaultSignupUrl = '') and (LicenseSignupUrl('h'#13#10'14900'#13#10) = ''),
+    'licence: no line 3, no sign-up page');
 end;
 
 begin

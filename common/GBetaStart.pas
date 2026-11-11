@@ -402,7 +402,7 @@ begin
     if F.Ctl('Edit4') <> nil then
     begin
       S := ConfigValue(Cfg, 'serveraddr', '');
-      if S = '' then S := 'www.graalonline.com';
+      if S = '' then S := 'listserver.graal.in';
       F.SetText('ComboBox5', S);
       F.SetText('Edit2', ConfigValue(Cfg, 'serverport', F.GetText('Edit2')));
       F.SetText('Edit4', ConfigValue(Cfg, 'accountname', F.GetText('Edit4')));

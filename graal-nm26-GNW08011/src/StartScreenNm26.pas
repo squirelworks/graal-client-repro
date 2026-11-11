@@ -80,7 +80,7 @@ begin
   end;
   { One plain zlib frame: id 0 with the list name, then id 1 with the
     account and password. A stock NewMain sends id 0 alone (to
-    www.graalonline.com, port 14921), but the public
+    the original's default host, port 14921), but the public
     listserver's legacy port (14923) answers only once id 1 has come
     (graal_analysis manual/06-listserver.md, the login-type matrix). }
   Client.SendPacket(0, 'newmain');

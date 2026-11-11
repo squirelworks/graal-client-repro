@@ -26,9 +26,8 @@
     the Graal folder!" (StartScreen-GraalEditorError);
   - the server list's tabs are Graal Gold ('P '), Graal 3D ('3 '),
     Classic (no prefix) and Hosted ('H '), only those that hold a
-    server; picking a Graal 3D server without Graal3.exe says "You need
-    to download Graal3D at http://www.graalonline.com/downloads/index.php
-    for playing this server!";
+    server; picking a Graal 3D server without Graal3.exe says that
+    Graal3D is needed for this server (the original's download page is gone);
   - the list page shows Connect only (no Show More / Donations), with the
     server combo box under the list. }
 unit RealStart230;
@@ -781,8 +780,7 @@ begin
                 Press(7);
                 if not StartProgram(Dir, 'Graal3.exe', '-connect "' + Srv.Host + ':' +
                   IntToStr(Srv.Port) + '"') then
-                  Note := 'You need to download Graal3D at ' +
-                    'http://www.graalonline.com/downloads/index.php ' +
+                  Note := 'You need Graal3D (Graal3.exe in the Graal folder) ' +
                     'for playing this server!';
                 Continue;
               end;

@@ -16,6 +16,10 @@ program carries small default graphics and a starter level of its own, so
 it runs as it is. Put it in the folder of a 2.3 install you own, next to
 its files, or keep those files in a `graal-assets/` folder beside it.
 
+## What's new in v0.0.5
+
+- [x] **Graal3D servers.** Without Graal3.exe the note now says Graal3D is needed, without the original's download address, which is gone.
+
 ## What's new in v0.0.4
 
 - Rebuilt from the latest code; the changes for this client are listed here as they land.

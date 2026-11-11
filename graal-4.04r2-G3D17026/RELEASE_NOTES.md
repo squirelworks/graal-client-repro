@@ -17,6 +17,10 @@ point it at one with `--data DIR`) and the install's tiles, ganis, heads and
 bodies take their place. The shared `graal-assets/` folder next to the
 program works too (`graal-assets/4.04r2/`, then `graal-assets/common/`).
 
+## What's new in v0.0.5
+
+- [x] **Become a Member.** The original's sign-up page is gone, so with no sign-up page in the licence file (line 3) the button now says none is set instead of opening a dead address.
+
 ## What's new in v0.0.4
 
 - Rebuilt from the latest code; the changes for this client are listed here as they land.
