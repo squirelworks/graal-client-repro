@@ -131,6 +131,10 @@ public static class PlayerChecks {
             TcpClient client = listener.AcceptTcpClient();
             NetworkStream stream = client.GetStream();
             YardServer.ReadExact(stream, 8);
+            // Read the login line too. Closing with it unread makes Windows
+            // reset the connection, and the reset can drop NOPE before the
+            // client reads it.
+            YardServer.ReadLine(stream);
             byte[] nope = Encoding.ASCII.GetBytes("NOPE\n");
             stream.Write(nope, 0, nope.Length);
             client.Close();
