@@ -345,6 +345,49 @@ begin
   SetAssetRootsFor('', '', '');
 end;
 
+{ A shared root (every program in one folder, _clients/<version>/ for
+  what differs): the build's own copy wins, root files its files.txt does
+  not name stay hidden, and so do other versions' folders. }
+procedure TestSharedRoot;
+var
+  Root, Own: string;
+begin
+  Root := IncludeTrailingPathDelimiter(GetTempDir) + 'sharedroot-' + IntToStr(Random(1000000)) + PathDelim;
+  Own := Root + '_clients' + PathDelim + '2.22' + PathDelim;
+  PutText(Root + 'levels' + PathDelim + 'shared.nw', 'root');
+  PutText(Root + 'levels' + PathDelim + 'mine.nw', 'root');
+  PutText(Root + 'levels' + PathDelim + 'other.nw', 'root');
+  PutText(Own + 'levels' + PathDelim + 'mine.nw', 'own');
+  PutText(Root + '_clients' + PathDelim + '2.05r2' + PathDelim + 'levels' + PathDelim + 'x.nw', 'other');
+  PutText(Own + 'files.txt', 'levels/shared.nw' + LineEnding + 'Levels/Mine.nw');
+  SetAssetRootsFor(Root, Root, '2.17.1;2.22');
+  Check(AssetPath('levels/shared.nw') = Root + 'levels' + PathDelim + 'shared.nw',
+    'shared root: a file of files.txt comes from the root');
+  Check(AssetPath('levels/mine.nw') = Own + 'levels' + PathDelim + 'mine.nw',
+    'shared root: the build''s own copy wins over the root''s');
+  Check(AssetPath('levels/other.nw') = '', 'shared root: a root file not in files.txt is hidden');
+  Check(AssetPath('levels/x.nw') = '', 'shared root: another version''s folder is not read');
+  Check(not AssetAllowed(Root + 'levels' + PathDelim + 'other.nw'), 'shared root: AssetAllowed refuses an unlisted root file');
+  Check(AssetAllowed(Root + 'levels' + PathDelim), 'shared root: a root folder may be walked');
+  Check(not AssetAllowed(Root + '_clients' + PathDelim), 'shared root: _clients/ is not walked from the root');
+  Check(AssetAllowed(Own + 'levels' + PathDelim + 'mine.nw'), 'shared root: the own folder is allowed');
+  Check(LevelSibling(Root + 'levels' + PathDelim, 'mine.nw') = Own + 'levels' + PathDelim + 'mine.nw',
+    'shared root: next to a root level, the build''s own copy still wins');
+  Check(LevelSibling(Own + 'levels' + PathDelim, 'shared.nw') = Root + 'levels' + PathDelim + 'shared.nw',
+    'shared root: next to an own level, a shared root file is found');
+  Check(LevelSibling(Root + 'levels' + PathDelim, 'other.nw') = '',
+    'shared root: next to a root level, an unlisted file stays hidden');
+  Check(InstallPath(Root, 'levels/shared.nw') = Root + 'levels' + PathDelim + 'shared.nw',
+    'shared root: InstallPath gives a listed root file');
+  Check((InstallPath(Root, 'levels/other.nw') <> '') and
+    not FileExists(InstallPath(Root, 'levels/other.nw')) and
+    (ExtractFileName(InstallPath(Root, 'levels/other.nw')) = 'other.nw'),
+    'shared root: InstallPath of an unlisted file is a missing path of that name');
+  SetAssetRootsFor(Root, Root, '6.03r7');
+  Check(AssetPath('levels/shared.nw') = '', 'shared root: a build with no folder reads no root files');
+  SetAssetRootsFor('', '', '');
+end;
+
 { The heights of a generator gmap's levels, built as 2.22 builds them. }
 { the ground picker of Graal_222.exe: bands from the top, transition tiles
   by corner mask, decorations by the fraction of the corners' sum }
@@ -1829,6 +1872,7 @@ begin
   TestTerrainHeights;
   TestGroundPicker;
   TestAssetOrder;
+  TestSharedRoot;
   TestListTrailingNuls;
   TestBuiltins;
   TestLoginBurst;

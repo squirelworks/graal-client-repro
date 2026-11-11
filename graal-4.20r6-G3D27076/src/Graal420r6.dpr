@@ -490,7 +490,7 @@ begin
   Path := FirstFileIn(Dir, 'levels/tutorial/offlinetutorial_b-2.graal;levels/offlinetutorial_b-2.nw;levels/offlinetutorial_b-2.graal;offlinetutorial_b-2.nw;offlinetutorial_b-2.graal');
   if Path = '' then
   begin
-    Path := Dir + 'start.nw';
+    Path := InstallPath(Dir, 'start.nw');
     X := '30';
     Y := '30';
   end;
@@ -537,7 +537,7 @@ begin
     if AssetPath('license/license.graal') <> '' then
       Hosts := LoadListHosts(AssetPath('license/license.graal'))
     else
-      Hosts := LoadListHosts(Dir + 'license' + PathDelim + 'license.graal');
+      Hosts := LoadListHosts(InstallPath(Dir, 'license' + PathDelim + 'license.graal'));
     ArrHost := DefaultListHost;
     ReadListServer(Dir, ArrHost, DefaultListPort, ListHost, ListPort);
     FillChar(R, SizeOf(R), 0);

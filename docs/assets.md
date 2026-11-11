@@ -27,6 +27,51 @@ Nothing above the root is read. A real install dropped into the root, laid
 out as the original had it (`levels/`, `sounds/`, ...), still wins over
 `graal-assets/`.
 
+## Layout: one shared root (`_clients/`)
+
+The per-version `graal-assets/` folders repeat most files: the 0.0.4 set
+unpacks to 154 MB, of which 68 MB is distinct (the 13 copies of the 2.0
+line, b10 and b11, the NewWorld betas, 3.04 and 3.153). The shared-root
+zip keeps one copy of each file in the root, next to the programs, and
+only the differences per version:
+
+```
+<root>/
+  GraalB15.exe  Graal139.exe  Graal222.exe ...   every rebuilt program
+  levels/ sounds/ maps/ pics1.gif ...            one copy of each file, the
+                                                 bytes most installs had
+  _clients/<version>/                            that version's files whose
+                                                 bytes or path case differ
+  _clients/<version>/files.txt                   the root files that
+                                                 version's install had
+  README-assets.txt
+```
+
+A folder holding `_clients/` is a shared root. A build reads the first
+folder of its label that exists under `_clients/` (2.17.1 reads
+`_clients/2.22/`), then only the root files its `files.txt` names; with
+no folder of its own it reads no root files. So a build never sees a file
+its own install did not have, and the version-set rules below still hold.
+Lookups next to an offline level (`LevelSibling`), the 2.0x name index
+and the 2.x gmap height scan go through the same filter
+(`AssetAllowed`); the Java clients' `Assets` do the same. A real install
+keeps working in a folder with no `_clients/`.
+
+Built from a cut `graal-assets` folder (fallback labels such as b12 on
+b11 are folded into each version's set, so no chain is needed at run
+time), and checked against it:
+
+```
+scripts/assets/shared_root.py graal-assets graal-assets-shared.zip
+mkdir shared && (cd shared && unzip -q ../graal-assets-shared.zip)
+scripts/assets/shared_root.py --check shared graal-assets
+```
+
+From the 0.0.4 set: root 7,468 files (49.5 MB), own folders 3,129 files
+(28.4 MB), zip 50.7 MB instead of 96.0 MB; `--check` resolves all 63
+versions byte for byte with no extra file. The largest own folders are
+2.22, 3.04 and 3.153 (about 4 MB each: their art was re-saved).
+
 ## Search order
 
 `common/GAssetDirs.pas` sets the folders; a file is taken from the first

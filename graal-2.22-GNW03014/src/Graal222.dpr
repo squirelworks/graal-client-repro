@@ -613,7 +613,7 @@ begin
   Path := FirstFileIn(Dir, 'levels/offlinetutorial_b-2.graal;offlinetutorial_b-2.graal');
   if Path = '' then
   begin
-    Path := Dir + 'start.nw';
+    Path := InstallPath(Dir, 'start.nw');
     X := '30';
     Y := '30';
   end;
@@ -672,7 +672,7 @@ begin
     if AssetPath('arrays2.dat') <> '' then
       Hosts := LoadListHosts(AssetPath('arrays2.dat'))
     else
-      Hosts := LoadListHosts(Dir + 'arrays2.dat');
+      Hosts := LoadListHosts(InstallPath(Dir, 'arrays2.dat'));
     ArrHost := DefaultListHost;
     if Length(Hosts.Hosts) > 0 then ArrHost := Hosts.Hosts[0];
     ReadListServer(Dir, ArrHost, Hosts.Port, ListHost, ListPort);

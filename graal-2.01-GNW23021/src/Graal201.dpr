@@ -610,7 +610,7 @@ begin
       Exit;
     end;
   end;
-  Result := Dir + 'tutorial_b-4.graal';
+  Result := InstallPath(Dir, 'tutorial_b-4.graal');
 end;
 
 procedure TrainingLevel(const Dir: string; out Path, X, Y: string);
@@ -621,7 +621,7 @@ begin
   if Path = '' then Path := WriteTutorials;
   if Path = '' then
   begin
-    Path := Dir + 'start.nw';
+    Path := InstallPath(Dir, 'start.nw');
     X := '30';
     Y := '30';
   end;

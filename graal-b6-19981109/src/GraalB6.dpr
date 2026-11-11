@@ -203,7 +203,7 @@ end;
 procedure TrainingLevel(const Dir: string; out Path: string);
 begin
   Path := FirstFileIn(Dir, TrainingLevels);
-  if Path = '' then Path := Dir + 'start.nw';
+  if Path = '' then Path := InstallPath(Dir, 'start.nw');
 end;
 
 function RunGame(GuiWin: TGWindow; const GuiNick: string): Integer;
