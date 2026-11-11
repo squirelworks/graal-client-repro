@@ -1008,11 +1008,11 @@ begin
       '107: a layer 0 change is applied to the board; other layers are dropped');
     G.Receive(PLO_BOARDLAYER, GChar(0) + GChar(63) + GChar(63) + GChar(64) + GChar(64) + GShort(1));
     Check(G.Level.Tiles[63 * 64 + 63] <> 1, '107: a change with too few tiles is dropped');
-    G.Receive(PLO_UNKNOWN108, GChar(0) + 'ab');
+    G.Receive(PLO_PING, GChar(0) + 'ab');
     G.Receive(PLO_UNKNOWN196, GInt5(0) + 'x.png');
     G.ServerMessage := '';
     G.Receive(PLO_STARTMESSAGE, 'hello');
-    Check((G.Handled[PLO_UNKNOWN108] = 1) and (G.Ignored[PLO_UNKNOWN196] = 1) and
+    Check((G.Handled[PLO_PING] = 1) and (G.Ignored[PLO_UNKNOWN196] = 1) and
       (G.Ignored[PLO_STARTMESSAGE] >= 1) and (G.ServerMessage = ''),
       '108 handled; 41 and 196 have no case on the Mac and are ignored');
     { fewer than four fields: ignored }

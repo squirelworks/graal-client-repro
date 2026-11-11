@@ -2661,7 +2661,7 @@ begin
               end;
           AddShot(FX, FY, V and 3, BX, Max(0, Min(3, BY)), False);
         end;
-      PLO_LEVELMODTIME, PLO_ISLEADER, PLO_UNKNOWN168,
+      PLO_LEVELMODTIME, PLO_ISLEADER, PLO_ONLINEMODE,
       PLO_STAFFGUILDS, PLO_HASNPCSERVER, PLO_FILEUPTODATE, PLO_FILESENDFAILED:
         ; { accepted; their effects belong to later stages }
     else

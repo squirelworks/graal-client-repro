@@ -112,7 +112,7 @@ const
   PLO_FILE = 102;
   PLO_SAY2 = 153;
   PLO_SETACTIVELEVEL = 156;
-  PLO_UNKNOWN168 = 168;
+  PLO_ONLINEMODE = 168;  { was PLO_UNKNOWN168 }
   { 169..185 are all handled by 2.17.1; the rebuild accepts them and leaves
     their effects (ghost mode, server-sent maps, serverwarp, RPG window,
     status list, process list, screenshots, level heights) to later stages }
@@ -234,7 +234,7 @@ begin
     PLO_FILE: Result := 'FILE';
     PLO_SAY2: Result := 'SAY2';
     PLO_SETACTIVELEVEL: Result := 'SETACTIVELEVEL';
-    PLO_UNKNOWN168: Result := 'UNKNOWN168';
+    PLO_ONLINEMODE: Result := 'UNKNOWN168';
   else
     Result := 'PLO_' + IntToStr(Id);
   end;

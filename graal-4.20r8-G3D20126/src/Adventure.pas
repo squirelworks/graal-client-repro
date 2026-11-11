@@ -1841,7 +1841,7 @@ begin
                 Level.Tiles[(Y0 + I div W) * BoardW + X0 + I mod W] := MX;
             end;
         end;
-      PLO_UNKNOWN108, PLO_UNKNOWN196:
+      PLO_PING, PLO_UNKNOWN196:
         { 108 subtype 0 asks for an answer (162, '!' and a 2-byte value);
           what the value is, is not in the notes, so the rebuild sends
           none. 196 is read and dropped, as the real client does. }

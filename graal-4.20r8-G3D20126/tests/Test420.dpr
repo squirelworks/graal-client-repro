@@ -1008,10 +1008,10 @@ begin
       '107: a layer 0 change is applied to the board; other layers are dropped');
     G.Receive(PLO_BOARDLAYER, GChar(0) + GChar(63) + GChar(63) + GChar(64) + GChar(64) + GShort(1));
     Check(G.Level.Tiles[63 * 64 + 63] <> 1, '107: a change with too few tiles is dropped');
-    G.Receive(PLO_UNKNOWN108, GChar(0) + 'ab');
+    G.Receive(PLO_PING, GChar(0) + 'ab');
     G.Receive(PLO_UNKNOWN196, GInt5(0) + 'x.png');
-    Check((G.Handled[PLO_UNKNOWN108] = 1) and (G.Handled[PLO_UNKNOWN196] = 1) and
-      (G.Ignored[PLO_UNKNOWN108] = 0), '108 and 196: handled');
+    Check((G.Handled[PLO_PING] = 1) and (G.Handled[PLO_UNKNOWN196] = 1) and
+      (G.Ignored[PLO_PING] = 0), '108 and 196: handled');
     { fewer than four fields: ignored }
     G.Receive(PLO_SERVERWARP, '0,Game,127.0.0.1');
     Check((G.ServerWarps = 0) and G.LoginSession, '178: fewer than four fields are ignored');
