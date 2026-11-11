@@ -50,8 +50,27 @@ jobs:
       BUILDS: ${{ needs.changes.outputs.builds }}
     steps:
       - uses: actions/checkout@v4
+      # Free Pascal and the other build packages come from a cache of
+      # their .deb files, keyed on the runner image, so a run needs the
+      # Ubuntu mirrors only when the image changes. A mirror outage then
+      # fails this job only on an image change, not on every PR.
+      - name: Cached build packages
+        id: debs
+        uses: actions/cache@v4
+        with:
+          path: ~/fpc-debs
+          key: fpc-debs-${{ runner.arch }}-${{ env.ImageOS }}-${{ env.ImageVersion }}-v1
+      - name: Download the build packages
+        if: steps.debs.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get -o Acquire::Retries=5 update
+          sudo apt-get -o Acquire::Retries=5 install -y --download-only fp-compiler fp-units-base fp-units-fcl libx11-dev g++ zlib1g-dev mono-devel
+          mkdir -p ~/fpc-debs
+          cp /var/cache/apt/archives/*.deb ~/fpc-debs/
       - name: Install Free Pascal
-        run: sudo apt-get -o Acquire::Retries=5 update && sudo apt-get -o Acquire::Retries=5 install -y fp-compiler fp-units-base fp-units-fcl libx11-dev g++ zlib1g-dev mono-devel
+        run: |
+          sudo dpkg -i --skip-same-version ~/fpc-debs/*.deb
+          fpc -iV
       - name: Every client has its Windows resources
         run: python3 scripts/win/make_winres.py --check
       - name: Build (Delphi mode)
