@@ -8,3 +8,6 @@ build/
 *.res
 !**/res/*.res
 __pycache__/
+# dotnet build output (graal-6.114-worlds/player)
+obj/
+bin/

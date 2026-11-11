@@ -1,8 +1,0 @@
-{
-  "version": 2,
-  "dgSpecHash": "AWKe7KU9F1Y0gazz3UQaQI63wECO75ETB35FXXwNv47B5VlGw7eGAQTtTptYEqelA4yYZXRnHjbDNxLPARVpww==",
-  "success": true,
-  "projectFilePath": "/home/user/graal-client-repro/graal-6.114-worlds/player/WorldsPlayer.csproj",
-  "expectedPackageFiles": [],
-  "logs": []
-}
