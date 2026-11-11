@@ -146,7 +146,10 @@ jobs:
           dotnet --info
           for B in $BUILDS; do
             if [ -f "$B/player/WorldsPlayer.csproj" ]; then
-              dotnet restore "$B/player/WorldsPlayer.csproj" --verbosity diagnostic 2>&1 | tee "restore-logs/$B.log"
+              # MSBuild reads every environment variable as a property, so the
+              # job's VERSION (v0.0.4.1) would become $(Version), which NuGet
+              # rejects. Run dotnet without it.
+              env -u VERSION dotnet restore "$B/player/WorldsPlayer.csproj" --verbosity diagnostic 2>&1 | tee "restore-logs/$B.log"
             fi
           done
       - name: Upload restore diagnostics

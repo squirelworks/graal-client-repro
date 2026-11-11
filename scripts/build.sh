@@ -90,7 +90,9 @@ for B in $BUILDS; do
     PLAYOUT="$OUT/worlds-player"
     rm -f "$PLAYOUT" "$OUT/worlds-player.exe"
     if command -v dotnet >/dev/null 2>&1 && [ -f "$B/player/WorldsPlayer.csproj" ]; then
-      dotnet build "$B/player/WorldsPlayer.csproj" -c Release -o "$OUT" --nologo
+      # MSBuild turns environment variables into properties; a release job's
+      # VERSION (v0.0.4.1) would become $(Version), which NuGet rejects.
+      env -u VERSION dotnet build "$B/player/WorldsPlayer.csproj" -c Release -o "$OUT" --nologo
       if [ ! -x "$PLAYOUT" ] && [ -f "$OUT/worlds-player.exe" ]; then
         cat > "$PLAYOUT" << 'EOF'
 #!/bin/sh
