@@ -22,6 +22,10 @@ unblock the zip before you extract it: right-click it, **Properties**,
 tick **Unblock**, **OK**. Then nothing in the folder is asked about again.
 See [Windows says "Windows protected your PC"](https://github.com/squirelworks/graal-client-repro#windows-says-windows-protected-your-pc).
 
+## What's new in v0.0.5
+
+- [x] **Its fallback install files.** Every place that sets up the asset search now passes the build's whole version list (`graal-assets/b15/` then `graal-assets/b11/`). Some passed the bare version, so with only `graal-assets/` next to the program those parts found nothing and drew the built-in stand-in art.
+
 ## What's new in v0.0.4
 
 - Rebuilt from the latest code; the changes for this client are listed here as they land.

@@ -621,7 +621,11 @@ var
 begin
   Result := nil;
   if Name = '' then Exit;
+  { one entry per name and kind: each kind searches its own folders, and a
+    miss under one kind (the built-in stand-in) must not hide the file
+    another kind finds, e.g. levels/weapons/wbomb1.gif }
   Key := 'img:' + LowerCase(Name);
+  if Kind <> '' then Key := Key + '|' + Kind;
   I := FNames.IndexOf(Key);
   if I >= 0 then
   begin
@@ -980,7 +984,7 @@ var
 begin
   Assets.Dir := Dir;
   { the folder itself, then graal-assets/<version>/ and graal-assets/common/ }
-  SetAssetRoots(Dir, ClientBuildLabel);
+  SetAssetRoots(Dir, ClientAssetFolders);
   { the names' font: graalconfig.txt's, from the install or Windows' Fonts }
   FreeAndNil(NameFont);
   ConfigFont(Dir, Face, Cell);

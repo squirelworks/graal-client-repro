@@ -20,6 +20,7 @@ program works too (`graal-assets/4.04r2/`, then `graal-assets/common/`).
 ## What's new in v0.0.5
 
 - [x] **Become a Member.** The original's sign-up page is gone, so with no sign-up page in the licence file (line 3) the button now says none is set instead of opening a dead address.
+- [x] **Pictures by kind.** The picture cache keeps each name once per kind (head, body, sword, shield, hat, weapon), because each kind searches its own folders. A picture first asked for without its kind got the built-in stand-in and kept it, so an install's own picture could stay hidden behind the stand-in (in 1.33, `levels/weapons/wbomb1.gif` beside the D button).
 
 ## What's new in v0.0.4
 

@@ -19,6 +19,10 @@ like the original. Put it at the top of a NewMain install you own (or keep a
 `graal-assets/` folder next to it, or point it at one with `--data DIR`) and
 the install's files come first.
 
+## What's new in v0.0.5
+
+- [x] **Pictures by kind.** The picture cache keeps each name once per kind (head, body, sword, shield, hat, weapon), because each kind searches its own folders. A picture first asked for without its kind got the built-in stand-in and kept it, so an install's own picture could stay hidden behind the stand-in (in 1.33, `levels/weapons/wbomb1.gif` beside the D button).
+
 ## What's new in v0.0.4
 
 - The A, S and D key letters are drawn the way the original draws them:

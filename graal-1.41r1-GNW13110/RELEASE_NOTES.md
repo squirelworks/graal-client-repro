@@ -17,6 +17,11 @@ keep a `graal-assets/` folder next to it, or point it at one with
 `--data DIR`) and the install's tiles, heads, bodies and levels take their
 place.
 
+## What's new in v0.0.5
+
+- [x] **The counts and the sword in the status display.** The rupee, bomb and arrow counts come from the digit sprites of the sprite sheet (arrays.dat sprites 268 to 277) when the state picture has no digit row (224 x 81, up to 1.37), so they show again. The player's sword picture stands beside the S button, as in the real client.
+- [x] **Pictures by kind.** The picture cache keeps each name once per kind (head, body, sword, shield, hat, weapon), because each kind searches its own folders. A picture first asked for without its kind got the built-in stand-in and kept it, so an install's own picture could stay hidden behind the stand-in (in 1.33, `levels/weapons/wbomb1.gif` beside the D button).
+
 ## What's new in v0.0.4
 
 - [x] **One Player's start.** start1.graal at x 21.5, y 28, read from the exe's own start table, then moved by the level's own script as in the original (start1.graal's playerenters puts the player at 13.5, 37.5, under Stefan).

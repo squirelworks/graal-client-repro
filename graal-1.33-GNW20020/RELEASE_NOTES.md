@@ -16,6 +16,8 @@ sounds or levels. The client carries simple graphics of its own.
 ## What's new in v0.0.5
 
 - [x] **Default server.** The server field now starts on the rebuild's own default (listserver.txt, else `listserver.graal.in`) instead of the original's long-gone host, so the code that swapped that host out on connect is gone.
+- [x] **The counts and the sword in the status display.** The rupee, bomb and arrow counts come from the digit sprites of the sprite sheet (arrays.dat sprites 268 to 277) when the state picture has no digit row (224 x 81, up to 1.37), so they show again. The player's sword picture stands beside the S button, as in the real client.
+- [x] **Pictures by kind.** The picture cache keeps each name once per kind (head, body, sword, shield, hat, weapon), because each kind searches its own folders. A picture first asked for without its kind got the built-in stand-in and kept it, so an install's own picture could stay hidden behind the stand-in (in 1.33, `levels/weapons/wbomb1.gif` beside the D button).
 
 ## What's new in v0.0.4
 

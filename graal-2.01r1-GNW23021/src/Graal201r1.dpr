@@ -660,7 +660,7 @@ begin
       ("Graal"), which is the taskbar entry }
     Win.UseDelphiFrames('Graal');
     { the asset roots before anything is read from them }
-    SetAssetRoots(Dir, ClientBuildLabel);
+    SetAssetRoots(Dir, ClientAssetFolders);
     { listserver.txt next to the program, else the community listserver in
       place of the 2.05 one, which is gone: listserver.graal.in, port 14923
       for legacy clients (14922 is the supported-clients port) }
@@ -769,7 +769,7 @@ begin
       Result := 64;
       Exit;
     end;
-    SetAssetRoots(Dir, ClientBuildLabel);
+    SetAssetRoots(Dir, ClientAssetFolders);
     if ExtractFilePath(Path) <> '' then SetCurrentDir(ExtractFilePath(Path));
     GuiArgs := TStringList.Create;
     try

@@ -663,6 +663,8 @@ begin
 end;
 
 procedure TAssets.AddDownload(const Name, Data: string);
+const
+  ImageKinds: array[0..5] of string = ('head', 'body', 'sword', 'shield', 'hat', 'weapon');
 var
   K, B: string;
   I: Integer;
@@ -694,6 +696,7 @@ begin
   B := K;
   if EndsWith(B, '.gani') then SetLength(B, Length(B) - 5);
   Forget('img:' + K);
+  for I := 0 to High(ImageKinds) do Forget('img:' + K + '|' + ImageKinds[I]);
   Forget('ani:' + B);
   I := Missing.IndexOf(Name);
   if I >= 0 then Missing.Delete(I);
@@ -836,7 +839,11 @@ begin
   Result := nil;
   { '#c#' (showcharacter) and the other '#' names are markers, not files }
   if (Name = '') or (Name[1] = '#') then Exit;
+  { one entry per name and kind: each kind searches its own folders, and a
+    miss under one kind (the built-in stand-in) must not hide the file
+    another kind finds, e.g. levels/weapons/wbomb1.gif }
   Key := 'img:' + LowerCase(Name);
+  if Kind <> '' then Key := Key + '|' + Kind;
   I := FNames.IndexOf(Key);
   if I >= 0 then
   begin

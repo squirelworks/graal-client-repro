@@ -31,6 +31,10 @@ Files are looked for in the program's own folder first, then in
 `graal-assets/2.22` and `graal-assets/common` beside it, then in the
 `--data` folder. Nothing above the program's folder is read.
 
+## What's new in v0.0.5
+
+- [x] **Pictures by kind.** The picture cache keeps each name once per kind (head, body, sword, shield, hat, weapon), because each kind searches its own folders. A picture first asked for without its kind got the built-in stand-in and kept it, so an install's own picture could stay hidden behind the stand-in (in 1.33, `levels/weapons/wbomb1.gif` beside the D button).
+
 ## What's new in v0.0.4
 
 - Rebuilt from the latest code; the changes for this client are listed here as they land.
