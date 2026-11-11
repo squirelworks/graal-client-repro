@@ -53,8 +53,8 @@ common/                     code that is the same across builds
   GAssetDirs.pas            where a build finds the player's own Graal files (graal-assets/)
   builtin/                  those assets as files (scripts/builtin/make_builtin.py)
   win/                      the Windows manifest every client compiles in
-graal-<version>-<token>/    one folder per build (67, from graal-b1-19980906 to
-                            graal-6.03r7-G3D0511C); four shown here
+graal-<version>-<token>/    one folder per build (70, from graal-b1-19980906 to
+                            graal-6.114-worlds); four shown here
 javagraal-2000/, zelda-online1-Z3V102/, zelda-online2-Z3V103/   the Java clients
 graalgb-1.10/               the Game Boy Color demo
 graal-2.05-GNW03081/        Graal 2.05
@@ -189,15 +189,23 @@ steps and are required before a build counts as done.
 
 ## Status
 
-71 client folders: 67 Delphi rebuilds from the 1998 betas to 6.03r7, the
-three Java clients and the Game Boy Color demo. Each folder's README has what works and a
+74 client folders: 70 Graal builds from the 1998 betas to Worlds 6.114,
+the three Java clients and the Game Boy Color demo. The Graal builds are
+Object Pascal rebuilds, except that 3.04 and 4.20r8 also carry C++ boot
+hosts (`common/torque/host304`, `host4208`) and Worlds 6.114 is a portable
+C# stand-in for a Unity player. Several real builds have no folder yet
+(ROADMAP.md, "Builds with no folder"). Each folder's README has what works and a
 "Not yet" checklist; [RELEASES.md](RELEASES.md) has each client's latest
 release and level; [ROADMAP.md](ROADMAP.md) has the project checklist.
 
-As of 2026-11-05 every client is released at v0.0.4, all at once. The
+The last published release is v0.0.4 (2026-11-05), for the 71 clients
+that existed then. v0.0.4.1 is a development checkpoint for all 74
+([docs/releases/v0.0.4.1.md](docs/releases/v0.0.4.1.md)); after that the
 next combined release is 0.0.5 (ROADMAP.md). The 3.x to 6.x folders
-reproduce the wire and each client's own look, not the Torque engine
-around it; that work is on hold with no target ([#109](https://github.com/squirelworks/graal-delphi/issues/109)).
+reproduce the wire and each client's own look. The Torque engine around
+the 3.x to early-5 clients is being rebuilt in C++ under `common/torque/`
+([#109](https://github.com/squirelworks/graal-client-repro/issues/109),
+decision [#110](https://github.com/squirelworks/graal-client-repro/issues/110)).
 
 ## Windows says "Windows protected your PC"
 
