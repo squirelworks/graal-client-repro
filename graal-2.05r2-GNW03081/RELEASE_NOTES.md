@@ -17,6 +17,7 @@ bodies.
 ## What's new in v0.0.5
 
 - [x] Shared GS1 variable storage releases its scalar and array values
+- [x] **Counted raw messages.** Every byte inside a RAWDATA count is kept, a final LF too, as 2.05r2 hands the whole count to its raw dispatcher; a file whose content ends in LF is no longer cut short.
   explicitly, removing the newer TStringList.OwnsObjects dependency while
   preserving clear/reuse/destruction behavior. Lifetime tests run with
   the heap tracer. This change benefits every client using the shared unit.

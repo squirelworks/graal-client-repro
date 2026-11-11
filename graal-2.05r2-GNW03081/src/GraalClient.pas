@@ -290,8 +290,10 @@ begin
       Msg := Copy(FInPlain, P, FRawPending);
       Inc(P, FRawPending);
       FRawPending := 0;
-      if (Msg <> '') and (Msg[Length(Msg)] = #10) then
-        SetLength(Msg, Length(Msg) - 1);
+      { every byte inside the count is the message, a final #10 too:
+        2.05r2 hands the whole count to the raw dispatcher, and FILE
+        copies count - 7 - name length bytes without looking at the
+        last one }
       DeliverMessage(Msg);
       Continue;
     end;
