@@ -16,7 +16,7 @@ import os
 import re
 import sys
 
-BASE = 'https://github.com/squirelworks/graal-delphi/releases'
+BASE = 'https://github.com/squirelworks/graal-client-repro/releases'
 
 
 def update(text, version, folders, today):
@@ -33,6 +33,9 @@ def update(text, version, folders, today):
                     cells[6] = f' [{version}]({BASE}/tag/{version}) '
                     cells[7] = re.sub(r'/download/[^/)]+/' + re.escape(f) + r'-v[0-9]+(?:\.[0-9]+)*',
                                       f'/download/{version}/{f}-{version}', cells[7])
+                    # a client with no release yet gets both links
+                    if '/download/' not in cells[7]:
+                        cells[7] = f' [Windows]({BASE}/download/{version}/{f}-{version}-windows.zip) '
                     # a Delphi client ships a Linux zip next to its Windows one
                     w = re.search(r'\[Windows\]\(([^)]*)-windows\.zip\)', cells[7])
                     if w and '[Linux]' not in cells[7]:
