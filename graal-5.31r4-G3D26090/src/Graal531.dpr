@@ -2,8 +2,9 @@
   executable (5.30r3 and 5.31r4, FileVersion 5.303 and 5.314). This
   program names that cut and exits. It does not open a socket.
 
-  No eight-character token is stored in those images, so the folder is
-  graal-5.31r4. The login line sends G3D26090.
+  No eight-character token is stored in those images. The login line
+  sends G3D26090, the documented token, and the folder carries it:
+  graal-5.31r4-G3D26090.
 
   Command line:
     Graal531            exit 0

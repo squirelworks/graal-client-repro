@@ -85,7 +85,7 @@ needs a folder named by the folder naming rule.
 - [ ] Android vx: seven APK builds, Classic 1.7 and 1.8 among them (#177)
 - [ ] The 39ster client, a Windows C++/SDL/OpenGL host (#176)
 
-5.30r3 shares the `graal-5.31r4` folder. 2.1.x, 2.2x before 2.22, 2.3
+5.30r3 shares the `graal-5.31r4-G3D26090` folder. 2.1.x, 2.2x before 2.22, 2.3
 and 6.036 have tokens or version strings only, no exe, so they wait for
 one.
 

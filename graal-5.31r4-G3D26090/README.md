@@ -6,9 +6,9 @@ Linux Cyberjoueurs. The engine name in the image is `quattro_lib`. Torque
 class names are absent. This folder does not build a player and does not
 speak to a server.
 
-No eight-character token is stored in either image, so the folder name
-stays `graal-5.31r4`. The login line sends `G3D26090`, the documented
-token for 5.30r3 and 5.31r4. The earlier 5.0.0.7 split (a host plus a
+No eight-character token is stored in either image. The login line sends
+`G3D26090`, the documented token for 5.30r3 and 5.31r4, so the folder
+carries it as every other tokened client does: `graal-5.31r4-G3D26090`. The earlier 5.0.0.7 split (a host plus a
 2D engine and a 3D plugin) is a different program. This folder does not
 load those DLLs.
 
