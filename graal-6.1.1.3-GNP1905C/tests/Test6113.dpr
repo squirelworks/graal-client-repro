@@ -164,7 +164,8 @@ begin
   P := TProtocol.Create;
   try
     Step := P.LcgStepPlusOne;
-    Check(Step = 460380825, 'LCG step is state times the multiplier plus 1');
+    Check(Gen5Seed = 78121784, 'the generation-5 seed is the noted 6.x seed');
+    Check(Step = 388683801, 'LCG step is state times the multiplier plus 1');
     P.SetEncryptionOut('AES', 'k', 'iv');
     Check((P.Enc = eoNamedUnused) and (P.EncName = 'AES'), 'AES is named and not applied');
     Check(P.SendRaw('GNP1905C', Wire) and (Wire = 'GNP1905C'),

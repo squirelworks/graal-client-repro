@@ -23,6 +23,8 @@ host and it does not borrow another version's token.
   script's token is the placeholder `SEI00001`. **Not yet usable**: the
   client stops after the hello until seihai-gserver-v2 handles `SEI00001`.
   `--connector-serve` serves a signed `conf.gs` on loopback for testing.
+- The generation-5 seed is the one `protocol/unpacked-6113-wire.md` gives.
+  It was 128 too high before.
 - `--lab` is a labeled lab-only fixture: one other entity, its properties,
   and a movement round trip. It is not 6.1.1.3 ciphertext and not v7.
 
