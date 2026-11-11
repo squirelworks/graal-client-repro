@@ -16,6 +16,13 @@ host and it does not borrow another version's token.
   header. The session stops there unless `--lab` is set.
 - The client registers the 6.1.1.3 control names and opens `GraalControl`
   as a stub. The window is unchanged. The hello stays `GNP1905C`.
+- Connector login (`--connector 127.0.0.1:PORT`): GET `conf.gs`, check
+  its RSA-2048 signature over the bare SHA-256 digest with the project's
+  own public key before anything runs, then run the connector script:
+  `setProtocol("EILLLT")`, `sendRaw`, `setEncryptionOut`. The project
+  script's token is the placeholder `SEI00001`. **Not yet usable**: the
+  client stops after the hello until seihai-gserver-v2 handles `SEI00001`.
+  `--connector-serve` serves a signed `conf.gs` on loopback for testing.
 - `--lab` is a labeled lab-only fixture: one other entity, its properties,
   and a movement round trip. It is not 6.1.1.3 ciphertext and not v7.
 
@@ -27,8 +34,10 @@ host and it does not borrow another version's token.
 - [ ] The cipher after the clear hello. `setencryptionout` names `AES` and
   `RC4`, and the notes disagree on the generation-5 step (`+ 1` versus
   `+ key`). Neither mix is applied on the socket.
-- [ ] The `setprotocol` template. The capture header is a size check, not
-  a recovered template, so the connect path does not call `setprotocol`.
+- [ ] The `setprotocol` template on the clear-hello path. The connector
+  path uses `EILLLT`, from the connector script.
+- [ ] `SEI00001` on the game server (seihai-gserver-v2), the project's
+  `conf.gs` payload cipher, and the session cipher.
 - [ ] Property value widths. The four setters store the string. The id
   prefix is id plus 32. The bytes after that prefix were not recovered.
 - [ ] GS2 opcode bodies, the builtin table, and where the `GRESCR01` CRC

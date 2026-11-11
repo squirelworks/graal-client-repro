@@ -23,7 +23,7 @@ unit Play6113;
 interface
 
 uses
-  GSurface, Frame6113, Props6113, Level6113;
+  GSurface, Frame6113, Props6113, Level6113, Connector6113;
 
 const
   ViewW = 240;
@@ -39,7 +39,7 @@ const
 
 type
   TPhase = (phIdle, phConnecting, phTcpUp, phHelloSent, phStoppedClear,
-    phLabWorld, phError);
+    phLabWorld, phError, phSeiPending);
 
   TLogFn = procedure(const S: string);
 
@@ -55,6 +55,10 @@ type
     HasOther: Boolean;
     CamX, CamY: Integer;
     MovesSent: Integer;
+    { Connector path results. }
+    ConnectorToken: string;
+    ConnectorSteps: Integer;
+    ConnectorIdle: TIdleProc;
     Proto: TProtocol;
     Props: TPropBag;
     Level: TLabLevel;
@@ -63,6 +67,10 @@ type
     function LoadLevelText(const Text: string): Boolean;
     function LoadLevelFile(const Path: string): Boolean;
     function ConnectTo(const Host: string; Port: Word): Boolean;
+    { The 6.11 connector login: GET conf.gs from the connector, verify,
+      decrypt, connect to the game port, run the connector script. Stops
+      after the SEI00001 hello (not yet usable). }
+    function ConnectViaConnector(ConnectorPort, GamePort: Word): Boolean;
     function WaitForLab(Ms: Integer): Boolean;
     procedure Pump;
     procedure MoveBy(DX, DY: Integer);
@@ -76,6 +84,7 @@ type
     FHelloSent: Boolean;
     FNeedReady: Boolean;
     procedure Fail(const Msg: string);
+    function SendGame(const Wire: string): Boolean;
     procedure UpdateCamera;
     procedure SendLabMove;
     procedure OnLab(const Payload: string);
@@ -302,6 +311,84 @@ begin
   Result := True;
 end;
 
+function TSession.SendGame(const Wire: string): Boolean;
+begin
+  Result := TGSocket(FSock).Send(Wire);
+end;
+
+function TSession.ConnectViaConnector(ConnectorPort, GamePort: Word): Boolean;
+var
+  Reply, Sig, Payload, Script, Err: string;
+  Steps: TConnectorSteps;
+  Sock: TGSocket;
+begin
+  Result := False;
+  Sock := TGSocket(FSock);
+  UdpOpens := 0;
+  Phase := phConnecting;
+  LogLine('connector: GET ' + ConfPath);
+  if not FetchConfReply(ConnectorPort, 3000, ConnectorIdle, Reply, Err) then
+  begin
+    Fail(Err);
+    Exit;
+  end;
+  if not ParseConfReply(Reply, Sig, Payload, Err) then
+  begin
+    Fail(Err);
+    Exit;
+  end;
+  { The signature is checked before anything is decrypted or run. }
+  if not VerifyConfReply(Sig, Payload, Err) then
+  begin
+    Fail('connector reply refused: ' + Err);
+    Exit;
+  end;
+  LogLine('connector: signature verified (project key)');
+  if not DecryptConfPayload(Payload, Script, Err) then
+  begin
+    Fail(Err);
+    Exit;
+  end;
+  if PayloadCipherPending then
+    LogLine('connector: payload cipher pending; payload read as clear');
+  if not ParseConnectorScript(Script, Steps, Err) then
+  begin
+    Fail(Err);
+    Exit;
+  end;
+  ConnectorSteps := Length(Steps);
+  if not Sock.Connect('127.0.0.1', GamePort) then
+  begin
+    Fail(Sock.LastError);
+    Exit;
+  end;
+  Sock.SetNoDelay(True);
+  Phase := phTcpUp;
+  LogLine('tcp up; datagram sockets opened: 0');
+  if not RunConnectorSteps(Steps, Proto, SendGame, ConnectorToken, Err) then
+  begin
+    Fail(Err);
+    Exit;
+  end;
+  if ConnectorToken = '' then
+  begin
+    Fail('connector script sent no token');
+    Exit;
+  end;
+  FHelloSent := True;
+  Phase := phHelloSent;
+  LogLine('connector: header template ' + ConnectorTemplate + ' set');
+  LogLine('connector hello sent: ' + ConnectorToken);
+  if (ConnectorToken = SeiToken) and not SeiTokenUsable then
+  begin
+    Phase := phSeiPending;
+    LogLine('stopped after SEI00001 hello; ' + SeiPendingNote);
+  end
+  else
+    Phase := phStoppedClear;
+  Result := True;
+end;
+
 function TSession.WaitForLab(Ms: Integer): Boolean;
 var
   Start: QWord;
@@ -434,7 +521,21 @@ begin
       LogLine('link closed after the clear hello');
       Exit;
     end;
+    if Phase = phSeiPending then
+    begin
+      LogLine('link closed after the SEI00001 hello');
+      Exit;
+    end;
     Fail(Sock.LastError);
+    Exit;
+  end;
+  if Phase = phSeiPending then
+  begin
+    Inc(BytesAfterHello, Length(FRx) - Old);
+    if Length(FRx) > Old then
+      LogLine('received ' + IntToStr(Length(FRx) - Old) +
+        ' bytes after the SEI00001 hello; not decoded');
+    FRx := '';
     Exit;
   end;
   if not Lab then
@@ -536,6 +637,7 @@ begin
     phStoppedClear: Result := 'STOP';
     phLabWorld: Result := 'LAB';
     phError: Result := 'ERROR';
+    phSeiPending: Result := 'SEI PENDING';
   else
     Result := 'ERROR';
   end;
@@ -545,6 +647,7 @@ function TSession.EndToken: string;
 begin
   if Phase = phError then Result := 'error'
   else if Phase = phStoppedClear then Result := 'clear-hello'
+  else if Phase = phSeiPending then Result := 'sei-pending'
   else Result := 'clean';
 end;
 
