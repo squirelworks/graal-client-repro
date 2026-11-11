@@ -6,7 +6,14 @@
   Graal6113 --server 127.0.0.1:PORT [--lab] [--level FILE] [--window]
              [--frames N] [--keys SCRIPT] [--dump FRAME.bmp]
   Graal6113 --lab-serve PORT [--seconds N]
+  Graal6113 --server 127.0.0.1:PORT --connector 127.0.0.1:PORT [--frames N]
+  Graal6113 --connector-serve PORT --conf FILE [--seconds N]
 
+  --connector runs the 6.11 connector login: GET conf.gs, check the
+  project-key signature, run the connector script (setProtocol EILLLT,
+  sendRaw, setEncryptionOut). The project script sends the placeholder
+  token SEI00001, which is not yet usable: the client stops after it
+  until seihai-gserver-v2 handles SEI00001.
   --lab continues after the clear hello on the lab fixture. Without it the
   client sends GNP1905C and stops. The cipher is not applied.
   --password-env is accepted and never sent or logged.
@@ -25,6 +32,7 @@ uses
   GSurface in '../../common/GSurface.pas',
   GWindow in '../../common/GWindow.pas',
   Lab6113 in 'Lab6113.pas',
+  Connector6113 in 'Connector6113.pas',
   Play6113 in 'Play6113.pas',
   Controls6113 in 'Controls6113.pas';
 
@@ -66,6 +74,8 @@ begin
   WriteLn('  --level FILE [--window] [--frames N] [--keys SCRIPT] [--dump FILE]');
   WriteLn('  --server 127.0.0.1:PORT [--lab] [--window] [--frames N] [--keys SCRIPT]');
   WriteLn('  --lab-serve PORT [--seconds N]');
+  WriteLn('  --server 127.0.0.1:PORT --connector 127.0.0.1:PORT   connector login (SEI00001, not yet usable)');
+  WriteLn('  --connector-serve PORT --conf FILE [--seconds N]     lab conf.gs responder');
   WriteLn('  --password-env VAR   accepted, never sent or logged');
 end;
 
@@ -145,12 +155,74 @@ begin
   end;
 end;
 
+function ReadFileBytes(const Path: string; out Data: string): Boolean;
+var
+  F: TFileStream;
+begin
+  Data := '';
+  Result := False;
+  if not FileExists(Path) then Exit;
+  F := TFileStream.Create(Path, fmOpenRead or fmShareDenyWrite);
+  try
+    SetLength(Data, F.Size);
+    if F.Size > 0 then F.ReadBuffer(Data[1], F.Size);
+    Result := True;
+  finally
+    F.Free;
+  end;
+end;
+
+function ServeConnector(Port: Word; const ConfFile: string; Seconds: Integer): Integer;
+var
+  Con: TLabConnector;
+  Start: QWord;
+  Body: string;
+begin
+  Result := 1;
+  if not ReadFileBytes(ConfFile, Body) or (Body = '') then
+  begin
+    LogLine('error: cannot read --conf ' + ConfFile);
+    Exit;
+  end;
+  Con := TLabConnector.Create;
+  try
+    Con.Reply := Body;
+    if not Con.Listen(Port) then
+    begin
+      LogLine('error: ' + Con.LastError);
+      Exit;
+    end;
+    LogLine('lab connector listening on 127.0.0.1:' + IntToStr(Con.Port));
+    Start := GetTickCount64;
+    while GetTickCount64 - Start < QWord(Seconds) * 1000 do
+    begin
+      Con.Pump;
+      Sleep(10);
+    end;
+    LogLine('lab connector closed; requests ' + IntToStr(Con.Requests));
+    Result := 0;
+  finally
+    Con.Free;
+  end;
+end;
+
+function LoopPort(const Spec: string): Integer;
+var
+  I: Integer;
+begin
+  Result := -1;
+  I := Pos(':', Spec);
+  if (I < 2) or (Copy(Spec, 1, I - 1) <> '127.0.0.1') then Exit;
+  Result := StrToIntDef(Copy(Spec, I + 1, MaxInt), -1);
+  if (Result < 1) or (Result > 65535) then Result := -1;
+end;
+
 var
   Session: TSession;
   Surf: TGSurface;
   Win: TGWindow;
   LevelPath, Keys, DumpPath, Server, PwName, Pw, CtrlText, CtrlLine: string;
-  Port: Integer;
+  Port, ConnPort: Integer;
   Frames, I, KeyN, Dir, Seconds, CtrlAt: Integer;
   Dirs: array[0..4095] of Integer;
   WantWindow, Shown, Lab: Boolean;
@@ -189,6 +261,18 @@ begin
 
   { Headless unless --window. The loopback and stress scripts do not pass
     --window. A failed --window is reported and is not treated as a run. }
+  if HasArg('--connector-serve') then
+  begin
+    Port := StrToIntDef(Arg('--connector-serve', '14901'), -1);
+    Seconds := StrToIntDef(Arg('--seconds', '20'), 20);
+    if (Port < 0) or (Port > 65535) then
+    begin
+      LogLine('error: bad port');
+      Halt(64);
+    end;
+    Halt(ServeConnector(Word(Port), Arg('--conf', ''), Seconds));
+  end;
+
   WantWindow := HasArg('--window');
   Lab := HasArg('--lab');
   Frames := StrToIntDef(Arg('--frames', '30'), 30);
@@ -241,7 +325,28 @@ begin
         Code := 64;
         Exit;
       end;
-      if not Session.ConnectTo('127.0.0.1', Word(Port)) then
+      if HasArg('--connector') then
+      begin
+        if Lab then
+        begin
+          LogLine('error: --lab continues the GNP1905C clear hello, not the connector login');
+          Code := 64;
+          Exit;
+        end;
+        ConnPort := LoopPort(Arg('--connector', ''));
+        if ConnPort < 0 then
+        begin
+          LogLine('error: --connector must be 127.0.0.1:PORT');
+          Code := 64;
+          Exit;
+        end;
+        if not Session.ConnectViaConnector(Word(ConnPort), Word(Port)) then
+        begin
+          Code := 1;
+          Exit;
+        end;
+      end
+      else if not Session.ConnectTo('127.0.0.1', Word(Port)) then
       begin
         Code := 1;
         Exit;
@@ -254,7 +359,10 @@ begin
     if Code = 0 then
     begin
       LogLine('engine quattro_lib');
-      LogLine('token GNP1905C');
+      if Session.ConnectorToken <> '' then
+        LogLine('token ' + Session.ConnectorToken + ' (from the connector script)')
+      else
+        LogLine('token GNP1905C');
       for I := 0 to ControlCount - 1 do
         LogLine('registered control ' + ControlName(I));
       CtrlText := LevelViewLog;

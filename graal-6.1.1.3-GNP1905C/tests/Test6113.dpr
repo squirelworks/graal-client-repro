@@ -14,6 +14,9 @@ uses
   Props6113 in '../src/Props6113.pas',
   Gs26113 in '../src/Gs26113.pas',
   Level6113 in '../src/Level6113.pas',
+  Sha6113 in '../src/Sha6113.pas',
+  Rsa6113 in '../src/Rsa6113.pas',
+  Connector6113 in '../src/Connector6113.pas',
   Lab6113 in '../src/Lab6113.pas',
   Play6113 in '../src/Play6113.pas',
   Controls6113 in '../src/Controls6113.pas';
@@ -411,6 +414,196 @@ begin
   end;
 end;
 
+
+{ ---- connector login (6.11 method, SEI00001 scaffold) ---- }
+
+function LocateConf: string;
+var
+  Dir: string;
+  I: Integer;
+  Cands: array[0..3] of string;
+begin
+  Dir := ExtractFilePath(ParamStr(0));
+  Cands[0] := 'graal-6.1.1.3-GNP1905C/connector/sei00001-conf.gs';
+  Cands[1] := 'connector/sei00001-conf.gs';
+  Cands[2] := Dir + '../../graal-6.1.1.3-GNP1905C/connector/sei00001-conf.gs';
+  Cands[3] := Dir + '../connector/sei00001-conf.gs';
+  for I := 0 to 3 do
+    if FileExists(Cands[I]) then
+    begin
+      Result := Cands[I];
+      Exit;
+    end;
+  Result := '';
+end;
+
+function LoadConf: string;
+var
+  F: TFileStream;
+  Path: string;
+begin
+  Result := '';
+  Path := LocateConf;
+  if Path = '' then Exit;
+  F := TFileStream.Create(Path, fmOpenRead or fmShareDenyWrite);
+  try
+    SetLength(Result, F.Size);
+    if F.Size > 0 then F.ReadBuffer(Result[1], F.Size);
+  finally
+    F.Free;
+  end;
+end;
+
+procedure TestSha256;
+begin
+  Check(Sha256Hex('') = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    'SHA-256 of the empty string');
+  Check(Sha256Hex('abc') = 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+    'SHA-256 of abc');
+  Check(Sha256Hex('abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq') =
+    '248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1',
+    'SHA-256 of the two-block FIPS vector');
+end;
+
+procedure TestConfReply;
+var
+  Reply, Sig, Payload, Err, Bad: string;
+begin
+  Reply := LoadConf;
+  Check(Reply <> '', 'the signed SEI00001 conf.gs fixture is in the repo');
+  if Reply = '' then Exit;
+  Check(ParseConfReply(Reply, Sig, Payload, Err), 'conf.gs splits into signature and payload');
+  Check(Length(Sig) = 256, 'the signature block is 256 bytes');
+  Check(Length(Reply) = 4 + 256 + 4 + Length(Payload), 'reply is 4 + 256 + 4 + payload');
+  Check(Payload = SeiConnectorScript, 'the fixture payload is the project connector script');
+  Check(VerifyConfReply(Sig, Payload, Err), 'the project key verifies the fixture: ' + Err);
+  Bad := Payload;
+  Bad[Pos('SEI00001', Bad) + 7] := '2';
+  Check(not VerifyConfReply(Sig, Bad, Err) and (Pos('digest', Err) > 0),
+    'a changed token fails the digest check');
+  Bad := Sig;
+  Bad[100] := Chr(Ord(Bad[100]) xor 1);
+  Check(not VerifyConfReply(Bad, Payload, Err), 'a changed signature is refused');
+  Check(not ParseConfReply(Copy(Reply, 1, Length(Reply) - 1), Sig, Payload, Err),
+    'a short reply is refused');
+  Check(BuildConfReply(Copy(Reply, 5, 256), SeiConnectorScript) = Reply,
+    'BuildConfReply writes big-endian lengths');
+end;
+
+procedure TestConnectorScript;
+var
+  Steps: TConnectorSteps;
+  Err, Token: string;
+  P: TProtocol;
+begin
+  Check(SeiToken = 'SEI00001', 'the scaffold token is SEI00001');
+  Check(not SeiTokenUsable, 'SEI00001 is marked not yet usable');
+  Check(ParseConnectorScript(SeiConnectorScript, Steps, Err), 'the project script parses: ' + Err);
+  Check((Length(Steps) = 3) and (Steps[0].Call = ccSetProtocol) and
+    (Steps[1].Call = ccSendRaw) and (Steps[2].Call = ccSetEncryptionOut),
+    'order is setProtocol, sendRaw, setEncryptionOut');
+  Check(Steps[0].Args[0] = 'EILLLT', 'the template is EILLLT');
+  Check(Steps[1].Args[0] = SeiToken, 'sendRaw carries SEI00001');
+  P := TProtocol.Create;
+  try
+    Check(RunConnectorSteps(Steps, P, nil, Token, Err), 'the steps run: ' + Err);
+    Check(Token = 'SEI00001', 'the token step reports SEI00001');
+    Check(not P.OnGen5 and (P.HeaderLen = 6), 'EILLLT leaves generation-5 for a six-byte header');
+    Check((P.FE.At = 0) and (P.FE.Width = 1) and (P.FI.At = 1) and (P.FI.Width = 1) and
+      (P.FL.At = 2) and (P.FL.Width = 3) and (P.FT.At = 5) and (P.FT.Width = 1),
+      'EILLLT is E at 0, I at 1, LLL at 2, T at 5');
+    Check(P.Counter = 1, 'sendRaw did not advance the counter');
+    Check(P.Enc = eoCleared, 'the pending setEncryptionOut name selects no cipher');
+  finally
+    P.Free;
+  end;
+  Check(not ParseConnectorScript('setProtocol("EILLLT"); exec("x");', Steps, Err) and
+    (Pos('exec', Err) > 0), 'any other call is refused');
+  Check(not ParseConnectorScript('sendRaw(SEI00001);', Steps, Err), 'arguments must be strings');
+  Check(not ParseConnectorScript('function onCreated() { sendRaw("A");', Steps, Err),
+    'an unclosed onCreated is refused');
+end;
+
+var
+  ConnUnderTest: TLabConnector = nil;
+
+procedure PumpConnector;
+begin
+  if ConnUnderTest <> nil then ConnUnderTest.Pump;
+end;
+
+procedure TestConnectorLogin;
+var
+  Con: TLabConnector;
+  Srv: TLabServer;
+  S: TSession;
+  I: Integer;
+begin
+  Con := TLabConnector.Create;
+  Srv := TLabServer.Create;
+  S := TSession.Create;
+  try
+    Con.Reply := LoadConf;
+    Check(Con.Listen(0) and Srv.Listen(0), 'connector and game listeners on 127.0.0.1');
+    ConnUnderTest := Con;
+    S.ConnectorIdle := PumpConnector;
+    Check(S.ConnectViaConnector(Con.Port, Srv.Port), 'connector login runs: ' + S.Err);
+    Check(Con.Requests = 1, 'one conf.gs request');
+    Check(Pos('GET /conf.gs HTTP/1.0', Con.LastRequest) = 1, 'plain GET /conf.gs, no p= blob');
+    Check(S.Phase = phSeiPending, 'the client stops after the SEI00001 hello');
+    Check(S.ConnectorToken = 'SEI00001', 'the token came from the connector script');
+    Check(S.ConnectorSteps = 3, 'three connector steps ran');
+    Check(S.UdpOpens = 0, 'the connector path opens no datagram socket');
+    for I := 1 to 50 do
+    begin
+      Srv.Pump;
+      if Srv.GotHello then Break;
+      Sleep(5);
+    end;
+    Check(Srv.GotHello and (Srv.Hello = 'SEI00001'), 'the game side saw SEI00001 first');
+    Check(Srv.AfterSei = '', 'nothing follows the hello yet');
+    Check(Pos('not yet usable', Logs.Text) > 0, 'the log says SEI00001 is not yet usable');
+    Check(Pos('signature verified', Logs.Text) > 0, 'the log shows the signature check');
+    Check(S.EndToken = 'sei-pending', 'the summary ends sei-pending');
+  finally
+    ConnUnderTest := nil;
+    S.Free;
+    Srv.Free;
+    Con.Free;
+  end;
+end;
+
+procedure TestConnectorRefusesTamper;
+var
+  Con: TLabConnector;
+  Srv: TLabServer;
+  S: TSession;
+  Reply: string;
+begin
+  Con := TLabConnector.Create;
+  Srv := TLabServer.Create;
+  S := TSession.Create;
+  try
+    Reply := LoadConf;
+    if Reply <> '' then
+      Reply[Length(Reply) - 3] := 'X';
+    Con.Reply := Reply;
+    Check(Con.Listen(0) and Srv.Listen(0), 'tamper listeners on 127.0.0.1');
+    ConnUnderTest := Con;
+    S.ConnectorIdle := PumpConnector;
+    Check(not S.ConnectViaConnector(Con.Port, Srv.Port), 'a tampered reply is refused');
+    Check((S.Phase = phError) and (Pos('refused', S.Err) > 0), 'refused before any script runs');
+    Check(S.ConnectorSteps = 0, 'no connector step ran');
+    Srv.Pump;
+    Check(not Srv.GotHello, 'the game side saw nothing');
+  finally
+    ConnUnderTest := nil;
+    S.Free;
+    Srv.Free;
+    Con.Free;
+  end;
+end;
+
 procedure TestRejectHost;
 var
   S: TSession;
@@ -474,6 +667,11 @@ begin
     TestClearStop;
     TestLabRoundTrip;
     TestRejectHost;
+    TestSha256;
+    TestConfReply;
+    TestConnectorScript;
+    TestConnectorLogin;
+    TestConnectorRefusesTamper;
   finally
     SessionLog := nil;
     Logs.Free;
