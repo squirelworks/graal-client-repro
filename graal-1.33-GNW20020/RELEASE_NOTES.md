@@ -13,6 +13,10 @@ Apart from the start dialog and the icon, which are taken from the real
 Graal.exe and compiled in, the zips hold no original Graal code, graphics,
 sounds or levels. The client carries simple graphics of its own.
 
+## What's new in v0.0.5
+
+- [x] **Default server.** The server field now starts on the rebuild's own default (listserver.txt, else `listserver.graal.in`) instead of the original's long-gone host, so the code that swapped that host out on connect is gone.
+
 ## What's new in v0.0.4
 
 - [x] **The A, S and D buttons.** They are the three lettered buttons of the install's state picture, side by side as 1.33's 224 x 81 state picture holds them. The rebuild no longer draws a letter of its own over the D button (which read as a "B").
@@ -30,7 +34,7 @@ sounds or levels. The client carries simple graphics of its own.
 - [x] **Modes, as the real one switches them.** One Player shows the Nick Name row. One Player Online shows the whole panel (Server, Port, Account, Password, "Load head/colors from last session") over the credits. Two to Four Players show one more character list per player.
 - [x] **The character list.** 29 entries (Fung Si Yan ... Sleep Koji) come from the install's headsconfig.txt, else the copy compiled in (`res/characters.txt`). Each is drawn with its head's front at half size, owner-drawn as the original. Fung Si Yan is the default, and Nick, Mandi and Bad Max are the defaults for players 2 to 4. The pick sets the player's head and five body colours in the game.
 - [x] **Language list.** It lists the install's language files, by name, with English picked.
-- [x] **Online defaults.** The server field holds www.graalonline.com and the port is 14900, as the real one fills them. graalconfig.txt (`serveraddr=`, `serverport=`) or listserver.txt fills them instead. www.graalonline.com is gone, so it stands for the community server.
+- [x] **Online defaults.** The server field held the original's default host and the port is 14900, as the real one fills them. graalconfig.txt (`serveraddr=`, `serverport=`) or listserver.txt fills them instead. That host is gone, so it stood for the community server.
 - [x] **Icon.** The program's icon is MAINICON, taken from the real exe.
 - [x] **Game window.** It is titled "Graal" (TAdventure's caption), with a 640 x 472 client, as the real 1.33 opens it. That is checked under Wine.
 - Stress tested before release: a long soak with several players walking

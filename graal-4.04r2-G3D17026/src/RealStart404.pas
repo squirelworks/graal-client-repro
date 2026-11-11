@@ -56,7 +56,9 @@ function RunRealStart(Win: TGWindow; S: TGSurface; Art: TRealStartArt;
 function LicenseSignupUrl(const Text: string): string;
 
 const
-  DefaultSignupUrl = 'http://www.graalonline.com/accounts/signup.php';
+  { The original's own sign-up page is gone; with no licence line 3 the
+    button has nowhere to go. }
+  DefaultSignupUrl = '';
   { where the house picture sits in the 640 x 480 window }
   ScreenX = 42;
   ScreenY = 8;
@@ -389,7 +391,8 @@ begin
       if Inside(BMember, CX, CY) then
       begin
         Press(2);
-        if not OpenUrl(SignupUrl) then Note := 'Sign up at ' + SignupUrl;
+        if SignupUrl = '' then Note := 'No sign-up page is set'
+        else if not OpenUrl(SignupUrl) then Note := 'Sign up at ' + SignupUrl;
       end;
       if Inside(BOptions, CX, CY) then
       begin

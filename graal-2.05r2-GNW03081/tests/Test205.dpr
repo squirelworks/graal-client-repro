@@ -728,8 +728,8 @@ begin
           begin
             Data := RandomMessage(Id);
             if Random(8) = 0 then
-              Plain := Plain + Chr(PLO_RAWDATA + 32) + GInt3(Length(Data) + 2) + #10 +
-                Chr((Id + 32) and $FF) + Data + #10
+              Plain := Plain + Chr(PLO_RAWDATA + 32) + GInt3(Length(Data) + 1) + #10 +
+                Chr((Id + 32) and $FF) + Data
             else
               Plain := Plain + Chr((Id + 32) and $FF) + StringReplace(Data, #10, ' ',
                 [rfReplaceAll]) + #10;
@@ -759,6 +759,86 @@ begin
     Check(Raised = 0, Format('fuzz: 3000 random frames, %d raised', [Raised]));
   finally
     G.Free;
+  end;
+end;
+
+type
+  { collects what the client delivers, as id:data lines }
+  TRawSink = class
+    Got: TStringList;
+    constructor Create;
+    destructor Destroy; override;
+    procedure OnMessage(Id: Integer; const Data: string);
+  end;
+
+constructor TRawSink.Create;
+begin
+  Got := TStringList.Create;
+end;
+
+destructor TRawSink.Destroy;
+begin
+  Got.Free;
+  inherited;
+end;
+
+procedure TRawSink.OnMessage(Id: Integer; const Data: string);
+begin
+  Got.Add(IntToStr(Id) + ':' + Data);
+end;
+
+{ #180: 2.05r2 keeps every byte inside a RAWDATA count, final LFs too, and
+  the next ordinary message is neither lost nor eaten. The vectors are
+  made up for this test, not captures. }
+procedure TestRawCount;
+const
+  Names: array[0..4] of string = ('empty', 'no LF', 'one LF', 'two LFs', 'binary LF');
+var
+  C: TGraalClient;
+  S: TRawSink;
+  Body: array[0..4] of string;
+  Raw: string;
+  I: Integer;
+begin
+  Body[0] := '';
+  Body[1] := 'AB';
+  Body[2] := 'A'#10;
+  Body[3] := 'A'#10#10;
+  Body[4] := #0#10#255#13#10;
+  for I := 0 to 4 do
+  begin
+    C := TGraalClient.Create;
+    S := TRawSink.Create;
+    try
+      C.OnMessage := S.OnMessage;
+      Raw := Chr(PLO_FILE + 32) + Body[I];
+      C.FeedRaw(Frame(Chr(PLO_RAWDATA + 32) + GInt3(Length(Raw)) + #10 + Raw +
+        Chr(PLO_TOALL + 32) + 'next' + #10));
+      Check((S.Got.Count = 2) and (S.Got[0] = IntToStr(PLO_FILE) + ':' + Body[I]) and
+        (S.Got[1] = IntToStr(PLO_TOALL) + ':next'),
+        'raw count: ' + Names[I] + ' content kept whole, the next message intact');
+    finally
+      S.Free;
+      C.Free;
+    end;
+  end;
+  { ten bytes shaped like FILE: id, five metadata bytes, name length 1,
+    name f, then A and LF; the splitter keeps both content bytes }
+  C := TGraalClient.Create;
+  S := TRawSink.Create;
+  try
+    C.OnMessage := S.OnMessage;
+    Raw := Chr(PLO_FILE + 32) + '     ' + Chr(1 + 32) + 'f' + 'A' + #10;
+    Check(Length(Raw) = 10, 'raw count: the FILE-shaped vector is ten bytes');
+    C.FeedRaw(Frame(Chr(PLO_RAWDATA + 32) + GInt3(10) + #10 + Raw +
+      Chr(PLO_TOALL + 32) + 'next' + #10));
+    Check((S.Got.Count = 2) and (S.Got[0] = IntToStr(PLO_FILE) + ':' + Copy(Raw, 2, 9)) and
+      (Copy(S.Got[0], Length(S.Got[0]) - 1, 2) = 'A'#10) and
+      (S.Got[1] = IntToStr(PLO_TOALL) + ':next'),
+      'raw count: a FILE-shaped message keeps A and LF; the next message is intact');
+  finally
+    S.Free;
+    C.Free;
   end;
 end;
 
@@ -1305,6 +1385,7 @@ begin
   TestLinks;
   TestLinkPoint;
   TestFuzz;
+  TestRawCount;
   TestReceiveLimits;
   TestTutorials;
   TestServerList;

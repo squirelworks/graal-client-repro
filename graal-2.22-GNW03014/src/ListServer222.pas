@@ -30,7 +30,7 @@ const
   LSO_UPGURL = 5;
   { With no arrays2.dat and no listserver.txt: listserver.graal.in on its
     supported port, 14922 (14923 is its legacy port). The original 2.22
-    pointed at the GraalOnline listserver, which is gone. }
+    pointed at its own default host, which is gone (see Graal_analysis). }
   DefaultListHost = 'listserver.graal.in';
   DefaultListPort = 14922;
 
