@@ -142,6 +142,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p restore-logs
+          printf '%s\n' '{"sdk":{"version":"8.0.100","rollForward":"latestFeature"}}' > global.json
           dotnet --info
           for B in $BUILDS; do
             if [ -f "$B/player/WorldsPlayer.csproj" ]; then
