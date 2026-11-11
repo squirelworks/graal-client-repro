@@ -35,17 +35,17 @@ for T in "$ROOT"/build/*/Test*; do
     echo "leak: $T left memory unfreed"; fail "$TB" "$(basename "$T") left memory unfreed"
   fi
 done
-for HOST in "$ROOT/build/graal-6.114-worlds/worlds-host" \
-            "$ROOT/build/graal-6.114-worlds/worlds-host.exe"; do
+for HOST in "$ROOT/build/graal-worlds-614-20240421/worlds-host" \
+            "$ROOT/build/graal-worlds-614-20240421/worlds-host.exe"; do
   if [ -x "$HOST" ]; then
     echo "== $HOST --self-check"
-    "$HOST" --self-check || fail graal-6.114-worlds "worlds-host --self-check failed"
+    "$HOST" --self-check || fail graal-worlds-614-20240421 "worlds-host --self-check failed"
   fi
 done
-PLAYER="$ROOT/build/graal-6.114-worlds/worlds-player"
-WORLD="$ROOT/graal-6.114-worlds/worlds/local-yard.txt"
+PLAYER="$ROOT/build/graal-worlds-614-20240421/worlds-player"
+WORLD="$ROOT/graal-worlds-614-20240421/worlds/local-yard.txt"
 if [ -x "$PLAYER" ]; then
   echo "== $PLAYER --self-check"
-  "$PLAYER" --self-check --world "$WORLD" || fail graal-6.114-worlds "worlds-player --self-check failed"
+  "$PLAYER" --self-check --world "$WORLD" || fail graal-worlds-614-20240421 "worlds-player --self-check failed"
 fi
 exit $FAIL

@@ -1,16 +1,21 @@
-# Graal Worlds 6.114
+# Graal Worlds 614
 
-The Worlds host whose FileVersion is 6.114. The original is a Unity player
-with an IL2CPP `GameAssembly` and a native plugin beside it. This folder
-does not build that Unity player, does not load the plugin, and does not
-add Torque.
+Worlds build 614, the `WorldsSetup64-614` release. Its Unity bundleVersion
+is `614`, the player is Unity 2023.2.13f1, and its GameAssembly is dated
+2024-04-21. The native plugin `Graal3DEngine.dll` carries FileVersion
+6.114. That is the plugin's version, not the build's: builds 548 through
+614 all carry it. The original is a Unity player with an IL2CPP
+`GameAssembly` and that plugin beside it. This folder does not build that
+Unity player, does not load the plugin, and does not add Torque.
 
-`GNP1905C` is the documented connector token. A running 6.113 client sends
-those eight bytes before it reads the server. This folder does not mark
-that token provisional. The 6.114 image was not shown to store the literal,
-and the bytes after the hello in the 6.113 capture are unidentified
-ciphertext, so nothing here continues that capture. The folder name stays
-`graal-6.114-worlds`.
+No eight-character token is stored in this build. `GNP1905C` is the
+documented connector token. A running 6.113 client sends those eight
+bytes before it reads the server. This folder does not mark that token
+provisional. The bytes after the hello in the 6.113 capture are
+unidentified ciphertext, so nothing here continues that capture. With no
+token of its own, the folder is named for the build and its date, as the
+other tokenless folders are: `graal-worlds-614-20240421`. The other Worlds
+builds have their own folders (`graal-worlds-*`).
 
 > **Not affiliated.** graal-delphi is an independent fan project. It is not
 > affiliated with, endorsed by, or connected to Graal Online, Cyberjoueurs,
@@ -85,16 +90,16 @@ connector uses POSIX sockets. On macOS a `dotnet` build is started with
 ## Running it
 
 ```
-graal-6.114-worlds/smoke.sh 14923
+graal-worlds-614-20240421/smoke.sh 14923
 ```
 
 The same program directly:
 
 ```
-GRAAL_PW=loopbackpw build/graal-6.114-worlds/worlds-player \
+GRAAL_PW=loopbackpw build/graal-worlds-614-20240421/worlds-player \
   --smoke --port 14923 --account loop1 \
-  --world graal-6.114-worlds/worlds/local-yard.txt \
-  --raster build/graal-6.114-worlds/local-yard.ppm \
+  --world graal-worlds-614-20240421/worlds/local-yard.txt \
+  --raster build/graal-worlds-614-20240421/local-yard.ppm \
   --moves e,e,e,s,e
 ```
 
