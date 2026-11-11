@@ -16,7 +16,7 @@ import re
 import sys
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')
-REPO = 'https://github.com/squirelworks/graal-delphi'
+REPO = 'https://github.com/squirelworks/graal-client-repro'
 
 HEADER = """Every Graal client rebuilt in graal-delphi, released together at {release}. \
 Each client's zip is attached below and named after its folder: \
