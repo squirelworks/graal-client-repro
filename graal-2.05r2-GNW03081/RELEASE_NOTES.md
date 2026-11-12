@@ -17,6 +17,7 @@ bodies.
 ## What's new in v0.0.5
 
 - [x] **Files from the server.** The raw FILE message (102) is read: its GINT5 time, the name, and every remaining byte of the raw count as the content. Files are kept in memory by name, a later copy replacing the earlier one; they are not written to disk yet.
+- [x] **Neutral window titles.** The server list window is titled "Server List", not the original's caption, which named the original's host (#191).
 - [x] Shared GS1 variable storage releases its scalar and array values
 - [x] **Counted raw messages.** Every byte inside a RAWDATA count is kept, a final LF too, as 2.05r2 hands the whole count to its raw dispatcher; a file whose content ends in LF is no longer cut short.
   explicitly, removing the newer TStringList.OwnsObjects dependency while
@@ -35,7 +36,7 @@ bodies.
   box and nickname placed from the form, and the Training, Options and
   Start buttons drawn from `BUTTON1` where the real one paints them.
 - [x] Start opens the server list as its own 577 x 416 window
-  ("Graalonline.com Server List", `SCREENIMG2`), laid out from this exe's
+  (titled "Server List", `SCREENIMG2`), laid out from this exe's
   `TServerListFrame`: the 2.03 to 2.05 rev 2 server list form.
   "Getting server list ..." shows in the `TShortMessage` box while the
   listserver answers. The account and password are typed on the list, as

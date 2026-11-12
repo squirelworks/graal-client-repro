@@ -420,9 +420,10 @@ end;
 
 function TRealStart.ListTitle: string;
 begin
+  { a neutral title, not the original form's caption or the language
+    file's ServerList= line, which name the original's host }
   if Spec.ListTitle <> '' then Result := Spec.ListTitle
-  else Result := ListForm.Str('Caption', 'Graalonline.com Server List');
-  Result := Text('ServerList', Result);
+  else Result := 'Server List';
 end;
 
 function TRealStart.GameTitle: string;

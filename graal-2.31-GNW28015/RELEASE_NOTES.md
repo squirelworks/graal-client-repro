@@ -18,6 +18,7 @@ its files, or keep those files in a `graal-assets/` folder beside it.
 
 ## What's new in v0.0.5
 
+- [x] **Neutral window titles.** The server list window is titled "Server List" and the start window "Graal", not the original's caption, which named the original's host (#191).
 - [x] **System weapons stay out of Q.** A weapon whose name starts with `-` (the Reborn server's `-gr_movement`) runs but is not shown in the item list.
 
 - [x] **Graal3D servers.** Without Graal3.exe the note now says Graal3D is needed, without the original's download address, which is gone.
@@ -31,7 +32,7 @@ its files, or keep those files in a `graal-assets/` folder beside it.
 - [x] 2.31's own start window: its background and picture buttons, taken
   out of the real 2.31 program and built into this one, at the places the
   real one shows them. It is its own 577 x 416 window titled
-  "GraalOnline", with only a close button, not a screen inside the game
+  "Graal", with only a close button, not a screen inside the game
   window.
 - [x] Its five buttons as 2.31 has them: Training (the wide one, at the
   top), Editor, Options, Get an account! and Start. Editor starts

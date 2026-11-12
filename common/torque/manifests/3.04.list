@@ -1,4 +1,4 @@
-# 3.04 Linux monolith. Not passed to fpc.
+# 3.04 Linux monolith. Build input: manifests/profiles.py.
 # One directory per line, relative to common/torque/.
 console
 sim
