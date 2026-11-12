@@ -121,6 +121,12 @@ type
     JoinMs: Integer;
     DataIn, DataOut: Integer;
     Keys: array[0..3] of Boolean;
+    { One Player starts asleep in the left bed (14th Graal on): only the
+      head shows, facing down, until a key wakes the player, who gets up
+      without acting on that press (graal_analysis version-profiles/
+      matrix/live-runs-2026-10-30.md; captures of 14th, 15th, 1.1, 1.1.9
+      and 1.28 beta 2) }
+    Asleep: Boolean;
     constructor Create;
     destructor Destroy; override;
     procedure Log(const S: string);
@@ -890,6 +896,11 @@ begin
       ChooseOnlineLevel;
     if not Connected then Log('link closed: ' + FFixed.LastError + FRoom.LastError);
   end;
+  if Asleep then
+  begin
+    if Keys[0] or Keys[1] or Keys[2] or Keys[3] then Asleep := False;
+    for D := 0 to 3 do Keys[D] := False;
+  end;
   Moved := False;
   AX := 0;
   AY := 0;
@@ -983,11 +994,14 @@ begin
   end;
   St := A.StepAt(Frame - P.AniStart);
   if (St < 0) or (St > High(A.Steps)) then Exit;
+  if Asleep and (P = Player) then Parts := A.Steps[St].Dirs[2]
+  else
   Parts := A.Steps[St].Dirs[P.Dir and 3];
   for I := 0 to High(Parts) do
   begin
     if not A.FindSprite(Parts[I].Sprite, Spr) then Continue;
     SheetName := UpperCase(Spr.Sheet);
+    if Asleep and (P = Player) and (SheetName <> 'HEAD') then Continue;
     { the built-in stand-in art for every part (head0, body, sword1) }
     if SheetName = 'SPRITES' then Img := Assets.Image('sprites.png')
     else if SheetName = 'HEAD' then Img := Assets.Image('head0.png')

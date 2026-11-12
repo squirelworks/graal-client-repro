@@ -12,13 +12,14 @@ and are compiled into the rebuild by `scripts/res/make_resunit.py`
 | `BUTTON1.bmp` .. `BUTTON4.bmp` | RCDATA BUTTON1 .. BUTTON4 | the picture buttons (up and pressed halves) and the Go button |
 | `TUTORIALA1.graal` .. `TUTORIALC3.graal` | RCDATA TUTORIALA1 .. TUTORIALC3 | Training: offlinetutorial_a-1 .. c-3 |
 | `OPENGLYPH.bmp` | the Open button's glyph in the TOPENURL form (15 x 14) | the "Open URL" box's Open button |
+| `TOPTIONS.dfm` | RCDATA TOPTIONS (the form, as it is) | the F1 "Help" window (common/GOptionsWindow) |
 | `../src/Graal231.ico` | GROUP_ICON MAINICON (32 x 32) | the window and taskbar icon (through `src/Graal231.rc`) |
 
 Byte for byte the same as 2.22's: the pictures and the tutorial levels.
 2.31's own: the icon (a few pixels differ from 2.22's).
 
 Not taken, and why:
-- the forms (TCONNECTFRAME, TSERVERLISTFRAME, TADVENTURE and 15 more): their
+- the other forms (TCONNECTFRAME, TSERVERLISTFRAME, TADVENTURE and 14 more): their
   places and sizes are written into `src/RealStart231.pas`,
   `src/Dialogs231.pas` (TMOREOPTIONS, TOPENURL) and `src/Adventure.pas` instead, with the form named at each place;
 - VERSIONINFO: the rebuild keeps its own (graal-delphi, squirelworks) so it

@@ -15,6 +15,7 @@ sounds or levels. The client carries simple graphics of its own.
 
 ## What's new in v0.0.5
 
+- [x] **F1 Options window.** F1 opens "Options" from the build's own form (TOptions, now pulled into `res/Options.dfm` and compiled in), with the current level's file name filled in. Edit level opens the editor. The other buttons close it and do nothing yet. Linux and macOS draw the form in a window of their own.
 - [x] **Default server.** The server field now starts on the rebuild's own default (listserver.txt, else `listserver.graal.in`) instead of the original's long-gone host, so the code that swapped that host out on connect is gone.
 - [x] **Other players.** OTHERPLPROPS reads the one-byte player id 1.35 sends before the props (the two-byte id starts with 1.36), so another player's props are no longer read one byte off.
 - [x] **The counts and the sword in the status display.** The rupee, bomb and arrow counts come from the digit sprites of the sprite sheet (arrays.dat sprites 268 to 277) when the state picture has no digit row (224 x 81, up to 1.37), so they show again. The player's sword picture stands beside the S button, as in the real client.
@@ -87,7 +88,7 @@ item list, sound and the editor have not been checked against 1.35.
 No local 2 to 4 player modes, no UDP, no options page.
 
 - [ ] Two to Four Players on one keyboard. The modes are offered, but they play as One Player.
-- [ ] The other forms in the exe: the F1 options window, More options, and the editor dialogs.
+- [ ] The other forms in the exe: More options, Controls, and the editor dialogs (F1's Options window is drawn, its other buttons do nothing yet).
 - [ ] The nick and "Load head/colors from last session" kept in HKCU\Software\Graal\Client.
 - [ ] The dialog's text uses Liberation Sans for MS Sans Serif, so a line can break one word apart from the real one.
 - [ ] The real message boxes (connection failed and the like).

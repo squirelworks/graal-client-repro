@@ -42,6 +42,9 @@ uses
   Res231 in '../src/Res231.pas',
   Dialogs231 in '../src/Dialogs231.pas',
   RealStart231 in '../src/RealStart231.pas',
+  GDfmObj in '../../common/GDfmObj.pas',
+  GVclForm in '../../common/GVclForm.pas',
+  GOptionsWindow in '../../common/GOptionsWindow.pas',
   TestNpc231 in 'TestNpc231.pas',
   TestBaddy231 in 'TestBaddy231.pas';
 
@@ -1723,7 +1726,107 @@ begin
   end;
 end;
 
+procedure TestHelpForm;
+var
+  Img, Shown: TGSurface;
+  Data: string;
+  O: TDfmObj;
+  F: TVclForm;
+  C: TVclCtl;
+  I, Buttons, Mapped, X, Y: Integer;
+  Diff: Boolean;
 begin
+  Check(ResFile('TOPTIONS', Data) and (Copy(Data, 1, 4) = 'TPF0'), 'F1: TOPTIONS is carried');
+  Img := TGSurface.Create(1, 1);
+  Shown := TGSurface.Create(1, 1);
+  try
+    Check(RenderOptionsWindow(Data, 'level1.graal', Img, 'EditButton,DebuggerButton') and (Img.Width = 370) and
+      (Img.Height = 259), 'F1: the Help window draws at the form''s 370 x 259');
+    { 2.31 hides Edit level and Debugger: the two drawings differ }
+    RenderOptionsWindow(Data, 'level1.graal', Shown);
+    Diff := False;
+    for Y := 0 to Img.Height - 1 do
+      for X := 0 to Img.Width - 1 do
+        if Img.GetPixel(X, Y) <> Shown.GetPixel(X, Y) then Diff := True;
+    Check(Diff, 'F1: Edit level and Debugger are hidden');
+  finally
+    Shown.Free;
+    Img.Free;
+  end;
+  O := GDfmObj.ParseDfm(Data);
+  F := TVclForm.Create(O, 'Graal');
+  try
+    Check(F.Caption = 'Help', 'F1: the window is titled Help');
+    Buttons := 0;
+    Mapped := 0;
+    for I := 0 to F.CtlCount - 1 do
+    begin
+      C := F.CtlAt(I);
+      if C.Kind <> vkButton then Continue;
+      Inc(Buttons);
+      if OptionsActionOf(C.Obj.Ident('OnClick', '')) <> oaNone then Inc(Mapped);
+    end;
+    Check((Buttons = 7) and (Mapped = Buttons), 'F1: each of the seven buttons has its action');
+  finally
+    F.Free;
+    O.Free;
+  end;
+end;
+
+procedure TestChestDrawn;
+var
+  G: TAdventure;
+  Bare, Shut: TGSurface;
+  X, Y, K, DiffShut, DiffOpen: Integer;
+begin
+  G := TAdventure.Create;
+  Bare := TGSurface.Create(1, 1);
+  Shut := TGSurface.Create(1, 1);
+  try
+    G.Headless := True;
+    Check(G.LoadLevelFile('start.nw'), 'chest: the built-in level loads');
+    { a board with no chest tiles, as a server's is: the chest is only a
+      PLO_LEVELCHEST record }
+    G.Player.X := 30;
+    G.Player.Y := 30;
+    for K := 0 to 3 do
+      G.Level.Tiles[30 + K mod 2 + (36 + K div 2) * 64] := G.Level.Tiles[29 + 35 * 64];
+    SetLength(G.Level.Chests, 0);
+    G.Draw;
+    Bare.SetSize(G.Screen.Width, G.Screen.Height);
+    Bare.Blit(G.Screen, 0, 0, G.Screen.Width, G.Screen.Height, 0, 0);
+    SetLength(G.Level.Chests, 1);
+    G.Level.Chests[0].X := 30;
+    G.Level.Chests[0].Y := 36;
+    G.Level.Chests[0].Item := 0;
+    G.Level.Chests[0].Sign := -1;
+    G.Level.Chests[0].Opened := False;
+    G.Draw;
+    Shut.SetSize(G.Screen.Width, G.Screen.Height);
+    Shut.Blit(G.Screen, 0, 0, G.Screen.Width, G.Screen.Height, 0, 0);
+    G.Level.Chests[0].Opened := True;
+    G.Draw;
+    DiffShut := 0;
+    DiffOpen := 0;
+    for Y := 0 to Bare.Height - 1 do
+      for X := 0 to Bare.Width - 1 do
+      begin
+        if Shut.GetPixel(X, Y) <> Bare.GetPixel(X, Y) then Inc(DiffShut);
+        if G.Screen.GetPixel(X, Y) <> Shut.GetPixel(X, Y) then Inc(DiffOpen);
+      end;
+    Check(DiffShut > 0, 'chest: a closed chest from its record is drawn over a bare board');
+    Check(DiffOpen > 0, 'chest: an opened one is drawn opened');
+    Check(G.Level.Tile(30, 36) = G.Level.Tile(29, 35), 'chest: drawing leaves the board as it was');
+  finally
+    Shut.Free;
+    Bare.Free;
+    G.Free;
+  end;
+end;
+
+begin
+  TestChestDrawn;
+  TestHelpForm;
   Skipped := 0;
   TestRealStart;
   TestConfig;

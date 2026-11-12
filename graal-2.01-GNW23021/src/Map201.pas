@@ -461,6 +461,10 @@ var
   P: TServerPlayer;
 begin
   if (MiniMap.Image = nil) or (MiniMap.Cols <= 0) then Exit;
+  { only on a level of the map's grid: the start cave and the houses
+    show none, nor does a server's level off the map (2.22, 2.31 and
+    2.17.1 on the 2026-11-12 lab level) }
+  if MiniMap.IndexOf(G.Level.Name) < 0 then Exit;
   Bottom := ViewH - MinimapBottom;
   Top := Bottom - MiniMap.Image.Height;
   G.Screen.Blit(MiniMap.Image, 0, 0, MiniMap.Image.Width, MiniMap.Image.Height,

@@ -24,6 +24,7 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 
 ## What's new in v0.0.5
 
+- [x] **F1 Options window.** F1 opens "Options" from the build's own form (TOptions), with the current level's file name filled in. F6 opens it too, as in this build. The other buttons close it and do nothing yet. Linux and macOS draw the form in a window of their own.
 - [x] **Its fallback install files.** Every place that sets up the asset search now passes the build's whole version list (`graal-assets/b13/` then `graal-assets/b11/`). Some passed the bare version, so with only `graal-assets/` next to the program those parts found nothing and drew the built-in stand-in art.
 
 ## What's new in v0.0.4
@@ -81,8 +82,7 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
       be compared side by side in the container, where the original stops after
       Start (it needs DirectX).
 - [ ] The player is still the stand-in character: the build's own body from
-      its sprite sheet and the chosen character's head are not drawn yet, nor
-      the F1 options window.
+      its sprite sheet and the chosen character's head are not drawn yet.
 
 Chat, items, weapons, enemies, level scripts, signs, saving, sound, and
 the build's own character graphics (a stand-in character is drawn). This

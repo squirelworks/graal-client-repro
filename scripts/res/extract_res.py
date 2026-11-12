@@ -7,7 +7,7 @@
 The first form copies, from the real program's resource table, the start
 window and server list art (RCDATA SCREENIMG*, BUTTON*, LOADINGSCREEN),
 the forms the launcher is laid out from (TCONNECTFRAME, TSERVERLISTFRAME,
-TSHORTMESSAGE, TRECONNECTFRAME, TSERVERMESSAGE), the offline tutorial
+TSHORTMESSAGE, TRECONNECTFRAME, TSERVERMESSAGE, and TOPTIONS for F1), the offline tutorial
 levels (TUTORIAL*), and the program icon (GROUP_ICON MAINICON, as
 src/<Program>.ico) into <folder>/src/res/, and writes <folder>/src/res/
 manifest.txt (name, size, CRC32 and where each came from). --heads adds
@@ -31,7 +31,7 @@ import zlib
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 KEEP_PREFIX = ("SCREENIMG", "BUTTON", "LOADINGSCREEN", "TUTORIAL")
 KEEP_FORMS = ("TCONNECTFRAME", "TSERVERLISTFRAME", "TSHORTMESSAGE", "TRECONNECTFRAME",
-              "TSERVERMESSAGE")
+              "TSERVERMESSAGE", "TOPTIONS")
 
 
 def ext_for(data):

@@ -189,6 +189,33 @@ begin
   end;
 end;
 
+{ One Player starts asleep: the first key only wakes the player }
+procedure TestAsleep;
+var
+  G: TAdventure;
+  X0: Double;
+begin
+  G := TAdventure.Create;
+  try
+    G.Headless := True;
+    G.LoadLevelFile('start.nw');
+    G.Player.X := 30;
+    G.Player.Y := 30;
+    X0 := G.Player.X;
+    G.Asleep := True;
+    G.Tick;
+    Check(G.Asleep, 'asleep: the player sleeps until a key');
+    G.Keys[DirRight] := True;
+    G.Tick;
+    Check(not G.Asleep and (G.Player.X = X0), 'asleep: a key wakes the player without a step');
+    G.Keys[DirRight] := True;
+    G.Tick;
+    Check(G.Player.X > X0, 'asleep: the next key walks');
+  finally
+    G.Free;
+  end;
+end;
+
 procedure TestWalking;
 var
   G: TAdventure;
@@ -295,6 +322,7 @@ begin
   TestPeerData;
   TestLevels;
   TestWalking;
+  TestAsleep;
   TestFuzz;
   WriteLn(Format('%d passed, %d failed', [Passed, Failed]));
   if Failed > 0 then Halt(1);

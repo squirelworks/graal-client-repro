@@ -214,6 +214,12 @@ type
     Handled, Ignored: array[0..255] of Integer;
     { Held direction keys for this tick: up, left, down, right. }
     Keys: array[0..3] of Boolean;
+    { One Player starts asleep in the left bed (14th Graal on): only the
+      head shows, facing down, until a key wakes the player, who gets up
+      without acting on that press (graal_analysis version-profiles/
+      matrix/live-runs-2026-10-30.md; captures of 14th, 15th, 1.1, 1.1.9
+      and 1.28 beta 2) }
+    Asleep: Boolean;
     { Game keys pressed this tick (down edges): A action (lift, throw,
       open), S attack (sword, throw), D item. }
     ActionKey, AttackKey, ItemKey: Boolean;
@@ -2722,6 +2728,17 @@ begin
     ActionKey := False;
     ItemKey := False;
   end;
+  if Asleep then
+  begin
+    if Keys[0] or Keys[1] or Keys[2] or Keys[3] or ActionKey or AttackKey or ItemKey or
+      MapKey or ItemListKey then Asleep := False;
+    for D := 0 to 3 do Keys[D] := False;
+    AttackKey := False;
+    ActionKey := False;
+    ItemKey := False;
+    MapKey := False;
+    ItemListKey := False;
+  end;
   { the big map, when open, takes the keys (Map128b2) }
   MapTick(Self);
   { reading a sign is its own input state: nothing walks or acts }
@@ -2895,6 +2912,8 @@ begin
   else
     St := A.StepAt(Frame - P.AniStart);
   if St > High(A.Steps) then Exit;
+  if Asleep and (P = Player) then Parts := A.Steps[St].Dirs[2]
+  else
   Parts := A.Steps[St].Dirs[P.Dir and 3];
   for I := 0 to High(Parts) do
   begin
@@ -2910,6 +2929,7 @@ begin
     end;
     if not A.FindSprite(Parts[I].Sprite, Spr) then Continue;
     SheetName := UpperCase(Spr.Sheet);
+    if Asleep and (P = Player) and (SheetName <> 'HEAD') then Continue;
     if SheetName = 'SPRITES' then Img := Assets.Image('sprites.png', '')
     else if SheetName = 'HEAD' then
     begin

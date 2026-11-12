@@ -63,6 +63,7 @@ uses
   RunMode in 'RunMode.pas',
   GDfmObj in '../../common/GDfmObj.pas',
   GVclForm in '../../common/GVclForm.pas',
+  GOptionsWindow in '../../common/GOptionsWindow.pas',
   GBetaStart in '../../common/GBetaStart.pas',
   RealResB1 in 'RealResB1.pas'
 {$IFDEF MSWINDOWS}, Windows{$ENDIF};
@@ -211,6 +212,7 @@ end;
 
 function RunGame(GuiWin: TGWindow; const GuiNick: string): Integer;
 var
+  OptForm: string;
   G: TAdventure;
   Win: TGWindow;
   Script: TKeyScript;
@@ -337,6 +339,14 @@ begin
         begin
           Win.Pump;
           if Win.Closed or Win.Held[gkEscape] then Break;
+          { F1: the Options window, from the form TOptions (GOptionsWindow) }
+          if Win.WasPressed(gkOptions) then
+          begin
+            OptForm := '';
+            if RealResource('TOPTIONS', OptForm) then
+              RunOptionsWindow(OptForm, 'Graal', G.Level.Name);
+            if Win.Closed then Break;
+          end;
           G.Keys[DirUp] := Win.Held[gkUp];
           G.Keys[DirLeft] := Win.Held[gkLeft];
           G.Keys[DirDown] := Win.Held[gkDown];

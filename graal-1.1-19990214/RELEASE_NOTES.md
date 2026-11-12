@@ -18,6 +18,9 @@ keep a `graal-assets/` folder next to it, or point it at one with
 
 ## What's new in v0.0.5
 
+- [x] **Minimap only on the map.** The minimap is drawn only on a level of its grid, as the real client does: a server's level off the map (or a house or cave) shows none. Before, it was drawn on every level.
+- [x] **Asleep at the start.** One Player starts asleep in the left bed, only the head showing, as the real client does; the first key wakes the player, who gets up without acting on that press.
+- [x] **F1 Options window.** F1 opens "Options" from the build's own form (TOptions), with the current level's file name filled in. F6 opens it too, as in this build. Edit level opens the editor. The other buttons close it and do nothing yet. Linux and macOS draw the form in a window of their own.
 - [x] **Default server.** The server field now starts on the rebuild's own default (listserver.txt, else `listserver.graal.in`) instead of the original's long-gone host, so the code that swapped that host out on connect is gone.
 - [x] **Pictures by kind.** The picture cache keeps each name once per kind (head, body, sword, shield, hat, weapon), because each kind searches its own folders. A picture first asked for without its kind got the built-in stand-in and kept it, so an install's own picture could stay hidden behind the stand-in (in 1.33, `levels/weapons/wbomb1.gif` beside the D button).
 
@@ -98,8 +101,7 @@ Arrow keys walk, Esc leaves the game.
 ## Not yet
 
 - [ ] The player is drawn with the rebuild's stand-in animations, not the
-      build's own sprite sheet and the chosen head; the F1 options window is
-      not rebuilt.
+      build's own sprite sheet and the chosen head.
 - [ ] Two Players starts the one-player game; the local multiplayer mode
       is not rebuilt.
 - [ ] The character picked in the dialog is not yet drawn in the game.
@@ -108,7 +110,7 @@ Smoke-tested only. The original's status bar, sprites and letters sheets,
 Two Players, save games and web levels are not done yet.
 
 - [ ] Two to Four Players on one keyboard. The modes are offered, but they play as One Player.
-- [ ] The other forms in the exe: the F1 options window, More options, and the editor dialogs.
+- [ ] The other forms in the exe: More options, Controls, and the editor dialogs (F1's Options window is drawn, its other buttons do nothing yet).
 - [ ] The nick and "Load head/colors from last session" kept in HKCU\Software\Graal\Client.
 - [ ] The dialog's text uses Liberation Sans for MS Sans Serif, so a line can break one word apart from the real one.
 - [ ] The real message boxes (connection failed and the like).
