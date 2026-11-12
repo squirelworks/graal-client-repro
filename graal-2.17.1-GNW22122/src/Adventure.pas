@@ -569,7 +569,7 @@ function SpriteWalkStep(Sprite: Integer): Integer;
 implementation
 
 uses
-  SysUtils, GNumText, Math, GFont, GSound, GPeRes, Sound217, Map217, NpcBridge217, GHudFont;
+  SysUtils, GPaths, GNumText, Math, GFont, GSound, GPeRes, Sound217, Map217, NpcBridge217, GHudFont;
 
 procedure MakeIndexSheet(Sheet: TGSurface);
 var
@@ -926,9 +926,9 @@ begin
     if F = '' then F := AssetPath('ganis/' + N + '.gani');
     if (F = '') and (Dir <> '') then
     begin
-      F := IncludeTrailingPathDelimiter(Dir) + 'levels/ganis/' + N + '.gani';
+      F := WithTrailingSep(Dir) + 'levels/ganis/' + N + '.gani';
       if not (FileExists(F) and AssetAllowed(F)) then
-        F := IncludeTrailingPathDelimiter(Dir) + 'ganis/' + N + '.gani';
+        F := WithTrailingSep(Dir) + 'ganis/' + N + '.gani';
       if not AssetAllowed(F) then F := '';
     end;
     if (F <> '') and FileExists(F) then
@@ -3043,7 +3043,7 @@ begin
     F := AssetPath(Exes[I]);
     if (F = '') and (FLevelDir <> '') then
     begin
-      F := ExpandFileName(FLevelDir + '..' + PathDelim + Exes[I]);
+      F := ExpandFileName(FLevelDir + '..' + DirSlash + Exes[I]);
       if not FileExists(F) then F := '';
     end;
     if (F <> '') and PeResource(F, RT_RCDATA, R, Data) and (Copy(Data, 1, 3) = 'GR-') then
@@ -4508,7 +4508,7 @@ begin
     FHeightsScanned := True;
     for I := 0 to AssetRootCount - 1 do
     begin
-      R := IncludeTrailingPathDelimiter(AssetRoot(I));
+      R := WithTrailingSep(AssetRoot(I));
       FHeights.AddDir(R + 'maps');
       FHeights.AddDir(R + 'levels');
       FHeights.AddDir(R);

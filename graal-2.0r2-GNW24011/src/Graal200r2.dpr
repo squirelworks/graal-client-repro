@@ -273,7 +273,7 @@ begin
     ',"rss_peak_kib":';
   if PeakRssKiB >= 0 then Result := Result + IntToStr(PeakRssKiB)
   else Result := Result + 'null';
-  Result := Result + ',"nodelay":' + LowerCase(BoolToStr(NoDelay, True)) + '}';
+  Result := Result + ',"nodelay":' + LowerCase(BoolText(NoDelay)) + '}';
 end;
 
 { One game: from the command line, or as the start screen chose it (then
@@ -540,8 +540,8 @@ begin
       OK := G.LoggedIn and G.BoardLoaded;
       G.Log(Format('frames in %d (%d msgs), out %d (%d msgs); logged in %s, board %s',
         [G.Client.FramesIn, G.Client.MessagesIn, G.Client.FramesOut,
-         G.Client.MessagesOut, BoolToStr(G.LoggedIn, True),
-         BoolToStr(G.BoardLoaded, True)]));
+         G.Client.MessagesOut, BoolText(G.LoggedIn),
+         BoolText(G.BoardLoaded)]));
     end;
     if (Dump <> '') or ((I = 0) and not Online) then
       G.Draw;
@@ -605,9 +605,9 @@ var
   S: TFileStream;
 begin
   Result := '';
-  Dir := IncludeTrailingPathDelimiter(GetTempDir(False)) + 'graal-delphi-' +
-    ClientBuildLabel + PathDelim;
-  if not ForceDirectories(Dir) then Exit;
+  Dir := TempDir + 'graal-delphi-' +
+    ClientBuildLabel + DirSlash;
+  if not MakeDirs(Dir) then Exit;
   for I := 0 to High(Names) do
   begin
     if not ExeResource('TUTORIAL' + Names[I], D) then Exit;
