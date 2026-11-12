@@ -102,6 +102,7 @@ class Session {
   };
 
   Session(const BuildProfile& profile, Events events);
+  void set_events(Events events) { ev_ = std::move(events); }
 
   // Connects to the first server, named "Login", and logs in.
   bool start(const std::string& host, uint16_t port, const std::string& account,

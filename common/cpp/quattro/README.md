@@ -47,10 +47,10 @@ this program. This directory does.
 |---|---|---|
 | `net/` | `TSocket`, the game connection, the session | **done**: wire integers, gen-5 codec (6.x long frames, raw-data escape), build rows, socket, connection, 178 warp |
 | `cache/` | `weblevels` script cache | **done**: DES with Graal's key twist, CRC32, `GRESCR01` read and write |
-| `tools/` | (none) | `quattro-session`, a headless lab tool that logs a session |
-| `draw/` | the draw passes and the window | next: software frame buffer, X11 presenter and headless mode, the world passes |
-| `files/` | levels and packages | next: `GR-V1.03`–`1.05` for the playfield |
-| `shell/` | the program loop, `StartScript_*`, `GuiGraalCtrl` | after `common/cpp/gs2` lands: the script host wraps `gs2::Machine` |
+| `tools/` | (none) | `quattro-session` logs a session; `quattro-play` runs the program in a window or headless (`--shot` writes the last frame as PNG) |
+| `files/` | levels and packages | **done**: `GR-V1.00`–`1.05` (1.05 board layers), the 101 board packet, links, chests, signs. Packages next |
+| `draw/` | the draw passes and the window | **done**: the world passes in the original's order on a software canvas (shared with `common/torque/gui`), the lobby rule, an Xlib window and a headless window. Ganis, HUD and the GUI pass next |
+| `shell/` | the program loop, `StartScript_*`, `GuiGraalCtrl` | **started**: the 50 ms loop, level name/board/links/chests from the session, window title per server. Next: the script host on `gs2::Machine` |
 | `gui/` | the GS2 controls | after the shell |
 
 The split with Track B: `common/cpp/gs2/` owns the bytecode loader, the
@@ -84,7 +84,19 @@ LAB_PW=... common/cpp/quattro/build/quattro-session --build 6.03r7 \
     --connect 127.0.0.1:14900 --account NAME --password-env LAB_PW
 ```
 
+## Window size
+
+The program opens 640 x 480 for now, as Seihai's Issho does, and
+`quattro-play --size WxH` changes it. The real 6.03r7 window and HUD
+measurements (Seihai issue 444) are the next input for this.
+
 ## Rebuild choices (not the original's)
+
+- Stand-ins until the real art is drawn: tiles with no `pics1.png` are flat
+  colours from their id; chests, the player and other players are boxes.
+- Upper board layers treat tile 0 as empty; each layer's bit stream starts
+  on a new byte. The 5.x note gives the layer count and boards, not these.
+- Walking is local (half a tile per tick) until the props layer sends X2/Y2.
 
 - Receive limits: 16 MiB per frame and 4 MiB of unfinished message. The
   original's were not read.
