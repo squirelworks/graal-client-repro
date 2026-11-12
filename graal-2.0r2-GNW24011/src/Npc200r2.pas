@@ -27,7 +27,7 @@ unit Npc200r2;
 interface
 
 uses
-  Classes, SysUtils, Math, GTypes, GLevel, GSurface, GGs1;
+  Classes, SysUtils, GNumText, Math, GTypes, GLevel, GSurface, GGs1;
 
 const
   NPCPROP_IMAGE = 0; NPCPROP_SCRIPT = 1; NPCPROP_X = 2; NPCPROP_Y = 3;
@@ -353,7 +353,7 @@ begin
   Result := GsNameIndex(GsColorNames, S);
   if Result < 0 then
   begin
-    if TryStrToInt(Trim(S), V) then Result := ((V mod 20) + 20) mod 20
+    if TryTextToInt(Trim(S), V) then Result := ((V mod 20) + 20) mod 20
     else Result := -1;
   end;
 end;

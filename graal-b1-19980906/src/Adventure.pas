@@ -156,7 +156,7 @@ function NowMs: Int64;
 implementation
 
 uses
-  SysUtils, Math;
+  SysUtils, GNumText, Math;
 
 const
   LogKeep = 200;
@@ -834,7 +834,7 @@ var
 begin
   Result := Keep;
   if (S = '') or (LowerCase(Copy(S, 1, 6)) = 'player') then Exit;
-  if TryStrToFloat(S, V) and (V >= 0) then Result := V;
+  if TryDotTextToFloat(S, V) and (V >= 0) then Result := V;
 end;
 
 function TAdventure.FollowLink(I: Integer): Boolean;
