@@ -47,6 +47,10 @@ void sleep_control(Engine& e, std::uint32_t id) {
   e.call_method(o, "onSleep", {});
 }
 
+static bool edit_buffer(const Engine& e, const SimObject* o) {
+  return is_control_class(e, o, "GuiTextEditCtrl") || is_control_class(e, o, "GuiConsoleEditCtrl");
+}
+
 void register_classes_304(Engine& e) {
   e.add_class({"GuiControl", "SimGroup", true, true, true});
   e.add_class({"GuiCanvas", "GuiControl", true, true, true});
@@ -84,12 +88,16 @@ void register_classes_304(Engine& e) {
   });
 
   // Text and value live in the control's fields, where the .gui put them.
-  e.add_function("GuiControl", "setText", 3, 3, "ctrl.setText(text)", [](Engine&, SimObject* o, Args& a) {
-    if (o) o->set_field("text", a[2]);
+  // A text edit has one buffer: setText, setValue, getText and getValue all
+  // use it, and typing (input304.cpp) edits it. mainMenuGui::onWake fills
+  // NickEdit with setText and switchToServerList reads it with getValue.
+  // Kept in the "value" field (rebuild policy).
+  e.add_function("GuiControl", "setText", 3, 3, "ctrl.setText(text)", [](Engine& en, SimObject* o, Args& a) {
+    if (o) o->set_field(edit_buffer(en, o) ? "value" : "text", a[2]);
     return std::string();
   });
-  e.add_function("GuiControl", "getText", 2, 2, "ctrl.getText()", [](Engine&, SimObject* o, Args&) {
-    return o ? o->field("text") : std::string();
+  e.add_function("GuiControl", "getText", 2, 2, "ctrl.getText()", [](Engine& en, SimObject* o, Args&) {
+    return o ? o->field(edit_buffer(en, o) ? "value" : "text") : std::string();
   });
   e.add_function("GuiControl", "setValue", 3, 3, "ctrl.setValue(value)", [](Engine&, SimObject* o, Args& a) {
     if (o) o->set_field("value", a[2]);

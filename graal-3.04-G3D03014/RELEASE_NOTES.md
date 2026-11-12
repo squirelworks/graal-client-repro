@@ -25,6 +25,7 @@ program works too (`graal-assets/3.04/`, then `graal-assets/common/`).
 ## What's new in v0.0.5
 
 - [x] **The game as a Torque control.** The 2D game now also builds as a library (`src/Game304Lib.lpr`) that the Torque console engine hosts as `GuiGraalCtrl` (`common/torque/guigraal`): the install's own main menu, server list and key scripts reach it through the control's 31 methods. Not in the release zip yet; `tq-play` runs it.
+- [x] **Torque menu in a window.** `graal304-torque` (`common/torque/guigraal`) opens the install's own Torque main menu in an X11 window: clicks reach buttons, text edits and the server list, keys go through `moveMap`, F2 opens the console, and the game draws inside the `Adventure` control. A text edit filled by `setText` now reads back through `getValue`, so the account typed on the menu reaches the listserver. Not in the release zip yet.
 - [x] **Tiles from a 3.04 install.** An install root with its own `common/` folder was taken for a `graal-assets` folder, so `levels/tiles/picso.png` and the tile definitions were not found; the tutorial levels now draw with their own sheet.
 - [x] **800 x 600 window.** The game opens at 800 x 600, as the real 3.04 does, not 640 x 480; the view shows more of the level, it is not scaled up.
 - The C++ host now shares first-frame framing and loopback transport with

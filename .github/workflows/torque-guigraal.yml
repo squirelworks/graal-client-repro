@@ -6,6 +6,7 @@ on:
       - 'common/torque/guigraal/**'
       - 'common/torque/console/engine/**'
       - 'common/torque/console/compiler/**'
+      - 'common/torque/gui/**'
       - 'graal-3.04-G3D03014/src/**'
       - 'common/*.pas'
       - '.github/workflows/torque-guigraal.yml'
@@ -15,6 +16,7 @@ on:
       - 'common/torque/guigraal/**'
       - 'common/torque/console/engine/**'
       - 'common/torque/console/compiler/**'
+      - 'common/torque/gui/**'
       - 'graal-3.04-G3D03014/src/**'
       - 'common/*.pas'
       - '.github/workflows/torque-guigraal.yml'
@@ -47,3 +49,5 @@ jobs:
         run: |
           make -C common/torque/guigraal lib all
           sh common/torque/guigraal/tests/smoke.sh
+      - name: Online path against loopback list and game servers
+        run: sh common/torque/guigraal/tests/online.sh

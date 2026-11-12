@@ -115,7 +115,9 @@ console.
   its `historySize` lines, and Enter runs its `altCommand`
   (`ConsoleEntry::eval()`), which echoes `==>` and the line and runs it
   through `eval` and the compiler. Text edits keep their text in the `value`
-  field (`getValue`/`setValue`). `GuiConsole` draws
+  field: `setText`/`getText` and `setValue`/`getValue` read and write the
+  same buffer (rebuild policy: `mainMenuGui::onWake` fills `NickEdit` with
+  `setText` and the list request reads it with `getValue`). `GuiConsole` draws
   `Engine::console_buffer`, which the host fills from its print callback with
   `add_console_text`.
 - **Remap dialog.** `OptRemapInputCtrl` (`GuiInputCtrl`) gets the next key
