@@ -1,0 +1,200 @@
+/* The callback slots, one GE_SLOT per `graal_set<Name>` export.
+ *
+ *   GE_SLOT(Name, ReturnType, DefaultWhenEmpty, (params), (args), Builds)
+ *
+ * Builds is GRAAL_BUILD_* bits: which program fills the slot. 4208 is the
+ * 4.x launcher's list (torque/4208-launcher.md, 94 names), 5007 the 5.0
+ * launcher's (torque/5007-launcher.md, 95 names: eight added, seven
+ * dropped), 3D the bridge the 3D library fills (torque/engine-4208.md, 19
+ * names). Names are the original's; arguments are the rebuild's own.
+ *
+ * Keep the groups in this order; a launcher may list slots by index. */
+
+#ifndef GE_B4
+#define GE_B4 1
+#define GE_B5 2
+#define GE_B3D 4
+#define GE_B45 3
+#endif
+
+/* ---- Screen, clip, 2D matrix ---------------------------------------- */
+GE_SLOT(GetScreenWidth, int32_t, 0, (void), (), GE_B45)
+GE_SLOT(GetScreenHeight, int32_t, 0, (void), (), GE_B45)
+GE_SLOT(SetClippingRectangle, void, , (int32_t x, int32_t y, int32_t w, int32_t h), (x, y, w, h), GE_B45)
+GE_SLOT(GetClippingRectangle, void, , (graal_rect *out), (out), GE_B45)
+GE_SLOT(PushGraal2DMatrix, void, , (const graal_matrix2d *m), (m), GE_B45)
+GE_SLOT(PopGraal2DMatrix, void, , (void), (), GE_B45)
+GE_SLOT(IsGraal2DMatrixActivated, int32_t, 0, (void), (), GE_B45)
+GE_SLOT(GetGraal2DMatrix, int32_t, 0, (graal_matrix2d *out), (out), GE_B45)
+GE_SLOT(PushColorMatrix, void, , (const float *m20), (m20), GE_B5)
+GE_SLOT(PopColorMatrix, void, , (void), (), GE_B5)
+
+/* ---- Tiles ----------------------------------------------------------- */
+GE_SLOT(CreateTilesBuffer, int32_t, 0, (int32_t w, int32_t h), (w, h), GE_B45)
+GE_SLOT(DeleteTilesBuffer, void, , (int32_t buf), (buf), GE_B45)
+GE_SLOT(SetTilesBufferSize, void, , (int32_t buf, int32_t w, int32_t h), (buf, w, h), GE_B45)
+GE_SLOT(ScrollTilesBuffer, void, , (int32_t buf, int32_t dx, int32_t dy), (buf, dx, dy), GE_B45)
+GE_SLOT(StartTilesDrawing, void, , (int32_t buf), (buf), GE_B45)
+GE_SLOT(EndTilesDrawing, void, , (int32_t buf), (buf), GE_B45)
+/* Six arguments, as the engine's 2D-tile helper passes. */
+GE_SLOT(Draw2DTile, void, , (int32_t buf, const graal_texture *sheet, int32_t sx, int32_t sy, int32_t dx, int32_t dy),
+        (buf, sheet, sx, sy, dx, dy), GE_B45)
+GE_SLOT(Clear2DTile, void, , (int32_t buf, int32_t dx, int32_t dy), (buf, dx, dy), GE_B45)
+GE_SLOT(Draw3DTile, void, , (int32_t buf, const graal_texture *sheet, int32_t sx, int32_t sy, int32_t dx, int32_t dy),
+        (buf, sheet, sx, sy, dx, dy), GE_B45)
+GE_SLOT(Clear3DTile, void, , (int32_t buf, int32_t dx, int32_t dy), (buf, dx, dy), GE_B45)
+GE_SLOT(DrawTilesOnScreen, void, , (int32_t buf, int32_t x, int32_t y, int32_t sx, int32_t sy, int32_t w, int32_t h),
+        (buf, x, y, sx, sy, w, h), GE_B45)
+
+/* ---- Text ------------------------------------------------------------ */
+GE_SLOT(DrawText, void, ,
+        (int32_t x, int32_t y, const char *text, const char *font, int32_t size, int32_t style, uint32_t color),
+        (x, y, text, font, size, style, color), GE_B45)
+GE_SLOT(DrawShadowedText, void, ,
+        (int32_t x, int32_t y, const char *text, const char *font, int32_t size, int32_t style, uint32_t color,
+         uint32_t shadow),
+        (x, y, text, font, size, style, color, shadow), GE_B45)
+GE_SLOT(GetTextWidth, int32_t, 0, (const char *text, const char *font, int32_t size, int32_t style),
+        (text, font, size, style), GE_B45)
+GE_SLOT(GetTextHeight, int32_t, 0, (const char *font, int32_t size, int32_t style), (font, size, style), GE_B45)
+GE_SLOT(GetTextAscent, int32_t, 0, (const char *font, int32_t size, int32_t style), (font, size, style), GE_B45)
+GE_SLOT(GetTextDescent, int32_t, 0, (const char *font, int32_t size, int32_t style), (font, size, style), GE_B45)
+
+/* ---- Pictures and shapes --------------------------------------------- */
+GE_SLOT(DrawGraphics, void, ,
+        (const graal_texture *tex, int32_t x, int32_t y, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+         uint32_t modulate),
+        (tex, x, y, sx, sy, sw, sh, modulate), GE_B45)
+GE_SLOT(DrawGraphicsStretched, void, ,
+        (const graal_texture *tex, int32_t x, int32_t y, int32_t w, int32_t h, int32_t sx, int32_t sy, int32_t sw,
+         int32_t sh, uint32_t modulate),
+        (tex, x, y, w, h, sx, sy, sw, sh, modulate), GE_B4)
+GE_SLOT(FillScreenRectangle, void, , (int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color), (x, y, w, h, color),
+        GE_B45)
+GE_SLOT(DrawLine, void, , (int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t color), (x0, y0, x1, y1, color),
+        GE_B45)
+GE_SLOT(DrawLine2, void, ,
+        (float x0, float y0, float x1, float y1, float width, uint32_t color), (x0, y0, x1, y1, width, color), GE_B45)
+GE_SLOT(DrawPolygonEx, void, ,
+        (const graal_texture *tex, const float *xyuv, int32_t points, uint32_t color), (tex, xyuv, points, color),
+        GE_B45)
+GE_SLOT(GetTextureWidth, int32_t, 0, (const graal_texture *tex), (tex), GE_B45)
+GE_SLOT(GetTextureHeight, int32_t, 0, (const graal_texture *tex), (tex), GE_B45)
+GE_SLOT(GetTexturePixel, uint32_t, 0, (const graal_texture *tex, int32_t x, int32_t y), (tex, x, y), GE_B45)
+GE_SLOT(IsPixelTransparent, int32_t, 0, (const graal_texture *tex, int32_t x, int32_t y), (tex, x, y), GE_B45)
+GE_SLOT(IsRectangleTransparent, int32_t, 0, (const graal_texture *tex, int32_t x, int32_t y, int32_t w, int32_t h),
+        (tex, x, y, w, h), GE_B45)
+GE_SLOT(GetBitmapArrayRects, int32_t, 0, (const graal_texture *tex, graal_rect *out, int32_t max),
+        (tex, out, max), GE_B45)
+GE_SLOT(ForceTextureTransparency, void, , (const graal_texture *tex, int32_t on), (tex, on), GE_B5)
+GE_SLOT(FreeGraalTexture, void, , (const graal_texture *tex), (tex), GE_B3D)
+
+/* ---- Panels ---------------------------------------------------------- */
+GE_SLOT(CreateDrawingPanel, int32_t, 0, (int32_t w, int32_t h), (w, h), GE_B45)
+GE_SLOT(DeleteDrawingPanel, void, , (int32_t panel), (panel), GE_B45)
+GE_SLOT(DrawPanelGraphics, void, ,
+        (int32_t panel, const graal_texture *tex, int32_t x, int32_t y, int32_t sx, int32_t sy, int32_t sw, int32_t sh),
+        (panel, tex, x, y, sx, sy, sw, sh), GE_B45)
+GE_SLOT(DrawPanelGraphicsStretched, void, ,
+        (int32_t panel, const graal_texture *tex, int32_t x, int32_t y, int32_t w, int32_t h, int32_t sx, int32_t sy,
+         int32_t sw, int32_t sh),
+        (panel, tex, x, y, w, h, sx, sy, sw, sh), GE_B45)
+GE_SLOT(DrawPanelGraphicsPalette, void, ,
+        (int32_t panel, const uint8_t *indexes, const uint32_t *palette, int32_t x, int32_t y, int32_t w, int32_t h),
+        (panel, indexes, palette, x, y, w, h), GE_B45)
+GE_SLOT(DrawPanelGraphicsPixels, void, ,
+        (int32_t panel, const uint32_t *pixels, int32_t x, int32_t y, int32_t w, int32_t h),
+        (panel, pixels, x, y, w, h), GE_B45)
+GE_SLOT(FillPanelRectangle, void, , (int32_t panel, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color),
+        (panel, x, y, w, h, color), GE_B45)
+GE_SLOT(DrawDrawingPanel, void, , (int32_t panel, int32_t x, int32_t y, uint32_t modulate), (panel, x, y, modulate), GE_B45)
+GE_SLOT(DrawTriangleStripPanel, void, , (int32_t panel, const float *xyuv, int32_t points, uint32_t modulate),
+        (panel, xyuv, points, modulate), GE_B45)
+GE_SLOT(SaveDrawingPanel, int32_t, 0, (int32_t panel, const char *file), (panel, file), GE_B45)
+
+/* ---- Flash panels ---------------------------------------------------- */
+GE_SLOT(CreateFlashPanel, int32_t, 0, (void), (), GE_B45)
+GE_SLOT(DeleteFlashPanel, void, , (int32_t fp), (fp), GE_B45)
+GE_SLOT(SetFlashPanelSize, void, , (int32_t fp, int32_t x, int32_t y, int32_t w, int32_t h), (fp, x, y, w, h), GE_B4)
+GE_SLOT(SetFlashPanelClipping, void, , (int32_t fp, int32_t x, int32_t y, int32_t w, int32_t h), (fp, x, y, w, h),
+        GE_B5)
+GE_SLOT(SetFlashPanelFile, void, , (int32_t fp, const char *file), (fp, file), GE_B45)
+GE_SLOT(SetFlashPanelVisible, void, , (int32_t fp, int32_t visible), (fp, visible), GE_B45)
+GE_SLOT(SetFlashPanelLooping, void, , (int32_t fp, int32_t loop), (fp, loop), GE_B45)
+GE_SLOT(PlayFlashPanelMovie, void, , (int32_t fp), (fp), GE_B45)
+GE_SLOT(StopFlashPanelMovie, void, , (int32_t fp), (fp), GE_B45)
+GE_SLOT(GetFlashPanelVar, const char *, "", (int32_t fp, const char *name), (fp, name), GE_B45)
+GE_SLOT(SetFlashPanelVar, void, , (int32_t fp, const char *name, const char *value), (fp, name, value), GE_B45)
+GE_SLOT(CallFlashPanelFunction, const char *, "", (int32_t fp, const char *call), (fp, call), GE_B45)
+GE_SLOT(SetFlashPanelGraalVar, void, , (int32_t fp, const char *name, const char *value), (fp, name, value), GE_B45)
+
+/* ---- Clipboard ------------------------------------------------------- */
+GE_SLOT(SetClipBoard, void, , (const char *text), (text), GE_B45)
+GE_SLOT(GetClipBoard, const char *, "", (void), (), GE_B45)
+
+/* ---- Window and application ------------------------------------------ */
+GE_SLOT(GetGraalApplicationActive, int32_t, 1, (void), (), GE_B45)
+GE_SLOT(GetGraalIsFullscreen, int32_t, 0, (void), (), GE_B5)
+GE_SLOT(SetGraalFullscreen, void, , (int32_t on), (on), GE_B5)
+GE_SLOT(ShowGraalWindow, void, , (int32_t show), (show), GE_B5)
+GE_SLOT(MakeGraalScreenshot, void, , (const char *file), (file), GE_B4)
+GE_SLOT(GetGraalScreenCapture, int32_t, 0, (uint32_t *out, int32_t max), (out, max), GE_B5)
+GE_SLOT(SetGraalStatusIcons, void, , (int32_t icons), (icons), GE_B45)
+GE_SLOT(GetGraalActionKeyText, const char *, "", (int32_t action), (action), GE_B45)
+GE_SLOT(GetVirtualKeyCode, int32_t, 0, (const char *keyname), (keyname), GE_B45)
+GE_SLOT(SwitchToSetupMode, void, , (int32_t on), (on), GE_B45)
+GE_SLOT(ShowSelectPathDialog, void, , (const char *start), (start), GE_B45)
+GE_SLOT(PrepareShutdownGraal, void, , (void), (), GE_B45)
+GE_SLOT(ShutdownGraal, void, , (void), (), GE_B45)
+
+/* ---- Files, language, URLs ------------------------------------------- */
+GE_SLOT(HomeDirectory, const char *, "", (void), (), GE_B45)
+GE_SLOT(ShowFileScanMessage, void, , (const char *text, int32_t done, int32_t total), (text, done, total), GE_B45)
+GE_SLOT(UpdateGraalFile, void, , (const char *file), (file), GE_B45)
+GE_SLOT(SetGraalLanguage, void, , (const char *language), (language), GE_B45)
+GE_SLOT(SetGraalTranslationURL, void, , (const char *url), (url), GE_B45)
+GE_SLOT(OpenURL, void, , (const char *url), (url), GE_B45)
+GE_SLOT(OpenURL2, void, , (const char *url), (url), GE_B45)
+GE_SLOT(LogGraalMessage, void, , (const char *line), (line), GE_B4)
+GE_SLOT(OpenExternalLogWindow, void, , (void), (), GE_B4)
+
+/* ---- External windows ------------------------------------------------ */
+GE_SLOT(OpenExternalPlayerlist, void, , (void), (), GE_B45)
+GE_SLOT(ExternalPlayerlistUpdate, void, , (const char *row), (row), GE_B45)
+GE_SLOT(ExternalPlayerlistDelete, void, , (const char *row), (row), GE_B45)
+GE_SLOT(OpenExternalPM, void, , (const char *account, const char *text), (account, text), GE_B4)
+GE_SLOT(OpenExternalHistory, void, , (const char *account), (account), GE_B4)
+GE_SLOT(OpenExternalProfile, void, , (const char *account), (account), GE_B45)
+GE_SLOT(OpenExternalOptions, void, , (void), (), GE_B45)
+GE_SLOT(OpenMessageBox, void, , (const char *title, const char *text), (title, text), GE_B45)
+
+/* ---- Microphone ------------------------------------------------------ */
+GE_SLOT(GetMicroInfoRequired, int32_t, 0, (void), (), GE_B45)
+GE_SLOT(SetMicroIsActivated, void, , (int32_t on), (on), GE_B45)
+GE_SLOT(SetMicroVolume, void, , (int32_t volume), (volume), GE_B45)
+
+/* ---- Session --------------------------------------------------------- */
+GE_SLOT(ReceiveServerText, void, , (const char *text), (text), GE_B45)
+GE_SLOT(OnServerLogin, void, , (const char *server), (server), GE_B45)
+GE_SLOT(OnServerListerConnect, void, , (void), (), GE_B45)
+GE_SLOT(StartGraal3D, void, , (void), (), GE_B45)
+
+/* ---- The 3D bridge (filled by the 3D library) ------------------------ */
+GE_SLOT(ConnectTo3DServer, void, , (const char *host, int32_t port), (host, port), GE_B3D)
+GE_SLOT(CreateGraal3DGameObject, void *, nullptr, (const char *kind), (kind), GE_B3D)
+GE_SLOT(DeleteGraal3DLightInfo, void, , (void *light), (light), GE_B3D)
+GE_SLOT(GetGraal3DTerrainHeight, float, 0.0f, (float x, float y), (x, y), GE_B3D)
+GE_SLOT(GetGraalPlayerScriptObject, void *, nullptr, (int32_t id), (id), GE_B3D)
+GE_SLOT(SendGraal3DScriptEvent, void, , (const char *event), (event), GE_B3D)
+GE_SLOT(SendGraal3DScriptEvents, void, , (const char *events), (events), GE_B3D)
+GE_SLOT(SendGraal3DServerText, void, , (const char *text), (text), GE_B3D)
+GE_SLOT(RemoveGraal3DConnection, void, , (void), (), GE_B3D)
+GE_SLOT(RemoveGraal3DMissionGroup, void, , (void), (), GE_B3D)
+GE_SLOT(IsOpenGLEnvironment, int32_t, 0, (void), (), GE_B3D)
+GE_SLOT(GetAllowCursorOff, int32_t, 0, (void), (), GE_B3D)
+GE_SLOT(GetHardwareCursorVisible, int32_t, 0, (void), (), GE_B3D)
+GE_SLOT(OnGraalFileDownloaded, void, , (const char *file), (file), GE_B3D)
+GE_SLOT(SetGraalFullScreenMode, void, , (int32_t on), (on), GE_B3D)
+GE_SLOT(SetGraalWindowLocked, void, , (int32_t on), (on), GE_B3D)
+GE_SLOT(SetGraalWindowMode, void, , (int32_t w, int32_t h), (w, h), GE_B3D)
+GE_SLOT(SetMinimumFrameTicks, void, , (int32_t ticks), (ticks), GE_B3D)

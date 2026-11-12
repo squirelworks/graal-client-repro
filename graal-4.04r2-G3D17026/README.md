@@ -84,7 +84,23 @@ GRAAL_PW=... Graal404 --server HOST:14900 --account NAME --server-name Login
 Graal404 --level some.nw                  # offline
 ```
 
+## The engine library
+
+The real 4.04r2 is a Delphi launcher over `GraalEngine.dll`
+(`torque/4208-launcher.md`). `Graal404 --engine` runs the same split over
+the rebuilt library in `common/cpp/graalengine` (see its README):
+`GEngineHost` loads `GraalEngine.dll` / `libgraalengine.so` from the
+program's folder, registers the 94 `graal_set` callbacks, calls
+`graal_engineInitialize` and `loadGraalGui`, then `renderGraalCanvas`
+every 50 ms, and forwards keys and clicks. `--engine-lib FILE`,
+`--window`, `--frames N`, `--dump FRAME.bmp` and
+`--connect NAME@HOST:PORT` work there. Until the GS2 core draws the start
+menus the canvas is empty.
+
 ## Not yet, or not known
+
+- [ ] The 14 start menus embedded in the exe, run by the GS2 core and drawn
+  through the engine library, in place of the Pascal start screen.
 
 - [ ] The server list and account screens as the real client shows them
   (scripted GUI from the Login server).
