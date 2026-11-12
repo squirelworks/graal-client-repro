@@ -2,7 +2,7 @@
 
 Who links which module. A cell is **yes** only when that binary's note names the surface. **no** means the note says it is absent. **—** means that note does not name it, so the manifest does not link it. **names** means the identifier remains and this unit is not linked.
 
-Lists live in `manifests/`. They are not passed to fpc. 3.04 lists the full 3.x set. 4.x drops the console from the 2D engine and, by 4.2.0.8, drops the stock TGE game layer from the 3D DLL. 5.0.0.7 is still that three-program split. Unpacked 5.30/5.31 omit every module. 6.x is not this tree.
+Lists live in `manifests/`. They are the build input of `manifests/profiles.py`, which checks each against this table and compiles it with only its listed modules on the fpc unit path. 3.04 lists the full 3.x set. 4.x drops the console from the 2D engine and, by 4.2.0.8, drops the stock TGE game layer from the 3D DLL. 5.0.0.7 is still that three-program split. Unpacked 5.30/5.31 omit every module. 6.x is not this tree.
 
 | Module | Kind | 3.04 | 4.04r2 3D | 4.2.0.8 launcher | 4.2.0.8 engine | 4.2.0.8 3D | 5.0.0.7 launcher | 5.0.0.7 engine | 5.0.0.7 3D | 5.30 / 5.31 | 6.x |
 |---|---|---|---|---|---|---|---|---|---|---|---|

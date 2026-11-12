@@ -33,6 +33,7 @@ Files are looked for in the program's own folder first, then in
 
 ## What's new in v0.0.5
 
+- [x] **Neutral window titles.** The server list window is titled "Server List", not the original's caption, which named the original's host (#191).
 - [x] **Walking in Training.** The tutorial's `addtiledef picso.png,offlinetutorial,1` now keeps its sheet type, and a type 1 or 2 sheet tells walls from the tile number (the newer tile order) instead of from `arrays.dat`, whose lists hold none of the tutorial's ground. The player could only turn on the spot before.
 
 - [x] **The chat line.** Tab gives the keys to the white line under the game and back; Enter says what is typed, and what each player says is drawn over the head (in `TEMPSITC.TTF` when the install has it).
@@ -71,7 +72,7 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 ## What works
 
 - 2.22's own start window, in a 577 x 416 window of its own with only a
-  close button: the GraalOnline art and buttons of `Graal_222.exe`,
+  close button: the art and buttons of `Graal_222.exe`,
   Nickname, Language, Account and Password laid out as the original's
   form, the words from `languages/languageEnglish.txt`, and the nickname
   and last account 2.22 saved in the registry. Start fetches the server

@@ -9,6 +9,7 @@ program TestSoundMap11;
 uses
   SysUtils, Classes,
   GClamp in '../../common/GClamp.pas',
+  GNumText in '../../common/GNumText.pas',
   GTypes in '../../common/GTypes.pas',
   GSurface in '../../common/GSurface.pas',
   GBetaHud in '../../common/GBetaHud.pas',

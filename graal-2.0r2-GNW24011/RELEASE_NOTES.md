@@ -18,6 +18,7 @@ their place.
 
 ## What's new in v0.0.5
 
+- [x] **Neutral window titles.** The server list window is titled "Server List", not the original's caption, which named the original's host (#191).
 - [x] **Its fallback install files.** Every place that sets up the asset search now passes the build's whole version list (`graal-assets/2.0r2/` then `graal-assets/2.05r2/`). Some passed the bare version, so with only `graal-assets/` next to the program those parts found nothing and drew the built-in stand-in art.
 - [x] **Pictures by kind.** The picture cache keeps each name once per kind (head, body, sword, shield, hat, weapon), because each kind searches its own folders. A picture first asked for without its kind got the built-in stand-in and kept it, so an install's own picture could stay hidden behind the stand-in (in 1.33, `levels/weapons/wbomb1.gif` beside the D button).
 
@@ -30,7 +31,7 @@ their place.
   box and nickname placed from the form, and the Training, Options and
   Start buttons drawn from `BUTTON1` where the real one paints them.
 - [x] Start opens the server list as its own 577 x 416 window
-  ("Graalonline.com Server List", `SCREENIMG2`), laid out from this exe's
+  (titled "Server List", `SCREENIMG2`), laid out from this exe's
   `TServerListFrame`: the 2.0 to 2.01 rev 1 server list form, with its RichEdit description box and its two server icons.
   "Getting server list ..." shows in the `TShortMessage` box while the
   listserver answers. The account and password are typed on the list, as

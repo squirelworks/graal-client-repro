@@ -56,6 +56,7 @@ program GraalNm26;
 uses
   SysUtils, Classes,
   GClamp in '../../common/GClamp.pas',
+  GNumText in '../../common/GNumText.pas',
   GTypes in '../../common/GTypes.pas',
   GZlib in '../../common/GZlib.pas',
   GSocket in '../../common/GSocket.pas',

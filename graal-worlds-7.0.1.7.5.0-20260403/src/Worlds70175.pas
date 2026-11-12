@@ -22,7 +22,7 @@ const
   { GameAssembly.dll PE time stamp, as a date. }
   BuildDate = '2026-04-03';
   CompanyName = 'toonslab';
-  ProductName = 'GraalOnline Worlds';
+  ProductName = 'Graal Worlds';
   MainExe = 'Worlds.exe';
   HasGameAssembly = True;
   LinksTorque = False;
