@@ -11,6 +11,7 @@ make -C common/cpp/gs2 test     # unit tests, GUI tests, gs2-dis, gs2-scan
 ```
 
 Written from Graal_analysis `client-internals/gs2-vm-from-engines.md`,
+`client-internals/showimg-particles-and-gs2-format.md`,
 `protocol/gs2-client-vm.md` and `protocol/gs2-client-only-opcodes.md` (the
 static reads of the 4.2.0.8, 5.0.0.7 and 6.00 engines). Where those notes
 give the stack shape of an opcode only by name (object creation, array
@@ -119,10 +120,9 @@ engine, with its `levels3d/gui` folder as the theme:
   account and password boxes, the play-as radios, the save-password check
   box, and the Start, Become a Member, Options and Offline Test buttons).
 
-The 5.12 engine's menus (profile 5.0) run the same way: 148 controls and
-112 profiles. What they still stop on is opcodes 82 and 84 (`indexof` and
-`format`, whose helpers Graal_analysis has not opened) and the engine's
-`Adventure_getInstallationPath`.
+The 5.12 engine's menus (profile 5.0) run the same way: 154 controls and
+112 profiles, with every opcode they use. The one call still missing is the
+engine's `Adventure_getInstallationPath`.
 
 The only 4.04r2 commands still missing are the particle emitter's
 `addglobalmodifier`, `addlocalmodifier` and `removemodifiers`, which belong
@@ -167,7 +167,11 @@ guessed.
   here it stops the script
 - [ ] `waitfor` (11): it pops a number and two strings and registers a
   catch; how the resumed script sees the result is not read
-- [ ] `in` ranges and objects (80, 81), `index`, `type`, `format` (82 to 84),
+- [x] `indexof` (82) and `format` (84), from Graal_analysis
+  `client-internals/showimg-particles-and-gs2-format.md`. Readings: string
+  search keeps letter case, `%d` truncates toward zero, `%f` defaults to six
+  places
+- [ ] `in` ranges and objects (80, 81), `type` (83),
   `log`, `getangle`, `getdir` (92, 95, 96), `indices`, `link`, the object
   compare (99, 100, 104), `substring`, `tokenize`, `translate`, `positions`
   (118, 120), multi-dimensional arrays and the array methods (133 to
