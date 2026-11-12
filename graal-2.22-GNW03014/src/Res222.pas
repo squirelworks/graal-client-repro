@@ -23,7 +23,7 @@ function EmbeddedPath(const Rel: string): string;
 implementation
 
 uses
-  SysUtils, Classes;
+  SysUtils, GPaths, Classes;
 
 const
   D0: array[0..19] of string = (
@@ -8511,8 +8511,8 @@ begin
   Key := LowerCase(StringReplace(Rel, '\', '/', [rfReplaceAll]));
   if (Key = '') or (Pos('..', Key) > 0) or (Lookup(Key) < 16) then Exit;
   { a folder per set of files, so a newer build never reads an older one's }
-  F := IncludeTrailingPathDelimiter(GetTempDir(False)) + 'graal-delphi-2.22-a816a5a8' + PathDelim +
-    StringReplace(Key, '/', PathDelim, [rfReplaceAll]);
+  F := TempDir + 'graal-delphi-2.22-a816a5a8' + DirSlash +
+    StringReplace(Key, '/', DirSlash, [rfReplaceAll]);
   if FileExists(F) then
   begin
     Result := F;
@@ -8520,7 +8520,7 @@ begin
   end;
   if not EmbeddedRes(Key, D) then Exit;
   try
-    ForceDirectories(ExtractFileDir(F));
+    MakeDirs(ExtractFileDir(F));
     S := TFileStream.Create(F + '.part', fmCreate);
     try
       if D <> '' then S.WriteBuffer(D[1], Length(D));

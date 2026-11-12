@@ -446,7 +446,7 @@ procedure MakeIndexSheet(Sheet: TGSurface);
 implementation
 
 uses
-  SysUtils, Math, GFont, GUiFont, GSysFont, GSound, Sound205, Map205, NpcBridge205;
+  SysUtils, GPaths, Math, GFont, GUiFont, GSysFont, GSound, Sound205, Map205, NpcBridge205;
 
 procedure MakeIndexSheet(Sheet: TGSurface);
 var
@@ -535,8 +535,8 @@ begin
       if (SR.Name = '.') or (SR.Name = '..') then Continue;
       if (SR.Attr and faDirectory) <> 0 then
       begin
-        if AssetAllowed(Path + SR.Name + PathDelim) then
-          IndexDir(Path + SR.Name + PathDelim, Depth + 1);
+        if AssetAllowed(Path + SR.Name + DirSlash) then
+          IndexDir(Path + SR.Name + DirSlash, Depth + 1);
       end
       else if AssetAllowed(Path + SR.Name) and
         (FIndex.IndexOf(LowerCase(SR.Name)) < 0) then
@@ -690,9 +690,9 @@ begin
   if F = '' then F := AssetPath('ganis/' + Name + '.gani');
   if (F = '') and (Dir <> '') then
   begin
-    F := IncludeTrailingPathDelimiter(Dir) + 'levels/ganis/' + Name + '.gani';
+    F := WithTrailingSep(Dir) + 'levels/ganis/' + Name + '.gani';
     if not (FileExists(F) and AssetAllowed(F)) then
-      F := IncludeTrailingPathDelimiter(Dir) + 'ganis/' + Name + '.gani';
+      F := WithTrailingSep(Dir) + 'ganis/' + Name + '.gani';
     if not AssetAllowed(F) then F := '';
   end;
   begin

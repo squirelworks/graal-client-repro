@@ -542,7 +542,7 @@ function SpriteWalkStep(Sprite: Integer): Integer;
 implementation
 
 uses
-  SysUtils, Math, GFont, GSound, Sound230, Map230, NpcBridge230, GUiFont;
+  SysUtils, GPaths, Math, GFont, GSound, Sound230, Map230, NpcBridge230, GUiFont;
 
 const
   { rows of flat ground drawn below the screen, for heights to lift into
@@ -774,9 +774,9 @@ begin
     if F = '' then F := AssetPath('ganis/' + N + '.gani');
     if (F = '') and (Dir <> '') then
     begin
-      F := IncludeTrailingPathDelimiter(Dir) + 'levels/ganis/' + N + '.gani';
+      F := WithTrailingSep(Dir) + 'levels/ganis/' + N + '.gani';
       if not (FileExists(F) and AssetAllowed(F)) then
-        F := IncludeTrailingPathDelimiter(Dir) + 'ganis/' + N + '.gani';
+        F := WithTrailingSep(Dir) + 'ganis/' + N + '.gani';
       if not AssetAllowed(F) then F := '';
     end;
     if (F <> '') and FileExists(F) then
@@ -4007,7 +4007,7 @@ begin
     FHeightsScanned := True;
     for I := 0 to AssetRootCount - 1 do
     begin
-      R := IncludeTrailingPathDelimiter(AssetRoot(I));
+      R := WithTrailingSep(AssetRoot(I));
       FHeights.AddDir(R + 'maps');
       FHeights.AddDir(R + 'levels');
       FHeights.AddDir(R);

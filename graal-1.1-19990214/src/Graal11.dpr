@@ -274,7 +274,7 @@ begin
     ',"rss_peak_kib":';
   if PeakRssKiB >= 0 then Result := Result + IntToStr(PeakRssKiB)
   else Result := Result + 'null';
-  Result := Result + ',"nodelay":' + LowerCase(BoolToStr(NoDelay, True)) + '}';
+  Result := Result + ',"nodelay":' + LowerCase(BoolText(NoDelay)) + '}';
 end;
 
 { One game: from the command line, or as the start screen chose it (then
@@ -507,8 +507,8 @@ begin
       G.Client.Disconnect;
       OK := G.LoggedIn and G.BoardLoaded;
       G.Log(Format('lines in %d, out %d; joined %s, level %s',
-        [G.Client.MessagesIn, G.Client.MessagesOut, BoolToStr(G.LoggedIn, True),
-         BoolToStr(G.BoardLoaded, True)]));
+        [G.Client.MessagesIn, G.Client.MessagesOut, BoolText(G.LoggedIn),
+         BoolText(G.BoardLoaded)]));
     end;
     if (Dump <> '') or ((I = 0) and not Online) then
       G.Draw;

@@ -25,7 +25,7 @@ unit Terrain217;
 interface
 
 uses
-  Classes, SysUtils, GSurface, GAssetDirs;
+  Classes, SysUtils, GPaths, GSurface, GAssetDirs;
 
 const
   HeightPoints = 9;   { per side of a level's grid }
@@ -150,15 +150,15 @@ var
   S: string;
 begin
   if Dir = '' then Exit;
-  if FindFirst(IncludeTrailingPathDelimiter(Dir) + '*.gmap', faAnyFile, SR) = 0 then
+  if FindFirst(WithTrailingSep(Dir) + '*.gmap', faAnyFile, SR) = 0 then
   try
     repeat
       if (SR.Attr and faDirectory) <> 0 then Continue;
       if SR.Size > 4 * 1024 * 1024 then Continue;
       { under a shared root, only this build's own maps }
-      if not AssetAllowed(IncludeTrailingPathDelimiter(Dir) + SR.Name) then Continue;
+      if not AssetAllowed(WithTrailingSep(Dir) + SR.Name) then Continue;
       try
-        F := TFileStream.Create(IncludeTrailingPathDelimiter(Dir) + SR.Name,
+        F := TFileStream.Create(WithTrailingSep(Dir) + SR.Name,
           fmOpenRead or fmShareDenyNone);
         try
           SetLength(S, F.Size);
