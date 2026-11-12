@@ -86,6 +86,16 @@ that optional decoding succeeds or returns exactly exit1 as appropriate.
 - [ ] Compare structure against original shipped files in the research lab.
 - [ ] Integrate runtime semantics only after the independent executor is merged.
 
+## TorqueScript compiler
+
+[compiler/](compiler/README.md) compiles plain `.cs` source (root `main.cs`,
+exported `prefs.cs` / `config.cs`, console input) into a `DsoBlock` with the
+same opcodes. It reproduces the real 3.04 client's compiled `prefs.cs.dso` and
+`config.cs.dso` byte for byte.
+
+- [x] Compile TorqueScript source to DSO v33 code blocks and files.
+- [ ] Call it from `exec`, `eval` and the console once the VM runs full blocks.
+
 ## Historical surface inventory
 
 The inventory below describes the earlier research snapshot, not completed
