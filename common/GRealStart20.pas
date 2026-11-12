@@ -95,7 +95,7 @@ uses
 {$IFDEF MSWINDOWS}
   Windows,
 {$ENDIF}
-  SysUtils, GUiFont;
+  SysUtils, GUiFont, GNumText;
 
 const
   ColWhite = $FFFFFFFF;
@@ -282,7 +282,7 @@ function TRealStart20.Load(Res: TResLookup; const Dir: string): Boolean;
     while I <= Length(L) do
     begin
       if (L[I] = '#') and (I + 5 <= Length(L)) and (UpCase(L[I + 1]) = 'U') and
-        TryStrToInt('$' + Copy(L, I + 2, 4), C) then
+        TryTextToInt('$' + Copy(L, I + 2, 4), C) then
       begin
         if C < 256 then Result := Result + Chr(C) else Result := Result + '?';
         Inc(I, 6);
@@ -346,10 +346,10 @@ begin
     { fullscreenmode=1024x768 }
     M := LowerCase(Trim(Lang.Values['fullscreenmode']));
     P := Pos('x', M);
-    if (P > 0) and TryStrToInt(Copy(M, 1, P - 1), V) and (V >= 320) then
+    if (P > 0) and TryTextToInt(Copy(M, 1, P - 1), V) and (V >= 320) then
     begin
       FullScreenW := V;
-      if TryStrToInt(Copy(M, P + 1, MaxInt), V) and (V >= 200) then FullScreenH := V
+      if TryTextToInt(Copy(M, P + 1, MaxInt), V) and (V >= 200) then FullScreenH := V
       else FullScreenW := 640;
     end;
     Lang.Clear;
