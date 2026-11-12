@@ -19,7 +19,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: graal-3d-${{ github.ref }}
+  group: graal-3d-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
