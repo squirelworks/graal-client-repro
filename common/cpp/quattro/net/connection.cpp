@@ -171,6 +171,7 @@ Session::Session(const BuildProfile& profile, Events events)
 
 bool Session::open(const std::string& name, const std::string& host, uint16_t port) {
   server_name_ = name;
+  server_host_ = host;
   if (ev_.connecting) ev_.connecting(name, host + ":" + std::to_string(port));
   if (!conn_.connect(host, port, next_key())) {
     if (ev_.connect_failed) ev_.connect_failed(conn_.error());

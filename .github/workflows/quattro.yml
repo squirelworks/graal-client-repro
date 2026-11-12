@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - 'common/cpp/quattro/**'
+      - 'common/cpp/gs2/*.cpp'
+      - 'common/cpp/gs2/*.hpp'
+      - 'common/cpp/gs2/tests/assembler.hpp'
       - 'common/torque/gui/*.cpp'
       - 'common/torque/gui/*.hpp'
       - '.github/workflows/quattro.yml'
@@ -11,6 +14,9 @@ on:
     branches: [main]
     paths:
       - 'common/cpp/quattro/**'
+      - 'common/cpp/gs2/*.cpp'
+      - 'common/cpp/gs2/*.hpp'
+      - 'common/cpp/gs2/tests/assembler.hpp'
       - 'common/torque/gui/*.cpp'
       - 'common/torque/gui/*.hpp'
       - '.github/workflows/quattro.yml'
