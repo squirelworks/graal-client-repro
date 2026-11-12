@@ -259,6 +259,8 @@ static void testScriptCommands() {
   // Menu.setSelectedById(2); sel = Menu.getSelectedId();
   a.op(Asm::MARKER).num(2).var("Menu").op(Asm::TOOBJECT).var("setSelectedById").op(Asm::MEMBER).op(Asm::CALL).op(Asm::POP);
   a.var("sel").op(Asm::MARKER).var("Menu").op(Asm::TOOBJECT).var("getSelectedId").op(Asm::MEMBER).op(Asm::CALL).op(Asm::ASSIGN);
+  a.var("selrow").op(Asm::MARKER).var("Menu").op(Asm::TOOBJECT).var("getSelectedRow").op(Asm::MEMBER).op(Asm::CALL)
+      .op(Asm::ASSIGN);
   // GlobalActionMap.bind("keyboard", "F2", "toggleConsole");
   // binding = GlobalActionMap.getBinding("toggleConsole");
   a.op(Asm::MARKER).str("toggleConsole").str("F2").str("keyboard").var("GlobalActionMap").op(Asm::TOOBJECT).var("bind")
@@ -276,6 +278,7 @@ static void testScriptCommands() {
   CHECK(m.errors().empty());
   CHECK(global(m, "found") == 1);
   CHECK(global(m, "sel") == 2);
+  CHECK(global(m, "selrow") == 1);
   auto menuCtl = s.find("Menu");
   CHECK(menuCtl && menuCtl->prop("text") == "Deutsch");
   auto b = m.universe()->child("binding");

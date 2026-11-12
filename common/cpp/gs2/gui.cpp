@@ -494,6 +494,12 @@ void Screen::addCommands() {
         }
       return Value::number(c->selectedRow >= 0 ? 1 : 0);
     });
+    // getSelectedRow: the selected row's index, -1 for none. The 5.12
+    // options window keeps it across clearRows and addRow on its tabs.
+    m.addCommand(cls + ".getSelectedRow", "", [](Machine&, Var& self, std::vector<Value>&) {
+      auto c = asControl(self);
+      return Value::number(c ? c->selectedRow : -1);
+    });
     m.addCommand(cls + ".getSelectedId", "", [](Machine&, Var& self, std::vector<Value>&) {
       auto c = asControl(self);
       if (!c || c->selectedRow < 0) return Value::number(-1);

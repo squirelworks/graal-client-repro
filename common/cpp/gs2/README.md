@@ -82,7 +82,7 @@ Preagonal.
   `cursorOn` and `cursorOff`. `makeFirstResponder`. The row commands on
   text lists, pop-up menus and tabs: `clearRows`, `addRow`, `setRowById`,
   `setSelectedRow`, `setSelectedById`, `getSelectedId`, `getSelected`,
-  `getSelectedText`, `findText`, `findTextId`, `sort` and `rowCount`. The
+  `getSelectedText`, `getSelectedRow`, `findText`, `findTextId`, `sort` and `rowCount`. The
   key map commands: `bind`, `unbind`, `getBinding`, `getCommand`, `push`
   and `pop`, with `GlobalActionMap` always active.
 - **The screen.** One content and dialogs over it. Making a control the
@@ -119,7 +119,12 @@ engine, with its `levels3d/gui` folder as the theme:
   account and password boxes, the play-as radios, the save-password check
   box, and the Start, Become a Member, Options and Offline Test buttons).
 
-The only commands still missing are the particle emitter's
+The 5.12 engine's menus (profile 5.0) run the same way: 148 controls and
+112 profiles. What they still stop on is opcodes 82 and 84 (`indexof` and
+`format`, whose helpers Graal_analysis has not opened) and the engine's
+`Adventure_getInstallationPath`.
+
+The only 4.04r2 commands still missing are the particle emitter's
 `addglobalmodifier`, `addlocalmodifier` and `removemodifiers`, which belong
 to `GuiShowImgCtrl` (B5). The menu background is a JPEG, which nothing
 here reads yet.
