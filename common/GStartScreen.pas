@@ -113,6 +113,7 @@ implementation
 
 { Windows comes first so GFont's DrawText is the one in scope. }
 uses
+  GPaths,
 {$IFDEF MSWINDOWS}
   Windows,
 {$ENDIF}
@@ -541,7 +542,7 @@ begin
     for I := 0 to L.Count - 1 do
     begin
       P := AssetPath(L[I]);
-      if P = '' then P := Dir + StringReplace(L[I], '/', PathDelim, [rfReplaceAll]);
+      if P = '' then P := Dir + StringReplace(L[I], '/', DirSlash, [rfReplaceAll]);
       if FileExists(P) and AssetAllowed(P) then
       begin
         Result := P;

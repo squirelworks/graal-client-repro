@@ -42,7 +42,7 @@ unit Terrain230;
 interface
 
 uses
-  Classes, SysUtils, GNumText, GSurface, GAssetDirs;
+  GCompat, Classes, SysUtils, GNumText, GSurface, GAssetDirs;
 
 const
   LevelCorners = 65;  { per side of a level's height grid }

@@ -31,6 +31,7 @@ procedure ConfigFont(const Dir: string; out Face: string; out Cell: Integer);
 implementation
 
 uses
+  GPaths,
 {$IFDEF MSWINDOWS}
   Windows,
 {$ENDIF}
@@ -55,7 +56,7 @@ begin
 {$IFDEF MSWINDOWS}
   if GetWindowsDirectory(Buf, MAX_PATH) > 0 then
   begin
-    Result := IncludeTrailingPathDelimiter(Buf) + 'Fonts' + PathDelim + FileName;
+    Result := WithTrailingSep(Buf) + 'Fonts' + DirSlash + FileName;
     if FileExists(Result) then Exit;
   end;
 {$ENDIF}
@@ -74,11 +75,11 @@ var
 begin
   Face := 'Tempus Sans ITC';
   Cell := 24;
-  if (Dir = '') or not FileExists(IncludeTrailingPathDelimiter(Dir) + 'graalconfig.txt') then Exit;
+  if (Dir = '') or not FileExists(WithTrailingSep(Dir) + 'graalconfig.txt') then Exit;
   L := TStringList.Create;
   try
     try
-      L.LoadFromFile(IncludeTrailingPathDelimiter(Dir) + 'graalconfig.txt');
+      L.LoadFromFile(WithTrailingSep(Dir) + 'graalconfig.txt');
     except
       Exit;
     end;
