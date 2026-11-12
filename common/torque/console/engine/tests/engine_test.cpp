@@ -249,7 +249,7 @@ void test_arity() {
   c.call("strlen", {}); c.w(STR_TO_NONE);
   c.w(RETURN);
   check(r.run(c, "a.cs"), "arity ran");
-  same(r.out(), std::string("a.cs (0): ::strlen - wrong number of arguments.\na.cs (0): usage: strlen(string)\n"),
+  same(r.out(), std::string("a.cs (0): (null)::strlen - wrong number of arguments.\na.cs (0): usage: strlen(string)\n"),
         "wrong argument count");
 }
 

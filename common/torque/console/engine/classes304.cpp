@@ -16,33 +16,36 @@
 namespace Torque {
 namespace {
 
-bool is_control(const Engine& e, const SimObject* o) {
+bool is_control(const Engine& e, const SimObject* o) { return is_control_class(e, o, "guicontrol"); }
+
+} // namespace
+
+bool is_control_class(const Engine& e, const SimObject* o, const char* class_name) {
+  const std::string want = lower(class_name);
   for (const ClassInfo* c = o ? o->info : nullptr; c; c = e.find_class(c->parent))
-    if (lower(c->name) == "guicontrol") return true;
+    if (lower(c->name) == want) return true;
   return false;
 }
 
 // Wake a control tree: the control's script onWake, then its children
 // (order is rebuild policy). Sleep is the reverse.
-void wake(Engine& e, std::uint32_t id) {
+void wake_control(Engine& e, std::uint32_t id) {
   SimObject* o = e.object(id);
   if (!is_control(e, o) || o->awake) return;
   o->awake = true;
   e.call_method(o, "onWake", {});
   const auto members = o->members;
-  for (auto m : members) wake(e, m);
+  for (auto m : members) wake_control(e, m);
 }
 
-void sleep(Engine& e, std::uint32_t id) {
+void sleep_control(Engine& e, std::uint32_t id) {
   SimObject* o = e.object(id);
   if (!is_control(e, o) || !o->awake) return;
   const auto members = o->members;
-  for (auto m : members) sleep(e, m);
+  for (auto m : members) sleep_control(e, m);
   o->awake = false;
   e.call_method(o, "onSleep", {});
 }
-
-} // namespace
 
 void register_classes_304(Engine& e) {
   e.add_class({"GuiControl", "SimGroup", true, true, true});
@@ -65,9 +68,9 @@ void register_classes_304(Engine& e) {
     SimObject* content = en.find_object(a[2]);
     const std::string old = canvas->field("content");
     if (!old.empty() && (!content || std::to_string(content->id) != old))
-      sleep(en, static_cast<std::uint32_t>(std::stoul(old)));
+      sleep_control(en, static_cast<std::uint32_t>(std::stoul(old)));
     canvas->set_field("content", content ? std::to_string(content->id) : std::string());
-    if (content) wake(en, content->id);
+    if (content) wake_control(en, content->id);
     content = en.find_object(a[2]);
     if (content && en.on_set_content) en.on_set_content(canvas, content);
     return std::string();
