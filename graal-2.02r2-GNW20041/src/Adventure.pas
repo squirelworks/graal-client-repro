@@ -3163,9 +3163,24 @@ procedure TAdventure.DrawNames(CamX, CamY: Integer);
 
   procedure Over(const Text: string; X, Y: Double);
   var
-    TX, TY: Integer;
+    TX, TY, W: Integer;
   begin
     if Text = '' then Exit;
+    if NameFont <> nil then
+    begin
+      { the chat goes through the same GDI routine as the names: the
+        configured font, bold, white over blue at +1, +1, centred on the
+        player box, the top of the cell one tile above the box
+        (graal_analysis client-internals/chat-text.md) }
+      W := NameFont.TextWidth(Text, NameEm, True);
+      TX := Round(X * TileSize) - CamX + 24 - W div 2;
+      if TX + W > ScreenW then TX := ScreenW - W;
+      if TX < 0 then TX := 0;
+      TY := Round(Y * TileSize) - CamY - TileSize;
+      NameFont.DrawText(Screen, TX + 1, TY + 1, Text, NameEm, $FF0000FF, True);
+      NameFont.DrawText(Screen, TX, TY, Text, NameEm, $FFFFFFFF, True);
+      Exit;
+    end;
     TX := Round(X * TileSize) - CamX + 24 - TextWidth(Text, 2) div 2;
     if TX + TextWidth(Text, 2) > ScreenW then TX := ScreenW - TextWidth(Text, 2);
     if TX < 0 then TX := 0;
