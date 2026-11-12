@@ -13,6 +13,7 @@
 #include "../net/connection.hpp"
 #include "../world/player.hpp"
 #include "../world/walk.hpp"
+#include "gui_host.hpp"
 #include "scripts.hpp"
 
 #include <map>
@@ -31,6 +32,7 @@ struct Options {
   std::string password;
   std::string language = "English";
   std::string assets;  // the player's own Graal folder (levels, pics1.png)
+  std::string program;  // the player's own 6.x program file, for its StartScript_* shell
   int width = 640;     // window size: see README, "Window size"
   int height = 480;
 };
@@ -48,6 +50,7 @@ class Program {
   const std::map<int, World::Player>& others() const { return others_; }
   Net::Session& session() { return session_; }
   ScriptHost& scripts() { return scripts_; }
+  GuiHost& gui() { return *gui_; }
   // Replaces the wall table (tests; arrays.dat from --assets otherwise).
   void set_tile_types(const World::TileTypes& t) { tile_types_ = t; }
   const std::string& level_name() const { return level_name_; }
@@ -72,6 +75,8 @@ class Program {
   World::TileTypes tile_types_;
   bool props_sent_ = false;
   ScriptHost scripts_;
+  std::unique_ptr<GuiHost> gui_;
+  std::unique_ptr<CanvasPainter> painter_;
   std::string cache_server_;
   Draw::WorldRenderer renderer_;
   Draw::Canvas canvas_;

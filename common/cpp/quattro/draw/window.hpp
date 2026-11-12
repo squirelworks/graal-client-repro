@@ -6,12 +6,23 @@
 
 #include "../../../torque/gui/image.hpp"
 
+#include <deque>
 #include <memory>
 #include <string>
 
 namespace Quattro::Draw {
 
 enum class Key { NoKey, Left, Right, Up, Down, Escape, Close };
+
+// Input for the GUI: keys by their Torque names ("a", "enter", "left"),
+// with the typed character, and mouse presses in window pixels.
+struct InputEvent {
+  enum Type { KeyDown, KeyUp, MouseDown } type = KeyDown;
+  std::string key;
+  int ch = 0;
+  std::string mods;  // "shift", "ctrl", "alt", space separated
+  int x = 0, y = 0, clicks = 1;
+};
 
 class Window {
  public:
@@ -23,6 +34,9 @@ class Window {
   virtual Key poll_key() = 0;
   virtual bool held(Key k) const = 0;
   virtual const std::string& title() const = 0;
+  // The next GUI input event; false when there is none. Collected by the
+  // same pump as poll_key, so call it after poll_key in a tick.
+  virtual bool poll_input(InputEvent&) { return false; }
 };
 
 // A window that draws nothing and remembers the last frame.
@@ -33,11 +47,20 @@ class HeadlessWindow : public Window {
   Key poll_key() override { return Key::NoKey; }
   bool held(Key) const override { return false; }
   const std::string& title() const override { return title_; }
+  bool poll_input(InputEvent& e) override {
+    if (input_.empty()) return false;
+    e = input_.front();
+    input_.pop_front();
+    return true;
+  }
+  // Tests queue input here.
+  void push_input(const InputEvent& e) { input_.push_back(e); }
   const Torque::Gui::Image& last() const { return last_; }
   int frames() const { return frames_; }
 
  private:
   std::string title_;
+  std::deque<InputEvent> input_;
   Torque::Gui::Image last_;
   int frames_ = 0;
 };
