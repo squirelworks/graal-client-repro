@@ -78,8 +78,21 @@ of the two mods' `main.cs`, the `Engine initialized...` lines and `onStart()`.
 When a compiler is merged it plugs into `Engine::compiler`, and the runner
 execs the install's own `main.cs` instead.
 
-Video functions and the `GuiCanvas` methods the boot calls are host stubs in
-`host/tq_boot.cpp`. They write to the trace only, never to the console.
+Video functions and the other `GuiCanvas` methods the boot calls are host
+stubs in `host/tq_boot.cpp`. They write to the trace only, never to the
+console.
+
+## Renderer seam (for stage 2)
+
+- Objects: `Engine::find_object` (name, id or `Name/Child`),
+  `SimObject::field` (every `.gui` and profile value is a dynamic string
+  field), `members` in insertion order, `class_name` and `info`.
+- Paths: `SimObject::source` is the script that created the object;
+  `Engine::expand_path_from(source, "./defaultWindow")` resolves a field path
+  the way the script meant it, and `FileSystem::read` returns the bytes.
+- `GuiCanvas::setContent` stores the content and calls
+  `Engine::on_set_content(canvas, content)`. Waking the content (`onWake`)
+  belongs to the GUI stage and is not done yet.
 
 ## Evidence and policy
 

@@ -585,13 +585,17 @@ const CodeBlock* Engine::current_block() const {
 }
 
 std::string Engine::expand_path(const std::string& path) const {
+  const CodeBlock* block = current_block();
+  return expand_path_from(block ? block->name : std::string(), path);
+}
+
+std::string Engine::expand_path_from(const std::string& script, const std::string& path) {
   std::string p = path;
   for (auto& c : p) if (c == '\\') c = '/';
-  const CodeBlock* block = current_block();
   std::string base;
-  if (block) {
-    auto slash = block->name.rfind('/');
-    base = slash == std::string::npos ? std::string() : block->name.substr(0, slash);
+  {
+    auto slash = script.rfind('/');
+    base = slash == std::string::npos ? std::string() : script.substr(0, slash);
   }
   std::string result;
   if (p.rfind("./", 0) == 0) {

@@ -26,6 +26,20 @@ void register_classes_304(Engine& e) {
     e.add_class({control, "GuiControl", true, true, true});
   e.add_class({"GuiControlProfile", "SimObject", true, false, false});
   e.add_class({"GuiCursor", "SimObject", true, false, false});
+
+  // The canvas holds one content control. Waking it (onWake) and drawing
+  // are the GUI stage; this stores it and tells the host.
+  e.add_function("GuiCanvas", "setContent", 3, 3, "canvas.setContent(ctrl)", [](Engine& en, SimObject* canvas, Args& a) {
+    if (!canvas) return std::string();
+    SimObject* content = en.find_object(a[2]);
+    canvas->set_field("content", content ? std::to_string(content->id) : std::string());
+    if (content && en.on_set_content) en.on_set_content(canvas, content);
+    return std::string();
+  });
+  e.add_function("GuiCanvas", "getContent", 2, 2, "canvas.getContent()", [](Engine&, SimObject* canvas, Args&) {
+    const std::string id = canvas ? canvas->field("content") : std::string();
+    return id.empty() ? std::string("-1") : id;
+  });
 }
 
 } // namespace Torque

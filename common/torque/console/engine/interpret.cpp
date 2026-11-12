@@ -181,6 +181,7 @@ std::string Engine::execute(std::shared_ptr<CodeBlock> block, std::uint32_t star
         o->class_name = info->name;
         o->info = info;
         o->name = args.size() > 1 ? args[1] : std::string();
+        o->source = block->name;
         if (has_parent) {
           SimObject* p = find_object(parent);
           if (!p) {

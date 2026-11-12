@@ -96,6 +96,7 @@ struct ActionBinding {
 struct SimObject {
   std::uint32_t id = 0;
   std::string name, class_name;
+  std::string source;  // script that created it; its fields' "./" paths are relative to it
   const ClassInfo* info = nullptr;
   Namespace* space = nullptr;
   std::map<std::string, std::pair<std::string, std::string>> fields;  // lower -> (name, value)
@@ -196,9 +197,13 @@ class Engine {
 
   // Paths, relative to the code block running now.
   std::string expand_path(const std::string& path) const;
+  // The same rules relative to a given script (e.g. SimObject::source).
+  static std::string expand_path_from(const std::string& script, const std::string& path);
   const CodeBlock* current_block() const;
 
   bool quit_requested = false;
+  // Called after GuiCanvas::setContent stores the new content (for a renderer).
+  std::function<void(SimObject* canvas, SimObject* content)> on_set_content;
   std::vector<std::uint32_t> action_maps;   // pushed ActionMaps, bottom first
   std::vector<std::string> file_search;     // findFirstFile results
   std::size_t file_search_pos = 0;

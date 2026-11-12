@@ -53,12 +53,9 @@ void register_host_stubs(Engine& e) {
                            "lockMouse", "gotoWebPage"})
     stub(e, "", name, 1, 0);
   stub(e, "", "isDeviceFullScreenOnly", 2, 2, "0");
-  for (const char* name : {"setContent", "pushDialog", "popDialog", "repaint", "setCursor", "cursorOn", "cursorOff"})
+  for (const char* name : {"pushDialog", "popDialog", "repaint", "setCursor", "cursorOn", "cursorOff"})
     stub(e, "GuiCanvas", name, 2, 0);
   stub(e, "GuiCanvas", "isCursorOn", 2, 2, "0");
-  e.add_function("GuiCanvas", "getContent", 2, 2, "canvas.getContent()", [](Engine&, SimObject*, Args&) {
-    return std::string("-1");
-  });
 }
 
 } // namespace
@@ -94,6 +91,9 @@ int main(int argc, char** argv) {
   register_classes_304(engine);
   register_engine_prefs_304(engine);
   register_host_stubs(engine);
+  engine.on_set_content = [&](SimObject*, SimObject* content) {
+    engine.trace.push_back("canvas content " + (content->name.empty() ? std::to_string(content->id) : content->name));
+  };
   engine.set_global("$Game::argc", Value::of_int(1));
   engine.set_global("$Game::argv0", Value::of_string("graalexe"));
 

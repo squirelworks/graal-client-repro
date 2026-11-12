@@ -361,9 +361,38 @@ void test_limits() {
   check(r.engine.trace.size() == 4, "each failure is traced");
 }
 
+// The renderer seam: object source script, path expansion from it, and
+// the setContent callback.
+void test_canvas_seam() {
+  Run r;
+  Torque::register_classes_304(r.engine);
+  auto* canvas = r.engine.create_object("GuiCanvas", "Canvas");
+  Block c;
+  c.uint(0);
+  c.w(PUSH_FRAME); c.id("GuiControl"); c.w(PUSH); c.id("Menu"); c.w(PUSH);
+  c.w(CREATE_OBJECT); c.ident(""); c.w(0); auto f = c.here(); c.w(0);
+  c.w(ADD_OBJECT); c.w(1); c.w(END_OBJECT); c.w(1);
+  c.patch(f, c.here());
+  c.w(UINT_TO_NONE);
+  c.call("setContent", {"Canvas", "Menu"}, 1); c.w(STR_TO_NONE);
+  c.w(RETURN);
+  Torque::SimObject* seen = nullptr;
+  r.engine.on_set_content = [&](Torque::SimObject*, Torque::SimObject* content) { seen = content; };
+  check(r.run(c, "mod/client/ui/menu.gui"), "canvas seam ran");
+  auto* menu = r.engine.find_object("Menu");
+  check(menu && seen == menu, "setContent reports the content");
+  if (menu) {
+    same(menu->source, std::string("mod/client/ui/menu.gui"), "object source script");
+    same(Engine::expand_path_from(menu->source, "./back"), std::string("mod/client/ui/back"), "./ from the source");
+    same(Engine::expand_path_from(menu->source, "~/ui/x"), std::string("mod/ui/x"), "~/ is the mod root");
+    same(r.engine.call_method(canvas, "getContent", {}), std::to_string(menu->id), "getContent");
+  }
+}
+
 } // namespace
 
 int main() {
+  test_canvas_seam();
   test_strings();
   test_numbers();
   test_branches();
