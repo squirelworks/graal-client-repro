@@ -65,4 +65,6 @@ Graal_analysis, behaviour only:
 - `torque/engine-5007.md`, `torque/g3d-5007.md`, `torque/launcher-5007.md`, `torque/engine-530r3.md`, `torque/engine-531r4.md` (the 5.0.0.7 and unpacked 5.30/5.31 reads). Each fact used from those notes is restated in the module README, so a missing file does not hide the cut.
 - `client-internals/engine-600r2.md` for the 6.x cut
 
+What each component was written from, and the external material it does not use, is in [PROVENANCE.md](PROVENANCE.md) (#110).
+
 Issue comments for this layout are in [ISSUES.md](ISSUES.md). They are not posted.
