@@ -31,6 +31,7 @@ unit Npc231;
 interface
 
 uses
+  GCompat,
   Classes, SysUtils, GNumText, Math, GTypes, GLevel, GSurface, GGs1, GClamp;
 
 const

@@ -36,6 +36,7 @@ unit Map11;
 interface
 
 uses
+  GCompat,
   Classes, GSurface, Adventure;
 
 const

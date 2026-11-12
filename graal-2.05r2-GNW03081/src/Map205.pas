@@ -36,6 +36,7 @@ unit Map205;
 interface
 
 uses
+  GCompat,
   Classes, GSurface, Adventure;
 
 const

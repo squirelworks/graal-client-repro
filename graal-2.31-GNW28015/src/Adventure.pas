@@ -19,6 +19,7 @@ unit Adventure;
 interface
 
 uses
+  GCompat,
   Classes, GSplit, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GAssetDirs, GraalClient, Protocol231,
   Npc231, Baddy231, Terrain231, GTrueType;
 

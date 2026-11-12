@@ -48,6 +48,7 @@ type
 implementation
 
 uses
+  GCompat,
   SysUtils, Classes;
 
 destructor TGArray.Destroy;

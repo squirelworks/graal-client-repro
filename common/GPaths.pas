@@ -42,7 +42,10 @@ begin
 {$IFDEF FPC}
   Result := IncludeTrailingPathDelimiter(Dir);
 {$ELSE}
-  Result := IncludeTrailingBackslash(Dir);
+  { by hand: Delphi 4 has no IncludeTrailingBackslash }
+  Result := Dir;
+  if (Result = '') or (Result[Length(Result)] <> '\') then
+    Result := Result + '\';
 {$ENDIF}
 end;
 

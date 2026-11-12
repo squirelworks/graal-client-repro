@@ -17,6 +17,7 @@ unit StartScreen11;
 interface
 
 uses
+  GCompat,
   GSurface, GWindow, GStartScreen, Adventure;
 
 type

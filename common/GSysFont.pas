@@ -13,6 +13,7 @@ unit GSysFont;
 interface
 
 uses
+  GCompat,
   GTrueType;
 
 { The file of a font face: TEMPSITC.TTF for "Tempus Sans ITC", else the

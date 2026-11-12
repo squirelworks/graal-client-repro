@@ -55,6 +55,9 @@ type
   THeightGrid = array[0..LevelCorners - 1, 0..LevelCorners - 1] of Double;
   PHeightGrid = ^THeightGrid;
   THeightPoints = array[0..HeightPoints - 1, 0..HeightPoints - 1] of Double;
+  { named so a field and a local can be assigned to each other (Delphi 7
+    treats two anonymous dynamic array types as different) }
+  TTerrainSeeds = array of Cardinal;
 
   { One gmap's terrain: what its generator form says, and the level grids
     built from it so far. }
@@ -64,7 +67,7 @@ type
     FSeed: Cardinal;
     FLevHeight, FLevChaos: Double;
     FCorners: array of Double;     { (FH + 1) x (FW + 1) }
-    FSeeds: array of Cardinal;     { FH x FW }
+    FSeeds: TTerrainSeeds;         { FH x FW }
     FHasMap: Boolean;
     FHEdges, FVEdges: array of Double;
     FEdgesBuilt: Boolean;
@@ -123,20 +126,22 @@ type
 
 function NextRandom(var R: TRtlRandom): Double;
 begin
-  {$PUSH}{$Q-}{$R-}
+  {$IFDEF FPC}{$PUSH}{$ENDIF}{$Q-}{$R-}
   R.Seed := R.Seed * $08088405 + 1;
-  {$POP}
+  {$IFDEF FPC}{$POP}{$ENDIF}
   Result := R.Seed / 4294967296.0;
 end;
 
 type
+  { indexable through a pointer (Delphi 7 indexes only PChar pointers) }
+  TGridDoubles = array[0..MaxInt div SizeOf(Double) - 1] of Double;
   { a grid of doubles seen through (X, Y) with a row stride }
   TGridView = record
-    P: PDouble;
+    P: ^TGridDoubles;
     Stride: Integer;
   end;
 
-function GV(const V: TGridView; X, Y: Integer): Double; inline;
+function GV(const V: TGridView; X, Y: Integer): Double; {$IFDEF FPC}inline;{$ENDIF}
 begin
   Result := V.P[Y * V.Stride + X];
 end;
@@ -337,7 +342,7 @@ var
   P: THeightPoints;
   Vals: array of Double;
   Names: TStringList;
-  Seeds: array of Cardinal;
+  Seeds: TTerrainSeeds;
 
   procedure ReadBlock(const EndWord: string; out Rows: TStringList);
   begin
@@ -579,11 +584,11 @@ function Noise(X, Y: Integer): Double;
 var
   H: Cardinal;
 begin
-  {$PUSH}{$Q-}{$R-}
+  {$IFDEF FPC}{$PUSH}{$ENDIF}{$Q-}{$R-}
   H := Cardinal(X) * 374761393 + Cardinal(Y) * 668265263;
   H := (H xor (H shr 13)) * 1274126177;
   H := H xor (H shr 16);
-  {$POP}
+  {$IFDEF FPC}{$POP}{$ENDIF}
   Result := (H and $FFFF) / 65535 - 0.5;
 end;
 

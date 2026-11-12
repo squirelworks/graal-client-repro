@@ -41,6 +41,7 @@
 unit GAssetDirs;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
+{$I GVer.inc}
 
 interface
 
@@ -159,7 +160,10 @@ begin
   List := TStringList.Create;
   List.Sorted := True;
   List.Duplicates := dupIgnore;
+{$IFNDEF GC_D5DOWN}
+  { Delphi 4 and 5 lists always ignore case (Windows paths do too) }
   List.CaseSensitive := True;
+{$ENDIF}
   if C <> '' then
   begin
     AddRootAllow(C, nil);
@@ -365,6 +369,9 @@ begin
     Result := Shared[I] + '_clients' + DirSlash + StringReplace(Name, '/',
       DirSlash, [rfReplaceAll]);
 end;
+
+{ Delphi 5 and 7 need an initialization section before finalization }
+initialization
 
 finalization
   ClearRoots;

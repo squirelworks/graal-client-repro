@@ -1054,7 +1054,7 @@ begin
     PChar(C.FontName));
 end;
 
-function ColorRef(C: Cardinal): COLORREF;
+function ColorRef(C: Cardinal): TColorRef;
 begin
   if C and $FF000000 <> 0 then Result := GetSysColor(C and $FF)
   else Result := C and $FFFFFF;
@@ -1187,7 +1187,7 @@ begin
   SelectObject(DC, Old);
 end;
 
-procedure FrameR(DC: HDC; R: TRect; Color: COLORREF);
+procedure FrameR(DC: HDC; R: TRect; Color: TColorRef);
 var
   Br: HBRUSH;
 begin
@@ -1203,7 +1203,7 @@ var
   Ch: TVclCtl;
   Old: HGDIOBJ;
   Br: HBRUSH;
-  Hi, Lo: COLORREF;
+  Hi, Lo: TColorRef;
   TM: TTextMetric;
 begin
   GetClientRect(C.Wnd, R);

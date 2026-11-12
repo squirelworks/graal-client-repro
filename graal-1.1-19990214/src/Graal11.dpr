@@ -43,7 +43,7 @@ program Graal11;
 { A windowed program on Windows, like 1.1: started with no arguments it
   opens the start screen. With arguments it attaches to the console it was
   started from (OpenConsoleIO) and runs as before. }
-{$IFDEF MSWINDOWS}{$IFDEF FPC}{$APPTYPE GUI}{$ELSE}{$APPTYPE CONSOLE}{$ENDIF}{$ENDIF}
+{$IFDEF MSWINDOWS}{$APPTYPE GUI}{$ENDIF}
 { Windows: version info and manifest (src/Graal11.rc), and the DEP and ASLR
   flags ($0100 NX_COMPAT, $0040 DYNAMIC_BASE; the relocations come from -WR
   in the Windows build flags). }
@@ -51,52 +51,52 @@ program Graal11;
 
 uses
   SysUtils, Classes,
-  GClamp in '../../common/GClamp.pas',
-  GCompat in '../../common/GCompat.pas',
-  GPaths in '../../common/GPaths.pas',
-  GSplit in '../../common/GSplit.pas',
-  GNumText in '../../common/GNumText.pas',
-  GTypes in '../../common/GTypes.pas',
-  GZlib in '../../common/GZlib.pas',
-  GSocket in '../../common/GSocket.pas',
-  GRelay in '../../common/GRelay.pas',
-  GLevel in '../../common/GLevel.pas',
-  GSurface in '../../common/GSurface.pas',
-  GBetaHud in '../../common/GBetaHud.pas',
-  GArrays in '../../common/GArrays.pas',
-  GBuiltin in '../../common/GBuiltin.pas',
-  GAssetDirs in '../../common/GAssetDirs.pas',
-  GAni in '../../common/GAni.pas',
-  GFont in '../../common/GFont.pas',
-  GWindow in '../../common/GWindow.pas',
+  GClamp in '..\..\common\GClamp.pas',
+  GCompat in '..\..\common\GCompat.pas',
+  GPaths in '..\..\common\GPaths.pas',
+  GSplit in '..\..\common\GSplit.pas',
+  GNumText in '..\..\common\GNumText.pas',
+  GTypes in '..\..\common\GTypes.pas',
+  GZlib in '..\..\common\GZlib.pas',
+  GSocket in '..\..\common\GSocket.pas',
+  GRelay in '..\..\common\GRelay.pas',
+  GLevel in '..\..\common\GLevel.pas',
+  GSurface in '..\..\common\GSurface.pas',
+  GBetaHud in '..\..\common\GBetaHud.pas',
+  GArrays in '..\..\common\GArrays.pas',
+  GBuiltin in '..\..\common\GBuiltin.pas',
+  GAssetDirs in '..\..\common\GAssetDirs.pas',
+  GAni in '..\..\common\GAni.pas',
+  GFont in '..\..\common\GFont.pas',
+  GWindow in '..\..\common\GWindow.pas',
   Protocol11 in 'Protocol11.pas',
   GraalClient in 'GraalClient.pas',
-  GGs1 in '../../common/GGs1.pas',
+  GGs1 in '..\..\common\GGs1.pas',
   Npc11 in 'Npc11.pas',
   Baddy11 in 'Baddy11.pas',
   NpcBridge11 in 'NpcBridge11.pas',
   Adventure in 'Adventure.pas',
-  GSound in '../../common/GSound.pas',
+  GSound in '..\..\common\GSound.pas',
   Sound11 in 'Sound11.pas',
   Map11 in 'Map11.pas',
-  GStartScreen in '../../common/GStartScreen.pas',
+  GStartScreen in '..\..\common\GStartScreen.pas',
   StartScreen11 in 'StartScreen11.pas',
-  GDfm1x in '../../common/GDfm1x.pas',
-  GUiFont in '../../common/GUiFont.pas',
-  GLaunch1x in '../../common/GLaunch1x.pas',
+  GDfm1x in '..\..\common\GDfm1x.pas',
+  GUiFont in '..\..\common\GUiFont.pas',
+  GLaunch1x in '..\..\common\GLaunch1x.pas',
   Res11 in 'Res11.pas',
   RunMode in 'RunMode.pas',
-  GLevelWrite in '../../common/GLevelWrite.pas',
-  EditorDoc in 'editor/EditorDoc.pas',
-  EditorUI in 'editor/EditorUI.pas',
-  EditorDialogs in 'editor/EditorDialogs.pas',
-  EditorObjSets in 'editor/EditorObjSets.pas',
-  EditorView in 'editor/EditorView.pas',
-  EditorMain in 'editor/EditorMain.pas',
-  GDfmObj in '../../common/GDfmObj.pas',
-  GVclForm in '../../common/GVclForm.pas',
-  GOptionsWindow in '../../common/GOptionsWindow.pas',
-  GBetaStart in '../../common/GBetaStart.pas',
+  GLevelWrite in '..\..\common\GLevelWrite.pas',
+  EditorDoc in 'editor\EditorDoc.pas',
+  EditorUI in 'editor\EditorUI.pas',
+  EditorDialogs in 'editor\EditorDialogs.pas',
+  EditorObjSets in 'editor\EditorObjSets.pas',
+  EditorView in 'editor\EditorView.pas',
+  EditorMain in 'editor\EditorMain.pas',
+  GDfmObj in '..\..\common\GDfmObj.pas',
+  GVclForm in '..\..\common\GVclForm.pas',
+  GOptionsWindow in '..\..\common\GOptionsWindow.pas',
+  GBetaStart in '..\..\common\GBetaStart.pas',
   RealRes11 in 'RealRes11.pas'
 {$IFDEF MSWINDOWS}, Windows{$ENDIF};
 
@@ -376,7 +376,7 @@ begin
         Port := DefaultListPort;
       end;
       if GuiWin <> nil then Pw := GuiPw
-      else Pw := SysUtils.GetEnvironmentVariable(Arg('--password-env', 'GRAAL_PW'));
+      else Pw := EnvVar(Arg('--password-env', 'GRAAL_PW'));
       if G.ConnectServer(Host, Port, Account, Pw) then
       begin
         if NoDelay and not (G.Client.GameLink.Socket.SetNoDelay(True) and
@@ -719,7 +719,13 @@ var
   HNames, HFiles: TBetaNames;
 begin
   Result := 0;
+{$IFDEF FPC}
   Info := Default(TBetaStartInfo);
+{$ELSE}
+  { Delphi 5 and 7 have no Default(): clear the record by hand }
+  Finalize(Info);
+  FillChar(Info, SizeOf(Info), 0);
+{$ENDIF}
   Dir := ExtractFilePath(ParamStr(0));
   if not RealResource('TCONNECTFRAME', Info.FormData) then
   begin

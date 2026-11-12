@@ -24,6 +24,7 @@ unit GBetaStart;
 interface
 
 uses
+  GCompat,
   SysUtils, GSurface, GDfmObj, GVclForm;
 
 type
@@ -162,7 +163,7 @@ begin
   Result := Default;
   if L = nil then Exit;
   I := L.IndexOfName(Key);
-  if I >= 0 then Result := L.ValueFromIndex[I];
+  if I >= 0 then Result := ValueAtIndex(L, I);
 end;
 
 procedure SetConfigValue(L: TStringList; const Key, Value: string);
