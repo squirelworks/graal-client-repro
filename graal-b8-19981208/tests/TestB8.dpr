@@ -19,6 +19,7 @@ uses
   GLevel in '../../common/GLevel.pas',
   GSurface in '../../common/GSurface.pas',
   GBetaHud in '../../common/GBetaHud.pas',
+  GBetaPlayer in '../../common/GBetaPlayer.pas',
   GArrays in '../../common/GArrays.pas',
   GAni in '../../common/GAni.pas',
   GBuiltin in '../../common/GBuiltin.pas',
@@ -252,6 +253,69 @@ end;
 
 { The start dialog and the game window come from the real client's own
   forms (src/RealResB8.pas, extracted from its exe). }
+{ The betas' own player drawing (GBetaPlayer): a 19-array arrays.dat
+  with one pose per direction, read the way the 1st to 15th Graal read it. }
+procedure TestPlayerArt;
+
+  function BE(V: Cardinal): string;
+  begin
+    Result := Chr((V shr 24) and 255) + Chr((V shr 16) and 255) +
+      Chr((V shr 8) and 255) + Chr(V and 255);
+  end;
+
+var
+  D: string;
+  I: Integer;
+  A: TGArrays;
+  Art: TBetaPlayerArt;
+  Body, Heads, Dest: TGSurface;
+  Tint: TBetaColors;
+begin
+  D := '';
+  for I := 0 to 10 do D := D + BE(0);
+  { array 11, the poses: shield sprite 1 at (+2, -1) eighths, then head
+    sprite 2 at (0, 0) }
+  D := D + BE($00010004);
+  for I := 0 to 3 do
+    D := D + BE(2) + BE($000102FF) + BE(Cardinal(8192 + 2) shl 16);
+  for I := 12 to 17 do D := D + BE(0);
+  { array 18, the rectangles: 1 is (4, 2, 2, 2), 2 is (0, 0, 2, 2) }
+  D := D + BE(3) + BE(0) + BE((4 shl 23) or (1 shl 12) or (1 shl 6) or 1) +
+    BE((1 shl 6) or 1);
+  for I := 19 to 24 do D := D + BE(0);
+  A := TGArrays.Create;
+  Art := TBetaPlayerArt.Create;
+  Body := TGSurface.Create(8, 8);
+  Heads := TGSurface.Create(64, 8);
+  Dest := TGSurface.Create(16, 16);
+  try
+    Check(A.LoadFromString(D), 'player art: a 19-array arrays.dat loads');
+    Body.Fill(0);
+    Body.FillRect(4, 2, 2, 2, $FFFF00FF);
+    Heads.Fill(0);
+    Heads.FillRect(32, 0, 2, 2, $FF123456);
+    Check(Art.Setup(A, 19, Body, Heads) and Art.Keyed,
+      'player art: poses seven arrays before the rectangles, magenta-keyed body');
+    for I := 0 to 4 do Tint[I] := $FF000000;
+    Tint[1] := $FFFF0000;
+    Dest.Fill($FF000000);
+    Art.Draw(Dest, 4, 4, 0, DirDown, 1, 1, Tint);
+    Check(Dest.GetPixel(8, 2) = $FFFF0000, 'player art: body part at +2/-1 eighths, coat recoloured');
+    Check(Dest.GetPixel(4, 4) = $FF123456, 'player art: head part from heads.gif, column of head 1');
+    Dest.Fill($FF000000);
+    Art.Draw(Dest, 4, 4, 0, DirDown, 1, 0, Tint);
+    Check(Dest.GetPixel(8, 2) = $FF000000, 'player art: no shield without shield power');
+    Check((TBetaPlayerArt.GroupOf(0) = 0) and (TBetaPlayerArt.GroupOf(1) = 4) and
+      (TBetaPlayerArt.GroupOf(6) = 1), 'player art: frame to pose group');
+  finally
+    Dest.Free;
+    Heads.Free;
+    Body.Free;
+    Art.Free;
+    A.Free;
+  end;
+end;
+
 procedure TestStartForm;
 var
   Data: string;
@@ -296,6 +360,7 @@ begin
   TestLevels;
   TestWalking;
   TestFuzz;
+  TestPlayerArt;
   WriteLn(Format('%d passed, %d failed', [Passed, Failed]));
   if Failed > 0 then Halt(1);
 end.

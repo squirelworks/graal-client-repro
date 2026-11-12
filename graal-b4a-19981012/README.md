@@ -70,8 +70,13 @@ screenshotted side by side and match pixel for pixel.
 
 ## Not yet (0.0.2 and later)
 
-- [ ] The player is drawn with the project's built-in stand-in art; this
-  build's own `sprites.gif` layout is not written up yet.
+- [x] The player is drawn from the install's own body sheet (`link.gif` or
+  `sprites.gif`) and `heads.gif`, with the pose and sprite tables of its
+  `arrays.dat` (`../common/GBetaPlayer.pas`).
+- [ ] Only Nick's colours were measured on the real client; the other
+  characters are drawn in Nick's colours with their own heads.
+- [ ] The real client misreads parts of its own `level13.graal` and draws
+  them black; the rebuild draws the whole level.
 - [ ] Chat, items, sword, bombs, arrows, baddies, NPC scripts, signs, saves
   (Graalsav2 `.save`), the local multiplayer modes, web levels over
   HTTP, sound.

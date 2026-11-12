@@ -27,6 +27,8 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 ## What's new in v0.0.5
 
 - [x] **F1 Options window.** F1 opens "Options" from the build's own form (TOptions), with the current level's file name filled in. The other buttons close it and do nothing yet. Linux and macOS draw the form in a window of their own.
+- [x] **The player as the original draws it.** The player is drawn from your install's own body sheet and `heads.gif`, posed by the tables of its `arrays.dat`, instead of the project's stand-in art. The default character, Nick, is red with a shield and the head picked in the start dialog.
+
 ## What's new in v0.0.4
 
 - Rebuilt from the latest code; the changes for this client are listed here as they land.

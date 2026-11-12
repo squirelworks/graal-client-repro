@@ -279,6 +279,14 @@ end;
 { One game: from the command line, or as the start screen chose it (then
   GuiWin is the window to play in, and nothing goes to stdout). Returns
   the exit code. }
+{ F1's current level field: the level file's full path when it was
+  played from a file, as the real window shows it; the name online }
+function HelpLevelText(G: TAdventure): string;
+begin
+  if G.LevelDir <> '' then Result := ExpandFileName(G.LevelDir + G.Level.Name)
+  else Result := G.Level.Name;
+end;
+
 function RunGame(GuiWin: TGWindow; const GuiPw, GuiNick: string): Integer;
 var
   G: TAdventure;
@@ -441,7 +449,7 @@ begin
           { F1: the Help window (GRealStart20.RunHelp20) }
           if Win.WasPressed(gkOptions) then
           begin
-            if RunHelp20(ExeResource, G.Level.Name) = oaEditLevel then
+            if RunHelp20(ExeResource, HelpLevelText(G), Data) = oaEditLevel then
               EditorKey(Win, G, Online);
             if Win.Closed then Break;
           end;
