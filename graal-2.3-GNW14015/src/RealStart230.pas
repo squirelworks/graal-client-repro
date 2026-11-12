@@ -37,7 +37,7 @@ unit RealStart230;
 interface
 
 uses
-  Classes, GSurface, GWindow, GStartScreen, Dialogs230;
+  Classes, GSplit, GSurface, GWindow, GStartScreen, Dialogs230;
 
 type
   TRealStartArt = class
@@ -221,8 +221,7 @@ begin
   List := Account;
   Items := TStringList.Create;
   try
-    Items.StrictDelimiter := True;
-    Items.CommaText := Old;
+    SplitDelimited(Old, ',', Items);
     for I := 0 to Items.Count - 1 do
       if (Items[I] <> '') and (Items[I] <> Account) then List := List + ',' + Items[I];
   finally

@@ -43,6 +43,7 @@ uses
   SysUtils, Classes,
   GCompat in '../../common/GCompat.pas',
   GPaths in '../../common/GPaths.pas',
+  GSplit in '../../common/GSplit.pas',
   GNumText in '../../common/GNumText.pas',
   GTypes in '../../common/GTypes.pas',
   GSocket in '../../common/GSocket.pas',
@@ -280,8 +281,8 @@ begin
     G.Asleep := OK and HasArg('--asleep');
     if OK then
     begin
-      G.Player.X := StrToFloatDef(Arg('--x', OfflineStartX), 30);
-      G.Player.Y := StrToFloatDef(Arg('--y', OfflineStartY), 30);
+      G.Player.X := DotTextToFloatDef(Arg('--x', OfflineStartX), 30);
+      G.Player.Y := DotTextToFloatDef(Arg('--y', OfflineStartY), 30);
       G.Log(Format('%s: %s, %d links, %d signs, %d chests, %d npcs, %d baddies',
         [G.Level.Name, G.Level.Magic, Length(G.Level.Links), Length(G.Level.Signs),
          Length(G.Level.Chests), Length(G.Level.NPCs), Length(G.Level.Baddies)]));

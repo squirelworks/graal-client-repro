@@ -37,7 +37,7 @@ unit GRealStart20;
 interface
 
 uses
-  GCompat, Classes, GSurface, GWindow, GStartScreen, GDfm, GOptionsWindow;
+  GCompat, Classes, GSplit, GSurface, GWindow, GStartScreen, GDfm, GOptionsWindow;
 
 type
   TResLookup = function(const Name: string; out Data: string): Boolean;
@@ -467,8 +467,7 @@ begin
   List := Account;
   Items := TStringList.Create;
   try
-    Items.StrictDelimiter := True;
-    Items.CommaText := Old;
+    SplitDelimited(Old, ',', Items);
     for I := 0 to Items.Count - 1 do
       if (Items[I] <> '') and (Items[I] <> Account) then List := List + ',' + Items[I];
   finally

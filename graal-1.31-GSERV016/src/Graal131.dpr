@@ -53,6 +53,7 @@ uses
   GClamp in '../../common/GClamp.pas',
   GCompat in '../../common/GCompat.pas',
   GPaths in '../../common/GPaths.pas',
+  GSplit in '../../common/GSplit.pas',
   GNumText in '../../common/GNumText.pas',
   GTypes in '../../common/GTypes.pas',
   GZlib in '../../common/GZlib.pas',
@@ -390,10 +391,8 @@ begin
       { the start position first: the level's NPCs then get playerenters
         and may move the player (start1.graal puts it at 13.5, 37.5), as
         in the original }
-      G.Player.X := StrToFloatDef(StringReplace(Arg('--x', '30'), '.',
-        DefaultFormatSettings.DecimalSeparator, []), 30);
-      G.Player.Y := StrToFloatDef(StringReplace(Arg('--y', '30'), '.',
-        DefaultFormatSettings.DecimalSeparator, []), 30);
+      G.Player.X := DotTextToFloatDef(Arg('--x', '30'), 30);
+      G.Player.Y := DotTextToFloatDef(Arg('--y', '30'), 30);
       OK := G.LoadLevelFile(Arg('--level', ''));
       if OK then
       begin

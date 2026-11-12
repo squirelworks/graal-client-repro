@@ -42,7 +42,7 @@ unit Terrain222;
 interface
 
 uses
-  GCompat, Classes, SysUtils, GPaths, GNumText, GSurface, GAssetDirs;
+  GCompat, Classes, GSplit, SysUtils, GPaths, GNumText, GSurface, GAssetDirs;
 
 const
   LevelCorners = 65;  { per side of a level's height grid }
@@ -371,8 +371,6 @@ begin
   Row := TStringList.Create;
   Names := TStringList.Create;
   try
-    Row.Delimiter := ',';
-    Row.StrictDelimiter := True;
     Lines.Text := StringReplace(Data, #13, '', [rfReplaceAll]);
     Generated := '';
     SetLength(Vals, 0);
@@ -396,7 +394,7 @@ begin
         ReadBlock('LEVELNAMESEND', Block);
         for R := 0 to Block.Count - 1 do
         begin
-          Row.DelimitedText := Block[R];
+          SplitDelimited(Block[R], ',', Row);
           for C := 0 to Row.Count - 1 do
             Names.Add(LowerCase(Trim(AnsiDequotedStr(Trim(Row[C]), '"'))));
         end;
@@ -408,7 +406,7 @@ begin
         SetLength(Vals, 0);
         for R := 0 to Block.Count - 1 do
         begin
-          Row.DelimitedText := Block[R];
+          SplitDelimited(Block[R], ',', Row);
           for C := 0 to Row.Count - 1 do
           begin
             SetLength(Vals, Length(Vals) + 1);
@@ -423,7 +421,7 @@ begin
         ReadBlock('RANDOMSEEDSEND', Block);
         for R := 0 to Block.Count - 1 do
         begin
-          Row.DelimitedText := Block[R];
+          SplitDelimited(Block[R], ',', Row);
           for C := 0 to Row.Count - 1 do
           begin
             SetLength(Seeds, Length(Seeds) + 1);
@@ -471,7 +469,7 @@ begin
       begin
         if R < HeightPoints then
         begin
-          Row.DelimitedText := Trim(Lines[I]);
+          SplitDelimited(Trim(Lines[I]), ',', Row);
           for C := 0 to Row.Count - 1 do
             if C < HeightPoints then
               P[R, C] := DotTextToFloatDef(Trim(Row[C]), 0);

@@ -127,6 +127,9 @@ begin
     Ref := FloatToStrF(FormatCases[I], ffGeneral, 15, 0, FS);
     Check(DotFloatToText(FormatCases[I], 15) = Ref,
       'format ' + Ref + ' matches FloatToStrF with ''.''');
+    { the NPC bridges' setlevel2 warps used FloatToStr(V, FS) }
+    Check(DotFloatToText(FormatCases[I], 15) = FloatToStr(FormatCases[I], FS),
+      'format ' + Ref + ' matches FloatToStr with ''.''');
   end;
   Check(GsFormatNum(3) = '3', 'GS1 whole number has no point');
   Check(GsFormatNum(-0.5) = '-0.5', 'GS1 fraction');

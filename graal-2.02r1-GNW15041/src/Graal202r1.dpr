@@ -53,6 +53,7 @@ uses
   GClamp in '../../common/GClamp.pas',
   GCompat in '../../common/GCompat.pas',
   GPaths in '../../common/GPaths.pas',
+  GSplit in '../../common/GSplit.pas',
   GNumText in '../../common/GNumText.pas',
   GTypes in '../../common/GTypes.pas',
   GZlib in '../../common/GZlib.pas',
@@ -386,8 +387,8 @@ begin
     else
     begin
       { placed first: the level's NPCs see playerenters on loading }
-      G.Player.X := StrToFloatDef(Arg('--x', '30'), 30);
-      G.Player.Y := StrToFloatDef(Arg('--y', '30'), 30);
+      G.Player.X := DotTextToFloatDef(Arg('--x', '30'), 30);
+      G.Player.Y := DotTextToFloatDef(Arg('--y', '30'), 30);
       OK := G.LoadLevelFile(Arg('--level', ''));
       { offline on the tutorial, 2.05 switches to the tutorial maps }
       if Copy(LowerCase(ExtractFileName(Arg('--level', ''))), 1, 9) = 'tutorial_' then

@@ -13,7 +13,7 @@ unit NpcBridge222;
 interface
 
 uses
-  Classes, SysUtils, Math, GTypes, GLevel, GSurface, GArrays, GFont, GGs1, Npc222,
+  Classes, SysUtils, GNumText, Math, GTypes, GLevel, GSurface, GArrays, GFont, GGs1, Npc222,
   Baddy222, Adventure, GSound, GTrueType, GAni;
 
 type
@@ -349,7 +349,6 @@ end;
 procedure TAdventureNpcWorld.Idle;
 var
   L: TLevelLink;
-  FS: TFormatSettings;
 begin
   { a sign an NPC opened was closed: playerendsreading }
   if FWasReading and not FAdv.Reading then
@@ -360,15 +359,13 @@ begin
   if not FWarpPending then Exit;
   FWarpPending := False;
   { the warp goes the way a level link does }
-  FS := DefaultFormatSettings;
-  FS.DecimalSeparator := '.';
   L.Dest := FWarpLevel;
   L.X := 0;
   L.Y := 0;
   L.W := 0;
   L.H := 0;
-  L.NewX := FloatToStr(FWarpX, FS);
-  L.NewY := FloatToStr(FWarpY, FS);
+  L.NewX := DotFloatToText(FWarpX, 15);
+  L.NewY := DotFloatToText(FWarpY, 15);
   SetLength(FAdv.Level.Links, Length(FAdv.Level.Links) + 1);
   FAdv.Level.Links[High(FAdv.Level.Links)] := L;
   if not FAdv.FollowLink(High(FAdv.Level.Links)) then
