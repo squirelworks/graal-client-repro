@@ -3,8 +3,11 @@
 #pragma once
 
 #include "canvas.hpp"
+#include "engine_commands.hpp"
+#include "gs2.hpp"
 
 #include <functional>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -24,11 +27,36 @@ class Engine {
   // Null until loadGraalGui.
   Canvas* canvas() { return canvas_.get(); }
 
-  // What builds the start menus when loadGraalGui first creates the
-  // canvas. Until the GS2 core (Track B3) installs one, the canvas gets an
-  // empty `MainMenuGui2D` content control.
+  // Runs when loadGraalGui first creates the canvas, before the start
+  // scripts: the GS2 controls (Track B4) register their object factory and
+  // GUI commands on machine() here. It may also set the content itself.
   using GuiBuilder = std::function<void(Engine&)>;
   void setGuiBuilder(GuiBuilder b) { guiBuilder_ = std::move(b); }
+
+  // The control a script object draws as, for setContentControl from a
+  // script object (`MainMenuGui2D`, `GUIContainer`). Null when the object
+  // has no control; then the canvas gets an empty control of that name.
+  using ControlResolver = std::function<std::shared_ptr<Control>(const gs2::VarPtr&)>;
+  void setControlResolver(ControlResolver r) { controlOf_ = std::move(r); }
+
+  // The GS2 machine the start menus and server scripts run on. Made by
+  // graal_engineInitialize; Engine42 unless setProfile chose another first.
+  gs2::Machine* machine() { return machine_.get(); }
+  void setProfile(gs2::Profile p) { profile_ = p; }
+
+  // The file the start scripts are read from: GRAAL_ENGINE_FILE, else the
+  // install's own GraalEngine.dll, else the launcher's exe (the player's
+  // own copy; nothing from it is kept). Empty when none has scripts.
+  std::string startScriptFile() const;
+  // The start scripts found there, by name, after loadGraalGui.
+  const std::vector<std::string>& startScriptNames() const { return startNames_; }
+
+  // What the menus told the engine through the Adventure_* calls.
+  struct Account {
+    std::string account, password, nickname, chat;
+    std::map<std::string, std::vector<std::string>> fields;  // the update* calls, by name
+  };
+  const Account& account() const { return account_; }
 
   // What runs on startOfflineMode and connectToGraalServer. Until the
   // session code is linked in these only record the request.
@@ -68,7 +96,16 @@ class Engine {
   // Writes one line through the LogGraalMessage slot.
   void log(const std::string& line);
 
+  // Key state from invokeGraalKeyboardEvent, for the `keydown` command.
+  bool keyHeld(int vk) const;
+
  private:
+  void startMachine();
+  void addAdventureCommands(gs2::EngineHost& h);
+  gs2::VarPtr runStartScript(const std::string& name, bool keep);
+  void setContentFrom(const std::string& objectName);
+  void loadStartMenus();
+
   std::string exePath_;
   std::vector<std::string> license_;
   std::unique_ptr<Canvas> canvas_;
@@ -80,6 +117,13 @@ class Engine {
   bool offlineRequested_ = false;
   bool scriptedControls_ = true;
   int initCount_ = 0;
+  gs2::Profile profile_ = gs2::Profile::Engine42;
+  std::unique_ptr<gs2::Machine> machine_;
+  ControlResolver controlOf_;
+  std::map<std::string, std::shared_ptr<const gs2::Script>> startScripts_;
+  std::vector<std::string> startNames_;
+  Account account_;
+  bool keys_[256] = {};
 };
 
 // The library's one engine.

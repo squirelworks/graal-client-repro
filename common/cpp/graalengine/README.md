@@ -8,7 +8,7 @@ rebuild (plan Track C1). The launcher half is
 [`common/GEngineHost.pas`](../../GEngineHost.pas).
 
 ```
-make            # build/libgraalengine.so, or build/GraalEngine.dll on Windows
+make            # build/libgraalengine.so, or build/GraalEngineRepro.dll on Windows
 make test       # recording-host tests, then the export check
 ```
 
@@ -51,13 +51,65 @@ Graal_analysis, behaviour only; nothing from a decompile is kept here.
   already set and no client exists yet"; that check comes with the
   session).
 
+## The start menus (C2)
+
+The GS2 machine (`common/cpp/gs2`) is linked into the library.
+`graal_engineInitialize` makes it; `loadGraalGui` reads the `StartScript_*`
+the player's own engine file carries and runs them in the order
+`torque/4208-engine.md` gives:
+
+| Step | Scripts | Kept? |
+|---|---|---|
+| 1 | `Profiles` | run, then dropped |
+| 2 | the canvas | |
+| 3 | `MainMenu`; `MainMenuGui2D` becomes the content | kept |
+| 4 to 7 | `OptionsWindow`, `PlayerProfile`, `LoadLevelGui`, `QuitDialog`, `MessageBoxDialog`, `SelectFileDialog` | kept |
+| 8 | `MoveMap2D`, `MoveMap3D` | run, then dropped (and again on each later `loadGraalGui`) |
+| offline, 2D connect | `GraalGui`; `GUIContainer` becomes the content | kept |
+| 3D connect | `GraalGui3D` | kept |
+
+A kept script goes on a universe variable of its name, made only if none
+exists. Each frame's timer runs one 2D pass of the machine (the clock
+steps 0.05, the launcher's 50 ms frame).
+
+The engine file is `GRAAL_ENGINE_FILE` if set, else the install's own
+`GraalEngine.dll`, else the launcher's exe. It is read at run time;
+nothing from it is kept here. That is also why the rebuilt library is
+called `GraalEngineRepro.dll` on Windows: dropping it into an install must
+not replace the player's original.
+
+The engine commands those scripts call, through `gs2::EngineHost`:
+
+| Command | Does |
+|---|---|
+| `echo` | `LogGraalMessage` |
+| `openURL` | `OpenURL` |
+| `keydown` | the key state from `invokeGraalKeyboardEvent` |
+| `getResolutionList` | the current screen size (the original lists DirectDraw's modes) |
+| `Adventure_setAccountName`, `setPassWord`, `setNickName`, `setChat` | kept as the account for the session |
+| `Adventure_updatePlayerProfile`, `updateAccountField`, `updatePlayerMuted`, the volume calls | kept by name until the session sends them on |
+| `Adventure_openServerList` | dials the licence's Login host |
+| `Adventure_startOfflineMode` | offline mode, as `startOfflineMode` |
+| `Adventure_openExternalOptions` | `OpenExternalOptions` |
+| `Adventure_selectPath` | `ShowSelectPathDialog` |
+| `Adventure_quit` | `PrepareShutdownGraal`, then `ShutdownGraal` |
+
+Checked against the player's own 4.04r2 `GraalEngine.dll` (`make test`
+with `GRAAL404_ENGINE` set): all 14 scripts load, the kept seven are on
+the universe, the dropped ones are not, `MainMenuGui2D` is the content and
+offline mode adds `GraalGui`. The only commands the scripts still miss are
+the GUI ones B4 brings (`addcontrol`, `addRow`, `clearRows`,
+`setSelectedRow`, the key modifiers); no engine command is missing.
+
 ## Where the rest plugs in
 
-- The GS2 core (`common/cpp/gs2`, Track B) installs the start menus with
-  `Engine::setGuiBuilder`; its controls derive from `graalengine::Control`
+- The GS2 controls (Track B4) register their object factory and GUI
+  commands on `Engine::machine()` from `Engine::setGuiBuilder`, which runs
+  before the start scripts, and map a script object to its control with
+  `Engine::setControlResolver`. Controls derive from `graalengine::Control`
   or are held by one, and draw only through `graalengine::host::<Slot>(...)`
-  (`src/host.hpp`). Until then `loadGraalGui` makes an empty
-  `MainMenuGui2D` the content.
+  (`src/host.hpp`). Until then the content is an empty control of the
+  object's name.
 - The session (login, level, walk, chat) plugs in through
   `Engine::setConnector`, `setOfflineStarter` and `setTimer`.
 - The 3D library fills the `GRAAL_BUILD_3D` slots (Track C4).
@@ -68,8 +120,12 @@ Graal_analysis, behaviour only; nothing from a decompile is kept here.
   in the owner's unpacked 4.20r8 and 5.00r7 launchers and their engines'
   export tables (names only, read in the lab on 2026-11-12): the 94, the
   95 and the 19 3D-only names all match this list
-- [ ] The GS2 menus on the canvas (B1 to B4), then the 4.04r2 launcher
-  form drawing them (C2)
+- [x] ~~The start scripts run on the engine's machine, with the engine
+  commands they call~~ (C2)
+- [ ] The menus drawn: the GUI commands and controls (B4)
+- [ ] `Adventure_saveGraalOptions`, `Adventure_installGraal` and the
+  `Adventure_selectFile*` calls (refused with the engines' "not found"
+  error until they are written); the setup test (always passes here)
 - [ ] The cursor drawn by the canvas, the hint, forcing the cursor on when
   the application is inactive
 - [ ] Mouse press posting `double` / `doublemouse` on an even click count,
