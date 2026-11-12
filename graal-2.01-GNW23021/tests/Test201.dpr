@@ -13,6 +13,8 @@ program Test201;
 uses
   SysUtils, Classes,
   GClamp in '../../common/GClamp.pas',
+  GCompat in '../../common/GCompat.pas',
+  GPaths in '../../common/GPaths.pas',
   GNumText in '../../common/GNumText.pas',
   GTypes in '../../common/GTypes.pas',
   GZlib in '../../common/GZlib.pas',

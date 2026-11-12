@@ -10,6 +10,8 @@ program TestSoundMap217;
 uses
   SysUtils, Classes,
   GClamp in '../../common/GClamp.pas',
+  GCompat in '../../common/GCompat.pas',
+  GPaths in '../../common/GPaths.pas',
   GNumText in '../../common/GNumText.pas',
   GTypes in '../../common/GTypes.pas',
   GSurface in '../../common/GSurface.pas',

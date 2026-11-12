@@ -16,12 +16,14 @@ bodies.
 
 ## What's new in v0.0.5
 
+- [x] **Files from the server.** The raw FILE message (102) is read: its GINT5 time, the name, and every remaining byte of the raw count as the content. Files are kept in memory by name, a later copy replacing the earlier one; they are not written to disk yet.
 - [x] **Neutral window titles.** The server list window is titled "Server List", not the original's caption, which named the original's host (#191).
 - [x] Shared GS1 variable storage releases its scalar and array values
 - [x] **Counted raw messages.** Every byte inside a RAWDATA count is kept, a final LF too, as 2.05r2 hands the whole count to its raw dispatcher; a file whose content ends in LF is no longer cut short.
   explicitly, removing the newer TStringList.OwnsObjects dependency while
   preserving clear/reuse/destruction behavior. Lifetime tests run with
   the heap tracer. This change benefits every client using the shared unit.
+- [x] **Script sleep in whole ticks.** `sleep` waits floor(seconds x 20 + 0.0001) ticks of 0.05 s, as 2.05r2 does, so a sleep shorter than a tick (0.01) goes straight on instead of waiting, and 0.06 waits one tick, not two.
 - [ ] Finish the other historical Delphi compatibility work and verify a
   build with an actual period compiler; modern FPC tests do not certify it.
 - [x] **Pictures by kind.** The picture cache keeps each name once per kind (head, body, sword, shield, hat, weapon), because each kind searches its own folders. A picture first asked for without its kind got the built-in stand-in and kept it, so an install's own picture could stay hidden behind the stand-in (in 1.33, `levels/weapons/wbomb1.gif` beside the D button).

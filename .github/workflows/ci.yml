@@ -169,22 +169,3 @@ jobs:
           name: windows-programs
           path: build/*/*.exe
 
-  macos:
-    needs: changes
-    env:
-      BUILDS: ${{ needs.changes.outputs.builds }}
-    # macOS runners can wait for hours, and macOS is not a merge gate until
-    # the polishing phase. Only a manual run and a tag run this job.
-    if: needs.changes.outputs.builds != '' && (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/'))
-    # Homebrew's Free Pascal (aarch64-darwin). The window is Cocoa
-    # (common/GWindowCocoa.inc); the tests open none.
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install Free Pascal
-        run: brew install fpc
-      - name: Build and test
-        run: |
-          fpc -iV; fpc -iTP; fpc -iTO
-          scripts/build.sh $BUILDS
-          scripts/test.sh

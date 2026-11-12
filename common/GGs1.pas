@@ -32,7 +32,7 @@ unit GGs1;
 interface
 
 uses
-  Classes, SysUtils, Math;
+  GCompat, Classes, SysUtils, Math;
 
 const
   GsFirstOp = 600;
@@ -374,6 +374,10 @@ type
       out S: string): Boolean; virtual;
     { Runs a command. True ends the script run. }
     function Command(Ctx: TGsContext; Op: Integer; const A: TGsArgs): Boolean; virtual;
+    { Whether sleep with this argument ends the run and resumes on a later
+      timeout. Default: any positive time. A build whose sleep rounds to
+      whole ticks overrides it, so a sleep shorter than a tick goes on. }
+    function SleepYields(Ctx: TGsContext; Seconds: Double): Boolean; virtual;
     procedure Error(Ctx: TGsContext; const Msg: string); virtual;
   end;
 
@@ -1758,6 +1762,11 @@ begin
   Result := False;
 end;
 
+function TGsHost.SleepYields(Ctx: TGsContext; Seconds: Double): Boolean;
+begin
+  Result := Seconds > 0;
+end;
+
 procedure TGsHost.Error(Ctx: TGsContext; const Msg: string);
 begin
 end;
@@ -2290,7 +2299,7 @@ begin
               GsOpSleep:
                 begin
                   if Host.Command(Self, Op, A) then Ended := True;
-                  if A.Num[0] > 0 then
+                  if Host.SleepYields(Self, A.Num[0]) then
                   begin
                     ResumeAt := PC;
                     Ended := True;

@@ -15,7 +15,7 @@ unit Adventure;
 interface
 
 uses
-  Classes, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GAssetDirs, GraalClient, Protocol205,
+  GCompat, Classes, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GAssetDirs, GraalClient, Protocol205,
   Npc205, Baddy205, GTrueType;
 
 const
@@ -234,6 +234,12 @@ type
     WarpTimes: array of Integer; { the first WarpCount entries are used }
     WarpCount: Integer;
     Handled, Ignored: array[0..255] of Integer;
+    { FILE 102 (a raw message): the files the server sent, by name. A later
+      copy of a name replaces the earlier one. They are kept in memory;
+      nothing is written to disk yet. }
+    FileNames: TStringList;
+    FileBodies: array of string;
+    FileModTimes: array of Cardinal;
     { Held direction keys for this tick: up, left, down, right. }
     Keys: array[0..3] of Boolean;
     { Game keys pressed this tick (down edges): A action (lift, throw,
@@ -310,6 +316,9 @@ type
     { Another player by id; Make adds it when it is not known yet. }
     function FindOther(Id: Integer; Make: Boolean): TServerPlayer;
     procedure RemoveOther(Id: Integer);
+    { The last FILE the server sent under Name, and its modification time. }
+    function ReceivedFile(const Name: string; out Body: string;
+      out ModTime: Cardinal): Boolean;
     { The A-key probe: one tile beyond the middle of the leading edge. }
     procedure ProbePoint(out PX, PY: Double);
     { The first of the first MaxCount objects of table List (9 cut, 11
@@ -874,6 +883,7 @@ constructor TAdventure.Create;
 begin
   inherited Create;
   FLog := TStringList.Create;
+  FileNames := TStringList.Create;
   LoginMs := -1;
   FClient := TAdventureClient.Create;
   FClient.OnMessage := HandleMessage;
@@ -930,6 +940,7 @@ var
   I: Integer;
 begin
   FreeAndNil(NameFont);
+  FreeAndNil(FileNames);
   FreeAndNil(Baddies);
   FreeAndNil(Npcs);
   FClient.Free;
@@ -2642,6 +2653,25 @@ end;
 
 { ---- messages from the server ---- }
 
+function TAdventure.ReceivedFile(const Name: string; out Body: string;
+  out ModTime: Cardinal): Boolean;
+var
+  I: Integer;
+begin
+  I := FileNames.IndexOf(Name);
+  Result := I >= 0;
+  if Result then
+  begin
+    Body := FileBodies[I];
+    ModTime := FileModTimes[I];
+  end
+  else
+  begin
+    Body := '';
+    ModTime := 0;
+  end;
+end;
+
 procedure TAdventure.Receive(Id: Integer; const Data: string);
 begin
   HandleMessage(Id, Data);
@@ -2659,6 +2689,7 @@ var
   OP: TServerPlayer;
   I, J, BX, BY, BW, BH: Integer;
   FX, FY: Double;
+  FileModTime: Cardinal;
 begin
   if Npcs.Receive(Id, Data) or Baddies.Receive(Id, Data) then
   begin
@@ -2735,6 +2766,35 @@ begin
             Log('BOARDPACKET ' + Level.Name + ' loaded')
           else
             Log('BOARDPACKET rejected: ' + Level.LastError);
+        end;
+      PLO_FILE:
+        { raw: GINT5 modification time, GCHAR name length, the name, then
+          every remaining byte inside the raw count is the content (2.05r2
+          copies count - 7 - name length bytes; a final LF is content) }
+        begin
+          if Length(Data) < 6 then
+          begin
+            Log('FILE rejected: shorter than its header');
+            Exit;
+          end;
+          FileModTime := R.ReadGInt5;
+          V := R.ReadGChar;
+          if (V < 0) or (6 + V > Length(Data)) then
+          begin
+            Log('FILE rejected: the name runs past the message');
+            Exit;
+          end;
+          S := Copy(Data, 7, V);
+          I := FileNames.IndexOf(S);
+          if I < 0 then
+          begin
+            I := FileNames.Add(S);
+            SetLength(FileBodies, FileNames.Count);
+            SetLength(FileModTimes, FileNames.Count);
+          end;
+          FileBodies[I] := Copy(Data, 7 + V, MaxInt);
+          FileModTimes[I] := FileModTime;
+          Log('FILE ' + S + ' (' + IntToStr(Length(FileBodies[I])) + ' bytes)');
         end;
       PLO_LEVELLINK: { "dest x y w h newx newy" as text }
         begin

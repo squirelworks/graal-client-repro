@@ -28,7 +28,7 @@ unit GVclForm;
 interface
 
 uses
-  SysUtils, Classes, GDfmObj, GSurface;
+  GCompat, SysUtils, Classes, GDfmObj, GSurface;
 
 type
   TVclKind = (vkForm, vkGroup, vkPanel, vkButton, vkRadio, vkCheck, vkEdit,
@@ -270,7 +270,7 @@ var
   I: Integer;
 begin
   for I := 0 to High(Names) do
-    if SameText(Names[I], S) then Exit(Values[I]);
+    if SameText(Names[I], S) then begin Result := Values[I]; Exit; end;
   Result := Default;
 end;
 
@@ -634,7 +634,7 @@ var
   I: Integer;
 begin
   for I := 0 to FCtls.Count - 1 do
-    if SameText(TVclCtl(FCtls[I]).Name, Name) then Exit(TVclCtl(FCtls[I]));
+    if SameText(TVclCtl(FCtls[I]).Name, Name) then begin Result := TVclCtl(FCtls[I]); Exit; end;
   Result := nil;
 end;
 
@@ -841,7 +841,7 @@ var
   C: TVclCtl;
 begin
   C := Ctl(Name);
-  if C = nil then Exit('');
+  if C = nil then begin Result := ''; Exit; end;
   SyncFromWindow(C);
   Result := C.Text;
   { a list's text is its selected item }
@@ -870,7 +870,7 @@ var
   C: TVclCtl;
 begin
   C := Ctl(Name);
-  if C = nil then Exit(False);
+  if C = nil then begin Result := False; Exit; end;
   SyncFromWindow(C);
   Result := C.Checked;
 end;
@@ -906,7 +906,7 @@ var
   C: TVclCtl;
 begin
   C := Ctl(Name);
-  if C = nil then Exit(-1);
+  if C = nil then begin Result := -1; Exit; end;
   SyncFromWindow(C);
   Result := C.ItemIndex;
 end;
@@ -1022,7 +1022,7 @@ var
   I: Integer;
 begin
   for I := 0 to F.FCtls.Count - 1 do
-    if TVclCtl(F.FCtls[I]).Wnd = Wnd then Exit(TVclCtl(F.FCtls[I]));
+    if TVclCtl(F.FCtls[I]).Wnd = Wnd then begin Result := TVclCtl(F.FCtls[I]); Exit; end;
   Result := nil;
 end;
 
@@ -1031,7 +1031,7 @@ var
   I: Integer;
 begin
   for I := 0 to F.FCtls.Count - 1 do
-    if TVclCtl(F.FCtls[I]).Id = Id then Exit(TVclCtl(F.FCtls[I]));
+    if TVclCtl(F.FCtls[I]).Id = Id then begin Result := TVclCtl(F.FCtls[I]); Exit; end;
   Result := nil;
 end;
 
@@ -1531,7 +1531,7 @@ var
   I: Integer;
 begin
   for I := 0 to BrushCount - 1 do
-    if BrushColors[I] = C then Exit(Brushes[I]);
+    if BrushColors[I] = C then begin Result := Brushes[I]; Exit; end;
   Result := CreateSolidBrush(ColorRef(C));
   if BrushCount <= High(Brushes) then
   begin
@@ -1552,7 +1552,7 @@ begin
   begin
     C := FindByWnd(CurForm, Wnd);
     case Msg of
-      WM_ERASEBKGND: Exit(1);
+      WM_ERASEBKGND: begin Result := 1; Exit; end;
       WM_PAINT:
         if C <> nil then
         begin
@@ -1577,12 +1577,14 @@ begin
         begin
           C := FindById(CurForm, PMeasureItemStruct(LP)^.CtlID);
           if C <> nil then PMeasureItemStruct(LP)^.itemHeight := C.ItemHeight;
-          Exit(1);
+          Result := 1;
+          Exit;
         end;
       WM_DRAWITEM:
         begin
           DrawItem(CurForm, PDrawItemStruct(LP));
-          Exit(1);
+          Result := 1;
+          Exit;
         end;
       WM_CTLCOLOREDIT, WM_CTLCOLORLISTBOX:
         begin
@@ -1591,7 +1593,8 @@ begin
           begin
             { an owner-drawn list's ground is its items' fill }
             SetBkColor(WP, ColorRef(C.ItemFill));
-            Exit(LRESULT(FillBrush(C.ItemFill)));
+            Result := LRESULT(FillBrush(C.ItemFill));
+            Exit;
           end;
         end;
       WM_CTLCOLORSTATIC, WM_CTLCOLORBTN:
@@ -1603,13 +1606,15 @@ begin
               keeps its own colour }
             SetBkColor(WP, ColorRef(C.Color));
             SetTextColor(WP, ColorRef(C.FontColor));
-            Exit(LRESULT(FillBrush(C.Color)));
+            Result := LRESULT(FillBrush(C.Color));
+            Exit;
           end;
           if C <> nil then
           begin
             SetBkColor(WP, ColorRef(C.Color));
             if C.Enabled then SetTextColor(WP, ColorRef(C.FontColor));
-            Exit(LRESULT(GetSysColorBrush(COLOR_BTNFACE)));
+            Result := LRESULT(GetSysColorBrush(COLOR_BTNFACE));
+            Exit;
           end;
         end;
       WM_CLOSE:
@@ -1632,12 +1637,13 @@ begin
   if (C <> nil) and (Msg = WM_KEYDOWN) and (WP = VK_RETURN) then
   begin
     if Assigned(CurForm.OnEvent) then CurForm.OnEvent(CurForm, C, veEnter);
-    Exit(0);
+    Result := 0;
+    Exit;
   end;
-  if (C <> nil) and (Msg = WM_CHAR) and (WP = 13) then Exit(0);
+  if (C <> nil) and (Msg = WM_CHAR) and (WP = 13) then begin Result := 0; Exit; end;
   if (C <> nil) and (Msg = WM_GETDLGCODE) and (LP <> 0) and
     (PMsg(LP)^.message = WM_KEYDOWN) and (PMsg(LP)^.wParam = VK_RETURN) then
-    Exit(DLGC_WANTALLKEYS);
+    begin Result := DLGC_WANTALLKEYS; Exit; end;
   if (C <> nil) and (C.OldProc <> nil) then
     Result := CallWindowProc(C.OldProc, Wnd, Msg, WP, LP)
   else
@@ -1649,7 +1655,8 @@ begin
   if (Msg = WM_CLOSE) and (CurForm <> nil) then
   begin
     CurForm.Close(-1);
-    Exit(0);
+    Result := 0;
+    Exit;
   end;
   Result := DefWindowProc(Wnd, Msg, WP, LP);
 end;
@@ -1690,8 +1697,8 @@ begin
   if (Name <> '') and GetClassInfo(HInstance, PChar(Name), WC) then Exit;
   { Base: a system class, or one of ours ('TGraalVclForm', 'TGraalVclBox') }
   if not GetClassInfo(0, PChar(Base), WC) and
-    not GetClassInfo(HInstance, PChar(Base), WC) then Exit(Base);
-  if Name = '' then Exit(Base);
+    not GetClassInfo(HInstance, PChar(Base), WC) then begin Result := Base; Exit; end;
+  if Name = '' then begin Result := Base; Exit; end;
   WC.hInstance := HInstance;
   WC.lpszClassName := PChar(Name);
   if Windows.RegisterClass(WC) = 0 then Result := Base;
