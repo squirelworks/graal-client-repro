@@ -18,7 +18,7 @@
     with 2.05 rev 2's English file that turns the welcome text into
     "Account:", as it does on the real one.
   - Start hides the start window and opens the server list, the form
-    TServerListFrame (577 x 416, "Graalonline.com Server List", over
+    TServerListFrame (577 x 416, titled "Server List", over
     SCREENIMG2), with the "Getting server list ..." box (the form
     TShortMessage, 274 x 93) over it while the listserver answers. The
     account and password are typed on the list, under the servers, and
@@ -95,7 +95,7 @@ uses
 {$IFDEF MSWINDOWS}
   Windows,
 {$ENDIF}
-  SysUtils, GUiFont;
+  SysUtils, GUiFont, GNumText;
 
 const
   ColWhite = $FFFFFFFF;
@@ -282,7 +282,7 @@ function TRealStart20.Load(Res: TResLookup; const Dir: string): Boolean;
     while I <= Length(L) do
     begin
       if (L[I] = '#') and (I + 5 <= Length(L)) and (UpCase(L[I + 1]) = 'U') and
-        TryStrToInt('$' + Copy(L, I + 2, 4), C) then
+        TryTextToInt('$' + Copy(L, I + 2, 4), C) then
       begin
         if C < 256 then Result := Result + Chr(C) else Result := Result + '?';
         Inc(I, 6);
@@ -346,10 +346,10 @@ begin
     { fullscreenmode=1024x768 }
     M := LowerCase(Trim(Lang.Values['fullscreenmode']));
     P := Pos('x', M);
-    if (P > 0) and TryStrToInt(Copy(M, 1, P - 1), V) and (V >= 320) then
+    if (P > 0) and TryTextToInt(Copy(M, 1, P - 1), V) and (V >= 320) then
     begin
       FullScreenW := V;
-      if TryStrToInt(Copy(M, P + 1, MaxInt), V) and (V >= 200) then FullScreenH := V
+      if TryTextToInt(Copy(M, P + 1, MaxInt), V) and (V >= 200) then FullScreenH := V
       else FullScreenW := 640;
     end;
     Lang.Clear;
@@ -968,7 +968,8 @@ begin
   try
     for I := 0 to Art.List.ChildCount - 1 do Glyphs.Add(Glyph(Art.List.Child(I)));
     Title1 := Art.Connect.Str('Caption', 'Graal 2001');
-    Title2 := Art.List.Str('Caption', 'Graalonline.com Server List');
+    { a neutral title, not the form's caption, which names the original's host }
+    Title2 := 'Server List';
     Shape(Art.Connect, Title1);
     Page := pgStart;
     Note := Message;

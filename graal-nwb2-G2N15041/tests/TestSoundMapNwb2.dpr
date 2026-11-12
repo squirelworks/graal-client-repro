@@ -9,6 +9,7 @@ program TestSoundMapNwb2;
 uses
   SysUtils, Classes,
   GCompat in '../../common/GCompat.pas',
+  GNumText in '../../common/GNumText.pas',
   GTypes in '../../common/GTypes.pas',
   GSurface in '../../common/GSurface.pas',
   GAssetDirs in '../../common/GAssetDirs.pas',

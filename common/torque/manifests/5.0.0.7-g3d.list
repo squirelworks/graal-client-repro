@@ -1,4 +1,4 @@
-# 5.0.0.7 Graal3DEngine.dll. Not passed to fpc.
+# 5.0.0.7 Graal3DEngine.dll. Build input: manifests/profiles.py.
 # Same split as 4.2.0.8 3D, plus classes this DLL's note names.
 # Protocol window accepts only 24. No game-tge.
 sim

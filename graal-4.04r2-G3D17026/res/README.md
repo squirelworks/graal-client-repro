@@ -10,7 +10,7 @@ needs the original install to draw its start screen.
 | File | From the 4.04r2 install | Used for |
 |---|---|---|
 | `GRAALV4SCREEN.jpg` | `levels3d/gui/graalv4screen.jpg` (555 x 463) | the house, centred in the window |
-| `GRAALV4TITLE.png` | `levels3d/gui/graalv4title.png` (385 x 172) | the GraalOnline title over it |
+| `GRAALV4TITLE.png` | `levels3d/gui/graalv4title.png` (385 x 172) | the title art over it |
 | `DEFAULTTEXTEDIT.png` | `levels3d/gui/defaulttextedit.png` | the edit boxes' gold edge (nine 5 x 5 pieces) |
 | `DEFAULTSCROLL.png` | `levels3d/gui/defaultscroll.png` | the combo box's red shield arrow |
 | `DEFAULTRADIO.png` | `levels3d/gui/defaultradio.png` | the Member radio button |

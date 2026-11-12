@@ -21,7 +21,7 @@ Two public repos, worked on together:
 
 | Repo | What it is |
 |---|---|
-| [graal-client-repro](https://github.com/squirelworks/graal-client-repro) (this repo, formerly graal-delphi) | Faithful rebuilds of every classic Graal Online client, one folder per build, in Delphi (Object Pascal), built with Free Pascal 3.2 in Delphi mode. 74 client folders: 70 Graal builds from the 1998 betas to Worlds 6.114, plus Java (Zelda Online 1 and 2, Java Graal) and the Game Boy Color demo. 3.04 and 4.20r8 also carry C++ boot hosts; Worlds 6.114 is a portable C# stand-in. |
+| [graal-client-repro](https://github.com/squirelworks/graal-client-repro) (this repo, formerly graal-delphi) | Faithful rebuilds of every classic Graal client, one folder per build, in Delphi (Object Pascal), built with Free Pascal 3.2 in Delphi mode. 74 client folders: 70 Graal builds from the 1998 betas to Worlds 6.114, plus Java (Zelda Online 1 and 2, Java Graal) and the Game Boy Color demo. 3.04 and 4.20r8 also carry C++ boot hosts; Worlds 6.114 is a portable C# stand-in. |
 | [Graal_analysis](https://github.com/squirelworks/Graal_analysis) | The research the rebuilds are written from: wire protocol, file formats, per-version client behaviour, lab notes, and the Graal Technical Reference Manual (TRM, `manual/`, published 0.0.3 and 0.0.4). It has its own `AGENTS.md`, `.cursor/rules/graal-analysis.mdc` and ordered task list `docs/NEXT.md`. |
 
 Related, not covered here: the Seihai stack (`seihai` client, `seihai-gserver`,

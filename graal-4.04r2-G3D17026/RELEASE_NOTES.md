@@ -26,7 +26,7 @@ program works too (`graal-assets/4.04r2/`, then `graal-assets/common/`).
 
 - Rebuilt from the latest code; the changes for this client are listed here as they land.
 - [x] 4.04r2's own start screen, drawn inside the 640 x 480 game window
-  the way the real 4.04r2 does it: the GraalOnline house and title, the
+  the way the real 4.04r2 does it: the house and title art, the
   Nickname panel, the Play as / Account name / Password panel with the
   Member radio and Save password, Start, and Become a Member, Options and
   Offline Test along the bottom. The pictures are the install's own GUI

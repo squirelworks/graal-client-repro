@@ -97,7 +97,7 @@ function DecodeSignText(const Enc: string): string;
 implementation
 
 uses
-  SysUtils, Classes;
+  SysUtils, Classes, GNumText;
 
 const
   SignChars: string =
@@ -616,8 +616,8 @@ begin
       begin
         NP.Image := Tok[1];
         if NP.Image = '-' then NP.Image := '';
-        NP.X := StrToFloatDef(Tok[2], 0);
-        NP.Y := StrToFloatDef(Tok[3], 0);
+        NP.X := DotTextToFloatDef(Tok[2], 0);
+        NP.Y := DotTextToFloatDef(Tok[3], 0);
         NP.Script := '';
         Inc(I);
         while (I < Lines.Count) and (Lines[I] <> 'NPCEND') do

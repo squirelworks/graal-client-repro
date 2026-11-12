@@ -1630,6 +1630,12 @@ begin
           GChar(ClampI(Round(A.Num[0] * 2), 0, 223)) +
           GChar(ClampI(Round(A.Num[1] * 2), 0, 223)) + A.Str[2] +
           ActionParams(A.Str[3]));
+    { Recognized by this build's executor but without an effect (#174):
+      seturllevel, setfocus, resetfocus, setbacktile, canwarp2,
+      drawovertrees, canwarp, join, freezeplayer2, unfreezeplayer,
+      setbacktile2, setz, updateterrain. Later and beta profiles may give
+      these names effects; exact 2.05r2 parses them and does nothing. }
+    636, 681, 682, 690, 707, 721, 724, 734..736, 755..757: ;
   else
     { the player's own state: colours, head, sword, weapons, stats, ... }
     World.PlayerCommand(Op, A);

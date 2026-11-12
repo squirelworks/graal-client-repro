@@ -1,4 +1,4 @@
-# 5.0.0.7 GraalEngine.dll (2D session). Not passed to fpc.
+# 5.0.0.7 GraalEngine.dll (2D session). Build input: manifests/profiles.py.
 gui
 gbitmap
 math

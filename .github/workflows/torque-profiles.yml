@@ -1,0 +1,44 @@
+name: torque-profiles
+
+# Per-program Torque module profiles (#152): each manifests/*.list must
+# match CUTS.md, and each profile is compiled with only its listed module
+# directories on the Free Pascal unit path.
+
+on:
+  pull_request:
+    paths:
+      - 'common/torque/manifests/**'
+      - 'common/torque/CUTS.md'
+      - 'common/torque/*/Tq*.pas'
+      - '.github/workflows/torque-profiles.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'common/torque/manifests/**'
+      - 'common/torque/CUTS.md'
+      - 'common/torque/*/Tq*.pas'
+      - '.github/workflows/torque-profiles.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: torque-profiles-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Free Pascal
+        run: |
+          echo "http://mirrors.edge.kernel.org/ubuntu/" | sudo tee -a /etc/apt/apt-mirrors.txt
+          sudo apt-get -o Acquire::Retries=5 update
+          sudo apt-get -o Acquire::Retries=5 install -y fp-compiler fp-units-base
+          fpc -iV
+      - name: Manifests match CUTS.md
+        run: python3 common/torque/manifests/profiles.py check
+      - name: Profile selection checks and builds
+        run: python3 common/torque/manifests/test_profiles.py -v

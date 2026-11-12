@@ -51,6 +51,7 @@ program Graal141;
 uses
   SysUtils, Classes,
   GCompat in '../../common/GCompat.pas',
+  GNumText in '../../common/GNumText.pas',
   GTypes in '../../common/GTypes.pas',
   GZlib in '../../common/GZlib.pas',
   GSocket in '../../common/GSocket.pas',
