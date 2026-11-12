@@ -271,7 +271,11 @@ void test_truetype() {
   require(a != kGftNoGlyph && space != kGftNoGlyph, "'A' and space have glyphs");
   if (a == kGftNoGlyph || space == kGftNoGlyph) return;
   const GftGlyph& g = font.glyphs[a];
-  require(g.width > 4 && g.height > 4 && g.x_advance >= g.width, "'A' has a box and an advance");
+  // The box can be up to three pixels wider than the advance (Arial's A has
+  // a negative left bearing, and antialiasing widens it).
+  require(g.width > 4 && g.height > 4 && g.x_advance > 4 && g.x_advance + 3 >= g.width,
+          "'A' has a box and an advance, got " + std::to_string(g.width) + " wide, advance " +
+              std::to_string(g.x_advance));
   require(font.glyphs[space].width == 0 && font.glyphs[space].x_advance > 0, "space is advance only");
   bool inked = false;
   const Image& sheet = font.sheets[g.sheet];
