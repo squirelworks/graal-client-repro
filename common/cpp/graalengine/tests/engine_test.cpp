@@ -3,7 +3,9 @@
 #include "canvas.hpp"
 #include "engine.hpp"
 #include "graalengine.h"
+#include "gui_host.hpp"
 #include "host.hpp"
+#include "image.hpp"
 
 #include "../../gs2/tests/assembler.hpp"
 
@@ -395,6 +397,130 @@ void testLabStartScripts() {
 #endif
 }
 
+// Owner-supplied, as above: the default GS2 screen draws the main menu
+// and a click on its Offline Test button starts offline mode.
+void testLabMenuInput() {
+  const char* file = std::getenv("GRAAL404_ENGINE");
+  if (!file || !*file) return;
+  reset();
+  installRecorder();
+#ifdef _WIN32
+  _putenv_s("GRAAL_ENGINE_FILE", file);
+#else
+  setenv("GRAAL_ENGINE_FILE", file, 1);
+#endif
+  graal_engineInitialize("/x/Graal4.exe");
+  screenW = 640;
+  screenH = 480;
+  loadGraalGui();
+  auto& e = graalengine::engine();
+  CHECK(e.screen() != nullptr);
+  CHECK(e.canvas()->content()->name() == "GS2Screen");
+  calls.clear();
+  renderGraalCanvas();
+  int fills = 0, texts = 0;
+  for (const auto& c : calls) {
+    if (c.rfind("fill ", 0) == 0) ++fills;
+    if (c.rfind("text ", 0) == 0) ++texts;
+  }
+  std::fprintf(stderr, "lab menu: %d fills, %d texts in one frame\n", fills, texts);
+  CHECK(texts >= 8);
+  // Type a nickname into the first text edit, then press Offline Test
+  // (left of the StartAni2 image control that lies over its right half).
+  invokeGraalMouseEvent(370, 182, GRAAL_MOUSE_DOWN, GRAAL_MOUSE_LEFT, 1, 0, 0);
+  for (char ch : std::string("Tester")) {
+    invokeGraalKeyboardEvent(0, ch, 0, 1);
+    invokeGraalKeyboardEvent(0, ch, 0, 0);
+  }
+  invokeGraalMouseEvent(410, 435, GRAAL_MOUSE_DOWN, GRAAL_MOUSE_LEFT, 1, 0, 0);
+  invokeGraalMouseEvent(410, 435, GRAAL_MOUSE_UP, GRAAL_MOUSE_LEFT, 0, 0, 0);
+  for (int i = 0; i < 5; ++i) renderGraalCanvas();
+  CHECK(e.offlineRequested());
+  std::fprintf(stderr, "lab menu: nickname '%s', offline %d\n", e.account().nickname.c_str(),
+               int(e.offlineRequested()));
+  for (const auto& m : e.machine()->errors()) std::fprintf(stderr, "  %s\n", m.c_str());
+  shutdownGraalEngine();
+#ifdef _WIN32
+  _putenv_s("GRAAL_ENGINE_FILE", "");
+#else
+  unsetenv("GRAAL_ENGINE_FILE");
+#endif
+}
+
+std::vector<std::string> gfx;
+void GE_CALL recGfx(const graal_texture* t, int32_t x, int32_t y, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+                    uint32_t) {
+  char b[160];
+  std::snprintf(b, sizeof b, "gfx %s %dx%d at %d,%d from %d,%d,%d,%d", t->name, t->width, t->height, x, y, sx, sy,
+                sw, sh);
+  gfx.push_back(b);
+}
+void GE_CALL recStretch(const graal_texture* t, int32_t x, int32_t y, int32_t w, int32_t h, int32_t sx, int32_t sy,
+                        int32_t sw, int32_t sh, uint32_t) {
+  char b[160];
+  std::snprintf(b, sizeof b, "stretch %s to %d,%d,%d,%d from %d,%d,%d,%d", t->name, x, y, w, h, sx, sy, sw, sh);
+  gfx.push_back(b);
+}
+
+void writePng(const std::filesystem::path& p, const Torque::Gui::Image& img) {
+  std::string err;
+  CHECK(Torque::Gui::write_file(p.string(), Torque::Gui::encode_png(img), err));
+}
+
+// The painter finds the menus' pictures by name, case and extension
+// ignored, decodes them once and draws through the slots.
+void testPainter() {
+  reset();
+  installRecorder();
+  graal_setDrawGraphics(recGfx);
+  graal_setDrawGraphicsStretched(recStretch);
+  namespace fs = std::filesystem;
+  const fs::path dir = fs::temp_directory_path() / "graalengine-painter-test";
+  fs::remove_all(dir);
+  fs::create_directories(dir / "levels3d" / "gui");
+  // A 2 x 2 picture, and a bitmap array: two 2 x 2 cells split by a
+  // magenta separator (top-left pixel) row and columns.
+  Torque::Gui::Image pic(2, 2, {10, 20, 30, 255});
+  writePng(dir / "levels3d" / "gui" / "TestPic.PNG", pic);
+  Torque::Gui::Image arr(7, 4, {255, 0, 255, 255});
+  for (int y = 1; y < 3; ++y)
+    for (int x : {1, 2, 4, 5}) arr.at(x, y) = {0, 0, 0, 255};
+  writePng(dir / "levels3d" / "gui" / "cells.png", arr);
+
+  graalengine::TextureCache cache(dir.string());
+  graalengine::SlotPainter p(cache);
+  int w = 0, h = 0;
+  CHECK(p.bitmapSize("testpic", w, h) && w == 2 && h == 2);       // no extension
+  CHECK(p.bitmapSize("TESTPIC.png", w, h));                        // other case
+  CHECK(!p.bitmapSize("missing.png", w, h));
+  CHECK(!p.bitmapSize("missing.png", w, h));                       // a miss is cached too
+  const auto cells = p.cells("cells");
+  CHECK(cells.size() == 2);
+  if (cells.size() == 2) CHECK(cells[0].x == 1 && cells[0].y == 1 && cells[0].w == 2 && cells[0].h == 2);
+  CHECK(p.cells("testpic").empty() || p.cells("testpic").size() <= 1);
+  gfx.clear();
+  p.bitmap("testpic", {0, 0, 2, 2}, {5, 6, 2, 2});
+  p.bitmap("testpic", {0, 0, 2, 2}, {5, 6, 8, 4});
+  p.bitmap("missing.png", {0, 0, 2, 2}, {0, 0, 2, 2});
+  const std::vector<std::string> want = {"gfx testpic 2x2 at 5,6 from 0,0,2,2",
+                                         "stretch testpic to 5,6,8,4 from 0,0,2,2"};
+  CHECK(gfx == want);
+  if (gfx != want)
+    for (const auto& g : gfx) std::fprintf(stderr, "  got: %s\n", g.c_str());
+  calls.clear();
+  p.fill({1, 2, 3, 4}, {255, 0, 0, 128});
+  p.fill({1, 2, 3, 4}, {255, 0, 0, 0});  // clear: nothing drawn
+  p.setClip({0, 0, 10, 10});
+  CHECK((calls == std::vector<std::string>{"fill 1,2,3,4 80ff0000", "clip 0,0,10,10"}));
+
+  CHECK(graalengine::torqueKeyName('A') == "a");
+  CHECK(graalengine::torqueKeyName(0x71) == "F2");
+  CHECK(graalengine::torqueKeyName(0x0D) == "return");
+  CHECK(graalengine::torqueKeyName(0x26) == "up");
+  CHECK(graalengine::torqueKeyName(0xFF).empty());
+  fs::remove_all(dir);
+}
+
 }  // namespace
 
 int main() {
@@ -406,6 +532,8 @@ int main() {
   testEngineCommands();
   testNoStartScripts();
   testLabStartScripts();
+  testPainter();
+  testLabMenuInput();
   if (failures) {
     std::fprintf(stderr, "%d check(s) failed\n", failures);
     return 1;
