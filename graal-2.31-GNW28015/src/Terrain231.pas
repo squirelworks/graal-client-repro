@@ -42,7 +42,7 @@ unit Terrain231;
 interface
 
 uses
-  Classes, SysUtils, GSurface, GAssetDirs;
+  Classes, SysUtils, GNumText, GSurface, GAssetDirs;
 
 const
   LevelCorners = 65;  { per side of a level's height grid }
@@ -376,9 +376,9 @@ begin
       else if W = 'GENERATED' then Generated := Trim(Copy(S, 10, MaxInt))
       else if W = 'GENSEED' then M.FSeed := Cardinal(StrToInt64Def(Trim(Copy(S, 8, MaxInt)), 0))
       else if W = 'LEVHEIGHT' then
-        M.FLevHeight := StrToFloatDef(Trim(Copy(S, 10, MaxInt)), 0, DefaultFormatSettings)
+        M.FLevHeight := DotTextToFloatDef(Trim(Copy(S, 10, MaxInt)), 0)
       else if W = 'LEVCHAOS' then
-        M.FLevChaos := StrToFloatDef(Trim(Copy(S, 9, MaxInt)), 0, DefaultFormatSettings)
+        M.FLevChaos := DotTextToFloatDef(Trim(Copy(S, 9, MaxInt)), 0)
       else if W = 'LEVELNAMES' then
       begin
         ReadBlock('LEVELNAMESEND', Block);
@@ -400,7 +400,7 @@ begin
           for C := 0 to Row.Count - 1 do
           begin
             SetLength(Vals, Length(Vals) + 1);
-            Vals[High(Vals)] := StrToFloatDef(Trim(Row[C]), 0, DefaultFormatSettings);
+            Vals[High(Vals)] := DotTextToFloatDef(Trim(Row[C]), 0);
           end;
         end;
         Block.Free;
@@ -462,7 +462,7 @@ begin
           Row.DelimitedText := Trim(Lines[I]);
           for C := 0 to Row.Count - 1 do
             if C < HeightPoints then
-              P[R, C] := StrToFloatDef(Trim(Row[C]), 0, DefaultFormatSettings);
+              P[R, C] := DotTextToFloatDef(Trim(Row[C]), 0);
         end;
         Inc(R);
         Inc(I);
