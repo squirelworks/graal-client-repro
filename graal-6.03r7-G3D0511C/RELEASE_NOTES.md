@@ -5,6 +5,8 @@ Pascal). The original is a Linux program from 2012; this rebuild runs on
 Linux and Windows. It is an early version: most of the game (NPCs, items,
 weapons, scripts, the scripted login screens) is not there yet.
 
+> **Major defects in fidelity.** This client's Torque layer has not been rebuilt yet (the original runs on the Torque engine), so this release does not behave like the original in many ways. It stays marked this way until the Torque behaviour rebuild (#109, #151, #172) reaches this build.
+
 **Login token: token only.** `G3D0511C` is read from the original program, but the original's own login has not been captured on the wire, so this rebuild's login has not been checked against it.
 
 > **Not affiliated.** graal-delphi is an independent fan project. It is not
