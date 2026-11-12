@@ -32,7 +32,8 @@ int usage() {
   std::cerr << "usage: gui-inspect font FILE.gft\n"
                "       gui-inspect array FILE.png\n"
                "       gui-inspect text FILE.gft TEXT OUT.png\n"
-               "       gui-inspect match FILE.gft TEXT SHOT.png X Y\n";
+               "       gui-inspect match FILE.gft TEXT SHOT.png X Y\n"
+               "       gui-inspect compare A.png B.png X Y W H\n";
   return 2;
 }
 
@@ -141,6 +142,27 @@ int main(int argc, char** argv) {
         exact += std::abs(c.r - s.r) <= 1 && std::abs(c.g - s.g) <= 1 && std::abs(c.b - s.b) <= 1;
       }
     std::printf("mask %.4f exact %.4f\n", double(agree) / (w * h), double(exact) / (w * h));
+    return 0;
+  }
+  if (command == "compare" && argc == 8) {
+    // Share of pixels in a box where two images agree within one level per
+    // channel (the rendered menu against the stage 0 screenshot).
+    Image a, b;
+    if (!load_image(argv[2], a) || !load_image(argv[3], b)) return 1;
+    const int x0 = std::atoi(argv[4]), y0 = std::atoi(argv[5]);
+    const int w = std::atoi(argv[6]), h = std::atoi(argv[7]);
+    if (w <= 0 || h <= 0 || x0 < 0 || y0 < 0 || x0 + w > std::min(a.width, b.width) ||
+        y0 + h > std::min(a.height, b.height)) {
+      std::cerr << "box outside the images\n";
+      return 1;
+    }
+    long exact = 0;
+    for (int y = y0; y < y0 + h; ++y)
+      for (int x = x0; x < x0 + w; ++x) {
+        const Color &p = a.at(x, y), &q = b.at(x, y);
+        exact += std::abs(p.r - q.r) <= 1 && std::abs(p.g - q.g) <= 1 && std::abs(p.b - q.b) <= 1;
+      }
+    std::printf("exact %.4f\n", double(exact) / (double(w) * h));
     return 0;
   }
   return usage();

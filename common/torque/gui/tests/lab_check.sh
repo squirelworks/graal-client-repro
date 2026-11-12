@@ -3,11 +3,16 @@
 # shipped in the repository: point TORQUE304_RELEASE at the install's
 # release/ folder and TORQUE304_SHOT at the stage 0 main-menu screenshot
 # (1024x768, menu at the top left). Skips when TORQUE304_RELEASE is unset.
+# The menu render check also needs the tq-shot tool (second argument) and,
+# for the whole-screen figure, TORQUE304_SCREEN_PNG: the install's
+# graaldata/client/ui/graalscreen.jpg converted to PNG by the owner (the
+# rebuild has no JPEG reader yet).
 #
 # Expected values are this project's own measurements of those files
 # (README.md, "Lab results").
 set -u
 INSPECT=${1:-build/gui-inspect}
+SHOT=${2:-build/tq-shot}
 if [ -z "${TORQUE304_RELEASE:-}" ]; then
   echo "lab_check: TORQUE304_RELEASE not set, skipped"
   exit 0
@@ -91,8 +96,43 @@ if [ -n "${TORQUE304_SHOT:-}" ]; then
   check_text Arial_14.gft "Account:"          201 418 mask 0.98
   check_text Arial_14.gft "Password:"         201 451 mask 0.98
   check_text Arial_20.gft "Welcome to Graal!" 266 299 mask 0.92
+
+  # The main menu drawn by tq-shot from the install's own scripts, profiles
+  # and theme, box by box against the screenshot. Buttons and the text
+  # edits that do not have the keyboard focus are opaque, so they do not
+  # depend on the JPEG art behind them. AccountEdit (the focused edit, with
+  # the text cursor) and LanguageBox (pop-up menu, not drawn yet) are left out.
+  tmp=$(mktemp -d)
+  mkdir -p "$tmp/prefs/graaldata/client/ui"
+  if [ -n "${TORQUE304_SCREEN_PNG:-}" ]; then
+    cp "$TORQUE304_SCREEN_PNG" "$tmp/prefs/graaldata/client/ui/graalscreen.png"
+  fi
+  if ! "$SHOT" --root "$TORQUE304_RELEASE" --prefs "$tmp/prefs" --out "$tmp/menu.png" 2>"$tmp/notes"; then
+    echo "FAIL tq-shot: $(cat "$tmp/notes")"; fail=1
+  else
+    check_box() {  # name, x, y, w, h, minimum
+      got=$("$INSPECT" compare "$tmp/menu.png" "$TORQUE304_SHOT" "$2" "$3" "$4" "$5" | sed 's/exact //')
+      if ! awk -v g="$got" -v m="$6" 'BEGIN { exit !(g + 0 >= m + 0) }'; then
+        echo "FAIL menu $1: exact $got below $6"; fail=1
+      else
+        echo "menu $1: exact $got"
+      fi
+    }
+    check_box "background"         0   0 800  92 1
+    check_box "StartTutorialButton" 538 304 110 25 1
+    check_box "StartOptionsButton"  538 335 110 25 1
+    check_box "StartGetAccountButton" 521 366 138 25 1
+    check_box "StartConnectButton"  538 427 110 25 1
+    check_box "NickEdit"            320 330 150 22 1
+    check_box "PassEdit"            320 446 150 22 1
+    if [ -n "${TORQUE304_SCREEN_PNG:-}" ]; then
+      # Everything else differs only in LanguageBox and the text cursor.
+      check_box "whole screen"        0   0 800 600 0.993
+    fi
+  fi
+  rm -rf "$tmp"
 else
-  echo "lab_check: TORQUE304_SHOT not set, screenshot text skipped"
+  echo "lab_check: TORQUE304_SHOT not set, screenshot checks skipped"
 fi
 
 if [ "$fail" -ne 0 ]; then exit 1; fi

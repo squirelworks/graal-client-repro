@@ -31,7 +31,17 @@ BitmapArray split_bitmap_array(const Image& image) {
       if (column_is_separator(x)) { ++x; continue; }
       const int left = x;
       while (x < image.width && !column_is_separator(x)) ++x;
-      band.push_back({left, top, x - left, bottom - top});
+      // A cell shorter than its band keeps only its own rows: separator
+      // rows at its top or bottom (within its columns) are cut off.
+      auto row_is_separator = [&](int ry) {
+        for (int rx = left; rx < x; ++rx)
+          if (image.at(rx, ry) != sep) return false;
+        return true;
+      };
+      int cell_top = top, cell_bottom = bottom;
+      while (row_is_separator(cell_top)) ++cell_top;        // the band has a non-separator row
+      while (row_is_separator(cell_bottom - 1)) --cell_bottom;
+      band.push_back({left, cell_top, x - left, cell_bottom - cell_top});
     }
     result.cells.insert(result.cells.end(), band.begin(), band.end());
     result.bands.push_back(std::move(band));
