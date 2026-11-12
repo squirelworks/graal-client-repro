@@ -12,6 +12,7 @@ program TestNm24;
 
 uses
   SysUtils, Classes,
+  GClamp in '../../common/GClamp.pas',
   GCompat in '../../common/GCompat.pas',
   GPaths in '../../common/GPaths.pas',
   GNumText in '../../common/GNumText.pas',

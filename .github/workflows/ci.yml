@@ -10,7 +10,7 @@ on:
 # runs that wait on a runner do not pile up.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   # Which client folders this run builds. A pull request builds only the

@@ -27,7 +27,7 @@ unit Npc217;
 interface
 
 uses
-  Classes, SysUtils, GNumText, Math, GTypes, GLevel, GSurface, GGs1;
+  Classes, SysUtils, Math, GClamp, GTypes, GLevel, GSurface, GGs1, GNumText;
 
 const
   NPCPROP_IMAGE = 0; NPCPROP_SCRIPT = 1; NPCPROP_X = 2; NPCPROP_Y = 3;
@@ -1842,16 +1842,16 @@ begin
         I := FindImg(N, Trunc(A.Num[0]));
         if I >= 0 then
         begin
-          N.ShownImages[I].R := EnsureRange(A.Num[1], 0, 1);
-          N.ShownImages[I].G := EnsureRange(A.Num[2], 0, 1);
-          N.ShownImages[I].B := EnsureRange(A.Num[3], 0, 1);
-          N.ShownImages[I].A := EnsureRange(A.Num[4], 0, 1);
+          N.ShownImages[I].R := ClampNum(A.Num[1], 0, 1);
+          N.ShownImages[I].G := ClampNum(A.Num[2], 0, 1);
+          N.ShownImages[I].B := ClampNum(A.Num[3], 0, 1);
+          N.ShownImages[I].A := ClampNum(A.Num[4], 0, 1);
         end;
       end;
     731: { changeimgzoom index,zoom }
       begin
         I := FindImg(N, Trunc(A.Num[0]));
-        if I >= 0 then N.ShownImages[I].Zoom := EnsureRange(A.Num[1], 0.05, 8);
+        if I >= 0 then N.ShownImages[I].Zoom := ClampNum(A.Num[1], 0.05, 8);
       end;
     GsOpChangeImgVis:
       begin
