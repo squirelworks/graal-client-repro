@@ -13,6 +13,7 @@ program TestEditor203;
 
 uses
   SysUtils, Classes,
+  GCompat in '../../common/GCompat.pas',
   GNumText in '../../common/GNumText.pas',
   GLevel in '../../common/GLevel.pas',
   GLevelWrite in '../../common/GLevelWrite.pas',

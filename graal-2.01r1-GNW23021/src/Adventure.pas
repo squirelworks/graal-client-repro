@@ -15,7 +15,7 @@ unit Adventure;
 interface
 
 uses
-  Classes, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GAssetDirs, GraalClient, Protocol201r1,
+  GCompat, Classes, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GAssetDirs, GraalClient, Protocol201r1,
   Npc201r1, Baddy201r1, GTrueType;
 
 const

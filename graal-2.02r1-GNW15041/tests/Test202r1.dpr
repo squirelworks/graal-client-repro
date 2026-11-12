@@ -12,6 +12,7 @@ program Test202r1;
 
 uses
   SysUtils, Classes,
+  GCompat in '../../common/GCompat.pas',
   GPaths in '../../common/GPaths.pas',
   GNumText in '../../common/GNumText.pas',
   GTypes in '../../common/GTypes.pas',
