@@ -13,7 +13,8 @@ namespace Quattro::Net {
 void Cipher::apply(std::string& body, uint8_t type) {
   if (type & 1) return;
   size_t groups = type == kRaw ? kXorGroupsRaw : kXorGroupsPacked;
-  groups = std::min(groups, (body.size() + 3) / 4);
+  const size_t present = round_down_ && type != kRaw ? body.size() / 4 : (body.size() + 3) / 4;
+  groups = std::min(groups, present);
   for (size_t g = 0; g < groups; ++g) {
     it_ = it_ * kCipherMul + key_;
     for (size_t j = 0; j < 4; ++j) {
@@ -125,6 +126,7 @@ std::string FrameEncoder::encode(std::string_view plain) {
   } else {
     std::string z = plain.size() < 0x1000 ? zlib_compress(plain) : std::string();
     uint8_t type = choose_compression(plain.size(), z.size());
+    if (compress_always_ && type == kRaw) type = kZlib;
     if (type == kBzip2)
       body = bzip2_compress(plain);
     else if (type == kZlib)

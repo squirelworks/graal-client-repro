@@ -106,7 +106,7 @@ class Session {
 
   // Connects to the first server, named "Login", and logs in.
   bool start(const std::string& host, uint16_t port, const std::string& account,
-             const std::string& password, const std::string& language = "English");
+             const std::string& password, const std::string& language = "English", const std::string& name = "Login");
   // One tick: read, handle a pending warp, flush.
   void tick();
 

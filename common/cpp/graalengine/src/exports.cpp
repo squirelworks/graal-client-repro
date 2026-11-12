@@ -79,6 +79,10 @@ GE_API void GE_CALL shutdownGraalEngine(void) {
 
 GE_API int32_t GE_CALL graalengine_abi(void) { return GRAALENGINE_ABI; }
 
+GE_API int32_t GE_CALL graalengine_setBuild(const char* label) {
+  return graalengine::engine().setBuild(label ? label : "") ? 1 : 0;
+}
+
 GE_API int32_t GE_CALL graalengine_slotCount(void) { return kSlotCount; }
 
 GE_API const char* GE_CALL graalengine_slotName(int32_t index) {

@@ -90,7 +90,7 @@ Real builds the research has read (Graal_analysis
 needs a folder named by the folder naming rule.
 
 - [x] GraalX (`GNW23021`, a 2.01 build with the `.nw` reader; #175): `graal-x-GNW23021`
-- [ ] 5.12 Windows (`G3D14097`, Delphi launcher + engine)
+- [x] 5.12 Windows (`G3D14097`, Delphi launcher + engine): `graal-5.12-G3D14097`
 - [ ] 6.00 beta 1 Windows (`G3D03048`)
 - [ ] 6.00 beta 2 Windows (`G3D15010`)
 - [ ] 5.24r3 and 5.24r4 Windows (`G3D15010`)

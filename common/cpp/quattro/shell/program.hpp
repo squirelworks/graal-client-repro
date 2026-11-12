@@ -32,6 +32,9 @@ struct Options {
   std::string password;
   std::string language = "English";
   std::string nickname;  // empty: "unknown", as the lab's 6.03r7 sent
+  // The first server's name: "Login" (the lobby) unless the launcher
+  // connected to a server by name (the engine library's connectToGraalServer).
+  std::string server_name = "Login";
   std::string assets;  // the player's own Graal folder (levels, pics1.png)
   std::string program;  // the player's own 6.x program file, for its StartScript_* shell
   int width = 640;     // window size: see README, "Window size"

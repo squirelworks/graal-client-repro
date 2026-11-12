@@ -15,6 +15,7 @@ ENTRY = [
     "connectToGraalServer", "openGraalServerList", "enableScriptedControls",
     "prepareGraalShutdown", "shutdownGraalEngine", "graalengine_abi",
     "graalengine_slotCount", "graalengine_slotName", "graalengine_slotBuilds",
+    "graalengine_setBuild",
 ]
 
 

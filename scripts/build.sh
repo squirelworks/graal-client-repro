@@ -81,9 +81,9 @@ for B in $BUILDS; do
       esac
     fi
   fi
-  # The 4.x engine library (common/cpp/graalengine) sits next to the
+  # The 4.x/5.0 engine library (common/cpp/graalengine) sits next to the
   # launcher, as GraalEngine.dll sits next to the original Graal4.exe.
-  if [ "$B" = "graal-4.04r2-G3D17026" ] && [ -f "$ROOT/common/cpp/graalengine/Makefile" ]; then
+  if { [ "$B" = "graal-4.04r2-G3D17026" ] || [ "$B" = "graal-5.12-G3D14097" ]; } && [ -f "$ROOT/common/cpp/graalengine/Makefile" ]; then
     echo "== common/cpp/graalengine"
     CXXBIN=${CXX:-g++}
     if command -v "$CXXBIN" >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then

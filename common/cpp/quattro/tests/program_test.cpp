@@ -86,6 +86,14 @@ void test_program() {
   p.tick();
   CHECK(!p.world().lobby);
   CHECK(win.last().at(1, 1) == Draw::tile_colour(7));
+  // The same level name again with no board after it (a Seihai gserver
+  // sends it with the level's props) keeps the board.
+  game.send(gchar(6) + "onlinestartlocal.nw\n");
+  for (int i = 0; i < 20; ++i) {
+    p.tick();
+    game.pump();
+  }
+  CHECK(p.world().have_level);
 
   // Own props from the server: the client answers once with its own.
   game.send(gchar(9) + gchar(World::kX2) + Net::gshort(World::to_pixels2(20)) + gchar(World::kY2) +
