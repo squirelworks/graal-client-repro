@@ -143,8 +143,13 @@ var
   M: TNpcManager;
   N: TNpc;
   S: TGsScript;
-  Bad, I: Integer;
+  Bad, I, Ticks: Integer;
 const
+  SleepCases: array[0..8] of record Arg: string; Ticks: Integer; end = (
+    (Arg: '0.01'; Ticks: 0), (Arg: '0'; Ticks: 0), (Arg: '-1'; Ticks: 0),
+    (Arg: '0.04999'; Ticks: 0), (Arg: '0.049995'; Ticks: 1),
+    (Arg: '0.05'; Ticks: 1), (Arg: '0.06'; Ticks: 1), (Arg: '0.1'; Ticks: 2),
+    (Arg: '0.15'; Ticks: 3));
   { each stops part way through a statement; the half-built pieces must
     still be freed (the heap check at exit catches a leak) }
   Broken: array[0..4] of string = (
@@ -252,6 +257,30 @@ begin
   finally
     M.Free;
     W.Free;
+  end;
+
+  { exact 2.05r2: sleep waits floor(seconds * 20 + 0.0001) whole ticks;
+    0 ticks does not yield (#174, GS1-EFFECTS-205R2-20261109-02) }
+  for I := 0 to High(SleepCases) do
+  begin
+    W := TTestWorld.Create;
+    M := RunOne(W, 'if (playerenters) { this.a = 1; sleep ' + SleepCases[I].Arg +
+      '; this.a = 2; }', 'playerenters');
+    try
+      N := M.Npc(0);
+      Ticks := 0;
+      while (N.Ctx.Locals.Get('a', 0) <> 2) and (Ticks < 10) do
+      begin
+        M.Tick;
+        Inc(Ticks);
+      end;
+      C(Ticks = SleepCases[I].Ticks, 'GS1 2.05r2: sleep ' + SleepCases[I].Arg +
+        ' resumes after ' + IntToStr(SleepCases[I].Ticks) + ' ticks (got ' +
+        IntToStr(Ticks) + ')');
+    finally
+      M.Free;
+      W.Free;
+    end;
   end;
 end;
 

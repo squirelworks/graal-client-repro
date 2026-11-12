@@ -374,6 +374,10 @@ type
       out S: string): Boolean; virtual;
     { Runs a command. True ends the script run. }
     function Command(Ctx: TGsContext; Op: Integer; const A: TGsArgs): Boolean; virtual;
+    { Whether sleep with this argument ends the run and resumes on a later
+      timeout. Default: any positive time. A build whose sleep rounds to
+      whole ticks overrides it, so a sleep shorter than a tick goes on. }
+    function SleepYields(Ctx: TGsContext; Seconds: Double): Boolean; virtual;
     procedure Error(Ctx: TGsContext; const Msg: string); virtual;
   end;
 
@@ -422,7 +426,7 @@ procedure GsSplitArgs(const S: string; N: Integer; Parts: TStrings);
 implementation
 
 uses
-  StrUtils;
+  GNumText;
 
 { ---- helpers ---- }
 
@@ -461,28 +465,16 @@ begin
 end;
 
 function GsFormatNum(V: Double): string;
-var
-  FS: TFormatSettings;
 begin
   if (Abs(V) < 1E15) and (Frac(V) = 0) then
     Result := IntToStr(Trunc(V))
   else
-  begin
-    FS := DefaultFormatSettings;
-    FS.DecimalSeparator := '.';
-    Result := FloatToStrF(V, ffGeneral, 15, 0, FS);
-  end;
+    Result := DotFloatToText(V, 15);
 end;
 
 function ParseNumber(const S: string; out V: Double): Boolean;
-var
-  FS: TFormatSettings;
-  T: string;
 begin
-  T := Trim(S);
-  FS := DefaultFormatSettings;
-  FS.DecimalSeparator := '.';
-  Result := (T <> '') and TryStrToFloat(T, V, FS);
+  Result := TryDotTextToFloat(S, V);
 end;
 
 { The end of a #x(...) code starting at I (the '#'), or 0 when there is
@@ -677,7 +669,6 @@ const
 var
   I: Integer;
   T: string;
-  FS: TFormatSettings;
 begin
   SkipSpace;
   TokStart := P;
@@ -707,9 +698,7 @@ begin
     I := P;
     while (P <= Length(S)) and (S[P] in ['0'..'9', '.']) do Inc(P);
     T := Copy(S, I, P - I);
-    FS := DefaultFormatSettings;
-    FS.DecimalSeparator := '.';
-    if not TryStrToFloat(T, TokNum, FS) then TokNum := 0;
+    if not TryDotTextToFloat(T, TokNum) then TokNum := 0;
     TokKind := tkNum;
     Tok := T;
     Exit;
@@ -1475,7 +1464,7 @@ begin
       while (J <= L) and (T[J] in ['a'..'z', '0'..'9', '_']) do Inc(J);
       if J > I then Result := Result + Copy(T, I, J - I) + ',';
     end;
-    I := PosEx('function', T, J);
+    I := PosFrom('function', T, J);
   end;
 end;
 
@@ -1771,6 +1760,11 @@ end;
 function TGsHost.Command(Ctx: TGsContext; Op: Integer; const A: TGsArgs): Boolean;
 begin
   Result := False;
+end;
+
+function TGsHost.SleepYields(Ctx: TGsContext; Seconds: Double): Boolean;
+begin
+  Result := Seconds > 0;
 end;
 
 procedure TGsHost.Error(Ctx: TGsContext; const Msg: string);
@@ -2305,7 +2299,7 @@ begin
               GsOpSleep:
                 begin
                   if Host.Command(Self, Op, A) then Ended := True;
-                  if A.Num[0] > 0 then
+                  if Host.SleepYields(Self, A.Num[0]) then
                   begin
                     ResumeAt := PC;
                     Ended := True;

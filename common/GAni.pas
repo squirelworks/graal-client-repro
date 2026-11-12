@@ -105,7 +105,7 @@ type
 implementation
 
 uses
-  SysUtils, Classes;
+  SysUtils, Classes, GNumText;
 
 function TGraalAni.LoadFromFile(const FileName: string): Boolean;
 var
@@ -278,13 +278,13 @@ var
       if Q = 0 then Continue;
       K := LowerCase(Trim(Copy(Item, 1, Q - 1)));
       V := Copy(Item, Q + 1, MaxInt);
-      if K = 'dx' then Key.DX := StrToFloatDef(Trim(V), 0, DefaultFormatSettings)
-      else if K = 'dy' then Key.DY := StrToFloatDef(Trim(V), 0, DefaultFormatSettings)
+      if K = 'dx' then Key.DX := DotTextToFloatDef(Trim(V), 0)
+      else if K = 'dy' then Key.DY := DotTextToFloatDef(Trim(V), 0)
       else if K = 'sprite #' then Key.Sprite := StrToIntDef(Trim(V), -1)
       else if K = 'layer' then Key.Layer := StrToIntDef(Trim(V), 0)
       else if K = 'text' then Key.Text := V
       else if K = 'font' then Key.Font := Trim(V)
-      else if K = 'fontsize' then Key.FontSize := StrToFloatDef(Trim(V), 12, DefaultFormatSettings)
+      else if K = 'fontsize' then Key.FontSize := DotTextToFloatDef(Trim(V), 12)
       else if K = 'color' then Key.Color := Cardinal(StrToIntDef('$' + Trim(V), $FFFFFF))
       else if K = 'bold' then Key.Bold := LowerCase(Trim(V)) = 'true'
       else if K = 'italic' then Key.Italic := LowerCase(Trim(V)) = 'true'

@@ -8,6 +8,7 @@ program TestSoundMap136;
 
 uses
   SysUtils, Classes,
+  GNumText in '../../common/GNumText.pas',
   GTypes in '../../common/GTypes.pas',
   GSurface in '../../common/GSurface.pas',
   GAssetDirs in '../../common/GAssetDirs.pas',
