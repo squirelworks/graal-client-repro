@@ -18,6 +18,7 @@ its files, or keep those files in a `graal-assets/` folder beside it.
 
 ## What's new in v0.0.5
 
+- [x] **Minimap only on the map.** The minimap is drawn only on a level of its grid, as the real client does: a server's level off the map (or a house or cave) shows none. Before, it was drawn on every level.
 - [x] **Chests from the server are drawn.** A chest that arrives only as `PLO_LEVELCHEST` (4), on a board with no chest tiles, is drawn closed, and one sent as already opened is drawn opened, as the real client does (lab run 2026-11-12). Before, it blocked the player and could be opened but stayed invisible until then.
 - [x] **F1 Help window.** F1 opens "Help" from the build's own form (TOptions): the "Game windows" group and Close. It is a real dialog on Windows and drawn elsewhere. Edit level and Debugger are hidden, as 2.31 hides them at run time; the other buttons close it and do nothing yet.
 - [x] **Neutral window titles.** The server list window is titled "Server List" and the start window "Graal", not the original's caption, which named the original's host (#191).

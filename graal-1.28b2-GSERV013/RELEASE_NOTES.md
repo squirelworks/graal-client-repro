@@ -15,6 +15,7 @@ sounds or levels. The client carries simple graphics of its own.
 
 ## What's new in v0.0.5
 
+- [x] **Minimap only on the map.** The minimap is drawn only on a level of its grid, as the real client does: a server's level off the map (or a house or cave) shows none. Before, it was drawn on every level.
 - [x] **Asleep at the start.** One Player starts asleep in the left bed, only the head showing, as the real client does; the first key wakes the player, who gets up without acting on that press.
 - [x] **F1 Options window.** F1 opens "Options" from the build's own form (TOptions), with the current level's file name filled in. Edit level opens the editor. The other buttons close it and do nothing yet. Linux and macOS draw the form in a window of their own.
 - [x] **Default server.** The server field now starts on the rebuild's own default (listserver.txt, else `listserver.graal.in`) instead of the original's long-gone host, so the code that swapped that host out on connect is gone.
