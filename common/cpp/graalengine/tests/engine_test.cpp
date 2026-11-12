@@ -533,7 +533,10 @@ void testPainter() {
 // connector set: the 4.04r2 login line with the account the menus set,
 // the 178 hand-on, the level, the own props, walking from the moveRight2D
 // binding, and the chat bar's text as the player's chat.
-void testLoopbackSession() {
+// `build` is the launcher's build (graalengine_setBuild), `labEnv` the
+// variable naming that build's own engine file for the lab half, and
+// `loginTail` the machine fields its login line ends with.
+void testLoopbackSession(const char* build, const char* labEnv, const std::string& loginTail) {
   using QuattroTest::FakeServer;
   using Quattro::Net::gchar;
   using Quattro::Net::gshort;
@@ -545,7 +548,7 @@ void testLoopbackSession() {
   const fs::path dir = fs::temp_directory_path() / "graalengine-session";
   fs::remove_all(dir);
   fs::create_directories(dir);
-  const char* lab = std::getenv("GRAAL404_ENGINE");
+  const char* lab = std::getenv(labEnv);
   const bool withMenus = lab && *lab;
   if (withMenus) {
 #ifdef _WIN32
@@ -556,8 +559,11 @@ void testLoopbackSession() {
   }
   screenW = 640;
   screenH = 480;
+  CHECK(graalengine_setBuild(build) == 1);
   CHECK(graal_engineInitialize((dir / "Graal4.exe").string().c_str()) == 1);
   auto& e = graalengine::engine();
+  CHECK(e.build() == build);
+  CHECK(e.machine()->profile() == (build[0] == '4' ? gs2::Profile::Engine42 : gs2::Profile::Engine50));
   loadGraalGui();
   auto run = [&](const std::string& code) {
     using gs2asm::Asm;
@@ -575,6 +581,8 @@ void testLoopbackSession() {
   run("Adventure_setNickName Tester");
 
   FakeServer login, game;
+  // A server for 5.12 steps short packed frames as 5.12 does.
+  login.round_down = game.round_down = e.build() == "5.12";
   CHECK(login.start() && game.start());
   auto pump = [&](FakeServer* s, auto done) {
     auto end = std::chrono::steady_clock::now() + std::chrono::seconds(3);
@@ -591,7 +599,7 @@ void testLoopbackSession() {
   if (!e.session()) return;
   CHECK(login.conn.accept_from(login.listener));
   CHECK(pump(&login, [&] { return login.saw(37, "English"); }));
-  const std::string line = "G3D17026" + gstring("guest") + gstring("pw") + "win,\"\",\"\",\"\"";
+  const std::string line = Quattro::Net::find_profile(build)->token + gstring("guest") + gstring("pw") + loginTail;
   CHECK(login.login_line == line);
 
   login.send(gchar(178) + "0,Lab Server,127.0.0.1," + std::to_string(game.port()) + "\n");
@@ -673,7 +681,9 @@ int main() {
   testLabStartScripts();
   testPainter();
   testLabMenuInput();
-  testLoopbackSession();
+  testLoopbackSession("4.04r2", "GRAAL404_ENGINE", "win,\"\",\"\",\"\"");
+  testLoopbackSession("5.12", "GRAAL512_ENGINE", "win,\"\",\"\",\"\",\"6.2 9200 \"");
+  CHECK(graalengine_setBuild("9.99") == 0);
   if (failures) {
     std::fprintf(stderr, "%d check(s) failed\n", failures);
     return 1;

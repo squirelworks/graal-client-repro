@@ -19,6 +19,9 @@ bool Connection::connect(const std::string& host, uint16_t port, uint8_t key) {
   }
   enc_ = std::make_unique<FrameEncoder>(key_);
   dec_ = std::make_unique<FrameDecoder>(key_, [this](int id, std::string_view body) { deliver(id, body); });
+  enc_->set_packed_round_down(profile_.packed_round_down);
+  enc_->set_compress_always(profile_.compress_always);
+  dec_->set_packed_round_down(profile_.packed_round_down);
   return true;
 }
 
@@ -32,6 +35,7 @@ void Connection::close() {
 std::string Connection::login_line(const std::string& account, const std::string& password) const {
   std::string line = gchar(key_) + profile_.token + gstring(account) + gstring(password) + profile_.platform;
   for (int i = 0; i < profile_.machine_fields; ++i) line += ",\"\"";
+  if (profile_.has_os_version) line += ",\"" + profile_.os_version + "\"";
   return line;
 }
 

@@ -1,9 +1,9 @@
 // The 2D session of the engine library: what connectToGraalServer starts
 // when no session code was set with Engine::setConnector.
 //
-// 4.04r2 is gen 5 on the wire, as the Quattro program (common/cpp/quattro)
-// is, so the session is that program's: its connection (the "4.04r2
-// Windows" build row), level, walking and world passes. The world is drawn
+// 4.04r2, 5.00r7 and 5.12 are gen 5 on the wire, as the Quattro program
+// (common/cpp/quattro) is, so the session is that program's: its
+// connection (the launcher's build row), level, walking and world passes. The world is drawn
 // into the GS2 screen where GraalGui puts its GuiGraalCtrl (GraalControl);
 // the arrows come from the MoveMap2D bindings (moveUp2D ...), and the chat
 // bar's Adventure_setChat is the player's chat.
@@ -30,6 +30,7 @@ class Session2D {
     int port = 0;
     std::string account, password, nickname;
     std::string installDir;
+    std::string build = "4.04r2";  // the wire row (Engine::setBuild)
   };
   explicit Session2D(Login login);
   ~Session2D();

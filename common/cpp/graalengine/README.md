@@ -146,6 +146,24 @@ With the player's own 4.04r2 `GraalEngine.dll` (`GRAAL404_ENGINE`) the
 world shows in `GraalControl` and the right arrow walks through the real
 MoveMap2D binding.
 
+## Which build (rebuild only)
+
+`graalengine_setBuild(label)`, called before `graal_engineInitialize`,
+names the launcher's build: `4.04r2` (the default), `5.00r7` or `5.12`. It
+picks the session's wire row (`common/cpp/quattro/net/profile.cpp`) and
+the GS2 opcode profile (4.2 for 4.x, 5.0 for 5.x). The original library
+had no such call; each was built for its own launcher. The 5.0 launcher
+has no `LogGraalMessage`, so with no log slot the engine's lines go to
+stderr when `GRAALENGINE_LOG` is set, and the playfield is drawn with
+`DrawGraphics` (no stretched draw on 5.0).
+
+`make test` runs the loopback session for 4.04r2 and for 5.12 (5.12's
+login line with its fifth field, every frame zlib with its cipher step,
+the hand-on, level, walk and chat). With `GRAAL512_ENGINE` set to the
+player's own 5.12 `GraalEngine.dll`, the 5.12 run also checks the real
+GraalGui's playfield and the arrow key, as `GRAAL404_ENGINE` does for
+4.04r2.
+
 ## Where the rest plugs in
 
 - The GS2 controls (Track B4) register their object factory and GUI

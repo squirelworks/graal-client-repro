@@ -162,6 +162,12 @@ GE_API void GE_CALL shutdownGraalEngine(void);
 #define GRAALENGINE_ABI 1
 GE_API int32_t GE_CALL graalengine_abi(void);
 
+/* The launcher's build ("4.04r2", "5.00r7", "5.12"), before
+ * graal_engineInitialize: the session's wire row and the GS2 opcode
+ * profile. 4.04r2 when never called. Returns 0 for a build the library
+ * has no row for (the build is then left as it was). */
+GE_API int32_t GE_CALL graalengine_setBuild(const char *label);
+
 /* The slot list, for a launcher to check its own list against the
  * library's: the count, then each name (without `graal_set`) and its
  * GRAAL_BUILD_* bits. Out-of-range indexes give NULL and 0. */

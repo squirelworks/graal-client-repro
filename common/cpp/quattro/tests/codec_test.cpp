@@ -196,6 +196,55 @@ void test_profiles() {
   CHECK(handles_pre_switch(100) && handles_pre_switch(108));
   CHECK(find_profile("7.0") == nullptr);
   CHECK(find_profile("6.0") == nullptr);
+
+  // 5.00r7 and 5.12: the same 100-id switch (v5v6-windows-unpacked.md).
+  const BuildProfile* r500 = find_profile("5.00r7");
+  const BuildProfile* r512 = find_profile("5.12");
+  CHECK(r500 && r512);
+  if (!r500 || !r512) return;
+  CHECK(r500->token == "G3D22067" && r512->token == "G3D14097");
+  CHECK(r500->plo.count() == 100 && r512->plo == r500->plo);
+  CHECK(r512->plo.test(41) && r512->plo.test(193) && !r512->plo.test(198));
+  CHECK(!r512->pli.test(39) && r512->pli.test(5) && r512->pli == r500->pli);
+  CHECK(r512->packed_round_down && r512->compress_always && !r500->packed_round_down);
+  CHECK(r512->has_os_version && !r500->has_os_version);
+}
+
+// 5.12 steps packed bodies len / 4 rounded down; raw ones still round up
+// (protocol/v5v6-lab-play.md, "5.12's cipher step count").
+void test_round_down() {
+  for (size_t n : {13u, 14u, 15u, 16u, 20u}) {
+    Cipher up(9), down(9);
+    down.set_packed_round_down(true);
+    std::string a(n, '\0'), b(n, '\0');
+    up.apply(a, kZlib);
+    down.apply(b, kZlib);
+    const size_t full = std::min<size_t>(n / 4, 4);
+    for (size_t p = 0; p < full * 4; ++p) CHECK(a[p] == b[p]);
+    for (size_t p = full * 4; p < n; ++p) CHECK(b[p] == 0);
+    // One step short exactly when a short packed body is not a multiple of 4.
+    CHECK((up.iterator() == down.iterator()) == (n % 4 == 0 || n >= 16));
+  }
+  Cipher up(9), down(9);
+  down.set_packed_round_down(true);
+  std::string a(13, '\0'), b(13, '\0');
+  up.apply(a, kRaw);
+  down.apply(b, kRaw);
+  CHECK(a == b && up.iterator() == down.iterator());
+
+  // A round-down encoder and decoder agree; every short body is zlib.
+  FrameEncoder enc(0x21, false);
+  enc.set_packed_round_down(true);
+  enc.set_compress_always(true);
+  std::vector<std::string> got;
+  FrameDecoder dec(0x21, [&](int, std::string_view b) { got.emplace_back(b); });
+  dec.set_packed_round_down(true);
+  for (const char* m : {"!a\n", "!bcdefg\n", "!hi\n"}) {
+    const std::string f = enc.encode(m);
+    CHECK(static_cast<unsigned char>(f[2]) == kZlib);
+    dec.feed(f);
+  }
+  CHECK(!dec.failed() && got.size() == 3 && got[2] == "hi");
 }
 
 }  // namespace
@@ -211,5 +260,6 @@ int main() {
   test_bad_frames();
   test_login_frame();
   test_profiles();
+  test_round_down();
   TEST_MAIN_END();
 }

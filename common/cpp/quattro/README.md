@@ -65,11 +65,21 @@ commands. Nothing here re-implements the machine.
 |---|---|---|---|
 | 6.03r7 Linux | `G3D0511C` | `net/profile.cpp` | `graal-6.03r7-G3D0511C` |
 | 6.01r1 Linux | `G3D0108A` | `net/profile.cpp` | `graal-6.01r1-G3D0108A` |
+| 4.04r2 Windows (the engine library's session) | `G3D17026` | `net/profile.cpp` | `graal-4.04r2-G3D17026` |
+| 5.00r7 Windows (the engine library's session) | `G3D22067` | `net/profile.cpp` | `graal-5.00r7-G3D22067` |
+| 5.12 Windows (the engine library's session) | `G3D14097` | `net/profile.cpp` | `graal-5.12-G3D14097` |
 | 5.30r3, 5.31r4, Windows 6.00r2, 6.00r4, 6.03r7, 6.00 betas | | later (Track D3, D5) | |
 | 6.11r1 Mac, 6.1.1.3 | set by the connector script | later (Track D4) | |
 
 Linux first: those two are unpacked native binaries, so their notes are the
 most complete.
+
+The 4.x and 5.0 rows are used by `common/cpp/graalengine`, whose session
+is this program's. 5.12 carries two codec rules of its own, set from its
+row: a fifth login field (the quoted Windows version), and compressed
+frames that are always zlib below the bzip2 size and stepped `len / 4`
+rounded down (`Cipher::set_packed_round_down`; Graal_analysis
+`protocol/v5v6-lab-play.md`, "5.12's cipher step count").
 
 ## Build and test
 

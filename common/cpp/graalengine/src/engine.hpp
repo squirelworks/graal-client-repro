@@ -57,6 +57,13 @@ class Engine {
   gs2::Machine* machine() { return machine_.get(); }
   void setProfile(gs2::Profile p) { profile_ = p; }
 
+  // The build the launcher is ("4.04r2", "5.00r7", "5.12"; the rebuild's
+  // graalengine_setBuild, called before graal_engineInitialize). It picks
+  // the session's wire row (common/cpp/quattro/net/profile.cpp) and the GS2
+  // profile: 4.2 for 4.x, 5.0 for 5.x. False for a build with no row.
+  bool setBuild(const std::string& label);
+  const std::string& build() const { return build_; }
+
   // The file the start scripts are read from: GRAAL_ENGINE_FILE, else the
   // install's own GraalEngine.dll, else the launcher's exe (the player's
   // own copy; nothing from it is kept). Empty when none has scripts.
@@ -141,6 +148,7 @@ class Engine {
   bool scriptedControls_ = true;
   int initCount_ = 0;
   gs2::Profile profile_ = gs2::Profile::Engine42;
+  std::string build_ = "4.04r2";
   std::unique_ptr<gs2::Machine> machine_;
   ControlResolver controlOf_;
   std::map<std::string, std::shared_ptr<const gs2::Script>> startScripts_;

@@ -3,8 +3,11 @@
 #include "gui_host.hpp"
 #include "host.hpp"
 #include "session.hpp"
+#include "../../quattro/net/profile.hpp"
 
+#include <algorithm>
 #include <cctype>
+#include <cstdio>
 #include <cstdlib>
 #include <fstream>
 
@@ -48,7 +51,22 @@ std::string Engine::installDir() const {
   return exePath_.substr(0, cut);
 }
 
-void Engine::log(const std::string& line) { host::LogGraalMessage(line.c_str()); }
+void Engine::log(const std::string& line) {
+  // The 5.0 launcher has no LogGraalMessage (torque/5007-launcher.md);
+  // GRAALENGINE_LOG sends the lines to stderr instead, for lab runs.
+  if (host::hasLogGraalMessage()) host::LogGraalMessage(line.c_str());
+  else if (const char* v = std::getenv("GRAALENGINE_LOG"); v && *v) std::fprintf(stderr, "%s\n", line.c_str());
+}
+
+bool Engine::setBuild(const std::string& label) {
+  const auto* row = Quattro::Net::find_profile(label);
+  if (!row) return false;
+  build_ = label;
+  // The 4.2.0.8 and 5.0.0.7 engines run the same machine with a few
+  // opcodes added (client-internals/gs2-vm-from-engines.md).
+  profile_ = label.rfind("4.", 0) == 0 ? gs2::Profile::Engine42 : gs2::Profile::Engine50;
+  return true;
+}
 
 bool Engine::initialize(const char* exePath) {
   ++initCount_;
@@ -174,6 +192,7 @@ void Engine::connect(const std::string& rawName, const std::string& host, int po
   l.password = account_.password;
   l.nickname = account_.nickname;
   l.installDir = installDir();
+  l.build = build_;
   session_ = std::make_unique<Session2D>(l);
   if (!session_->start()) log("GraalEngine: could not connect to " + name);
 }
@@ -205,8 +224,10 @@ void Engine::installScreen() {
     const graal_texture& f = session_->frame();
     if (f.width == r.w && f.height == r.h)
       host::DrawGraphics(&f, r.x, r.y, 0, 0, f.width, f.height, 0xFFFFFFFFu);
-    else
+    else if (host::hasDrawGraphicsStretched())
       host::DrawGraphicsStretched(&f, r.x, r.y, r.w, r.h, 0, 0, f.width, f.height, 0xFFFFFFFFu);
+    else  // the 5.0 launcher has no stretched draw: the frame's top left
+      host::DrawGraphics(&f, r.x, r.y, 0, 0, std::min(f.width, r.w), std::min(f.height, r.h), 0xFFFFFFFFu);
   };
   screenControl_ = std::make_shared<ScreenControl>(*screen_, *painter_);
   if (!controlOf_) {
