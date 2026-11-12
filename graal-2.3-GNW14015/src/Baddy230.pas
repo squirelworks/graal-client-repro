@@ -42,7 +42,7 @@ unit Baddy230;
 interface
 
 uses
-  Classes, SysUtils, Math, GTypes, GLevel, GSurface, GArrays;
+  Classes, SysUtils, Math, GClamp, GTypes, GLevel, GSurface, GArrays;
 
 const
   BdWalk = 0;
@@ -345,7 +345,7 @@ var
   { one byte: kept to what the wire can carry }
   function GChar(V: Integer): Char;
   begin
-    Result := GTypes.GChar(EnsureRange(V, 0, 223));
+    Result := GTypes.GChar(ClampInt(V, 0, 223));
   end;
 
 begin
@@ -383,12 +383,12 @@ begin
       0: B.Id := V;
       1:
         begin
-          B.X := EnsureRange(V / 2, 0, 63);
+          B.X := ClampNum(V / 2, 0, 63);
           B.StartX := B.X;
         end;
       2:
         begin
-          B.Y := EnsureRange(V / 2, 0, 63);
+          B.Y := ClampNum(V / 2, 0, 63);
           B.StartY := B.Y;
         end;
       3:
