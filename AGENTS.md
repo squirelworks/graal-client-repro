@@ -62,3 +62,11 @@ or release by hand. Start with [HANDOFF-CURSOR.md](HANDOFF-CURSOR.md) and
   each side plus the Graal_analysis version profiles; its notes say which.
 - Squirrel's Windows PC is used only to run the real clients for captures
   and the final check. Build, test, stress and diff in CI or the cloud.
+
+## macOS builds
+
+macOS is not built on GitHub's macOS runners. It is built and tested on the
+lab's Sequoia (macOS 15) VM on GwenTea2 (`start-macos.sh`, then `ssh builder@`),
+with the same build and test commands the Linux job runs. GitHub CI covers
+Linux and Windows. Each VM run's log is kept as `~/Claude/sequoia-ci/<repo>.log`
+on GwenTea2.
