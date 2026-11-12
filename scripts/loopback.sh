@@ -13,6 +13,16 @@ set -eu
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 GS=$1
 B=${2:-graal-2.05r2-GNW03081}
+# the client program: the build of the folder's Graal*.dpr. "ls Graal* |
+# head -1" picked a unit object such as GraalClient.o when one sorts first.
+client_bin() {
+  for D in "$ROOT/$B"/src/Graal*.dpr; do
+    F="$ROOT/build/$B/$(basename "$D" .dpr)"
+    if [ -x "$F" ]; then echo "$F"; return; fi
+  done
+  echo "$B: no built Graal*.dpr program in build/$B" >&2
+  return 1
+}
 # the 1998 builds (gen 1) talk to a relay, not to a gserver
 if grep -qs "ClientGeneration = 1;" "$ROOT/$B"/src/Protocol*.pas; then
   exec "$ROOT/scripts/loopback-relay.sh" "$B"
@@ -159,7 +169,7 @@ if grep -qs "ConnectorOnly = True;" "$ROOT/$B"/src/*.pas; then
   sed -i "s/14802/$PORT/" "$WORK/world/config/server.txt"
   "$GS" --world "$WORK/world" --verbose > "$WORK/gserver.log" 2>&1 &
   PID=$!
-  CLIENT=$(ls "$ROOT/build/$B"/Graal* | head -1)
+  CLIENT=$(client_bin)
   "$CLIENT" --connector-serve "$CPORT" --conf "$ROOT/$B/connector/sei00001-conf.gs" \
     --seconds 10 > "$WORK/connector.log" 2>&1 &
   CPID=$!
@@ -205,7 +215,7 @@ if grep -qs "ClearHelloStop = True;" "$ROOT/$B"/src/*.pas; then
   "$GS" --world "$WORK/world" --verbose > "$WORK/gserver.log" 2>&1 &
   PID=$!
   sleep 2
-  CLIENT=$(ls "$ROOT/build/$B"/Graal* | head -1)
+  CLIENT=$(client_bin)
   set +e
   GRAAL_PW=loopbackpw "$CLIENT" --server 127.0.0.1:$PORT --account loop1 \
     --frames 4 > "$WORK/hello.json" 2> "$WORK/hello.log"
@@ -254,7 +264,7 @@ done
 "$GS" --world "$WORK/world" --verbose > "$WORK/gserver.log" 2>&1 &
 PID=$!
 sleep 2
-CLIENT=$(ls "$ROOT/build/$B"/Graal* | head -1)
+CLIENT=$(client_bin)
 set +e
 # loop1 logs in and walks; loop2 joins while loop1 is there and must see it
 GRAAL_PW=loopbackpw "$CLIENT" --server 127.0.0.1:$PORT --account loop1 \
