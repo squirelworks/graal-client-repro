@@ -32,7 +32,7 @@ unit Dialogs230;
 interface
 
 uses
-  Classes, GSurface, GWindow;
+  Classes, GSplit, GSurface, GWindow;
 
 type
   { graalconfig.txt: name=value lines, kept in their order }
@@ -422,9 +422,7 @@ begin
   Words := TStringList.Create;
   try
     { split at spaces only (ExtractStrings would treat ' as a quote) }
-    Words.Delimiter := ' ';
-    Words.StrictDelimiter := True;
-    Words.DelimitedText := T;
+    SplitDelimited(T, ' ', Words);
     for I := Words.Count - 1 downto 0 do
       if Words[I] = '' then Words.Delete(I);
     Line := '';
