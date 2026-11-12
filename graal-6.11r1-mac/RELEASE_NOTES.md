@@ -3,7 +3,7 @@
 The first rebuild of a client that acts like Mac OS X 6.11r1. Original
 Pascal. It shares the 6.1.1.3 folder's framer and connector units.
 
-**Login token: none.** The original sends no version token, so there is nothing to check here.
+**Login token: set by the server.** The original stores no token: its login is built by the connector script the server sends. In a lab replay, the real Mac client ran a captured connector script that sends `GNP1905C`. This rebuild runs this project's own connector script, which sends the placeholder `SEI00001`.
 
 > **Not affiliated.** graal-delphi is an independent fan project. It is not
 > affiliated with, endorsed by, or connected to GraalOnline or
