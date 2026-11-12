@@ -110,8 +110,14 @@ guessed.
   (118, 120), multi-dimensional arrays and the array methods (133 to
   142), `foreach` (163)
 - [ ] The built-in command table and its signature letters (B2)
-- [ ] Joined classes: the instruction walk across a class's code, and the
-  event masks OR-ed in
+- [x] Classes (`addClassScript`, packets 133 and 134) and `join`/`leave`:
+  a joined class's functions and events are found after the object's own,
+  and an object whose only code is a class gets `created`
+- [ ] Whether the engines run a class's `onCreated` when an object that has
+  its own joins it (here they do not), and the event masks OR-ed in
+- [x] Script delivery (`delivery.cpp`): 131 to an object by id, 132 to a
+  named object, 133 and 134 into classes, 193 from the weapon cache when its
+  CRC32 matches
 - [ ] The second event-mask word and `needEvent`
 - [ ] What an event runs: here `created` runs the script's `onCreated`; the
   read names the queued event but not the lookup

@@ -170,6 +170,14 @@ class Machine {
   bool setScript(const VarPtr& var, std::shared_ptr<const Script> script);
   bool hasScript(const VarPtr& var) const;
 
+  // Classes: a script stored by name (`addClassScript`, packet 133; a gani's
+  // is `gani.` plus its name, packet 134) that objects join. A joined
+  // class's functions and events are found after the object's own.
+  bool addClassScript(const std::string& name, const std::string& bytes, std::string* error = nullptr);
+  std::shared_ptr<const Script> classScript(const std::string& name) const;
+  bool joinClass(const VarPtr& var, const std::string& name);
+  void leaveClass(const VarPtr& var, const std::string& name);
+
   // Events are run by runScripts, in queue order.
   bool queueEvent(const VarPtr& var, const std::string& name, std::vector<Value> args = {});
   void invokeInitialized(const VarPtr& var);
@@ -236,6 +244,8 @@ class Machine {
   Value execute(Exec& ex);
   void error(const std::string& text, const Space* sp);
   VarPtr resolveName(Exec& ex, const std::string& name, bool create);
+  const Function* findFunction(const Space* sp, const std::string& name, std::shared_ptr<const Script>* piece) const;
+  bool hasCode(const Space* sp) const;
 
   Profile profile_;
   VarPtr universe_;
@@ -248,6 +258,7 @@ class Machine {
   Factory factory_;
   struct Catch { std::string object, event; std::weak_ptr<Var> catcher; std::string function; };
   std::vector<Catch> catches_;
+  std::map<std::string, std::shared_ptr<const Script>> classes_;  // lower-cased names
   std::vector<VarPtr> objects_;
   double clock_ = 0;
   std::uint64_t executed_ = 0;

@@ -108,6 +108,7 @@ struct Machine::Space {
   struct Scheduled { double deadline; std::string name; std::vector<Value> args; };
   std::vector<Scheduled> scheduled;
   std::vector<std::unique_ptr<Exec>> sleeping;
+  std::vector<std::pair<std::string, std::shared_ptr<const Script>>> joined;
 };
 
 Machine::Machine(Profile profile) : profile_(profile), universe_(std::make_shared<Var>("universe")) {}
@@ -131,6 +132,60 @@ Machine::Space* Machine::space(const VarPtr& var, bool create) {
 bool Machine::hasScript(const VarPtr& var) const {
   auto it = spaces_.find(var.get());
   return it != spaces_.end() && it->second->script != nullptr;
+}
+
+bool Machine::hasCode(const Space* sp) const { return sp && (sp->script || !sp->joined.empty()); }
+
+const Function* Machine::findFunction(const Space* sp, const std::string& name,
+                                      std::shared_ptr<const Script>* piece) const {
+  if (!sp) return nullptr;
+  if (sp->script)
+    if (const Function* f = sp->script->findFunction(name)) {
+      if (piece) *piece = sp->script;
+      return f;
+    }
+  for (const auto& [cls, sc] : sp->joined)
+    if (const Function* f = sc->findFunction(name)) {
+      if (piece) *piece = sc;
+      return f;
+    }
+  return nullptr;
+}
+
+bool Machine::addClassScript(const std::string& name, const std::string& bytes, std::string* error) {
+  auto r = load(bytes, profile_);
+  if (!r.ok()) {
+    if (error) *error = r.error;
+    return false;
+  }
+  classes_[lower(name)] = r.script;
+  return true;
+}
+
+std::shared_ptr<const Script> Machine::classScript(const std::string& name) const {
+  auto it = classes_.find(lower(name));
+  return it == classes_.end() ? nullptr : it->second;
+}
+
+bool Machine::joinClass(const VarPtr& var, const std::string& name) {
+  auto sc = classScript(name);
+  Space* sp = space(var, true);
+  if (!sc || !sp) return false;
+  for (const auto& j : sp->joined)
+    if (lower(j.first) == lower(name)) return true;
+  const bool had = hasCode(sp);
+  sp->joined.emplace_back(name, sc);
+  if (!had && !sc->code.empty()) queueEvent(var, "created");
+  return true;
+}
+
+void Machine::leaveClass(const VarPtr& var, const std::string& name) {
+  Space* sp = space(var, false);
+  if (!sp) return;
+  const std::string n = lower(name);
+  sp->joined.erase(std::remove_if(sp->joined.begin(), sp->joined.end(),
+                                  [&](const auto& j) { return lower(j.first) == n; }),
+                   sp->joined.end());
 }
 
 bool Machine::setScript(const VarPtr& var, const std::string& bytes, std::string* error) {
@@ -174,7 +229,7 @@ bool Machine::queueEvent(const VarPtr& var, const std::string& name, std::vector
       if (c.object != obj || c.event != ev) continue;
       auto who = c.catcher.lock();
       Space* csp = space(who, false);
-      if (!csp || !csp->script) continue;
+      if (!hasCode(csp)) continue;
       // The catcher's function is queued by its own name (an `on` prefix is
       // what makes it an event handler, so it is taken off here).
       std::string fn = lower(c.function);
@@ -183,7 +238,7 @@ bool Machine::queueEvent(const VarPtr& var, const std::string& name, std::vector
     }
   }
   Space* sp = space(var, false);
-  if (!sp || !sp->script) return false;
+  if (!hasCode(sp)) return false;
   if (sp->actions.size() >= kMaxActions) {
     error("Events number overrun for " + name, sp);
     return false;
@@ -194,7 +249,7 @@ bool Machine::queueEvent(const VarPtr& var, const std::string& name, std::vector
 
 void Machine::invokeInitialized(const VarPtr& var) {
   Space* sp = space(var, false);
-  if (!sp || !sp->script) return;
+  if (!hasCode(sp)) return;
   sp->initialized = true;
   sp->actions.erase(std::remove_if(sp->actions.begin(), sp->actions.end(),
                                    [](const Space::Action& a) { return a.name == "created"; }),
@@ -204,7 +259,7 @@ void Machine::invokeInitialized(const VarPtr& var) {
 
 void Machine::scheduleEvent(const VarPtr& var, double delay, const std::string& name, std::vector<Value> args) {
   Space* sp = space(var, false);
-  if (!sp || !sp->script) return;
+  if (!hasCode(sp)) return;
   sp->scheduled.push_back({clock_ + delay, lower(name), std::move(args)});
 }
 
@@ -346,13 +401,13 @@ VarPtr Machine::toObject(const Value& v) const {
 // ------------------------------------------------------------ running
 
 void Machine::runAction(Space& sp, const std::string& name, std::vector<Value> args) {
-  if (!sp.script) return;
-  const Function* f = sp.script->findFunction("on" + name);
+  std::shared_ptr<const Script> piece;
+  const Function* f = findFunction(&sp, "on" + name, &piece);
   if (!f) return;
   auto ex = std::make_unique<Exec>();
   ex->sp = &sp;
   Frame fr;
-  fr.script = sp.script;
+  fr.script = piece;
   fr.thiso = sp.var;
   fr.returnPc = SIZE_MAX;
   fr.locals = std::make_shared<Var>("temp");
@@ -373,8 +428,9 @@ void Machine::runAction(Space& sp, const std::string& name, std::vector<Value> a
 
 Value Machine::callFunction(const VarPtr& var, const std::string& name, std::vector<Value> args) {
   Space* sp = space(var, false);
-  if (!sp || !sp->script) return Value::number(0);
-  const Function* f = sp->script->findFunction(name);
+  if (!hasCode(sp)) return Value::number(0);
+  std::shared_ptr<const Script> piece;
+  const Function* f = findFunction(sp, name, &piece);
   if (!f) {
     if (logMissingFunctions) error("Function " + var->name() + " " + name + " not found", sp);
     return Value::number(0);
@@ -382,7 +438,7 @@ Value Machine::callFunction(const VarPtr& var, const std::string& name, std::vec
   auto ex = std::make_unique<Exec>();
   ex->sp = sp;
   Frame fr;
-  fr.script = sp->script;
+  fr.script = piece;
   fr.thiso = var;
   fr.returnPc = SIZE_MAX;
   fr.locals = std::make_shared<Var>("temp");
@@ -657,14 +713,15 @@ Value Machine::execute(Exec& ex) {
         VarPtr thiso = frame().thiso;
         std::shared_ptr<const Script> callee;
         VarPtr calleeThis;
+        const Function* f = nullptr;
         if (!owner || owner == thiso) {
-          callee = frame().script;
           calleeThis = thiso;
-        } else if (Space* osp = space(owner, false); osp && osp->script) {
-          callee = osp->script;
+          if (Space* tsp = space(thiso, false); hasCode(tsp)) f = findFunction(tsp, fname, &callee);
+          else if ((f = frame().script->findFunction(fname))) callee = frame().script;
+        } else if (Space* osp = space(owner, false); hasCode(osp)) {
           calleeThis = owner;
+          f = findFunction(osp, fname, &callee);
         }
-        const Function* f = callee ? callee->findFunction(fname) : nullptr;
         if (f) {
           if (ex.frames.size() > kMaxFrames) { error("Callstack overrun", sp); push(Value::number(0)); break; }
           Frame fr;
@@ -720,7 +777,7 @@ Value Machine::execute(Exec& ex) {
           break;
         }
         if (logMissingFunctions)
-          error("Function " + (sp && sp->script ? sp->var->name() : std::string()) + " " + fname + " not found", sp);
+          error("Function " + (sp && sp->var ? sp->var->name() : std::string()) + " " + fname + " not found", sp);
         push(Value::number(0));
         break;
       }

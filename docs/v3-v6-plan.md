@@ -84,7 +84,7 @@ Owned by the threads behind #257, #258 and #259 until those merge.
 - [x] **B3** Embedded menus: find and load the `StartScript_*` bytecode from
   the player's own exe at run time, under their own names; the engine's
   commands they call (key modifiers, file and path helpers); classes
-  (`addClassScript`, `join`, still open); run each one with no unknown
+  (`addClassScript`, `join`); run each one with no unknown
   opcode; what is missing then is GUI (B4)
 - [ ] **B4** GS2 controls drawn through the engine library's host calls
   (C1): `addcontrol` and the `GuiControl` tree from script, each class's
@@ -92,8 +92,9 @@ Owned by the threads behind #257, #258 and #259 until those merge.
   `GuiGraalCtrl` as the playfield
 - [ ] **B5** `TShowImg` and the 2D game behind the playfield, reusing the
   Pascal game library from #258
-- [ ] **B6** Script delivery: 131 to 134 and 193 into the machine, the
-  `GRESCR01` cache, `GRPKG001` packages, `GR-V1.05` layers
+- [x] **B6a** Script delivery: 131 to 134 and 193 into the machine
+- [ ] **B6b** The `GRESCR01` cache (Quattro thread, #260), `GRPKG001`
+  packages, `GR-V1.05` layers
 
 ### Track C: the 4.x and 5.0 split clients
 

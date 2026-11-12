@@ -42,6 +42,14 @@ void addEngineCommands(Machine& m, EngineHost host) {
     mm.catchEvent(mm.toString(a[0]), mm.toString(a[1]), self.shared_from_this(), mm.toString(a[2]));
     return Value::number(0);
   });
+  // join(class) and leave(class) on the calling object.
+  m.addCommand("join", "s", [](Machine& mm, Var& self, std::vector<Value>& a) {
+    return Value::number(mm.joinClass(self.shared_from_this(), mm.toString(a[0])) ? 1 : 0);
+  });
+  m.addCommand("leave", "s", [](Machine& mm, Var& self, std::vector<Value>& a) {
+    mm.leaveClass(self.shared_from_this(), mm.toString(a[0]));
+    return Value::number(0);
+  });
   m.addCommand("extractFileBase", "s", [](Machine& mm, Var&, std::vector<Value>& a) {
     return Value::string(extractFileBase(mm.toString(a[0])));
   });

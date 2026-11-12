@@ -8,6 +8,7 @@
 
 #include <zlib.h>
 
+#include "../delivery.hpp"
 #include "../engine_commands.hpp"
 #include "../gs2.hpp"
 #include "../startscripts.hpp"
@@ -671,7 +672,71 @@ static void testEngineCommands() {
   CHECK(global(m, "picked") == 1);
 }
 
+static std::string named(const std::string& name, const std::string& rest) {
+  return std::string(1, static_cast<char>(32 + name.size())) + name + rest;
+}
+
+static void testClassesAndDelivery() {
+  gs2::Machine m;
+  gs2::addEngineCommands(m, gs2::EngineHost{});
+  // class "greeter": onCreated sets hello; a helper the object calls.
+  Asm cls;
+  cls.function("onCreated", {});
+  cls.var("hello").num(1).op(Asm::ASSIGN).num(0).op(Asm::RET);
+  cls.function("twice", {"x"});
+  cls.var("x").var("x").op(Asm::ADD).op(Asm::RET);
+  // an object script that joins it and calls the class function
+  Asm obj;
+  obj.function("onCreated", {});
+  obj.op(Asm::MARKER).str("greeter").callName("join").op(Asm::POP);
+  obj.var("t").op(Asm::MARKER).num(21).callName("twice").op(Asm::ASSIGN);
+  obj.num(0).op(Asm::RET);
+
+  gs2::Delivery d;
+  auto level = std::make_shared<gs2::Var>("npc7");
+  d.objectById = [&](int id) { return id == 7 ? level : nullptr; };
+  d.cachedWeapon = [&](const std::string& name, std::uint32_t crc) {
+    return name == "-bow" && crc == 1234567 ? obj.bytes() : std::string();
+  };
+  std::string err;
+  CHECK(gs2::deliverScript(m, 133, named("greeter", cls.bytes()), d, &err));
+  CHECK(m.classScript("GREETER") != nullptr);
+  CHECK(gs2::deliverScript(m, 134, named("walk", cls.bytes()), d, &err));
+  CHECK(m.classScript("gani.walk") != nullptr);
+  CHECK(gs2::deliverScript(m, 132, named("-sword", obj.bytes()), d, &err));
+  // 131: id 7 as three biased bytes
+  CHECK(gs2::deliverScript(m, 131, std::string("\x20\x20\x27", 3) + obj.bytes(), d, &err));
+  CHECK(!gs2::deliverScript(m, 131, std::string("\x20\x20\x28", 3) + obj.bytes(), d, &err));
+  // 193: CRC 1234567 in five biased bytes
+  std::string crc;
+  for (int sft = 28; sft >= 0; sft -= 7) crc.push_back(static_cast<char>(32 + ((1234567 >> sft) & 0x7F)));
+  CHECK(gs2::readGraalInt(crc, 0, 5) == 1234567);
+  CHECK(gs2::deliverScript(m, 193, crc + "-bow", d, &err));
+  CHECK(!gs2::deliverScript(m, 193, crc + "-axe", d, &err));
+  CHECK(!gs2::deliverScript(m, 140, "x", d, &err));
+  m.runScripts();
+  m.runScripts();
+  for (const auto& e : m.errors()) std::fprintf(stderr, "  %s\n", e.c_str());
+  CHECK(m.errors().empty());
+  CHECK(global(m, "t") == 42);
+  // The object's own onCreated is found first, so the class's does not run.
+  CHECK(m.universe()->child("hello") == nullptr);
+
+  // An object with only a joined class gets created from the class.
+  gs2::Machine m2;
+  m2.addClassScript("greeter", cls.bytes());
+  auto v = m2.newVar("v");
+  CHECK(m2.joinClass(v, "greeter"));
+  CHECK(!m2.joinClass(v, "nosuch"));
+  m2.runScripts();
+  CHECK(global(m2, "hello") == 1);
+  CHECK(m2.callFunction(v, "twice", {gs2::Value::number(4)}).num == 8);
+  m2.leaveClass(v, "greeter");
+  CHECK(m2.callFunction(v, "twice", {gs2::Value::number(4)}).num == 0);
+}
+
 int main() {
+  testClassesAndDelivery();
   testStartScripts();
   testEngineCommands();
   testObjectsFromNew();
