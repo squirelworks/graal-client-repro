@@ -42,6 +42,7 @@ struct Actor {
   int ani_tick = 0;  // 50 ms ticks since this gani started
   std::string head, body, sword, shield;
   std::array<std::string, 6> attr;  // 1..5
+  std::array<int, 5> colors{};      // skin, coat, sleeves, shoes, belt
 };
 
 struct WorldState {

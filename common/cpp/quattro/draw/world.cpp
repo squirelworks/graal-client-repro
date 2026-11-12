@@ -104,8 +104,8 @@ std::string upper(std::string s) {
 }  // namespace
 
 // The gani's step for the actor's tick and facing, each part from its
-// sheet (as the Pascal clients draw it, common/GAni.pas). Body colours are
-// not applied yet: body.png is drawn as it is.
+// sheet (as the Pascal clients draw it, common/GAni.pas), the body in the
+// player's colours.
 void WorldRenderer::draw_actor(Canvas& c, const Actor& a, int px, int py, Color box) const {
   const Files::Gani* g = nullptr;
   if (assets_) {
@@ -139,7 +139,7 @@ void WorldRenderer::draw_actor(Canvas& c, const Actor& a, int px, int py, Color 
     } else {
       file = s->sheet;
     }
-    const Image* img = file.empty() ? nullptr : assets_->image(file);
+    const Image* img = file.empty() ? nullptr : sheet == "BODY" ? assets_->body(file, a.colors) : assets_->image(file);
     if (img) c.blit(*img, {s->x, s->y, s->w, s->h}, px + part.x, py + part.y);
   }
 }

@@ -1,4 +1,5 @@
 // Level reading and the world passes, from synthetic levels.
+#include "../draw/body_colors.hpp"
 #include "../draw/world.hpp"
 #include "../files/gani.hpp"
 #include "../files/level.hpp"
@@ -240,6 +241,35 @@ void test_actor_drawing() {
   CHECK(d.surface().at(32 + 10, 32 + 40).r == 230);
 }
 
+void test_body_colours() {
+  Draw::Assets assets;
+  // Palette slots 0..6 as distinct colours; a 7 x 1 image uses each once.
+  std::vector<Torque::Gui::Color> pal;
+  for (int i = 0; i < 7; ++i) pal.push_back({uint8_t(10 + i), 20, 30, 255});
+  Draw::Image img(7, 1, {0, 0, 0, 255});
+  for (int i = 0; i < 7; ++i) img.pixels[static_cast<size_t>(i)] = pal[static_cast<size_t>(i)];
+  assets.put_image("body.png", img, pal);
+  std::array<int, 5> colors = {2, 10, 4, 18, 7};  // skin orange, coat blue, sleeves red, shoes black, belt green
+  const Draw::Image* b = assets.body("body.png", colors);
+  CHECK(b != nullptr);
+  auto px = [&](int x) { return b->pixels[static_cast<size_t>(x)]; };
+  CHECK(px(5).r == 255 && px(5).g == 173);           // skin
+  CHECK(px(6).b == 255 && px(6).r == 0);             // coat
+  CHECK(px(4).r == 255 && px(4).g == 0);             // sleeves
+  CHECK(px(3).b == 8);                               // shoes
+  CHECK(px(1).g == 255 && px(1).r == 0);             // belt
+  CHECK(px(0).b == 8 && px(0).r == 0);               // outline: colour 18
+  CHECK(px(2).a == 0);                               // clear
+  // Cached per colour set; a different set is a different image.
+  CHECK(assets.body("body.png", colors) == b);
+  colors[0] = 4;
+  CHECK(assets.body("body.png", colors)->pixels[5].g == 0);
+  // No palette: the image as it is.
+  assets.put_image("plain.png", img);
+  CHECK(assets.body("plain.png", colors)->pixels[5].r == 15);
+  CHECK(Draw::player_colour(19).a == 0 && Draw::player_colour(20).r == 255);
+}
+
 int main() {
   test_grv103();
   test_runs();
@@ -250,5 +280,6 @@ int main() {
   test_world_passes();
   test_gani();
   test_actor_drawing();
+  test_body_colours();
   TEST_MAIN_END();
 }
