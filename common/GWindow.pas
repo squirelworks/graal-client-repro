@@ -199,7 +199,10 @@ uses
 {$ENDIF}
 {$IFNDEF MSWINDOWS}{$IFNDEF GW_NONE}
   , xlib, x, xutil, keysym, xkblib, ctypes
-{$ENDIF}{$ENDIF};
+{$ENDIF}{$ENDIF}
+{$IFDEF GW_COCOA}
+  , Math
+{$ENDIF};
 
 procedure TGWindow.SetKey(K: TGKey; Down: Boolean);
 begin
