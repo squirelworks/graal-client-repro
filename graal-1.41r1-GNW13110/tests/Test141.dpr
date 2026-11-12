@@ -34,6 +34,9 @@ uses
   GDfm1x in '../../common/GDfm1x.pas',
   GUiFont in '../../common/GUiFont.pas',
   GLaunch1x in '../../common/GLaunch1x.pas',
+  GDfmObj in '../../common/GDfmObj.pas',
+  GVclForm in '../../common/GVclForm.pas',
+  GOptionsWindow in '../../common/GOptionsWindow.pas',
   Res141 in '../src/Res141.pas',
   TestNpc141 in 'TestNpc141.pas',
   TestBaddy141 in 'TestBaddy141.pas';
@@ -1363,7 +1366,44 @@ begin
   Check(ReadDfm('junk') = nil, 'launch: not a form');
 end;
 
+procedure TestOptionsForm;
+var
+  Img: TGSurface;
+  O: TDfmObj;
+  F: TVclForm;
+  C: TVclCtl;
+  I, Buttons, Mapped: Integer;
 begin
+  Check(Copy(ResOptions, 1, 4) = 'TPF0', 'F1: TOPTIONS is compiled in');
+  Img := TGSurface.Create(1, 1);
+  try
+    Check(RenderOptionsWindow(ResOptions, 'level1.graal', Img) and (Img.Width = 601) and
+      (Img.Height = 353), 'F1: the Help window draws at the form''s 601 x 353');
+  finally
+    Img.Free;
+  end;
+  O := GDfmObj.ParseDfm(ResOptions);
+  F := TVclForm.Create(O, 'Graal');
+  try
+    Check(F.Caption = 'Help', 'F1: the window is Help in 1.41');
+    Buttons := 0;
+    Mapped := 0;
+    for I := 0 to F.CtlCount - 1 do
+    begin
+      C := F.CtlAt(I);
+      if C.Kind <> vkButton then Continue;
+      Inc(Buttons);
+      if OptionsActionOf(C.Obj.Ident('OnClick', '')) <> oaNone then Inc(Mapped);
+    end;
+    Check((Buttons = 10) and (Mapped = Buttons), 'F1: each of the ten buttons has its action');
+  finally
+    F.Free;
+    O.Free;
+  end;
+end;
+
+begin
+  TestOptionsForm;
   TestGTypes;
   TestLaunchForm;
   TestGen3Capture;

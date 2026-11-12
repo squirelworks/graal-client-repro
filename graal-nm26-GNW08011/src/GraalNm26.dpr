@@ -79,9 +79,13 @@ uses
   GStartScreen in '../../common/GStartScreen.pas',
   StartScreenNm26 in 'StartScreenNm26.pas',
   GPeRes in '../../common/GPeRes.pas',
+  GDfmObj in '../../common/GDfmObj.pas',
+  GVclForm in '../../common/GVclForm.pas',
+  GOptionsWindow in '../../common/GOptionsWindow.pas',
   GDfm in '../../common/GDfm.pas',
   GUiFont in '../../common/GUiFont.pas',
   GRealStart in '../../common/GRealStart.pas',
+  GRealStart20 in '../../common/GRealStart20.pas',
   RunMode in 'RunMode.pas',
   GLevelWrite in '../../common/GLevelWrite.pas',
   EditorDoc in 'editor/EditorDoc.pas',
@@ -433,6 +437,14 @@ begin
         begin
           Win.Pump;
           if Win.Closed or Win.Held[gkEscape] then Break;
+          { F1: the Help window, the painted form TOptions
+            (GRealStart20.RunHelp20) }
+          if Win.WasPressed(gkOptions) then
+          begin
+            if RunHelp20(OwnResource, G.Level.Name) = oaEditLevel then
+              EditorKey(Win, G, Online);
+            if Win.Closed then Break;
+          end;
           { Alt+Enter: fullscreen in the game's own 640 x 480 mode and back }
           if Win.TakeFullscreenToggle then
             if not Win.Fullscreen then Win.EnterFullscreen(ScreenW, ScreenH)

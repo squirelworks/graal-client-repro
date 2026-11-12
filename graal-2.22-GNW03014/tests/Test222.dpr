@@ -39,6 +39,9 @@ uses
   GTrueType in '../../common/GTrueType.pas',
   RealStart222 in '../src/RealStart222.pas',
   Res222 in '../src/Res222.pas',
+  GDfmObj in '../../common/GDfmObj.pas',
+  GVclForm in '../../common/GVclForm.pas',
+  GOptionsWindow in '../../common/GOptionsWindow.pas',
   TestNpc222 in 'TestNpc222.pas',
   TestBaddy222 in 'TestBaddy222.pas';
 
@@ -1893,7 +1896,47 @@ begin
   end;
 end;
 
+procedure TestHelpForm;
+var
+  Img, Shown: TGSurface;
+  Data: string;
+  O: TDfmObj;
+  F: TVclForm;
+  C: TVclCtl;
+  I, Buttons, Mapped: Integer;
 begin
+  Check(EmbeddedRes('TOPTIONS', Data) and (Copy(Data, 1, 4) = 'TPF0'), 'F1: TOPTIONS is carried');
+  Img := TGSurface.Create(1, 1);
+  Shown := TGSurface.Create(1, 1);
+  try
+    Check(RenderOptionsWindow(Data, 'level1.graal', Img) and (Img.Width = 370) and
+      (Img.Height = 259), 'F1: the Help window draws at the form''s 370 x 259');
+  finally
+    Shown.Free;
+    Img.Free;
+  end;
+  O := GDfmObj.ParseDfm(Data);
+  F := TVclForm.Create(O, 'Graal');
+  try
+    Check(F.Caption = 'Help', 'F1: the window is titled Help');
+    Buttons := 0;
+    Mapped := 0;
+    for I := 0 to F.CtlCount - 1 do
+    begin
+      C := F.CtlAt(I);
+      if C.Kind <> vkButton then Continue;
+      Inc(Buttons);
+      if OptionsActionOf(C.Obj.Ident('OnClick', '')) <> oaNone then Inc(Mapped);
+    end;
+    Check((Buttons = 7) and (Mapped = Buttons), 'F1: each of the seven buttons has its action');
+  finally
+    F.Free;
+    O.Free;
+  end;
+end;
+
+begin
+  TestHelpForm;
   Skipped := 0;
   TestGTypes;
   TestChat;

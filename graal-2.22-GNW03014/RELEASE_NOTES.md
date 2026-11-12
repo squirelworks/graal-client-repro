@@ -33,6 +33,7 @@ Files are looked for in the program's own folder first, then in
 
 ## What's new in v0.0.5
 
+- [x] **F1 Help window.** F1 opens "Help" from the build's own form (TOptions): the "Game windows" group and Close. It is a real dialog on Windows and drawn elsewhere. The rebuild has no editor in 2.22 yet, so Edit level closes it like the other buttons, which do nothing yet.
 - [x] **Neutral window titles.** The server list window is titled "Server List", not the original's caption, which named the original's host (#191).
 - [x] **Walking in Training.** The tutorial's `addtiledef picso.png,offlinetutorial,1` now keeps its sheet type, and a type 1 or 2 sheet tells walls from the tile number (the newer tile order) instead of from `arrays.dat`, whose lists hold none of the tutorial's ground. The player could only turn on the spot before.
 

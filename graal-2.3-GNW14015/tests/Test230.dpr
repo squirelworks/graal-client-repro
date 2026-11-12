@@ -38,6 +38,9 @@ uses
   Res230 in '../src/Res230.pas',
   Dialogs230 in '../src/Dialogs230.pas',
   RealStart230 in '../src/RealStart230.pas',
+  GDfmObj in '../../common/GDfmObj.pas',
+  GVclForm in '../../common/GVclForm.pas',
+  GOptionsWindow in '../../common/GOptionsWindow.pas',
   TestNpc230 in 'TestNpc230.pas',
   TestBaddy230 in 'TestBaddy230.pas';
 
@@ -1720,7 +1723,55 @@ begin
   end;
 end;
 
+procedure TestHelpForm;
+var
+  Img, Shown: TGSurface;
+  Data: string;
+  O: TDfmObj;
+  F: TVclForm;
+  C: TVclCtl;
+  I, Buttons, Mapped, X, Y: Integer;
+  Diff: Boolean;
 begin
+  Check(ResFile('TOPTIONS', Data) and (Copy(Data, 1, 4) = 'TPF0'), 'F1: TOPTIONS is carried');
+  Img := TGSurface.Create(1, 1);
+  Shown := TGSurface.Create(1, 1);
+  try
+    Check(RenderOptionsWindow(Data, 'level1.graal', Img, 'EditButton,DebuggerButton') and (Img.Width = 370) and
+      (Img.Height = 259), 'F1: the Help window draws at the form''s 370 x 259');
+    { 2.31 hides Edit level and Debugger: the two drawings differ }
+    RenderOptionsWindow(Data, 'level1.graal', Shown);
+    Diff := False;
+    for Y := 0 to Img.Height - 1 do
+      for X := 0 to Img.Width - 1 do
+        if Img.GetPixel(X, Y) <> Shown.GetPixel(X, Y) then Diff := True;
+    Check(Diff, 'F1: Edit level and Debugger are hidden');
+  finally
+    Shown.Free;
+    Img.Free;
+  end;
+  O := GDfmObj.ParseDfm(Data);
+  F := TVclForm.Create(O, 'Graal');
+  try
+    Check(F.Caption = 'Help', 'F1: the window is titled Help');
+    Buttons := 0;
+    Mapped := 0;
+    for I := 0 to F.CtlCount - 1 do
+    begin
+      C := F.CtlAt(I);
+      if C.Kind <> vkButton then Continue;
+      Inc(Buttons);
+      if OptionsActionOf(C.Obj.Ident('OnClick', '')) <> oaNone then Inc(Mapped);
+    end;
+    Check((Buttons = 7) and (Mapped = Buttons), 'F1: each of the seven buttons has its action');
+  finally
+    F.Free;
+    O.Free;
+  end;
+end;
+
+begin
+  TestHelpForm;
   Skipped := 0;
   TestRealStart;
   TestConfig;

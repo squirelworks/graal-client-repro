@@ -10,9 +10,16 @@
     maps F6 to F10 onto F1 to F5). 15th Graal and 1.1 add More options and
     Controls.
   - 1.28 beta 2 to 1.39: the same groups, with & accelerators.
-  - NewMain and 2.0 to 2.05 rev 2: "Help", a painted form with the current
-    level and Edit level, Load level, Debugger, Playerlist, ServerList,
-    General options, Controls and Close (GRealStart20.RunHelp20 draws it).
+  - 1.41 rev 1: "Help", the same form as 1.39 with Debugger, Playerlist,
+    Serverlist, General options and Controls added.
+  - NewMain, 2.0 to 2.05 rev 2 and NewWorld beta 1: "Help", a painted form
+    with the current level and Edit level, Load level, Debugger,
+    Playerlist, ServerList, General options, Controls and Close
+    (GRealStart20.RunHelp20 draws it).
+  - 2.1 test2 and test3, NewWorld beta 2, 2.17, 2.22 and 2.31: "Help", a
+    "Game windows" group with Edit Level, Load Level, Debugger, Player
+    List, Server List and General Options, and Close. 2.31 hides Edit level
+    and Debugger at run time (Hide below).
 
   The real window is stay-on-top and owned by the application window
   (captured on 1st Graal to 1.28 beta 2); the current level field holds
@@ -44,11 +51,14 @@ function OptionsActionOf(const Handler: string): TOptionsAction;
 { Shows the TOptions form (FormData, a TPF0 stream) with LevelName in its
   current level field until a button or Esc closes it. The result is the
   button's action; oaNone for Close, the close box, or a form that
-  cannot be read. }
-function RunOptionsWindow(const FormData, AppTitle, LevelName: string): TOptionsAction;
+  cannot be read. Hide names controls (comma-separated) the build hides
+  at run time. }
+function RunOptionsWindow(const FormData, AppTitle, LevelName: string;
+  const Hide: string = ''): TOptionsAction;
 
 { The same form drawn into Dest as the window shows it (for tests). }
-function RenderOptionsWindow(const FormData, LevelName: string; Dest: TGSurface): Boolean;
+function RenderOptionsWindow(const FormData, LevelName: string; Dest: TGSurface;
+  const Hide: string = ''): Boolean;
 
 implementation
 
@@ -90,7 +100,10 @@ begin
   Form.Close(1);
 end;
 
-function MakeForm(const FormData, LevelName: string; out Dfm: TDfmObj): TVclForm;
+function MakeForm(const FormData, LevelName, Hide: string; out Dfm: TDfmObj): TVclForm;
+var
+  Rest, Name: string;
+  P: Integer;
 begin
   Result := nil;
   Dfm := nil;
@@ -106,14 +119,24 @@ begin
   end;
   Result := TVclForm.Create(Dfm, 'Graal');
   if Result.Ctl('LevelEdit') <> nil then Result.SetText('LevelEdit', LevelName);
+  Rest := Hide;
+  while Rest <> '' do
+  begin
+    P := Pos(',', Rest);
+    if P = 0 then P := Length(Rest) + 1;
+    Name := Trim(Copy(Rest, 1, P - 1));
+    Delete(Rest, 1, P);
+    if (Name <> '') and (Result.Ctl(Name) <> nil) then Result.SetVisible(Name, False);
+  end;
 end;
 
-function RenderOptionsWindow(const FormData, LevelName: string; Dest: TGSurface): Boolean;
+function RenderOptionsWindow(const FormData, LevelName: string; Dest: TGSurface;
+  const Hide: string): Boolean;
 var
   Dfm: TDfmObj;
   F: TVclForm;
 begin
-  F := MakeForm(FormData, LevelName, Dfm);
+  F := MakeForm(FormData, LevelName, Hide, Dfm);
   Result := F <> nil;
   try
     if Result then F.Render(Dest);
@@ -193,14 +216,15 @@ begin
   end;
 end;
 
-function RunOptionsWindow(const FormData, AppTitle, LevelName: string): TOptionsAction;
+function RunOptionsWindow(const FormData, AppTitle, LevelName: string;
+  const Hide: string): TOptionsAction;
 var
   Dfm: TDfmObj;
   F: TVclForm;
   D: TOptionsDialog;
 begin
   Result := oaNone;
-  F := MakeForm(FormData, LevelName, Dfm);
+  F := MakeForm(FormData, LevelName, Hide, Dfm);
   if F = nil then Exit;
   D := TOptionsDialog.Create;
   try

@@ -25,6 +25,7 @@ come first.
 
 ## What's new in v0.0.5
 
+- [x] **F1 Help window.** F1 opens "Help" from the build's own form (TOptions): the "Game windows" group and Close. It is a real dialog on Windows and drawn elsewhere. Edit level opens the editor; the other buttons close it and do nothing yet.
 - [x] **Neutral window titles.** The server list window is titled "Server List", not the original's caption, which named the original's host (#191).
 - [x] **The chat line.** Tab gives the keys to the white line under the game and back; Enter says what is typed, and what each player says is drawn over the head (in `TEMPSITC.TTF` when the install has it).
 

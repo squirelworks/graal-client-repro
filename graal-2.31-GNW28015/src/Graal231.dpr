@@ -75,6 +75,9 @@ uses
   GStartScreen in '../../common/GStartScreen.pas',
   ListServer231 in 'ListServer231.pas',
   StartScreen231 in 'StartScreen231.pas',
+  GDfmObj in '../../common/GDfmObj.pas',
+  GVclForm in '../../common/GVclForm.pas',
+  GOptionsWindow in '../../common/GOptionsWindow.pas',
   Res231 in 'Res231.pas',
   Dialogs231 in 'Dialogs231.pas',
   GTrueType in '../../common/GTrueType.pas',
@@ -316,6 +319,7 @@ end;
   the exit code. }
 function RunGame(GuiWin: TGWindow; const GuiPw, GuiNick: string): Integer;
 var
+  OptForm: string;
   G: TAdventure;
   Win: TGWindow;
   Script: TKeyScript;
@@ -479,6 +483,15 @@ begin
               G.SetScreenSize(WindowW, WindowH);
             end;
           if Win.Closed then Break;
+          { F1: the Help window, from the form TOptions (GOptionsWindow).
+            2.31 hides Edit level and Debugger at run time, and has no
+            editor (graal_analysis version-profiles/2.22-2.31.md) }
+          if Win.WasPressed(gkOptions) then
+          begin
+            if ResFile('TOPTIONS', OptForm) then
+              RunOptionsWindow(OptForm, 'Graal', G.Level.Name, 'EditButton,DebuggerButton');
+            if Win.Closed then Break;
+          end;
           { Esc: 2.31 asks "Do you really want to quit Graal?" first }
           if Win.WasPressed(gkEscape) then
           begin
