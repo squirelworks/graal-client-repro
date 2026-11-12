@@ -54,6 +54,27 @@ std::vector<BuildProfile> make() {
   r601.pli.reset(160);
   rows.push_back(r601);
 
+  // 4.04r2 (Windows, the GraalEngine.dll session, used by
+  // common/cpp/graalengine). From Graal_analysis protocol/v4x-clients.md
+  // and version-profiles/4.04-4.20.toml, as graal-4.04r2-G3D17026's
+  // Protocol404 carries them: the same gen-5 cipher and login line ("win"
+  // and three empty machine fields), no ping answer (108 is not in its
+  // switch), never 39. Its first server is a game server named Login that
+  // hands the player on with 178, as the 6.x lobby does. The send set is
+  // the ids that rebuild sends (the notes give no full list).
+  BuildProfile r404;
+  r404.label = "4.04r2 Windows";
+  r404.token = "G3D17026";
+  r404.platform = "win";
+  r404.machine_fields = 3;
+  r404.plo = ids({{0, 25},    {27, 43},   {45, 49},   {67, 69},   {74, 75},   {82, 82},
+                  {84, 84},   {100, 102}, {104, 106}, {131, 134}, {150, 151}, {153, 156},
+                  {165, 166}, {168, 176}, {178, 187}, {189, 191}, {193, 195}});
+  r404.pli = ids({{0, 6},   {18, 19}, {23, 24}, {28, 28}, {30, 31}, {34, 35},
+                  {37, 38}, {44, 44}, {46, 46}, {157, 157}});
+  r404.answers_ping = false;
+  rows.push_back(r404);
+
   return rows;
 }
 

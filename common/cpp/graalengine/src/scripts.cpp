@@ -11,6 +11,7 @@
 // with offline mode and the 2D connect (content `GUIContainer`),
 // StartScript_GraalGui3D with the 3D connect.
 #include "engine.hpp"
+#include "session.hpp"
 
 #include "host.hpp"
 #include "startscripts.hpp"
@@ -39,8 +40,14 @@ std::string lower(std::string s) {
 
 bool Engine::keyHeld(int vk) const { return vk >= 0 && vk < 256 && keys_[vk]; }
 
+void Engine::enableScriptedControls(bool on) {
+  scriptedControls_ = on;
+  if (machine_) machine_->universe()->childOrCreate("scriptedcontrols")->setNumber(on ? 1 : 0);
+}
+
 void Engine::startMachine() {
   machine_ = std::make_unique<gs2::Machine>(profile_);
+  machine_->universe()->childOrCreate("scriptedcontrols")->setNumber(scriptedControls_ ? 1 : 0);
   gs2::EngineHost h;
   h.log = [this](const std::string& line) { log(line); };
   h.openUrl = [](const std::string& url) { host::OpenURL(url.c_str()); };
@@ -72,7 +79,12 @@ void Engine::addAdventureCommands(gs2::EngineHost& h) {
   h.adventure["Adventure_setAccountName"] = setter(&Account::account);
   h.adventure["Adventure_setPassWord"] = setter(&Account::password);
   h.adventure["Adventure_setNickName"] = setter(&Account::nickname);
-  h.adventure["Adventure_setChat"] = setter(&Account::chat);
+  // The chat bar's text: the player's chat once a session is up.
+  h.adventure["Adventure_setChat"] = [this, text](Machine& m, Var&, std::vector<Value>& a) {
+    account_.chat = text(m, a, 0);
+    if (session_) session_->say(account_.chat);
+    return Value::number(0);
+  };
   // The profile, account-field, volume and mute calls: kept by name until
   // the session sends them on.
   for (const char* name : {"Adventure_updatePlayerProfile", "Adventure_updateAccountField",

@@ -122,6 +122,30 @@ with `GRAAL404_ENGINE`): the main menu draws (59 fills, 10 texts in a
 frame), a click in the Nickname box and typing sets the nickname through
 `Adventure_setNickName`, and a click on Offline Test starts offline mode.
 
+## The 2D session (C2)
+
+`connectToGraalServer` with no connector set starts the engine's own 2D
+session (`src/session.cpp`). 4.04r2 is gen 5 on the wire, as the Quattro
+program is, so the session is that program's (`common/cpp/quattro`): its
+connection under the `4.04r2 Windows` build row (token `G3D17026`, `win`
+and three machine fields, no ping answer, never 39), the Login server and
+the 178 hand-on, the level, the player's props, walking and the world
+passes. The engine adds what the menus give it:
+
+| From | Becomes |
+|---|---|
+| `Adventure_setAccountName`, `setPassWord`, `setNickName` | the login and the nickname prop |
+| GraalGui's `GraalControl` (`GuiGraalCtrl`) | where the world frame is drawn (`DrawGraphics`, or stretched to the control) |
+| the MoveMap2D bindings `moveUp2D`, `moveDown2D`, `moveLeft2D`, `moveRight2D` | the held arrows |
+| the chat bar's `Adventure_setChat` | the player's chat (prop 12) |
+| `enableGraalScriptedControls` | the scripts' `scriptedcontrols`, which GraalControl reads on wake to push MoveMap2D (on until the launcher says otherwise) |
+
+Checked on loopback (`make test`, a fake gen-5 server): the login line,
+the hand-on, the level, the props with the nickname, walking and the chat.
+With the player's own 4.04r2 `GraalEngine.dll` (`GRAAL404_ENGINE`) the
+world shows in `GraalControl` and the right arrow walks through the real
+MoveMap2D binding.
+
 ## Where the rest plugs in
 
 - The GS2 controls (Track B4) register their object factory and GUI
@@ -130,8 +154,8 @@ frame), a click in the Nickname box and typing sets the nickname through
   `Engine::setControlResolver`. Controls derive from `graalengine::Control`
   or are held by one, and draw only through `graalengine::host::<Slot>(...)`
   (`src/host.hpp`). Without a builder the B4 screen above is used.
-- The session (login, level, walk, chat) plugs in through
-  `Engine::setConnector`, `setOfflineStarter` and `setTimer`.
+- Other session code can still take over through `Engine::setConnector`,
+  `setOfflineStarter` and `setTimer`.
 - The 3D library fills the `GRAAL_BUILD_3D` slots (Track C4).
 
 ## Not yet
@@ -145,8 +169,10 @@ frame), a click in the Nickname box and typing sets the nickname through
 - [x] ~~The menus drawn: the GUI commands and controls (B4)~~
 - [x] ~~Text at the script's font and size~~ (the 4.04r2 launcher reads
   Arial with GTrueType; Liberation Sans on Linux)
-- [ ] `GuiShowImgCtrl` animations (B5); text controls growing to their
-  text, as Torque's do
+- [x] ~~Login, level, walk and chat~~ on the Quattro session (above)
+- [ ] `GuiShowImgCtrl` animations (B5)
+- [ ] Offline mode's level, the other GraalGui keys (`doA`, `doS`, `doD`,
+  the map and item menus) and the 3D connect
 - [ ] `Adventure_saveGraalOptions`, `Adventure_installGraal` and the
   `Adventure_selectFile*` calls (refused with the engines' "not found"
   error until they are written); the setup test (always passes here)
