@@ -113,6 +113,22 @@ Screenshots, both clients in the same desktop session at 1280x800:
 | F1 | Nothing | Nothing | match |
 | Quit | Clean, no crash report | Clean, no crash report | match |
 
+A second pass replayed a real signed `conf.gs` reply to the real client
+(private copy, not in the repo), with the game-server address in it sent to
+a local listener that records and never answers:
+
+| Area | Real 6.11r1 | This folder | Severity |
+|---|---|---|---|
+| After `conf.gs` | Accepts the reply first try; one connection to the game server | Accepts its own signed reply; one connection | match |
+| First bytes | About 250 bytes in 2 or 3 writes, each a 2-byte length then the body; the first body (about 195 bytes) zlib-compressed, the rest 49 bytes | A bare 8-byte `SEI00001`, no length prefix, no compression | high (6.11 session framing not built) |
+| No answer | Nothing more, no reconnect; log "Connecting to the login server...", "Serverwarp...", "The connection could not be established!"; none of it drawn | Lab yard | n/a |
+| Window | Blank grey until a login server answers | Draws at once | high |
+| "Select File" dialog | Text in a profile with downloaded GUI files; a blank blue Graal skin in a fresh profile | None | high |
+
+A real in-window comparison needs a lab login server the real client
+accepts: this project's connector script and a 6.11 module in
+seihai-gserver-v2.
+
 Fix from this run: FPC unmasks the invalid-operation, divide-by-zero and
 overflow exceptions, and AppKit's start-up computes with NaNs, so every Cocoa
 window crashed. `common/GWindowCocoa.inc` now masks all floating-point
