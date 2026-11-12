@@ -34,7 +34,7 @@ unit GRealStart;
 interface
 
 uses
-  Classes, GSurface, GWindow, GStartScreen, GDfm;
+  Classes, GSplit, GSurface, GWindow, GStartScreen, GDfm;
 
 type
   { A control the client creates at run time, as the form would hold it:
@@ -245,9 +245,7 @@ var
 begin
   F := TStringList.Create;
   try
-    F.Delimiter := '|';
-    F.StrictDelimiter := True;
-    F.DelimitedText := Line;
+    SplitDelimited(Line, '|', F);
     if F.Count < 4 then Exit;
     if F[0] = 'ServerList' then Form := ListForm else Form := StartForm;
     if Form = nil then Exit;
@@ -609,8 +607,7 @@ begin
   List := Account;
   Items := TStringList.Create;
   try
-    Items.StrictDelimiter := True;
-    Items.CommaText := Old;
+    SplitDelimited(Old, ',', Items);
     for I := 0 to Items.Count - 1 do
       if (Items[I] <> '') and (Items[I] <> Account) then List := List + ',' + Items[I];
   finally

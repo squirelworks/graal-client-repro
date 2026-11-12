@@ -19,7 +19,7 @@ unit Adventure;
 interface
 
 uses
-  Classes, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GAssetDirs, GraalClient, Protocol231,
+  Classes, GSplit, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GAssetDirs, GraalClient, Protocol231,
   Npc231, Baddy231, Terrain231, GTrueType;
 
 const
@@ -3990,9 +3990,7 @@ begin
           Inc(E);
         end;
         Parts.CommaText := '';
-        Parts.Delimiter := ',';
-        Parts.StrictDelimiter := True;
-        Parts.DelimitedText := Args;
+        SplitDelimited(Args, ',', Parts);
         if Parts.Count >= 2 then
         begin
           Img := Trim(Parts[0]);

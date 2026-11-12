@@ -54,6 +54,7 @@ uses
   GClamp in '../../common/GClamp.pas',
   GCompat in '../../common/GCompat.pas',
   GPaths in '../../common/GPaths.pas',
+  GSplit in '../../common/GSplit.pas',
   GNumText in '../../common/GNumText.pas',
   GTypes in '../../common/GTypes.pas',
   GZlib in '../../common/GZlib.pas',
