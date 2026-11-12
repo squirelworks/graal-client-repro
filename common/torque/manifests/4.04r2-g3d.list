@@ -1,4 +1,4 @@
-# 4.04r2 Graal3DEngine.dll. Not passed to fpc.
+# 4.04r2 Graal3DEngine.dll. Build input: manifests/profiles.py.
 # Early 4.x 3D still has the stock TGE game layer. No gameobject.
 sim
 gui
