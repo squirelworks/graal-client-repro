@@ -46,15 +46,15 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
       - name: Build and test
         shell: bash
         run: zelda-online2-Z3V103/build.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: runner.os == 'Linux'
         with:
           name: zelda-online2
@@ -68,8 +68,8 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/zelda-online2-Z3V103-v') || ((github.event_name == 'workflow_dispatch' || inputs.combined == 'yes') && inputs.version != '')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v7
         with:
           name: zelda-online2
           path: dist-in
@@ -87,7 +87,7 @@ jobs:
           echo "TAG_NAME=$B-$V" >> "$GITHUB_ENV"
           echo "TITLE=$(head -1 "$B/RELEASE_NOTES.md" | sed 's/^# *//') $V" >> "$GITHUB_ENV"
       - if: inputs.combined == 'yes'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: release-all-zelda-online2
           path: dist/*.zip

@@ -21,7 +21,7 @@ jobs:
     outputs:
       builds: ${{ steps.pick.outputs.builds }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Test changed-code selection
@@ -49,14 +49,14 @@ jobs:
     env:
       BUILDS: ${{ needs.changes.outputs.builds }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       # Free Pascal and the other build packages come from a cache of
       # their .deb files, keyed on the runner image, so a run needs the
       # Ubuntu mirrors only when the image changes. A mirror outage then
       # fails this job only on an image change, not on every PR.
       - name: Cached build packages
         id: debs
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/fpc-debs
           key: fpc-debs-${{ runner.arch }}-${{ env.ImageOS }}-${{ env.ImageVersion }}-v1
@@ -84,7 +84,7 @@ jobs:
       # A tar keeps the execute bits that loopback needs; artifacts drop them.
       - name: Pack the build
         run: tar cf linux-build.tar build
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: linux-build
           path: linux-build.tar
@@ -95,8 +95,8 @@ jobs:
     env:
       BUILDS: ${{ needs.changes.outputs.builds }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
         with:
           repository: squirelworks/seihai-gserver
           path: seihai-gserver
@@ -110,7 +110,7 @@ jobs:
         run: cargo build --release --manifest-path seihai-gserver/Cargo.toml
       # The clients build-and-test just built and tested, so loopback needs
       # no compiler and no apt step of its own.
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: linux-build
       - name: Unpack the build
@@ -136,7 +136,7 @@ jobs:
     env:
       BUILDS: ${{ needs.changes.outputs.builds }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install Free Pascal
         shell: pwsh
         run: choco install freepascal -y --no-progress
@@ -164,7 +164,7 @@ jobs:
             if ([Text.Encoding]::ASCII.GetString($bytes).IndexOf('requestedExecutionLevel') -lt 0) { throw "$($exe.FullName): no manifest" }
           }
       # the Windows programs of this run, for trying a PR on a Windows PC
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: windows-programs
           path: build/*/*.exe

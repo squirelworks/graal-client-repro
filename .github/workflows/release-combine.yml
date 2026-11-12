@@ -43,7 +43,7 @@ jobs:
       R: ${{ inputs.release }}
       HIDE: ${{ inputs.hide }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Gather the per-client releases
         run: |
           case "$V" in v[0-9]*) ;; *) echo "from must look like v0.0.3"; exit 1 ;; esac

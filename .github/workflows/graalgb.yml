@@ -45,7 +45,7 @@ jobs:
   linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install GBDK-2020
         run: |
           curl -sSL -o gbdk.tar.gz "https://github.com/gbdk-2020/gbdk-2020/releases/download/$GBDK_VERSION/gbdk-linux64.tar.gz"
@@ -60,7 +60,7 @@ jobs:
           python3 -m venv "$RUNNER_TEMP/venv"
           "$RUNNER_TEMP/venv/bin/python" -m pip install --quiet pyboy==2.8.1 pillow==13.0.0
           "$RUNNER_TEMP/venv/bin/python" -I "$FOLDER/tests/smoke.py" "build/$FOLDER" "build/$FOLDER/shots"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: graalgb-linux
           path: |
@@ -71,7 +71,7 @@ jobs:
   windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install GBDK-2020
         shell: bash
         run: |
@@ -97,7 +97,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Name the version
         env:
           IN_VERSION: ${{ inputs.version }}
@@ -106,7 +106,7 @@ jobs:
           if [ -n "$IN_VERSION" ]; then V="$IN_VERSION"; else V="v${TAG##*-v}"; fi
           echo "VERSION=$V" >> "$GITHUB_ENV"
           echo "TITLE=$(head -1 "$FOLDER/RELEASE_NOTES.md" | sed 's/^# *//') $V" >> "$GITHUB_ENV"
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: graalgb-linux
           path: rom
@@ -118,7 +118,7 @@ jobs:
              "$FOLDER/README.md" "$FOLDER/RELEASE_NOTES.md" "dist/$OUT/"
           cd dist && zip -qr "$OUT.zip" "$OUT"
       - if: inputs.combined == 'yes'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: release-all-graalgb
           path: dist/*.zip
