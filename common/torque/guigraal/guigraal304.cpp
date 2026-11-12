@@ -61,6 +61,45 @@ const std::vector<std::string>& GuiGraal304::method_names() {
   return names;
 }
 
+const std::vector<std::string>& GuiGraal304::method_names_3153() {
+  static const std::vector<std::string> names = {"setNickName", "setAccountName", "setLanguage",
+                                                 "retrieveAccountFields"};
+  return names;
+}
+
+// 3.153's main menu hands the fields to the control (setNickName,
+// setAccountName, setLanguage before openServerList or startOfflineMode)
+// and asks for them back on wake (retrieveAccountFields); 3.04 keeps them
+// in $pref::Graal:: variables (Graal_analysis torque/scripting.md,
+// engine-304.md). Rebuild policy: the control keeps them in the same
+// $pref::Graal:: variables, so the 3.04 code reads them and the next
+// export of $pref::* saves them. The nickname starts as "unknown", the
+// value the 3.153 lab capture sent from an untouched start window.
+void GuiGraal304::register_3153() {
+  auto add = [this](const std::string& name, std::size_t count,
+                    std::function<std::string(Args&)> body) {
+    engine_.add_function(kClass, name, count, count, "",
+                         [body](Engine&, SimObject*, Args& a) { return body(a); });
+  };
+  auto setter = [this](const std::string& var) {
+    return [this, var](Args& a) {
+      engine_.set_global("$pref::Graal::" + var, Value::of_string(a[2]));
+      return std::string();
+    };
+  };
+  add("setNickName", 3, setter("nickname"));
+  add("setAccountName", 3, setter("accountname"));
+  add("setLanguage", 3, setter("language"));
+  add("retrieveAccountFields", 2, [this](Args&) {
+    const std::string nick = pref("nickname");
+    if (SimObject* edit = engine_.find_object("NickEdit"))
+      engine_.call_method(edit, "setValue", {nick.empty() ? std::string("unknown") : nick});
+    if (SimObject* edit = engine_.find_object("AccountEdit"))
+      engine_.call_method(edit, "setValue", {pref("accountname")});
+    return std::string();
+  });
+}
+
 GuiGraal304::GuiGraal304(Engine& engine, std::unique_ptr<Game304> game)
     : engine_(engine), game_(std::move(game)) {
   game_->on_log = [this](const std::string& line) { engine_.trace.push_back("game: " + line); };

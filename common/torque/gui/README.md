@@ -161,6 +161,9 @@ extents; this matters because the labels' text comes from the language file
 | `GuiMLTextCtrl` | Plain text, word wrapped; no markup tags yet |
 | `GuiConsole` | The newest lines of `Engine::console_buffer`, bottom-aligned |
 
+When the engine runs with `exec_by_name` (3.153), a bitmap named without a
+folder that is not at the root is found by file name in the same way.
+
 The text list, multi-line text and console rules are rebuild policy, not
 read from a 3.04 capture. A host can draw a class itself through
 `Renderer::draw_hooks` (keyed by the lower-case class name); the 3.04 host

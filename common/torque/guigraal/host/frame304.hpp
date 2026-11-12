@@ -35,6 +35,7 @@ class Frame304 {
   GuiGraal304& graal_;
   Gui::Canvas canvas_;
   Gui::Renderer renderer_;
+  std::size_t notes_seen_ = 0;
 };
 
 // The canvas size from $pref::Video::resolution ("800 600 24"), else 800 x 600.

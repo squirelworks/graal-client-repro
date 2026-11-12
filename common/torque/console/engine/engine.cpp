@@ -659,8 +659,32 @@ bool Engine::run_block(std::shared_ptr<CodeBlock> block, std::string* result) {
   }
 }
 
+// Rebuild policy for exec_by_name: the match is on the file name without
+// case; of several, the one with the fewest folders, then the first by
+// path. A plain script and its .dso both count, as exec_file then picks.
+std::string Engine::find_by_name(const std::string& name) const {
+  const std::string want = lower(name), want_dso = want + ".dso";
+  std::string best;
+  std::size_t best_depth = 0;
+  for (const auto& path : files.list()) {
+    const std::size_t slash = path.rfind('/');
+    const std::string base = lower(slash == std::string::npos ? path : path.substr(slash + 1));
+    if (base != want && base != want_dso) continue;
+    std::string script = path;
+    if (base == want_dso) script.resize(script.size() - 4);
+    const std::size_t depth = static_cast<std::size_t>(std::count(script.begin(), script.end(), '/'));
+    if (best.empty() || depth < best_depth) { best = script; best_depth = depth; }
+  }
+  return best;
+}
+
 bool Engine::exec_file(const std::string& path, bool no_calls) {
-  const std::string script = expand_path(path);
+  std::string script = expand_path(path);
+  if (exec_by_name && script.find('/') == std::string::npos && !files.exists(script) &&
+      !files.exists(script + ".dso")) {
+    const std::string found = find_by_name(script);
+    if (!found.empty()) script = found;
+  }
   // Which file runs (rebuild policy matching the stage 0 open order): a
   // plain script the game wrote into the prefs directory is compiled; else
   // a compiled .dso is loaded; else a shipped plain script is compiled.
