@@ -116,6 +116,10 @@ guessed.
 - [ ] What an event runs: here `created` runs the script's `onCreated`; the
   read names the queued event but not the lookup
 - [ ] Number to text: `%.15g` here; the engines' format is not read
+- [ ] `new T(name)` stores the object in the universe member `name`
+  (opcode 40, whose client name is `setmember`); a command named without an
+  object runs on the newest `with` object (the menus call `addcontrol`
+  inside `with (parent)`)
 - [ ] `null` pushes an empty string; `this` is the newest `with` object or
   `thiso`; plain divide by zero gives 0 like the fused divide; a plain object
   made by `new` takes every property name until its class (B4) gives the

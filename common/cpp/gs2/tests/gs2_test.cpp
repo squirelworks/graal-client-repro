@@ -441,8 +441,10 @@ static void testObjectsFromNew() {
   // then addcontrol(Name), all as the 4.04r2 corpus compiles it.
   gs2::Machine m;
   std::vector<std::string> added;
-  m.addCommand("addcontrol", "o", [&](gs2::Machine& mm, gs2::Var&, std::vector<gs2::Value>& args) {
+  std::vector<std::string> parents;
+  m.addCommand("addcontrol", "o", [&](gs2::Machine& mm, gs2::Var& self, std::vector<gs2::Value>& args) {
     auto o = mm.toObject(args[0]);
+    parents.push_back(self.name());
     added.push_back(o ? o->type() + ":" + o->name() : "null");
     return gs2::Value::number(0);
   });
@@ -461,6 +463,13 @@ static void testObjectsFromNew() {
   a.str("GuiTextCtrl").op(Asm::TOSTRING).op(42).op(Asm::ASSIGN).op(Asm::TOOBJECT).op(Asm::WITH);
   const auto end2 = a.jumpOperand();
   a.var("text").str("hi").op(Asm::ASSIGN);
+  // a child added inside the parent's with block
+  a.str("Inner").op(40).op(Asm::COPY).op(Asm::COPY).op(Asm::COPY);
+  a.str("GuiButtonCtrl").op(Asm::TOSTRING).op(42).op(Asm::ASSIGN).op(Asm::TOOBJECT).op(Asm::WITH);
+  const auto end3 = a.jumpOperand();
+  a.op(Asm::ENDWITH);
+  a.patch(end3, a.here());
+  a.op(Asm::MARKER).op(Asm::SWAP).callName("addcontrol").op(Asm::POP);
   a.op(Asm::ENDWITH);
   a.patch(end2, a.here());
   a.op(Asm::MARKER).op(Asm::SWAP).callName("addcontrol").op(Asm::POP);
@@ -468,8 +477,10 @@ static void testObjectsFromNew() {
   run(m, a);
   for (const auto& e : m.errors()) std::fprintf(stderr, "  %s\n", e.c_str());
   CHECK(m.errors().empty());
-  CHECK(added.size() == 2 && added[0] == "GuiControlProfile:MyProfile" && added[1] == "GuiTextCtrl:unknown_object");
-  CHECK(m.objects().size() == 2);
+  CHECK(added.size() == 3 && added[0] == "GuiControlProfile:MyProfile" && added[1] == "GuiButtonCtrl:Inner" &&
+        added[2] == "GuiTextCtrl:unknown_object");
+  CHECK(parents.size() == 3 && parents[0] == "npc" && parents[1] == "unknown_object" && parents[2] == "npc");
+  CHECK(m.objects().size() == 3);
   auto p = m.objects()[0];
   CHECK(p->child("tab") && p->child("tab")->number() == 0);
   auto fc = p->child("fontColor");
@@ -477,6 +488,7 @@ static void testObjectsFromNew() {
         fc->elements()[2]->number() == 192);
   CHECK(m.universe()->child("tab") == nullptr);
   CHECK(m.objects()[1]->child("text") && m.objects()[1]->child("text")->string() == "hi");
+  CHECK(m.objects()[1]->child("Inner") == nullptr);  // the global holds Inner, not the parent
   // The global named after the object links to it.
   CHECK(m.universe()->child("MyProfile") && m.universe()->child("MyProfile")->object() == p);
 }

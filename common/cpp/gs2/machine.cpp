@@ -711,7 +711,10 @@ Value Machine::execute(Exec& ex) {
           }
           std::vector<Value> plain;
           for (const auto& v : args) plain.push_back(deref(v));
-          Var& self = owner ? *owner : (thiso ? *thiso : *universe_);
+          // A command named without an object runs on the newest `with`
+          // object (the menus call addcontrol inside `with (parent)`).
+          VarPtr selfPtr = owner ? owner : (!ex.with.empty() && ex.with.back() ? ex.with.back() : thiso);
+          Var& self = selfPtr ? *selfPtr : *universe_;
           Value r = cmd->second.fn(*this, self, plain);
           push(std::move(r));
           break;
@@ -805,13 +808,20 @@ Value Machine::execute(Exec& ex) {
         push(Value::object(arr));
         break;
       }
-      case 40:  // the name of `new T(name)` becomes a variable name
+      case 40: {  // setmember: the name of `new T(name)` as a member of the universe
         if (!pop(a)) break;
-        push(Value::name(a.tag == Value::Tag::Name ? a.str : str(a)));
+        Ref r;
+        r.owner = universe_;
+        r.ownerName = "universe";
+        r.key = a.tag == Value::Tag::Name ? a.str : str(a);
+        push(Value::reference(std::move(r)));
         break;
+      }
       case 42: {  // new T(...): the type on top, the name under it
         if (!pop(b) || !pop(a)) break;
-        const std::string name = (a.tag == Value::Tag::Name || a.tag == Value::Tag::String) ? a.str : str(a);
+        const std::string name = (a.tag == Value::Tag::Name || a.tag == Value::Tag::String) ? a.str
+                                 : a.tag == Value::Tag::Ref                                 ? a.ref.key
+                                                                                            : str(a);
         push(Value::object(newObject(str(b), name)));
         break;
       }
