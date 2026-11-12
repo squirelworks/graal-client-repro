@@ -176,6 +176,11 @@ class Machine {
   void scheduleEvent(const VarPtr& var, double delay, const std::string& name, std::vector<Value> args = {});
   void cancelEvents(const VarPtr& var, const std::string& name);
 
+  // catchevent: when `event` is queued on the variable named `objectName`
+  // (`universe`, or a child of it), `function` is queued on `catcher`.
+  void catchEvent(const std::string& objectName, const std::string& event, const VarPtr& catcher,
+                  const std::string& function);
+
   // Run a function now, outside the queue. Returns its result.
   Value callFunction(const VarPtr& var, const std::string& name, std::vector<Value> args = {});
 
@@ -241,6 +246,8 @@ class Machine {
   std::map<std::string, CommandEntry> commands_;  // lower-cased names
   std::vector<std::string> errors_;
   Factory factory_;
+  struct Catch { std::string object, event; std::weak_ptr<Var> catcher; std::string function; };
+  std::vector<Catch> catches_;
   std::vector<VarPtr> objects_;
   double clock_ = 0;
   std::uint64_t executed_ = 0;

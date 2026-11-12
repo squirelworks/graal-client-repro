@@ -1,4 +1,4 @@
-# GS2 script machine (Tracks B1 and B2)
+# GS2 script machine (Tracks B1 to B3)
 
 The script machine the 4.x, 5.x and 6.x clients share: the engines'
 `TScriptExecutionSpace` running compiled GS2 on a `TGraalVar`. The 4.04r2 to
@@ -50,6 +50,22 @@ Preagonal.
   below 0.0001; the error recorder (`GraalScript: ... in script of NAME`, at
   most 20 distinct texts).
 
+## Start scripts and engine commands (B3)
+
+- `startscripts.cpp` finds every zlib stream in the player's own engine
+  file that inflates to a script, names each `StartScript_*` stream by a
+  function only that script defines (the key maps by the `ActionMap` they
+  build), and attaches them to universe variables of those names in file
+  order. The names are the ones the engines carry; the attach order is not
+  read.
+- `engine_commands.cpp` adds the engine's non-GUI commands the menus call:
+  `setTimer` (one `timeout` event), `catchevent` (the caught object's event
+  queues the catcher's function), `extractFileBase`, `extractFilePath`,
+  `lowercase`, and, when the engine program supplies them, `echo`,
+  `openURL`, `keydown`, `getResolutionList` and the `Adventure_*` calls.
+  A hook left empty leaves the command unregistered, so a script gets the
+  engines' "not found" error rather than a silent success.
+
 ## Checked against the original
 
 `gs2-scan` finds the compiled scripts a program carries as zlib streams and
@@ -59,6 +75,12 @@ repository) it finds 14 scripts with 129 functions and 15,799 instructions,
 the counts Graal_analysis `client-internals/linux-404r2-embedded-scripts.md`
 records for that corpus. A 5.12 install's engine DLL gives 18 scripts, 116
 functions and 15,008 instructions, all readable.
+
+`gs2-scan` names all 14 4.04r2 streams (Profiles, MainMenu, GraalGui,
+OptionsWindow, PlayerProfile, LoadLevelGui, MoveMap2D, MoveMap3D,
+QuitDialog, GraalGui3D, LoadingGui3D, MessageBoxDialog, SetupDialog,
+SelectFileDialog) and the 11 start scripts among the 5.12 streams; the other
+seven 5.12 streams are weapon scripts (`onWeaponFired`).
 
 With `--run`, all 14 4.04r2 scripts run `created` with no refused opcode:
 11,289 instructions, 291 objects made. What is left is what the engine
@@ -101,4 +123,12 @@ guessed.
   a reading, not an observed result
 - [ ] `vecx`/`vecy` use the GS1 direction table (up, left, down, right);
   the engines' four entries are not read
-- [ ] The 4.04r2 menus' engine commands (B3, B4), then `initialized`
+- [x] The 4.04r2 menus found and named in the engine file, and the
+  engine's non-GUI commands (B3)
+- [ ] `extractFileBase` drops the extension: read from how the options menu
+  cuts language names, not from the engine
+- [ ] `catchevent` queues the catcher's function with the caught event's
+  arguments; what the engines pass is not read
+- [ ] The GUI commands (`addcontrol`, `pushDialog`, the text list's rows,
+  `ActionMap` binds and modifiers) on the Torque GUI layer (B4), then
+  `initialized`

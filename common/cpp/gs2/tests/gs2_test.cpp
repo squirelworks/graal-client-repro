@@ -6,7 +6,11 @@
 #include <string>
 #include <vector>
 
+#include <zlib.h>
+
+#include "../engine_commands.hpp"
 #include "../gs2.hpp"
+#include "../startscripts.hpp"
 #include "assembler.hpp"
 
 using gs2asm::Asm;
@@ -573,7 +577,91 @@ static void testEngine50And600() {
   CHECK(global(m6, "r") == 9);
 }
 
+static std::string deflate(const std::string& in) {
+  uLongf n = compressBound(static_cast<uLong>(in.size()));
+  std::string out(n, '\0');
+  compress(reinterpret_cast<Bytef*>(&out[0]), &n, reinterpret_cast<const Bytef*>(in.data()), static_cast<uLong>(in.size()));
+  out.resize(n);
+  return out;
+}
+
+static void testStartScripts() {
+  Asm profiles;
+  profiles.function("onCreated", {});
+  profiles.op(Asm::MARKER).callName("addProfiles").op(Asm::POP).num(0).op(Asm::RET);
+  profiles.function("addProfiles", {});
+  profiles.var("made").num(1).op(Asm::ASSIGN).num(0).op(Asm::RET);
+  Asm keys;
+  keys.function("onCreated", {});
+  keys.str("moveMap2D").str("ActionMap").op(Asm::POP).op(Asm::POP).num(0).op(Asm::RET);
+  Asm other;
+  other.function("onWeaponFired", {});
+  other.num(0).op(Asm::RET);
+  // A program image: junk, the three streams, a stream that is not a
+  // script, more junk.
+  std::string image = std::string(100, 'x') + deflate(profiles.bytes()) + std::string(7, '\x78') +
+                      deflate(keys.bytes()) + "pad" + deflate(other.bytes()) + deflate("plain text") +
+                      std::string(50, 'y');
+  auto found = gs2::loadStartScripts(image, gs2::Profile::Engine42);
+  CHECK(found.size() == 3);
+  if (found.size() == 3) {
+    CHECK(found[0].name == "StartScript_Profiles");
+    CHECK(found[1].name == "StartScript_MoveMap2D");
+    CHECK(found[2].name.empty());
+  }
+  gs2::Machine m;
+  gs2::attachStartScripts(m, found);
+  m.runScripts();
+  CHECK(m.universe()->child("StartScript_Profiles") != nullptr);
+  CHECK(global(m, "made") == 1);
+  CHECK(m.objects().empty());
+}
+
+static void testEngineCommands() {
+  CHECK(gs2::extractFileBase("languages3D/languageenglish.cs") == "languageenglish");
+  CHECK(gs2::extractFileBase("a\\b.c.png") == "b.c");
+  CHECK(gs2::extractFilePath("levels/x/y.nw") == "levels/x/");
+  CHECK(gs2::extractFilePath("y.nw").empty());
+
+  gs2::Machine m;
+  std::vector<std::string> log;
+  gs2::EngineHost host;
+  host.log = [&](const std::string& s) { log.push_back(s); };
+  gs2::addEngineCommands(m, host);
+  Asm a;
+  a.function("onCreated", {});
+  a.op(Asm::MARKER).num(0.1).callName("setTimer").op(Asm::POP);
+  a.op(Asm::MARKER).str("hi").callName("echo").op(Asm::POP);
+  a.op(Asm::MARKER).str("onPicked").str("onPicked").str("picker").callName("catchevent").op(Asm::POP);
+  a.op(Asm::MARKER).str("Hello").callName("lowercase").var("lc").op(Asm::SWAP).op(Asm::ASSIGN);
+  a.op(Asm::MARKER).callName("openURL").op(Asm::POP);  // the host gave no openUrl
+  a.num(0).op(Asm::RET);
+  a.function("onTimeout", {});
+  a.var("timeouts").op(Asm::INC).op(Asm::POP).num(0).op(Asm::RET);
+  a.function("onPicked", {});
+  a.var("picked").op(Asm::INC).op(Asm::POP).num(0).op(Asm::RET);
+  Asm b;  // the object whose event is caught
+  b.function("onCreated", {});
+  b.num(0).op(Asm::RET);
+  auto picker = m.newVar("picker");
+  m.setScript(picker, b.bytes());
+  run(m, a, "menu");
+  CHECK(log.size() == 1 && log[0] == "hi");
+  CHECK(globalStr(m, "lc") == "hello");
+  CHECK(hasError(m, "openURL not found"));
+  m.runScripts();
+  m.runScripts();
+  CHECK(global(m, "timeouts") == 1);
+  m.runScripts();
+  CHECK(global(m, "timeouts") == 1);  // one event, not repeating
+  m.queueEvent(picker, "picked");
+  m.runScripts();
+  CHECK(global(m, "picked") == 1);
+}
+
 int main() {
+  testStartScripts();
+  testEngineCommands();
   testObjectsFromNew();
   testRegistersForeachStrings();
   testEngine50And600();

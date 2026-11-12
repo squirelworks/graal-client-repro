@@ -157,7 +157,31 @@ bool Machine::setScript(const VarPtr& var, std::shared_ptr<const Script> script)
   return true;
 }
 
+void Machine::catchEvent(const std::string& objectName, const std::string& event, const VarPtr& catcher,
+                         const std::string& function) {
+  // A leading `on` is dropped from the event, as waitfor does.
+  std::string ev = lower(event);
+  if (ev.compare(0, 2, "on") == 0) ev.erase(0, 2);
+  catches_.push_back({lower(objectName), ev, catcher, function});
+}
+
 bool Machine::queueEvent(const VarPtr& var, const std::string& name, std::vector<Value> args) {
+  if (var && !catches_.empty()) {
+    std::string ev = lower(name);
+    if (ev.compare(0, 2, "on") == 0) ev.erase(0, 2);
+    const std::string obj = var == universe_ ? "universe" : lower(var->name());
+    for (const auto& c : catches_) {
+      if (c.object != obj || c.event != ev) continue;
+      auto who = c.catcher.lock();
+      Space* csp = space(who, false);
+      if (!csp || !csp->script) continue;
+      // The catcher's function is queued by its own name (an `on` prefix is
+      // what makes it an event handler, so it is taken off here).
+      std::string fn = lower(c.function);
+      if (fn.compare(0, 2, "on") == 0) fn.erase(0, 2);
+      if (csp->actions.size() < kMaxActions) csp->actions.push_back({fn, args});
+    }
+  }
   Space* sp = space(var, false);
   if (!sp || !sp->script) return false;
   if (sp->actions.size() >= kMaxActions) {

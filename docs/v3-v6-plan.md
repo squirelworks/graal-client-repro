@@ -81,11 +81,11 @@ Owned by the threads behind #257, #258 and #259 until those merge.
 - [x] **B2** Object model: `TGraalVar` properties, child variables and
   arrays, the universe, the `with` stack, `new` objects, registers, the
   command signature check, every opcode the 4.04r2 menus use
-- [ ] **B3** Embedded menus: find and load the `StartScript_*` bytecode from
+- [x] **B3** Embedded menus: find and load the `StartScript_*` bytecode from
   the player's own exe at run time, under their own names; the engine's
   commands they call (key modifiers, file and path helpers); classes
-  (`addClassScript`, `join`); run each one to `initialized` with no unknown
-  opcode or missing command
+  (`addClassScript`, `join`, still open); run each one with no unknown
+  opcode; what is missing then is GUI (B4)
 - [ ] **B4** GS2 controls drawn through the engine library's host calls
   (C1): `addcontrol` and the `GuiControl` tree from script, each class's
   property set and methods (`addRow` and the rest), `GuiShowImgCtrl`,

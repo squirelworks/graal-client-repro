@@ -14,7 +14,9 @@
 #include <map>
 #include <string>
 
+#include "../engine_commands.hpp"
 #include "../gs2.hpp"
+#include "../startscripts.hpp"
 
 namespace {
 
@@ -74,6 +76,11 @@ int main(int argc, char** argv) {
   std::map<int, std::size_t> refused;
   gs2::Machine machine(profile);
   machine.logMissingFunctions = true;
+  {
+    gs2::EngineHost host;
+    host.log = [](const std::string& t) { std::printf("  echo: %s\n", t.c_str()); };
+    gs2::addEngineCommands(machine, host);
+  }
   for (std::size_t i = 0; i + 2 < data.size(); ++i) {
     if (d[i] != 0x78 || (d[i + 1] != 0x01 && d[i + 1] != 0x5e && d[i + 1] != 0x9c && d[i + 1] != 0xda)) continue;
     const std::string s = inflateAt(d + i, data.size() - i);
@@ -90,10 +97,14 @@ int main(int argc, char** argv) {
     instructions += r.script->code.size();
     for (const auto& in : r.script->code)
       if (!gs2::opcodeInProfile(in.op, profile) || !gs2::opcodeImplemented(in.op)) ++refused[in.op];
+    const std::string startName = gs2::identifyStartScript(*r.script);
+    std::printf("stream %02d: %-30s %3zu functions %5zu instructions\n", scripts,
+                startName.empty() ? "(not a start script)" : startName.c_str(), r.script->functions.size(),
+                r.script->code.size());
     if (runThem) {
       char name[32];
       std::snprintf(name, sizeof name, "script%02d", scripts);
-      machine.setScript(machine.newVar(name), s);
+      machine.setScript(machine.newVar(startName.empty() ? name : startName), r.script);
     }
     if (!outDir.empty()) {
       char name[64];

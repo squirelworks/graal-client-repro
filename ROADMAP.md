@@ -79,7 +79,8 @@ clients, and the Quattro program for late 5 and 6.x.
 - [x] B1: the GS2 bytecode loader and machine (`common/cpp/gs2/`)
 - [x] B2: object creation, array literals, registers and the 5.0 and 6.00
   opcodes; the 4.04r2 menus run `created` with no refused opcode
-- [ ] B3: the menus embedded in the player's own exe run to `initialized`
+- [x] B3: the menus embedded in the player's own exe found, named and run
+- [ ] B4: the GUI controls and key maps those menus build
 
 ## Builds with no folder
 
