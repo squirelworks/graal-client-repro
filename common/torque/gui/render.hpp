@@ -79,6 +79,9 @@ class Renderer {
 
   // Problems met while drawing (missing fonts or bitmaps), one per item.
   std::vector<std::string> notes;
+  // Em size per Torque font size for faces made from TrueType when no .gft
+  // cache exists (system_font.hpp); the 3.153 host sets 0.75.
+  double font_em_scale = 1.0;
 
   // A host draws a class the renderer does not know (GuiGraalCtrl draws the
   // game). Keyed by the lower-case class name; the children still draw.
@@ -112,6 +115,7 @@ class Renderer {
                       Color color);
   void draw_button(Canvas& canvas, SimObject* control, const Profile& p, const Rect& rect);
   void draw_text_edit(Canvas& canvas, SimObject* control, const Profile& p, const Rect& rect);
+  void draw_popup(Canvas& canvas, SimObject* control, const Profile& p, const Rect& rect);
   void draw_window(Canvas& canvas, SimObject* control, const Profile& p, const Rect& rect);
   void draw_bitmap_ctrl(Canvas& canvas, SimObject* control, const Rect& rect, bool tile);
   void draw_text_list(Canvas& canvas, SimObject* control, const Profile& p, const Rect& rect);

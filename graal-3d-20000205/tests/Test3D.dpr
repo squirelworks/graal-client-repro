@@ -19,7 +19,8 @@ uses
   World3D in '../src/World3D.pas',
   Client3D in '../src/Client3D.pas',
   Config3D in '../src/Config3D.pas',
-  Run3D in '../src/Run3D.pas';
+  Run3D in '../src/Run3D.pas',
+  Overlay3D in '../src/Overlay3D.pas';
 
 var
   Passed, Failed: Integer;
@@ -430,6 +431,30 @@ begin
   end;
 end;
 
+{ The nickname banner and the far plane }
+procedure TestOverlay;
+var
+  O: TOverlay3D;
+  S: TGSurface;
+  R: TRenderer3D;
+begin
+  O := TOverlay3D.Create;
+  S := TGSurface.Create(640, 456);
+  R := TRenderer3D.Create(64, 48);
+  try
+    O.Load(nil);
+    S.Fill($FFFFFFFF);
+    O.Draw(S, 640, '');
+    Check((S.GetPixel(639, 0) = $FF000000) and (S.GetPixel(639, BannerH - 1) = $FF000000) and
+      (S.GetPixel(639, BannerH) = $FFFFFFFF), 'overlay: a black strip 48 high across the view');
+    Check(R.Back >= 60000, 'render: the back plane reaches the cloud ceiling (40000 out)');
+  finally
+    R.Free;
+    S.Free;
+    O.Free;
+  end;
+end;
+
 procedure TestRender;
 var
   R: TRenderer3D;
@@ -471,6 +496,7 @@ begin
   TestClient;
   TestConfigScript;
   TestRender;
+  TestOverlay;
   WriteLn(Format('%d passed, %d failed', [Passed, Failed]));
   if Failed > 0 then Halt(1);
 end.

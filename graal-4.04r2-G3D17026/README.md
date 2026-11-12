@@ -98,17 +98,19 @@ every 50 ms, and forwards keys and clicks. `--engine-lib FILE`,
 it finds in the install's own `GraalEngine.dll` (or `GRAAL_ENGINE_FILE`) on
 the GS2 machine and draws them through the launcher's slots, with the
 install's own GUI pictures (`levels3d/gui`): the main menu takes clicks
-and typing, and Offline Test reaches offline mode.
+and typing, and Offline Test reaches offline mode. Start logs in from the
+engine: the Login server, the 178 hand-on, the level drawn in the game
+screen's playfield, walking with the arrows and the chat bar.
 
 ## Not yet, or not known
 
 - [x] ~~The 14 start menus drawn through the engine library~~
 - [x] ~~Menu text in the launcher's one font~~: it is Arial at the
   script's size (Windows' own Arial; Liberation Sans on Linux)
+- [x] ~~Login, level, walk and chat in the engine library~~
 - [ ] The engine's menus as the default in place of the Pascal start
-  screen: labels still clip at their script size (the text control does
-  not grow to its text yet), and the animated pictures (`GuiShowImgCtrl`)
-  are not drawn yet.
+  screen: the animated pictures (`GuiShowImgCtrl`), offline mode's level
+  and the weapon and item keys are not there yet.
 
 - [ ] The server list and account screens as the real client shows them
   (scripted GUI from the Login server).

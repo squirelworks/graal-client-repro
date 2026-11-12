@@ -45,6 +45,7 @@ type
   TRealStart20 = class
   private
     FFormCaption: string; { TAdventure's caption }
+    procedure FindLanguages(const Path: string);
   public
     Back1, Back2, Button: TGSurface;
     Icons: array of TGSurface;
@@ -69,6 +70,9 @@ type
     function Text(const Key, Default: string): string;
     { Picks a language of the box and reads its file. }
     procedure SetLanguage(const Name: string);
+    { The install's language files (Dir, then Dir\languages) and the one
+      graalconfig.txt names (English when none), read into Lang. }
+    procedure LoadLanguages(const Dir: string);
   end;
 
 { Runs the start window and the server list in Win until the player picks
@@ -85,9 +89,17 @@ function RunRealStart20(Win: TGWindow; Art: TRealStart20; Fetch: TListFetch;
   form and the ground of the start window with the same clLime labels, is
   used for it. The result is the button's action (GOptionsWindow); oaNone
   for Close, Esc, the close box or a missing form. }
-function RunHelp20(Res: TResLookup; const LevelName: string): TOptionsAction;
+function RunHelp20(Res: TResLookup; const LevelName: string;
+  const Dir: string = ''): TOptionsAction;
 { The same window drawn into Dest (for tests); False without the form. }
-function RenderHelp20(Res: TResLookup; const LevelName: string; Dest: TGSurface): Boolean;
+function RenderHelp20(Res: TResLookup; const LevelName: string; Dest: TGSurface;
+  const Dir: string = ''): Boolean;
+{ The window's caption and a button's caption from the install's language
+  file (Dir, as RunHelp20 reads it): Options= and Options-<button>=, the
+  form's own text when the file has none. The form's Button1 and Button2
+  take the file's MoreButton and ControlsButton. }
+function HelpTexts(const Dir: string): TStringList;
+function HelpCaption(Texts: TStrings; const Name, Default: string): string;
 
 { The server list's icon for a listed name (0 gold, 1 under construction,
   -1 none) and the name as the list shows it. }
@@ -266,6 +278,51 @@ begin
   end;
 end;
 
+{ the files name a character beyond ASCII as #U and four hex digits
+  (languageEspa#U00f1ol.txt); the box shows the character }
+function Decoded(const L: string): string;
+var
+  I, C: Integer;
+begin
+  Result := '';
+  I := 1;
+  while I <= Length(L) do
+  begin
+    if (L[I] = '#') and (I + 5 <= Length(L)) and (UpCase(L[I + 1]) = 'U') and
+      TryTextToInt('$' + Copy(L, I + 2, 4), C) then
+    begin
+      if C < 256 then Result := Result + Chr(C) else Result := Result + '?';
+      Inc(I, 6);
+    end
+    else
+    begin
+      Result := Result + L[I];
+      Inc(I);
+    end;
+  end;
+end;
+
+
+procedure TRealStart20.FindLanguages(const Path: string);
+var
+  SR: TSearchRec;
+  L: string;
+begin
+  if FindFirst(Path + 'language*.txt', faAnyFile, SR) = 0 then
+  begin
+    repeat
+      L := Decoded(Copy(SR.Name, 9, Length(SR.Name) - 12));
+      if (L <> '') and (Languages.IndexOf(L) < 0) then
+      begin
+        Languages.AddObject(L, TObject(PtrInt(0)));
+        LanguageFiles.Add(L + '=' + Path + SR.Name);
+      end;
+    until FindNext(SR) <> 0;
+    FindClose(SR);
+  end;
+end;
+
+
 function TRealStart20.Load(Res: TResLookup; const Dir: string): Boolean;
 
   function Pic(const Name, Ext: string; Keyed: Boolean): TGSurface;
@@ -284,53 +341,8 @@ function TRealStart20.Load(Res: TResLookup; const Dir: string): Boolean;
     if Res(Name, D) then Result := ParseDfm(D);
   end;
 
-  { the files name a character beyond ASCII as #U and four hex digits
-    (languageEspa#U00f1ol.txt); the box shows the character }
-  function Decoded(const L: string): string;
-  var
-    I, C: Integer;
-  begin
-    Result := '';
-    I := 1;
-    while I <= Length(L) do
-    begin
-      if (L[I] = '#') and (I + 5 <= Length(L)) and (UpCase(L[I + 1]) = 'U') and
-        TryTextToInt('$' + Copy(L, I + 2, 4), C) then
-      begin
-        if C < 256 then Result := Result + Chr(C) else Result := Result + '?';
-        Inc(I, 6);
-      end
-      else
-      begin
-        Result := Result + L[I];
-        Inc(I);
-      end;
-    end;
-  end;
-
-  procedure FindLanguages(const Path: string);
-  var
-    SR: TSearchRec;
-    L: string;
-  begin
-    if FindFirst(Path + 'language*.txt', faAnyFile, SR) = 0 then
-    begin
-      repeat
-        L := Decoded(Copy(SR.Name, 9, Length(SR.Name) - 12));
-        if (L <> '') and (Languages.IndexOf(L) < 0) then
-        begin
-          Languages.AddObject(L, TObject(PtrInt(0)));
-          LanguageFiles.Add(L + '=' + Path + SR.Name);
-        end;
-      until FindNext(SR) <> 0;
-      FindClose(SR);
-    end;
-  end;
-
 var
   Adv: TDfmNode;
-  F, M: string;
-  P, V: Integer;
 begin
   Back1 := Pic('SCREENIMG1', '.jpg', False);
   Back2 := Pic('SCREENIMG2', '.jpg', False);
@@ -344,6 +356,16 @@ begin
   FFormCaption := MainCaption;
   Adv.Free;
   LoadIcons(Self);
+  LoadLanguages(Dir);
+  Result := (Back1 <> nil) and (Back2 <> nil) and (Button <> nil) and (Connect <> nil) and
+    (List <> nil);
+end;
+
+procedure TRealStart20.LoadLanguages(const Dir: string);
+var
+  F, M: string;
+  P, V: Integer;
+begin
   { the language files the install has, as the language box lists them;
     the configured one (graalconfig.txt language=) first picked }
   Languages.Sorted := True;
@@ -369,8 +391,6 @@ begin
   end;
   if Languages.IndexOf(LanguageName) < 0 then LanguageName := Languages[0];
   SetLanguage(LanguageName);
-  Result := (Back1 <> nil) and (Back2 <> nil) and (Button <> nil) and (Connect <> nil) and
-    (List <> nil);
 end;
 
 procedure TRealStart20.SetLanguage(const Name: string);
@@ -713,10 +733,11 @@ end;
 { A picture button: a glyph (or BUTTON1) with two states side by side, the
   caption bold and centred, its accelerator letter red }
 procedure PicButton(S, Img: TGSurface; X, Y: Integer; const Caption: string; Down: Boolean;
-  Face: TUiFace = ufBold);
+  Face: TUiFace = ufBold; Spacing: Integer = 0; Accel: Boolean = False);
 var
-  W, D, TX, TY, A: Integer;
+  W, D, TX, TY, A, I: Integer;
   Plain: string;
+  Col: Cardinal;
 begin
   if Img = nil then Exit;
   W := Img.Width div 2;
@@ -724,6 +745,20 @@ begin
   S.Blit(Img, D * W, 0, W, Img.Height, X, Y);
   SplitAccel(Caption, Plain, A);
   if Plain = '' then Exit;
+  if Spacing > 0 then
+  begin
+    { letter-spaced, the accelerator letter always red (the game paints
+      these buttons itself) }
+    TX := X + (W - UiTextWidth(Plain, Face) - Spacing * (Length(Plain) - 1)) div 2 + D;
+    TY := Y + (Img.Height - UiLineH) div 2 + D;
+    for I := 1 to Length(Plain) do
+    begin
+      if (I = A) and (Accel or AccelShown) then Col := ColRed else Col := ColBlack;
+      UiDrawText(S, TX, TY, Plain[I], Col, Face);
+      Inc(TX, UiTextWidth(Plain[I], Face) + Spacing);
+    end;
+    Exit;
+  end;
   TX := X + (W - UiTextWidth(Plain, Face)) div 2 + D;
   TY := Y + (Img.Height - UiLineH) div 2 + D;
   if (A > 0) and AccelShown then
@@ -759,8 +794,57 @@ end;
 
 { ---- the F1 window ---- }
 
+const
+  { the F1 buttons' letter spacing, measured on the real 2.04 (Windows XP) }
+  HelpSpacing = 2;
+
+function HelpTexts(const Dir: string): TStringList;
+var
+  Art: TRealStart20;
+begin
+  Result := TStringList.Create;
+  if Dir = '' then Exit;
+  Art := TRealStart20.Create;
+  try
+    Art.LoadLanguages(WithTrailingSep(Dir));
+    Result.Assign(Art.Lang);
+  finally
+    Art.Free;
+  end;
+end;
+
+function HelpCaption(Texts: TStrings; const Name, Default: string): string;
+var
+  K: string;
+begin
+  Result := Default;
+  if Texts = nil then Exit;
+  if Name = '' then K := 'Options'
+  else if SameText(Name, 'Button1') then K := 'Options-MoreButton'
+  else if SameText(Name, 'Button2') then K := 'Options-ControlsButton'
+  else K := 'Options-' + Name;
+  if Texts.Values[K] <> '' then Result := Texts.Values[K];
+end;
+
+{ the level field as the window opens it: its text selected }
+procedure DrawSelectedBox(S: TGSurface; N: TDfmNode; const Text: string);
+var
+  X, Y, H: Integer;
+  T: string;
+begin
+  DrawBox(S, N, '', False);
+  if Text = '' then Exit;
+  X := N.Int('Left');
+  Y := N.Int('Top');
+  H := N.Int('Height');
+  T := Text;
+  while (T <> '') and (UiTextWidth(T, Bold(N)) > N.Int('Width') - 8) do Delete(T, 1, 1);
+  S.FillRect(X + 3, Y + 3, UiTextWidth(T, Bold(N)) + 2, H - 6, ColSelect);
+  UiDrawText(S, X + 4, Y + (H - UiLineH) div 2, T, ColWhite, Bold(N));
+end;
+
 procedure DrawHelp20(S: TGSurface; Form: TDfmNode; Back: TGSurface; Glyphs: TList;
-  const LevelName: string; Down: Integer);
+  const LevelName: string; Down: Integer; Texts: TStrings);
 var
   I: Integer;
   N: TDfmNode;
@@ -774,17 +858,19 @@ begin
     if N.ClassName_ = 'TLabel' then DrawLabel(S, N, N.Str('Caption'))
     else if N.ClassName_ = 'TEdit' then
     begin
-      if SameText(N.Name, 'LevelEdit') then DrawBox(S, N, LevelName, False)
+      if SameText(N.Name, 'LevelEdit') then DrawSelectedBox(S, N, LevelName)
       else DrawBox(S, N, N.Str('Text'), False);
     end
     else if N.ClassName_ = 'TPaintButton' then
-      PicButton(S, TGSurface(Glyphs[I]), N.Int('Left'), N.Int('Top'), N.Str('Caption'),
-        I = Down, Bold(N));
+      PicButton(S, TGSurface(Glyphs[I]), N.Int('Left'), N.Int('Top'),
+        HelpCaption(Texts, N.Name, N.Str('Caption')), I = Down, Bold(N), HelpSpacing, True);
   end;
 end;
 
-function RunHelp20(Res: TResLookup; const LevelName: string): TOptionsAction;
+function RunHelp20(Res: TResLookup; const LevelName: string;
+  const Dir: string): TOptionsAction;
 var
+  Texts: TStringList;
   Form, N: TDfmNode;
   Back: TGSurface;
   Glyphs: TList;
@@ -804,7 +890,8 @@ begin
   Glyphs := TList.Create;
   W := Form.Int('ClientWidth', 476);
   H := Form.Int('ClientHeight', 330);
-  Caption := Form.Str('Caption', 'Help');
+  Texts := HelpTexts(Dir);
+  Caption := HelpCaption(Texts, '', Form.Str('Caption', 'Help'));
   Win := TGWindow.Create(Caption, W, H);
   S := TGSurface.Create(W, H);
   try
@@ -838,7 +925,7 @@ begin
             DownUntil := NowMs + 150;
           end;
         end;
-      DrawHelp20(S, Form, Back, Glyphs, LevelName, Down);
+      DrawHelp20(S, Form, Back, Glyphs, LevelName, Down, Texts);
       Win.Present(S);
       Sleep(20);
     end;
@@ -849,11 +936,14 @@ begin
     S.Free;
     Win.Free;
     Form.Free;
+    Texts.Free;
   end;
 end;
 
-function RenderHelp20(Res: TResLookup; const LevelName: string; Dest: TGSurface): Boolean;
+function RenderHelp20(Res: TResLookup; const LevelName: string; Dest: TGSurface;
+  const Dir: string): Boolean;
 var
+  Texts: TStringList;
   Form: TDfmNode;
   Back: TGSurface;
   Glyphs: TList;
@@ -870,7 +960,12 @@ begin
   try
     for I := 0 to Form.ChildCount - 1 do Glyphs.Add(Glyph(Form.Child(I)));
     Dest.SetSize(Form.Int('ClientWidth', 476), Form.Int('ClientHeight', 330));
-    DrawHelp20(Dest, Form, Back, Glyphs, LevelName, -1);
+    Texts := HelpTexts(Dir);
+    try
+      DrawHelp20(Dest, Form, Back, Glyphs, LevelName, -1, Texts);
+    finally
+      Texts.Free;
+    end;
     Result := True;
   finally
     for I := 0 to Glyphs.Count - 1 do TGSurface(Glyphs[I]).Free;

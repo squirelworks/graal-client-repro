@@ -253,6 +253,7 @@ begin
     if Data = '' then Data := ExtractFilePath(ParamStr(0));
     Data := WithTrailingSep(Data);
     G.UseInstall(Data);
+    G.Player.Head := StrToIntDef(Arg('--head', '1'), 1);
     Sheet := Arg('--sheet', '');
     if Sheet <> '' then
       if LoadImageFile(Sheet, G.Sheet) then G.SheetBuiltin := False
@@ -583,6 +584,9 @@ begin
         GuiArgs.Add('--window');
         GuiArgs.Add('--data');
         GuiArgs.Add(Dir);
+        { the first player's character (its column of heads.gif) }
+        GuiArgs.Add('--head');
+        GuiArgs.Add(IntToStr(Choice.Chars[0]));
         if Choice.Mode = bmOnline then
         begin
           { the dialog's server field, when the player changed it; else the

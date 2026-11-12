@@ -46,6 +46,7 @@ not part of this folder.
 | `src/Udp3D.pas` | the client-to-client UDP socket |
 | `src/XFile3D.pas` | DirectX text `.x` reader: meshes, polygons, material lists and references, texture names and coordinates, frames |
 | `src/Render3D.pas` | a software renderer standing in for Direct3D RM: z-buffer, perspective-correct wrapped textures, the library's field 0.5 viewport |
+| `src/Overlay3D.pas` | the black nickname banner and `logo.bmp` over the top of the view |
 | `src/World3D.pas` | walking, running, jumping, the probe collision, the follow camera, other players, the chat log |
 | `src/Config3D.pas` | `graal3dconfig.txt` |
 | `src/Connect3D.pas` | the start window and the chat line |
@@ -159,7 +160,12 @@ The notes leave these open; each is marked "this build" in the code.
   (Graal3D is from before the server list; never a loopback address). The
   original's own default was the loopback address, and its shipped config
   named a server that is gone.
-- The far clipping plane is 5000 (the original was not read for it).
+- The far clipping plane is 100000 (the original was not read for it):
+  the real client draws the level's cloud ceiling, which reaches 40000
+  out, to the horizon.
+- The nickname banner's font: Arial Bold (`arialbd.ttf` from the install
+  or Windows' Fonts folder), else Liberation Sans Bold, else the built-in
+  pixel font.
 - Light: one ambient and one directional part, flat per face; faces are
   drawn from both sides.
 - Where the eight player meshes sit on the body (the files carry no frame
@@ -185,5 +191,11 @@ The notes leave these open; each is marked "this build" in the code.
   real login could be compared here; the rebuild's login was checked
   against the reference server.
 - [ ] The server drop-down list of the start window.
+- [x] The cloud sky, the `logo.bmp` picture and the nickname banner of the
+  real client's view (2026-11-12 polishing run, Windows 10).
+- [ ] The follow camera: on the real client's first frames the camera is
+  much closer than the 220 behind and 80 above of the notes (the head
+  fills the top of the view); the notes' figures are kept until the real
+  camera is measured after walking.
 - [ ] Admin login (id 1) and its account and player lists: no admin client
   shipped for Graal3D.

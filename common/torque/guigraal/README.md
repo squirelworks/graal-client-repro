@@ -151,8 +151,8 @@ Rebuild policy, not read from the original:
   in a window (`graal304-torque`, X11).
 - [x] The release program: the Linux 3.04 zip ships `graal304-torque` and
   the library (#273).
-- [ ] The 3.153 zip does not ship `graal304-torque` and `libGame3153Lib.so`
-  yet.
+- [x] The Linux 3.153 zip ships `graal304-torque` and `libGame3153Lib.so`
+  (`scripts/build.sh`, `graal-3.153-G3D28015/release-files`).
 - [ ] The chat-focus key toggle on `ChatBar` and the hardcoded key codes the
   control reads itself (input stage, see `../console/engine` stage 3).
 - [ ] Sword, grab, items, map, voice, PMs, the player list and profiles, sound
@@ -201,15 +201,32 @@ Tested here:
   sends a first frame with 3.153's layout as the Tiger lab capture shows it
   (5, 37, 34 bigmap and minimap).
 
+Pixel check against the Tiger capture (2026-11-12): the 640 × 480 game
+area cut from the capture against `graal304-torque --shot` on a clean
+3.153 install (no file from 3.04), fonts from Liberation Sans:
+
+- 98.76 % of pixels within 8 levels per channel, 98.65 % within 2;
+- text boxes within a few pixels: "Welcome to Graal!" 119 wide against
+  127, "Nickname:" 47 against 46, "Account:" 39 against 41 (Liberation
+  Sans and its rasteriser against the Mac's Arial);
+- the rest is data, not drawing: the account name and password the lab
+  typed, and the pop-up's text (below).
+
 Not yet:
 
-- [ ] Fonts. The Mac builds its `.gft` caches from system fonts at run time
-  and ships none. Copy a 3.04 install's `common/ui/cache/*.gft` into the
-  3.153 folder's `fontcache/`.
-- [ ] `graalscreen3d.jpg`, the logo: no JPEG reader yet.
-- [ ] The text edit frames and the language pop-up, which the capture shows.
-- [ ] A pixel comparison with the Tiger capture. It ran at 640 × 480, while
-  the install's prefs say 800 × 600.
+- [x] Fonts. The Mac builds its `.gft` caches from system fonts at run time
+  and ships none; the renderer builds them from a TrueType file the same
+  way, at three quarters of the profile size (`../gui/README.md`, "Fonts
+  without a cache"). No 3.04 file is used.
+- [x] `graalscreen3d.jpg`, the logo, through the JPEG reader.
+- [x] The text edit frames (`defaultTextEdit.png`, which the 3.153 profile
+  names without `hasBitmapArray`) and the closed language pop-up.
+- [x] A pixel comparison with the Tiger capture. The capture's game area is
+  640 × 480 while the install's prefs say `800 600 Default`, so a
+  resolution whose depth is not a number gives 640 × 480
+  (`canvas_size_304`, rebuild policy). Result below.
+- [ ] The language pop-up's text: the capture shows it empty, the rebuild
+  shows `English`, the entry the scripts select.
 - [ ] The first frame's 34 lines come once here; the capture has them twice.
 - [ ] The 3D mode (protocol 19).
 

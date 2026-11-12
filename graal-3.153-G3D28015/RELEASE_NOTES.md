@@ -24,7 +24,9 @@ program works too (`graal-assets/3.153/`, then `graal-assets/common/`).
 
 ## What's new in v0.0.5
 
-- [x] **First boot on the Torque engine.** The 3.153 install's own menus now run on the rebuilt Torque engine (`common/torque/guigraal`, `graal304-torque` on Linux), using the PPC script floats, the Mac script folders and 3.153's four extra menu methods. The game library `Game3153Lib` sends 3.153's login. This is not in the zip yet, and fonts must be copied from a 3.04 install.
+- [x] **First boot on the Torque engine.** The 3.153 install's own menus now run on the rebuilt Torque engine (`common/torque/guigraal`, `graal304-torque` on Linux), using the PPC script floats, the Mac script folders and 3.153's four extra menu methods. The game library `Game3153Lib` sends 3.153's login.
+- [x] **The Torque program ships.** The Linux zip holds `graal304-torque` and `libGame3153Lib.so`: copy both into a 3.153 install and start `graal304-torque` (README, "On the Torque engine"). Nothing from a 3.04 install is needed any more.
+- [x] **Its own fonts and logo.** The Mac install ships no font caches; the menu's fonts are now made from the system's Arial (or Liberation Sans, then DejaVu Sans) the way the original makes them, and the `graalscreen3d.jpg` logo draws. The menu runs at 640 × 480 with the edit frames and the language box, and matches the first-run Tiger capture on 98.8 % of its pixels. Known differences: text is a few pixels narrower or wider than the Mac's Arial, and the language box shows `English` where the capture shows it empty.
 - [x] **3.04's game fixes carried over.** Own chat goes out as a player prop, the log reaches the host, and walking follows the sheet-type tile rules: the offline tutorial walks, and online levels need 2.22's `arrays.dat` in the install.
 - [x] **Pictures by kind.** The picture cache keeps each name once per kind (head, body, sword, shield, hat, weapon), because each kind searches its own folders. A picture first asked for without its kind got the built-in stand-in and kept it, so an install's own picture could stay hidden behind the stand-in (in 1.33, `levels/weapons/wbomb1.gif` beside the D button).
 

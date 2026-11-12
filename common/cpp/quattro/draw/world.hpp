@@ -15,8 +15,10 @@
 #pragma once
 
 #include "../files/level.hpp"
+#include "assets.hpp"
 #include "../../../torque/gui/canvas.hpp"
 
+#include <array>
 #include <functional>
 #include <string>
 #include <vector>
@@ -33,6 +35,13 @@ constexpr int kTile = 16;
 struct Actor {
   double x = 0, y = 0;  // tiles
   std::string chat;
+  // What the gani draws with. Empty names fall back to the gani's own
+  // defaults, then to head0.png, body.png, sword1.png and shield1.png.
+  std::string gani = "idle";
+  int dir = 2;       // 0 up, 1 left, 2 down, 3 right
+  int ani_tick = 0;  // 50 ms ticks since this gani started
+  std::string head, body, sword, shield;
+  std::array<std::string, 6> attr;  // 1..5
 };
 
 struct WorldState {
@@ -60,6 +69,9 @@ class WorldRenderer {
   // With no sheet, each tile is a flat colour from its id (rebuild
   // stand-in, so a session can be seen without the player's files).
   void set_tile_sheet(Image sheet) { sheet_ = std::move(sheet); }
+  // The player's files for ganis and their sheets. Without them a player
+  // is a box (stand-in).
+  void set_assets(Assets* a) { assets_ = a; }
   bool has_tile_sheet() const { return !sheet_.empty(); }
 
   // Runs every pass. `trace`, when set, gets each pass name as it runs.
@@ -70,7 +82,9 @@ class WorldRenderer {
   void draw_tiles(Canvas& c, const WorldState& w, const View& v) const;
   void draw_objects(Canvas& c, const WorldState& w, const View& v) const;
   void draw_player(Canvas& c, const WorldState& w, const View& v) const;
+  void draw_actor(Canvas& c, const Actor& a, int px, int py, Color box) const;
   Image sheet_;
+  Assets* assets_ = nullptr;
 };
 
 // The stand-in colour for a tile id with no sheet.

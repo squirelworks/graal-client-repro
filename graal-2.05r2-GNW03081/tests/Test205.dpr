@@ -1533,6 +1533,7 @@ end;
 { F1: the Help window from the build's own TOptions form }
 procedure TestHelpForm;
 var
+  Texts: TStringList;
   Img: TGSurface;
   Data: string;
   Form: TDfmNode;
@@ -1546,6 +1547,20 @@ begin
     Img.Free;
   end;
   Check(ExeResource('TOPTIONS', Data), 'F1: TOPTIONS is in the program');
+  { the install's language file names the window and its buttons }
+  Texts := TStringList.Create;
+  try
+    Texts.Add('Options=Options');
+    Texts.Add('Options-MoreButton=&More options');
+    Texts.Add('Options-LoadLevelButton=Lo&ad level (F5)');
+    Check((HelpCaption(Texts, '', 'Help') = 'Options') and
+      (HelpCaption(Texts, 'Button1', '&General options') = '&More options') and
+      (HelpCaption(Texts, 'LoadLevelButton', '&Load level (F5)') = 'Lo&ad level (F5)') and
+      (HelpCaption(Texts, 'ServerListButton', '&ServerList (F8)') = '&ServerList (F8)'),
+      'F1: captions from the language file (Options, Options-<button>), the form''s otherwise');
+  finally
+    Texts.Free;
+  end;
   Form := GDfm.ParseDfm(Data);
   try
     Check((Form <> nil) and (Form.Str('Caption') = 'Help'), 'F1: the window is titled Help');

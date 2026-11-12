@@ -2,7 +2,9 @@
 
 #include "gui_host.hpp"
 #include "host.hpp"
+#include "session.hpp"
 
+#include <cctype>
 #include <cstdlib>
 #include <fstream>
 
@@ -73,6 +75,7 @@ std::function<void()> frameTimer(Engine& e, std::function<void()> session) {
   return [&e, session] {
     if (auto* m = e.machine()) m->runScripts();
     if (session) session();
+    else if (auto* s = e.session()) s->tick();
   };
 }
 }  // namespace
@@ -158,7 +161,21 @@ void Engine::connect(const std::string& rawName, const std::string& host, int po
     runStartScript("StartScript_GraalGui", true);
     setContentFrom("GUIContainer");
   }
-  if (connect_) connect_(*this, name, host, port, is3d);
+  if (connect_) {
+    connect_(*this, name, host, port, is3d);
+    return;
+  }
+  if (is3d) return;  // the 3D library's session (Track C4)
+  Session2D::Login l;
+  l.name = name;
+  l.host = host;
+  l.port = port;
+  l.account = account_.account;
+  l.password = account_.password;
+  l.nickname = account_.nickname;
+  l.installDir = installDir();
+  session_ = std::make_unique<Session2D>(l);
+  if (!session_->start()) log("GraalEngine: could not connect to " + name);
 }
 
 void Engine::openServerList() {
@@ -176,7 +193,20 @@ void Engine::installScreen() {
   screen_->install();
   screen_->onEngineAction = [this](const std::string& cmd, bool down) {
     if (action_) action_(cmd, down);
+    else if (session_ && session_->action(cmd, down)) return;
     else if (down) log("GraalEngine: engine action " + cmd);
+  };
+  // GraalGui's playfield (GuiGraalCtrl) shows the session's world.
+  painter_->onEngineControl = [this](const gs2::gui::Control& c, const gs2::gui::Rect& r) {
+    if (!session_ || !session_->haveFrame()) return;
+    std::string t = c.type();
+    for (auto& ch : t) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    if (t != "guigraalctrl") return;
+    const graal_texture& f = session_->frame();
+    if (f.width == r.w && f.height == r.h)
+      host::DrawGraphics(&f, r.x, r.y, 0, 0, f.width, f.height, 0xFFFFFFFFu);
+    else
+      host::DrawGraphicsStretched(&f, r.x, r.y, r.w, r.h, 0, 0, f.width, f.height, 0xFFFFFFFFu);
   };
   screenControl_ = std::make_shared<ScreenControl>(*screen_, *painter_);
   if (!controlOf_) {
@@ -191,6 +221,7 @@ void Engine::installScreen() {
 }
 
 void Engine::shutdown() {
+  session_.reset();
   canvas_.reset();
   screenControl_.reset();
   screen_.reset();

@@ -76,12 +76,15 @@ build/tq-play$(EXE): $(CONTROL) $(HOST) $(ENGINE) $(COMPILER) $(HEADERS) $(HOST_
 # Linux, Win32 on Windows, Cocoa on macOS).
 GUI_DIR = ../gui
 GUI = $(GUI_DIR)/image.cpp $(GUI_DIR)/gft.cpp $(GUI_DIR)/bitmap_array.cpp $(GUI_DIR)/canvas.cpp \
-  $(GUI_DIR)/profile.cpp $(GUI_DIR)/render.cpp $(GUI_DIR)/mouse.cpp
+  $(GUI_DIR)/profile.cpp $(GUI_DIR)/render.cpp $(GUI_DIR)/mouse.cpp $(GUI_DIR)/jpeg.cpp $(GUI_DIR)/system_font.cpp
+# stb_image and stb_truetype as system headers (third-party; their own
+# warnings do not trip -Werror)
+STB_FLAGS = -isystem ../../cpp/third_party/stb
 GUI_HEADERS = $(GUI_DIR)/render.hpp $(GUI_DIR)/mouse.hpp $(GUI_DIR)/canvas.hpp host/window.hpp host/frame304.hpp
 
 build/graal304-torque$(EXE): $(CONTROL) $(HOST) $(GUI) $(ENGINE) $(COMPILER) $(HEADERS) $(HOST_HEADERS) $(GUI_HEADERS) \
     host/frame304.cpp $(WINDOW_SRC) host/graal304_torque.cpp $(WINDOW_RES) | build
-	$(CXX) $(CXXFLAGS) $(if $(filter macos,$(PLATFORM)),-fobjc-arc) $(CONTROL) $(HOST) $(GUI) $(ENGINE) $(COMPILER) \
+	$(CXX) $(CXXFLAGS) $(STB_FLAGS) $(if $(filter macos,$(PLATFORM)),-fobjc-arc) $(CONTROL) $(HOST) $(GUI) $(ENGINE) $(COMPILER) \
 	  host/frame304.cpp $(WINDOW_SRC) host/graal304_torque.cpp $(WINDOW_RES) -o $@ $(DL_LIBS) -lz $(WINDOW_LIBS)
 
 # Windows: version info and manifest (graal-3.04-G3D03014/src/Graal304Torque.rc,
@@ -92,7 +95,7 @@ build/graal304-torque.res.o: $(GAME_SRC)/Graal304Torque.rc ../../../common/win/g
 # The frame logic without a window, for tests.
 build/frame-test$(EXE): $(CONTROL) $(GUI) $(ENGINE) $(COMPILER) $(HEADERS) $(GUI_HEADERS) host/frame304.cpp \
     tests/frame_test.cpp | build
-	$(CXX) $(CXXFLAGS) $(CONTROL) $(GUI) $(ENGINE) $(COMPILER) host/frame304.cpp tests/frame_test.cpp -o $@ -lz
+	$(CXX) $(CXXFLAGS) $(STB_FLAGS) $(CONTROL) $(GUI) $(ENGINE) $(COMPILER) host/frame304.cpp tests/frame_test.cpp -o $@ -lz
 
 program: build/graal304-torque$(EXE)
 
