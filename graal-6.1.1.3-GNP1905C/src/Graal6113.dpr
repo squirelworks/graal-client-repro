@@ -235,7 +235,7 @@ begin
   OpenConsoleIO;
   if HasArg('--help') or (ParamCount = 0) then
   begin
-    Usage;
+    if TextRec(Output).Mode <> fmClosed then Usage;
     Halt(0);
   end;
   if HasArg('--password-env') then

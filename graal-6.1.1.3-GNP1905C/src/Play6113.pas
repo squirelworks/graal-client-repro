@@ -103,7 +103,7 @@ uses
 procedure LogLine(const S: string);
 begin
   if Assigned(SessionLog) then SessionLog(S)
-  else
+  else if TextRec(ErrOutput).Mode <> fmClosed then
   begin
     WriteLn(ErrOutput, S);
     Flush(ErrOutput);
