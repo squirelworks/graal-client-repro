@@ -21,6 +21,7 @@ bodies.
   explicitly, removing the newer TStringList.OwnsObjects dependency while
   preserving clear/reuse/destruction behavior. Lifetime tests run with
   the heap tracer. This change benefits every client using the shared unit.
+- [x] **Script sleep in whole ticks.** `sleep` waits floor(seconds x 20 + 0.0001) ticks of 0.05 s, as 2.05r2 does, so a sleep shorter than a tick (0.01) goes straight on instead of waiting, and 0.06 waits one tick, not two.
 - [ ] Finish the other historical Delphi compatibility work and verify a
   build with an actual period compiler; modern FPC tests do not certify it.
 - [x] **Pictures by kind.** The picture cache keeps each name once per kind (head, body, sword, shield, hat, weapon), because each kind searches its own folders. A picture first asked for without its kind got the built-in stand-in and kept it, so an install's own picture could stay hidden behind the stand-in (in 1.33, `levels/weapons/wbomb1.gif` beside the D button).

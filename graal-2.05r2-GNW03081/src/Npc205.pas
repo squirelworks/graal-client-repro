@@ -237,6 +237,7 @@ type
     function MessageCode(Ctx: TGsContext; const Code, Param: string;
       out S: string): Boolean; override;
     function Command(Ctx: TGsContext; Op: Integer; const A: TGsArgs): Boolean; override;
+    function SleepYields(Ctx: TGsContext; Seconds: Double): Boolean; override;
     procedure Error(Ctx: TGsContext; const Msg: string); override;
   end;
 
@@ -1386,6 +1387,32 @@ begin
   if S <> '' then Result := ',' + S else Result := '';
 end;
 
+{ sleep's whole ticks in exact 2.05r2: floor(seconds * 20 + 0.0001).
+  Graal_analysis GS1-EFFECTS-205R2-20261109-02 (as refined in issue #174):
+  a 0.01 s sleep is 0 ticks and does not yield; 0.05 s is one tick.
+  Negative, zero and NaN give 0. Overflow and non-finite behaviour of the
+  original are unverified; past MaxSleepTicks this clamps (a rebuild policy). }
+const
+  MaxSleepTicks = 1000000000;
+
+function SleepTicks(Seconds: Double): Integer;
+var
+  T: Double;
+begin
+  Result := 0;
+  if not (Seconds > 0) then Exit;
+  T := Seconds * 20 + 0.0001; { 20 ticks of TickSeconds a second }
+  if T >= MaxSleepTicks then
+    Result := MaxSleepTicks
+  else
+    Result := Trunc(T);
+end;
+
+function TNpcManager.SleepYields(Ctx: TGsContext; Seconds: Double): Boolean;
+begin
+  Result := SleepTicks(Seconds) > 0;
+end;
+
 function TNpcManager.Command(Ctx: TGsContext; Op: Integer; const A: TGsArgs): Boolean;
 var
   N, M: TNpc;
@@ -1551,7 +1578,7 @@ begin
         Fire(M, 'playerenters');
       end;
     GsOpSleep:
-      if A.Num[0] > 0 then N.Timeout := A.Num[0];
+      if SleepTicks(A.Num[0]) > 0 then N.Timeout := SleepTicks(A.Num[0]) * TickSeconds;
     GsOpMove:
       begin
         { dx, dy over time seconds; option 8: event when done }
