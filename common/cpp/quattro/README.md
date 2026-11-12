@@ -51,7 +51,7 @@ this program. This directory does.
 | `files/` | levels and packages | **done**: `GR-V1.00`–`1.05` (1.05 board layers), the 101 board packet, links, chests, signs. Packages next |
 | `draw/` | the draw passes and the window | **done**: the world passes in the original's order on a software canvas (shared with `common/torque/gui`), the lobby rule, an Xlib window and a headless window. Ganis, HUD and the GUI pass next |
 | `shell/` | the program loop, `StartScript_*`, `GuiGraalCtrl` | **started**: the 50 ms loop, level name/board/links/chests from the session, window title per server, and the script host on `gs2::Machine` (140, 197 with the `GRESCR01` cache, 33/34, 190). Next: the `StartScript_*` shell dialogs |
-| `world/` | `TServerPlayer` and the props | **done**: the prop stream of 9 and 8 (the 2.22 table plus X2/Y2/Z2), the initial props after login, and the X2/Y2 movement diff each tick |
+| `world/` | `TServerPlayer` and the props | **done**: the prop stream of 9 and 8 (the 2.22 table plus X2/Y2/Z2), the initial props after login, and the X2/Y2 movement diff each tick; walking against `arrays.dat` walls and chests with the six-point box, the corner nudge, and `push` with 38 `pushed,0` |
 | `gui/` | the GS2 controls | after the shell |
 
 The split with Track B: `common/cpp/gs2/` owns the bytecode loader, the
@@ -97,7 +97,7 @@ measurements (Seihai issue 444) are the next input for this.
   colours from their id; chests, the player and other players are boxes.
 - Upper board layers treat tile 0 as empty; each layer's bit stream starts
   on a new byte. The 5.x note gives the layer count and boards, not these.
-- Walking moves half a tile per tick with no wall test yet (`arrays.dat` is next); the changed X2 or Y2 is sent each tick.
+- Walls come from `arrays.dat` in `--assets` (array 0 passable, array 1 liquids). With no `arrays.dat` every tile is passable; where 6.x reads its own table was not seen in the lab. The 0.0625 snap after a step is left out.
 - The initial props send nickname "unknown", as the lab's 6.03r7 did with no nickname set.
 
 - Receive limits: 16 MiB per frame and 4 MiB of unfinished message. The

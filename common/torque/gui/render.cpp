@@ -205,6 +205,7 @@ std::string Renderer::profile_bitmap_path(const SimObject* control) {
 
 void Renderer::render(Canvas& canvas, SimObject* content, const std::vector<SimObject*>& dialogs) {
   const Rect screen{0, 0, canvas.width(), canvas.height()};
+  layout_.clear();
   if (content) draw_control(canvas, content, screen);
   for (SimObject* d : dialogs)
     if (d) draw_control(canvas, d, screen);
@@ -216,6 +217,7 @@ void Renderer::draw_control(Canvas& canvas, SimObject* control, const Rect& rect
   if (has_field(control, "visible", visible) && !parse_bool(visible)) return;
   canvas.push_clip(rect);
   if (!canvas.clip().empty()) {
+    layout_.push_back({control->id, rect, canvas.clip()});
     draw_self(canvas, control, rect);
     const Rect own = rect_of(control);
     const auto members = control->members;
@@ -239,6 +241,10 @@ void Renderer::draw_control(Canvas& canvas, SimObject* control, const Rect& rect
           }
         }
       }
+      if (lowered(child->class_name) == "guitextlistctrl") {
+        // A text list is as tall as its rows (its scroll parent clips it).
+        r.height = std::max(r.height, int(child->rows.size()) * row_height(child));
+      }
       const Point min = parse_point(field_or(child, "minExtent", "8 8"));
       r.width = std::max(r.width, min.x);
       r.height = std::max(r.height, min.y);
@@ -260,8 +266,30 @@ void Renderer::draw_text_line(Canvas& canvas, const Profile& p, const Rect& box,
   canvas.draw_text(*f, x, box.y + text_line_top(box.height, int(f->height)), text, color);
 }
 
+std::uint32_t Renderer::hit(int x, int y, Rect* out) const {
+  for (auto it = layout_.rbegin(); it != layout_.rend(); ++it) {
+    const Rect& v = it->visible;
+    if (x >= v.x && y >= v.y && x < v.x + v.width && y < v.y + v.height) {
+      if (out) *out = it->rect;
+      return it->id;
+    }
+  }
+  return 0;
+}
+
+int Renderer::row_height(const SimObject* list) {
+  const Profile p = profile_of(list);
+  const GftFont* f = font(p.font_type, p.font_size);
+  return f ? int(f->height) + 2 : 16;   // rebuild policy
+}
+
 void Renderer::draw_self(Canvas& canvas, SimObject* control, const Rect& rect) {
   const std::string cls = lowered(control->class_name);
+  auto hook = draw_hooks.find(cls);
+  if (hook != draw_hooks.end()) {
+    hook->second(canvas, control, rect);
+    return;
+  }
   const Profile p = profile_of(control);
   if (cls == "guicontrol") {
     if (p.opaque) canvas.fill_rect(rect, p.fill_color);
@@ -279,7 +307,96 @@ void Renderer::draw_self(Canvas& canvas, SimObject* control, const Rect& rect) {
     draw_bitmap_ctrl(canvas, control, rect, parse_bool(field_or(control, "tile", "0")));
   } else if (cls == "guibitmapctrl") {
     draw_bitmap_ctrl(canvas, control, rect, parse_bool(field_or(control, "wrap", "0")));
+  } else if (cls == "guitextlistctrl") {
+    draw_text_list(canvas, control, p, rect);
+  } else if (cls == "guimltextctrl") {
+    draw_ml_text(canvas, control, p, rect);
+  } else if (cls == "guiconsole") {
+    // The newest console lines that fit, bottom-aligned (rebuild policy).
+    if (const GftFont* f = font(p.font_type, p.font_size)) {
+      const int lh = std::max(1, int(f->height));
+      const auto& lines = engine_.console_buffer;
+      const std::size_t fit = std::size_t(std::max(0, rect.height / lh));
+      const std::size_t first = lines.size() > fit ? lines.size() - fit : 0;
+      int y = rect.y + rect.height - int(lines.size() - first) * lh;
+      for (std::size_t i = first; i < lines.size(); ++i, y += lh)
+        canvas.draw_text(*f, rect.x + 2, y, lines[i], p.font_color);
+    }
   }
+}
+
+// Rows top down, one line each; the "columns" field gives each column's x
+// offset, tab-separated text fills them. The selected row is filled with
+// the profile's highlight colour and drawn in its selection colour. Row
+// height and colours are rebuild policy until a 3.04 capture of a filled
+// list exists.
+void Renderer::draw_text_list(Canvas& canvas, SimObject* control, const Profile& p, const Rect& rect) {
+  const GftFont* f = font(p.font_type, p.font_size);
+  if (!f) return;
+  const int h = row_height(control);
+  std::vector<int> cols;
+  {
+    std::string c = control->field("columns");
+    std::size_t at = 0;
+    while (at < c.size()) {
+      std::size_t sp = c.find(' ', at);
+      std::string w = c.substr(at, sp == std::string::npos ? std::string::npos : sp - at);
+      if (!w.empty()) cols.push_back(parse_int_field(w));
+      if (sp == std::string::npos) break;
+      at = sp + 1;
+    }
+  }
+  if (cols.empty()) cols.push_back(0);
+  const std::string selected = control->field("selected");
+  for (std::size_t i = 0; i < control->rows.size(); ++i) {
+    const Rect row{rect.x, rect.y + int(i) * h, rect.width, h};
+    const bool sel = !selected.empty() && control->rows[i].second == selected;
+    if (sel) canvas.fill_rect(row, p.fill_color_hl);
+    const std::string& text = control->rows[i].first;
+    std::size_t start = 0;
+    for (std::size_t c = 0; c < cols.size(); ++c) {
+      std::size_t tab = text.find('\t', start);
+      std::string cell = text.substr(start, tab == std::string::npos ? std::string::npos : tab - start);
+      const int x0 = row.x + cols[c];
+      const int x1 = c + 1 < cols.size() ? row.x + cols[c + 1] : row.x + row.width;
+      canvas.push_clip({x0, row.y, x1 - x0, row.height});
+      canvas.draw_text(*f, x0, row.y + text_line_top(row.height, int(f->height)), cell,
+                       sel ? p.font_color_sel : p.font_color);
+      canvas.pop_clip();
+      if (tab == std::string::npos) break;
+      start = tab + 1;
+    }
+  }
+}
+
+// Plain text, wrapped at spaces to the box width; no markup tags yet.
+void Renderer::draw_ml_text(Canvas& canvas, SimObject* control, const Profile& p, const Rect& rect) {
+  const GftFont* f = font(p.font_type, p.font_size);
+  if (!f) return;
+  const std::string text = control->field("text");
+  int y = rect.y;
+  std::string line;
+  auto flush = [&] {
+    canvas.draw_text(*f, rect.x, y, line, p.font_color);
+    y += int(f->height);
+    line.clear();
+  };
+  std::size_t i = 0;
+  while (i <= text.size()) {
+    std::size_t end = text.find_first_of(" \n", i);
+    if (end == std::string::npos) end = text.size();
+    const std::string word = text.substr(i, end - i);
+    const std::string trial = line.empty() ? word : line + " " + word;
+    if (!line.empty() && f->text_width(trial) > rect.width) {
+      flush();
+      line = word;
+    } else {
+      line = trial;
+    }
+    if (end < text.size() && text[end] == '\n') flush();
+    i = end + 1;
+  }
+  if (!line.empty()) flush();
 }
 
 void Renderer::draw_button(Canvas& canvas, SimObject* control, const Profile& p, const Rect& rect) {
@@ -317,7 +434,10 @@ void Renderer::draw_text_edit(Canvas& canvas, SimObject* control, const Profile&
     if (fill.a) canvas.fill_rect(rect, fill);
     if (p.border) canvas.frame_rect(rect, p.border_color);
   }
-  std::string text = control->field("text");
+  // The edit buffer is "value" (setText, setValue and typing all use it);
+  // a "text" field the .gui saved shows until the buffer is set.
+  std::string text = control->field("value");
+  if (text.empty()) text = control->field("text");
   if (parse_bool(field_or(control, "password", "0"))) text.assign(text.size(), '*');
   canvas.push_clip(inner);
   Profile left = p;

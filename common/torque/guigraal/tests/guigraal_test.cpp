@@ -155,7 +155,7 @@ struct Rig {
     SimObject* c = engine.find_object(engine.find_object("Canvas")->field("content"));
     return c ? c->name : std::string();
   }
-  std::string text(const std::string& obj) { return engine.find_object(obj)->field("text"); }
+  std::string text(const std::string& obj) { return eval("return " + obj + ".getText();"); }
 };
 
 void test_method_table() {
