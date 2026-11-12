@@ -33,7 +33,9 @@ def exported(lib):
                 in_table = True
                 continue
             if in_table:
-                m = re.match(r"\s+\[\s*\d+\]\s+(\S+)", line)
+                # "[   0] name", or with newer binutils
+                # "[   0] +base[   1] 0000 name": the name is the last word.
+                m = re.match(r"\s*\[\s*\d+\]\s.*?(\S+)\s*$", line)
                 if m:
                     names.add(m.group(1))
                 elif line.strip() == "":
@@ -43,10 +45,21 @@ def exported(lib):
     return {l.split()[-1] for l in out.splitlines() if l.strip()}
 
 
+def resolvable(lib, want):
+    """The names a loaded library resolves (ctypes, so no objdump format)."""
+    import ctypes
+    handle = ctypes.CDLL(os.path.abspath(lib))
+    return {n for n in want if hasattr(handle, n)}
+
+
 def main():
     lib = sys.argv[1]
-    have = exported(lib)
     want = {"graal_set" + n for n in slot_names()} | set(ENTRY)
+    have = exported(lib)
+    if lib.lower().endswith(".dll") and not (want & have):
+        # objdump's export listing differs between binutils builds; fall
+        # back to asking the loader.
+        have = resolvable(lib, want)
     missing = sorted(want - have)
     extra = sorted(n for n in have - want if n.startswith(("graal_", "graalengine_")))
     for n in missing:
