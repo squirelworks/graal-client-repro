@@ -50,6 +50,7 @@ program Graal128b2;
 
 uses
   SysUtils, Classes,
+  GPaths in '../../common/GPaths.pas',
   GNumText in '../../common/GNumText.pas',
   GTypes in '../../common/GTypes.pas',
   GZlib in '../../common/GZlib.pas',

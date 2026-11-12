@@ -122,6 +122,7 @@ function RunLaunch1x(Win: TGWindow; const FormData: string; const Cfg: TLaunchCo
 implementation
 
 uses
+  GPaths,
   SysUtils, GUiFont, GAssetDirs;
 
 const
@@ -268,7 +269,7 @@ var
   N: string;
 begin
   Result := TStringList.Create;
-  if FindFirst(IncludeTrailingPathDelimiter(Dir) + '*', faAnyFile, SR) = 0 then
+  if FindFirst(WithTrailingSep(Dir) + '*', faAnyFile, SR) = 0 then
   begin
     repeat
       N := SR.Name;
@@ -286,7 +287,7 @@ var
   I, C: Integer;
   D, Line, Key, Value: string;
 begin
-  D := IncludeTrailingPathDelimiter(Dir);
+  D := WithTrailingSep(Dir);
   L := TStringList.Create;
   try
     if FileExists(D + 'graalconfig.txt') then
@@ -335,10 +336,10 @@ var
   V: string;
 begin
   Result := Default;
-  if not FileExists(IncludeTrailingPathDelimiter(Dir) + 'graalconfig.txt') then Exit;
+  if not FileExists(WithTrailingSep(Dir) + 'graalconfig.txt') then Exit;
   L := TStringList.Create;
   try
-    L.LoadFromFile(IncludeTrailingPathDelimiter(Dir) + 'graalconfig.txt');
+    L.LoadFromFile(WithTrailingSep(Dir) + 'graalconfig.txt');
     V := Trim(L.Values['gamemode']);
     for I := 0 to High(Modes) do
       if SameText(V, Modes[I]) then Result := I;
@@ -436,7 +437,7 @@ end;
 constructor THeadIcons.Create(const Dir: string);
 begin
   inherited Create;
-  FDir := IncludeTrailingPathDelimiter(Dir);
+  FDir := WithTrailingSep(Dir);
   FNames := TStringList.Create;
 end;
 
