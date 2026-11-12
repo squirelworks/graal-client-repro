@@ -69,6 +69,17 @@ holds the ordered gates.
 The late-5 and 6.x clients are not Torque (one `quattro_lib` program), so
 they are a separate own-engine track (#109, "Separate own-engine track").
 
+## v3 to v6: the plan
+
+[docs/v3-v6-plan.md](docs/v3-v6-plan.md) audits each 3.x to 6.x folder
+against its original and orders the work in four tracks: Torque (3.04,
+3.153), the shared GS2 core in `common/cpp/gs2/`, the 4.x and 5.0 split
+clients, and the Quattro program for late 5 and 6.x.
+
+- [x] B1: the GS2 bytecode loader and machine (`common/cpp/gs2/`)
+- [ ] B2: object creation, array literals and the built-in commands
+- [ ] B3: the menus embedded in the player's own exe run to `initialized`
+
 ## Builds with no folder
 
 Real builds the research has read (Graal_analysis
