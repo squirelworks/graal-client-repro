@@ -39,7 +39,7 @@ jobs:
         os: ${{ fromJSON(inputs.macos == 'yes' && '["ubuntu-latest","windows-latest","macos-latest"]' || '["ubuntu-latest","windows-latest"]') }}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Name the build and version
         shell: bash
         env:
@@ -91,7 +91,7 @@ jobs:
             $bytes = [IO.File]::ReadAllBytes($exe.FullName)
             if ([Text.Encoding]::ASCII.GetString($bytes).IndexOf('requestedExecutionLevel') -lt 0) { throw "$($exe.Name): no manifest" }
           }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: ${{ runner.os }}
           path: dist/*.zip
@@ -100,7 +100,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Name the build and version
         env:
           IN_BUILD: ${{ inputs.build }}
@@ -113,7 +113,7 @@ jobs:
           echo "VERSION=$V" >> "$GITHUB_ENV"
           # the title is the notes' first heading plus the version
           echo "TITLE=$(head -1 "$B/RELEASE_NOTES.md" | sed 's/^# *//') $V" >> "$GITHUB_ENV"
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           path: dist
       - uses: softprops/action-gh-release@v2

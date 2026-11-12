@@ -92,7 +92,7 @@ jobs:
       zelda2: ${{ steps.list.outputs.zelda2 }}
       graalgb: ${{ steps.list.outputs.graalgb }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: List the clients and check their notes
         id: list
         run: |
@@ -133,9 +133,9 @@ jobs:
     env:
       BUILDS: ${{ needs.plan.outputs.delphi }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install .NET 8
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '8.0.x'
       - name: Restore managed players with diagnostic logging
@@ -157,7 +157,7 @@ jobs:
           done
       - name: Upload restore diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: restore-diagnostics-${{ runner.os }}
           path: restore-logs/*.log
@@ -209,7 +209,7 @@ jobs:
             $bytes = [IO.File]::ReadAllBytes($exe.FullName)
             if ([Text.Encoding]::ASCII.GetString($bytes).IndexOf('requestedExecutionLevel') -lt 0) { throw "$($exe.FullName): no manifest" }
           }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: release-all-${{ runner.os }}
           path: dist/*.zip
@@ -220,13 +220,13 @@ jobs:
     if: needs.plan.outputs.delphi != '' && inputs.stress_gate != 'off'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           repository: squirelworks/seihai-gserver
           path: seihai-gserver
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo build --release --manifest-path seihai-gserver/Cargo.toml
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: stress-gserver
           path: |
@@ -249,7 +249,7 @@ jobs:
     env:
       BUILDS: ${{ needs.plan.outputs.delphi }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Free Pascal cross compilers for macOS
         run: scripts/release/darwin-cross.sh
       - name: Build and pack
@@ -270,7 +270,7 @@ jobs:
             done
           done
           echo "macOS zips: $OK"; [ -z "$MISSED" ] || echo "missed:$MISSED"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: release-all-macOS
           path: dist/*.zip
@@ -285,8 +285,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v7
         with:
           name: stress-gserver
           path: seihai-gserver
@@ -369,8 +369,8 @@ jobs:
       ZELDA2: ${{ needs.plan.outputs.zelda2 }}
       GRAALGB: ${{ needs.plan.outputs.graalgb }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v7
         with:
           path: dist
           pattern: release-all-*
@@ -411,7 +411,7 @@ jobs:
       always() && inputs.dry_run != 'yes' && inputs.publish == 'yes' && needs.release.result == 'success'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Update RELEASES.md
         env:
           DELPHI: ${{ needs.plan.outputs.delphi }}

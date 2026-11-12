@@ -101,7 +101,7 @@ begin
   Expect(',a', ',', '2:[][a]');
   Expect(',', ',', '2:[][]');
   Expect(' a , b ', ',', '2:[ a ][ b ]');
-  Expect('ServerList|name|1.2.3.4|14900', '|', '4:[ServerList][name][1.2.3.4][14900]');
+  Expect('ServerList|name|192.0.2.4|14900', '|', '4:[ServerList][name][192.0.2.4][14900]');
   Expect('say  it''s  me', ' ', '5:[say][][it''s][][me]');
   Expect('"a,b",c', ',', '2:[a,b][c]');
   Expect('"say ""hi""",x', ',', '2:[say "hi"][x]');
