@@ -7,6 +7,8 @@ protocol as the Windows 2.31 client. It is an early version: most of the
 game (NPCs, items, weapons, the script engine, the 3D mode) is not there
 yet.
 
+> **Major defects in fidelity.** This client's Torque layer has not been rebuilt yet (the original is built on the Torque engine), so this release does not behave like the original in many ways. It stays marked this way until the Torque behaviour rebuild (#109, #151, #172) reaches this build.
+
 **Login token: token only.** `G3D28015` is read from the original program, but the original's own login has not been captured on the wire, so this rebuild's login has not been checked against it.
 
 > **Not affiliated.** graal-delphi is an independent fan project. It is not
