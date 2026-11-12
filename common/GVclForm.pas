@@ -122,6 +122,9 @@ type
     AppTitle: string;          { the hidden application window's title }
     Width, Height: Integer;    { outer size, as the form gives it }
     ClientWidth, ClientHeight: Integer;
+    { True when the form gives only ClientWidth/Height (no Width/Height):
+      the window is then sized from the client area }
+    SizedFromClient: Boolean;
     BorderIcons: string;       { the form's BorderIcons set, as text }
     BorderStyle: string;       { bsSizeable (the default), bsDialog, ... }
     Sizeable: Boolean;
@@ -617,6 +620,14 @@ begin
     if Sizeable then ClientWidth := Width - 8 else ClientWidth := Width - 6;
   if ClientHeight = 0 then
     if Sizeable then ClientHeight := Height - 27 else ClientHeight := Height - 25;
+  { the other way round: many TOPTIONS forms carry only ClientWidth and
+    ClientHeight, and a window made at Width x Height (0 x 0) was a bare
+    caption. ShowModal sizes the real window from the client area. }
+  SizedFromClient := (Width <= 0) or (Height <= 0);
+  if Width <= 0 then
+    if Sizeable then Width := ClientWidth + 8 else Width := ClientWidth + 6;
+  if Height <= 0 then
+    if Sizeable then Height := ClientHeight + 27 else Height := ClientHeight + 25;
 end;
 
 destructor TVclForm.Destroy;
@@ -1878,6 +1889,7 @@ end;
 function TVclForm.ShowModal: Integer;
 var
   Style, ExStyle: DWORD;
+  R: TRect;
   Owner: HWND;
   M: TMsg;
   I, X, Y: Integer;
@@ -1908,6 +1920,19 @@ begin
   if Sizeable then Style := Style or WS_THICKFRAME
   else if SameText(BorderStyle, 'bsDialog') then Style := Style or DS_MODALFRAME
   else Style := Style or WS_BORDER;
+  if SizedFromClient then
+  begin
+    { the outer size that holds the form's client area with this style }
+    R.Left := 0;
+    R.Top := 0;
+    R.Right := ClientWidth;
+    R.Bottom := ClientHeight;
+    if AdjustWindowRectEx(R, Style, False, WS_EX_CONTROLPARENT or WS_EX_WINDOWEDGE) then
+    begin
+      Width := R.Right - R.Left;
+      Height := R.Bottom - R.Top;
+    end;
+  end;
   { poScreenCenter }
   X := (GetSystemMetrics(SM_CXSCREEN) - Width) div 2;
   Y := (GetSystemMetrics(SM_CYSCREEN) - Height) div 2;
