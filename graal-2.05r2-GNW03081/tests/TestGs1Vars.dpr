@@ -7,6 +7,7 @@ program TestGs1Vars;
 
 uses
   SysUtils,
+  GNumText in '../../common/GNumText.pas',
   GGs1 in '../../common/GGs1.pas';
 
 var

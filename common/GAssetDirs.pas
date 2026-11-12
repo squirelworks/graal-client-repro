@@ -84,6 +84,7 @@ function AssetsFolder: string;
 implementation
 
 uses
+  GPaths,
   SysUtils, Classes;
 
 var
@@ -117,7 +118,7 @@ var
   D: string;
   I: Integer;
 begin
-  D := IncludeTrailingPathDelimiter(Dir);
+  D := WithTrailingSep(Dir);
   for I := 0 to High(Roots) do
     if Roots[I] = D then
     begin
@@ -152,8 +153,8 @@ begin
     if P = 0 then P := Length(Rest) + 1;
     V := Trim(Copy(Rest, 1, P - 1));
     Delete(Rest, 1, P);
-    if (V <> '') and DirectoryExists(D + '_clients' + PathDelim + V) then
-      C := D + '_clients' + PathDelim + V + PathDelim;
+    if (V <> '') and DirExists(D + '_clients' + DirSlash + V) then
+      C := D + '_clients' + DirSlash + V + DirSlash;
   end;
   List := TStringList.Create;
   List.Sorted := True;
@@ -181,7 +182,7 @@ end;
 
 procedure AddRoot(const Dir: string);
 begin
-  if (Dir = '') or not DirectoryExists(Dir) then Exit;
+  if (Dir = '') or not DirExists(Dir) then Exit;
   AddRootAllow(Dir, nil);
 end;
 
@@ -192,19 +193,19 @@ var
   P: Integer;
 begin
   if Dir = '' then Exit;
-  D := IncludeTrailingPathDelimiter(ExpandFileName(Dir));
-  if not DirectoryExists(D) then Exit;
-  if DirectoryExists(D + '_clients') then
+  D := WithTrailingSep(ExpandFileName(Dir));
+  if not DirExists(D) then Exit;
+  if DirExists(D + '_clients') then
   begin
     AddShared(D, Version);
     Exit;
   end;
   { only inside the folder: never a folder above it }
   F := '';
-  if DirectoryExists(D + 'common') then
+  if DirExists(D + 'common') then
     F := D
-  else if DirectoryExists(D + 'graal-assets') then
-    F := D + 'graal-assets' + PathDelim;
+  else if DirExists(D + 'graal-assets') then
+    F := D + 'graal-assets' + DirSlash;
   if F <> D then AddRoot(D);
   if F = '' then Exit;
   if Folder = '' then Folder := F;
@@ -253,7 +254,7 @@ var
 begin
   Result := '';
   if Rel = '' then Exit;
-  R := StringReplace(Rel, '/', PathDelim, [rfReplaceAll]);
+  R := StringReplace(Rel, '/', DirSlash, [rfReplaceAll]);
   for I := 0 to High(Roots) do
     if ((Allow[I] = nil) or (Allow[I].IndexOf(NormRel(Rel)) >= 0)) and
        FileExists(Roots[I] + R) then
@@ -281,7 +282,7 @@ begin
   if FullPath = '' then Exit;
   F := ExpandFileName(FullPath);
   if FullPath[Length(FullPath)] in ['/', '\'] then
-    F := IncludeTrailingPathDelimiter(F);
+    F := WithTrailingSep(F);
   for I := 0 to High(Shared) do
     if (Length(F) >= Length(Shared[I])) and
        (CompareText(Copy(F, 1, Length(Shared[I])), Shared[I]) = 0) then
@@ -319,11 +320,11 @@ begin
   begin
     F := ExpandFileName(FullPath);
     if FullPath[Length(FullPath)] in ['/', '\'] then
-      F := IncludeTrailingPathDelimiter(F);
+      F := WithTrailingSep(F);
     Result := UnderOwnClients(F);
     Exit;
   end;
-  if (Rel = '') or (Rel[Length(Rel)] = '/') or DirectoryExists(FullPath) then
+  if (Rel = '') or (Rel[Length(Rel)] = '/') or DirExists(FullPath) then
     Exit;
   Result := SharedAllow[I].IndexOf(NormRel(Rel)) >= 0;
 end;
@@ -335,7 +336,7 @@ var
 begin
   Result := '';
   if (Dir = '') or (Name = '') then Exit;
-  Rel := SharedRel(IncludeTrailingPathDelimiter(Dir), I);
+  Rel := SharedRel(WithTrailingSep(Dir), I);
   if I < 0 then
   begin
     if FileExists(Dir + Name) then Result := Dir + Name;
@@ -357,12 +358,12 @@ var
 begin
   Result := LevelSibling(Dir, Name);
   if (Result <> '') or (Dir = '') then Exit;
-  SharedRel(IncludeTrailingPathDelimiter(Dir), I);
+  SharedRel(WithTrailingSep(Dir), I);
   if I < 0 then
     Result := Dir + Name
   else
-    Result := Shared[I] + '_clients' + PathDelim + StringReplace(Name, '/',
-      PathDelim, [rfReplaceAll]);
+    Result := Shared[I] + '_clients' + DirSlash + StringReplace(Name, '/',
+      DirSlash, [rfReplaceAll]);
 end;
 
 finalization

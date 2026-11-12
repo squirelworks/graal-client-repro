@@ -19,6 +19,7 @@ sounds or levels. The client carries simple graphics of its own.
 - [x] **Asleep at the start.** One Player starts asleep in the left bed, only the head showing, as the real 1.1.9 and 1.28 beta 2 do (1.21 itself was not captured); the first key wakes the player, who gets up without acting on that press.
 - [x] **F1 Options window.** F1 opens "Options" from the build's own form (TOptions), with the current level's file name filled in. Edit level opens the editor. The other buttons close it and do nothing yet. Linux and macOS draw the form in a window of their own.
 - [x] **Default server.** The server field now starts on the rebuild's own default (listserver.txt, else `listserver.graal.in`) instead of the original's long-gone host, so the code that swapped that host out on connect is gone.
+- [x] **Other players.** OTHERPLPROPS reads the one-byte player id 1.21 sends before the props (the two-byte id starts with 1.36), so another player's props are no longer read one byte off.
 - [x] **Pictures by kind.** The picture cache keeps each name once per kind (head, body, sword, shield, hat, weapon), because each kind searches its own folders. A picture first asked for without its kind got the built-in stand-in and kept it, so an install's own picture could stay hidden behind the stand-in (in 1.33, `levels/weapons/wbomb1.gif` beside the D button).
 
 ## What's new in v0.0.4

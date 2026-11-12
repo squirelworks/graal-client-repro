@@ -11,6 +11,8 @@ program Test230;
 
 uses
   SysUtils, Classes,
+  GPaths in '../../common/GPaths.pas',
+  GNumText in '../../common/GNumText.pas',
   GTypes in '../../common/GTypes.pas',
   GZlib in '../../common/GZlib.pas',
   GBzip2 in '../../common/GBzip2.pas',

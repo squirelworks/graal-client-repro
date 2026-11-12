@@ -12,6 +12,8 @@ program Test205;
 
 uses
   SysUtils, Classes,
+  GPaths in '../../common/GPaths.pas',
+  GNumText in '../../common/GNumText.pas',
   GTypes in '../../common/GTypes.pas',
   GZlib in '../../common/GZlib.pas',
   GSocket in '../../common/GSocket.pas',
@@ -849,6 +851,155 @@ begin
   end;
 end;
 
+{ #174: the raw FILE 102 handler. GINT5 metadata, a GCHAR name length,
+  the name, then the rest of the raw count as content. The vectors are
+  made up for this test. }
+procedure TestFileMessage;
+var
+  G: TAdventure;
+  Body: string;
+  T: Cardinal;
+
+  procedure SendFile(Meta: Cardinal; const Name, Content: string);
+  var
+    Raw: string;
+  begin
+    Raw := Chr(PLO_FILE + 32) + GInt5(Meta) + Chr(Length(Name) + 32) + Name + Content;
+    G.Client.FeedRaw(Frame(Chr(PLO_RAWDATA + 32) + GInt3(Length(Raw)) + #10 + Raw +
+      Chr(PLO_TOALL + 32) + 'next' + #10));
+  end;
+
+begin
+  G := TAdventure.Create;
+  try
+    SendFile(123456789, 'f', 'A'#10);
+    Check(G.ReceivedFile('f', Body, T) and (Body = 'A'#10) and (T = 123456789),
+      'FILE: name, nonzero GINT5 time and content with its final LF');
+    Check(G.Handled[PLO_TOALL] = 1, 'FILE: the next ordinary message is intact');
+    SendFile(1, 'pics1.png', #0#10#255#13#10#10);
+    Check(G.ReceivedFile('pics1.png', Body, T) and (Body = #0#10#255#13#10#10) and (T = 1),
+      'FILE: binary content with two final LFs is kept whole');
+    SendFile(0, 'empty.txt', '');
+    Check(G.ReceivedFile('empty.txt', Body, T) and (Body = ''),
+      'FILE: an empty file is kept as empty');
+    SendFile(7, 'f', 'B');
+    Check(G.ReceivedFile('f', Body, T) and (Body = 'B') and (T = 7) and
+      (G.FileNames.Count = 3), 'FILE: a later copy of a name replaces the earlier one');
+    G.Receive(PLO_FILE, GInt5(0) + Chr(9 + 32) + 'abc');
+    Check(not G.ReceivedFile('abc', Body, T) and (G.FileNames.Count = 3),
+      'FILE: a name running past the message is rejected');
+    G.Receive(PLO_FILE, '   ');
+    Check(G.FileNames.Count = 3, 'FILE: a message shorter than its header is rejected');
+    Check(G.Handled[PLO_TOALL] = 4, 'FILE: every following message came through');
+  finally
+    G.Free;
+  end;
+end;
+
+{ #174: generated fragmented and coalesced TCP frames. The two-byte
+  big-endian frame length, the inflated LF boundaries and the RAWDATA
+  count are separate layers: where TCP cuts the bytes must not change
+  which messages come out. The streams are made up for this test. }
+function FeedSplit(const Stream: string; Cuts: array of Integer): string;
+var
+  C: TGraalClient;
+  S: TRawSink;
+  I, P: Integer;
+begin
+  C := TGraalClient.Create;
+  S := TRawSink.Create;
+  try
+    C.OnMessage := S.OnMessage;
+    P := 1;
+    for I := 0 to High(Cuts) do
+    begin
+      C.FeedRaw(Copy(Stream, P, Cuts[I] - P + 1));
+      P := Cuts[I] + 1;
+    end;
+    C.FeedRaw(Copy(Stream, P, MaxInt));
+    { joined with LF, not Got.Text, whose line break is CRLF on Windows }
+    Result := '';
+    for I := 0 to S.Got.Count - 1 do Result := Result + S.Got[I] + #10;
+    if C.LastError <> '' then Result := Result + 'error: ' + C.LastError;
+  finally
+    S.Free;
+    C.Free;
+  end;
+end;
+
+procedure TestFraming;
+var
+  C: TGraalClient;
+  S: TRawSink;
+  Noise, Stream, Want, Raw, F1, F2: string;
+  I, J, Before: Integer;
+  Seed: Cardinal;
+  Same: Boolean;
+begin
+  { a frame whose compressed length needs both length bytes (>= 256),
+    fed one byte at a time: nothing before the last byte, one message after }
+  Seed := RandSeed;
+  RandSeed := 205;
+  Noise := '';
+  for I := 1 to 600 do Noise := Noise + Chr(33 + Random(90));
+  RandSeed := Seed;
+  Stream := Frame(Chr(PLO_TOALL + 32) + Noise + #10);
+  Check(Ord(Stream[1]) > 0, 'framing: the test frame has a high length byte');
+  C := TGraalClient.Create;
+  S := TRawSink.Create;
+  try
+    C.OnMessage := S.OnMessage;
+    Before := 0;
+    for I := 1 to Length(Stream) - 1 do
+    begin
+      C.FeedRaw(Stream[I]);
+      Inc(Before, S.Got.Count);
+    end;
+    Check(Before = 0, 'framing: a big-endian length frame waits for its last byte');
+    C.FeedRaw(Stream[Length(Stream)]);
+    Check((S.Got.Count = 1) and (S.Got[0] = IntToStr(PLO_TOALL) + ':' + Noise),
+      'framing: byte-by-byte, the frame gives its one message');
+  finally
+    S.Free;
+    C.Free;
+  end;
+
+  { two messages, the first cut across two frames at the inflated layer;
+    the frames arrive coalesced in one read }
+  F1 := Frame(Chr(PLO_TOALL + 32) + 'he');
+  F2 := Frame('llo' + #10 + Chr(PLO_TOALL + 32) + 'two' + #10);
+  Want := FeedSplit(F1 + F2, []);
+  Check(Want = IntToStr(PLO_TOALL) + ':hello'#10 + IntToStr(PLO_TOALL) + ':two'#10,
+    'framing: a message cut across two frames comes out whole');
+
+  { every single cut point of the coalesced pair gives the same messages }
+  Same := True;
+  for I := 1 to Length(F1 + F2) - 1 do
+    if FeedSplit(F1 + F2, [I]) <> Want then Same := False;
+  Check(Same, 'framing: every TCP cut of two frames gives the same messages');
+
+  { a RAWDATA count whose body runs into the next frame, with an LF and a
+    following ordinary message; every two-cut split gives the same result }
+  Raw := Chr(PLO_FILE + 32) + 'ab'#10'cd';
+  F1 := Frame(Chr(PLO_RAWDATA + 32) + GInt3(Length(Raw)) + #10 + Copy(Raw, 1, 3));
+  F2 := Frame(Copy(Raw, 4, MaxInt) + Chr(PLO_TOALL + 32) + 'next' + #10);
+  Want := FeedSplit(F1 + F2, []);
+  Check(Want = IntToStr(PLO_FILE) + ':ab'#10'cd'#10 + IntToStr(PLO_TOALL) + ':next'#10,
+    'framing: a raw count running into the next frame keeps its LF and the next message');
+  Same := True;
+  for I := 1 to Length(F1 + F2) - 2 do
+    for J := I + 1 to Length(F1 + F2) - 1 do
+      if FeedSplit(F1 + F2, [I, J]) <> Want then Same := False;
+  Check(Same, 'framing: every two-cut split of a raw count stream gives the same messages');
+
+  { the opcode and the first property byte stay with their message: an
+    opcode alone at the end of one frame waits for the next }
+  F1 := Frame(Chr(PLO_TOALL + 32) + 'x' + #10 + Chr(PLO_TOALL + 32));
+  F2 := Frame('y' + #10);
+  Check(FeedSplit(F1 + F2, []) = IntToStr(PLO_TOALL) + ':x'#10 + IntToStr(PLO_TOALL) + ':y'#10,
+    'framing: an opcode at the end of a frame joins the rest in the next');
+end;
+
 procedure TestReceiveLimits;
 var
   G: TAdventure;
@@ -1429,6 +1580,8 @@ begin
   TestLinkPoint;
   TestFuzz;
   TestRawCount;
+  TestFileMessage;
+  TestFraming;
   TestReceiveLimits;
   TestTutorials;
   TestServerList;
