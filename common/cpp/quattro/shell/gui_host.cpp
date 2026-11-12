@@ -4,6 +4,7 @@
 #include "../draw/ui_font.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cctype>
 #include <fstream>
 #include <iterator>
@@ -119,6 +120,56 @@ void CanvasPainter::bitmap(const std::string& file, const gs2::gui::Rect& src, c
     canvas_.blit(e.image, to_tq(src), dst.x, dst.y);
   else
     canvas_.stretch_blit(e.image, to_tq(src), to_tq(dst));
+}
+
+// One particle, sampled nearest-pixel through the inverse of its turn and
+// scale. Blend modes as the emitter names them: 0 adds, 1 is ordinary
+// transparency, 2 subtracts, 3 (day-night) darkens by multiplying.
+void CanvasPainter::sprite(const std::string& file, double x, double y, double rotation, double sx, double sy,
+                           const double* rgba, int mode) {
+  Entry& e = load(file);
+  if (!e.ok || sx == 0 || sy == 0) return;
+  double tint[4] = {1, 1, 1, 1};
+  if (rgba)
+    for (int i = 0; i < 4; ++i) tint[i] = std::max(0.0, std::min(1.0, rgba[i]));
+  const double hw = e.image.width / 2.0, hh = e.image.height / 2.0;
+  const double c = std::cos(rotation), s = std::sin(rotation);
+  // The bounding box of the turned, scaled image.
+  double ex = std::abs(c * hw * sx) + std::abs(s * hh * sy), ey = std::abs(s * hw * sx) + std::abs(c * hh * sy);
+  int x0 = static_cast<int>(std::floor(x - ex)), x1 = static_cast<int>(std::ceil(x + ex));
+  int y0 = static_cast<int>(std::floor(y - ey)), y1 = static_cast<int>(std::ceil(y + ey));
+  const auto& clip = canvas_.clip();
+  x0 = std::max(x0, clip.x);
+  y0 = std::max(y0, clip.y);
+  x1 = std::min(x1, clip.x + clip.width);
+  y1 = std::min(y1, clip.y + clip.height);
+  const auto& surf = canvas_.surface();
+  for (int py = y0; py < y1; ++py)
+    for (int px = x0; px < x1; ++px) {
+      double dx = px + 0.5 - x, dy = py + 0.5 - y;
+      double u = (c * dx + s * dy) / sx + hw, v = (-s * dx + c * dy) / sy + hh;
+      int iu = static_cast<int>(std::floor(u)), iv = static_cast<int>(std::floor(v));
+      if (iu < 0 || iv < 0 || iu >= e.image.width || iv >= e.image.height) continue;
+      const auto& src = e.image.at(iu, iv);
+      double a = src.a / 255.0 * tint[3];
+      if (a <= 0) continue;
+      double r = src.r * tint[0], g = src.g * tint[1], b = src.b * tint[2];
+      const auto& d = surf.at(px, py);
+      auto clamp8 = [](double v) { return static_cast<std::uint8_t>(std::max(0.0, std::min(255.0, v))); };
+      Torque::Gui::Color out = d;
+      switch (mode) {
+        case 0: out = {clamp8(d.r + r * a), clamp8(d.g + g * a), clamp8(d.b + b * a), d.a}; break;
+        case 2: out = {clamp8(d.r - r * a), clamp8(d.g - g * a), clamp8(d.b - b * a), d.a}; break;
+        case 3:
+          out = {clamp8(d.r * (1 - a + a * r / 255)), clamp8(d.g * (1 - a + a * g / 255)),
+                 clamp8(d.b * (1 - a + a * b / 255)), d.a};
+          break;
+        default:
+          out = {clamp8(d.r + (r - d.r) * a), clamp8(d.g + (g - d.g) * a), clamp8(d.b + (b - d.b) * a), d.a};
+      }
+      out.a = 255;
+      canvas_.blend_pixel(px, py, out);
+    }
 }
 
 void CanvasPainter::engineControl(const gs2::gui::Control& c, const gs2::gui::Rect& r) {

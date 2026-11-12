@@ -239,6 +239,7 @@ bool Program::tick() {
 
   scripts_.tick();
   gui_->pick_content();
+  gui_->screen().advance(0.05);  // the show-images' emitters, one 50 ms tick
   passes_.clear();
   if (gui_->has_content()) {
     // RenderGUI: the content and dialogs; the world shows in the playfield.

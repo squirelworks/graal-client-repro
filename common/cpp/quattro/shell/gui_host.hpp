@@ -39,6 +39,8 @@ class CanvasPainter : public gs2::gui::Painter {
   bool bitmapSize(const std::string& file, int& w, int& h) override;
   std::vector<gs2::gui::Rect> cells(const std::string& file) override;
   void bitmap(const std::string& file, const gs2::gui::Rect& src, const gs2::gui::Rect& dst) override;
+  void sprite(const std::string& file, double x, double y, double rotation, double sx, double sy, const double* rgba,
+              int mode) override;
   void engineControl(const gs2::gui::Control& c, const gs2::gui::Rect& r) override;
 
   // Called for GuiShowImgCtrl, GuiGraalCtrl and GuiGraal3DCtrl.
