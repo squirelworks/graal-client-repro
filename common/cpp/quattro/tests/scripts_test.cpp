@@ -85,8 +85,12 @@ void test_delivery_and_cache() {
 
   // The cache file holds GRESCR01 and the stored body.
   fs::path file = dir / "weapons" / "-System.code";
-  std::ifstream in(file, std::ios::binary);
-  std::string bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  std::string bytes;
+  {
+    // Closed before the folder is removed: Windows will not delete an open file.
+    std::ifstream in(file, std::ios::binary);
+    bytes.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+  }
   CHECK(bytes.substr(0, 8) == "GRESCR01");
   uint32_t crc = Cache::crc32(std::string_view(bytes).substr(8));
 
