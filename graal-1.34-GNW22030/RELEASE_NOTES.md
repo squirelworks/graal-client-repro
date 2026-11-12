@@ -5,6 +5,8 @@ for Linux and Windows. It logs in the way 1.34 did and plays a level
 offline. It is early and many parts still behave like a later Graal: see
 "Not yet".
 
+**Login token: token only.** `GNW22030` is read from the original program, but the original's own login has not been captured on the wire, so this rebuild's login has not been checked against it.
+
 > **Not affiliated.** graal-delphi is an independent fan project. It is not
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").

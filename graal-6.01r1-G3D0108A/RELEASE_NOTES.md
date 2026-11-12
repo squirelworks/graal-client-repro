@@ -5,6 +5,8 @@ Pascal). The original is a Linux program from 2011; this rebuild runs on
 Linux and Windows. It is an early version: most of the game (NPCs, items,
 weapons, scripts, the scripted login screens) is not there yet.
 
+**Login token: token only.** `G3D0108A` is read from the original program, but the original's own login has not been captured on the wire, so this rebuild's login has not been checked against it.
+
 > **Not affiliated.** graal-delphi is an independent fan project. It is not
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").

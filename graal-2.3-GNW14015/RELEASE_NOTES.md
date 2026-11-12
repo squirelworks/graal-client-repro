@@ -7,6 +7,8 @@ Training, the server list from the listserver, and login. This is version
 yet been compared with the original, and some of what it sends is a
 stand-in until the original program has been studied.
 
+**Login token: token only.** No real 2.3 program has been read: `GNW14015` comes from the public version list, and this rebuild is the 2.31 rebuild sending that token. The ten tamper-check bytes it sends after login are 2.31's; the original's are checksums of its own program, so 2.3's differ. The game servers it is tested with read and ignore them.
+
 > **Not affiliated.** graal-delphi is an independent fan project. It is not
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").

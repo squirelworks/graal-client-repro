@@ -5,6 +5,8 @@ A rebuild of the classic Graal 1.1.9 "Gold Edition" client in Delphi
 the game mode, One Player for your own levels or One Player Online with a
 connect dialog. This is an early, hit-or-miss first release.
 
+**Login token: none.** The original sends no version token, so there is nothing to check here.
+
 > **Not affiliated.** graal-delphi is an independent fan project. It is not
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").

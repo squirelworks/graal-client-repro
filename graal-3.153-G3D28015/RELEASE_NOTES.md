@@ -7,6 +7,8 @@ protocol as the Windows 2.31 client. It is an early version: most of the
 game (NPCs, items, weapons, the script engine, the 3D mode) is not there
 yet.
 
+**Login token: token only.** `G3D28015` is read from the original program, but the original's own login has not been captured on the wire, so this rebuild's login has not been checked against it.
+
 > **Not affiliated.** graal-delphi is an independent fan project. It is not
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").

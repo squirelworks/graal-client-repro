@@ -6,6 +6,8 @@ a level of the player's own 39ster install in a 640 x 480 window, and the
 arrow keys walk a placeholder box with the original's collision. The
 character, animation, signs and links come next.
 
+**Login token: none.** The original is offline only and never logs in.
+
 > **Not affiliated.** graal-delphi is an independent fan project. It is not
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, Stéphane Portha ("unixmad"), or 39ster.

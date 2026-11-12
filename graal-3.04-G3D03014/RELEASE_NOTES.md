@@ -7,6 +7,8 @@ starts from the 2.22 one and changes what 3.04 does differently. It is an
 early version: most of the game (NPCs, items, weapons, the script engine)
 is not there yet.
 
+**Login token: tested against the real client.** The original was run in the lab and `G3D03014` was seen in its login on the wire (Linux lab run); this rebuild sends the same token.
+
 > **Not affiliated.** graal-delphi is an independent fan project. It is not
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").

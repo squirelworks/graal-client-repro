@@ -4,6 +4,8 @@ The first rebuild of the unpacked Windows 6.1.1.3 client. The original is a
 `quattro_lib` program. This folder is original Pascal. It is not a Torque
 host and it does not borrow another version's token.
 
+**Login token: tested against the real client.** The original was run in the lab and `GNP1905C` was seen in its login on the wire (lab capture of its hello); this rebuild sends the same token.
+
 > **Not affiliated.** graal-delphi is an independent fan project. It is not
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").
