@@ -55,6 +55,9 @@ void Frame304::draw() {
   for (const DialogLayer& d : engine_.dialogs)
     if (SimObject* o = engine_.object(d.control)) dialogs.push_back(o);
   renderer_.render(canvas_, content, dialogs);
+  // what the renderer could not draw (a missing font or bitmap), once each
+  for (; notes_seen_ < renderer_.notes.size(); ++notes_seen_)
+    engine_.trace.push_back("gui: " + renderer_.notes[notes_seen_]);
 }
 
 void Frame304::step() {

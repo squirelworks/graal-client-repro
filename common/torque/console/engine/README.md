@@ -172,6 +172,12 @@ Observed, from the shipped scripts or the lab:
   case, string values quoted and escaped, numbers bare. `ActionMap::save`
   writes LF lines, key names lower case, the device without its number.
 - `exec` writes nothing to the console log.
+- `Engine::exec_by_name` (the 3.153 profile, set by the 3.153 host): when
+  `exec` names only a file and the root holds no such file, the script is
+  looked for by file name anywhere in the install. The match ignores case,
+  and of several files the one with the fewest folders wins. This is
+  rebuild policy: every 3.153 `exec` names only the file, and its scripts
+  sit in `scripts/`, `scripts2D/` and `scriptsgui/`.
 - Input (stage 3) is written from what the shipped 3.04 scripts expect: the
   `moveMap`, `GlobalActionMap` and `bindCmd` lines in `default.bind.cs`,
   `ToggleConsole` and `ConsoleEntry::eval` in `ConsoleDlg.gui`, and

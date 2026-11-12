@@ -9,8 +9,8 @@
   same handle. No exception leaves the library: a failure is a result of
   0 (or -1) and the text is in g304_error.
 
-  Built by common/torque/guigraal/Makefile (make lib), not by
-  scripts/build.sh, so release packages are unchanged. }
+  Built by common/torque/guigraal/Makefile (make lib); scripts/build.sh
+  builds it on Linux for the release. }
 library Game304Lib;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
