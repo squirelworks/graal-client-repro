@@ -31,7 +31,7 @@ unit Npc231;
 interface
 
 uses
-  Classes, SysUtils, Math, GClamp, GTypes, GLevel, GSurface, GGs1, GNumText;
+  Classes, SysUtils, GNumText, Math, GTypes, GLevel, GSurface, GGs1, GClamp;
 
 const
   NPCPROP_IMAGE = 0; NPCPROP_SCRIPT = 1; NPCPROP_X = 2; NPCPROP_Y = 3;
