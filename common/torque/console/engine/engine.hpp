@@ -104,6 +104,8 @@ struct SimObject {
   std::vector<std::uint32_t> members;
   std::uint32_t group = 0;            // owning SimGroup (0 = none)
   std::vector<ActionBinding> binds;   // ActionMap
+  std::vector<std::pair<std::string, std::string>> rows;  // pop-up menu entries (text, id)
+  bool awake = false;
   std::vector<std::string> lines;     // FileObject read buffer
   std::size_t line_pos = 0;
   std::string write_path;

@@ -31,10 +31,7 @@ import tempfile
 KNOWN = {
     # Engine output while the video device starts (createCanvas): GUI/video stage.
     "console": "lines from 'Activating the OpenGL display device...' to the next blank line",
-    # mainMenuGui::onWake runs when the canvas wakes its content; the GUI
-    # stage then execs the language file twice (onWake and the language
-    # menu's onSelect).
-    "open-order": ["graaldata/languages/languageEnglish.cs.dso"] * 2,
+    "open-order": [],
     # Set by the engine during input and video start-up, after the scripts.
     "prefs": ["$pref::Input::MouseEnabled", "$pref::Video::appliedPref"],
 }
@@ -101,7 +98,7 @@ def main():
                 continue
             filtered_real.append(f)
         print(f"compiled scripts run: {len(ours)}; original opened {len(real_dso)}; "
-              f"{len(real_dso) - len(filtered_real)} wait on the GUI stage [known]")
+              f"{len(real_dso) - len(filtered_real)} known missing")
         ok &= report("exec order", filtered_real, ours)
         for rel in ("graaldata/client/prefs.cs", "common/client/prefs.cs"):
             ok &= report(rel, read(os.path.join(args.capture, rel)).split("\r\n"),

@@ -223,8 +223,9 @@ void register_builtins(Engine& e) {
   fn("findFirstFile", 2, 2, "findFirstFile(pattern)", [](Engine& en, SimObject*, A& a) {
     en.file_search.clear();
     en.file_search_pos = 0;
+    const std::string pattern = en.expand_path(a[1]);
     for (const auto& f : en.files.list())
-      if (match_pattern(a[1], f)) en.file_search.push_back(f);
+      if (match_pattern(pattern, f)) en.file_search.push_back(f);
     return en.file_search.empty() ? std::string() : en.file_search[en.file_search_pos++];
   });
   fn("findNextFile", 1, 2, "findNextFile(pattern)", [](Engine& en, SimObject*, A&) {
@@ -232,7 +233,8 @@ void register_builtins(Engine& e) {
   });
   fn("getFileCount", 2, 2, "getFileCount(pattern)", [](Engine& en, SimObject*, A& a) {
     std::size_t n = 0;
-    for (const auto& f : en.files.list()) n += match_pattern(a[1], f) ? 1 : 0;
+    const std::string pattern = en.expand_path(a[1]);
+    for (const auto& f : en.files.list()) n += match_pattern(pattern, f) ? 1 : 0;
     return std::to_string(n);
   });
 

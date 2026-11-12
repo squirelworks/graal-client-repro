@@ -386,7 +386,22 @@ void test_canvas_seam() {
     same(Engine::expand_path_from(menu->source, "./back"), std::string("mod/client/ui/back"), "./ from the source");
     same(Engine::expand_path_from(menu->source, "~/ui/x"), std::string("mod/ui/x"), "~/ is the mod root");
     same(r.engine.call_method(canvas, "getContent", {}), std::to_string(menu->id), "getContent");
+    check(menu->awake, "content is awake");
   }
+  // A pop-up menu: sorted entries, findText, setSelected calls onSelect.
+  auto* box = r.engine.create_object("GuiPopUpMenuCtrl", "Box");
+  for (auto [t, i] : {std::pair<const char*, const char*>{"Norsk", "0"}, {"English", "1"}})
+    r.engine.call_method(box, "add", {t, i});
+  r.engine.call_method(box, "sort", {});
+  same(box->rows.front().first, std::string("English"), "sorted");
+  same(r.engine.call_method(box, "findText", {"english"}), std::string("1"), "findText");
+  r.engine.add_function("Box", "onSelect", 4, 4, "", [&](Engine& en, Torque::SimObject*, Torque::Args& a) {
+    en.print("selected " + a[2] + " " + a[3]);
+    return std::string();
+  });
+  r.engine.call_method(box, "setSelected", {"1"});
+  same(r.lines.back(), std::string("selected 1 English"), "onSelect callback");
+  same(box->field("text"), std::string("English"), "selected text");
 }
 
 } // namespace

@@ -48,7 +48,7 @@ lab files; neither is in this repository). Result on 2026-11-12:
 | | Original | Rebuild |
 |---|---|---|
 | Console lines from the scripts | 8 | same |
-| Compiled scripts run, in order | 35 | the same 33 in the same order; the other two wait on the GUI stage (below) |
+| Compiled scripts run, in order | 35 | the same 35 in the same order |
 | `graaldata/client/config.cs` (`moveMap.save`) | 19 lines | byte for byte |
 | `graaldata/client/prefs.cs`, `common/client/prefs.cs` (`export("$pref::*")`) | 104 lines each | 102 the same; 2 the engine sets later (below) |
 
@@ -57,9 +57,6 @@ Known differences, each owned by a later stage:
 - [ ] The video device's own log lines (`Activating the OpenGL display
   device...`, the GL attributes and extensions). `createCanvas` is a host stub
   here. GUI/video stage.
-- [ ] `graaldata/languages/languageEnglish.cs` runs twice in the original,
-  from `mainMenuGui::onWake` and the language menu's `onSelect`, when the
-  canvas wakes its content. GUI stage.
 - [ ] `$pref::Input::MouseEnabled` and `$pref::Video::appliedPref` export as
   `"1"`: the engine sets them during input and video start-up, after the
   scripts. Input and video stages.
@@ -90,9 +87,15 @@ console.
 - Paths: `SimObject::source` is the script that created the object;
   `Engine::expand_path_from(source, "./defaultWindow")` resolves a field path
   the way the script meant it, and `FileSystem::read` returns the bytes.
-- `GuiCanvas::setContent` stores the content and calls
-  `Engine::on_set_content(canvas, content)`. Waking the content (`onWake`)
-  belongs to the GUI stage and is not done yet.
+- `GuiCanvas::setContent` puts the old content to sleep (`onSleep`), wakes
+  the new one (the control's script `onWake`, then its children; the order is
+  rebuild policy), then calls `Engine::on_set_content(canvas, content)` for
+  the renderer. Controls keep `text` and `value` in fields (`setText`,
+  `getText`, `setValue`, `getValue`); `GuiPopUpMenuCtrl` keeps its entries
+  (`add`, `clear`, `sort`, `findText`, `setSelected`, which calls the script
+  `onSelect(id, text)`). With that, `mainMenuGui::onWake` runs as in the
+  original: it lists the language files, selects English and runs
+  `languageEnglish.cs` twice, matching the stage 0 open order.
 
 ## Evidence and policy
 
@@ -152,7 +155,6 @@ address and undefined-behaviour sanitizers) and Windows.
 
 - [ ] Plug in the TorqueScript compiler (root `main.cs`, the prefs and key
   map files, `eval` and the F2 console).
-- [ ] Stage 2: GUI canvas and controls on these objects, `onWake` and the
-  two language loads.
+- [ ] Stage 2: drawing the canvas and controls from these objects (#248).
 - [ ] Stage 3: input through `ActionMap`, the console dialog.
 - [ ] Compare the message formats and string-unit rules on the original.
