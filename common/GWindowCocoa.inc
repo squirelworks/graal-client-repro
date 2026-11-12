@@ -192,6 +192,8 @@ begin
     $35: Result := gkEscape;
     $76: Result := gkEditor;   { F4 }
     $60: Result := gkLoadLevel; { F5 }
+    $7A: Result := gkOptions;  { F1 }
+    $61: Result := gkF6;       { F6 }
     $75: Result := gkDelete;   { forward delete }
     $72: Result := gkInsert;   { Help / Insert on PC keyboards }
   else

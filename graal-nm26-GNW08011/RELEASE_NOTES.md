@@ -21,6 +21,8 @@ the install's files come first.
 
 ## What's new in v0.0.5
 
+- [x] **Minimap only on the map.** The minimap is drawn only on a level of its grid, as the real client does: a server's level off the map (or a house or cave) shows none. Before, it was drawn on every level.
+- [x] **F1 Help window.** F1 opens "Help", drawn from the build's own form (TOptions) with its painted buttons and the current level. Edit level opens the editor; Load level, Debugger, Playerlist, ServerList, General options and Controls close it and do nothing yet. Its ground is the start window's picture, because the form paints its own and that routine was not read.
 - [x] **Neutral window titles.** The server list window is titled "Server List", not the original's caption, which named the original's host (#191).
 - [x] **Pictures by kind.** The picture cache keeps each name once per kind (head, body, sword, shield, hat, weapon), because each kind searches its own folders. A picture first asked for without its kind got the built-in stand-in and kept it, so an install's own picture could stay hidden behind the stand-in (in 1.33, `levels/weapons/wbomb1.gif` beside the D button).
 

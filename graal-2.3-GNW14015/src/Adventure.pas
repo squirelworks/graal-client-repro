@@ -448,6 +448,7 @@ type
     procedure GiveItem(Item: Integer);
     procedure TickItems;
     procedure DrawItems(CamX, CamY: Integer);
+    procedure DrawChests(Tiles: TGSurface; CamX, CamY: Integer);
     { The 2 x 2 tiles of object I of table List at screen point X, Y. }
     procedure DrawObjectTiles(List, I, X, Y: Integer);
     { A carried or thrown object (lift table entry Kind) at X, Y. }
@@ -3762,6 +3763,44 @@ begin
     DrawObjectTiles(11, Kind, X, Y);
 end;
 
+{ The level's chests, from its CHEST records or PLO_LEVELCHEST (4): each
+  a 2 x 2 block at its x, y drawn over the board, closed (arrays.dat list
+  13) or opened (list 14), whatever the board holds there. The real 2.22,
+  2.31 and 2.17.1 draw a chest the server sends on a board without chest
+  tiles, and an opened one as opened (graal_analysis
+  client-internals/lab-captures-2026-10-25/01-damage-chest-respawn-weapons.md,
+  and the 2026-11-12 lab run). }
+procedure TAdventure.DrawChests(Tiles: TGSurface; CamX, CamY: Integer);
+const
+  Closed: array[0..3] of Integer = (1784, 1785, 1800, 1801);
+  Opened: array[0..3] of Integer = (829, 830, 845, 846);
+var
+  I, K, T: Integer;
+begin
+  for I := 0 to High(Level.Chests) do
+    for K := 0 to 3 do
+    begin
+      if Level.Chests[I].Opened then
+      begin
+        T := -1;
+        { the open chest is one object: column, then row }
+        if (Arrays.Lists[14] <> nil) and (K mod 2 <= High(Arrays.Lists[14].Items)) and
+          (K div 2 <= High(Arrays.Lists[14].Items[K mod 2].Values)) then
+          T := Arrays.Lists[14].Items[K mod 2].Values[K div 2];
+        if T < 0 then T := Opened[K];
+      end
+      else
+      begin
+        T := -1;
+        if (Arrays.Lists[13] <> nil) and (High(Arrays.Lists[13].Values) >= 3) then
+          T := Arrays.Lists[13].Values[K];
+        if T < 0 then T := Closed[K];
+      end;
+      DrawTile(Screen, Tiles, T, (Level.Chests[I].X + K mod 2) * TileSize - CamX,
+        (Level.Chests[I].Y + K div 2) * TileSize - CamY);
+    end;
+end;
+
 procedure TAdventure.DrawItems(CamX, CamY: Integer);
 var
   I, SX, SY, SW, SH, HX, HY, HW, HH: Integer;
@@ -4218,6 +4257,7 @@ begin
   LCamY := CamY - PY * TileSize;
   { items under the players (the order is not known), others, then the
     player, then anything in the air }
+  DrawChests(Tiles, LCamX, LCamY);
   DrawItems(LCamX, LCamY);
   Npcs.Draw(Screen, LCamX, LCamY, False);
   Baddies.Draw(Screen, LCamX, LCamY);

@@ -77,6 +77,9 @@ uses
   Map200r3 in 'Map200r3.pas',
   GStartScreen in '../../common/GStartScreen.pas',
   StartScreen200r3 in 'StartScreen200r3.pas',
+  GDfmObj in '../../common/GDfmObj.pas',
+  GVclForm in '../../common/GVclForm.pas',
+  GOptionsWindow in '../../common/GOptionsWindow.pas',
   GDfm in '../../common/GDfm.pas',
   GUiFont in '../../common/GUiFont.pas',
   GRes20x in '../../common/GRes20x.pas',
@@ -435,6 +438,13 @@ begin
         begin
           Win.Pump;
           if Win.Closed or Win.Held[gkEscape] then Break;
+          { F1: the Help window (GRealStart20.RunHelp20) }
+          if Win.WasPressed(gkOptions) then
+          begin
+            if RunHelp20(ExeResource, G.Level.Name) = oaEditLevel then
+              EditorKey(Win, G, Online);
+            if Win.Closed then Break;
+          end;
           { Alt+Enter: the configured screen mode, the 640 x 480 picture
             filling it, and back }
           if Win.TakeFullscreenToggle and (GuiFullW > 0) then

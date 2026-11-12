@@ -7,6 +7,8 @@ Writes, in <folder>:
   res/ConnectFrame.dfm   the start dialog (RCDATA TCONNECTFRAME, Delphi
                          binary form; its pictures are inside it)
   res/Adventure.dfm      the game window's form (RCDATA TADVENTURE)
+  res/Options.dfm        the F1 window's form (RCDATA TOPTIONS), when the
+                         exe has one
   res/OnlineStart.graal  the online start level, when the exe has one
                          (RCDATA ONLINESTARTLEVEL, 1.1 and 1.1.9)
   res/characters.txt     the character list of the start dialog, in
@@ -120,6 +122,11 @@ def main():
         open(os.path.join(resdir, fname), 'wb').write(data)
         open(os.path.join(resdir, fname[:-4] + '.txt'), 'w', newline='\n').write(dfm_to_text(data))
         blobs[key] = data
+    opt = res.get((10, 'TOPTIONS'))
+    if opt:
+        open(os.path.join(resdir, 'Options.dfm'), 'wb').write(opt)
+        open(os.path.join(resdir, 'Options.txt'), 'w', newline='\n').write(dfm_to_text(opt))
+    blobs['Options'] = opt or b''
     osl = res.get((10, 'ONLINESTARTLEVEL'))
     if osl:
         open(os.path.join(resdir, 'OnlineStart.graal'), 'wb').write(osl)
@@ -146,12 +153,13 @@ def main():
         f.write('unit Res%s;\n\n{$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}\n\ninterface\n\n' % suffix)
         f.write('function ResConnectFrame: string;\nfunction ResAdventure: string;\n'
                 'function ResCharacters: string;\n{ \'\' when the exe has none }\n'
-                'function ResOnlineStart: string;\n\nimplementation\n\nconst\n')
-        for k in ('ConnectFrame', 'Adventure', 'Characters', 'OnlineStart'):
+                'function ResOnlineStart: string;\n{ the F1 window\'s form; \'\' when the exe has none }\n'
+                'function ResOptions: string;\n\nimplementation\n\nconst\n')
+        for k in ('ConnectFrame', 'Adventure', 'Characters', 'OnlineStart', 'Options'):
             f.write(pas_bytes('R' + k, blobs[k]))
         f.write('\nfunction Bytes(const B: array of Byte; Len: Integer): string;\nbegin\n'
                 '  SetLength(Result, Len);\n  if Len > 0 then Move(B[0], Result[1], Len);\nend;\n\n')
-        for k in ('ConnectFrame', 'Adventure', 'Characters', 'OnlineStart'):
+        for k in ('ConnectFrame', 'Adventure', 'Characters', 'OnlineStart', 'Options'):
             f.write('function Res%s: string;\nbegin\n  Result := Bytes(R%s, R%sLen);\nend;\n\n' % (k, k, k))
         f.write('end.\n')
     print('%s: %s (%d characters from %s)' % (folder, prog, chars.count(b'\n'), how))

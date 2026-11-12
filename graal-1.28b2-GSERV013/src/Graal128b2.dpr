@@ -92,6 +92,7 @@ uses
   EditorMain in 'editor/EditorMain.pas',
   GDfmObj in '../../common/GDfmObj.pas',
   GVclForm in '../../common/GVclForm.pas',
+  GOptionsWindow in '../../common/GOptionsWindow.pas',
   GBetaStart in '../../common/GBetaStart.pas',
   RealRes128b2 in 'RealRes128b2.pas'
 {$IFDEF MSWINDOWS}, Windows{$ENDIF};
@@ -283,6 +284,7 @@ end;
   the exit code. }
 function RunGame(GuiWin: TGWindow; const GuiPw, GuiNick: string): Integer;
 var
+  OptForm: string;
   G: TAdventure;
   Win: TGWindow;
   Script: TKeyScript;
@@ -390,6 +392,7 @@ begin
     else
     begin
       OK := G.LoadLevelFile(Arg('--level', ''));
+      G.Asleep := OK and HasArg('--asleep');
       if OK then
       begin
         G.Player.X := StrToFloatDef(Arg('--x', '30'), 30);
@@ -438,6 +441,15 @@ begin
         begin
           Win.Pump;
           if Win.Closed or Win.Held[gkEscape] then Break;
+          { F1: the Options window, from the form TOptions (GOptionsWindow) }
+          if Win.WasPressed(gkOptions) then
+          begin
+            OptForm := '';
+            if RealResource('TOPTIONS', OptForm) then
+              if RunOptionsWindow(OptForm, 'Graal', G.Level.Name) = oaEditLevel then
+                EditorKey(Win, G, Online);
+            if Win.Closed then Break;
+          end;
           { F4: the built-in level editor (offline only) }
           if Win.WasPressed(gkEditor) or EditorFirst then
           begin
@@ -664,6 +676,8 @@ begin
           TrainingLevel(Dir, Lvl, X, Y);
           GuiArgs.Add('--level');
           GuiArgs.Add(Lvl);
+          { the start level (not the built-in stand-in): asleep in bed }
+          if not SameText(ExtractFileName(Lvl), 'start.nw') then GuiArgs.Add('--asleep');
           GuiArgs.Add('--x');
           GuiArgs.Add(X);
           GuiArgs.Add('--y');
@@ -809,6 +823,8 @@ begin
           TrainingLevel(Dir, Lvl, X, Y);
           GuiArgs.Add('--level');
           GuiArgs.Add(Lvl);
+          { the start level (not the built-in stand-in): asleep in bed }
+          if not SameText(ExtractFileName(Lvl), 'start.nw') then GuiArgs.Add('--asleep');
           GuiArgs.Add('--x');
           GuiArgs.Add(X);
           GuiArgs.Add('--y');

@@ -22,6 +22,9 @@ unblock the zip before you extract it: right-click it, **Properties**,
 tick **Unblock**, **OK**. Then nothing in the folder is asked about again.
 See [Windows says "Windows protected your PC"](https://github.com/squirelworks/graal-client-repro#windows-says-windows-protected-your-pc).
 
+## What's new in v0.0.5
+
+- [x] **F1 Options window.** F1 opens "Options" from the build's own form (TOptions), with the current level's file name filled in. F6 opens it too, as in this build. The other buttons close it and do nothing yet. Linux and macOS draw the form in a window of their own.
 ## What's new in v0.0.4
 
 - Rebuilt from the latest code; the changes for this client are listed here as they land.
@@ -77,8 +80,7 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
       be compared side by side in the container, where the original stops after
       Start (it needs DirectX).
 - [ ] The player is still the stand-in character: the build's own body from
-      its sprite sheet and the chosen character's head are not drawn yet, nor
-      the F1 options window.
+      its sprite sheet and the chosen character's head are not drawn yet.
 
 Chat, items, weapons, enemies, level scripts, signs, saving, sound, and
 the build's own character graphics (a stand-in character is drawn). This

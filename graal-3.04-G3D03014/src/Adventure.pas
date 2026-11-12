@@ -30,10 +30,14 @@ uses
   Classes, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GAssetDirs, GraalClient, Protocol304;
 
 const
-  { The game view. 640x480 is assumed for 2.22 as for 2.05; not read from
-    the binary. }
-  ScreenW = 640;
-  ScreenH = 480;
+  { The window and the game view: the real 3.04 (Linux) opens at 800 x 600
+    (graal_analysis version-profiles/lab-304-linux-2026-10-30.md, seen on
+    a 1024 x 768 display). Whether that is the client area or the outer
+    window was not split there; it is taken as the client area, the
+    Torque canvas, with the game control filling it and showing more of
+    the level rather than scaling it up. }
+  ScreenW = 800;
+  ScreenH = 600;
 
   { Directions, as the walking routine numbers them. }
   DirUp = 0;

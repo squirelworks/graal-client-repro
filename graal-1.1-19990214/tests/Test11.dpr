@@ -40,6 +40,7 @@ uses
   GDfmObj in '../../common/GDfmObj.pas',
   GVclForm in '../../common/GVclForm.pas',
   GBetaStart in '../../common/GBetaStart.pas',
+  GOptionsWindow in '../../common/GOptionsWindow.pas',
   RealRes11 in '../src/RealRes11.pas',
   GDfm1x in '../../common/GDfm1x.pas',
   GUiFont in '../../common/GUiFont.pas',
@@ -254,6 +255,33 @@ begin
 end;
 
 { A walled 64x64 level: tile 1 blocks, tile 0 is free. }
+{ One Player starts asleep: the first key only wakes the player }
+procedure TestAsleep;
+var
+  G: TAdventure;
+  X0: Double;
+begin
+  G := TAdventure.Create;
+  try
+    G.Headless := True;
+    G.LoadLevelFile('start.nw');
+    G.Player.X := 30;
+    G.Player.Y := 30;
+    X0 := G.Player.X;
+    G.Asleep := True;
+    G.Tick;
+    Check(G.Asleep, 'asleep: the player sleeps until a key');
+    G.Keys[DirRight] := True;
+    G.Tick;
+    Check(not G.Asleep and (G.Player.X = X0), 'asleep: a key wakes the player without a step');
+    G.Keys[DirRight] := True;
+    G.Tick;
+    Check(G.Player.X > X0, 'asleep: the next key walks');
+  finally
+    G.Free;
+  end;
+end;
+
 procedure TestWalking;
 var
   G: TAdventure;
@@ -1292,8 +1320,54 @@ begin
   Check(Length(CharacterNames) >= 21, 'forms: the character list is the build''s own');
 end;
 
+{ F1: the Options window from the build's own TOptions form }
+procedure TestOptionsForm;
+var
+  Data: string;
+  Img: TGSurface;
+  O: TDfmObj;
+  F: TVclForm;
+  C: TVclCtl;
+  I, Buttons, Mapped: Integer;
+begin
+  Check(RealResource('TOPTIONS', Data), 'F1: TOPTIONS is in the program');
+  Img := TGSurface.Create(1, 1);
+  try
+    Check(RenderOptionsWindow(Data, 'house1.graal', Img) and (Img.Width = 449) and
+      (Img.Height = 347), 'F1: the Options window draws at the form''s 449 x 347');
+  finally
+    Img.Free;
+  end;
+  O := ParseDfm(Data);
+  F := TVclForm.Create(O, 'Graal');
+  try
+    Check(F.Caption = 'Options', 'F1: the window is titled Options');
+    Check(F.StayOnTop, 'F1: the window stays on top, as the form says');
+    Buttons := 0;
+    Mapped := 0;
+    for I := 0 to F.CtlCount - 1 do
+    begin
+      C := F.CtlAt(I);
+      if C.Kind <> vkButton then Continue;
+      Inc(Buttons);
+      if OptionsActionOf(C.Obj.Ident('OnClick', '')) <> oaNone then Inc(Mapped);
+    end;
+    Check((Buttons = 7) and (Mapped = Buttons),
+      'F1: each of the seven buttons has its action (' + IntToStr(Mapped) + ' of ' + IntToStr(Buttons) + ')');
+    Check(F.Ctl('LevelEdit') <> nil, 'F1: the current level field is LevelEdit');
+  finally
+    F.Free;
+    O.Free;
+  end;
+  Check(OptionsActionOf('EditButtonClick') = oaEditLevel, 'F1: Edit level opens the editor');
+  Check(OptionsActionOf('LoadLevelButtonClick') = oaLoadLevel, 'F1: Load level');
+  Check(OptionsActionOf('CloseButtonClick') = oaClose, 'F1: Close');
+  Check(OptionsActionOf('FormShow') = oaNone, 'F1: a form handler is not a button');
+end;
+
 begin
   TestStartForm;
+  TestOptionsForm;
   TestGTypes;
   TestLaunchForm;
   TestRelayCodec;
@@ -1303,6 +1377,7 @@ begin
   TestArrays;
   TestGani;
   TestWalking;
+  TestAsleep;
   TestSpriteAndOthers;
   TestLinks;
   TestLinkPoint;

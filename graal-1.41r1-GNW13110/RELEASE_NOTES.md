@@ -19,6 +19,7 @@ place.
 
 ## What's new in v0.0.5
 
+- [x] **F1 Help window.** F1 opens "Help" from the build's own form (TOptions): the save games and level editing groups with the current level, Debugger, Playerlist, Serverlist, General options, Controls and Close. It is a real dialog on Windows and drawn elsewhere. Edit level opens the editor; the other buttons close it and do nothing yet.
 - [x] **The counts and the sword in the status display.** The rupee, bomb and arrow counts come from the digit sprites of the sprite sheet (arrays.dat sprites 268 to 277) when the state picture has no digit row (224 x 81, up to 1.37), so they show again. The player's sword picture stands beside the S button, as in the real client.
 - [x] **Pictures by kind.** The picture cache keeps each name once per kind (head, body, sword, shield, hat, weapon), because each kind searches its own folders. A picture first asked for without its kind got the built-in stand-in and kept it, so an install's own picture could stay hidden behind the stand-in (in 1.33, `levels/weapons/wbomb1.gif` beside the D button).
 
@@ -92,7 +93,7 @@ window and drawing from the 1.41 sprite sheet are not done.
 
 - [ ] Two to Four Players on one keyboard. The modes are offered, but they play as One Player.
 - [ ] The status bar as 1.41r1 draws it. The rebuild still draws a later HUD.
-- [ ] The other forms in the exe: the F1 options window, More options, and the editor dialogs.
+- [ ] The other forms in the exe: More options and the editor dialogs.
 - [ ] The nick and "Load head/colors from last session" kept in HKCU\Software\Graal\Client.
 - [ ] The dialog's text uses Liberation Sans for MS Sans Serif, so a line can break one word apart from the real one.
 - [ ] The real message boxes (connection failed and the like).

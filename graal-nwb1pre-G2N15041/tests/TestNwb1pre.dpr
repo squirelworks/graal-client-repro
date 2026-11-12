@@ -7,6 +7,9 @@
   data and are not committed; without the folder those checks are skipped. }
 program TestNwb1pre;
 
+{ the program's own resources, as the client links them }
+{$R ../src/res/GraalNwb1preRes.res}
+
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
 {$IFDEF MSWINDOWS}{$APPTYPE CONSOLE}{$ENDIF}
 
@@ -35,6 +38,13 @@ uses
   GFont in '../../common/GFont.pas',
   GWindow in '../../common/GWindow.pas',
   GStartScreen in '../../common/GStartScreen.pas',
+  GPeRes in '../../common/GPeRes.pas',
+  GDfm in '../../common/GDfm.pas',
+  GUiFont in '../../common/GUiFont.pas',
+  GDfmObj in '../../common/GDfmObj.pas',
+  GVclForm in '../../common/GVclForm.pas',
+  GOptionsWindow in '../../common/GOptionsWindow.pas',
+  GRealStart20 in '../../common/GRealStart20.pas',
   TestNpcNwb1pre in 'TestNpcNwb1pre.pas',
   TestBaddyNwb1pre in 'TestBaddyNwb1pre.pas';
 
@@ -1306,7 +1316,41 @@ begin
   end;
 end;
 
+procedure TestHelpForm;
+var
+  Img: TGSurface;
+  Data: string;
+  Form: TDfmNode;
+  I, Buttons, Mapped: Integer;
 begin
+  Check(OwnResource('TOPTIONS', Data) and (Copy(Data, 1, 4) = 'TPF0'), 'F1: TOPTIONS is linked in');
+  Img := TGSurface.Create(1, 1);
+  try
+    Check(RenderHelp20(OwnResource, 'level1.graal', Img) and (Img.Width = 476) and
+      (Img.Height = 330), 'F1: the Help window draws at the form''s 476 x 330');
+  finally
+    Img.Free;
+  end;
+  Form := GDfm.ParseDfm(Data);
+  try
+    Check((Form <> nil) and (Form.Str('Caption') = 'Help'), 'F1: the window is titled Help');
+    Buttons := 0;
+    Mapped := 0;
+    if Form <> nil then
+      for I := 0 to Form.ChildCount - 1 do
+        if Form.Child(I).ClassName_ = 'TPaintButton' then
+        begin
+          Inc(Buttons);
+          if OptionsActionOf(Form.Child(I).Str('OnClick')) <> oaNone then Inc(Mapped);
+        end;
+    Check((Buttons = 8) and (Mapped = Buttons), 'F1: each of the eight buttons has its action');
+  finally
+    Form.Free;
+  end;
+end;
+
+begin
+  TestHelpForm;
   TestGTypes;
   TestGen3Capture;
   TestLoginLine;

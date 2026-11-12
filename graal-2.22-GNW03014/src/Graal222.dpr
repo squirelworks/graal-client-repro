@@ -64,6 +64,9 @@ uses
   GBuiltin in '../../common/GBuiltin.pas',
   GAssetDirs in '../../common/GAssetDirs.pas',
   GPeRes in '../../common/GPeRes.pas',
+  GDfmObj in '../../common/GDfmObj.pas',
+  GVclForm in '../../common/GVclForm.pas',
+  GOptionsWindow in '../../common/GOptionsWindow.pas',
   GAni in '../../common/GAni.pas',
   GFont in '../../common/GFont.pas',
   GWindow in '../../common/GWindow.pas',
@@ -308,6 +311,7 @@ end;
 
 function RunGame(GuiWin: TGWindow; const GuiPw, GuiNick: string): Integer;
 var
+  OptForm: string;
   FullW, FullH: Integer;
   StartFull: Boolean;
   G: TAdventure;
@@ -468,6 +472,15 @@ begin
         begin
           Win.Pump;
           if Win.Closed or Win.Held[gkEscape] then Break;
+          { F1: the Help window, from the form TOptions (GOptionsWindow);
+            the rebuild has no editor in 2.22 yet, so Edit level does
+            nothing }
+          if Win.WasPressed(gkOptions) then
+          begin
+            if EmbeddedRes('TOPTIONS', OptForm) then
+              RunOptionsWindow(OptForm, 'Graal', G.Level.Name);
+            if Win.Closed then Break;
+          end;
           if Win.TakeFullscreenToggle then
             if not Win.Fullscreen then
             begin

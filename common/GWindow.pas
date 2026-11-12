@@ -38,7 +38,10 @@ type
   TGKey = (gkNone, gkUp, gkLeft, gkDown, gkRight, gkAction, gkAttack,
     gkItem, gkMap, gkChat, gkEscape, gkItemList,
     { the 2.05 built-in editor: F4 opens it, F5 is the load level dialog }
-    gkEditor, gkLoadLevel, gkDelete, gkInsert);
+    gkEditor, gkLoadLevel, gkDelete, gkInsert,
+    { F1: the options or help window; F6: in 6th Graal to 1.1.9 also the
+      options window }
+    gkOptions, gkF6);
 
   TGWindow = class
   private
@@ -305,6 +308,8 @@ begin
     VK_ESCAPE: Result := gkEscape;
     VK_F4: Result := gkEditor;
     VK_F5: Result := gkLoadLevel;
+    VK_F1: Result := gkOptions;
+    VK_F6: Result := gkF6;
     VK_DELETE: Result := gkDelete;
     VK_INSERT: Result := gkInsert;
   else
@@ -1028,6 +1033,8 @@ begin
     XK_Escape: Result := gkEscape;
     XK_F4: Result := gkEditor;
     XK_F5: Result := gkLoadLevel;
+    XK_F1: Result := gkOptions;
+    XK_F6: Result := gkF6;
     XK_Delete, XK_KP_Delete: Result := gkDelete;
     XK_Insert, XK_KP_Insert: Result := gkInsert;
   else

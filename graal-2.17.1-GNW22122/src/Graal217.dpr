@@ -83,6 +83,9 @@ uses
   GStartScreen in '../../common/GStartScreen.pas',
   StartScreen217 in 'StartScreen217.pas',
   GPeRes in '../../common/GPeRes.pas',
+  GDfmObj in '../../common/GDfmObj.pas',
+  GVclForm in '../../common/GVclForm.pas',
+  GOptionsWindow in '../../common/GOptionsWindow.pas',
   GDfm in '../../common/GDfm.pas',
   GUiFont in '../../common/GUiFont.pas',
   GRealStart in '../../common/GRealStart.pas',
@@ -317,6 +320,7 @@ end;
 
 function RunGame(GuiWin: TGWindow; const GuiPw, GuiNick: string): Integer;
 var
+  OptForm: string;
   G: TAdventure;
   Win: TGWindow;
   Script: TKeyScript;
@@ -492,6 +496,14 @@ begin
         begin
           Win.Pump;
           if Win.Closed or Win.Held[gkEscape] then Break;
+          { F1: the Help window, from the form TOptions (GOptionsWindow) }
+          if Win.WasPressed(gkOptions) then
+          begin
+            if OwnResource('TOPTIONS', OptForm) and
+              (RunOptionsWindow(OptForm, 'Graal', G.Level.Name) = oaEditLevel) then
+              EditorKey(Win, G, Online);
+            if Win.Closed then Break;
+          end;
           { Alt+Enter: graalconfig.txt's fullscreenmode (1024x768 as
             installed; the real 2.17.1 on Windows) and back }
           if Win.TakeFullscreenToggle then
