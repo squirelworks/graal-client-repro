@@ -108,6 +108,7 @@ class Win32Window : public Window {
     }
     std::vector<WindowEvent> out;
     out.swap(events_);
+    last_key_ = -1;
     return out;
   }
 
@@ -152,7 +153,9 @@ class Win32Window : public Window {
     we.key.repeat = make && held_.count(name) != 0;
     if (make) held_.insert(name); else held_.erase(name);
     events_.push_back(we);
-    last_key_ = make ? int(events_.size()) - 1 : -1;
+    // WM_CHAR comes after the key's release when the release was already
+    // queued, so a release keeps the last press waiting for its character.
+    if (make) last_key_ = int(events_.size()) - 1;
   }
 
   // The character a key typed goes on that key's press, as XLookupString's
@@ -224,6 +227,10 @@ class Win32Window : public Window {
         EndPaint(hwnd, &ps);
         return 0;
       }
+      case WM_PRINTCLIENT:
+        // PrintWindow and other captures ask for the image this way
+        self->blit(reinterpret_cast<HDC>(wp));
+        return 0;
       case WM_ERASEBKGND:
         return 1;
       default:
