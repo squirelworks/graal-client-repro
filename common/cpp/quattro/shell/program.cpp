@@ -97,7 +97,7 @@ std::string Program::window_title() const {
 }
 
 bool Program::start() {
-  bool ok = session_.start(opt_.host, opt_.port, opt_.account, opt_.password, opt_.language);
+  bool ok = session_.start(opt_.host, opt_.port, opt_.account, opt_.password, opt_.language, opt_.server_name);
   window_.set_title(window_title());
   return ok;
 }
@@ -128,6 +128,9 @@ void Program::on_message(int id, std::string_view body) {
   Net::Reader r(body);
   switch (id) {
     case 6:  // PLO_LEVELNAME
+      // The same name again after its board (a Seihai gserver sends it
+      // once more with the level's props) keeps the board.
+      if (world_.have_level && body == level_name_) break;
       level_name_ = std::string(body);
       world_.level = Files::Level{};
       world_.have_level = false;

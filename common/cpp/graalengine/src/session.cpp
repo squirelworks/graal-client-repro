@@ -40,6 +40,7 @@ Session2D::Session2D(Login login) : login_(std::move(login)), window_(std::make_
   opt.account = login_.account;
   opt.password = login_.password;
   opt.nickname = login_.nickname;
+  opt.server_name = login_.name.empty() ? std::string("Login") : login_.name;
   opt.assets = login_.installDir;
   opt.width = host::GetScreenWidth() > 0 ? host::GetScreenWidth() : 640;
   opt.height = host::GetScreenHeight() > 0 ? host::GetScreenHeight() : 480;

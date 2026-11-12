@@ -189,12 +189,12 @@ bool Session::open(const std::string& name, const std::string& host, uint16_t po
 }
 
 bool Session::start(const std::string& host, uint16_t port, const std::string& account,
-                    const std::string& password, const std::string& language) {
+                    const std::string& password, const std::string& language, const std::string& name) {
   account_ = account;
   password_ = password;
   language_ = language;
   logins_ = 0;
-  return open("Login", host, port);
+  return open(name.empty() ? std::string("Login") : name, host, port);
 }
 
 void Session::tick() {
