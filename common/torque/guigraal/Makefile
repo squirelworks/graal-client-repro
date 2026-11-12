@@ -1,8 +1,11 @@
 CXX ?= g++
 CXXFLAGS ?= -std=c++17 -Wall -Wextra -Werror -O2
 FPC ?= fpc
-# Extra Free Pascal flags for make lib (the Windows CI names the unit folders here).
+# Extra Free Pascal flags for make lib (the Windows CI names the unit folders
+# here). The shell would eat their backslashes and expand FPC's own *
+# wildcard, so the recipe takes them with forward slashes and no globbing.
 FPCFLAGS ?=
+LIB_FPCFLAGS = $(subst \,/,$(FPCFLAGS))
 
 # The window back end and the program's libraries per system. PLATFORM is
 # linux, windows or macos; set it by hand to cross-build (for example
@@ -95,10 +98,10 @@ program: build/graal304-torque$(EXE)
 
 lib: | build
 	mkdir -p $(LIB_DIR)
-	cd $(GAME_SRC) && $(FPC) -Mdelphi -Sh -vew -O2 $(FPCFLAGS) -Fu../../common -Fu. \
+	set -f; cd $(GAME_SRC) && $(FPC) -Mdelphi -Sh -vew -O2 $(LIB_FPCFLAGS) -Fu../../common -Fu. \
 	  -FE$(FROM_GAME)/$(LIB_DIR) -FU$(FROM_GAME)/$(LIB_DIR) Game304Lib.lpr
 	mkdir -p $(LIB_DIR)/units3153
-	cd $(GAME_SRC_3153) && $(FPC) -Mdelphi -Sh -vew -O2 $(FPCFLAGS) -Fu../../common -Fu. \
+	set -f; cd $(GAME_SRC_3153) && $(FPC) -Mdelphi -Sh -vew -O2 $(LIB_FPCFLAGS) -Fu../../common -Fu. \
 	  -FE$(FROM_GAME)/$(LIB_DIR) -FU$(FROM_GAME)/$(LIB_DIR)/units3153 Game3153Lib.lpr
 
 test: build/guigraal-test$(EXE) build/frame-test$(EXE)
