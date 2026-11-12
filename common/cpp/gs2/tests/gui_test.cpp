@@ -200,6 +200,16 @@ static void testObjectsAndCommands() {
   // A press on the button runs GoButton.onAction in the owner's script.
   CHECK(s.mouseDown(175, 25));
   CHECK(global(m, "clicked") == 1);
+  // An inactive control over the button lets the press through.
+  auto cover = std::make_shared<Control>("Cover", "GuiShowImgCtrl");
+  cover->setProp("position", "160 0");
+  cover->setProp("extent", "100 100");
+  cover->setNumProp("active", 0);
+  root->add(cover);
+  m.universe()->childOrCreate("clicked")->setNumber(0);
+  CHECK(s.mouseDown(175, 25));
+  CHECK(global(m, "clicked") == 1);
+  root->removeChild(cover.get());
   // A press on the check box toggles it.
   auto check = s.find("Remember");
   CHECK(s.mouseDown(15, 65) && check->flag("checked"));

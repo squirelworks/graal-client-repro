@@ -263,6 +263,10 @@ ControlPtr Screen::hit(const ControlPtr& c, int x, int y) const {
   const auto& kids = c->controls();
   for (auto it = kids.rbegin(); it != kids.rend(); ++it)
     if (auto h = hit(*it, x, y)) return h;
+  // An inactive control does not take the press itself, so a control
+  // under it does: the main menu's show-images are `active = false` and
+  // cover half of a button (README.md, a reading).
+  if (!c->flag("active", true)) return nullptr;
   return c;
 }
 
@@ -291,7 +295,7 @@ bool Screen::mouseDown(int x, int y, int clicks) {
   // Walk up to the nearest control that reacts to a press.
   for (Control* c = target.get(); c; c = c->parent()) {
     const std::string t = lower(c->type());
-    if (!c->flag("active", true)) return true;
+    if (!c->flag("active", true)) continue;
     if (t == "guibuttonctrl" || t == "guicheckboxctrl" || t == "guiradioctrl") {
       activate(*c, clicks);
       return true;

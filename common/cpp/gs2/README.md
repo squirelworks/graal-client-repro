@@ -216,6 +216,10 @@ guessed.
 - [ ] `x`, `y`, `width` and `height` override `position` and `extent`
   when set (a few controls in the menus use them); the engines' link
   between the two is not read
+- [ ] An inactive control (`active = false`) lets a press through to the
+  control under it, so the main menu's show-images do not cover the
+  Offline Test button; the engines' hit rule for show-images is only
+  partly read
 - [ ] Pop-up menus step to the next row on a press until the open list is
   drawn; window frames, scroll bars, sliders and multi-line text draw
   plainly (fill, frame, text), not from the theme
