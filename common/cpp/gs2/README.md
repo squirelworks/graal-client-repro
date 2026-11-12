@@ -11,6 +11,7 @@ make -C common/cpp/gs2 test     # unit tests, GUI tests, gs2-dis, gs2-scan
 ```
 
 Written from Graal_analysis `client-internals/gs2-vm-from-engines.md`,
+`client-internals/showimg-particles-and-gs2-format.md`,
 `protocol/gs2-client-vm.md` and `protocol/gs2-client-only-opcodes.md` (the
 static reads of the 4.2.0.8, 5.0.0.7 and 6.00 engines). Where those notes
 give the stack shape of an opcode only by name (object creation, array
@@ -82,7 +83,7 @@ Preagonal.
   `cursorOn` and `cursorOff`. `makeFirstResponder`. The row commands on
   text lists, pop-up menus and tabs: `clearRows`, `addRow`, `setRowById`,
   `setSelectedRow`, `setSelectedById`, `getSelectedId`, `getSelected`,
-  `getSelectedText`, `findText`, `findTextId`, `sort` and `rowCount`. The
+  `getSelectedText`, `getSelectedRow`, `findText`, `findTextId`, `sort` and `rowCount`. The
   key map commands: `bind`, `unbind`, `getBinding`, `getCommand`, `push`
   and `pop`, with `GlobalActionMap` always active.
 - **The screen.** One content and dialogs over it. Making a control the
@@ -119,7 +120,11 @@ engine, with its `levels3d/gui` folder as the theme:
   account and password boxes, the play-as radios, the save-password check
   box, and the Start, Become a Member, Options and Offline Test buttons).
 
-The only commands still missing are the particle emitter's
+The 5.12 engine's menus (profile 5.0) run the same way: 154 controls and
+112 profiles, with every opcode they use. The one call still missing is the
+engine's `Adventure_getInstallationPath`.
+
+The only 4.04r2 commands still missing are the particle emitter's
 `addglobalmodifier`, `addlocalmodifier` and `removemodifiers`, which belong
 to `GuiShowImgCtrl` (B5). The menu background is a JPEG, which nothing
 here reads yet.
@@ -162,7 +167,11 @@ guessed.
   here it stops the script
 - [ ] `waitfor` (11): it pops a number and two strings and registers a
   catch; how the resumed script sees the result is not read
-- [ ] `in` ranges and objects (80, 81), `index`, `type`, `format` (82 to 84),
+- [x] `indexof` (82) and `format` (84), from Graal_analysis
+  `client-internals/showimg-particles-and-gs2-format.md`. Readings: string
+  search keeps letter case, `%d` truncates toward zero, `%f` defaults to six
+  places
+- [ ] `in` ranges and objects (80, 81), `type` (83),
   `log`, `getangle`, `getdir` (92, 95, 96), `indices`, `link`, the object
   compare (99, 100, 104), `substring`, `tokenize`, `translate`, `positions`
   (118, 120), multi-dimensional arrays and the array methods (133 to
@@ -207,6 +216,10 @@ guessed.
 - [ ] `x`, `y`, `width` and `height` override `position` and `extent`
   when set (a few controls in the menus use them); the engines' link
   between the two is not read
+- [ ] An inactive control (`active = false`) lets a press through to the
+  control under it, so the main menu's show-images do not cover the
+  Offline Test button; the engines' hit rule for show-images is only
+  partly read
 - [ ] Pop-up menus step to the next row on a press until the open list is
   drawn; window frames, scroll bars, sliders and multi-line text draw
   plainly (fill, frame, text), not from the theme

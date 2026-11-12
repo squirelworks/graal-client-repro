@@ -39,6 +39,97 @@ bool startsWithCi(const std::string& s, const std::string& prefix) {
 // direction index and the fused remainder.
 long floorInt(double d) { return static_cast<long>(std::floor(d)); }
 
+// GS2 `format` (opcode 84): Graal's own formatter (Graal_analysis
+// client-internals/showimg-particles-and-gs2-format.md). Flags + - #, a
+// width and a precision each capped at 120, `n$` positions, one `l`
+// ignored; %% %d %i %u %x %X %c %f %s, and any other letter prints
+// nothing. A missing argument prints "" for %s and 0 for the numbers.
+// Integers are truncated toward zero and %f defaults to six places, as in
+// C (README.md: readings).
+std::string formatText(const std::string& fmt, const std::vector<std::string>& texts,
+                       const std::vector<double>& nums) {
+  std::string out;
+  std::size_t next = 0;
+  for (std::size_t i = 0; i < fmt.size(); ++i) {
+    if (fmt[i] != '%') { out += fmt[i]; continue; }
+    std::size_t j = i + 1;
+    // n$
+    std::size_t k = j;
+    long pos = 0;
+    while (k < fmt.size() && std::isdigit(static_cast<unsigned char>(fmt[k]))) pos = pos * 10 + (fmt[k++] - '0');
+    if (k < fmt.size() && fmt[k] == '$' && k > j) { next = pos > 0 ? static_cast<std::size_t>(pos - 1) : texts.size(); j = k + 1; }
+    bool plus = false, left = false, alt = false;
+    for (; j < fmt.size(); ++j) {
+      if (fmt[j] == '+') plus = true;
+      else if (fmt[j] == '-') left = true;
+      else if (fmt[j] == '#') alt = true;
+      else break;
+    }
+    int width = 0, prec = -1;
+    while (j < fmt.size() && std::isdigit(static_cast<unsigned char>(fmt[j]))) width = std::min(120, width * 10 + (fmt[j++] - '0'));
+    if (j < fmt.size() && fmt[j] == '.') {
+      prec = 0;
+      ++j;
+      while (j < fmt.size() && std::isdigit(static_cast<unsigned char>(fmt[j]))) prec = std::min(120, prec * 10 + (fmt[j++] - '0'));
+    }
+    if (j < fmt.size() && fmt[j] == 'l') ++j;
+    if (j >= fmt.size()) break;
+    const char conv = fmt[j];
+    i = j;
+    if (conv == '%') { out += '%'; continue; }
+    const bool have = next < texts.size();
+    const std::size_t at = next;
+    std::string piece;
+    char buf[400];
+    std::string spec = "%";
+    if (plus) spec += '+';
+    if (alt) spec += '#';
+    if (prec >= 0) spec += "." + std::to_string(prec);
+    switch (conv) {
+      case 'd': case 'i': {
+        ++next;
+        const long long v = have ? static_cast<long long>(std::trunc(nums[at])) : 0;
+        std::snprintf(buf, sizeof buf, (spec + "lld").c_str(), v);
+        piece = buf;
+        break;
+      }
+      case 'u': case 'x': case 'X': {
+        ++next;
+        const auto v = static_cast<unsigned long long>(have ? static_cast<long long>(std::trunc(nums[at])) : 0);
+        std::snprintf(buf, sizeof buf, (spec + "ll" + conv).c_str(), v);
+        piece = buf;
+        break;
+      }
+      case 'c': {
+        ++next;
+        const long v = have ? static_cast<long>(std::trunc(nums[at])) : 0;
+        if (v != 0) piece = std::string(1, static_cast<char>(v));
+        break;
+      }
+      case 'f': {
+        ++next;
+        std::snprintf(buf, sizeof buf, (spec + "f").c_str(), have ? nums[at] : 0.0);
+        piece = buf;
+        break;
+      }
+      case 's': {
+        ++next;
+        piece = have ? texts[at] : std::string();
+        if (prec >= 0 && piece.size() > static_cast<std::size_t>(prec)) piece.resize(static_cast<std::size_t>(prec));
+        break;
+      }
+      default:
+        continue;  // consumed, prints nothing
+    }
+    if (static_cast<int>(piece.size()) < width) {
+      const std::string pad(static_cast<std::size_t>(width) - piece.size(), ' ');
+      piece = left ? piece + pad : pad + piece;
+    }
+    out += piece;
+  }
+  return out;
+}
+
 std::int32_t toInt32(double d) {
   if (!std::isfinite(d)) return 0;
   const double t = std::trunc(d);
@@ -61,7 +152,7 @@ bool opcodeImplemented(int op) {
     case 40: case 42: case 43: case 47: case 48: case 49: case 121: case 115: case 119:
     case 163: case 242:
     case 44: case 45: case 46: case 50: case 51: case 52: case 53:
-    case 85: case 86: case 87: case 88: case 89: case 90: case 91: case 93: case 94:
+    case 82: case 84: case 85: case 86: case 87: case 88: case 89: case 90: case 91: case 93: case 94:
     case 97: case 98: case 101: case 102: case 103:
     case 110: case 111: case 112: case 113: case 114: case 116: case 117:
     case 130: case 131: case 132: case 150: case 151:
@@ -1259,6 +1350,43 @@ Value Machine::execute(Exec& ex) {
         const auto i = static_cast<std::size_t>(std::max(0.0, std::trunc(n)));
         if (n >= 0 && i < kSlots) slot(i) = ex.stack.back();
         next = ex.pc + 2;
+        break;
+      }
+      case 82: {  // indexof: list, value -> the 0-based index or -1
+        if (!pop(b) || !pop(a)) break;
+        VarPtr list = a.tag == Value::Tag::Object ? a.obj : nullptr;
+        double found = -1;
+        if (list && !list->elements().empty()) {
+          const Value v = deref(b);
+          const auto& els = list->elements();
+          for (std::size_t i = 0; i < els.size() && found < 0; ++i) {
+            const auto& e = els[i];
+            if (!e) continue;
+            if (v.tag == Value::Tag::Number && e->kind() != Var::Kind::Object && e->number() == v.num) found = static_cast<double>(i);
+            else if (v.tag == Value::Tag::String && e->kind() != Var::Kind::Object && e->string() == v.str) found = static_cast<double>(i);
+            else if (v.tag == Value::Tag::Object && e->kind() == Var::Kind::Object && e->object() == v.obj) found = static_cast<double>(i);
+          }
+        }
+        push(Value::number(found));
+        break;
+      }
+      case 84: {  // format: marker, argN .. arg1, fmt -> the text
+        std::size_t m = ex.stack.size();
+        while (m > 0 && ex.stack[m - 1].tag != Value::Tag::Marker) --m;
+        if (m == 0) { ex.stack.clear(); break; }
+        std::string text;
+        if (m < ex.stack.size()) {
+          const std::string f = str(ex.stack.back());
+          std::vector<std::string> texts;
+          std::vector<double> nums;
+          for (std::size_t i = ex.stack.size() - 1; i > m; --i) {
+            texts.push_back(str(ex.stack[i - 1]));
+            nums.push_back(num(ex.stack[i - 1]));
+          }
+          text = formatText(f, texts, nums);
+        }
+        ex.stack.resize(m - 1);
+        push(Value::string(text));
         break;
       }
       default:

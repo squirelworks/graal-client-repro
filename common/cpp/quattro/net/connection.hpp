@@ -112,6 +112,7 @@ class Session {
 
   bool lobby_mode() const;  // the server name starts with "login"
   const std::string& server_name() const { return server_name_; }
+  const std::string& server_host() const { return server_host_; }
   Connection& connection() { return conn_; }
   int logins() const { return logins_; }
 
@@ -125,6 +126,7 @@ class Session {
   Events ev_;
   Connection conn_;
   std::string server_name_;
+  std::string server_host_;
   std::string account_, password_, language_;
   bool warp_pending_ = false;
   ServerWarp warp_;
