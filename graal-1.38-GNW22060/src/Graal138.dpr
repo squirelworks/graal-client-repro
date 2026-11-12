@@ -61,6 +61,9 @@ uses
   GAni in '../../common/GAni.pas',
   GFont in '../../common/GFont.pas',
   GWindow in '../../common/GWindow.pas',
+  GDfmObj in '../../common/GDfmObj.pas',
+  GVclForm in '../../common/GVclForm.pas',
+  GOptionsWindow in '../../common/GOptionsWindow.pas',
   Protocol138 in 'Protocol138.pas',
   GraalClient in 'GraalClient.pas',
   GGs1 in '../../common/GGs1.pas',
@@ -273,6 +276,7 @@ end;
   the exit code. }
 function RunGame(GuiWin: TGWindow; const GuiPw, GuiNick: string): Integer;
 var
+  OptForm: string;
   G: TAdventure;
   Win: TGWindow;
   Script: TKeyScript;
@@ -433,6 +437,15 @@ begin
         begin
           Win.Pump;
           if Win.Closed or Win.Held[gkEscape] then Break;
+          { F1: the Options window, from the form TOptions (GOptionsWindow) }
+          if Win.WasPressed(gkOptions) then
+          begin
+            OptForm := ResOptions;
+            if (OptForm <> '') and
+              (RunOptionsWindow(OptForm, 'Graal', G.Level.Name) = oaEditLevel) then
+              EditorKey(Win, G, Online);
+            if Win.Closed then Break;
+          end;
           { Alt+Enter: 640 x 480 full screen and back, as the original's
             DXDraw does (read on Windows 10: a 640 x 480 pop-up) }
           if Win.TakeFullscreenToggle then
