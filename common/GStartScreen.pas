@@ -554,7 +554,9 @@ begin
   end;
 end;
 
-{$IFDEF MSWINDOWS}{$IFDEF FPC}
+{$IFDEF MSWINDOWS}
+{ Free Pascal and period Delphi alike: Delphi 7's Windows unit has no
+  AttachConsole either (Windows XP added it). }
 function AttachConsole(ProcessId: DWORD): BOOL; stdcall; external 'kernel32.dll';
 
 procedure OpenConsoleIO;
@@ -575,7 +577,10 @@ begin
     end
     else
     begin
+{$IFDEF FPC}
       StdOutputHandle := H;
+{$ENDIF}
+      { Delphi opens '' on the process's standard output handle }
       Rewrite(Output);  { assigned to '' by the RTL: the standard output }
       Rewrite(ErrOutput);
       if (E <> 0) and (E <> INVALID_HANDLE_VALUE) then
@@ -586,10 +591,6 @@ begin
   end;
 end;
 {$ELSE}
-procedure OpenConsoleIO;
-begin
-end;
-{$ENDIF}{$ELSE}
 procedure OpenConsoleIO;
 begin
 end;
