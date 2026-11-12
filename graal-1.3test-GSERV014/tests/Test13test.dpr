@@ -433,6 +433,15 @@ begin
     Check(P.Gone, 'others: PCONNECTED marks the player gone');
     G.RemoveOther(7);
     Check((G.OtherCount = 0) and (G.FindOther(7, False) = nil), 'others: removed');
+    { 1.3test's OTHERPLPROPS: a one-byte player id, then the props }
+    G.Receive(PLO_OTHERPLPROPS, GChar(7) + GChar(PLPROP_X) + GChar(40) +
+      GChar(PLPROP_Y) + GChar(50));
+    P := G.FindOther(7, False);
+    Check((G.OtherCount = 1) and (P <> nil) and (P.X = 20) and (P.Y = 25),
+      'others: OTHERPLPROPS takes a one-byte id, then x 20 and y 25');
+    G.Receive(PLO_OTHERPLPROPS, '');
+    Check(G.OtherCount = 1, 'others: an empty OTHERPLPROPS is ignored');
+    G.RemoveOther(7);
     R := TGReader.Create(GChar(PLPROP_X) + GChar(40) + GChar(PLPROP_JOINLEAVELVL) + GChar(1) +
       GChar(PLPROP_Y) + GChar(50));
     try
@@ -630,7 +639,7 @@ begin
   if Random(5) = 0 then Id := Random(256) else Id := FuzzIds[Random(Length(FuzzIds))];
   case Id of
     PLO_PLAYERPROPS: Result := RandomProps;
-    PLO_OTHERPLPROPS: Result := GShort(Random(8)) + RandomProps;
+    PLO_OTHERPLPROPS: Result := GChar(Random(8)) + RandomProps;
     PLO_BOARDPACKET:
       case Random(3) of
         0: Result := RandomBytes(8192, False);
