@@ -1,6 +1,6 @@
 # graal-delphi
 
-Faithful rebuilds of the classic Graal Online clients, one per build, in the
+Faithful rebuilds of the classic Graal clients, one per build, in the
 language they were written in: Delphi (Object Pascal). Each rebuild aims to
 behave like the original on the wire and on screen, and then gets hardened
 so it can run in large test runs.

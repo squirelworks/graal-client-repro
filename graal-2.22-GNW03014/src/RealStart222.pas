@@ -480,7 +480,9 @@ begin
   Result := False;
   R.Choice := scQuit;
   Title1 := Art.Text('StartScreen', 'Graal 2001');
-  Title2 := Art.Text('ServerList', 'Graalonline.com Server List');
+  { a neutral title, not the language file's ServerList= line, which
+    names the original's host }
+  Title2 := 'Server List';
   Win.Reshape(Title1, DlgW, DlgH, True);
   S := TGSurface.Create(DlgW, DlgH);
   try

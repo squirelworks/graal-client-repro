@@ -11,8 +11,8 @@
   forms' own captions.
 
   What 2.31 does differently from 2.22 (seen side by side under Wine):
-  - the start window's title is always "GraalOnline": 2.31 sets it in
-    code and ignores the language file's StartScreen= line;
+  - the start window's title is fixed: 2.31 sets it in code and ignores
+    the language file's StartScreen= line (this rebuild uses "Graal");
   - five buttons: Training (the wide picture, at the top), Editor,
     Options, Get an account! and Start. Editor starts GraalEditor.exe
     from the Graal folder, or says "GraalEditor.exe has not been found in
@@ -512,9 +512,10 @@ var
 begin
   Result := False;
   R.Choice := scQuit;
-  { set in code by 2.31, whatever the language file says }
-  Title1 := 'GraalOnline';
-  Title2 := Art.Text('ServerList', 'Graalonline.com Server List');
+  { set in code by 2.31, whatever the language file says; both titles
+    are neutral here, not the original's }
+  Title1 := 'Graal';
+  Title2 := 'Server List';
   Win.Reshape(Title1, DlgW, DlgH, True);
   S := TGSurface.Create(DlgW, DlgH);
   try
