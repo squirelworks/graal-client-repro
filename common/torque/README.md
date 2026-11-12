@@ -4,7 +4,9 @@
 The active reconstruction is tracked in #109/#172. `console/` now contains
 a bounded C++ DSO v33 format reader, inspection tool and independent tests;
 see [console/README.md](console/README.md). It does not execute scripts or
-change either boot host. The Pascal experiments remain parked. The older
+change either boot host. `gui/` now contains the C++ GUI foundations
+(PNG and `.gft` readers, theme bitmap arrays, a software canvas); see
+[gui/README.md](gui/README.md). The Pascal experiments remain parked. The older
 module inventories below do not establish per-platform runtime behavior.
 
 Status on 2026-11-05: **on hold** by Squirrel's call ("hold off on torque, full speed ahead on less than V3"). Torque is on hold with no target release. The Pascal units are not built by `scripts/build.sh`, and no client folder links them. `scripts/build.sh` passes `-Fu../../common` only. It does not pass `common/torque` or any directory under it, and it does not read `manifests/`. `common/torque/host304` is a C++ boot program with its own Makefile. `scripts/build.sh` runs that Makefile when it builds `graal-3.04-G3D03014`. `common/torque/host4208` is a C++ boot program with its own Makefile. `scripts/build.sh` runs that Makefile when it builds `graal-4.20r8-G3D20126`. The Pascal units stay off the Free Pascal unit path.

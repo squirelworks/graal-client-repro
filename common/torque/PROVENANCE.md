@@ -17,6 +17,7 @@ What this tree was written from, and what it was not. The language decision (C++
 | `console/native/` (native function registry) | The [Linux 3.04 argument-count contract](https://github.com/squirelworks/Graal_analysis/blob/main/torque/engine-304.md#argument-counts). Lookup, lifetime and failure rules are chosen API behaviour. | none |
 | `shared/` (first-frame codec, loopback transport) | Graal_analysis `protocol/` notes and the project's own wire captures, as named in each host's `login.hpp`. Uses the system zlib. | none |
 | `host304/`, `host4208/` | The notes named in each host's `src/*.hpp` comments (for example `protocol/v3x-clients.md`, `torque/4208-engine.md`). The bodies of unknown controls only log. | none |
+| `gui/` C++ (PNG reader, `.gft` reader, bitmap arrays, software canvas) | The `.gft` header in [`torque/study-torque-clients.md` §4](https://github.com/squirelworks/Graal_analysis/blob/main/torque/study-torque-clients.md), the PNG specification, and the project's own lab reads of the 3.04 caches, theme PNGs and stage 0 screenshot (see `gui/README.md`). Tests use hand-built fixtures. Blending and limits are rebuild policy. | none |
 | `TqCode.pas`, `TqCompile.pas`, `TqVM.pas` (parked) | `torque/scripting.md` | none |
 | Module stubs (`console/`, `sim/`, `gui/`, `actionmap/`, `gbitmap/`, `math/`, `game-tge/`, `net-torque/`, `guigraal/`, `gameobject/` `Tq*.pas`) | The notes in each unit's `Notes:` header. They are empty units: no types, no state. | none |
 | `manifests/`, `CUTS.md` | The per-binary notes listed in [README.md](README.md#notes-this-scaffold-was-read-from) | none |
@@ -25,7 +26,7 @@ What this tree was written from, and what it was not. The language decision (C++
 
 | Material | Where | Licence |
 |---|---|---|
-| zlib (system library, linked, not vendored) | `shared/`, both hosts | zlib licence |
+| zlib (system library, linked, not vendored) | `shared/`, both hosts, `gui/` | zlib licence |
 | C++ standard library, Free Pascal RTL | everywhere | their own licences, as shipped with the compiler |
 
 ## Engines this tree does not use
