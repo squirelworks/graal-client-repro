@@ -51,14 +51,20 @@ def main():
     exe = os.path.abspath(a.exe)
     game = subprocess.Popen([exe], cwd=os.path.dirname(exe), env=env)
     time.sleep(a.start_wait)
-    win = subprocess.run(["xdotool", "search", "--sync", "--pid", str(game.pid)], env=env,
+    # The 3.04 window sets no _NET_WM_PID, so a --sync search by pid never
+    # returns; search once by pid, then by the window title.
+    win = subprocess.run(["xdotool", "search", "--pid", str(game.pid)], env=env,
                          capture_output=True, text=True).stdout.split()
+    if not win:
+        win = subprocess.run(["xdotool", "search", "--name", "^Graal$"], env=env,
+                             capture_output=True, text=True).stdout.split()
     if not win:
         print("no window for the client", file=sys.stderr)
         game.kill()
         return 1
     xd = ["xdotool"]
-    subprocess.run(xd + ["windowactivate", "--sync", win[-1]], env=env)
+    # Bare Xvfb has no _NET_ACTIVE_WINDOW; the keys still reach the only window.
+    subprocess.run(xd + ["windowactivate", win[-1]], env=env, stderr=subprocess.DEVNULL)
 
     with open(a.keys, encoding="utf-8") as f:
         for line in f:

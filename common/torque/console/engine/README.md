@@ -118,12 +118,13 @@ console.
 - **Remap dialog.** `OptRemapInputCtrl` (`GuiInputCtrl`) gets the next key
   that is not a modifier on its own and calls its script
   `onInputEvent(device, action)` with `keyboard` and the key name (modifiers
-  first: `ctrl k`). The shipped script binds it on `moveMap`, and
+  first: `ctrl k`). Binding a function to a new key unbinds its old one. The shipped script binds it on `moveMap`, and
   `optionsDlg::onSleep` or `onExit` saves `config.cs` through
   `ActionMap::save`.
-- `activateKeyboard` stays unregistered, as in the original;
-  `deactivateKeyboard` and `toggleFullScreen` are host stubs. The console only
-  calls them when `$enableDirectInput` is set, which no 3.04 script does.
+- `activateKeyboard` and `deactivateKeyboard` are registered and do nothing
+  (the original prints nothing for either); `toggleFullScreen` is a host
+  stub. The console only calls the keyboard pair when `$enableDirectInput`
+  is set, which no 3.04 script does.
 
 ## Renderer seam (for stage 2)
 
@@ -175,18 +176,24 @@ Observed, from the shipped scripts or the lab:
 - Message formats (`Unable to find function`, `Unknown command`, the
   `Object` line after it, `Unable to find object`, `Unable to instantiate
   non-conobject class`, wrong argument counts, `Accessing local variable in
-  global scope`) are strings of the 3.04 Linux engine. Which call prints
-  which, and the `file (line)` prefix, are still to be compared in the lab.
+  global scope`) are strings of the 3.04 Linux engine. The lab key script
+  (below) matched the first four, wrong argument counts and the
+  `<input> (0):` prefix for console input; `Unable to instantiate` and the
+  global-scope message outside `eval` are not compared yet.
 
 Rebuild policy, not read from the original:
 
-- Input order (global map, then the canvas, then the pushed maps from the
-  top), releases following their press, exact modifier match (`shift a`
+- Lab-observed for input (table above): `GlobalActionMap` before the
+  remap dialog's `GuiInputCtrl`, binding a function again unbinding its old
+  key, `enter` stored as `return`, `save()` to the console printing only the
+  binds, `eval` sharing its caller's locals, and the `(null)::` prefix for a
+  global function's argument-count message.
+- Input order between the canvas and the pushed maps, releases following
+  their press, exact modifier match (`shift a`
   does not run a binding for `a`), left and right modifiers counting as one,
   key repeat reaching only text edits, where the keys go after a push or a
-  pop, the `ctrl k` modifier order in `GuiInputCtrl`, the console history
-  rules (no repeat of the newest line) and binding a key without unbinding
-  the command's old key are rebuild policy until the lab run below.
+  pop, the `ctrl k` modifier order in `GuiInputCtrl` and the console history
+  rules (no repeat of the newest line) are rebuild policy.
 - Object ids start at 1027; `RootGroup` is 0 and not found by id.
 - Every GUI control class links straight to `GuiControl`; intermediate stock
   classes are not read for 3.04.
@@ -211,8 +218,33 @@ line on, and `config.cs` byte for byte. It covers `echo("x");`, the failing
 call messages above, console history, a remap through the shipped dialog
 with the console closed over it, and Escape inside the remap dialog.
 
-- [ ] Run the key script on the original in the lab VM and record the result
-  here.
+Run on 2026-11-12 in the Linux lab VM (the original's second start, keys
+played with `xdotool` under Xvfb):
+
+| Check | Original 3.04 | Rebuild |
+|---|---|---|
+| `a` at the main menu | nothing (only `GlobalActionMap` is active) | same |
+| F2, `echo("x");` | `==>echo("x");`, `x` | same |
+| `nosuchfunction();` | `<input> (0): Unable to find function nosuchfunction` | same |
+| `NoSuchObject.foo();` | `<input> (0): Unable to find object: 'NoSuchObject' attempting to call function 'foo'` | same |
+| `Canvas.noSuchMethod();` | `Unknown command noSuchMethod.` and the `Object` line | same message; the object line differs (below) |
+| `echo();` | `(null)::echo - wrong number of arguments.`, `usage: echo(text [, ... ])` | same (fixed here) |
+| `activateKeyboard();` | registered, prints nothing | same (fixed here; Graal_analysis said it was unregistered) |
+| `%local = 1;` | nothing: `eval` runs in `ConsoleEntry::eval`'s frame | same (fixed here) |
+| Up, Enter | runs the last line again | same |
+| `GlobalActionMap.save();` | the bind lines only; `alt enter` saved as `alt return` | same (fixed here) |
+| Remap Up to K, console closed over the dialog | `config.cs` loses `up`, gains `k` as its last line | byte for byte (fixed here) |
+| Escape inside the remap dialog | `GlobalActionMap` runs `escapeFromGame`: the quit box opens, the remap dialog stays (`1 1 1`) | same |
+
+Still different, owned elsewhere:
+
+- [ ] The `Object` line after `Unknown command` on `Canvas`: id 1050 and
+  `Canvas -> GuiCanvas -> GuiCanvas -> GuiControl -> ...` in the original,
+  1028 and one `GuiCanvas` here. Object count and the canvas's class chain
+  (stages 1 and 2).
+- [ ] `OptRemapList.setRowById` (text lists, stage 4) and the message box's
+  `getExtent`, `forceReflow`, `getPosition`, `resize` (control layout,
+  stage 2) are still unknown commands here.
 
 ## Tests
 
@@ -237,6 +269,6 @@ address and undefined-behaviour sanitizers) and Windows.
 - [ ] Stage 2: drawing the canvas and controls from these objects (#248).
 - [x] Stage 3: input through `ActionMap`, the console dialog, the remap
   dialog's `GuiInputCtrl`.
-- [ ] Stage 3 lab run against the original (above). Mouse clicks wait for
-  stage 2's control layout.
+- [x] Stage 3 lab run against the original (above).
+- [ ] Mouse clicks wait for stage 2's control layout.
 - [ ] Compare the message formats and string-unit rules on the original.

@@ -34,13 +34,19 @@ unsigned modifier_bit(const std::string& w) {
 // A key that is itself a modifier (pressing shift alone).
 bool is_modifier_key(const std::string& key) { return modifier_bit(key) != 0; }
 
+// Torque's key name for Enter is "return" (lab, 3.04).
+std::string key_name(const std::string& key) {
+  const std::string k = lower(key);
+  return k == "enter" ? std::string("return") : k;
+}
+
 struct Action { unsigned modifiers = 0; std::string key; };
 
 Action parse_action(const std::string& action) {
   Action a;
   auto w = words(lower(action));
   if (w.empty()) return a;
-  a.key = w.back();
+  a.key = key_name(w.back());
   for (std::size_t i = 0; i + 1 < w.size(); ++i) a.modifiers |= modifier_bit(w[i]);
   return a;
 }
@@ -57,7 +63,7 @@ std::string action_string(const InputEvent& ev) {
   if (ev.modifiers & InputEvent::shift) s += "shift ";
   if (ev.modifiers & InputEvent::ctrl) s += "ctrl ";
   if (ev.modifiers & InputEvent::alt) s += "alt ";
-  return s + lower(ev.key);
+  return s + key_name(ev.key);
 }
 
 std::string event_name(const InputEvent& ev) {
@@ -105,7 +111,7 @@ void log(Engine& e, const std::string& line) {
 // ------------------------------------------------------------ ActionMap
 
 const ActionBinding* find_binding(const SimObject* map, const InputEvent& ev) {
-  const std::string device = device_class(ev.device), key = lower(ev.key);
+  const std::string device = device_class(ev.device), key = key_name(ev.key);
   for (const auto& b : map->binds) {
     if (b.device != device) continue;
     const Action a = parse_action(b.action);
@@ -131,7 +137,7 @@ bool try_map(Engine& e, SimObject* map, const InputEvent& ev) {
   if (!b) return false;
   const ActionBinding bind = *b;  // the script may rebind while it runs
   const std::string name = ref(map);
-  e.pending_breaks.push_back({device_class(ev.device), lower(ev.key), name, bind});
+  e.pending_breaks.push_back({device_class(ev.device), key_name(ev.key), name, bind});
   fire(e, name, bind, true, event_name(ev));
   return true;
 }
@@ -148,7 +154,7 @@ bool edit_key(Engine& e, SimObject* o, const InputEvent& ev) {
   TextEditState& st = e.edits[o->id];
   std::string text = o->field("value");
   st.cursor = std::min(st.cursor, text.size());
-  const std::string key = lower(ev.key);
+  const std::string key = key_name(ev.key);
   const bool console = is_control_class(e, o, "GuiConsoleEditCtrl");
 
   if (static_cast<unsigned char>(ev.ascii) >= 32 && ev.ascii != 127) {
@@ -177,7 +183,7 @@ bool edit_key(Engine& e, SimObject* o, const InputEvent& ev) {
       set_text(o, st, ++st.history_pos == st.history.size() ? std::string() : st.history[st.history_pos]);
     return true;
   }
-  if (key == "enter" || key == "numpadenter") {
+  if (key == "return" || key == "numpadenter") {
     if (ev.repeat) return true;
     if (console) {
       const auto size = static_cast<std::int32_t>(parse_int(o->field("historySize")));
@@ -208,7 +214,7 @@ bool canvas_input(Engine& e, const InputEvent& ev) {
     return true;
   }
   if (is_text_edit(e, o) && edit_key(e, o, ev)) {
-    if (ev.ascii || lower(ev.key) != "enter") log(e, event_name(ev) + ": " + ref(o) + " edit");
+    if (ev.ascii || key_name(ev.key) != "return") log(e, event_name(ev) + ": " + ref(o) + " edit");
     return true;
   }
   return false;
@@ -218,7 +224,7 @@ bool canvas_input(Engine& e, const InputEvent& ev) {
 
 bool Engine::process_input(const InputEvent& ev) {
   if (!ev.make) {
-    const std::string device = device_class(ev.device), key = lower(ev.key);
+    const std::string device = device_class(ev.device), key = key_name(ev.key);
     for (auto it = pending_breaks.begin(); it != pending_breaks.end(); ++it) {
       if (it->device != device || it->key != key) continue;
       const PendingBreak pb = *it;
@@ -260,6 +266,12 @@ void start_input_304(Engine& e) {
 }
 
 void register_input_304(Engine& e) {
+  // Keyboard activation (the console calls these only with
+  // $enableDirectInput set). Both are registered in the 3.04 engine and
+  // print nothing (lab: activateKeyboard() typed into the console).
+  for (const char* name : {"activateKeyboard", "deactivateKeyboard"})
+    e.add_function("", name, 1, 1, std::string(name) + "()", [](Engine&, SimObject*, Args&) { return std::string(); });
+
   // pushDialog(ctrl [, layer]): wake the dialog, keep the layers sorted
   // (equal layers stay in push order), and give the first focusable control
   // in it the keys when it lands on top. Pushing a dialog that is already

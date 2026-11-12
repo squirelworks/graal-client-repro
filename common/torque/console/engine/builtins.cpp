@@ -91,6 +91,16 @@ std::string canonical_device(const std::string& d) {
   return l;
 }
 
+// A bound action string: lower case, and "enter" stored as Torque's key name
+// "return" (lab, 3.04: GlobalActionMap.save() prints "alt return" for the
+// "alt enter" default.bind.cs binds).
+std::string canonical_action(const std::string& action) {
+  std::string l = lower(action);
+  const auto start = l.find_last_of(' ') == std::string::npos ? 0 : l.find_last_of(' ') + 1;
+  if (l.compare(start, std::string::npos, "enter") == 0) l.replace(start, std::string::npos, "return");
+  return l;
+}
+
 std::uint32_t next_random(Engine& e) {
   // 32-bit LCG (rebuild policy; the original generator is not read).
   e.random_state = e.random_state * 1664525u + 1013904223u;
@@ -128,7 +138,7 @@ void register_builtins(Engine& e) {
     for (std::size_t i = from; i < a.size(); ++i) s += a[i];
     return s;
   };
-  fn("echo", 2, 0, "echo(text [, ...])", [join](Engine& en, SimObject*, A& a) { en.print(join(a, 1)); return std::string(); });
+  fn("echo", 2, 0, "echo(text [, ... ])", [join](Engine& en, SimObject*, A& a) { en.print(join(a, 1)); return std::string(); });
   fn("warn", 2, 0, "warn(text [, ...])", [join](Engine& en, SimObject*, A& a) { en.print(join(a, 1)); return std::string(); });
   fn("error", 2, 0, "error(text [, ...])", [join](Engine& en, SimObject*, A& a) { en.print(join(a, 1)); return std::string(); });
   fn("setLogMode", 2, 2, "setLogMode(mode)", [](Engine& en, SimObject*, A& a) {
@@ -466,10 +476,13 @@ void register_builtins(Engine& e) {
   method("ActionMap", "bind", 5, 0, "map.bind(device, action, [modifier spec, mod...], command)", [](Engine&, SimObject* m, A& a) {
     ActionBinding bind;
     bind.device = canonical_device(a[2]);
-    bind.action = lower(a[3]);
+    bind.action = canonical_action(a[3]);
     bind.command = a.back();
+    // Binding a function moves it: its old key is unbound (lab, 3.04: the
+    // remap dialog binding K to moveUp drops "up" from the saved config.cs).
     m->binds.erase(std::remove_if(m->binds.begin(), m->binds.end(), [&](const ActionBinding& x) {
-      return x.device == bind.device && x.action == bind.action;
+      return (x.device == bind.device && x.action == bind.action) ||
+             (!x.is_cmd && !bind.command.empty() && lower(x.command) == lower(bind.command));
     }), m->binds.end());
     m->binds.push_back(bind);
     return std::string();
@@ -477,7 +490,7 @@ void register_builtins(Engine& e) {
   method("ActionMap", "bindCmd", 6, 6, "map.bindCmd(device, action, makeCmd, breakCmd)", [](Engine&, SimObject* m, A& a) {
     ActionBinding bind;
     bind.device = canonical_device(a[2]);
-    bind.action = lower(a[3]);
+    bind.action = canonical_action(a[3]);
     bind.make = a[4];
     bind.brk = a[5];
     bind.is_cmd = true;
@@ -488,7 +501,7 @@ void register_builtins(Engine& e) {
     return std::string();
   });
   method("ActionMap", "unbind", 4, 4, "map.unbind(device, action)", [](Engine&, SimObject* m, A& a) {
-    const auto device = canonical_device(a[2]), action = lower(a[3]);
+    const auto device = canonical_device(a[2]), action = canonical_action(a[3]);
     m->binds.erase(std::remove_if(m->binds.begin(), m->binds.end(), [&](const ActionBinding& x) {
       return x.device == device && x.action == action;
     }), m->binds.end());
@@ -500,16 +513,22 @@ void register_builtins(Engine& e) {
     return std::string();
   });
   method("ActionMap", "getCommand", 4, 4, "map.getCommand(device, action)", [](Engine&, SimObject* m, A& a) {
-    const auto device = canonical_device(a[2]), action = lower(a[3]);
+    const auto device = canonical_device(a[2]), action = canonical_action(a[3]);
     for (const auto& x : m->binds)
       if (x.device == device && x.action == action) return x.is_cmd ? x.make : x.command;
     return std::string();
   });
   method("ActionMap", "save", 2, 4, "map.save([fileName [, append]])", [](Engine& en, SimObject* m, A& a) {
     const std::string name = object_ref(m);
-    std::vector<std::string> lines{"// Torque Input Map File"};
-    lines.push_back(name + ".delete();");
-    lines.push_back("new ActionMap(" + name + ");");
+    // To a file: the header, delete and new lines, then the binds. To the
+    // console: the binds only (lab, 3.04).
+    const bool to_file = a.size() > 2 && !a[2].empty();
+    std::vector<std::string> lines;
+    if (to_file) {
+      lines.push_back("// Torque Input Map File");
+      lines.push_back(name + ".delete();");
+      lines.push_back("new ActionMap(" + name + ");");
+    }
     for (const auto& x : m->binds) {
       if (x.is_cmd)
         lines.push_back(name + ".bindCmd(" + x.device + ", \"" + expand_escape(x.action) + "\", \"" +
@@ -517,7 +536,7 @@ void register_builtins(Engine& e) {
       else
         lines.push_back(name + ".bind(" + x.device + ", \"" + expand_escape(x.action) + "\", " + x.command + ");");
     }
-    if (a.size() > 2 && !a[2].empty()) {
+    if (to_file) {
       std::string out;
       for (const auto& l : lines) out += l + "\n";
       const bool append = a.size() > 3 && parse_int(a[3]) != 0;

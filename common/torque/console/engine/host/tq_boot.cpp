@@ -61,7 +61,7 @@ void register_host_stubs(Engine& e) {
   });
   for (const char* name : {"videoSetGammaCorrection", "setOpenGLTextureCompressionHint", "setOpenGLAnisotropy",
                            "setOpenGLMipReduction", "setOpenGLInteriorMipReduction", "setOpenGLSkyMipReduction",
-                           "setScreenMode", "setDisplayDevice", "toggleFullScreen", "deactivateKeyboard",
+                           "setScreenMode", "setDisplayDevice", "toggleFullScreen",
                            "lockMouse", "gotoWebPage", "cursorOff", "cursorOn"})
     stub(e, "", name, 1, 0);
   stub(e, "", "isDeviceFullScreenOnly", 2, 2, "0");

@@ -169,6 +169,14 @@ GlobalActionMap.bindCmd(keyboard, "escape", "echo(\"esc down\");", "echo(\"esc u
   check(!r.press("enter"), "plain enter does not match alt enter");
   r.tap("escape");
   same(r.take(), std::string("esc down\nesc up\n"), "bindCmd make then break");
+  r.eval("GlobalActionMap.save();");
+  same(r.take(), std::string("GlobalActionMap.bind(keyboard, \"f2\", globalF2);\n"
+                             "GlobalActionMap.bindCmd(keyboard, \"alt return\", \"\", \"echo(\\\"full screen\\\");\");\n"
+                             "GlobalActionMap.bindCmd(keyboard, \"escape\", \"echo(\\\"esc down\\\");\", \"echo(\\\"esc up\\\");\");\n"),
+       "enter is stored as return (lab, 3.04)");
+  check(r.press("return", InputEvent::alt), "the key named return matches too");
+  r.release("return", InputEvent::alt);
+  r.take();
 }
 
 const char* kConsoleScript = R"(
@@ -225,6 +233,14 @@ void console_dialog_evals_typed_line() {
   r.type(";");
   same(r.e.find_object("TestEntry")->field("value"), std::string("echo(1;);"), "cursor keys move the insert point");
 
+  r.e.find_object("TestEntry")->set_field("value", "");
+  r.type("%v = 7; echo(%v);");
+  r.tap("enter");
+  same(r.take(), std::string("==>%v = 7; echo(%v);\n7\n"),
+       "a console line's locals live in ConsoleEntry::eval's frame, no global-scope error (lab, 3.04)");
+  r.type("activateKeyboard();");
+  r.tap("enter");
+  same(r.take(), std::string("==>activateKeyboard();\n"), "activateKeyboard is registered and quiet (lab, 3.04)");
   r.tap("up");  // a direction key in the console is history, not the map
   same(r.take(), std::string(), "up in the console does not reach the map");
 
@@ -282,11 +298,13 @@ void remap_dialog_saves_map() {
        std::string("// Torque Input Map File\n"
                    "walkMap.delete();\n"
                    "new ActionMap(walkMap);\n"
-                   "walkMap.bind(keyboard, \"up\", walk);\n"
                    "walkMap.bind(keyboard, \"a\", act);\n"
-                   "walkMap.bind(keyboard, \"k\", walk);\n"
                    "walkMap.bind(keyboard, \"ctrl k\", walk);\n"),
-       "the saved map adds the new keys after the old ones (the old key stays bound)");
+       "binding walk again moves it: up and then k are unbound, the new key goes last (lab, 3.04)");
+  r.take();
+  r.eval("walkMap.save();");
+  same(r.take(), std::string("walkMap.bind(keyboard, \"a\", act);\nwalkMap.bind(keyboard, \"ctrl k\", walk);\n"),
+       "save() without a file prints only the binds (lab, 3.04)");
 }
 
 void remap_under_console_gets_keys_after() {

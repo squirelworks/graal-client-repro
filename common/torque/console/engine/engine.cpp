@@ -712,14 +712,21 @@ bool Engine::evaluate(const std::string& source, std::string* result) {
   if (!compiler(source, "<input>", dso, err)) { trace.push_back("eval: " + err); return false; }
   auto block = link("<input>", std::move(dso), err);
   if (!block) { trace.push_back("eval: " + err); return false; }
-  return run_block(block, result);
+  // Called from a script function (the console's ConsoleEntry::eval), the
+  // evaluated code shares that function's locals.
+  if (!frames.empty() && frames.back()->fn) eval_frame = frames.back();
+  const bool ok = run_block(block, result);
+  eval_frame = nullptr;
+  return ok;
 }
 
 std::string Engine::invoke(const Resolved& r, Args& argv, SimObject* self, const std::string& where) {
   const Function& fn = *r.fn;
   if (fn.native) {
     if (argv.size() < fn.min || (fn.max && argv.size() > fn.max)) {
-      warn(where + ": " + fn.space + "::" + fn.name + " - wrong number of arguments.");
+      // A global function prints "(null)" for its namespace (lab, 3.04).
+      warn(where + ": " + (fn.space.empty() ? std::string("(null)") : fn.space) + "::" + fn.name +
+           " - wrong number of arguments.");
       warn(where + ": usage: " + fn.usage);
       return {};
     }

@@ -292,6 +292,10 @@ class Engine {
   std::uint32_t next_id = 1027;
   std::uint32_t root_id = 0;
   std::vector<Frame*> frames;
+  // eval() runs in its caller's frame: the next top-level block execute()
+  // starts uses this frame's locals (lab, 3.04: %x = 1 typed into the
+  // console prints no global-scope error).
+  Frame* eval_frame = nullptr;
   std::vector<Event> events;
   std::uint32_t next_event = 1, time_ms = 0;
   friend struct Interpreter;
