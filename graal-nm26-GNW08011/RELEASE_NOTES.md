@@ -5,6 +5,8 @@ original it is a windowed program: it opens on a start window with
 Training, the server list from the listserver, and login. This is an early,
 hit-or-miss first release.
 
+**Login token: tested against the real client.** The original was run in the lab and `GNW08011` was seen in its login on the wire (Wine lab run, 2026-11-04); this rebuild sends the same token.
+
 > **Not affiliated.** graal-delphi is an independent fan project. It is not
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").

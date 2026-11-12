@@ -4,6 +4,8 @@ The first rebuild of the 4th Graal Graal client from 1998, in Delphi
 (Object Pascal). Like the original it has no accounts: it joins a relay
 server's game and plays with whoever is on the same level.
 
+**Login token: none.** The original sends no version token, so there is nothing to check here.
+
 > **Not affiliated.** graal-delphi is an independent fan project. It is not
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").

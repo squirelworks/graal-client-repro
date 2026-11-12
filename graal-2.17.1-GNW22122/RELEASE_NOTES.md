@@ -8,6 +8,8 @@ frames, the 2.17 login with its tamper check, the 2.1 props) and plays
 what the 2.05 rev 2 rebuild plays, with the 2.1 to 2.17 additions the
 offline tutorial needs.
 
+**Login token: tested against the real client.** The original was run in the lab and `GNW22122` was seen in its login on the wire (lab trace); this rebuild sends the same token.
+
 > **Not affiliated.** graal-delphi is an independent fan project. It is not
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").

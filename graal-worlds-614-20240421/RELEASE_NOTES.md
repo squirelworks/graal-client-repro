@@ -5,6 +5,8 @@ native plugin. This folder builds a portable C# stand-in that loads a
 local yard, walks it, and talks to a local-only server on loopback. The
 Unity player was not built.
 
+**Login token: none.** The original sends no version token, so there is nothing to check here.
+
 > **Not affiliated.** graal-delphi is an independent fan project. It is not
 > affiliated with, endorsed by, or connected to Graal Online, Cyberjoueurs,
 > or Stéphane Portha ("unixmad").
