@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 
+#include "emitter.hpp"
 #include "gs2.hpp"
 
 namespace gs2::gui {
@@ -75,6 +76,14 @@ class Control : public Var {
 
   // GuiTextEditCtrl: the cursor position in `text`.
   std::size_t cursor = 0;
+
+  // GuiTextCtrl: its text's width and the font height, measured when it is
+  // drawn. Like Torque's minExtent after setText, the control is never laid
+  // out smaller than this, so a label does not clip its own text.
+  int textMinW = 0, textMinH = 0;
+
+  // GuiShowImgCtrl: its particle emitter, the script's `emitter`.
+  std::shared_ptr<Emitter> emitter;
 
  private:
   friend class Screen;
@@ -152,6 +161,11 @@ class Screen {
   bool keyDown(const std::string& key, int ch, const std::string& mods = "");
   bool keyUp(const std::string& key, const std::string& mods = "");
 
+  // Runs the show-images' emitters `dt` seconds, each placed at its
+  // control's screen position plus (`offsetx`, `offsety`). Only controls
+  // on the screen run.
+  void advance(double dt);
+
   // Key maps: GlobalActionMap first, then the pushed maps, newest first.
   const std::vector<ControlPtr>& actionMaps() const { return maps_; }
   // A bound command that is no script function goes here (the engine's
@@ -163,6 +177,7 @@ class Screen {
   ControlPtr make(const std::string& type, const std::string& name);
   void addCommands();
   void wake(Control& c, bool on);
+  void advanceTree(Control& c, double dt);
   ControlPtr hit(const ControlPtr& c, int x, int y) const;
   void activate(Control& c, int clicks);
   bool runBinding(const std::string& device, const std::string& action, bool down);

@@ -1,4 +1,4 @@
-# GS2 script machine (Tracks B1 to B4)
+# GS2 script machine (Tracks B1 to B5)
 
 The script machine the 4.x, 5.x and 6.x clients share: the engines'
 `TScriptExecutionSpace` running compiled GS2 on a `TGraalVar`. The 4.04r2 to
@@ -124,10 +124,41 @@ The 5.12 engine's menus (profile 5.0) run the same way: 154 controls and
 112 profiles, with every opcode they use. The one call still missing is the
 engine's `Adventure_getInstallationPath`.
 
-The only 4.04r2 commands still missing are the particle emitter's
-`addglobalmodifier`, `addlocalmodifier` and `removemodifiers`, which belong
-to `GuiShowImgCtrl` (B5). The menu background is a JPEG, which nothing
-here reads yet.
+The menu background is a JPEG, which nothing here reads yet.
+
+## Show-image particles (B5a)
+
+`emitter.cpp` is the particle emitter a `GuiShowImgCtrl` carries as
+`emitter`. It is written from Graal_analysis
+`client-internals/showimg-particles-and-gs2-format.md`.
+
+- **Bursts.** The first tick only starts the timer. A burst then comes
+  every `rand(delaymin, delaymax)` seconds and emits
+  `min(nrofparticles, maxparticles - live)`. Nothing runs while `isfrozen`
+  is set.
+- **Particles.** A new particle copies `emitter.particle`, the template.
+  It starts at the show-image's position (the control's screen position
+  plus `offsetx` and `offsety`) plus `emissionoffset`, times
+  `movementfactor`. Each frame it moves by dt × move × that factor, and
+  its rotation grows by spin × dt. It dies at `lifetime` seconds.
+- **Modifiers.** `addlocalmodifier`, `addglobalmodifier` and
+  `addemitmodifier` take (type, time1, time2, field, operation, min,
+  max). The types are `once`, `impulse` and `range`, and the operations
+  are `replace`, `add` and `multiply`. A list holds at most 1000.
+  - Local modifiers run on each particle's own clock.
+  - Global modifiers run on the emitter's clock and change every live
+    particle.
+  - Emit modifiers change the template.
+  - `removemodifiers` clears all three lists.
+- **Drawing.** Particles draw after the engine's own part of the control
+  and before its children: oldest first, or newest first with
+  `firstinfront`. Each goes through `Painter::sprite` with its rotation,
+  zoom times stretch, colour and blend `mode`.
+
+`Screen::advance(dt)` runs the emitters of the controls on screen.
+`gs2-scan --draw` runs three seconds of passes before it draws. On
+4.04r2, every command the 14 menus call is now found, and the main menu's
+smoke emitter puts out puffs of `g4_particle_smoke.png`.
 
 ## Checked against the original
 
@@ -220,6 +251,25 @@ guessed.
   control under it, so the main menu's show-images do not cover the
   Offline Test button; the engines' hit rule for show-images is only
   partly read
+- [ ] A `GuiTextCtrl` is never laid out smaller than its text's width and
+  the font height, measured through the painter each time it is drawn.
+  This follows Torque's `GuiTextCtrl`, which raises `minExtent` when its
+  text is set; that the engines keep this behaviour is a reading. It lets
+  the 4.04r2 labels ("Nickname", "Account name") show their whole text.
+- [x] The show-image particle emitter (B5a)
+- [ ] Emitter readings, where the note leaves the value open:
+  - defaults: `emitautomatically` on, `maxparticles` 100, `delaymin` 0.1,
+    `movementfactor` 1, lifetime 1, mode 1, colour, zoom and stretch 1;
+  - the move vector comes from `angle`, `zangle` and `speed` whenever
+    one of them changes, with angle 0 pointing right and pi/2 pointing
+    up the screen;
+  - a global clock starts when the modifier is added;
+  - one template (`particletypes` is not used yet), and no clipping box
+- [ ] A show-image drawing its ani (`ani`, `actor`, `playerlook`) and the
+  plain image (B5b). That is the engine program's part: it gets the
+  control through `Painter::engineControl`, reads those properties, and
+  draws with its own gani reader (the Pascal `GAni` through the game
+  library, or Quattro's)
 - [ ] Pop-up menus step to the next row on a press until the open list is
   drawn; window frames, scroll bars, sliders and multi-line text draw
   plainly (fill, frame, text), not from the theme

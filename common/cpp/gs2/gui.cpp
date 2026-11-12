@@ -155,8 +155,8 @@ Rect Screen::rectOf(const Control& c) const {
   resizeAxis(c.prop("vertSizing", "bottom"), false, oh, nh, y, h);
   int mw = 0, mh = 0;
   parsePair(c.prop("minExtent", "0 0"), mw, mh);
-  w = std::max(w, mw);
-  h = std::max(h, mh);
+  w = std::max({w, mw, c.textMinW});
+  h = std::max({h, mh, c.textMinH});
   return Rect{base.x + x, base.y + y, w, h};
 }
 
@@ -177,9 +177,27 @@ ControlPtr Screen::make(const std::string& type, const std::string& name) {
     c->profile_ = true;
     for (const auto& [key, v] : base->Var::children()) c->childOrCreate(v->name().empty() ? key : v->name())->assignFrom(*v);
   }
+  if (lower(type) == "guishowimgctrl") {
+    c->emitter = std::make_shared<Emitter>(m_);
+    c->childOrCreate("emitter")->setObject(c->emitter);
+  }
   all_.push_back(c);
   if (!name.empty()) byName_[lower(name)] = c;
   return c;
+}
+
+void Screen::advanceTree(Control& c, double dt) {
+  if (c.emitter) {
+    const Rect r = rectOf(c);
+    c.emitter->setPosition(r.x + c.numProp("offsetx"), r.y + c.numProp("offsety"));
+    c.emitter->advance(dt);
+  }
+  for (const auto& k : c.controls()) advanceTree(*k, dt);
+}
+
+void Screen::advance(double dt) {
+  if (content_) advanceTree(*content_, dt);
+  for (const auto& d : dialogs_) advanceTree(*d, dt);
 }
 
 void Screen::install() {
@@ -556,6 +574,25 @@ void Screen::addCommands() {
   // the end of the selection.
   m.addCommand("GuiTextEditCtrl.setSelection", "ff", [](Machine& mm, Var& self, std::vector<Value>& a) {
     if (auto c = asControl(self)) c->cursor = static_cast<std::size_t>(std::max(0.0, mm.toNumber(a[1])));
+    return Value::number(0);
+  });
+
+  // The show-image emitter: add{local,global,emit}modifier(type, time1,
+  // time2, field, operation, min, max) and removemodifiers().
+  auto modifier = [&](const char* name, Emitter::List which) {
+    m.addCommand(std::string("TParticleEmitter.") + name, "sffssff", [which](Machine& mm, Var& self, std::vector<Value>& a) {
+      auto e = dynamic_cast<Emitter*>(&self);
+      if (!e) return Value::number(0);
+      const bool ok = e->addModifier(which, mm.toString(a[0]), mm.toNumber(a[1]), mm.toNumber(a[2]), mm.toString(a[3]),
+                                     mm.toString(a[4]), mm.toNumber(a[5]), mm.toNumber(a[6]));
+      return Value::number(ok ? 1 : 0);
+    });
+  };
+  modifier("addlocalmodifier", Emitter::List::Local);
+  modifier("addglobalmodifier", Emitter::List::Global);
+  modifier("addemitmodifier", Emitter::List::Emit);
+  m.addCommand("TParticleEmitter.removemodifiers", "", [](Machine&, Var& self, std::vector<Value>&) {
+    if (auto e = dynamic_cast<Emitter*>(&self)) e->removeModifiers();
     return Value::number(0);
   });
 
