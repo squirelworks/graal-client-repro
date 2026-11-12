@@ -1,6 +1,8 @@
 CXX ?= g++
 CXXFLAGS ?= -std=c++17 -Wall -Wextra -Werror -O2
 FPC ?= fpc
+# Extra Free Pascal flags for make lib (the Windows CI names the unit folders here).
+FPCFLAGS ?=
 
 # The window back end and the program's libraries per system. PLATFORM is
 # linux, windows or macos; set it by hand to cross-build (for example
@@ -21,21 +23,18 @@ WINDOW_SRC = host/window_win32.cpp
 WINDOW_LIBS = -mwindows -static -static-libgcc -static-libstdc++ -lgdi32 -luser32
 WINDOW_RES = build/graal304-torque.res.o
 WINDRES ?= $(patsubst %g++,%windres,$(patsubst %c++,%windres,$(notdir $(CXX))))
-GAME_LIB_FILE = Game304Lib.dll
 else ifeq ($(PLATFORM),macos)
 EXE =
 DL_LIBS =
 WINDOW_SRC = host/window_cocoa.mm
 WINDOW_LIBS = -framework Cocoa
 WINDOW_RES =
-GAME_LIB_FILE = libGame304Lib.dylib
 else
 EXE =
 DL_LIBS = -ldl
 WINDOW_SRC = host/window_x11.cpp
 WINDOW_LIBS = -lX11
 WINDOW_RES =
-GAME_LIB_FILE = libGame304Lib.so
 endif
 
 ENGINE_DIR = ../console/engine
@@ -50,6 +49,9 @@ HEADERS = guigraal304.hpp game304.hpp pascal_game304.hpp game304_abi.h $(ENGINE_
 # The 3.04 Pascal game as a shared library (make lib; needs Free Pascal).
 GAME_SRC = ../../../graal-3.04-G3D03014/src
 GAME_SRC_3153 = ../../../graal-3.153-G3D28015/src
+# This folder from GAME_SRC. Paths given to a native Windows compiler stay
+# relative: it misreads MSYS (/d/a/...) paths (scripts/build.sh).
+FROM_GAME = ../../common/torque/guigraal
 LIB_DIR = build/lib
 
 .PHONY: all test lib clean program
@@ -82,7 +84,7 @@ build/graal304-torque$(EXE): $(CONTROL) $(HOST) $(GUI) $(ENGINE) $(COMPILER) $(H
 # Windows: version info and manifest (graal-3.04-G3D03014/src/Graal304Torque.rc,
 # which the release workflow stamps with the others).
 build/graal304-torque.res.o: $(GAME_SRC)/Graal304Torque.rc ../../../common/win/graal-delphi.manifest | build
-	cd $(GAME_SRC) && $(WINDRES) -O coff Graal304Torque.rc -o $(CURDIR)/$@
+	cd $(GAME_SRC) && $(WINDRES) -O coff Graal304Torque.rc -o $(FROM_GAME)/$@
 
 # The frame logic without a window, for tests.
 build/frame-test$(EXE): $(CONTROL) $(GUI) $(ENGINE) $(COMPILER) $(HEADERS) $(GUI_HEADERS) host/frame304.cpp \
@@ -93,11 +95,11 @@ program: build/graal304-torque$(EXE)
 
 lib: | build
 	mkdir -p $(LIB_DIR)
-	cd $(GAME_SRC) && $(FPC) -Mdelphi -Sh -vew -O2 -Fu../../common -Fu. \
-	  -FE$(CURDIR)/$(LIB_DIR) -FU$(CURDIR)/$(LIB_DIR) Game304Lib.lpr
+	cd $(GAME_SRC) && $(FPC) -Mdelphi -Sh -vew -O2 $(FPCFLAGS) -Fu../../common -Fu. \
+	  -FE$(FROM_GAME)/$(LIB_DIR) -FU$(FROM_GAME)/$(LIB_DIR) Game304Lib.lpr
 	mkdir -p $(LIB_DIR)/units3153
-	cd $(GAME_SRC_3153) && $(FPC) -Mdelphi -Sh -vew -O2 -Fu../../common -Fu. \
-	  -FE$(CURDIR)/$(LIB_DIR) -FU$(CURDIR)/$(LIB_DIR)/units3153 Game3153Lib.lpr
+	cd $(GAME_SRC_3153) && $(FPC) -Mdelphi -Sh -vew -O2 $(FPCFLAGS) -Fu../../common -Fu. \
+	  -FE$(FROM_GAME)/$(LIB_DIR) -FU$(FROM_GAME)/$(LIB_DIR)/units3153 Game3153Lib.lpr
 
 test: build/guigraal-test$(EXE) build/frame-test$(EXE)
 	./build/guigraal-test$(EXE)

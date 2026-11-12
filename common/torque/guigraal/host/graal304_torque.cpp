@@ -210,6 +210,7 @@ int main(int argc, char** argv) {
     write_bmp(shot, px.data(), img.width, img.height);
   }
   if (!trace_path.empty()) {
+    engine.trace.push_back("player " + graal.game().player() + ", state " + std::to_string(graal.game().state()));
     std::ofstream out(trace_path, std::ios::binary);
     for (const auto& line : engine.trace) out << line << "\n";
     for (const auto& line : frame.log) out << line << "\n";

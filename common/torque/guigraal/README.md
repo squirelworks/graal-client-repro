@@ -28,13 +28,37 @@ frame scaled into the control.
 
 `build/graal304-torque [--root INSTALL] [--prefs DIR] [--game LIB]
 [--steps FILE] [--seconds N] [--trace FILE] [--shot FILE.bmp]` is the windowed
-program (Linux, X11 for now). It boots the install from its own `main.cs`
+program. It boots the install from its own `main.cs`
 (`host/boot304.cpp`, shared with `tq-play`), draws the canvas content and the
 pushed dialogs every 50 ms with `../gui` (`host/frame304.cpp`), and shows the
-image in a window (`host/window_x11.cpp`). The defaults are the program's own
-folder for the install, `~/.graal304-torque` for prefs and
-`libGame304Lib.so` beside the program. The canvas size is
+image in a window. The defaults are the program's own folder for the
+install, `~/.graal304-torque` for prefs (`%APPDATA%\graal304-torque` on
+Windows) and the game library beside the program. The canvas size is
 `$pref::Video::resolution`, 800 × 600 if unset.
+
+| System | Window | Program, library | Build |
+|---|---|---|---|
+| Linux | X11 (`host/window_x11.cpp`) | `graal304-torque`, `libGame304Lib.so` | `make lib all` |
+| Windows | Win32 GDI (`host/window_win32.cpp`) | `graal304-torque.exe`, `Game304Lib.dll` | `make lib all` in an MSYS2 shell; the g++ and the Free Pascal must be the same CPU (both i386, as the release, or both x86_64) |
+| macOS | Cocoa (`host/window_cocoa.mm`) | `graal304-torque`, `libGame304Lib.dylib` | `make lib all` (Xcode command line tools and Free Pascal) |
+
+`make PLATFORM=windows CXX=i686-w64-mingw32-g++ WINDRES=i686-w64-mingw32-windres`
+cross-builds the Windows program from Linux. `tests/window.sh` runs the
+program on a stand-in install, walks offline and checks the trace and the
+window image (CI: Xvfb on Linux, the Windows runner's desktop).
+
+Each window is a fixed-size frame around the canvas with only close and
+minimise. They differ only where their systems do:
+
+- Windows: a GUI program (no console window); started from a console it
+  writes its console lines there. The exe is linked statically, so it needs
+  no MinGW DLLs, and carries the shared manifest and version info
+  (`graal-3.04-G3D03014/src/Graal304Torque.rc`).
+- macOS: Cmd+Q and Cmd+W close the window as its close button does; the
+  Option keys are Torque's `alt`.
+- All three: keys held when the window loses focus are released (Windows,
+  macOS), so the player does not keep walking; punctuation keys carry their
+  Torque names (`comma`, `period`, ...) and type into text edits.
 
 Rebuild policy, not read from the original:
 
@@ -135,8 +159,10 @@ Rebuild policy, not read from the original:
   (stage 5, 2D parity).
 - [x] Walking on the offline tutorial (3.04's `picso.png` row rule). Online
   levels need 2.22's `arrays.dat` beside the install (see the 3.04 README).
-- [ ] Windows and macOS: the loader has a Windows branch but the library is
-  only built and run on Linux so far, and the window is X11 only.
+- [x] Windows and macOS: Win32 and Cocoa windows, the library as
+  `Game304Lib.dll` and `libGame304Lib.dylib`, and the Windows release zip.
+- [ ] The macOS release zip: release-all cross-builds macOS on Linux with no
+  C++ toolchain for Cocoa yet, so macOS players build it with `make lib all`.
 
 ## 3.153 (Track A)
 

@@ -24,6 +24,7 @@ program works too (`graal-assets/3.04/`, then `graal-assets/common/`).
 
 ## What's new in v0.0.5
 
+- [x] **The Torque program on Windows and macOS.** `graal304-torque` now opens a native window on Windows (Win32) and macOS (Cocoa) as well as Linux (X11): the same menus, server list, game and walking. The Windows zip ships `graal304-torque.exe` and `Game304Lib.dll`; on macOS it builds from source for now.
 - [x] **The game as a Torque control.** The 2D game now also builds as a library (`src/Game304Lib.lpr`) that the Torque console engine hosts as `GuiGraalCtrl` (`common/torque/guigraal`): the install's own main menu, server list and key scripts reach it through the control's 31 methods. Not in the release zip yet; `tq-play` runs it.
 - [x] **Walking by 3.04's tile rules.** The offline tutorial's `picso.png` levels use 3.04's row rule, so the player walks there with no extra file. Online levels on `pics1.png` need 2.22's `arrays.dat` in the 3.04 folder, because 3.04 has the same lists built in. Without it, real levels' grass was a wall and the player could not leave the start spot.
 - [x] **The Torque program ships (Linux).** The Linux zip now holds `graal304-torque` and the game library `libGame304Lib.so`. Copied into a 3.04 install, it runs the install's own Torque menus and the game in a window. Started outside an install, it says where to put it.
@@ -101,6 +102,10 @@ build's README for the full list.
 
 The original runs on the Torque engine; this release is still the Delphi
 stand-in that speaks its wire protocol. The Torque layer is not done.
+
+The macOS zip does not carry `graal304-torque` yet: release-all builds
+macOS on Linux with no Cocoa toolchain. It builds from source on a Mac
+(`make -C common/torque/guigraal lib all`).
 
 The original's own icon: no copy of the original program to take it from
 is in the project yet, so the Windows program has the default icon.
