@@ -2,9 +2,9 @@
 
 A behavioural port of 39ster's Graal client 1.00, the 2014 offline fan
 remake, in Delphi (Object Pascal). This first version is a viewer: it draws
-a level of the player's own 39ster install in a 640 x 480 window and moves
-the view with the arrow keys. Walking, collision, animation, signs and
-links come next.
+a level of the player's own 39ster install in a 640 x 480 window, and the
+arrow keys walk a placeholder box with the original's collision. The
+character, animation, signs and links come next.
 
 > **Not affiliated.** graal-delphi is an independent fan project. It is not
 > affiliated with, endorsed by, or connected to GraalOnline or
@@ -22,11 +22,20 @@ one with `--data DIR`, or keep the install's files in
   clamped to the level.
 - [x] **The player's own files.** Levels, the tile sheet and the category
   table are read from the install at run time.
+- [x] **Walking and collision.** The arrow keys walk the player's box 3
+  pixels a frame, diagonals at 0.75 of that on each axis, scaled by how
+  long the last frame took. Blocking, jump and throw-through tiles and the
+  level's edge stop it; it stops flush against a wall, and pushing into a
+  wall corner slides it round onto the open tile.
+- [x] **The character.** The player is drawn from the install's own ganis
+  and pictures, piece by piece (body, head, shield, sword, hat), facing the
+  way it walks. Walking plays the walk animation, standing plays idle, and
+  Space swings the sword, which goes back to idle when it ends.
 
 ## Not yet
 
-- [ ] The player character, walking and collision, animation, pause, grab
-  and pull, signs and links (see the README's "Not yet").
+- [ ] The player character, animation, pause, grab and pull, signs and
+  links (see the README's "Not yet").
 
 ## Downloads
 

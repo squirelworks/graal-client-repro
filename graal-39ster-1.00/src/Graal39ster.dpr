@@ -5,10 +5,10 @@
     Graal39ster --help
 
   With no --frame it opens a 640 x 480 window on level13.nw at (512, 512),
-  as the original starts. This first version is a viewer: the arrow keys
-  move the camera anchor 3 pixels a tick with no collision; Esc or closing
-  the window ends it. Movement, animation, pause, signs and links are the
-  next slices (issue #176).
+  as the original starts. The arrow keys walk the player's box with the
+  original's movement and collision (Move39), Space swings the sword, and
+  the character is drawn from the install's ganis (Anim39); Esc or closing
+  the window ends it. Pause, signs and links are the next slices (#176).
 
   The player's own 39ster install supplies every file: put the program in
   its folder, or keep the install's files in graal-assets/39ster/ next to
@@ -27,6 +27,8 @@ uses
   Profile39 in 'Profile39.pas',
   Tiles39 in 'Tiles39.pas',
   Camera39 in 'Camera39.pas',
+  Move39 in 'Move39.pas',
+  Anim39 in 'Anim39.pas',
   World39 in 'World39.pas';
 
 procedure Usage;
@@ -38,7 +40,8 @@ end;
 function RunWindow(W: TWorld39): Integer;
 var
   Win: TGWindow;
-  T0: QWord;
+  T0, Last: QWord;
+  DX, DY: Integer;
 begin
   Result := 0;
   Win := TGWindow.Create('Graal ' + ClientBuildLabel, ViewW, ViewH);
@@ -49,19 +52,17 @@ begin
       Result := 1;
       Exit;
     end;
+    Last := GetTickCount64 - Round(NominalFrameMs);
     while not Win.Closed do
     begin
       T0 := GetTickCount64;
       Win.Pump;
       if Win.Held[gkEscape] then Break;
-      if Win.Held[gkUp] then begin Dec(W.AnchorY, MoveStep); W.Facing := fUp; end;
-      if Win.Held[gkDown] then begin Inc(W.AnchorY, MoveStep); W.Facing := fDown; end;
-      if Win.Held[gkLeft] then begin Dec(W.AnchorX, MoveStep); W.Facing := fLeft; end;
-      if Win.Held[gkRight] then begin Inc(W.AnchorX, MoveStep); W.Facing := fRight; end;
-      if W.AnchorX < 0 then W.AnchorX := 0;
-      if W.AnchorY < 0 then W.AnchorY := 0;
-      if W.AnchorX > 63 * TilePx then W.AnchorX := 63 * TilePx;
-      if W.AnchorY > 63 * TilePx then W.AnchorY := 63 * TilePx;
+      DX := Ord(Win.Held[gkRight]) - Ord(Win.Held[gkLeft]);
+      DY := Ord(Win.Held[gkDown]) - Ord(Win.Held[gkUp]);
+      { the time factor comes from the previous frame }
+      W.Update(DX, DY, Win.Held[gkAttack], TimeFactor(T0 - Last));
+      Last := T0;
       W.Draw;
       Win.Present(W.Screen);
       while GetTickCount64 - T0 < Round(NominalFrameMs) do Sleep(1);
@@ -96,9 +97,9 @@ begin
       else if (ParamStr(I) = '--level') and (I < ParamCount) then
       begin Inc(I); LevelName := ParamStr(I); end
       else if (ParamStr(I) = '--x') and (I < ParamCount) then
-      begin Inc(I); W.AnchorX := StrToIntDef(ParamStr(I), StartX); end
+      begin Inc(I); W.PlaceAt(StrToIntDef(ParamStr(I), StartX), W.PosY); end
       else if (ParamStr(I) = '--y') and (I < ParamCount) then
-      begin Inc(I); W.AnchorY := StrToIntDef(ParamStr(I), StartY); end
+      begin Inc(I); W.PlaceAt(W.PosX, StrToIntDef(ParamStr(I), StartY)); end
       else if (ParamStr(I) = '--frame') and (I < ParamCount) then
       begin Inc(I); FrameOut := ParamStr(I); end
       else

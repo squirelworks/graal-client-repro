@@ -64,7 +64,7 @@ function SetNameOf(const FileName: string): string;
 implementation
 
 uses
-  SysUtils, Classes;
+  SysUtils, GPaths, Classes;
 
 const
   B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
@@ -323,7 +323,7 @@ begin
     begin
       Dir := Folders[I];
       if Dir = '' then Continue;
-      Dir := IncludeTrailingPathDelimiter(Dir);
+      Dir := WithTrailingSep(Dir);
       if FindFirst(Dir + 'objects*.txt', faAnyFile, SR) = 0 then
       begin
         repeat
@@ -345,11 +345,11 @@ begin
     end;
     if Seen.IndexOf('standard') < 0 then
       for I := 0 to High(Folders) do
-        if (Folders[I] <> '') and FileExists(IncludeTrailingPathDelimiter(Folders[I]) + 'objects.dat') then
+        if (Folders[I] <> '') and FileExists(WithTrailingSep(Folders[I]) + 'objects.dat') then
         begin
           S := TObjectSet.Create;
           S.Name := 'Standard';
-          S.FileName := IncludeTrailingPathDelimiter(Folders[I]) + 'objects.dat';
+          S.FileName := WithTrailingSep(Folders[I]) + 'objects.dat';
           if S.LoadObjectsDat(ReadAll(S.FileName)) then
           begin
             K := Add(S);
@@ -374,7 +374,7 @@ function TObjectSets.NewSet(const Folder, AName: string): TObjectSet;
 begin
   Result := TObjectSet.Create;
   Result.Name := AName;
-  Result.FileName := IncludeTrailingPathDelimiter(Folder) + 'objects' + AName + '.txt';
+  Result.FileName := WithTrailingSep(Folder) + 'objects' + AName + '.txt';
   Result.Save;
   Add(Result);
 end;

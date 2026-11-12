@@ -113,7 +113,7 @@ uses
 {$IFDEF MSWINDOWS}
   Windows,
 {$ENDIF}
-  SysUtils, GTypes, GFont, GAssetDirs;
+  SysUtils, GPaths, GTypes, GFont, GAssetDirs;
 
 const
   ColBack = $FF101828;
@@ -565,7 +565,7 @@ begin
     for I := 0 to L.Count - 1 do
     begin
       P := AssetPath(L[I]);
-      if P = '' then P := Dir + StringReplace(L[I], '/', PathDelim, [rfReplaceAll]);
+      if P = '' then P := Dir + StringReplace(L[I], '/', DirSlash, [rfReplaceAll]);
       if FileExists(P) and AssetAllowed(P) then
       begin
         Result := P;

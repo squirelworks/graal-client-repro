@@ -313,10 +313,16 @@ GraalX's own slices (issue #175):
 - [x] The retained GLEVNW01 reader: a generated `.nw` fixture loads and its
   NPC's created event sets a message (`tests/TestX.dpr`, `TestNwFiles`).
 - [ ] The `.nw` open-dialog filter and GLEVNW01 magic checks GraalX shares
-  with 2.05.
+  with 2.05. The rebuild's editor opens by a typed name and already takes
+  `.nw`, so there is no file-type list to match yet.
 - [ ] Numeric display and condition context with generated fixtures.
-- [ ] `.nw` save and reload of edited levels. Only an unchanged level is
-  known to save byte-identical (`VX-GRAALX-NW-SAVE-20261109-01`).
+- [x] `.nw` save and reload (`tests/TestEditorX.dpr`, `TestNwSaveReload`):
+  an unchanged level opened in the editor saves byte for byte, matching
+  the one GraalX run (`VX-GRAALX-NW-SAVE-20261109-01`); an edited board
+  tile, a moved NPC and an added sign save, read back, and save again
+  byte for byte, with everything else unchanged. The edited case checks
+  this rebuild's writer only: how GraalX itself writes edited boards and
+  objects, and every directive, is still unverified.
 - [ ] The embedded tutorial levels checked against GraalX at run time.
 - [ ] Movement, combat, rendering, sound and network differences, if any,
   from more GraalX evidence.
