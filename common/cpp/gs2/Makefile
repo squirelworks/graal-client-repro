@@ -1,8 +1,8 @@
 CXX ?= g++
 CXXFLAGS ?= -std=c++17 -Wall -Wextra -Werror -O2
 
-LIB = loader.cpp machine.cpp var.cpp startscripts.cpp engine_commands.cpp delivery.cpp gui.cpp gui_draw.cpp
-HEADERS = gs2.hpp startscripts.hpp engine_commands.hpp delivery.hpp gui.hpp gui_draw.hpp
+LIB = loader.cpp machine.cpp var.cpp startscripts.cpp engine_commands.cpp delivery.cpp gui.cpp gui_draw.cpp emitter.cpp
+HEADERS = gs2.hpp startscripts.hpp engine_commands.hpp delivery.hpp gui.hpp gui_draw.hpp emitter.hpp
 
 .PHONY: all test clean
 all: build/gs2-test build/gui-test build/gs2-dis build/gs2-scan

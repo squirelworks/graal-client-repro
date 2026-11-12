@@ -2,12 +2,14 @@
 // scripts are written by hand with tests/assembler.hpp in the shape the
 // 4.04r2 menus compile to (README.md, "GUI objects").
 
+#include <cmath>
 #include <cstdio>
 #include <string>
 #include <vector>
 
 #include "../gs2.hpp"
 #include "../gui.hpp"
+#include "../emitter.hpp"
 #include "../gui_draw.hpp"
 #include "assembler.hpp"
 
@@ -115,6 +117,11 @@ Asm menu() {
   prop(a, "position", "10 90");
   prop(a, "extent", "100 20");
   endNew(a, e);
+  auto lb = beginNew(a, "GuiTextCtrl", "NameLabel");
+  prop(a, "position", "10 120");
+  prop(a, "extent", "20 10");
+  prop(a, "text", "Nickname");
+  endNew(a, lb);
   auto l = beginNew(a, "GuiTextListCtrl", "List");
   prop(a, "position", "200 100");
   prop(a, "extent", "200 100");
@@ -168,7 +175,7 @@ static void testObjectsAndCommands() {
   CHECK(m.errors().empty());
 
   auto root = s.find("MainMenu");
-  CHECK(root && root->isControl() && root->controls().size() == 4);
+  CHECK(root && root->isControl() && root->controls().size() == 5);
   CHECK(root && root->owner() == script);
   auto btn = s.find("gobutton");  // names are found without case
   CHECK(btn && btn->parent() == root.get() && btn->owner() == script);
@@ -320,6 +327,10 @@ static void testDrawing() {
   // The selected row is filled and its columns are drawn at their offsets.
   CHECK(p.has("text 200,100 five"));
   CHECK(p.has("text 300,100 col"));
+  // A label grows to its text (8 characters, 48 pixels) and the font
+  // height, past its 20 x 10 extent.
+  const Rect lr = s.rectOf(*s.find("NameLabel"));
+  CHECK(lr.x == 10 && lr.y == 120 && lr.w == 48 && lr.h == 14);
   CHECK(p.has("text 200,114 seven"));
   // Hidden controls draw nothing.
   s.find("GoButton")->setNumProp("visible", 0);
@@ -335,7 +346,110 @@ static void testDrawing() {
   CHECK(parseColor("1 2 300").b == 255 && parseColor("4 5 6").a == 255);
 }
 
+
+static void testEmitter() {
+  gs2::Machine m;
+  Screen s(m);
+  s.install();
+  // A show-image with an emitter, set up from script the way the 4.04r2
+  // main menu does it.
+  Asm a;
+  a.function("onCreated", {});
+  auto root = beginNew(a, "GuiControl", "Root");
+  auto img = beginNew(a, "GuiShowImgCtrl", "Smoke");
+  prop(a, "position", "100 100");
+  prop(a, "extent", "50 50");
+  a.var("offsetx").num(10).op(Asm::ASSIGN);
+  a.var("offsety").num(20).op(Asm::ASSIGN);
+  auto em = [&](const std::string& k, double v) {
+    a.var("emitter").op(Asm::TOOBJECT).var(k).op(Asm::MEMBER).num(v).op(Asm::ASSIGN);
+  };
+  auto part = [&](const std::string& k) {
+    a.var("emitter").op(Asm::TOOBJECT).var("particle").op(Asm::MEMBER).op(Asm::TOOBJECT).var(k).op(Asm::MEMBER);
+  };
+  em("delaymin", 0.45);
+  em("delaymax", 0.45);
+  em("nrofparticles", 2);
+  em("maxparticles", 3);
+  part("lifetime"); a.num(0.95).op(Asm::ASSIGN);
+  part("image"); a.str("puff.png").op(Asm::ASSIGN);
+  part("angle"); a.num(3.14159265358979 / 2).op(Asm::ASSIGN);
+  part("speed"); a.num(10).op(Asm::ASSIGN);
+  part("spin"); a.num(1).op(Asm::ASSIGN);
+  a.var("emitter").op(Asm::TOOBJECT).var("emissionoffset").op(Asm::MEMBER).op(Asm::MARKER).num(1).num(2).num(0).op(37)
+      .op(Asm::ASSIGN);
+  // emitter.addlocalmodifier("once", 0, 0, "rotation", "replace", 1, 1);
+  a.op(Asm::MARKER).num(1).num(1).str("replace").str("rotation").num(0).num(0).str("once").var("emitter")
+      .op(Asm::TOOBJECT).var("addlocalmodifier").op(Asm::MEMBER).op(Asm::CALL).op(Asm::POP);
+  // emitter.addglobalmodifier("impulse", 0.2, 0.2, "spin", "multiply", 0.5, 0.5);
+  a.op(Asm::MARKER).num(0.5).num(0.5).str("multiply").str("spin").num(0.2).num(0.2).str("impulse").var("emitter")
+      .op(Asm::TOOBJECT).var("addglobalmodifier").op(Asm::MEMBER).op(Asm::CALL).op(Asm::POP);
+  // ok = emitter.addlocalmodifier("sometimes", ...): refused
+  a.var("ok").op(Asm::MARKER).num(1).num(1).str("add").str("x").num(0).num(0).str("sometimes").var("emitter")
+      .op(Asm::TOOBJECT).var("addlocalmodifier").op(Asm::MEMBER).op(Asm::CALL).op(Asm::ASSIGN);
+  endNew(a, img);
+  endNew(a, root);
+  a.num(0).op(Asm::RET);
+  auto script = m.newVar("StartScript_Smoke");
+  CHECK(m.setScript(script, a.bytes()));
+  m.runScripts();
+  for (const auto& e : m.errors()) std::fprintf(stderr, "  %s\n", e.c_str());
+  CHECK(m.errors().empty());
+  CHECK(s.find("Smoke") && s.find("Smoke")->child("ok") && s.find("Smoke")->child("ok")->number() == 0);
+  auto c = s.find("Smoke");
+  CHECK(c && c->emitter);
+  if (!c || !c->emitter) return;
+  auto& e = *c->emitter;
+  s.setSize(640, 480);
+  s.setContent(s.find("Root"));
+
+  // The first tick only starts the timer; the burst comes one delay later.
+  s.advance(0.1);
+  CHECK(e.particles().empty());
+  for (int i = 0; i < 4; ++i) s.advance(0.1);
+  CHECK(e.particles().empty());  // 0.5 s: the burst is due at 0.55
+  s.advance(0.1);
+  CHECK(e.particles().size() == 2);
+  // Born at the control (100, 100) + offset (10, 20) + emissionoffset (1, 2),
+  // then moved up for one step of 0.1 s at 10 pixels a second.
+  const Particle& p = e.particles()[0];
+  CHECK(std::fabs(p.f[FX] - 111) < 1e-6);
+  CHECK(std::fabs(p.f[FY] - (122 - 1)) < 1e-6);
+  // The local `once` at age 0 set the rotation to 1; spin then turned it.
+  CHECK(std::fabs(p.f[FRotation] - (1 + 0.1 * p.f[FSpin])) < 1e-6 || std::fabs(p.f[FRotation] - 1.1) < 1e-6);
+  // The global impulse halves spin every 0.2 s for every live particle.
+  s.advance(0.1);
+  s.advance(0.1);
+  CHECK(e.particles()[0].f[FSpin] < 1);
+  // The next burst (due at 1.05 s) adds only one: maxparticles is 3.
+  for (int i = 0; i < 3; ++i) s.advance(0.1);
+  CHECK(e.particles().size() == 3);
+  // The first two die at their lifetime of 0.95 s (by 1.5 s).
+  for (int i = 0; i < 3; ++i) s.advance(0.1);
+  CHECK(e.particles().size() == 3);
+  s.advance(0.1);
+  CHECK(e.particles().size() == 1);
+  CHECK(e.child("currentparticlecount") && e.child("currentparticlecount")->number() == 1);
+
+  // Drawn after the engine's part, through the painter's sprite.
+  struct Sprites : Recorder {
+    int n = 0;
+    std::string file;
+    void sprite(const std::string& f, double, double, double, double, double, const double*, int) override {
+      ++n;
+      file = f;
+    }
+  } sp;
+  drawScreen(s, sp);
+  CHECK(sp.n == 1 && sp.file == "puff.png");
+  // removemodifiers clears them.
+  e.removeModifiers();
+  CHECK(!e.addModifier(Emitter::List::Local, "once", 0, 0, "nofield", "add", 0, 0));
+  CHECK(e.addModifier(Emitter::List::Local, "range", 0, 1, "alpha", "replace", 1, 0));
+}
+
 int main() {
+  testEmitter();
   testObjectsAndCommands();
   testScriptCommands();
   testDrawing();

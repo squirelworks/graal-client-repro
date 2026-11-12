@@ -1,12 +1,13 @@
 // gs2-scan: find the compiled GS2 scripts a program carries as zlib
 // streams, and report what the machine can run of them.
 //   gs2-scan [--profile 4.2|5.0|6.00] [--out DIR] [--run [--gui]
-//            [--draw LIST --theme DIR [--content NAME]]] FILE
+//            [--draw LIST --theme DIR... [--content NAME]]] FILE
 // --run attaches every script to its own variable on one machine, runs
 // `created` and reports the commands they called that nothing provides.
 // --gui adds the GUI objects and commands (gui.hpp). --draw makes NAME
 // (MainMenuGui2D by default) the content at 800 x 600 and writes every
-// draw call to LIST, one per line, reading theme bitmaps from DIR.
+// draw call to LIST, one per line, reading bitmaps from each DIR given, after
+// three seconds of passes (so particle emitters have run).
 // The program is the player's own copy; nothing it contains is kept here.
 
 #include <zlib.h>
@@ -29,6 +30,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <memory>
+#include <vector>
 
 namespace {
 
@@ -57,7 +59,7 @@ std::string inflateAt(const unsigned char* p, std::size_t n) {
 // and 16 rows, a stand-in for the launcher's fonts.
 class ListPainter : public gs2::gui::Painter {
  public:
-  ListPainter(std::FILE* out, std::string dir) : out_(out), dir_(std::move(dir)) {}
+  ListPainter(std::FILE* out, std::vector<std::string> dirs) : out_(out), dirs_(std::move(dirs)) {}
   void setClip(const gs2::gui::Rect& r) override { std::fprintf(out_, "clip %d %d %d %d\n", r.x, r.y, r.w, r.h); }
   void fill(const gs2::gui::Rect& r, gs2::gui::Color c) override {
     std::fprintf(out_, "fill %d %d %d %d %d %d %d %d\n", r.x, r.y, r.w, r.h, c.r, c.g, c.b, c.a);
@@ -90,6 +92,12 @@ class ListPainter : public gs2::gui::Painter {
     std::fprintf(out_, "bitmap %s %d %d %d %d %d %d %d %d\n", i ? i->path.c_str() : f.c_str(), s.x, s.y, s.w, s.h, d.x,
                  d.y, d.w, d.h);
   }
+  void sprite(const std::string& f, double x, double y, double rot, double sx, double sy, const double* c,
+              int mode) override {
+    auto* i = image(f);
+    std::fprintf(out_, "sprite %s %.2f %.2f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %d\n", i ? i->path.c_str() : f.c_str(), x, y,
+                 rot, sx, sy, c[0], c[1], c[2], c[3], mode);
+  }
   void engineControl(const gs2::gui::Control& c, const gs2::gui::Rect& r) override {
     std::fprintf(out_, "engine %s %s %d %d %d %d\n", c.type().c_str(), c.name().c_str(), r.x, r.y, r.w, r.h);
   }
@@ -112,22 +120,25 @@ class ListPainter : public gs2::gui::Painter {
     if (it != cache_.end()) return it->second.get();
     std::unique_ptr<Loaded> l;
     std::error_code ec;
-    for (const auto& e : std::filesystem::directory_iterator(dir_, ec)) {
-      const std::string fn = lower(e.path().filename().string());
-      if (fn != key && fn != key + ".png") continue;
-      std::vector<std::uint8_t> bytes;
-      std::string err;
-      auto tmp = std::make_unique<Loaded>();
-      if (Torque::Gui::read_file(e.path().string(), bytes, err) && Torque::Gui::decode_png(bytes, tmp->image, err)) {
-        tmp->path = e.path().string();
-        l = std::move(tmp);
+    for (const auto& dir : dirs_) {
+      for (const auto& e : std::filesystem::directory_iterator(dir, ec)) {
+        const std::string fn = lower(e.path().filename().string());
+        if (fn != key && fn != key + ".png") continue;
+        std::vector<std::uint8_t> bytes;
+        std::string err;
+        auto tmp = std::make_unique<Loaded>();
+        if (Torque::Gui::read_file(e.path().string(), bytes, err) && Torque::Gui::decode_png(bytes, tmp->image, err)) {
+          tmp->path = e.path().string();
+          l = std::move(tmp);
+        }
       }
+      if (l) break;
     }
     if (!l) missing.push_back(f);
     return (cache_[key] = std::move(l)).get();
   }
   std::FILE* out_;
-  std::string dir_;
+  std::vector<std::string> dirs_;
   std::map<std::string, std::unique_ptr<Loaded>> cache_;
 };
 
@@ -137,7 +148,8 @@ int main(int argc, char** argv) {
   gs2::Profile profile = gs2::Profile::Engine42;
   std::string outDir, file;
   bool runThem = false, withGui = false;
-  std::string drawList, themeDir, contentName = "MainMenuGui2D";
+  std::vector<std::string> themeDirs;
+  std::string drawList, contentName = "MainMenuGui2D";
   for (int i = 1; i < argc; ++i) {
     const std::string a = argv[i];
     if (a == "--profile" && i + 1 < argc) {
@@ -151,7 +163,7 @@ int main(int argc, char** argv) {
       drawList = argv[++i];
       withGui = true;
     } else if (a == "--theme" && i + 1 < argc) {
-      themeDir = argv[++i];
+      themeDirs.push_back(argv[++i]);
     } else if (a == "--content" && i + 1 < argc) {
       contentName = argv[++i];
     } else if (a == "--out" && i + 1 < argc) {
@@ -247,10 +259,14 @@ int main(int argc, char** argv) {
     machine.clearErrors();
     screen.setSize(800, 600);
     screen.setContent(c);
-    for (int pass = 0; pass < 3; ++pass) machine.runScripts();
+    // Three seconds of 2D passes, so the show-images' emitters have run.
+    for (int pass = 0; pass < 60; ++pass) {
+      machine.runScripts();
+      screen.advance(0.05);
+    }
     std::FILE* out = std::fopen(drawList.c_str(), "w");
     if (!out) return 2;
-    ListPainter p(out, themeDir);
+    ListPainter p(out, themeDirs);
     gs2::gui::drawScreen(screen, p);
     std::fclose(out);
     std::sort(p.missing.begin(), p.missing.end());
