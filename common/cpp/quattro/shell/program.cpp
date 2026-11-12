@@ -45,8 +45,8 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
   ev.message = [this](int id, std::string_view body) { on_message(id, body); };
   session_.set_events(std::move(ev));
   world_.lobby_tiles = profile_.login_draws_tiles;
-  world_.player.x = 30;
-  world_.player.y = 30;
+  me_.nickname = "unknown";  // the lab's 6.03r7 sent "unknown" with no nickname set
+  me_.language = opt_.language;
 
   if (!opt_.assets.empty()) {
     std::vector<std::uint8_t> bytes;
@@ -132,7 +132,42 @@ void Program::on_message(int id, std::string_view body) {
       if (r.ok()) world_.level.chests.push_back(c);
       break;
     }
+    case 9: {  // PLO_PLAYERPROPS
+      World::apply_props(r, me_, false);
+      if (!props_sent_) {
+        // Logged in: the client's own props, then only what moves.
+        session_.connection().send(2, World::initial_props(me_, profile_.platform));
+        mover_.reset(me_);
+        props_sent_ = true;
+      }
+      break;
+    }
+    case 8: {  // PLO_OTHERPLPROPS: GSHORT id, then props
+      if (body.size() < 2) break;
+      int pid = static_cast<int>(r.gshort());
+      World::Player& o = others_[pid];
+      o.id = pid;
+      World::apply_props(r, o, true);
+      if (o.gone) others_.erase(pid);
+      break;
+    }
+    case 14:    // PLO_PLAYERWARP: c x*2, c y*2, level
+    case 49: {  // PLO_PLAYERWARP2: c x*2, c y*2, c z, c gmap x, c gmap y, level
+      me_.x = r.gchar() / 2.0;
+      me_.y = r.gchar() / 2.0;
+      if (id == 49) {
+        r.gchar();
+        me_.gmap_x = static_cast<int>(r.gchar());
+        me_.gmap_y = static_cast<int>(r.gchar());
+      }
+      me_.level = r.rest();
+      others_.clear();
+      mover_.reset(me_);
+      break;
+    }
     case 178:  // the session follows the warp; the title follows the name
+      props_sent_ = false;
+      others_.clear();
       break;
     default:
       break;
@@ -147,15 +182,28 @@ bool Program::tick() {
   for (Draw::Key k = window_.poll_key(); k != Draw::Key::NoKey; k = window_.poll_key()) {
     if (k == Draw::Key::Close || k == Draw::Key::Escape) quit_ = true;
   }
-  // Walking: local only until the props layer sends X2/Y2.
+  // Walking: half a tile per tick; directions 0 up, 1 left, 2 down, 3 right.
+  // No wall test yet (arrays.dat is the next step).
   if (!world_.lobby) {
-    auto& p = world_.player;
-    if (window_.held(Draw::Key::Left)) p.x -= kStep;
-    if (window_.held(Draw::Key::Right)) p.x += kStep;
-    if (window_.held(Draw::Key::Up)) p.y -= kStep;
-    if (window_.held(Draw::Key::Down)) p.y += kStep;
+    auto& p = me_;
+    if (window_.held(Draw::Key::Left)) p.x -= kStep, p.dir = 1;
+    if (window_.held(Draw::Key::Right)) p.x += kStep, p.dir = 3;
+    if (window_.held(Draw::Key::Up)) p.y -= kStep, p.dir = 0;
+    if (window_.held(Draw::Key::Down)) p.y += kStep, p.dir = 2;
     p.x = std::clamp(p.x, 0.0, Files::kBoardSide - 2.0);
     p.y = std::clamp(p.y, 0.0, Files::kBoardSide - 2.0);
+    if (props_sent_) {
+      std::string moved = mover_.diff(p);
+      if (!moved.empty()) session_.connection().send(2, moved);
+    }
+  }
+  world_.player.x = me_.x;
+  world_.player.y = me_.y;
+  world_.player.chat = me_.chat;
+  world_.others.clear();
+  for (const auto& [pid, o] : others_) {
+    if (!o.level.empty() && !me_.level.empty() && o.level != me_.level) continue;
+    world_.others.push_back({o.x, o.y, o.chat});
   }
 
   passes_.clear();

@@ -86,6 +86,27 @@ void test_program() {
   p.tick();
   CHECK(!p.world().lobby);
   CHECK(win.last().at(1, 1) == Draw::tile_colour(7));
+
+  // Own props from the server: the client answers once with its own.
+  game.send(gchar(9) + gchar(World::kX2) + Net::gshort(World::to_pixels2(20)) + gchar(World::kY2) +
+            Net::gshort(World::to_pixels2(22)) + "\n");
+  CHECK(run(p, nullptr, &game, [&] {
+    for (auto& [id, b] : game.got)
+      if (id == 2) return true;
+    return false;
+  }));
+  CHECK(p.me().x == 20 && p.me().y == 22);
+  std::string sent;
+  for (auto& [id, b] : game.got)
+    if (id == 2) sent = b;
+  CHECK(sent == World::initial_props(p.me(), "linux"));
+
+  // Another player on the level, then gone.
+  game.send(gchar(8) + Net::gshort(7) + gchar(World::kX) + gchar(48) + gchar(World::kY) + gchar(46) + "\n");
+  CHECK(run(p, nullptr, &game, [&] { return p.others().count(7) == 1; }));
+  CHECK(p.world().others.size() == 1 && p.world().others[0].x == 24);
+  game.send(gchar(8) + Net::gshort(7) + gchar(World::kConnected) + "\n");
+  CHECK(run(p, nullptr, &game, [&] { return p.others().empty(); }));
 }
 
 }  // namespace

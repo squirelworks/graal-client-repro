@@ -18,8 +18,8 @@ CACHE = cache/des.cpp cache/grescr.cpp
 TGUI = ../../torque/gui/image.cpp ../../torque/gui/canvas.cpp ../../torque/gui/gft.cpp ../../torque/gui/bitmap_array.cpp
 FILES = files/level.cpp
 DRAW = draw/world.cpp $(TGUI)
-SHELL_SRC = shell/program.cpp
-HDRS = $(wildcard net/*.hpp cache/*.hpp files/*.hpp draw/*.hpp shell/*.hpp tests/*.hpp ../../torque/gui/*.hpp)
+SHELL_SRC = shell/program.cpp world/player.cpp
+HDRS = $(wildcard net/*.hpp cache/*.hpp files/*.hpp draw/*.hpp shell/*.hpp world/*.hpp tests/*.hpp ../../torque/gui/*.hpp)
 
 .PHONY: all test clean
 all: build/quattro-session build/quattro-play
@@ -42,17 +42,21 @@ build/level-test: $(FILES) $(DRAW) $(HDRS) tests/level_test.cpp | build
 build/program-test: $(NET) $(FILES) $(DRAW) $(SHELL_SRC) $(HDRS) draw/window_x11.cpp tests/program_test.cpp | build
 	$(CXX) $(CXXFLAGS) $(NET) $(FILES) $(DRAW) $(SHELL_SRC) draw/window_x11.cpp tests/program_test.cpp -o $@ $(LIBS) -pthread
 
+build/props-test: $(NET) world/player.cpp $(HDRS) tests/props_test.cpp | build
+	$(CXX) $(CXXFLAGS) $(NET) world/player.cpp tests/props_test.cpp -o $@ $(LIBS)
+
 build/quattro-session: $(NET) $(HDRS) tools/quattro_session.cpp | build
 	$(CXX) $(CXXFLAGS) $(NET) tools/quattro_session.cpp -o $@ $(LIBS)
 
 build/quattro-play: $(NET) $(FILES) $(DRAW) $(SHELL_SRC) $(HDRS) draw/window_x11.cpp tools/quattro_play.cpp | build
 	$(CXX) $(CXXFLAGS) $(X11_DEFS) $(NET) $(FILES) $(DRAW) $(SHELL_SRC) draw/window_x11.cpp tools/quattro_play.cpp -o $@ $(LIBS) $(X11_LIBS)
 
-test: build/codec-test build/cache-test build/session-test build/level-test build/program-test build/quattro-session build/quattro-play
+test: build/codec-test build/cache-test build/session-test build/level-test build/props-test build/program-test build/quattro-session build/quattro-play
 	./build/codec-test
 	./build/cache-test
 	./build/session-test
 	./build/level-test
+	./build/props-test
 	./build/program-test
 	./build/quattro-session --list | grep -q 'G3D0511C'
 

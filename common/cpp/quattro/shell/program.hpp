@@ -11,6 +11,9 @@
 #include "../draw/window.hpp"
 #include "../draw/world.hpp"
 #include "../net/connection.hpp"
+#include "../world/player.hpp"
+
+#include <map>
 
 #include <functional>
 #include <memory>
@@ -39,6 +42,8 @@ class Program {
   bool tick();
 
   const Draw::WorldState& world() const { return world_; }
+  const World::Player& me() const { return me_; }
+  const std::map<int, World::Player>& others() const { return others_; }
   Net::Session& session() { return session_; }
   const std::string& level_name() const { return level_name_; }
   // Pass names of the last frame, in the order they ran.
@@ -55,6 +60,10 @@ class Program {
   Draw::Window& window_;
   Net::Session session_;
   Draw::WorldState world_;
+  World::Player me_;
+  std::map<int, World::Player> others_;
+  World::MoveSender mover_;
+  bool props_sent_ = false;
   Draw::WorldRenderer renderer_;
   Draw::Canvas canvas_;
   std::string level_name_;
