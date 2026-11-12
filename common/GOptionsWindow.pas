@@ -202,7 +202,11 @@ begin
         if C <> nil then
         begin
           D.Event(F, C, veClick);
-          if D.Action <> oaNone then Exit(D.Action);
+          if D.Action <> oaNone then
+          begin
+            Result := D.Action;
+            Exit;
+          end;
           if (C.Obj <> nil) and (OptionsActionOf(C.Obj.Ident('OnClick', '')) = oaClose) then Exit;
         end;
       end;
