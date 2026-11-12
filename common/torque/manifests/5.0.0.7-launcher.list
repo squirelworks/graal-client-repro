@@ -1,2 +1,2 @@
-# 5.0.0.7 Delphi launcher. Not passed to fpc.
+# 5.0.0.7 Delphi launcher. Build input: manifests/profiles.py.
 # DirectDraw and graal_set callbacks. No Torque unit.
