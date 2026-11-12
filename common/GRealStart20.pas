@@ -92,6 +92,7 @@ procedure SaveLogin(const Nickname, Account: string);
 implementation
 
 uses
+  GPaths,
 {$IFDEF MSWINDOWS}
   Windows,
 {$ENDIF}
@@ -335,7 +336,7 @@ begin
     the configured one (graalconfig.txt language=) first picked }
   Languages.Sorted := True;
   FindLanguages(Dir);
-  FindLanguages(Dir + 'languages' + PathDelim);
+  FindLanguages(Dir + 'languages' + DirSlash);
   if Languages.Count = 0 then Languages.Add('English');
   LanguageName := 'English';
   F := Dir + 'graalconfig.txt';

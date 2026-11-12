@@ -105,6 +105,7 @@ function ReadHeadsConfig(const FileName: string; out Names, Files: TBetaNames): 
 implementation
 
 uses
+  GPaths,
   Classes;
 
 type
@@ -192,7 +193,7 @@ var
   Modes: array of string;
 begin
   if Info.LanguageDir = '' then Exit;
-  K := IncludeTrailingPathDelimiter(Info.LanguageDir) + 'language' + Name + '.txt';
+  K := WithTrailingSep(Info.LanguageDir) + 'language' + Name + '.txt';
   if not FileExists(K) then Exit;
   L := TStringList.Create;
   try
@@ -420,7 +421,7 @@ begin
     if (Info.LanguageDir <> '') and (F.Ctl('ComboBox6') <> nil) then
     begin
       SetLength(Langs, 0);
-      if FindFirst(IncludeTrailingPathDelimiter(Info.LanguageDir) + 'language*.txt', faAnyFile, SR) = 0 then
+      if FindFirst(WithTrailingSep(Info.LanguageDir) + 'language*.txt', faAnyFile, SR) = 0 then
       begin
         repeat
           S := ChangeFileExt(Copy(SR.Name, 9, MaxInt), '');
@@ -499,7 +500,7 @@ begin
       SetConfigValue(Cfg, 'serverport', IntToStr(Choice.Port));
       SetConfigValue(Cfg, 'accountname', Choice.Account);
       SetConfigValue(Cfg, 'password', Choice.Password);
-      SetConfigValue(Cfg, 'loadcolorsfromserver', LowerCase(BoolToStr(Choice.LoadColors, True)));
+      SetConfigValue(Cfg, 'loadcolorsfromserver', LowerCase(BoolText(Choice.LoadColors)));
       if Choice.Language <> '' then SetConfigValue(Cfg, 'language', Choice.Language);
       try
         Cfg.SaveToFile(Info.ConfigFile);

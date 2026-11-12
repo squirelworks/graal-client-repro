@@ -8,6 +8,7 @@ program TestSoundMapNwb1pre;
 
 uses
   SysUtils, Classes,
+  GPaths in '../../common/GPaths.pas',
   GTypes in '../../common/GTypes.pas',
   GSurface in '../../common/GSurface.pas',
   GAssetDirs in '../../common/GAssetDirs.pas',

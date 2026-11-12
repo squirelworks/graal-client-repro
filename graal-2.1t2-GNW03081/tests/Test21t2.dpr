@@ -12,6 +12,7 @@ program Test21t2;
 
 uses
   SysUtils, Classes,
+  GPaths in '../../common/GPaths.pas',
   GTypes in '../../common/GTypes.pas',
   GZlib in '../../common/GZlib.pas',
   GSocket in '../../common/GSocket.pas',

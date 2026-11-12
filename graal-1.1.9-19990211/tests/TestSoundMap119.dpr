@@ -8,6 +8,7 @@ program TestSoundMap119;
 
 uses
   SysUtils, Classes,
+  GPaths in '../../common/GPaths.pas',
   GTypes in '../../common/GTypes.pas',
   GSurface in '../../common/GSurface.pas',
   GBetaHud in '../../common/GBetaHud.pas',

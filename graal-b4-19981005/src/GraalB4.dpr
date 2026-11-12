@@ -41,6 +41,7 @@ program GraalB4;
 
 uses
   SysUtils, Classes,
+  GPaths in '../../common/GPaths.pas',
   GTypes in '../../common/GTypes.pas',
   GSocket in '../../common/GSocket.pas',
   GLevel in '../../common/GLevel.pas',

@@ -134,6 +134,7 @@ var
 implementation
 
 uses
+  GPaths,
 {$IFDEF MSWINDOWS}
   Windows,
 {$ENDIF}
@@ -310,8 +311,8 @@ begin
   LoadGlyphs(ListForm, 'ServerList');
   { the languages: languages/language<Name>.txt (NewWorld: next to the
     program) }
-  LDir := IncludeTrailingPathDelimiter(Dir) + 'languages' + PathDelim;
-  if not DirectoryExists(LDir) then LDir := IncludeTrailingPathDelimiter(Dir);
+  LDir := WithTrailingSep(Dir) + 'languages' + DirSlash;
+  if not DirExists(LDir) then LDir := WithTrailingSep(Dir);
   if FindFirst(LDir + 'language*.txt', faAnyFile, SR) = 0 then
   begin
     repeat
