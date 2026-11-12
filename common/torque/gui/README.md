@@ -91,10 +91,110 @@ when they are unset. Run on 2026-11-12:
   textured art; their glyph masks agree on 98.7 %, 98.3 % and 92.9 % of
   the box.
 
+## Stock controls (2026-11-12)
+
+The next stage on top of the foundations: the controls the 3.04 scripts
+create, drawn from the console engine's object tree (`console/engine`) with
+the profiles the scripts and the theme leave behind. `profile.hpp/.cpp` has
+no engine dependency; `render.hpp/.cpp` and the `tq-shot` lab tool link the
+engine and the compiler.
+
+| File | What it does |
+|---|---|
+| `profile.hpp/.cpp` | `GuiControlProfile` fields as typed values (colours, flags, font, bitmap, justify, text offset) |
+| `render.hpp/.cpp` | `Renderer`: layout, profile lookup, font and bitmap caches, drawing per control class |
+| `host/tq_shot.cpp` | `tq-shot`: boots an install from its own `main.cs`, draws the canvas content (and `--dialog` controls) to a PNG |
+
+```
+make -C common/torque/gui test    # gui-test and render-test, hand-built fixtures
+make -C common/torque/gui lab     # adds the menu render check below
+```
+
+### Where profiles come from
+
+`defaultProfiles.cs` and `customProfiles.cs` create the profiles (`: Parent`
+copies the parent's fields, which the engine already does), and the theme
+script `common/ui/themes/<theme>/<theme>theme.th`, exec'd by `loadTheme()` in
+`optionsDlg.cs` during the boot, assigns fields on them. The renderer reads
+each field from the control's profile, then `GuiDefaultProfile`, then a
+built-in default (rebuild policy). A control with no profile uses
+`GuiDefaultProfile`.
+
+A profile's `bitmap` is resolved relative to the script that created the
+profile. Evidence: the theme sets `GuiTextEditProfile.bitmap =
+"./themes/default/defaultTextEdit"`, which only names a real file relative to
+`common/ui/defaultProfiles.cs`, and the stage 0 open order loads
+`common/ui/themes/default/defaultTextEdit.png` when the menu wakes after the
+theme ran; the screenshot shows its frame. When that path names no file the
+renderer tries it relative to the theme script (rebuild policy, so that the
+theme's `"./defaultWindow"` style values still find their image; no 3.04
+capture of a window exists yet to settle it). Control bitmaps (`bitmap` on
+`GuiChunkedBitmapCtrl` and `GuiBitmapCtrl`) are relative to the `.gui` that
+created the control. Images are read up to `IEND`: the install's
+`graalDarkButton.png` has one byte after it.
+
+### Layout
+
+Nothing is written back to the objects: every draw computes each rectangle
+from the `.gui` `position` and `extent`, the parent's `.gui` extent and its
+drawn size (rebuild policy). The content control fills the canvas. Sizing
+follows the field names: `right`/`bottom` keep, `width`/`height` grow by the
+parent's change, `left`/`top` move by it, `center` centres
+(`(parent - size) / 2`, which puts `GraalLogin` at 111, 92 on an 800 × 600
+canvas, as in the screenshot), `relative` scales. `minExtent` is a lower
+bound. `GuiTextCtrl` with `autoSizeWidth` takes its text's width, and with
+`autoSizeHeight` the font height plus 4, which reproduces the saved label
+extents; this matters because the labels' text comes from the language file
+(`"Language:"` is wider than its `.gui` extent of 44).
+
+### Drawing
+
+| Class | How |
+|---|---|
+| `GuiControl` | `opaque` fills with `fillColor`; `border` draws a one-pixel `borderColor` frame |
+| `GuiTextCtrl` | One line in `fontColor`, justified in the box |
+| `GuiButtonCtrl` | With a 36-cell array: nine cells per state (normal, highlighted, depressed, inactive), corners as they are, edges and centre stretched; label justified. `active = 0` draws the inactive set in `fontColorNA`. Without an array: fill and frame |
+| `GuiTextEditCtrl` | The box filled with `fillColor`, then the eight-cell frame on top (the corner pieces are partly transparent and show the fill in the screenshot); text after the left piece plus `textOffset.x`, `*` for `password` |
+| `GuiWindowCtrl` | Cell meanings read from the window images: title buttons (close, restore, maximize, minimize × normal, pressed, inactive), title bar ends and middle for active and inactive, left and right edges, bottom corners and bottom edge, and in the default theme a 64 × 64 background tile used when `tile` is set. Title in `fontColor` at `textOffset`; buttons for `canClose`, `canMaximize`, `canMinimize` right to left. The placement is rebuild policy until a 3.04 window is captured |
+| `GuiChunkedBitmapCtrl`, `GuiBitmapCtrl` | The control's bitmap tiled (`tile` / `wrap`) or stretched to the box |
+
+A text line's top is `(box height - (font height - 2)) / 2` inside its box.
+That fits all seven stage 0 measurements (labels 18 and 23 rows tall start 3
+rows down, the 25-row buttons 6).
+
+Theme pieces are stretched bilinearly, with the source span inset by one
+texel at each end along a stretched axis (`Canvas::smooth_stretch_blit`).
+Plain nearest-neighbour stretching left 22 pixels per button wrong; the inset
+bilinear rule reproduces the screenshot's left edge ramp (95, 89, 83, 76, 70,
+64) and every button pixel exactly.
+
+Bitmap arrays now trim each cell to its own rows: separator-coloured rows at
+the top or bottom of a cell, within its columns, are cut. The window frame's
+bottom pieces are 3 rows tall in a 9-row band. Cell counts are unchanged.
+
+### Lab results (main menu, 2026-11-12)
+
+`tq-shot` boots the Linux 3.04 install from its own `main.cs` and draws
+`mainMenuGui` at 800 × 600, the size of the game area in the stage 0
+screenshot. With `graalscreen.jpg` converted to PNG for the check (no JPEG
+reader yet), `tests/lab_check.sh` gives:
+
+- the four buttons (`Tutorial`, `Options`, `Get an account`, `Start`),
+  `NickEdit`, `PassEdit` and the tiled background: **every pixel** within
+  one level per channel;
+- the labels on the textured art (`Nickname:`, `Language:`, `Account:`,
+  `Password:`, `Welcome to Graal!`): exact as well;
+- the whole 800 × 600 screen: 99.31 %. The rest is `LanguageBox` (pop-up
+  menu, not drawn yet) and the text cursor in the focused `AccountEdit`.
+
 ### Not yet
 
 - [x] `.gft` reader, theme bitmap-array splitting, software canvas surface.
-- [ ] `GuiControlProfile` fields from the `.th` scripts and `customProfiles.cs`, and which cell of each array a control draws per state.
-- [ ] Stock control rendering (button, text edit, window, scroll, check box, pop-up menu) on this canvas, checked against the same screenshot.
-- [ ] `GuiCanvas` console object (`setContent`, `pushDialog`, cursor) once the sim layer exists, and presenting the surface through `host304`.
+- [x] `GuiControlProfile` fields from the `.th` scripts and `customProfiles.cs`, and which cell of each array a control draws per state.
+- [x] Stock control rendering for buttons, text edits, windows, text labels and bitmaps, checked against the same screenshot.
+- [ ] Pop-up menu, check box, radio, scroll, slider, text list and multi-line text. The closed pop-up in the screenshot uses `defaultScroll.png`'s 3 × 3 frame (cells 42 to 50) and a down-arrow cell (39) at the right.
+- [ ] Highlighted and depressed states, the text cursor and selection: they need input and the first responder.
+- [ ] JPEG bitmaps (`graalscreen.jpg`), so the menu art draws without a converted copy.
+- [ ] A 3.04 capture of a window (the options dialog) to settle the window layout and the theme-relative bitmap fallback.
+- [ ] `GuiCanvas` console object (`pushDialog`, cursor) and presenting the surface through `host304`.
 - [ ] Unicode or characters above 255: the 3.04 caches cover 32 to 255 only.

@@ -50,6 +50,14 @@ class Canvas {
   void blit(const Image& image, int x, int y);
   // Nearest-neighbour scale of `src` to fill `dst`.
   void stretch_blit(const Image& image, const Rect& src, const Rect& dst);
+  // Bilinear scale of `src` to fill `dst`, the way the 3.04 theme pieces
+  // are stretched (fitted to the stage 0 screenshot, README.md): along an
+  // axis whose length changes, the source span is inset by one texel at
+  // each end (when it is longer than two) and sampled at pixel centres,
+  // with the neighbours clamped to `src`; an axis whose length is kept is
+  // copied texel for texel. Channels interpolate straight and round to
+  // nearest.
+  void smooth_stretch_blit(const Image& image, const Rect& src, const Rect& dst);
   // Repeat `src` from the top-left of `dst`, cut at its right and bottom.
   void tile_blit(const Image& image, const Rect& src, const Rect& dst);
 
