@@ -141,7 +141,8 @@ class Screen {
   bool fire(Control& c, const std::string& event, std::vector<Value> args = {});
 
   // Input, in screen pixels. A press goes to the topmost visible, active
-  // control under the point in the top dialog (or the content when there
+  // control under the point (an inactive one lets it through to what is
+  // under it) in the top dialog (or the content when there
   // is none). Returns whether a control took it.
   bool mouseDown(int x, int y, int clicks = 1);
   // Keys: `key` is the Torque key name ("a", "up", "escape", "F2", ...),

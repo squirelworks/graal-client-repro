@@ -735,7 +735,33 @@ static void testClassesAndDelivery() {
   CHECK(m2.callFunction(v, "twice", {gs2::Value::number(4)}).num == 0);
 }
 
+
+static void testIndexofAndFormat() {
+  gs2::Machine m;
+  Asm a;
+  a.function("onCreated", {});
+  // i = {1, "a", 3}.indexof("a"); j = {1, "a", 3}.indexof(9);
+  a.var("i").op(Asm::MARKER).num(1).str("a").num(3).op(37).str("a").op(82).op(Asm::ASSIGN);
+  a.var("j").op(Asm::MARKER).num(1).str("a").num(3).op(37).num(9).op(82).op(Asm::ASSIGN);
+  a.var("k").str("notalist").str("a").op(82).op(Asm::ASSIGN);
+  // f = format(fmt, "x", 7): marker, arg2, arg1, fmt
+  a.var("f").op(Asm::MARKER).num(7).str("x").str("%s=%.3d|%5.1f|%-3s|%2$s|%q|%%|%s|%x|%c").op(84).op(Asm::ASSIGN);
+  a.var("g").op(Asm::MARKER).op(84).op(Asm::ASSIGN);
+  a.var("h").op(Asm::MARKER).num(255).num(65).str("%2$X%1$c").op(84).op(Asm::ASSIGN);
+  a.num(0).op(Asm::RET);
+  run(m, a);
+  for (const auto& e : m.errors()) std::fprintf(stderr, "  %s\n", e.c_str());
+  CHECK(m.errors().empty());
+  CHECK(global(m, "i") == 1);
+  CHECK(global(m, "j") == -1);
+  CHECK(global(m, "k") == -1);
+  CHECK(globalStr(m, "f") == "x=007|  0.0|   |7||%||0|");
+  CHECK(globalStr(m, "g") == "");
+  CHECK(globalStr(m, "h") == "FFA");
+}
+
 int main() {
+  testIndexofAndFormat();
   testClassesAndDelivery();
   testStartScripts();
   testEngineCommands();
