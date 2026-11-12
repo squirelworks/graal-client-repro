@@ -31,6 +31,7 @@ uses
   SysUtils, Classes,
   GSurface in '../../common/GSurface.pas',
   GWindow in '../../common/GWindow.pas',
+  GStartScreen in '../../common/GStartScreen.pas',
   Lab6113 in 'Lab6113.pas',
   Connector6113 in 'Connector6113.pas',
   Play6113 in 'Play6113.pas',
@@ -228,6 +229,10 @@ var
   WantWindow, Shown, Lab: Boolean;
   Code: Integer;
 begin
+  { A windowed program on Windows has no standard output open; started by
+    double-click (no arguments) the usage text crashed it with "File not
+    open". Attach to the parent console, or carry on without output. }
+  OpenConsoleIO;
   if HasArg('--help') or (ParamCount = 0) then
   begin
     Usage;
