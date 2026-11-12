@@ -13,6 +13,7 @@ program TestEditor200r2;
 
 uses
   SysUtils, Classes,
+  GNumText in '../../common/GNumText.pas',
   GLevel in '../../common/GLevel.pas',
   GLevelWrite in '../../common/GLevelWrite.pas',
   EditorDoc in '../src/editor/EditorDoc.pas',

@@ -422,7 +422,7 @@ procedure GsSplitArgs(const S: string; N: Integer; Parts: TStrings);
 implementation
 
 uses
-  StrUtils;
+  GNumText;
 
 { ---- helpers ---- }
 
@@ -461,28 +461,16 @@ begin
 end;
 
 function GsFormatNum(V: Double): string;
-var
-  FS: TFormatSettings;
 begin
   if (Abs(V) < 1E15) and (Frac(V) = 0) then
     Result := IntToStr(Trunc(V))
   else
-  begin
-    FS := DefaultFormatSettings;
-    FS.DecimalSeparator := '.';
-    Result := FloatToStrF(V, ffGeneral, 15, 0, FS);
-  end;
+    Result := DotFloatToText(V, 15);
 end;
 
 function ParseNumber(const S: string; out V: Double): Boolean;
-var
-  FS: TFormatSettings;
-  T: string;
 begin
-  T := Trim(S);
-  FS := DefaultFormatSettings;
-  FS.DecimalSeparator := '.';
-  Result := (T <> '') and TryStrToFloat(T, V, FS);
+  Result := TryDotTextToFloat(S, V);
 end;
 
 { The end of a #x(...) code starting at I (the '#'), or 0 when there is
@@ -677,7 +665,6 @@ const
 var
   I: Integer;
   T: string;
-  FS: TFormatSettings;
 begin
   SkipSpace;
   TokStart := P;
@@ -707,9 +694,7 @@ begin
     I := P;
     while (P <= Length(S)) and (S[P] in ['0'..'9', '.']) do Inc(P);
     T := Copy(S, I, P - I);
-    FS := DefaultFormatSettings;
-    FS.DecimalSeparator := '.';
-    if not TryStrToFloat(T, TokNum, FS) then TokNum := 0;
+    if not TryDotTextToFloat(T, TokNum) then TokNum := 0;
     TokKind := tkNum;
     Tok := T;
     Exit;
@@ -1475,7 +1460,7 @@ begin
       while (J <= L) and (T[J] in ['a'..'z', '0'..'9', '_']) do Inc(J);
       if J > I then Result := Result + Copy(T, I, J - I) + ',';
     end;
-    I := PosEx('function', T, J);
+    I := PosFrom('function', T, J);
   end;
 end;
 
