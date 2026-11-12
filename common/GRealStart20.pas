@@ -37,7 +37,7 @@ unit GRealStart20;
 interface
 
 uses
-  Classes, GSurface, GWindow, GStartScreen, GDfm, GOptionsWindow;
+  GCompat, Classes, GSurface, GWindow, GStartScreen, GDfm, GOptionsWindow;
 
 type
   TResLookup = function(const Name: string; out Data: string): Boolean;

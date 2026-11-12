@@ -16,7 +16,7 @@ unit GWindow;
 interface
 
 uses
-  GSurface;
+  GCompat, GSurface;
 
 var
   { Windows only: the window class, owner window and extended style the
