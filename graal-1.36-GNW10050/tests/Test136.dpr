@@ -433,6 +433,16 @@ begin
     Check(P.Gone, 'others: PCONNECTED marks the player gone');
     G.RemoveOther(7);
     Check((G.OtherCount = 0) and (G.FindOther(7, False) = nil), 'others: removed');
+    { 1.36's OTHERPLPROPS: the two-byte (GSHORT) player id starts here;
+      1.35 and earlier send one GCHAR }
+    G.Receive(PLO_OTHERPLPROPS, GShort(7) + GChar(PLPROP_X) + GChar(40) +
+      GChar(PLPROP_Y) + GChar(50));
+    P := G.FindOther(7, False);
+    Check((G.OtherCount = 1) and (P <> nil) and (P.X = 20) and (P.Y = 25),
+      'others: OTHERPLPROPS takes a two-byte id, then x 20 and y 25');
+    G.Receive(PLO_OTHERPLPROPS, GChar(0));
+    Check(G.OtherCount = 1, 'others: an OTHERPLPROPS shorter than its id is ignored');
+    G.RemoveOther(7);
     R := TGReader.Create(GChar(PLPROP_X) + GChar(40) + GChar(PLPROP_JOINLEAVELVL) + GChar(1) +
       GChar(PLPROP_Y) + GChar(50));
     try
