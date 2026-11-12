@@ -9,7 +9,7 @@ on:
 # A new push replaces the run still going for the same branch or PR, so
 # runs that wait on a runner do not pile up.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
