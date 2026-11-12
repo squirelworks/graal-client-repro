@@ -41,10 +41,33 @@ type
     procedure Draw(S: TGSurface; X, Y: Integer; const Nick: string);
   end;
 
+{ Where 3.04 asks for the server list: listserver.graal.in on 14922 first
+  (the project's rule), then the license/license.graal hosts (line 0, then
+  lines 5 and 6) on the same port; listserver.txt in Dir still wins for the
+  first host. Hosts.Hosts[0] is the first host; SetFallbacks takes the rest. }
+procedure ListHostsFor(const Dir: string; out Host: string; out Port: Integer;
+  out Hosts: TListHosts);
+
 implementation
 
 uses
-  SysUtils, Classes, GTypes;
+  SysUtils, Classes, GTypes, GAssetDirs;
+
+procedure ListHostsFor(const Dir: string; out Host: string; out Port: Integer;
+  out Hosts: TListHosts);
+var
+  I: Integer;
+begin
+  if AssetPath('license/license.graal') <> '' then
+    Hosts := LoadListHosts(AssetPath('license/license.graal'))
+  else
+    Hosts := LoadListHosts(InstallPath(Dir, 'license' + PathDelim + 'license.graal'));
+  SetLength(Hosts.Hosts, Length(Hosts.Hosts) + 1);
+  for I := High(Hosts.Hosts) downto 1 do Hosts.Hosts[I] := Hosts.Hosts[I - 1];
+  Hosts.Hosts[0] := DefaultListHost;
+  Hosts.Port := DefaultListPort;
+  ReadListServer(Dir, DefaultListHost, Hosts.Port, Host, Port);
+end;
 
 procedure TListFetch304.SetFallbacks(const H: TListHosts);
 var

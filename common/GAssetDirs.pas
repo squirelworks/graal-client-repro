@@ -206,7 +206,9 @@ begin
   end;
   { only inside the folder: never a folder above it }
   F := '';
-  if DirExists(D + 'common') then
+  { a Torque install (3.x) has its own common/ mod folder beside its root
+    main.cs: that is an install, not a graal-assets folder }
+  if DirExists(D + 'common') and not FileExists(D + 'main.cs') then
     F := D
   else if DirExists(D + 'graal-assets') then
     F := D + 'graal-assets' + DirSlash;

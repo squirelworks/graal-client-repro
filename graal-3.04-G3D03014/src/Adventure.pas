@@ -205,6 +205,8 @@ type
     { The clock the tick reads, in ms; tests set it. }
     ClockMs: Int64;
     UseWallClock: Boolean;
+    { Each log line as it is made, for a host (the Torque control). }
+    OnLine: TLogEvent;
     constructor Create;
     destructor Destroy; override;
     procedure Log(const S: string);
@@ -227,6 +229,9 @@ type
       const Account, Password: string): Boolean;
     { The walking routine for one direction key (one step). }
     procedure WalkStep(Dir: Integer);
+    { The player's own chat text (prop 12): kept on the player and, online,
+      sent as a player prop. }
+    procedure Say(const Text: string);
     { One frame: network in, game step, network out, draw. }
     procedure Tick;
     procedure Draw;
@@ -799,6 +804,7 @@ var
 begin
   Line := Format('[%5d] %s', [Frame, S]);
   if Echo then WriteLn(ErrOutput, Line);
+  if Assigned(OnLine) then OnLine(Line);
   if FLog.Count >= LogKeep then FLog.Delete(0);
   FLog.Add(Line);
 end;
@@ -1402,6 +1408,16 @@ begin
   FSentGmapX := Player.GmapX;
   FSentGmapY := Player.GmapY;
   FPropsSent := True;
+end;
+
+procedure TAdventure.Say(const Text: string);
+begin
+  Player.Chat := Text;
+  if FClient.Connected and LoggedIn then
+  begin
+    FClient.SendPacket(PLI_PLAYERPROPS, GChar(PLPROP_CURCHAT) + GString(Text));
+    FClient.Flush;
+  end;
 end;
 
 procedure TAdventure.SendMovedProps;

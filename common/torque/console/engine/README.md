@@ -37,6 +37,9 @@ make -C common/torque/console/engine test    # engine and input tests, tq-boot
   `save()`.
 - **The 3.04 class table** (`classes304.cpp`): the 31 classes the scripts
   create, and `GuiCanvas`.
+- **Text lists** (`textlist304.cpp`): `GuiTextListCtrl` rows, selection and
+  sorting, with `onSelect(id, text)`; the server list fills it (stage 4,
+  `../../guigraal`).
 - **Engine-owned prefs** (`prefs304.cpp`): variables the engine itself owns
   export quoted even when a script stores a number in them.
 

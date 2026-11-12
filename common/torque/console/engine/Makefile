@@ -1,7 +1,7 @@
 CXX ?= g++
 CXXFLAGS ?= -std=c++17 -Wall -Wextra -Werror -O2
 
-ENGINE = engine.cpp interpret.cpp builtins.cpp classes304.cpp prefs304.cpp input304.cpp ../dso.cpp ../instructions.cpp
+ENGINE = engine.cpp interpret.cpp builtins.cpp classes304.cpp prefs304.cpp input304.cpp textlist304.cpp ../dso.cpp ../instructions.cpp
 HEADERS = engine.hpp internal.hpp ../dso.hpp ../instructions.hpp
 
 .PHONY: all test clean

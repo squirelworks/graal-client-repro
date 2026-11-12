@@ -1,0 +1,49 @@
+name: torque-guigraal
+
+on:
+  pull_request:
+    paths:
+      - 'common/torque/guigraal/**'
+      - 'common/torque/console/engine/**'
+      - 'common/torque/console/compiler/**'
+      - 'graal-3.04-G3D03014/src/**'
+      - 'common/*.pas'
+      - '.github/workflows/torque-guigraal.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'common/torque/guigraal/**'
+      - 'common/torque/console/engine/**'
+      - 'common/torque/console/compiler/**'
+      - 'graal-3.04-G3D03014/src/**'
+      - 'common/*.pas'
+      - '.github/workflows/torque-guigraal.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: torque-guigraal-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    # macOS is built and tested on the lab Sequoia VM, not on GitHub runners
+    # (AGENTS.md, "macOS builds").
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Free Pascal
+        run: sudo apt-get update && sudo apt-get install -y fp-compiler fp-units-base fp-units-fcl libx11-dev
+      - name: Control tests (fake game)
+        run: make -C common/torque/guigraal test
+      - name: Control tests with address and undefined behavior sanitizers
+        run: |
+          make -C common/torque/guigraal clean
+          make -C common/torque/guigraal test CXXFLAGS='-std=c++17 -Wall -Wextra -Werror -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer'
+          make -C common/torque/guigraal clean
+      - name: Game library and tq-play, end to end
+        run: |
+          make -C common/torque/guigraal lib all
+          sh common/torque/guigraal/tests/smoke.sh

@@ -304,6 +304,7 @@ class Engine {
 void register_builtins(Engine& engine);
 void register_classes_304(Engine& engine);
 void register_engine_prefs_304(Engine& engine);
+void register_text_list_304(Engine& engine);   // GuiTextListCtrl rows (textlist304.cpp)
 // GuiCanvas dialogs, focus, GuiConsole, GuiConsoleEditCtrl, GuiInputCtrl and
 // text-edit keys. Call after register_classes_304.
 void register_input_304(Engine& engine);
