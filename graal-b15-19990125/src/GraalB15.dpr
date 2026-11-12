@@ -251,7 +251,7 @@ begin
   try
     Data := Arg('--data', '');
     if Data = '' then Data := ExtractFilePath(ParamStr(0));
-    Data := IncludeTrailingPathDelimiter(Data);
+    Data := WithTrailingSep(Data);
     G.UseInstall(Data);
     Sheet := Arg('--sheet', '');
     if Sheet <> '' then
@@ -398,7 +398,7 @@ begin
       G.Log(Format('lines in %d, out %d; joined %s; partners %d',
         [G.FixedLink.LinesIn + G.RoomLink.LinesIn,
          G.FixedLink.LinesOut + G.RoomLink.LinesOut,
-         BoolToStr(G.Joined, True), G.RoomLink.Partners.Count]));
+         BoolText(G.Joined), G.RoomLink.Partners.Count]));
     end;
     if (Dump <> '') or ((I = 0) and not Online) then G.Draw;
     G.Log(Format('player at %.2f,%.2f facing %d', [G.Player.X, G.Player.Y, G.Player.Dir]));

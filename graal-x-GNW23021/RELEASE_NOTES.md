@@ -27,13 +27,16 @@ their place.
 - [x] **Its own resources.** Every RCDATA resource of `GraalX.exe` is
   compiled in (`src/ResGraalX.pas`), with its own icon. Its main form is the
   one 2.02 also has, not 2.01's.
+- [x] **Saving `.nw` levels.** A `.nw` level opened in the editor and saved
+  unchanged keeps every byte, as GraalX's own did in the one run the
+  research made; edited tiles, NPCs and signs save and load back.
 - [x] **As 2.01 now does:** the minimap only on a level of its grid, and F1
   opens the Help window from the build's own form.
 
 ## Not yet
 
 - [ ] The `.nw` open-dialog filter, numeric display and condition context,
-  saving edited `.nw` levels, and a side-by-side run against the real
+  whether edited `.nw` levels are written as GraalX writes them, and a side-by-side run against the real
   GraalX (see the README's "Not yet").
 - [ ] Text in the dialogs uses Liberation Sans for the forms' MS Sans
   Serif, so glyphs differ by a pixel here and there.
