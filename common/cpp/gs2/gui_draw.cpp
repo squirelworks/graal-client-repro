@@ -131,6 +131,13 @@ class Drawer {
     const bool active = c.flag("active", true);
     if (t == "guishowimgctrl" || t == "guigraalctrl" || t == "guigraal3dctrl") {
       p_.engineControl(c, r);
+      if (c.emitter)
+        for (const Particle* q : c.emitter->drawOrder()) {
+          if (q->image.empty()) continue;
+          const double rgba[4] = {q->f[FRed], q->f[FGreen], q->f[FBlue], q->f[FAlpha]};
+          p_.sprite(q->image, q->f[FX], q->f[FY], q->f[FRotation], q->f[FZoom] * q->f[FStretchX],
+                    q->f[FZoom] * q->f[FStretchY], rgba, q->mode);
+        }
       return;
     }
     if (t == "guibitmapctrl" || t == "guichunkedbitmapctrl") {
