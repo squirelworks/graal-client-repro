@@ -79,7 +79,8 @@ gserver login.
 - [ ] `con.png` and `con.gs`, which the real client asks for before `conf.gs`.
 - [ ] The connector script as a GS2 object (`StartScript_Connector`, `scriptip`, the SSL fields, `StartScript_Fail`) and the other script methods (`senddata`, `setoutdatahandlers`, `setindatahandlers`, `getpassword`).
 - [ ] 6.11 property id tables, GS2, the OpenGL playfield, the real window size.
-- [ ] Side-by-side against the real 6.11r1 client: connector half done (below). Screenshots not yet: the lab VM had no desktop session.
+- [x] Side-by-side against the real 6.11r1 client (below).
+- [ ] The real window: title "Graal", app and Window menus, 1024x675 from the saved config, the start-up "Select File" dialog, an app bundle with the Graal icon.
 
 ## Polishing run against the real 6.11r1 (2026-11-12)
 
@@ -97,15 +98,25 @@ pointed at a local connector logger. The repro was built natively in the VM
 | `--window` on macOS | n/a | Crashed at AppKit start (`EInvalidOp` in `_NSGetCGFloatAppConfig`); fixed here, see below | high, fixed |
 | In-game | Stops at `conf.gs`: the operator signs the reply, so no real in-game frame exists in the lab | Lab login (connector, signature, `EILLLT`, `SEI00001`, lab yard, 6 moves) runs headless | n/a |
 
-Caveat on retries: the real client ran without a desktop session, so a later
-timer-driven retry may not have fired. Screenshots of both clients (start,
-login, window title and size) are still to do; they need a logged-in desktop
-on the VM.
+The retry pattern was the same with a desktop session: no later retry, and
+the real client draws no failure text.
+
+Screenshots, both clients in the same desktop session at 1280x800:
+
+| Area | Real 6.11r1 | This folder | Severity |
+|---|---|---|---|
+| Window title and menus | "Graal"; app menu "Graal" plus a Window menu | "Graal v6.11r1[Mac OS X]"; app menu "Graal6111"; no Window menu | high |
+| Window size and place | 1024x675 at 50,25 (saved config) | 240x180 lab view, centred | high |
+| Start-up dialog | A "Select File" dialog over the main window (as real 6.03r7 on Linux) | None | high |
+| Playfield offline | Plain light grey; log stops at "Initialized OpenGL"; no in-game frame without the operator's connector | Lab yard; 6 Right + 4 Down moved 10 steps with the camera following | n/a |
+| Dock icon | Graal icon | Generic executable (bare binary, no `.app`) | low |
+| F1 | Nothing | Nothing | match |
+| Quit | Clean, no crash report | Clean, no crash report | match |
 
 Fix from this run: FPC unmasks the invalid-operation, divide-by-zero and
 overflow exceptions, and AppKit's start-up computes with NaNs, so every Cocoa
 window crashed. `common/GWindowCocoa.inc` now masks all floating-point
-exceptions before AppKit starts. Checked on the VM: `--window` shows the
+exceptions before AppKit starts. Checked on the VM, also in a desktop session: `--window` shows the
 window, walks the lab yard and exits cleanly, and `graal-2.22-GNW03014`
 still builds with the shared unit.
 
