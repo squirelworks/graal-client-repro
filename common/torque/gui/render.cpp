@@ -1,14 +1,22 @@
 #include "render.hpp"
 
 #include "../console/engine/engine.hpp"
+#include "jpeg.hpp"
+#include "system_font.hpp"
 
 #include <algorithm>
 #include <cctype>
+#include <filesystem>
 #include <tuple>
 
 namespace Torque::Gui {
 
 namespace {
+
+bool is_jpeg(const std::string& data) {
+  return data.size() > 3 && static_cast<unsigned char>(data[0]) == 0xFF &&
+         static_cast<unsigned char>(data[1]) == 0xD8 && static_cast<unsigned char>(data[2]) == 0xFF;
+}
 
 std::string lowered(std::string s) {
   for (auto& c : s) c = char(std::tolower(static_cast<unsigned char>(c)));
@@ -140,7 +148,17 @@ const GftFont* Renderer::font(const std::string& face, int size) {
     if (load_gft(std::vector<std::uint8_t>(data.begin(), data.end()), *f, error)) loaded = std::move(f);
     else note("font " + path + ": " + error);
   } else {
-    note("font " + path + ": not found");
+    // No cache: build the face from a TrueType file, as stock TGE builds
+    // a missing cache from the system's face (system_font.hpp).
+    const std::string ttf = find_system_font(face);
+    std::vector<std::uint8_t> bytes;
+    auto f = std::make_unique<GftFont>();
+    if (!ttf.empty() && read_file(ttf, bytes, error) && gft_from_truetype(bytes, size, font_em_scale, *f, error)) {
+      loaded = std::move(f);
+      note("font " + path + ": not found, made from " + std::filesystem::path(ttf).filename().string());
+    } else {
+      note("font " + path + ": not found" + (ttf.empty() ? std::string() : ", " + ttf + ": " + error));
+    }
   }
   return (fonts_[lowered(path)] = std::move(loaded)).get();
 }
@@ -150,9 +168,19 @@ Renderer::Cached* Renderer::load(const std::string& path) {
   auto it = bitmaps_.find(lowered(path));
   if (it != bitmaps_.end()) return it->second->ok ? it->second.get() : nullptr;
   auto c = std::make_unique<Cached>();
-  for (const std::string& name : {path + ".png", path}) {
+  for (const std::string& name : {path + ".png", path, path + ".jpg"}) {
     std::string data, error;
     if (!engine_.files.read(name, data)) continue;
+    if (is_jpeg(data)) {
+      Image image;
+      if (decode_jpeg(reinterpret_cast<const std::uint8_t*>(data.data()), data.size(), image, error)) {
+        c->image = std::move(image);
+        c->ok = true;
+        break;
+      }
+      note("bitmap " + name + ": " + error);
+      continue;
+    }
     // The whole-file reader rejects bytes after IEND; the 3.04 install's
     // graalDarkButton.png has one, and the original draws it, so images
     // are read up to IEND here.
@@ -169,10 +197,12 @@ Renderer::Cached* Renderer::load(const std::string& path) {
   if (!c->ok && engine_.exec_by_name && path.find('/') == std::string::npos) {
     std::string found = engine_.find_by_name(path + ".png");
     if (found.empty()) found = engine_.find_by_name(path);
+    if (found.empty()) found = engine_.find_by_name(path + ".jpg");
     std::string data, error;
     Image image;
     if (!found.empty() && engine_.files.read(found, data) &&
-        decode_png(reinterpret_cast<const std::uint8_t*>(data.data()), data.size(), image, error)) {
+        (is_jpeg(data) ? decode_jpeg(reinterpret_cast<const std::uint8_t*>(data.data()), data.size(), image, error)
+                       : decode_png(reinterpret_cast<const std::uint8_t*>(data.data()), data.size(), image, error))) {
       c->image = std::move(image);
       c->ok = true;
     }
@@ -314,6 +344,8 @@ void Renderer::draw_self(Canvas& canvas, SimObject* control, const Rect& rect) {
     draw_button(canvas, control, p, rect);
   } else if (cls == "guitexteditctrl") {
     draw_text_edit(canvas, control, p, rect);
+  } else if (cls == "guipopupmenuctrl") {
+    draw_popup(canvas, control, p, rect);
   } else if (cls == "guiwindowctrl") {
     draw_window(canvas, control, p, rect);
   } else if (cls == "guichunkedbitmapctrl") {
@@ -430,7 +462,11 @@ void Renderer::draw_button(Canvas& canvas, SimObject* control, const Profile& p,
 }
 
 void Renderer::draw_text_edit(Canvas& canvas, SimObject* control, const Profile& p, const Rect& rect) {
-  const std::string path = p.has_bitmap_array ? profile_bitmap_path(control) : std::string();
+  // The frame comes from the profile's bitmap whenever it splits into a
+  // frame's cells, hasBitmapArray or not: the 3.153 profile names
+  // defaultTextEdit.png without the flag and the Tiger capture shows its
+  // frame (rebuild policy, the flag's role there is not read).
+  const std::string path = profile_bitmap_path(control);
   const BitmapArray* array = path.empty() ? nullptr : bitmap_array(path);
   const Color fill = p.opaque ? p.fill_color : Color{0, 0, 0, 0};
   Rect inner = rect;
@@ -457,6 +493,38 @@ void Renderer::draw_text_edit(Canvas& canvas, SimObject* control, const Profile&
   left.justify = Justify::left;
   draw_text_line(canvas, left, {inner.x + p.text_offset.x, inner.y, inner.width, inner.height}, text,
                  p.font_color);
+  canvas.pop_clip();
+}
+
+// A closed pop-up menu: the fill, a frame and a down arrow from the
+// profile's scroll bitmap array, and the selected entry's text at the left.
+// Cells read from the default theme's defaultScroll.png (52 cells): 39 is
+// the down arrow, 42 to 50 the nine pieces of a sunken frame. The Tiger
+// capture of 3.153 shows that frame with the arrow at the right end,
+// vertically centred (rebuild policy; the open list is not drawn yet).
+void Renderer::draw_popup(Canvas& canvas, SimObject* control, const Profile& p, const Rect& rect) {
+  enum { kArrow = 39, kFrame = 42 };
+  const std::string path = profile_bitmap_path(control);
+  const BitmapArray* array = path.empty() ? nullptr : bitmap_array(path);
+  if (p.opaque) canvas.fill_rect(rect, p.fill_color);
+  Rect inner = rect;
+  if (cell_count(array) >= kFrame + 9) {
+    const Image& image = *bitmap(path);
+    const auto& c = array->cells;
+    draw_sizable(canvas, image, *array, kFrame, rect, true, Color{0, 0, 0, 0});
+    const Rect& arrow = c[kArrow];
+    const int right = rect.x + rect.width - c[kFrame + 5].width;
+    canvas.blit(image, arrow, right - arrow.width, rect.y + (rect.height - arrow.height) / 2);
+    inner = {rect.x + c[kFrame + 3].width, rect.y,
+             right - arrow.width - rect.x - c[kFrame + 3].width, rect.height};
+  } else if (p.border) {
+    canvas.frame_rect(rect, p.border_color);
+  }
+  canvas.push_clip(inner);
+  Profile left = p;
+  left.justify = Justify::left;
+  draw_text_line(canvas, left, {inner.x + p.text_offset.x, inner.y, inner.width, inner.height},
+                 control->field("text"), p.font_color);
   canvas.pop_clip();
 }
 

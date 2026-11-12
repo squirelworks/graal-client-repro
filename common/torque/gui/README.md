@@ -33,6 +33,8 @@ later `GuiCanvas`, `GuiControlProfile` and control objects wrap these.
 | `gft.hpp/.cpp` | `.gft` font cache reader, glyph lookup, text width, coverage |
 | `bitmap_array.hpp/.cpp` | Splits a theme PNG into its pieces (bitmap array) |
 | `canvas.hpp/.cpp` | Software canvas: clip stack, fill/frame, blit, stretch, tile, `.gft` text |
+| `jpeg.hpp/.cpp` | JPEG bitmaps through the vendored `stb_image` (`common/cpp/third_party/stb`), size-limited like the PNG reader. A bitmap name tries `.png`, the name as given, then `.jpg`; the bytes decide the decoder |
+| `system_font.hpp/.cpp` | A `.gft`-shaped font built in memory from a TrueType file (vendored `stb_truetype`), for an install that ships no cache (3.153), and the search for the file that stands for a face |
 | `gui_inspect.cpp` | `gui-inspect` tool: `font`, `array`, `text`, `match` |
 
 ```
@@ -185,6 +187,29 @@ Bitmap arrays now trim each cell to its own rows: separator-coloured rows at
 the top or bottom of a cell, within its columns, are cut. The window frame's
 bottom pieces are 3 rows tall in a 9-row band. Cell counts are unchanged.
 
+### Fonts without a cache (3.153)
+
+Stock TGE 1.2 builds a missing `<face>_<size>.gft` from the system's own
+face and writes the cache. The Mac 3.153 install ships no cache, so every
+font it draws comes from that path. The renderer does the same in memory
+when `common/ui/cache/<face>_<size>.gft` is missing:
+
+- The file for a face: the face's own (`arial.ttf`, the Mac's `Arial.ttf`),
+  else a face with the same metrics (Liberation Sans, Liberation Sans Bold),
+  else DejaVu Sans. Searched in the usual Linux, macOS and Windows font
+  folders.
+- Characters 32 to 255, stb_truetype's antialiased coverage, line height
+  ascent plus descent, baseline the ascent.
+- The em size is the Torque size times `Renderer::font_em_scale`. The
+  3.153 host sets 0.75: the Tiger capture's text measures three quarters of
+  its profiles' sizes (Arial 20 and Arial 14 alike). This is rebuild
+  policy; the Mac's point-to-pixel rule is not read.
+- The file's bytes are checked (single font, every table inside the file)
+  before stb_truetype reads them, since it does not bounds-check.
+
+Each font made this way is listed in the renderer's notes
+(`font Arial 14: not found, made from <file>`).
+
 ### Lab results (main menu, 2026-11-12)
 
 `tq-shot` boots the Linux 3.04 install from its own `main.cs` and draws
@@ -205,9 +230,11 @@ reader yet), `tests/lab_check.sh` gives:
 - [x] `.gft` reader, theme bitmap-array splitting, software canvas surface.
 - [x] `GuiControlProfile` fields from the `.th` scripts and `customProfiles.cs`, and which cell of each array a control draws per state.
 - [x] Stock control rendering for buttons, text edits, windows, text labels and bitmaps, checked against the same screenshot.
-- [ ] Pop-up menu, check box, radio, scroll and slider (text list, multi-line text and console are drawn, without captures to check them). The closed pop-up in the screenshot uses `defaultScroll.png`'s 3 × 3 frame (cells 42 to 50) and a down-arrow cell (39) at the right.
+- [x] The closed pop-up menu: the fill, `defaultScroll.png`'s 3 × 3 frame (cells 42 to 50), the down-arrow cell (39) at the right, vertically centred, and the selected text at the left. Checked against the 3.153 Tiger capture; the 3.04 lab check does not measure it yet.
+- [ ] The open pop-up list, check box, radio, scroll and slider (text list, multi-line text and console are drawn, without captures to check them).
 - [ ] Highlighted and depressed states, the text cursor and selection: they need input and the first responder.
-- [ ] JPEG bitmaps (`graalscreen.jpg`), so the menu art draws without a converted copy.
+- [x] JPEG bitmaps (`graalscreen.jpg`, 3.153's `graalscreen3d.jpg`) through the vendored `stb_image` (`jpeg.cpp`), so the menu art draws without a converted copy.
+- [x] Fonts with no `.gft` cache, built from a TrueType file (`system_font.cpp`, below).
 - [ ] A 3.04 capture of a window (the options dialog) to settle the window layout and the theme-relative bitmap fallback.
 - [ ] The mouse cursor. The surface is presented in a window by `../guigraal` (`graal304-torque`).
 - [ ] Unicode or characters above 255: the 3.04 caches cover 32 to 255 only.

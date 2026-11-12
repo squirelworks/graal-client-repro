@@ -4,12 +4,14 @@ on:
   pull_request:
     paths:
       - 'common/torque/gui/**'
+      - 'common/cpp/third_party/stb/**'
       - 'common/torque/console/**'
       - '.github/workflows/torque-gui.yml'
   push:
     branches: [main]
     paths:
       - 'common/torque/gui/**'
+      - 'common/cpp/third_party/stb/**'
       - 'common/torque/console/**'
       - '.github/workflows/torque-gui.yml'
   workflow_dispatch:
