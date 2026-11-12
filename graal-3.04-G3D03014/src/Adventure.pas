@@ -140,6 +140,9 @@ type
     { addtiledef lines seen in level scripts: 'prefix'#9'image', newest
       first; FTileDefLevel is the level last scanned }
     FTileDefs: TStringList;
+    { the sheet type of each FTileDefs entry (Values, by entry), 0 when not
+      given }
+    FTileDefTypes: TStringList;
     FTileDefLevel: string;
     FLevels: TStringList;  { lower-case name -> TCachedLevel }
     FLevelDir: string;     { folder of the level file played offline }
@@ -224,6 +227,10 @@ type
     { The tile sheet for a level: an addtiledef image whose prefix starts
       the level name, else pics1. }
     function TileSheetFor(const LevelName: string): TGSurface;
+    function TileDefFor(const LevelName: string): Integer;
+    function SheetTypeFor(const LevelName: string): Integer;
+    procedure NoteLevelTileDefs;
+    function TileBlocks(T: Integer): Boolean;
     property TileDefs: TStringList read FTileDefs;
     function ConnectServer(const Host: string; Port: Word;
       const Account, Password: string): Boolean;
@@ -749,6 +756,7 @@ begin
   Assets := TAssets.Create;
   FOthers := TList.Create;
   FTileDefs := TStringList.Create;
+  FTileDefTypes := TStringList.Create;
   UseBuiltins;
 end;
 
@@ -778,6 +786,7 @@ begin
   for I := 0 to FOthers.Count - 1 do TServerPlayer(FOthers[I]).Free;
   FOthers.Free;
   FTileDefs.Free;
+  FTileDefTypes.Free;
   FLog.Free;
   inherited Destroy;
 end;
@@ -869,9 +878,16 @@ begin
   LoadTileDefsFile(AssetPath('levels/tiledefs/tiledefsOffline.txt'));
   P := AssetPath('arrays.dat');
   if (P <> '') and Arrays.LoadFromFile(P) then
-    Log('arrays.dat loaded')
+  begin
+    { 3.04's own lists are 2.22's arrays.dat without water tiles 1824 and
+      1825 (Graal_analysis torque/304-tile-types.md) }
+    Arrays.SetPassable(1824, False);
+    Arrays.SetPassable(1825, False);
+    Log('arrays.dat loaded');
+  end
   else
-    Log('arrays.dat not found in ' + Dir + ': using the built-in tile types');
+    Log('arrays.dat not found in ' + Dir + ': using the built-in stand-in tile types; ' +
+      'put 2.22''s arrays.dat here for real levels (3.04 has the same lists built in)');
 end;
 
 { 3.04's tile definitions file (levels/tiledefs/tiledefsOffline.txt, read
@@ -905,6 +921,8 @@ begin
       if (Img = '') or (Pos('..', Img) > 0) then Continue;
       if FTileDefs.IndexOf(Prefix + #9 + Img) < 0 then
         FTileDefs.Add(Prefix + #9 + Img);
+      if Parts.Count >= 3 then
+        FTileDefTypes.Values[Prefix + #9 + Img] := IntToStr(StrToIntDef(Trim(Parts[2]), 0));
     end;
     Log(Format('%d tile definitions from %s', [FTileDefs.Count, ExtractFileName(Path)]));
   finally
@@ -977,20 +995,21 @@ begin
     end;
   TX := TileOf(PX);
   TY := TileOf(PY);
+  NoteLevelTileDefs;
   if Gmap = nil then
   begin
     { off a gmap the edge is open, so level links can be reached (as in
       2.05; run-222d: the player reaches x = -0.5 on the level's left
       edge) }
     if (TX < 0) or (TY < 0) or (TX >= BoardW) or (TY >= BoardH) then Exit;
-    Result := not Arrays.TilePassable(Level.Tile(TX, TY));
+    Result := TileBlocks(Level.Tile(TX, TY));
     Exit;
   end;
   { on a gmap the neighbours' boards decide; the outer edge of the map
     and cells whose level has not arrived are walls (not measured) }
   T := WorldTile(TX + Player.GmapX * BoardW, TY + Player.GmapY * BoardH);
   if T < 0 then Result := True
-  else Result := not Arrays.TilePassable(T);
+  else Result := TileBlocks(T);
 end;
 
 procedure TAdventure.WalkStep(Dir: Integer);
@@ -1996,6 +2015,10 @@ begin
             if FTileDefs.IndexOf(Prefix + #9 + Img) >= 0 then
               FTileDefs.Delete(FTileDefs.IndexOf(Prefix + #9 + Img));
             FTileDefs.Insert(0, Prefix + #9 + Img);
+            if Parts.Count >= 3 then
+              FTileDefTypes.Values[Prefix + #9 + Img] := IntToStr(StrToIntDef(Trim(Parts[2]), 0))
+            else
+              FTileDefTypes.Values[Prefix + #9 + Img] := '';
           end;
         end;
         Delete(Low, 1, E - 1);
@@ -2008,24 +2031,80 @@ begin
   end;
 end;
 
-function TAdventure.TileSheetFor(const LevelName: string): TGSurface;
+{ The FTileDefs entry for a level: the first whose prefix starts its
+  name, else -1. }
+function TAdventure.TileDefFor(const LevelName: string): Integer;
 var
   I, T: Integer;
-  N, Prefix: string;
-  S: TGSurface;
+  N: string;
 begin
-  Result := Sheet;
+  Result := -1;
   N := LowerCase(LevelName);
   for I := 0 to FTileDefs.Count - 1 do
   begin
     T := Pos(#9, FTileDefs[I]);
-    Prefix := Copy(FTileDefs[I], 1, T - 1);
-    if Copy(N, 1, Length(Prefix)) = Prefix then
+    if Copy(N, 1, T - 1) = Copy(FTileDefs[I], 1, T - 1) then
     begin
-      S := Assets.Image(Copy(FTileDefs[I], T + 1, MaxInt), '');
-      if (S <> nil) and (S.Width > 0) then Result := S;
+      Result := I;
       Exit;
     end;
+  end;
+end;
+
+function TAdventure.TileSheetFor(const LevelName: string): TGSurface;
+var
+  I: Integer;
+  S: TGSurface;
+begin
+  Result := Sheet;
+  I := TileDefFor(LevelName);
+  if I < 0 then Exit;
+  S := Assets.Image(Copy(FTileDefs[I], Pos(#9, FTileDefs[I]) + 1, MaxInt), '');
+  if (S <> nil) and (S.Width > 0) then Result := S;
+end;
+
+{ The sheet type a level's tiles are tested with: the tiledef's third
+  field, 0 (the default pics1.png) without one (Graal_analysis
+  torque/304-tile-types.md). }
+function TAdventure.SheetTypeFor(const LevelName: string): Integer;
+var
+  I: Integer;
+begin
+  Result := 0;
+  I := TileDefFor(LevelName);
+  if I >= 0 then Result := StrToIntDef(FTileDefTypes.Values[FTileDefs[I]], 0);
+end;
+
+{ the level's own addtiledef lines, once per level, drawn or not }
+procedure TAdventure.NoteLevelTileDefs;
+begin
+  if Level.Name <> FTileDefLevel then
+  begin
+    NoteTileDefs(Level);
+    FTileDefLevel := Level.Name;
+  end;
+end;
+
+{ 3.04's walking test for one tile (Graal_analysis torque/304-tile-types.md).
+  Sheet type 0: free only when the id is in array 0 or array 1. Types 1 and
+  2 (picso.png): by row (id div 16) and column (id mod 16); a wall when
+  id = 32, rows 26-27 from column 2, rows 30-47, 84-95 or 116-127, or a row
+  from 128 with bit 16 set. }
+function TAdventure.TileBlocks(T: Integer): Boolean;
+var
+  Row, Col: Integer;
+begin
+  case SheetTypeFor(Level.Name) of
+    1, 2:
+      begin
+        Row := T div 16;
+        Col := T mod 16;
+        Result := (T = 32) or ((Row >= 26) and (Row <= 27) and (Col >= 2)) or
+          ((Row >= 30) and (Row <= 47)) or ((Row >= 84) and (Row <= 95)) or
+          ((Row >= 116) and (Row <= 127)) or ((Row >= 128) and (Row and 16 <> 0));
+      end;
+  else
+    Result := not Arrays.TilePassable(T);
   end;
 end;
 
@@ -2036,11 +2115,7 @@ var
 begin
   Screen.Fill($FF000000);
   if Sheet.Width = 0 then MakeIndexSheet(Sheet);
-  if Level.Name <> FTileDefLevel then
-  begin
-    NoteTileDefs(Level);
-    FTileDefLevel := Level.Name;
-  end;
+  NoteLevelTileDefs;
   Tiles := TileSheetFor(Level.Name);
   { on a gmap the camera works in world tiles: local + 64 x cell }
   PX := 0;

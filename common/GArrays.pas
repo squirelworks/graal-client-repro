@@ -33,6 +33,8 @@ type
     function LoadFromString(const Data: string): Boolean;
     { Walking test: a tile is free when it is in array 0 or array 1. }
     function TilePassable(Tile: Integer): Boolean;
+    { A client whose lists differ from the file's by a few ids. }
+    procedure SetPassable(Tile: Integer; Free: Boolean);
     { A table of 2 x 2 objects (9 cut, 10 what a cut leaves, 11 lift, 12
       what a lift leaves, 14 the open chest): the number of objects, and
       tile (Col, Row) of object I, or -1 when the table lacks it. }
@@ -189,6 +191,11 @@ begin
   Y := Integer((V shr 12) and 1023) * 2;
   X := Integer(V shr 23);
   Result := (W > 0) and (H > 0);
+end;
+
+procedure TGArrays.SetPassable(Tile: Integer; Free: Boolean);
+begin
+  if (Tile >= 0) and (Tile < 4096) then FPassable[Tile] := Free;
 end;
 
 function TGArrays.TilePassable(Tile: Integer): Boolean;
