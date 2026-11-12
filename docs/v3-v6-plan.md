@@ -90,6 +90,10 @@ Owned by the threads behind #257, #258 and #259 until those merge.
   (C1): `addcontrol` and the `GuiControl` tree from script, each class's
   property set and methods (`addRow` and the rest), `GuiShowImgCtrl`,
   `GuiGraalCtrl` as the playfield
+  - [x] The objects, commands, input and drawing through a painter
+    (`common/cpp/gs2/gui*.cpp`); the 4.04r2 main menu lays out from its
+    own script
+  - [ ] The painter on the engine library's draw slots (after #264)
 - [ ] **B5** `TShowImg` and the 2D game behind the playfield, reusing the
   Pascal game library from #258
 - [x] **B6a** Script delivery: 131 to 134 and 193 into the machine
