@@ -36,7 +36,7 @@ unit GLaunch1x;
 interface
 
 uses
-  Classes, GSurface, GWindow, GDfm1x;
+  Classes, GSplit, GSurface, GWindow, GDfm1x;
 
 type
   TLaunchStyle = (ls11, ls128, ls141);
@@ -593,9 +593,7 @@ begin
   Result := TStringList.Create;
   Words := TStringList.Create;
   try
-    Words.Delimiter := ' ';
-    Words.StrictDelimiter := True;
-    Words.DelimitedText := T;
+    SplitDelimited(T, ' ', Words);
     Line := '';
     for I := 0 to Words.Count - 1 do
     begin
