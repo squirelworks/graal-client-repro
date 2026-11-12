@@ -26,7 +26,7 @@ folders, this one is named for its build and its date:
 | Unity | 2022.3.9f1 |
 | Plugin | `Graal3DEngine.dll`, FileVersion 6.114 |
 | Build date | 2023-10-06 (GameAssembly time stamp) |
-| Company / product | `toonslab` / `GraalOnline Worlds` |
+| Company / product | `toonslab` / Graal Worlds |
 | Token | None stored |
 
 The playable Worlds stand-in lives in
