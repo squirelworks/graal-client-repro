@@ -863,7 +863,9 @@ begin
       P := Cuts[I] + 1;
     end;
     C.FeedRaw(Copy(Stream, P, MaxInt));
-    Result := S.Got.Text;
+    { joined with LF, not Got.Text, whose line break is CRLF on Windows }
+    Result := '';
+    for I := 0 to S.Got.Count - 1 do Result := Result + S.Got[I] + #10;
     if C.LastError <> '' then Result := Result + 'error: ' + C.LastError;
   finally
     S.Free;
