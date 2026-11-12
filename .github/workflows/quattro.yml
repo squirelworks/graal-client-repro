@@ -1,0 +1,53 @@
+name: quattro
+
+on:
+  pull_request:
+    paths:
+      - 'common/cpp/quattro/**'
+      - '.github/workflows/quattro.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'common/cpp/quattro/**'
+      - '.github/workflows/quattro.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quattro-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unix:
+    strategy:
+      fail-fast: false
+      matrix:
+        # macOS is built and tested on the lab Sequoia VM, not on GitHub runners
+        # (AGENTS.md, "macOS builds").
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install zlib and bzip2
+        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev libbz2-dev
+      - name: Build and test
+        run: make -C common/cpp/quattro test
+      - name: Check with address and undefined behavior sanitizers
+        run: |
+          make -C common/cpp/quattro clean
+          make -C common/cpp/quattro test CXXFLAGS='-std=c++17 -Wall -Wextra -Werror -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer'
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: make mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-zlib mingw-w64-ucrt-x86_64-bzip2
+      - name: Build and test
+        shell: msys2 {0}
+        run: make -C common/cpp/quattro test
