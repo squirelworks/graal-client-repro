@@ -584,7 +584,7 @@ begin
       Rewrite(Output);  { assigned to '' by the RTL: the standard output }
       Rewrite(ErrOutput);
       if (E <> 0) and (E <> INVALID_HANDLE_VALUE) then
-        TextRec(ErrOutput).Handle := E;
+        TTextRec(ErrOutput).Handle := E;
     end;
   except
     { nowhere to write: carry on without output }
