@@ -47,37 +47,52 @@ void Engine::log(const std::string& line) { host::LogGraalMessage(line.c_str());
 bool Engine::initialize(const char* exePath) {
   ++initCount_;
   if (initCount_ > 1) {
-    // A second call only resets the script environment
-    // (torque/5007-engine.md). The script environment is the GS2 core's.
+    // A second call only initialises the script environment
+    // (torque/5007-engine.md): the machine, if there is none yet.
+    if (!machine_) startMachine();
     return true;
   }
   exePath_ = exePath ? exePath : "";
   // The original also checks three signature files under license/ and the
   // exe against them; the rebuild has no signatures to check.
   license_ = readLines(installDir() + "/license/license.graal");
+  startMachine();
   log("GraalEngine: started in " + installDir() + (license_.empty() ? ", no licence" : ", licence read"));
   return true;
 }
 
+
+namespace {
+// The frame's timer: one 2D pass of the script machine (the clock steps
+// 0.05, the launcher's 50 ms frame), then the session's own timer.
+std::function<void()> frameTimer(Engine& e, std::function<void()> session) {
+  return [&e, session] {
+    if (auto* m = e.machine()) m->runScripts();
+    if (session) session();
+  };
+}
+}  // namespace
+
 void Engine::setTimer(std::function<void()> t) {
   timer_ = std::move(t);
-  if (canvas_) canvas_->setTimer(timer_);
+  if (canvas_) canvas_->setTimer(frameTimer(*this, timer_));
 }
 
 void Engine::loadGui() {
+  if (!machine_) startMachine();
   if (canvas_) {
-    // Calling it again, with the canvas there, only rebuilds what the
-    // GUI builder rebuilds (torque/4208-engine.md).
+    // Calling it again, with the canvas there, rebuilds what the GUI
+    // builder rebuilds and runs the two move-map scripts again
+    // (torque/4208-engine.md).
     if (guiBuilder_) guiBuilder_(*this);
+    runStartScript("StartScript_MoveMap2D", false);
+    runStartScript("StartScript_MoveMap3D", false);
     return;
   }
   canvas_ = std::make_unique<Canvas>();
-  canvas_->setTimer(timer_);
-  if (guiBuilder_) {
-    guiBuilder_(*this);
-  } else {
-    canvas_->setContentControl(std::make_shared<Control>("MainMenuGui2D"));
-  }
+  canvas_->setTimer(frameTimer(*this, timer_));
+  if (guiBuilder_) guiBuilder_(*this);
+  loadStartMenus();
 }
 
 void Engine::render(bool draw) {
@@ -85,6 +100,7 @@ void Engine::render(bool draw) {
 }
 
 void Engine::key(int vk, int ch, int mods, bool down) {
+  if (vk >= 0 && vk < 256) keys_[vk] = down;
   if (!canvas_) return;
   InputEvent ev;
   ev.kind = down ? InputEvent::KeyDown : InputEvent::KeyUp;
@@ -114,6 +130,8 @@ void Engine::mouse(int x, int y, int action, int button, int clicks, int mods, i
 
 void Engine::startOffline() {
   offlineRequested_ = true;
+  runStartScript("StartScript_GraalGui", true);
+  setContentFrom("GUIContainer");
   if (offline_) offline_(*this);
 }
 
@@ -128,7 +146,13 @@ void Engine::connect(const std::string& rawName, const std::string& host, int po
     name = name.substr(2);
   }
   target_ = {name, host, port, is3d};
-  if (is3d) host::StartGraal3D();
+  if (is3d) {
+    runStartScript("StartScript_GraalGui3D", true);
+    host::StartGraal3D();
+  } else {
+    runStartScript("StartScript_GraalGui", true);
+    setContentFrom("GUIContainer");
+  }
   if (connect_) connect_(*this, name, host, port, is3d);
 }
 
@@ -140,6 +164,9 @@ void Engine::openServerList() {
 
 void Engine::prepareShutdown() { offline_ = nullptr; }
 
-void Engine::shutdown() { canvas_.reset(); }
+void Engine::shutdown() {
+  canvas_.reset();
+  machine_.reset();
+}
 
 }  // namespace graalengine

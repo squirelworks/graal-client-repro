@@ -99,7 +99,9 @@ type
     property Missing: TStringList read FMissing;
   end;
 
-{ The library's file name next to the program: GraalEngine.dll on Windows,
+{ The library's file name next to the program: GraalEngineRepro.dll on Windows
+  (not GraalEngine.dll, which is the player's original and the source of the
+  start menus),
   libgraalengine.dylib on macOS, libgraalengine.so elsewhere. }
 function EngineLibName: string;
 
@@ -135,7 +137,7 @@ var
 function EngineLibName: string;
 begin
 {$IFDEF MSWINDOWS}
-  Result := 'GraalEngine.dll';
+  Result := 'GraalEngineRepro.dll';
 {$ELSE}
 {$IFDEF DARWIN}
   Result := 'libgraalengine.dylib';

@@ -23,6 +23,7 @@ program works too (`graal-assets/4.04r2/`, then `graal-assets/common/`).
 
 ## What's new in v0.0.5
 
+- [x] **The start menus run.** With `--engine`, the engine library reads the 14 start menus from the install's own `GraalEngine.dll` and runs them on the GS2 script engine, in the order the original makes them, with the account, server-list, offline, options, URL and quit calls they make. They are not drawn yet. The rebuilt library is now `GraalEngineRepro.dll`, so it never replaces the original in an install.
 - [x] **The engine library.** As the real 4.04r2, the program can now run as a launcher over an engine library: `GraalEngine.dll` (`libgraalengine.so` on Linux) ships next to it, and `Graal404 --engine` loads it, fills its 94 callback slots, starts it and draws each frame through them. The canvas is empty until the script engine brings the start menus; the normal start screen stays the default.
 - [x] **Become a Member.** The original's sign-up page is gone, so with no sign-up page in the licence file (line 3) the button now says none is set instead of opening a dead address.
 - [x] **Pictures by kind.** The picture cache keeps each name once per kind (head, body, sword, shield, hat, weapon), because each kind searches its own folders. A picture first asked for without its kind got the built-in stand-in and kept it, so an install's own picture could stay hidden behind the stand-in (in 1.33, `levels/weapons/wbomb1.gif` beside the D button).

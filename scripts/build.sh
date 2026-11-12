@@ -69,7 +69,7 @@ for B in $BUILDS; do
     fi
   fi
   # The 4.x engine library (common/cpp/graalengine) sits next to the
-  # launcher, as GraalEngine.dll sits next to the original Graal.exe.
+  # launcher, as GraalEngine.dll sits next to the original Graal4.exe.
   if [ "$B" = "graal-4.04r2-G3D17026" ] && [ -f "$ROOT/common/cpp/graalengine/Makefile" ]; then
     echo "== common/cpp/graalengine"
     CXXBIN=${CXX:-g++}
@@ -85,7 +85,7 @@ for B in $BUILDS; do
           ;;
         *) make -C "$ROOT/common/cpp/graalengine" clean all CXX="$CXXBIN" ;;
       esac
-      for L in GraalEngine.dll libgraalengine.so libgraalengine.dylib; do
+      for L in GraalEngineRepro.dll libgraalengine.so libgraalengine.dylib; do
         if [ -f "$ROOT/common/cpp/graalengine/build/$L" ]; then cp "$ROOT/common/cpp/graalengine/build/$L" "$OUT/"; fi
       done
     else

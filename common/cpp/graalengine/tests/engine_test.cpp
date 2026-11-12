@@ -5,7 +5,10 @@
 #include "graalengine.h"
 #include "host.hpp"
 
+#include "../../gs2/tests/assembler.hpp"
+
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -43,6 +46,8 @@ void GE_CALL recText(int32_t x, int32_t y, const char* t, const char*, int32_t, 
 }
 void GE_CALL recLog(const char* line) { calls.push_back(std::string("log ") + line); }
 void GE_CALL rec3D() { calls.push_back("start3d"); }
+void GE_CALL recOptions() { calls.push_back("options"); }
+void GE_CALL recUrl(const char* u) { calls.push_back(std::string("url ") + u); }
 
 void installRecorder() {
   graal_setGetScreenWidth(recWidth);
@@ -52,6 +57,8 @@ void installRecorder() {
   graal_setDrawText(recText);
   graal_setLogGraalMessage(recLog);
   graal_setStartGraal3D(rec3D);
+  graal_setOpenExternalOptions(recOptions);
+  graal_setOpenURL(recUrl);
 }
 
 void reset() {
@@ -270,6 +277,124 @@ void testConnectAndLicence() {
   fs::remove_all(dir);
 }
 
+// The engine commands the start menus call, on the engine's own machine.
+void testEngineCommands() {
+  reset();
+  installRecorder();
+  CHECK(graal_engineInitialize("/x/Graal4.exe") == 1);
+  auto& e = graalengine::engine();
+  CHECK(e.machine() != nullptr);
+  invokeGraalKeyboardEvent(0x26, 0, 0, 1);
+  using gs2asm::Asm;
+  Asm a;
+  a.function("onCreated", {});
+  a.op(Asm::MARKER).str("bob").callName("Adventure_setAccountName").op(Asm::POP);
+  a.op(Asm::MARKER).str("pw").callName("Adventure_setPassWord").op(Asm::POP);
+  a.op(Asm::MARKER).str("Bob").callName("Adventure_setNickName").op(Asm::POP);
+  a.op(Asm::MARKER).num(1).num(50).callName("Adventure_updateMidiVolume").op(Asm::POP);
+  a.op(Asm::MARKER).str("hi there").callName("echo").op(Asm::POP);
+  a.op(Asm::MARKER).str("http://127.0.0.1/").callName("openURL").op(Asm::POP);
+  a.op(Asm::MARKER).callName("Adventure_openExternalOptions").op(Asm::POP);
+  a.var("up").op(Asm::MARKER).num(0x26).callName("keydown").op(Asm::ASSIGN);
+  a.var("left").op(Asm::MARKER).num(0x25).callName("keydown").op(Asm::ASSIGN);
+  a.op(Asm::MARKER).callName("Adventure_saveGraalOptions").op(Asm::POP);
+  a.num(0).op(Asm::RET);
+  auto v = e.machine()->newVar("tester");
+  std::string err;
+  CHECK(e.machine()->setScript(v, a.bytes(), &err));
+  calls.clear();
+  e.machine()->runScripts();
+  CHECK(e.account().account == "bob");
+  CHECK(e.account().password == "pw");
+  CHECK(e.account().nickname == "Bob");
+  CHECK(e.account().fields.count("Adventure_updateMidiVolume") == 1);
+  const std::vector<std::string> want = {"log hi there", "url http://127.0.0.1/", "options"};
+  CHECK(calls == want);
+  if (calls != want)
+    for (const auto& c : calls) std::fprintf(stderr, "  got: %s\n", c.c_str());
+  auto up = e.machine()->universe()->child("up");
+  auto left = e.machine()->universe()->child("left");
+  CHECK(up && up->number() == 1);
+  CHECK(left && left->number() == 0);
+  // Not provided yet: the engines' "not found" error, not a silent success.
+  bool notFound = false;
+  for (const auto& m : e.machine()->errors())
+    if (m.find("Adventure_saveGraalOptions") != std::string::npos) notFound = true;
+  CHECK(notFound);
+  shutdownGraalEngine();
+}
+
+// With no engine file there are no start scripts, and the canvas still
+// gets its MainMenuGui2D content.
+void testNoStartScripts() {
+  reset();
+  installRecorder();
+#ifdef _WIN32
+  _putenv_s("GRAAL_ENGINE_FILE", "");
+#else
+  unsetenv("GRAAL_ENGINE_FILE");
+#endif
+  graal_engineInitialize("/nowhere/Graal4.exe");
+  loadGraalGui();
+  auto& e = graalengine::engine();
+  CHECK(e.startScriptNames().empty());
+  CHECK(e.canvas()->content() && e.canvas()->content()->name() == "MainMenuGui2D");
+  bool logged = false;
+  for (const auto& c : calls)
+    if (c == "log GraalEngine: no start scripts") logged = true;
+  CHECK(logged);
+  startOfflineMode();
+  CHECK(e.canvas()->content()->name() == "GUIContainer");
+  shutdownGraalEngine();
+}
+
+// Owner-supplied: GRAAL404_ENGINE = the player's own 4.04r2 GraalEngine.dll.
+// Its 14 start scripts load, and those the notes keep are made, in order.
+void testLabStartScripts() {
+  const char* file = std::getenv("GRAAL404_ENGINE");
+  if (!file || !*file) {
+    std::fprintf(stderr, "skip lab start scripts: GRAAL404_ENGINE not set\n");
+    return;
+  }
+  reset();
+  installRecorder();
+#ifdef _WIN32
+  _putenv_s("GRAAL_ENGINE_FILE", file);
+#else
+  setenv("GRAAL_ENGINE_FILE", file, 1);
+#endif
+  graal_engineInitialize("/x/Graal4.exe");
+  std::vector<std::string> made;
+  auto& e = graalengine::engine();
+  e.setControlResolver([&](const gs2::VarPtr& v) {
+    made.push_back(v->name());
+    return std::make_shared<graalengine::Control>(v->name());
+  });
+  loadGraalGui();
+  CHECK(e.startScriptNames().size() == 14);
+  auto u = e.machine()->universe();
+  for (const char* n : {"StartScript_MainMenu", "StartScript_OptionsWindow", "StartScript_PlayerProfile",
+                        "StartScript_LoadLevelGui", "StartScript_QuitDialog", "StartScript_MessageBoxDialog",
+                        "StartScript_SelectFileDialog"})
+    CHECK(u->child(n) != nullptr);
+  for (const char* n : {"StartScript_Profiles", "StartScript_MoveMap2D", "StartScript_MoveMap3D",
+                        "StartScript_GraalGui"})
+    CHECK(u->child(n) == nullptr);
+  CHECK(e.canvas()->content()->name() == "MainMenuGui2D");
+  std::fprintf(stderr, "lab: %zu start scripts, %zu objects, %zu distinct errors\n",
+               e.startScriptNames().size(), e.machine()->objects().size(), e.machine()->errors().size());
+  for (const auto& m : e.machine()->errors()) std::fprintf(stderr, "  %s\n", m.c_str());
+  for (int i = 0; i < 20; ++i) renderGraalCanvas();
+  startOfflineMode();
+  CHECK(u->child("StartScript_GraalGui") != nullptr);
+  shutdownGraalEngine();
+#ifdef _WIN32
+  _putenv_s("GRAAL_ENGINE_FILE", "");
+#else
+  unsetenv("GRAAL_ENGINE_FILE");
+#endif
+}
+
 }  // namespace
 
 int main() {
@@ -278,6 +403,9 @@ int main() {
   testFrameOrderAndClip();
   testInput();
   testConnectAndLicence();
+  testEngineCommands();
+  testNoStartScripts();
+  testLabStartScripts();
   if (failures) {
     std::fprintf(stderr, "%d check(s) failed\n", failures);
     return 1;
