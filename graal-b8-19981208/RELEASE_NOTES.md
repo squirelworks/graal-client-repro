@@ -29,6 +29,8 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 - [x] **F1 Options window.** F1 opens "Options" from the build's own form (TOptions), with the current level's file name filled in. F6 opens it too, as in this build. The other buttons close it and do nothing yet. Linux and macOS draw the form in a window of their own.
 - [x] **Its fallback install files.** Every place that sets up the asset search now passes the build's whole version list (`graal-assets/b8/` then `graal-assets/b7/`). Some passed the bare version, so with only `graal-assets/` next to the program those parts found nothing and drew the built-in stand-in art.
 
+- [x] **The player as the original draws it.** The player is drawn from your install's own body sheet and `heads.gif`, posed by the tables of its `arrays.dat`, instead of the project's stand-in art. The default character, Nick, is red with a shield and the head picked in the start dialog.
+
 ## What's new in v0.0.4
 
 - Rebuilt from the latest code; the changes for this client are listed here as they land.

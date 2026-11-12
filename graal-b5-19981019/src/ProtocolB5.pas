@@ -53,9 +53,11 @@ const
   SaveExt = '.save';
 
   { the offline start: the first of these found in the install }
-  { One Player starts in house1.graal, as every original does (read on
-    Windows); the others as before when an install has none }
-  TrainingLevels = 'levels/house1.graal;house1.graal;levels/level1.graal;level1.graal';
+  { One Player starts outdoors in level13.graal, as the 6th Graal does
+    (the real client's first frame, Windows 11, 2026-11-05 captures: the
+    player stands at the same place on screen, the HUD shows 300 rupees);
+    house1 and level1 when an install lacks it }
+  TrainingLevels = 'levels/level13.graal;level13.graal;levels/house1.graal;house1.graal;levels/level1.graal;level1.graal';
 
   { P is sent every 100 ms while walking (two 50 ms ticks) }
   PositionEveryTicks = 2;
@@ -104,9 +106,10 @@ const
   HudStartRupees = 300;
 
 const
-  { where One Player puts the player in the start level: measured on the real client's first frame, the middle of house1's room }
-  OfflineStartX = '28.5';
-  OfflineStartY = '30';
+  { where One Player puts the player in the start level: the 6th Graal's
+    place in level13 (the camera there stops at the level's left edge) }
+  OfflineStartX = '16.5';
+  OfflineStartY = '35';
 
 implementation
 

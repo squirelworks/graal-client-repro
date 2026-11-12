@@ -25,7 +25,7 @@ unit Adventure;
 interface
 
 uses
-  Classes, GLevel, GSurface, GBetaHud, GArrays, GAni, GBuiltin, GAssetDirs, GRelay, ProtocolB9;
+  Classes, GLevel, GSurface, GBetaHud, GBetaPlayer, GArrays, GAni, GBuiltin, GAssetDirs, GRelay, ProtocolB9;
 
 const
   ScreenW = 640;
@@ -71,6 +71,7 @@ type
     Sprite: Integer;     { frame*4 + direction, as in the P payload }
     Dir: Integer;
     Colors: array[0..4] of Integer;
+    Head: Integer;       { the character's column of heads.gif }
     LoginTime: Int64;
     Away: Boolean;       { sent I: left the level or went to a link }
     SwordPower, ShieldPower, Power: Integer;
@@ -96,6 +97,11 @@ type
     FPushes: Integer;
     FBody, FBodyTinted: TGSurface;
     FBodyKey: string;
+    { the build's own player drawing (GBetaPlayer), when the install has
+      its sheets; the stand-in body otherwise }
+    FArt: TBetaPlayerArt;
+    FArrayCount: Integer;
+    procedure LoadPlayerArt;
     function BodyFor(P: TPeer): TGSurface;
     function GetOther(I: Integer): TPeer;
     function GetOtherCount: Integer;
@@ -302,6 +308,7 @@ begin
   Colors[4] := 18;
   SwordPower := 1;
   ShieldPower := 1;
+  Head := 1;
   AniName := 'idle';
 end;
 
@@ -328,6 +335,7 @@ begin
   Screen := TGSurface.Create(ScreenW, ScreenH);
   Sheet := TGSurface.Create(0, 0);
   Arrays := TGArrays.Create;
+  FArt := TBetaPlayerArt.Create;
   Assets := TAssets.Create;
   FBodyTinted := TGSurface.Create(0, 0);
   JoinMs := -1;
@@ -348,6 +356,7 @@ begin
   Player.Free;
   Screen.Free;
   Sheet.Free;
+  FArt.Free;
   Arrays.Free;
   Assets.Free;
   FBody.Free;
@@ -423,6 +432,7 @@ begin
       if Arrays.LoadFromString(D) then
       begin
         Ok := True;
+        FArrayCount := 25 - I;
         Break;
       end;
       D := D + #0#0#0#0;
@@ -431,7 +441,38 @@ begin
     begin
       Log('warning: cannot read ' + P);
       UseBuiltins;
+    end
+    else
+      LoadPlayerArt;
+  end;
+end;
+
+{ The body sheet (link.gif to the 4th Graal, sprites.gif from the 5th)
+  and heads.gif (from the 3rd), with the tables of the install's
+  arrays.dat. }
+procedure TAdventure.LoadPlayerArt;
+var
+  P: string;
+  Body, Heads: TGSurface;
+begin
+  P := AssetPath('sprites.gif');
+  if P = '' then P := AssetPath('link.gif');
+  if P = '' then Exit;
+  Body := TGSurface.Create(0, 0);
+  Heads := TGSurface.Create(0, 0);
+  try
+    if not LoadImageFile(P, Body) then
+    begin
+      Log('warning: cannot load ' + P);
+      Exit;
     end;
+    P := AssetPath('heads.gif');
+    if (P = '') or not LoadImageFile(P, Heads) then FreeAndNil(Heads);
+    if not FArt.Setup(Arrays, FArrayCount, Body, Heads) then
+      Log('warning: no player tables in arrays.dat');
+  finally
+    Body.Free;
+    Heads.Free;
   end;
 end;
 
@@ -971,9 +1012,22 @@ var
   Spr: TGraalAniSprite;
   Img: TGSurface;
   SheetName: string;
+  Tint: TBetaColors;
+  Group: Integer;
 begin
   BX := Round(P.X * TileSize) - CamX;
   BY := Round(P.Y * TileSize) - CamY;
+  if FArt.Ready then
+  begin
+    { the local player in its character's colours, partners in the
+      colours they sent }
+    for I := 0 to 4 do
+      if P = Player then Tint[I] := ColorTable[BetaNickColors[I]]
+      else Tint[I] := ColorTable[P.Colors[I] mod 20];
+    Group := TBetaPlayerArt.GroupOf(P.Sprite div 4);
+    FArt.Draw(Screen, BX, BY, Group, P.Dir, P.Head, P.ShieldPower, Tint);
+    Exit;
+  end;
   A := Assets.Ani(P.AniName);
   if A = nil then A := Assets.Ani('idle');
   if A = nil then

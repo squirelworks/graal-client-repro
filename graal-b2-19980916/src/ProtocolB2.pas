@@ -95,8 +95,10 @@ const
   HudStartRupees = 0;
 
 const
-  { where One Player puts the player in the start level: measured on the real client's first frame, the middle of house1's room }
-  OfflineStartX = '28.5';
+  { where One Player puts the player in the start level: measured on the
+    real client's first frame (Windows 11, 2026-11-05 captures), beside
+    the left bed of house1's room, four tiles left of the room's middle }
+  OfflineStartX = '24.5';
   OfflineStartY = '30';
 
 implementation

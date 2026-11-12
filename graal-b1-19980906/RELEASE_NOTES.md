@@ -35,6 +35,9 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 - [ ] Complete the remaining pushing, ledge/hop and exceptional movement
   states; this geometry correction does not certify the whole movement loop.
 
+- [x] **The player as the original draws it.** The player is drawn from your install's own body sheet and `heads.gif`, posed by the tables of its `arrays.dat`, instead of the project's stand-in art. The 1st and 2nd Graal draw the sheet in its own colours, with the shield.
+- [x] **Start spot.** One Player starts beside the left bed in house1, as the real client does, not between the beds.
+
 ## What's new in v0.0.4
 
 - Rebuilt from the latest code; the changes for this client are listed here as they land.
