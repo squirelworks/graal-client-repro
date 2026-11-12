@@ -1,0 +1,99 @@
+#!/bin/sh
+# Lab check against an owner-supplied Linux 3.04 install. Nothing here is
+# shipped in the repository: point TORQUE304_RELEASE at the install's
+# release/ folder and TORQUE304_SHOT at the stage 0 main-menu screenshot
+# (1024x768, menu at the top left). Skips when TORQUE304_RELEASE is unset.
+#
+# Expected values are this project's own measurements of those files
+# (README.md, "Lab results").
+set -u
+INSPECT=${1:-build/gui-inspect}
+if [ -z "${TORQUE304_RELEASE:-}" ]; then
+  echo "lab_check: TORQUE304_RELEASE not set, skipped"
+  exit 0
+fi
+UI="$TORQUE304_RELEASE/common/ui"
+fail=0
+
+check_font() {  # file, expected first line
+  got=$("$INSPECT" font "$UI/cache/$1" | head -n 1)
+  if [ "$got" != "$2" ]; then echo "FAIL font $1: $got"; fail=1; fi
+}
+check_font "Arial_12.gft"          "version 1 height 12 baseline 9 glyphs 224 mapped 224 sheets 1"
+check_font "Arial_13.gft"          "version 1 height 13 baseline 10 glyphs 224 mapped 224 sheets 1"
+check_font "Arial_14.gft"          "version 1 height 14 baseline 11 glyphs 224 mapped 224 sheets 1"
+check_font "Arial_16.gft"          "version 1 height 16 baseline 13 glyphs 224 mapped 224 sheets 1"
+check_font "Arial_20.gft"          "version 1 height 19 baseline 15 glyphs 224 mapped 224 sheets 1"
+check_font "Arial_24.gft"          "version 1 height 24 baseline 19 glyphs 224 mapped 224 sheets 1"
+check_font "Arial_36.gft"          "version 1 height 36 baseline 29 glyphs 224 mapped 224 sheets 2"
+check_font "Arial Bold_14.gft"     "version 1 height 10 baseline 8 glyphs 224 mapped 224 sheets 1"
+check_font "Arial Bold_16.gft"     "version 1 height 16 baseline 13 glyphs 224 mapped 224 sheets 1"
+check_font "Isabelle_14.gft"       "version 1 height 10 baseline 8 glyphs 224 mapped 224 sheets 1"
+check_font "Isabelle_20.gft"       "version 1 height 20 baseline 16 glyphs 224 mapped 224 sheets 1"
+check_font "Isabelle Bold_14.gft"  "version 1 height 10 baseline 8 glyphs 224 mapped 224 sheets 1"
+check_font "Lucida Console_12.gft" "version 1 height 12 baseline 9 glyphs 224 mapped 224 sheets 1"
+check_font "Lucida Console_14.gft" "version 1 height 14 baseline 11 glyphs 224 mapped 224 sheets 1"
+
+check_array() {  # theme/file, expected cells, expected bands
+  got=$("$INSPECT" array "$UI/themes/$1" | head -n 1 | sed 's/.* cells \([0-9]*\) bands \([0-9]*\)$/\1 \2/')
+  if [ "$got" != "$2 $3" ]; then echo "FAIL array $1: $got, expected $2 $3"; fail=1; fi
+}
+while read -r name cells bands; do
+  check_array "$name" "$cells" "$bands"
+done <<'LIST'
+default/default3darrow.png 1 1
+default/defaultBorder.png 8 2
+default/defaultButton.png 36 12
+default/defaultCheck.png 4 4
+default/defaultCursor.png 1 1
+default/defaultGuiBorder.png 9 3
+default/defaultMenu.png 18 6
+default/defaultRadio.png 4 4
+default/defaultScroll.png 52 12
+default/defaultSlider.png 5 2
+default/defaultTextEdit.png 8 3
+default/defaultWindow.png 24 8
+mac/macCheck.png 4 4
+mac/macMenu.png 18 6
+mac/macRadio.png 4 4
+mac/macScroll.png 39 13
+mac/macWindow.png 23 7
+windows/windowsBorder.png 8 2
+windows/windowsButton.png 36 12
+windows/windowsCheck.png 4 4
+windows/windowsCursor.png 1 1
+windows/windowsGuiBorder.png 9 3
+windows/windowsMenu.png 18 6
+windows/windowsRadio.png 4 4
+windows/windowsScroll.png 51 11
+windows/windowsSlider.png 5 2
+windows/windowsTextEdit.png 8 3
+windows/windowsWindow.png 23 7
+LIST
+
+if [ -n "${TORQUE304_SHOT:-}" ]; then
+  # Button labels sit on a flat fill, so the composited text must match the
+  # screenshot pixel for pixel. The other labels sit on textured art and
+  # are held to the glyph mask only.
+  check_text() {  # font, text, x, y, measure (mask|exact), minimum
+    line=$("$INSPECT" match "$UI/cache/$1" "$2" "$TORQUE304_SHOT" "$3" "$4")
+    got=$(printf '%s\n' "$line" | sed "s/.*$5 \([0-9.]*\).*/\1/")
+    if ! awk -v g="$got" -v m="$6" 'BEGIN { exit !(g + 0 >= m + 0) }'; then
+      echo "FAIL text '$2' at $3,$4: $line ($5 below $6)"; fail=1
+    else
+      echo "text '$2' at $3,$4: $line"
+    fi
+  }
+  check_text Arial_14.gft "Tutorial"          575 310 exact 1
+  check_text Arial_14.gft "Options"           574 341 exact 1
+  check_text Arial_14.gft "Get an account"    553 372 exact 1
+  check_text Arial_14.gft "Start"             581 433 exact 1
+  check_text Arial_14.gft "Account:"          201 418 mask 0.98
+  check_text Arial_14.gft "Password:"         201 451 mask 0.98
+  check_text Arial_20.gft "Welcome to Graal!" 266 299 mask 0.92
+else
+  echo "lab_check: TORQUE304_SHOT not set, screenshot text skipped"
+fi
+
+if [ "$fail" -ne 0 ]; then exit 1; fi
+echo "lab_check: passed"
