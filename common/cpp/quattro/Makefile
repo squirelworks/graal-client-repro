@@ -17,7 +17,7 @@ CACHE = cache/des.cpp cache/grescr.cpp
 # The software canvas and PNG reader are shared with the Torque GUI layer.
 TGUI = ../../torque/gui/image.cpp ../../torque/gui/canvas.cpp ../../torque/gui/gft.cpp ../../torque/gui/bitmap_array.cpp
 FILES = files/level.cpp files/gani.cpp
-DRAW = draw/world.cpp draw/assets.cpp draw/ui_font.cpp draw/ui_font_data.cpp $(TGUI)
+DRAW = draw/world.cpp draw/assets.cpp draw/body_colors.cpp draw/ui_font.cpp draw/ui_font_data.cpp $(TGUI)
 GS2 = ../gs2/loader.cpp ../gs2/machine.cpp ../gs2/var.cpp ../gs2/startscripts.cpp ../gs2/engine_commands.cpp ../gs2/delivery.cpp ../gs2/gui.cpp ../gs2/gui_draw.cpp ../gs2/emitter.cpp
 SHELL_SRC = shell/program.cpp shell/scripts.cpp shell/gui_host.cpp world/player.cpp world/walk.cpp $(GS2) $(CACHE)
 HDRS = $(wildcard net/*.hpp cache/*.hpp files/*.hpp draw/*.hpp shell/*.hpp world/*.hpp tests/*.hpp ../../torque/gui/*.hpp ../gs2/*.hpp)

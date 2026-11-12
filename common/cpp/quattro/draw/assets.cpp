@@ -1,5 +1,7 @@
 #include "assets.hpp"
 
+#include "body_colors.hpp"
+
 #include <cctype>
 
 namespace Quattro::Draw {
@@ -43,6 +45,7 @@ const Torque::Gui::Image* Assets::image(const std::string& name) {
   if (read(name, bytes) || (key != name && read(key, bytes))) {
     img = std::make_unique<Torque::Gui::Image>();
     if (!Torque::Gui::decode_png(bytes, *img, err)) img.reset();
+    else palettes_[key] = png_palette(bytes);
   }
   return (images_[key] = std::move(img)).get();
 }
@@ -65,8 +68,21 @@ void Assets::put_gani(const std::string& name, Files::Gani g) {
   ganis_[lower(name)] = std::make_unique<Files::Gani>(std::move(g));
 }
 
-void Assets::put_image(const std::string& name, Torque::Gui::Image img) {
+void Assets::put_image(const std::string& name, Torque::Gui::Image img, std::vector<Torque::Gui::Color> palette) {
   images_[lower(name)] = std::make_unique<Torque::Gui::Image>(std::move(img));
+  palettes_[lower(name)] = std::move(palette);
+}
+
+const Torque::Gui::Image* Assets::body(const std::string& name, const std::array<int, 5>& colors) {
+  const Torque::Gui::Image* src = image(name);
+  if (!src) return nullptr;
+  const auto& pal = palettes_[lower(name)];
+  if (pal.empty()) return src;
+  std::string key = lower(name);
+  for (int c : colors) key += "," + std::to_string(c);
+  auto it = bodies_.find(key);
+  if (it != bodies_.end()) return it->second.get();
+  return (bodies_[key] = std::make_unique<Torque::Gui::Image>(recolour_body(*src, pal, colors))).get();
 }
 
 }  // namespace Quattro::Draw

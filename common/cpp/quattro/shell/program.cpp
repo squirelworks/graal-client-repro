@@ -100,6 +100,7 @@ Draw::Actor Program::actor_for(int id, const World::Player& p) {
   a.sword = p.sword_image;
   a.shield = p.shield_image;
   for (size_t i = 1; i < a.attr.size(); ++i) a.attr[i] = p.attr[i];
+  for (size_t i = 0; i < a.colors.size(); ++i) a.colors[i] = p.colors[i];
   // A gani plays from the tick it was set.
   auto& start = gani_start_[id];
   if (start.first != a.gani) start = {a.gani, frame_};
