@@ -1,0 +1,49 @@
+name: gs2-vm
+
+on:
+  pull_request:
+    paths:
+      - 'common/cpp/gs2/**'
+      - '.github/workflows/gs2-vm.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'common/cpp/gs2/**'
+      - '.github/workflows/gs2-vm.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gs2-vm-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    # macOS is built and tested on the lab Sequoia VM, not on GitHub runners
+    # (AGENTS.md, "macOS builds").
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install zlib
+        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev
+      - name: Build and test the GS2 machine
+        run: make -C common/cpp/gs2 test
+      - name: Check with address and undefined behavior sanitizers
+        run: |
+          make -C common/cpp/gs2 clean
+          make -C common/cpp/gs2 test CXXFLAGS='-std=c++17 -Wall -Wextra -Werror -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer'
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: make mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-zlib
+      - name: Build and test the GS2 machine
+        shell: msys2 {0}
+        run: make -C common/cpp/gs2 test
