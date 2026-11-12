@@ -8,6 +8,7 @@
 set -eu
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 B=$1
+. "$ROOT/scripts/client-bin.sh"
 WORK=$(mktemp -d)
 PORT=${LOOPBACK_RELAY_PORT:-14863}
 python3 "$ROOT/scripts/relay98.py" --port "$PORT" --levels local \
@@ -15,7 +16,7 @@ python3 "$ROOT/scripts/relay98.py" --port "$PORT" --levels local \
 PID=$!
 trap 'kill $PID 2>/dev/null || true; rm -rf "$WORK"' EXIT
 sleep 1
-CLIENT=$(ls "$ROOT/build/$B"/Graal* | head -1)
+CLIENT=$(client_bin)
 set +e
 "$CLIENT" --server 127.0.0.1:$PORT --nick loop1 --frames 100 \
   --keys "wait*30,right*6,down*4,wait*5" --dump "$ROOT/build/$B/loopback.bmp" \
