@@ -131,8 +131,8 @@ Rebuild policy, not read from the original:
   control reads itself (input stage, see `../console/engine` stage 3).
 - [ ] Sword, grab, items, map, voice, PMs, the player list and profiles, sound
   (stage 5, 2D parity).
-- [ ] Walking on the offline tutorial: 3.04 ships no `arrays.dat`, and the
-  built-in tile types block the `picso.png` tutorial board.
+- [x] Walking on the offline tutorial (3.04's `picso.png` row rule). Online
+  levels need 2.22's `arrays.dat` beside the install (see the 3.04 README).
 - [ ] Windows and macOS: the loader has a Windows branch but the library is
   only built and run on Linux so far, and the window is X11 only.
 

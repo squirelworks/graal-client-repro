@@ -17,7 +17,7 @@ namespace {
 int usage() {
   std::fprintf(stderr,
                "usage: quattro-play --build LABEL --connect HOST:PORT --account NAME --password-env VAR\n"
-               "                    [--assets DIR] [--size WxH] [--headless] [--seconds N] [--shot FILE.png]\n");
+               "                    [--assets DIR] [--program FILE] [--size WxH] [--headless] [--seconds N] [--shot FILE.png]\n");
   return 2;
 }
 }  // namespace
@@ -35,6 +35,7 @@ int main(int argc, char** argv) {
     else if (a == "--account") opt.account = next();
     else if (a == "--password-env") pw_env = next();
     else if (a == "--assets") opt.assets = next();
+    else if (a == "--program") opt.program = next();
     else if (a == "--headless") headless = true;
     else if (a == "--seconds") seconds = std::atoi(next().c_str());
     else if (a == "--shot") shot = next();

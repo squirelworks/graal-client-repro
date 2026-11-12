@@ -17,9 +17,9 @@ CACHE = cache/des.cpp cache/grescr.cpp
 # The software canvas and PNG reader are shared with the Torque GUI layer.
 TGUI = ../../torque/gui/image.cpp ../../torque/gui/canvas.cpp ../../torque/gui/gft.cpp ../../torque/gui/bitmap_array.cpp
 FILES = files/level.cpp
-DRAW = draw/world.cpp $(TGUI)
-GS2 = ../gs2/loader.cpp ../gs2/machine.cpp ../gs2/var.cpp
-SHELL_SRC = shell/program.cpp shell/scripts.cpp world/player.cpp world/walk.cpp $(GS2) $(CACHE)
+DRAW = draw/world.cpp draw/ui_font.cpp draw/ui_font_data.cpp $(TGUI)
+GS2 = ../gs2/loader.cpp ../gs2/machine.cpp ../gs2/var.cpp ../gs2/startscripts.cpp ../gs2/engine_commands.cpp ../gs2/delivery.cpp ../gs2/gui.cpp ../gs2/gui_draw.cpp ../gs2/emitter.cpp
+SHELL_SRC = shell/program.cpp shell/scripts.cpp shell/gui_host.cpp world/player.cpp world/walk.cpp $(GS2) $(CACHE)
 HDRS = $(wildcard net/*.hpp cache/*.hpp files/*.hpp draw/*.hpp shell/*.hpp world/*.hpp tests/*.hpp ../../torque/gui/*.hpp ../gs2/*.hpp)
 
 .PHONY: all test clean
@@ -49,13 +49,16 @@ build/props-test: $(NET) world/player.cpp world/walk.cpp $(FILES) $(HDRS) tests/
 build/scripts-test: $(NET) $(SHELL_SRC) $(HDRS) tests/scripts_test.cpp | build
 	$(CXX) $(CXXFLAGS) $(NET) shell/scripts.cpp $(GS2) $(CACHE) tests/scripts_test.cpp -o $@ $(LIBS)
 
+build/gui-test: $(NET) $(FILES) $(DRAW) $(SHELL_SRC) $(HDRS) draw/window_x11.cpp tests/gui_host_test.cpp | build
+	$(CXX) $(CXXFLAGS) $(NET) $(FILES) $(DRAW) $(SHELL_SRC) draw/window_x11.cpp tests/gui_host_test.cpp -o $@ $(LIBS) -pthread
+
 build/quattro-session: $(NET) $(HDRS) tools/quattro_session.cpp | build
 	$(CXX) $(CXXFLAGS) $(NET) tools/quattro_session.cpp -o $@ $(LIBS)
 
 build/quattro-play: $(NET) $(FILES) $(DRAW) $(SHELL_SRC) $(HDRS) draw/window_x11.cpp tools/quattro_play.cpp | build
 	$(CXX) $(CXXFLAGS) $(X11_DEFS) $(NET) $(FILES) $(DRAW) $(SHELL_SRC) draw/window_x11.cpp tools/quattro_play.cpp -o $@ $(LIBS) $(X11_LIBS)
 
-test: build/codec-test build/cache-test build/session-test build/level-test build/props-test build/scripts-test build/program-test build/quattro-session build/quattro-play
+test: build/codec-test build/cache-test build/session-test build/level-test build/props-test build/scripts-test build/program-test build/gui-test build/quattro-session build/quattro-play
 	./build/codec-test
 	./build/cache-test
 	./build/session-test
@@ -63,6 +66,7 @@ test: build/codec-test build/cache-test build/session-test build/level-test buil
 	./build/props-test
 	./build/scripts-test
 	./build/program-test
+	./build/gui-test
 	./build/quattro-session --list | grep -q 'G3D0511C'
 
 clean:

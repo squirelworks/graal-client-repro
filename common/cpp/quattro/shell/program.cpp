@@ -50,6 +50,25 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
   };
   world_.player.x = 30;
   world_.player.y = 30;
+  gui_ = std::make_unique<GuiHost>(scripts_.machine());
+  gui_->screen().setSize(opt_.width, opt_.height);
+  std::vector<std::string> dirs;
+  if (!opt_.assets.empty())
+    for (const char* sub : {"", "/gui", "/images", "/levels", "/levels/images"}) dirs.push_back(opt_.assets + sub);
+  painter_ = std::make_unique<CanvasPainter>(canvas_, dirs);
+  painter_->on_engine_control = [this](const gs2::gui::Control& c, const gs2::gui::Rect& r) {
+    // The playfield: the world passes inside the control's rectangle.
+    if (c.type() != "GuiGraalCtrl" && c.type() != "guigraalctrl") return;
+    canvas_.push_clip({r.x, r.y, r.w, r.h});
+    renderer_.draw(canvas_, world_, Draw::follow(world_, canvas_.width(), canvas_.height()),
+                   [this](const std::string& name) { passes_.push_back(name); });
+    canvas_.pop_clip();
+  };
+  if (!opt_.program.empty()) {
+    std::string err;
+    int n = gui_->load_start_scripts(opt_.program, err);
+    if (log) log(n ? "start scripts: " + std::to_string(n) : err);
+  }
 
   if (!opt_.assets.empty()) {
     std::vector<std::uint8_t> bytes;
@@ -197,7 +216,10 @@ bool Program::tick() {
   if (window_.title() != window_title()) window_.set_title(window_title());
 
   for (Draw::Key k = window_.poll_key(); k != Draw::Key::NoKey; k = window_.poll_key()) {
-    if (k == Draw::Key::Close || k == Draw::Key::Escape) quit_ = true;
+    if (k == Draw::Key::Close || (k == Draw::Key::Escape && !gui_->has_content())) quit_ = true;
+  }
+  for (Draw::InputEvent e; window_.poll_input(e);) {
+    if (gui_->has_content()) gui_->input(e);
   }
   // Walking: half a tile per held arrow per tick, against the walls.
   if (!world_.lobby) {
@@ -221,9 +243,19 @@ bool Program::tick() {
   }
 
   scripts_.tick();
+  gui_->pick_content();
+  gui_->screen().advance(0.05);  // the show-images' emitters, one 50 ms tick
   passes_.clear();
-  renderer_.draw(canvas_, world_, Draw::follow(world_, canvas_.width(), canvas_.height()),
-                 [this](const std::string& name) { passes_.push_back(name); });
+  if (gui_->has_content()) {
+    // RenderGUI: the content and dialogs; the world shows in the playfield.
+    canvas_.clear({0, 0, 0, 255});
+    gs2::gui::drawScreen(gui_->screen(), *painter_);
+    painter_->reset_clip();
+    passes_.push_back("RenderGUI");
+  } else {
+    renderer_.draw(canvas_, world_, Draw::follow(world_, canvas_.width(), canvas_.height()),
+                   [this](const std::string& name) { passes_.push_back(name); });
+  }
   window_.present(canvas_.surface());
   return !quit_;
 }
