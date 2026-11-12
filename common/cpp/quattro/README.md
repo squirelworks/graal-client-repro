@@ -50,9 +50,9 @@ this program. This directory does.
 | `tools/` | (none) | `quattro-session` logs a session; `quattro-play` runs the program in a window or headless (`--shot` writes the last frame as PNG) |
 | `files/` | levels and packages | **done**: `GR-V1.00`–`1.05` (1.05 board layers), the 101 board packet, links, chests, signs. Packages next |
 | `draw/` | the draw passes and the window | **done**: the world passes in the original's order on a software canvas (shared with `common/torque/gui`), the lobby rule, an Xlib window and a headless window. Ganis, HUD and the GUI pass next |
-| `shell/` | the program loop, `StartScript_*`, `GuiGraalCtrl` | **started**: the 50 ms loop, level name/board/links/chests from the session, window title per server, and the script host on `gs2::Machine` (140, 197 with the `GRESCR01` cache, 33/34, 190). Next: the `StartScript_*` shell dialogs |
+| `shell/` | the program loop, `StartScript_*`, `GuiGraalCtrl` | **started**: the 50 ms loop, level name/board/links/chests from the session, window title per server, and the script host on `gs2::Machine` (140, 197 with the `GRESCR01` cache, 33/34, 190), and the GUI host: `StartScript_*` read from the player's own program file (`--program`), `MainMenuGui2D` as the content, the world drawn in its `GuiGraalCtrl`, mouse and keys from the window. The show-image emitters run each tick and draw through the painter (add, transparent, subtract, day-night). Next: the engine actions and `GuiShowImgCtrl` animations |
 | `world/` | `TServerPlayer` and the props | **done**: the prop stream of 9 and 8 (the 2.22 table plus X2/Y2/Z2), the initial props after login, and the X2/Y2 movement diff each tick; walking against `arrays.dat` walls and chests with the six-point box, the corner nudge, and `push` with 38 `pushed,0` |
-| `gui/` | the GS2 controls | after the shell |
+| `gui/` | the GS2 controls | in `common/cpp/gs2` (`gui.hpp`, B4): one control tree for 4.x to 6.x; Quattro paints it on its canvas (`shell/gui_host`) |
 
 The split with Track B: `common/cpp/gs2/` owns the bytecode loader, the
 machine, `TGraalVar` objects and classes (namespace `gs2`). This program
@@ -98,6 +98,7 @@ measurements (Seihai issue 444) are the next input for this.
 - Upper board layers treat tile 0 as empty; each layer's bit stream starts
   on a new byte. The 5.x note gives the layer count and boards, not these.
 - Walls come from `arrays.dat` in `--assets` (array 0 passable, array 1 liquids). With no `arrays.dat` every tile is passable; where 6.x reads its own table was not seen in the lab. The 0.0625 snap after a step is left out.
+- GUI text uses the built-in Liberation Sans 16 px faces (the same tables as `common/GUiFont.pas`) in place of the player's TrueType faces; GUI bitmaps are read as PNG from `--assets` and its `gui`, `images` and `levels` folders. The playfield follows the player over the whole window and is clipped to the `GuiGraalCtrl`.
 - The initial props send nickname "unknown", as the lab's 6.03r7 did with no nickname set.
 
 - Receive limits: 16 MiB per frame and 4 MiB of unfinished message. The

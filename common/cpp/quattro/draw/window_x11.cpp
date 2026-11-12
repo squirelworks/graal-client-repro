@@ -6,6 +6,7 @@
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
 
+#include <cctype>
 #include <cstdlib>
 #include <cstring>
 #include <deque>
@@ -27,7 +28,7 @@ class X11Window : public Window {
     hints.min_width = hints.max_width = w;
     hints.min_height = hints.max_height = h;
     XSetWMNormalHints(d_, win_, &hints);
-    XSelectInput(d_, win_, KeyPressMask | KeyReleaseMask | ExposureMask | StructureNotifyMask);
+    XSelectInput(d_, win_, KeyPressMask | KeyReleaseMask | ButtonPressMask | ExposureMask | StructureNotifyMask);
     wm_delete_ = XInternAtom(d_, "WM_DELETE_WINDOW", False);
     XSetWMProtocols(d_, win_, &wm_delete_, 1);
     gc_ = XCreateGC(d_, win_, 0, nullptr);
@@ -72,6 +73,15 @@ class X11Window : public Window {
       XNextEvent(d_, &e);
       if (e.type == ClientMessage && static_cast<Atom>(e.xclient.data.l[0]) == wm_delete_) {
         keys_.push_back(Key::Close);
+      } else if (e.type == ButtonPress && e.xbutton.button == Button1) {
+        InputEvent in;
+        in.type = InputEvent::MouseDown;
+        in.x = e.xbutton.x;
+        in.y = e.xbutton.y;
+        // Two presses within 300 ms count as a double click.
+        in.clicks = (e.xbutton.time - last_click_ < 300) ? 2 : 1;
+        last_click_ = e.xbutton.time;
+        input_.push_back(in);
       } else if (e.type == KeyPress || e.type == KeyRelease) {
         // Skip the release half of an auto-repeat pair.
         if (e.type == KeyRelease && XEventsQueued(d_, QueuedAfterReading)) {
@@ -79,6 +89,7 @@ class X11Window : public Window {
           XPeekEvent(d_, &n);
           if (n.type == KeyPress && n.xkey.time == e.xkey.time && n.xkey.keycode == e.xkey.keycode) continue;
         }
+        gui_key(e);
         Key k = map(XLookupKeysym(&e.xkey, 0));
         if (k == Key::NoKey) continue;
         if (e.type == KeyPress) {
@@ -96,6 +107,51 @@ class X11Window : public Window {
   }
 
   bool held(Key k) const override { return down_.count(k) != 0; }
+
+  bool poll_input(InputEvent& e) override {
+    if (input_.empty()) return false;
+    e = input_.front();
+    input_.pop_front();
+    return true;
+  }
+
+  // The Torque name of a key, and its character.
+  void gui_key(XEvent& e) {
+    char buf[8] = {0};
+    KeySym sym = 0;
+    int n = XLookupString(&e.xkey, buf, sizeof buf - 1, &sym, nullptr);
+    std::string name;
+    switch (sym) {
+      case XK_Return: case XK_KP_Enter: name = "enter"; break;
+      case XK_Escape: name = "escape"; break;
+      case XK_BackSpace: name = "backspace"; break;
+      case XK_Tab: name = "tab"; break;
+      case XK_space: name = "space"; break;
+      case XK_Left: name = "left"; break;
+      case XK_Right: name = "right"; break;
+      case XK_Up: name = "up"; break;
+      case XK_Down: name = "down"; break;
+      case XK_Delete: name = "delete"; break;
+      case XK_Home: name = "home"; break;
+      case XK_End: name = "end"; break;
+      default:
+        if (sym >= XK_F1 && sym <= XK_F12) name = "f" + std::to_string(sym - XK_F1 + 1);
+        else if (n == 1 && buf[0] > 32 && buf[0] < 127) name = std::string(1, static_cast<char>(std::tolower(static_cast<unsigned char>(buf[0]))));
+    }
+    if (name.empty()) return;
+    InputEvent in;
+    in.type = e.type == KeyPress ? InputEvent::KeyDown : InputEvent::KeyUp;
+    in.key = name;
+    in.ch = (n == 1 && static_cast<unsigned char>(buf[0]) >= 32) ? static_cast<unsigned char>(buf[0]) : 0;
+    unsigned st = e.xkey.state;
+    std::string mods;
+    auto add = [&](const char* m) { mods += mods.empty() ? m : std::string(" ") + m; };
+    if (st & ShiftMask) add("shift");
+    if (st & ControlMask) add("ctrl");
+    if (st & Mod1Mask) add("alt");
+    in.mods = mods;
+    input_.push_back(in);
+  }
   const std::string& title() const override { return title_; }
 
  private:
@@ -119,6 +175,8 @@ class X11Window : public Window {
   std::vector<uint32_t> pixels_;
   std::string title_;
   std::deque<Key> keys_;
+  std::deque<InputEvent> input_;
+  Time last_click_ = 0;
   std::set<Key> down_;
 };
 
