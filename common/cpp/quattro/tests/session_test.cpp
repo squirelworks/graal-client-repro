@@ -150,7 +150,6 @@ void test_warp_parse() {
   ServerWarp w;
   CHECK(parse_server_warp("0,Lab Server,127.0.0.1,14900", w));
   CHECK(w.name == "Lab Server" && w.host == "127.0.0.1" && w.port == 14900);
-  CHECK(parse_server_warp("0,\"A, B\",127.0.0.1,1", w) && w.name == "A, B");
   CHECK(!parse_server_warp("0,x,127.0.0.1", w));
   CHECK(!parse_server_warp("0,x,127.0.0.1,99999", w));
   CHECK(!parse_server_warp("0,x,,14900", w));

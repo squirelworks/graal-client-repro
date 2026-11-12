@@ -87,7 +87,7 @@ struct ServerWarp {
   std::string host;
   uint16_t port = 0;
 };
-// Parses a 178 body ("x,name,host,port"). Quoted fields are unquoted.
+// Parses a 178 body ("x,name,host,port"), split on commas only.
 bool parse_server_warp(std::string_view body, ServerWarp& out);
 
 // The session: connection, current server name, and the 178 reconnect.

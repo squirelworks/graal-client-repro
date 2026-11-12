@@ -125,13 +125,13 @@ void Connection::deliver(int id, std::string_view body) {
 }
 
 bool parse_server_warp(std::string_view body, ServerWarp& out) {
+  // Commas only: the lab's unquoted "0,Lab Server,127.0.0.1,14900" reached
+  // the named host under the name "Lab Server" in every lobby build
+  // (Seihai documentation/v5v6-profiles.md, from the 5.x and 6.x labs).
   std::vector<std::string> fields;
   std::string cur;
-  bool quoted = false;
   for (char c : body) {
-    if (c == '"') {
-      quoted = !quoted;
-    } else if (c == ',' && !quoted) {
+    if (c == ',') {
       fields.push_back(cur);
       cur.clear();
     } else {
