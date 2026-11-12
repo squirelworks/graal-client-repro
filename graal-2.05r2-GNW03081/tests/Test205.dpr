@@ -31,6 +31,13 @@ uses
   GFont in '../../common/GFont.pas',
   GWindow in '../../common/GWindow.pas',
   GStartScreen in '../../common/GStartScreen.pas',
+  GDfmObj in '../../common/GDfmObj.pas',
+  GVclForm in '../../common/GVclForm.pas',
+  GOptionsWindow in '../../common/GOptionsWindow.pas',
+  GUiFont in '../../common/GUiFont.pas',
+  GDfm in '../../common/GDfm.pas',
+  GRealStart20 in '../../common/GRealStart20.pas',
+  ResGraal205 in '../src/ResGraal205.pas',
   TestNpc205 in 'TestNpc205.pas',
   TestBaddy205 in 'TestBaddy205.pas';
 
@@ -1370,8 +1377,44 @@ begin
   end;
 end;
 
+{ F1: the Help window from the build's own TOptions form }
+procedure TestHelpForm;
+var
+  Img: TGSurface;
+  Data: string;
+  Form: TDfmNode;
+  I, Buttons, Mapped: Integer;
+begin
+  Img := TGSurface.Create(1, 1);
+  try
+    Check(RenderHelp20(ExeResource, 'tutorial_a1.graal', Img) and (Img.Width = 476) and
+      (Img.Height = 330), 'F1: the Help window draws at the form''s 476 x 330');
+  finally
+    Img.Free;
+  end;
+  Check(ExeResource('TOPTIONS', Data), 'F1: TOPTIONS is in the program');
+  Form := GDfm.ParseDfm(Data);
+  try
+    Check((Form <> nil) and (Form.Str('Caption') = 'Help'), 'F1: the window is titled Help');
+    Buttons := 0;
+    Mapped := 0;
+    if Form <> nil then
+      for I := 0 to Form.ChildCount - 1 do
+        if Form.Child(I).ClassName_ = 'TPaintButton' then
+        begin
+          Inc(Buttons);
+          if OptionsActionOf(Form.Child(I).Str('OnClick')) <> oaNone then Inc(Mapped);
+        end;
+    Check((Buttons = 8) and (Mapped = Buttons),
+      'F1: each of the eight buttons has its action (' + IntToStr(Mapped) + ' of ' + IntToStr(Buttons) + ')');
+  finally
+    Form.Free;
+  end;
+end;
+
 begin
   TestGTypes;
+  TestHelpForm;
   TestGen3Capture;
   TestLoginLine;
   TestZlib;

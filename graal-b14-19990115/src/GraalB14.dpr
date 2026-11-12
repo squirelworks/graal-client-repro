@@ -60,6 +60,7 @@ uses
   RunMode in 'RunMode.pas',
   GDfmObj in '../../common/GDfmObj.pas',
   GVclForm in '../../common/GVclForm.pas',
+  GOptionsWindow in '../../common/GOptionsWindow.pas',
   GBetaStart in '../../common/GBetaStart.pas',
   RealResB14 in 'RealResB14.pas'
 {$IFDEF MSWINDOWS}, Windows{$ENDIF};
@@ -208,6 +209,7 @@ end;
 
 function RunGame(GuiWin: TGWindow; const GuiNick: string): Integer;
 var
+  OptForm: string;
   G: TAdventure;
   Win: TGWindow;
   Script: TKeyScript;
@@ -272,6 +274,7 @@ begin
     Lvl := Arg('--level', '');
     if Lvl = '' then TrainingLevel(Data, Lvl);
     OK := G.LoadLevelFile(Lvl);
+    G.Asleep := OK and HasArg('--asleep');
     if OK then
     begin
       G.Player.X := StrToFloatDef(Arg('--x', OfflineStartX), 30);
@@ -334,6 +337,15 @@ begin
         begin
           Win.Pump;
           if Win.Closed or Win.Held[gkEscape] then Break;
+          { F1, and F6 as in 6th Graal to 1.1.9: the Options window, from
+            the form TOptions (GOptionsWindow) }
+          if Win.WasPressed(gkOptions) or Win.WasPressed(gkF6) then
+          begin
+            OptForm := '';
+            if RealResource('TOPTIONS', OptForm) then
+              RunOptionsWindow(OptForm, 'Graal', G.Level.Name);
+            if Win.Closed then Break;
+          end;
           G.Keys[DirUp] := Win.Held[gkUp];
           G.Keys[DirLeft] := Win.Held[gkLeft];
           G.Keys[DirDown] := Win.Held[gkDown];
@@ -481,6 +493,8 @@ begin
           TrainingLevel(Dir, Lvl);
           GuiArgs.Add('--level');
           GuiArgs.Add(Lvl);
+          { the start level (not the built-in stand-in): asleep in bed }
+          if not SameText(ExtractFileName(Lvl), 'start.nw') then GuiArgs.Add('--asleep');
         end
         else
         begin
@@ -587,6 +601,8 @@ begin
           TrainingLevel(Dir, Lvl);
           GuiArgs.Add('--level');
           GuiArgs.Add(Lvl);
+          { the start level (not the built-in stand-in): asleep in bed }
+          if not SameText(ExtractFileName(Lvl), 'start.nw') then GuiArgs.Add('--asleep');
         end;
         LastGameError := '';
         if (RunGame(Win, Choice.Nick) <> 0) and (Choice.Mode = bmOnline) and

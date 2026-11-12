@@ -37,7 +37,7 @@ unit GRealStart20;
 interface
 
 uses
-  Classes, GSurface, GWindow, GStartScreen, GDfm;
+  Classes, GSurface, GWindow, GStartScreen, GDfm, GOptionsWindow;
 
 type
   TResLookup = function(const Name: string; out Data: string): Boolean;
@@ -76,6 +76,18 @@ type
 function RunRealStart20(Win: TGWindow; Art: TRealStart20; Fetch: TListFetch;
   const Info: TStartInfo; const ListHost: string; ListPort: Integer;
   const Message: string; var R: TStartResult): Boolean;
+
+{ The in-game F1 window of the 2.0x clients, "Help": the form TOptions
+  (476 x 330, bsDialog, stay-on-top) with the current level and its
+  painted buttons (TPaintButton, each from its own Glyph.Data), drawn in a
+  window of its own until a button or Esc closes it. The form paints its
+  ground itself (FormPaint, not read); SCREENIMG1, the same size as the
+  form and the ground of the start window with the same clLime labels, is
+  used for it. The result is the button's action (GOptionsWindow); oaNone
+  for Close, Esc, the close box or a missing form. }
+function RunHelp20(Res: TResLookup; const LevelName: string): TOptionsAction;
+{ The same window drawn into Dest (for tests); False without the form. }
+function RenderHelp20(Res: TResLookup; const LevelName: string; Dest: TGSurface): Boolean;
 
 { The server list's icon for a listed name (0 gold, 1 under construction,
   -1 none) and the name as the list shows it. }
@@ -743,6 +755,129 @@ begin
     end
     else if (Chars[I] >= ' ') and (Chars[I] <= '~') and (Length(Text) < MaxLen) then
       Text := Text + Chars[I];
+end;
+
+{ ---- the F1 window ---- }
+
+procedure DrawHelp20(S: TGSurface; Form: TDfmNode; Back: TGSurface; Glyphs: TList;
+  const LevelName: string; Down: Integer);
+var
+  I: Integer;
+  N: TDfmNode;
+begin
+  S.Fill($FF004000);
+  if Back <> nil then S.Blit(Back, 0, 0, Back.Width, Back.Height, 0, 0);
+  for I := 0 to Form.ChildCount - 1 do
+  begin
+    N := Form.Child(I);
+    if not N.Bool('Visible', True) then Continue;
+    if N.ClassName_ = 'TLabel' then DrawLabel(S, N, N.Str('Caption'))
+    else if N.ClassName_ = 'TEdit' then
+    begin
+      if SameText(N.Name, 'LevelEdit') then DrawBox(S, N, LevelName, False)
+      else DrawBox(S, N, N.Str('Text'), False);
+    end
+    else if N.ClassName_ = 'TPaintButton' then
+      PicButton(S, TGSurface(Glyphs[I]), N.Int('Left'), N.Int('Top'), N.Str('Caption'),
+        I = Down, Bold(N));
+  end;
+end;
+
+function RunHelp20(Res: TResLookup; const LevelName: string): TOptionsAction;
+var
+  Form, N: TDfmNode;
+  Back: TGSurface;
+  Glyphs: TList;
+  Win: TGWindow;
+  S: TGSurface;
+  D, Caption, Chars: string;
+  I, CX, CY, W, H, Down: Integer;
+  DownUntil: Int64;
+  A: TOptionsAction;
+begin
+  Result := oaNone;
+  if not Res('TOPTIONS', D) then Exit;
+  Form := ParseDfm(D);
+  if Form = nil then Exit;
+  Back := nil;
+  if Res('SCREENIMG1', D) then Back := Picture(D, '.jpg', False);
+  Glyphs := TList.Create;
+  W := Form.Int('ClientWidth', 476);
+  H := Form.Int('ClientHeight', 330);
+  Caption := Form.Str('Caption', 'Help');
+  Win := TGWindow.Create(Caption, W, H);
+  S := TGSurface.Create(W, H);
+  try
+    for I := 0 to Form.ChildCount - 1 do Glyphs.Add(Glyph(Form.Child(I)));
+    if not Win.Ok then Exit;
+    Win.Reshape(Caption, W, H, True);
+    Down := -1;
+    DownUntil := 0;
+    while True do
+    begin
+      Win.Pump;
+      if Win.Closed then Exit;
+      Chars := Win.TakeChars;
+      if Pos(#27, Chars) > 0 then Exit;
+      { a button acts once its press has been shown }
+      if (Down >= 0) and (NowMs >= DownUntil) then
+      begin
+        A := OptionsActionOf(Form.Child(Down).Str('OnClick'));
+        if A = oaClose then A := oaNone;
+        Result := A;
+        Exit;
+      end;
+      if (Down < 0) and Win.TakeClick(CX, CY) then
+        for I := 0 to Form.ChildCount - 1 do
+        begin
+          N := Form.Child(I);
+          if (N.ClassName_ = 'TPaintButton') and N.Bool('Visible', True) and Inside(N, CX, CY) and
+            (OptionsActionOf(N.Str('OnClick')) <> oaNone) then
+          begin
+            Down := I;
+            DownUntil := NowMs + 150;
+          end;
+        end;
+      DrawHelp20(S, Form, Back, Glyphs, LevelName, Down);
+      Win.Present(S);
+      Sleep(20);
+    end;
+  finally
+    for I := 0 to Glyphs.Count - 1 do TGSurface(Glyphs[I]).Free;
+    Glyphs.Free;
+    Back.Free;
+    S.Free;
+    Win.Free;
+    Form.Free;
+  end;
+end;
+
+function RenderHelp20(Res: TResLookup; const LevelName: string; Dest: TGSurface): Boolean;
+var
+  Form: TDfmNode;
+  Back: TGSurface;
+  Glyphs: TList;
+  D: string;
+  I: Integer;
+begin
+  Result := False;
+  if not Res('TOPTIONS', D) then Exit;
+  Form := ParseDfm(D);
+  if Form = nil then Exit;
+  Back := nil;
+  if Res('SCREENIMG1', D) then Back := Picture(D, '.jpg', False);
+  Glyphs := TList.Create;
+  try
+    for I := 0 to Form.ChildCount - 1 do Glyphs.Add(Glyph(Form.Child(I)));
+    Dest.SetSize(Form.Int('ClientWidth', 476), Form.Int('ClientHeight', 330));
+    DrawHelp20(Dest, Form, Back, Glyphs, LevelName, -1);
+    Result := True;
+  finally
+    for I := 0 to Glyphs.Count - 1 do TGSurface(Glyphs[I]).Free;
+    Glyphs.Free;
+    Back.Free;
+    Form.Free;
+  end;
 end;
 
 { ---- the windows ---- }

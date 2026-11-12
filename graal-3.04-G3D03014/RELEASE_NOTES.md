@@ -20,6 +20,7 @@ program works too (`graal-assets/3.04/`, then `graal-assets/common/`).
 
 ## What's new in v0.0.5
 
+- [x] **800 x 600 window.** The game opens at 800 x 600, as the real 3.04 does, not 640 x 480; the view shows more of the level, it is not scaled up.
 - The C++ host now shares first-frame framing and loopback transport with
   the other existing host. Version-specific wire fields stay in its adapter;
   independent codec and TCP delivery tests do not establish historical login.

@@ -16,6 +16,7 @@ bodies.
 
 ## What's new in v0.0.5
 
+- [x] **F1 Help window.** F1 opens "Help", drawn from the build's own form (TOptions) with its painted buttons and the current level. Edit level opens the editor; Load level, Debugger, Playerlist, ServerList, General options and Controls close it and do nothing yet. Its ground is the start window's picture, because the form paints its own and that routine was not read.
 - [x] **Neutral window titles.** The server list window is titled "Server List", not the original's caption, which named the original's host (#191).
 - [x] Shared GS1 variable storage releases its scalar and array values
 - [x] **Counted raw messages.** Every byte inside a RAWDATA count is kept, a final LF too, as 2.05r2 hands the whole count to its raw dispatcher; a file whose content ends in LF is no longer cut short.
