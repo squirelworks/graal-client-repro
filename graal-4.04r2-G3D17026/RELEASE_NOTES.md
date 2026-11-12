@@ -6,6 +6,8 @@ game engine. This rebuild runs on Linux and Windows. It is an early
 version: most of the game (NPCs, items, weapons, the script engine, the
 3D mode) is not there yet.
 
+> **Major defects in fidelity.** This client's Torque layer has not been rebuilt yet (its 3D mode runs on Torque), so this release does not behave like the original in many ways. It stays marked this way until the Torque behaviour rebuild (#109, #151, #172) reaches this build.
+
 **Login token: tested against the real client.** The original was run in the lab and `G3D17026` was seen in its login on the wire (lab run); this rebuild sends the same token.
 
 > **Not affiliated.** graal-delphi is an independent fan project. It is not
