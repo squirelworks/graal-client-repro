@@ -42,6 +42,7 @@ program GraalB7;
 uses
   SysUtils, Classes,
   GCompat in '../../common/GCompat.pas',
+  GPaths in '../../common/GPaths.pas',
   GNumText in '../../common/GNumText.pas',
   GTypes in '../../common/GTypes.pas',
   GSocket in '../../common/GSocket.pas',

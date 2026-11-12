@@ -9,6 +9,7 @@ program TestSoundMap231;
 uses
   SysUtils, Classes,
   GCompat in '../../common/GCompat.pas',
+  GPaths in '../../common/GPaths.pas',
   GNumText in '../../common/GNumText.pas',
   GTypes in '../../common/GTypes.pas',
   GSurface in '../../common/GSurface.pas',

@@ -2394,10 +2394,13 @@ begin
             SendInitialProps;
           end;
         end;
-      PLO_OTHERPLPROPS: { s id + prop stream; an unknown id adds the player }
+      PLO_OTHERPLPROPS: { c id + prop stream; an unknown id adds the player }
         begin
-          if Length(Data) < 2 then Exit;
-          V := R.ReadGShort;
+          { 1.28b2 sends the player id as one GCHAR; the two-byte id starts
+            with 1.36 (Graal_analysis, packet interface: one GCHAR through
+            1.35) }
+          if Length(Data) < 1 then Exit;
+          V := R.ReadGChar;
           OP := FindOther(V, True);
           OP.ApplyProps(R, True);
           if OP.Gone then RemoveOther(V);

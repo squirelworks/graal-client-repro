@@ -26,6 +26,7 @@ function ResFilePath(const Rel: string): string;
 implementation
 
 uses
+  GPaths,
   SysUtils, GPeRes, GAssetDirs;
 
 var
@@ -87,9 +88,9 @@ begin
   Result := '';
   Key := LowerCase(StringReplace(Rel, '\', '/', [rfReplaceAll]));
   if (Key = '') or (Pos('..', Key) > 0) or not Carried(Key) then Exit;
-  F := IncludeTrailingPathDelimiter(GetTempDir(False)) + 'graal-delphi-' +
-    ChangeFileExt(ExtractFileName(ParamStr(0)), '') + '-' + Stamp + PathDelim +
-    StringReplace(Key, '/', PathDelim, [rfReplaceAll]);
+  F := TempDir + 'graal-delphi-' +
+    ChangeFileExt(ExtractFileName(ParamStr(0)), '') + '-' + Stamp + DirSlash +
+    StringReplace(Key, '/', DirSlash, [rfReplaceAll]);
   if FileExists(F) then
   begin
     Result := F;
@@ -97,7 +98,7 @@ begin
   end;
   if not ResFile(Key, D) then Exit;
   try
-    ForceDirectories(ExtractFileDir(F));
+    MakeDirs(ExtractFileDir(F));
     S := TFileStream.Create(F + '.part', fmCreate);
     try
       if D <> '' then S.WriteBuffer(D[1], Length(D));
