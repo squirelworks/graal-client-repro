@@ -47,6 +47,12 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
   world_.lobby_tiles = profile_.login_draws_tiles;
   me_.nickname = "unknown";  // the lab's 6.03r7 sent "unknown" with no nickname set
   me_.language = opt_.language;
+  scripts_.set_send([this](int id, std::string_view body) { return session_.connection().send(id, body); });
+  scripts_.on_log = [this](const std::string& s) {
+    if (log) log(s);
+  };
+  world_.player.x = 30;
+  world_.player.y = 30;
 
   if (!opt_.assets.empty()) {
     std::vector<std::uint8_t> bytes;
@@ -89,6 +95,12 @@ void Program::load_local_level(const std::string& name) {
 }
 
 void Program::on_message(int id, std::string_view body) {
+  // The script cache is per server host (weblevels/<host>).
+  if (!opt_.assets.empty() && cache_server_ != session_.server_host()) {
+    cache_server_ = session_.server_host();
+    scripts_.set_cache_dir(opt_.assets + "/weblevels/" + cache_server_);
+  }
+  if (scripts_.on_message(id, body)) return;
   Net::Reader r(body);
   switch (id) {
     case 6:  // PLO_LEVELNAME
@@ -206,6 +218,7 @@ bool Program::tick() {
     world_.others.push_back({o.x, o.y, o.chat});
   }
 
+  scripts_.tick();
   passes_.clear();
   renderer_.draw(canvas_, world_, Draw::follow(world_, canvas_.width(), canvas_.height()),
                  [this](const std::string& name) { passes_.push_back(name); });
