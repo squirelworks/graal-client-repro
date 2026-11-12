@@ -76,7 +76,7 @@ Real builds the research has read (Graal_analysis
 `client-internals/version-tokens.md`) that have no folder here yet. Each
 needs a folder named by the folder naming rule.
 
-- [ ] GraalX (`GNW23021`, a 2.01 build with the `.nw` reader; #175)
+- [x] GraalX (`GNW23021`, a 2.01 build with the `.nw` reader; #175): `graal-x-GNW23021`
 - [ ] 5.12 Windows (`G3D14097`, Delphi launcher + engine)
 - [ ] 6.00 beta 1 Windows (`G3D03048`)
 - [ ] 6.00 beta 2 Windows (`G3D15010`)
@@ -84,7 +84,7 @@ needs a folder named by the folder naming rule.
 - [ ] 6.00r2 and 6.00r4 Windows (`G3D26090`)
 - [ ] 6.03r7 Windows (`G3D0311C`; the folder here is the Linux build)
 - [ ] Android vx: seven APK builds, Classic 1.7 and 1.8 among them (#177)
-- [ ] The 39ster client, a Windows C++/SDL/OpenGL host (#176)
+- [x] The 39ster client, a Windows C++/SDL/OpenGL host (#176): `graal-39ster-1.00`, an offline build with no token, so the folder carries its version alone
 
 5.30r3 shares the `graal-5.31r4-G3D26090` folder. 2.1.x, 2.2x before 2.22, 2.3
 and 6.036 have tokens or version strings only, no exe, so they wait for
