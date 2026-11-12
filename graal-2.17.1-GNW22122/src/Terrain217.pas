@@ -25,7 +25,7 @@ unit Terrain217;
 interface
 
 uses
-  GCompat, Classes, SysUtils, GSurface, GAssetDirs;
+  GCompat, Classes, SysUtils, GNumText, GSurface, GAssetDirs;
 
 const
   HeightPoints = 9;   { per side of a level's grid }
@@ -118,7 +118,7 @@ begin
           Row.DelimitedText := Trim(Lines[I]);
           for C := 0 to Row.Count - 1 do
             if C < HeightPoints then
-              G[R, C] := StrToFloatDef(Trim(Row[C]), 0, DefaultFormatSettings);
+              G[R, C] := DotTextToFloatDef(Trim(Row[C]), 0);
         end;
         Inc(R);
         Inc(I);

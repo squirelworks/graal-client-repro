@@ -541,7 +541,7 @@ function SpriteWalkStep(Sprite: Integer): Integer;
 implementation
 
 uses
-  SysUtils, Math, GFont, GSound, Sound231, Map231, NpcBridge231, GUiFont;
+  SysUtils, GNumText, Math, GFont, GSound, Sound231, Map231, NpcBridge231, GUiFont;
 
 const
   { rows of flat ground drawn below the screen, for heights to lift into
@@ -2759,7 +2759,7 @@ var
 begin
   Result := Keep;
   if (S = '') or (LowerCase(Copy(S, 1, 6)) = 'player') then Exit;
-  if not TryStrToFloat(S, V) then Exit;
+  if not TryDotTextToFloat(S, V) then Exit;
   if V >= 0 then Result := V;
 end;
 
@@ -3231,10 +3231,10 @@ begin
             if Words.Count >= 5 then
             begin
               L.Dest := Words[0];
-              L.X := Trunc(StrToFloatDef(Words[1], 0));
-              L.Y := Trunc(StrToFloatDef(Words[2], 0));
-              L.W := Trunc(StrToFloatDef(Words[3], 0));
-              L.H := Trunc(StrToFloatDef(Words[4], 0));
+              L.X := Trunc(DotTextToFloatDef(Words[1], 0));
+              L.Y := Trunc(DotTextToFloatDef(Words[2], 0));
+              L.W := Trunc(DotTextToFloatDef(Words[3], 0));
+              L.H := Trunc(DotTextToFloatDef(Words[4], 0));
               L.NewX := 'playerx';
               L.NewY := 'playery';
               if Words.Count >= 6 then L.NewX := Words[5];

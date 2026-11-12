@@ -379,7 +379,7 @@ procedure MakeIndexSheet(Sheet: TGSurface);
 implementation
 
 uses
-  SysUtils, Math, GPeRes, GFont, GSound, Sound21t3, Map21t3, NpcBridge21t3, GHudFont;
+  SysUtils, GNumText, Math, GPeRes, GFont, GSound, Sound21t3, Map21t3, NpcBridge21t3, GHudFont;
 
 procedure MakeIndexSheet(Sheet: TGSurface);
 var
@@ -2276,7 +2276,7 @@ var
 begin
   Result := Keep;
   if (S = '') or (LowerCase(Copy(S, 1, 6)) = 'player') then Exit;
-  if not TryStrToFloat(S, V) then Exit;
+  if not TryDotTextToFloat(S, V) then Exit;
   if V >= 0 then Result := V;
 end;
 
