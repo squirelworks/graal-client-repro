@@ -103,6 +103,12 @@ void Engine::addAdventureCommands(gs2::EngineHost& h) {
     host::ShowSelectPathDialog(text(m, a, 0).c_str());
     return Value::number(0);
   };
+  // The 5.x setup dialog's only use is extractFileBase of it compared with
+  // "setup", so it names the running program: the exe path the launcher
+  // gave graal_engineInitialize (the rebuild's reading).
+  h.adventure["Adventure_getInstallationPath"] = [this](Machine&, Var&, std::vector<Value>&) {
+    return Value::string(exePath_);
+  };
   h.adventure["Adventure_quit"] = [](Machine&, Var&, std::vector<Value>&) {
     host::PrepareShutdownGraal();
     host::ShutdownGraal();

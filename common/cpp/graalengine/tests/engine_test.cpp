@@ -299,6 +299,7 @@ void testEngineCommands() {
   a.op(Asm::MARKER).callName("Adventure_openExternalOptions").op(Asm::POP);
   a.var("up").op(Asm::MARKER).num(0x26).callName("keydown").op(Asm::ASSIGN);
   a.var("left").op(Asm::MARKER).num(0x25).callName("keydown").op(Asm::ASSIGN);
+  a.var("inst").op(Asm::MARKER).callName("Adventure_getInstallationPath").op(Asm::ASSIGN);
   a.op(Asm::MARKER).callName("Adventure_saveGraalOptions").op(Asm::POP);
   a.num(0).op(Asm::RET);
   auto v = e.machine()->newVar("tester");
@@ -318,6 +319,8 @@ void testEngineCommands() {
   auto left = e.machine()->universe()->child("left");
   CHECK(up && up->number() == 1);
   CHECK(left && left->number() == 0);
+  auto inst = e.machine()->universe()->child("inst");
+  CHECK(inst && inst->string() == "/x/Graal4.exe");
   // Not provided yet: the engines' "not found" error, not a silent success.
   bool notFound = false;
   for (const auto& m : e.machine()->errors())
@@ -425,15 +428,15 @@ void testLabMenuInput() {
   }
   std::fprintf(stderr, "lab menu: %d fills, %d texts in one frame\n", fills, texts);
   CHECK(texts >= 8);
-  // Type a nickname into the first text edit, then press Offline Test
-  // (left of the StartAni2 image control that lies over its right half).
+  // Type a nickname into the first text edit, then press Offline Test on
+  // its right half, under the inactive StartAni2 image control.
   invokeGraalMouseEvent(370, 182, GRAAL_MOUSE_DOWN, GRAAL_MOUSE_LEFT, 1, 0, 0);
   for (char ch : std::string("Tester")) {
     invokeGraalKeyboardEvent(0, ch, 0, 1);
     invokeGraalKeyboardEvent(0, ch, 0, 0);
   }
-  invokeGraalMouseEvent(410, 435, GRAAL_MOUSE_DOWN, GRAAL_MOUSE_LEFT, 1, 0, 0);
-  invokeGraalMouseEvent(410, 435, GRAAL_MOUSE_UP, GRAAL_MOUSE_LEFT, 0, 0, 0);
+  invokeGraalMouseEvent(451, 435, GRAAL_MOUSE_DOWN, GRAAL_MOUSE_LEFT, 1, 0, 0);
+  invokeGraalMouseEvent(451, 435, GRAAL_MOUSE_UP, GRAAL_MOUSE_LEFT, 0, 0, 0);
   for (int i = 0; i < 5; ++i) renderGraalCanvas();
   CHECK(e.offlineRequested());
   std::fprintf(stderr, "lab menu: nickname '%s', offline %d\n", e.account().nickname.c_str(),

@@ -114,7 +114,7 @@ function HostSlotFn(const Name: string): Pointer;
 implementation
 
 uses
-  SysUtils, DynLibs, GUiFont;
+  SysUtils, DynLibs, GUiFont, GTrueType, GSysFont;
 
 type
   TSetter = procedure(Fn: Pointer); cdecl;
@@ -431,37 +431,180 @@ begin
   end;
 end;
 
+{ The fonts the scripts name (the 4.x menus: Arial), read with GTrueType
+  as GSysFont finds them: the asset folders, then Windows' Fonts folder;
+  elsewhere Liberation Sans, which has Arial's metrics, stands in for
+  Arial. A face with no file is drawn in GUiFont's 16 px line. Torque
+  makes its fonts with GDI and a positive height, so Size is the cell. }
+var
+  Fonts: TStringList = nil;
+
+function LinuxStandIn(const Face: string; Bold: Boolean): string;
+const
+  Dir = '/usr/share/fonts/truetype/liberation/';
+begin
+  Result := '';
+{$IFNDEF MSWINDOWS}
+  if SameText(Face, 'Arial') or SameText(Face, 'Helvetica') or SameText(Face, 'Tahoma') or
+    SameText(Face, 'Verdana') then
+  begin
+    if Bold then Result := Dir + 'LiberationSans-Bold.ttf'
+    else Result := Dir + 'LiberationSans-Regular.ttf';
+    if not FileExists(Result) then Result := '';
+  end;
+{$ENDIF}
+end;
+
+function FontOf(Font: PAnsiChar; Style: LongInt): TTrueTypeFont;
+var
+  Face, Key, Path: string;
+  Bold: Boolean;
+  I: Integer;
+begin
+  Result := nil;
+  Face := Trim(string(AnsiString(Font)));
+  if Face = '' then Exit;
+  Bold := (Style and 1) <> 0;
+  Key := LowerCase(Face);
+  if Bold then Key := Key + '|b';
+  if Fonts = nil then
+  begin
+    Fonts := TStringList.Create;
+    Fonts.OwnsObjects := True;
+  end;
+  I := Fonts.IndexOf(Key);
+  if I >= 0 then Exit(TTrueTypeFont(Fonts.Objects[I]));
+  Path := '';
+  if Bold then Path := FindFontFile(Face + 'bd.ttf');
+  if Path = '' then Path := LinuxStandIn(Face, Bold);
+  if Path = '' then Path := FindFontFile(FontFileName(Face));
+  if Path = '' then Path := LinuxStandIn(Face, False);
+  if Path <> '' then
+  begin
+    Result := TTrueTypeFont.Create;
+    if not Result.LoadFromFile(Path) then FreeAndNil(Result);
+  end;
+  Fonts.AddObject(Key, Result);
+end;
+
+procedure FreeFonts;
+begin
+  FreeAndNil(Fonts);
+end;
+
+{ The em for a Torque size, or 0 for GUiFont's line. }
+function EmOf(F: TTrueTypeFont; Size: LongInt): Integer;
+begin
+  if (F = nil) or (Size <= 0) then Exit(0);
+  Result := EmForCell(F, Size);
+end;
+
+{ Bold drawn by GDI's made-up bold only when the font has no bold face of
+  its own (FontOf found the regular file). }
+function SynthBold(Font: PAnsiChar; Style: LongInt): Boolean;
+begin
+  Result := ((Style and 1) <> 0) and (FontOf(Font, Style) = FontOf(Font, 0));
+end;
+
+{ Draws over the screen's own pixels so the edges blend with what is
+  there, then puts back only what changed, through the clip. }
+procedure TrueTypeAt(F: TTrueTypeFont; X, Y: Integer; const S: string; Px: Integer;
+  Color: Cardinal; Bold: Boolean);
+var
+  T: TGSurface;
+  Before: array of Cardinal;
+  W, H, I, J, SX, SY: Integer;
+  C: Cardinal;
+begin
+  W := F.TextWidth(S, Px, Bold) + 2;
+  H := F.LineHeight(Px) + 1;
+  if (W <= 2) or (H <= 1) then Exit;
+  T := TGSurface.Create(W, H);
+  try
+    SetLength(Before, W * H);
+    for J := 0 to H - 1 do
+      for I := 0 to W - 1 do
+      begin
+        SX := X + I;
+        SY := Y + J;
+        if (SX >= 0) and (SY >= 0) and (SX < Cur.Screen.Width) and (SY < Cur.Screen.Height) then
+          C := Cur.Screen.Pixels[SX + SY * Cur.Screen.Width] or $FF000000
+        else
+          C := $FF000000;
+        Before[I + J * W] := C;
+        T.Pixels[I + J * W] := C;
+      end;
+    F.DrawText(T, 0, 0, S, Px, Color or $FF000000, Bold);
+    for J := 0 to H - 1 do
+      for I := 0 to W - 1 do
+      begin
+        C := T.Pixels[I + J * W];
+        if C <> Before[I + J * W] then PutPixel(X + I, Y + J, C);
+      end;
+  finally
+    T.Free;
+  end;
+end;
+
+procedure DrawTextIn(X, Y: Integer; Text, Font: PAnsiChar; Size, Style: LongInt; Color: Cardinal);
+var
+  F: TTrueTypeFont;
+  Px: Integer;
+begin
+  if (Color shr 24) = 0 then Exit;
+  F := FontOf(Font, Style);
+  Px := EmOf(F, Size);
+  if Px > 0 then TrueTypeAt(F, X, Y, Str(Text), Px, Color, SynthBold(Font, Style))
+  else TextAt(X, Y, Str(Text), Color, FaceOf(Style));
+end;
+
 procedure cbDrawText(X, Y: LongInt; Text, Font: PAnsiChar; Size, Style: LongInt; Color: Cardinal); cdecl;
 begin
-  TextAt(X, Y, Str(Text), Color, FaceOf(Style));
+  DrawTextIn(X, Y, Text, Font, Size, Style, Color);
 end;
 
 procedure cbDrawShadowed(X, Y: LongInt; Text, Font: PAnsiChar; Size, Style: LongInt;
   Color, Shadow: Cardinal); cdecl;
 begin
-  TextAt(X + 1, Y + 1, Str(Text), Shadow, FaceOf(Style));
-  TextAt(X, Y, Str(Text), Color, FaceOf(Style));
+  DrawTextIn(X + 1, Y + 1, Text, Font, Size, Style, Shadow);
+  DrawTextIn(X, Y, Text, Font, Size, Style, Color);
 end;
 
 function cbTextWidth(Text, Font: PAnsiChar; Size, Style: LongInt): LongInt; cdecl;
+var
+  F: TTrueTypeFont;
+  Px: Integer;
 begin
-  Result := UiTextWidth(Str(Text), FaceOf(Style));
+  F := FontOf(Font, Style);
+  Px := EmOf(F, Size);
+  if Px > 0 then Result := F.TextWidth(Str(Text), Px, SynthBold(Font, Style))
+  else Result := UiTextWidth(Str(Text), FaceOf(Style));
 end;
 
 function cbTextHeight(Font: PAnsiChar; Size, Style: LongInt): LongInt; cdecl;
+var
+  F: TTrueTypeFont;
+  Px: Integer;
 begin
-  Result := UiLineH;
+  F := FontOf(Font, Style);
+  Px := EmOf(F, Size);
+  if Px > 0 then Result := F.LineHeight(Px) else Result := UiLineH;
 end;
 
 { GUiFont's 16 px line: 13 above the baseline, 3 below. }
 function cbTextAscent(Font: PAnsiChar; Size, Style: LongInt): LongInt; cdecl;
+var
+  F: TTrueTypeFont;
+  Px: Integer;
 begin
-  Result := 13;
+  F := FontOf(Font, Style);
+  Px := EmOf(F, Size);
+  if Px > 0 then Result := F.Ascent(Px) else Result := 13;
 end;
 
 function cbTextDescent(Font: PAnsiChar; Size, Style: LongInt): LongInt; cdecl;
 begin
-  Result := UiLineH - 13;
+  Result := cbTextHeight(Font, Size, Style) - cbTextAscent(Font, Size, Style);
 end;
 
 { ---- Pictures and shapes ------------------------------------------------- }
@@ -1239,6 +1382,7 @@ begin
   if Cur = Self then
   begin
     Cur := nil;
+    FreeFonts;
     FreeAll(TileBufs);
     FreeAll(Panels);
     Matrices := nil;

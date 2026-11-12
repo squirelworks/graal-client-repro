@@ -145,6 +145,25 @@ begin
       for X := 0 to 31 do
         if H.Screen.GetPixel(X, Y) <> $FF000000 then Inc(Lit);
     Check(Lit > 0, 'DrawText draws');
+    { A face with no font file keeps the built-in line; a face the
+      machine has (Arial, or Liberation Sans standing in for it) follows
+      the script's size. }
+    Check(Width('Graal', 'NoSuchFace', 30, 0) = Width('Graal', nil, 12, 0),
+      'a face with no file is drawn in the built-in font');
+    if Width('Graal', 'Arial', 24, 0) <> Width('Graal', 'Arial', 12, 0) then
+    begin
+      Check(Width('Graal', 'Arial', 24, 0) > Width('Graal', 'Arial', 12, 0),
+        'Arial grows with the size');
+      H.Screen.Fill($FF000000);
+      Text(0, 4, 'Hi', 'Arial', 14, 0, $FFFFFFFF);
+      Lit := 0;
+      for Y := 0 to 31 do
+        for X := 0 to 31 do
+          if H.Screen.GetPixel(X, Y) <> $FF000000 then Inc(Lit);
+      Check((Lit > 0) and (H.Screen.GetPixel(0, 20) = $FF000000), 'Arial 14 draws in its cell');
+    end
+    else
+      WriteLn('skip Arial: no font file for it on this machine');
   finally
     H.Free;
   end;
