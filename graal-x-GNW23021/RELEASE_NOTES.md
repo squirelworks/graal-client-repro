@@ -34,6 +34,7 @@ their place.
   research made; edited tiles, NPCs and signs save and load back.
 - [x] **As 2.01 now does:** the minimap only on a level of its grid, and F1
   opens the Help window from the build's own form.
+- [x] **F1 window captions.** The Help window takes its title and button captions from your install's language file (`Options=`, `Options-<button>=`), as the original does, so an install whose file says "Options" and "More options" shows those. The buttons are drawn letter-spaced with the hotkey letter in red, and the current level field shows the level's full path, selected.
 
 ## Not yet
 
