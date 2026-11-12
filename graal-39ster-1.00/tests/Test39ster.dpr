@@ -1,10 +1,11 @@
 { Test39ster: the 39ster profile with generated fixtures only.
 
   No file of the original install is read: every level, category table and
-  tile sheet here is made by the test. Covers the first slices of #176:
+  tile sheet here is made by the test. Covers the slices of #176 so far:
   the profile and player-supplied loading, 64 x 64 NW boards, the sheet
-  mapping across 512-id blocks, category-index interpretation, and camera
-  clamping and centring. }
+  mapping across 512-id blocks, category-index interpretation, camera
+  clamping and centring, and movement and collision against generated,
+  asymmetric walls. }
 program Test39ster;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
@@ -14,6 +15,7 @@ uses
   Profile39 in '../src/Profile39.pas',
   Tiles39 in '../src/Tiles39.pas',
   Camera39 in '../src/Camera39.pas',
+  Move39 in '../src/Move39.pas',
   World39 in '../src/World39.pas';
 
 var
@@ -256,6 +258,200 @@ begin
   end;
 end;
 
+{ A generated wall map for Move39: a 64 x 64 board of free tiles with the
+  listed walls. }
+type
+  TWalls = class
+    Wall: array[0..63, 0..63] of Boolean;
+    function IsWall(TX, TY: Integer): Boolean;
+    procedure Put(TX, TY: Integer);
+  end;
+
+function TWalls.IsWall(TX, TY: Integer): Boolean;
+begin
+  Result := Wall[TX, TY];
+end;
+
+procedure TWalls.Put(TX, TY: Integer);
+begin
+  Wall[TX, TY] := True;
+end;
+
+const
+  LvW = 64 * 16;
+  LvH = 64 * 16;
+
+function Near(A, B: Double): Boolean;
+begin
+  Result := Abs(A - B) < 1e-9;
+end;
+
+procedure TestEdges;
+var
+  M: TWalls;
+begin
+  M := TWalls.Create;
+  try
+    M.Put(2, 1);
+    Check(not RectBlocked(M.IsWall, 16, 16, 16, 16, LvW, LvH),
+      'edges: a box on tile (1, 1) ends before the wall at (2, 1) (end exclusive)');
+    Check(RectBlocked(M.IsWall, 16.5, 16, 16, 16, LvW, LvH),
+      'edges: half a pixel right, the right edge rounds up into the wall');
+    Check(RectBlocked(M.IsWall, 47.9, 16, 0, 16, LvW, LvH),
+      'edges: the left edge truncates, so x 47.9 is still in the wall tile');
+    Check(not RectBlocked(M.IsWall, 32, 16, 0, 16, LvW, LvH),
+      'edges: a zero-width edge on a tile boundary covers no tile');
+    Check(RectBlocked(M.IsWall, 33, 16, 0, 16, LvW, LvH),
+      'edges: a zero-width edge inside the wall tile is blocked');
+    Check(RectBlocked(M.IsWall, -0.5, 100, 16, 16, LvW, LvH) and
+      RectBlocked(M.IsWall, 100, LvH - 15.5, 16, 16, LvW, LvH),
+      'edges: a box leaving the level is blocked');
+    Check(not RectBlocked(M.IsWall, LvW - 16, LvH - 16, 16, 16, LvW, LvH),
+      'edges: a box touching the far edges from inside is free');
+  finally
+    M.Free;
+  end;
+end;
+
+procedure TestMovement;
+var
+  M: TWalls;
+  X, Y: Double;
+begin
+  M := TWalls.Create;
+  try
+    X := 100; Y := 100;
+    Check(MovePlayer(M.IsWall, X, Y, 1, 0, 1, MoveStep, LvW, LvH) and Near(X, 103) and Near(Y, 100),
+      'move: 3 pixels right in one nominal update');
+    X := 100; Y := 100;
+    MovePlayer(M.IsWall, X, Y, 0, -1, 2, MoveStep, LvW, LvH);
+    Check(Near(Y, 94), 'move: a 2x time factor moves 6 pixels');
+    X := 100; Y := 100;
+    MovePlayer(M.IsWall, X, Y, 0, 1, TimeFactor(500), MoveStep, LvW, LvH);
+    Check(Near(Y, 112), 'move: a long frame is capped at 4x (12 pixels)');
+    X := 100; Y := 100;
+    MovePlayer(M.IsWall, X, Y, -1, 1, 1, MoveStep, LvW, LvH);
+    Check(Near(X, 97.75) and Near(Y, 102.25), 'move: each diagonal component is 3 x 0.75');
+    X := 100; Y := 100;
+    MovePlayer(M.IsWall, X, Y, 1, 0, 1, GetUpStep, LvW, LvH);
+    Check(Near(X, 102), 'move: getting up moves 2 pixels');
+    X := 100; Y := 100;
+    Check(not MovePlayer(M.IsWall, X, Y, 0, 0, 1, MoveStep, LvW, LvH) and Near(X, 100),
+      'move: nothing held, nothing moves');
+
+    { vertical before horizontal: from (47, 30) down-right, the wall at
+      (4, 1) blocks the horizontal move on the old rows but not on the new
+      ones }
+    M.Put(4, 1);
+    X := 47; Y := 30;
+    MovePlayer(M.IsWall, X, Y, 1, 1, 1, MoveStep, LvW, LvH);
+    Check(Near(Y, 32.25) and Near(X, 49.25),
+      'move: the vertical move is resolved first, freeing the horizontal one');
+    X := 47; Y := 30;
+    MovePlayer(M.IsWall, X, Y, 1, -1, 1, MoveStep, LvW, LvH);
+    Check(Near(Y, 27.75) and Near(X, 47.25),
+      'move: going up instead, the wall still blocks and 2.25 shrinks to 0.25');
+
+    { a blocked component shrinks a pixel at a time }
+    X := 46; Y := 16;
+    MovePlayer(M.IsWall, X, Y, 1, 0, 1, MoveStep, LvW, LvH);
+    Check(Near(X, 48), 'shrink: 3 pixels into a wall become 2, stopping on its edge');
+    X := 46.5; Y := 16;
+    MovePlayer(M.IsWall, X, Y, 1, 0, 1, MoveStep, LvW, LvH);
+    Check(Near(X, 47.5), 'shrink: from 46.5 the move shrinks by whole pixels to 1');
+    X := 0.5; Y := 300;
+    MovePlayer(M.IsWall, X, Y, -1, 0, 1, MoveStep, LvW, LvH);
+    Check(Near(X, 0.5), 'shrink: half a pixel from the level edge, the move shrinks to nothing');
+  finally
+    M.Free;
+  end;
+end;
+
+procedure TestSlides;
+var
+  M: TWalls;
+  X, Y: Double;
+  I: Integer;
+begin
+  M := TWalls.Create;
+  try
+    { one wall tile at (4, 1); the box pushes right at x 48 }
+    M.Put(4, 1);
+    X := 48; Y := 20;
+    Check(MovePlayer(M.IsWall, X, Y, 1, 0, 1, MoveStep, LvW, LvH) and Near(X, 48) and Near(Y, 21.5),
+      'slide: the nearer boundary (16) is still blocked, so it slides 1.5 toward 32');
+    X := 48; Y := 29;
+    MovePlayer(M.IsWall, X, Y, 1, 0, 1, MoveStep, LvW, LvH);
+    Check(Near(Y, 30.5), 'slide: 1.5 pixels at a time');
+    MovePlayer(M.IsWall, X, Y, 1, 0, 1, MoveStep, LvW, LvH);
+    Check(Near(Y, 32), 'slide: within one step of the boundary it snaps to it');
+    MovePlayer(M.IsWall, X, Y, 1, 0, 1, MoveStep, LvW, LvH);
+    Check(Near(X, 51) and Near(Y, 32), 'slide: once past the wall the move goes ahead');
+    X := 48; Y := 20;
+    MovePlayer(M.IsWall, X, Y, 1, 0, 2, MoveStep, LvW, LvH);
+    Check(Near(Y, 23), 'slide: the slide scales with the time factor');
+    { the mirror case: the wall at (4, 2) makes the nearer boundary the way out }
+    M.Wall[4, 1] := False;
+    M.Put(4, 2);
+    X := 48; Y := 20;
+    MovePlayer(M.IsWall, X, Y, 1, 0, 1, MoveStep, LvW, LvH);
+    Check(Near(Y, 18.5), 'slide: the nearer boundary (16) is preferred when it is free');
+    { already on a boundary, a blocked push does nothing }
+    X := 48; Y := 32;
+    Check(not MovePlayer(M.IsWall, X, Y, 1, 0, 1, MoveStep, LvW, LvH) and Near(X, 48) and Near(Y, 32),
+      'slide: aligned to the tiles, a blocked push does not slide');
+    { vertical pushes slide horizontally }
+    M.Put(10, 10);
+    X := 165; Y := 144;
+    MovePlayer(M.IsWall, X, Y, 0, 1, 1, MoveStep, LvW, LvH);
+    Check(Near(Y, 144) and Near(X, 166.5), 'slide: a blocked push down slides along x');
+    { diagonal moves never slide }
+    M.Put(11, 9);
+    X := 168; Y := 145;
+    for I := 1 to 2 do MovePlayer(M.IsWall, X, Y, 1, 1, 1, MoveStep, LvW, LvH);
+    Check(Near(X, 168) and Near(Y, 145), 'slide: a blocked diagonal move does not slide');
+    { both ways blocked: no slide }
+    M.Put(4, 3);
+    M.Put(4, 1);
+    X := 48; Y := 20;
+    Check(not MovePlayer(M.IsWall, X, Y, 1, 0, 1, MoveStep, LvW, LvH),
+      'slide: with walls on both sides there is nowhere to slide');
+  finally
+    M.Free;
+  end;
+end;
+
+{ The world's own step: the generated category table's walls, the level's
+  tiles and the facing. }
+procedure TestWorldStep;
+var
+  W: TWorld39;
+  Lv: string;
+  Y: Integer;
+begin
+  W := TWorld39.Create;
+  try
+    Lv := 'GLEVNW01'#10;
+    for Y := 0 to 63 do
+      if Y = 5 then
+        Lv := Lv + 'BOARD 0 5 64 0 ' + StringOfChar('A', 10) + Pair(1) + StringOfChar('A', 116) + #10
+      else
+        Lv := Lv + Format('BOARD 0 %d 64 0 ', [Y]) + StringOfChar('A', 128) + #10;
+    Check(W.Level.LoadFromString(Lv) and W.Categories.LoadFromString(MakeCategories([1], ['B'])),
+      'world: a level with one blocking tile at (5, 5)');
+    Check(W.IsWall(5, 5) and not W.IsWall(4, 5) and W.IsWall(-1, 0), 'world: walls from the categories');
+    W.PlaceAt(62, 80);
+    Check(W.Step(1, 0, 1) and (W.AnchorX = 64) and (W.Facing = fRight),
+      'world: walking right stops on the wall tile''s edge and faces right');
+    W.PlaceAt(80, 100.5);
+    W.Step(0, -1, 1);
+    Check((W.AnchorY = 97) and Near(W.PosY, 97.5) and (W.Facing = fUp),
+      'world: the anchor is the position truncated; the fraction is kept');
+  finally
+    W.Free;
+  end;
+end;
+
 begin
   Passed := 0;
   Failed := 0;
@@ -266,6 +462,10 @@ begin
   TestBoards;
   TestCamera;
   TestInstall;
+  TestEdges;
+  TestMovement;
+  TestSlides;
+  TestWorldStep;
   WriteLn(Format('%d passed, %d failed', [Passed, Failed]));
   if Failed > 0 then Halt(1);
 end.

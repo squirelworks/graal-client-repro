@@ -41,7 +41,8 @@ original, and this folder keeps that distinction.
 | `src/Profile39.pas` | the profile: start level and position, view, sheet size, categories, facing order, the eight ganis and their frame counts, movement and animation constants, the time factor |
 | `src/Tiles39.pas` | NW base64 pairs to 12-bit ids, ids to sheet cells (each 512-id block 16 columns across), the 10/10/12-bit packed tile, the category table and which categories are walls |
 | `src/Camera39.pas` | the camera: centred on the 16-pixel anchor, clamped to the level, a smaller level centred |
-| `src/World39.pas` | a level with the player's sheet and category table, drawn into a 640 x 480 frame |
+| `src/Move39.pas` | movement and collision: the edge scan, 3 pixels a nominal update, diagonals at 0.75, vertical before horizontal, 1-pixel shrinking and single-axis slides with 16-pixel snapping |
+| `src/World39.pas` | a level with the player's sheet and category table, its walls, the player's position and one movement step, drawn into a 640 x 480 frame |
 | `src/Graal39ster.dpr` | the front end: the window, or one frame to a `.bmp` |
 
 ## Files it opens
@@ -72,8 +73,8 @@ Graal39ster --data DIR --frame out.bmp        # one frame, no window
 ```
 
 It opens a 640 x 480 window on `level13.nw` with the anchor at (512, 512).
-The arrow keys move the anchor 3 pixels a tick, with no collision yet; Esc
-ends it.
+The arrow keys walk the player's 16-pixel box with the original's movement
+and collision (the character itself is not drawn yet); Esc ends it.
 
 ## Building and testing
 
@@ -93,9 +94,15 @@ The slices of issue #176, in order:
 - [ ] Generated character-piece rendering (body, head, shield, sword and
   attribute pieces). Viewport clamping and centring are done
   (`Camera39`); the player is a white box.
-- [ ] Movement: cardinal and diagonal, the time factor from the previous
+- [x] Movement: cardinal and diagonal, the time factor from the previous
   frame, vertical before horizontal, the 1-unit shrink, single-axis slides
-  and 16-pixel snapping, with asymmetric generated obstacles.
+  and 16-pixel snapping, with asymmetric generated obstacles
+  (`src/Move39.pas`). Two points the notes leave open are this port's
+  reading, not the original's proven rule: the collision box is the
+  16-pixel anchor, and a slide goes toward the nearer 16-pixel boundary on
+  the other axis (ties to the lower one), taking the farther one only when
+  the nearer one is still blocked. Getting up from sitting (2 pixels) is in
+  `MovePlayer` but nothing sits yet.
 - [ ] Animation fixtures: looping walk, sword return, held pose, and frame
   commands (wait, sound) skipped; timing tested apart from names that
   suggest milliseconds.
