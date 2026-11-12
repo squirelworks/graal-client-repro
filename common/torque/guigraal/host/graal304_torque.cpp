@@ -7,7 +7,7 @@
 //                   [--steps FILE] [--seconds N] [--trace FILE] [--shot FRAME.bmp]
 //
 // --root defaults to the program's folder (put it in a 3.04 install, beside
-// graalexe); --prefs to ~/.graal304-torque; --game to libGame304Lib.so next
+// graalexe), then the current folder, whichever holds main.cs; --prefs to ~/.graal304-torque; --game to libGame304Lib.so next
 // to the program. --steps runs scripted statements as tq-play does (for lab
 // runs); --seconds ends the program after N seconds; --shot writes the last
 // window image when the program ends.
@@ -50,7 +50,7 @@ void usage() {
 int main(int argc, char** argv) {
   const std::string here = program_dir(argv[0]);
   unsigned seconds = 0;
-  std::string root = here, prefs, lib = here + "/libGame304Lib.so", steps_path, trace_path, shot;
+  std::string root, prefs, lib = here + "/libGame304Lib.so", steps_path, trace_path, shot;
   for (int i = 1; i < argc; ++i) {
     std::string a = argv[i];
     auto next = [&]() -> std::string {
@@ -65,6 +65,14 @@ int main(int argc, char** argv) {
     else if (a == "--trace") trace_path = next();
     else if (a == "--shot") shot = next();
     else { usage(); return 2; }
+  }
+  auto has_main = [](const std::string& dir) { return std::ifstream(dir + "/main.cs").good(); };
+  if (root.empty()) root = has_main(here) || !has_main(".") ? here : std::string(".");
+  if (!has_main(root)) {
+    std::cerr << "graal304-torque: no main.cs in " << root << ".\n"
+              << "Copy graal304-torque and libGame304Lib.so into your Graal 3.04 folder (beside graalexe),\n"
+              << "run it from that folder, or pass --root with that folder.\n";
+    return 1;
   }
   if (prefs.empty()) {
     const char* home = std::getenv("HOME");

@@ -53,6 +53,13 @@ for B in $BUILDS; do
       esac
     fi
   fi
+  # 3.04's player program on Linux: graal304-torque (the Torque engine in
+  # an X11 window) and the game library it loads from its own folder.
+  if [ "$B" = "graal-3.04-G3D03014" ] && [ "$(uname -s)" = Linux ] && [ -f "$ROOT/common/torque/guigraal/Makefile" ]; then
+    echo "== common/torque/guigraal (graal304-torque)"
+    make -C "$ROOT/common/torque/guigraal" lib build/graal304-torque CXX="${CXX:-g++}" FPC="$FPC"
+    cp "$ROOT/common/torque/guigraal/build/graal304-torque" "$ROOT/common/torque/guigraal/build/lib/libGame304Lib.so" "$OUT/"
+  fi
   # 4.2.0.8's residual engine host is common/torque/host4208.
   # The Delphi shell is Shell420.dpr, compiled above. The Pascal units
   # under common/torque stay off the Free Pascal path.

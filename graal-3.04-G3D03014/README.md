@@ -50,6 +50,19 @@ decompiled code:
 
 ## Running it
 
+### On the Torque engine (Linux)
+
+The Linux zip also holds `graal304-torque` and `libGame304Lib.so`. Copy
+both into the root of a 3.04 install (beside `main.cs` and `graalexe`) and
+start `graal304-torque`. It runs the install's own scripts on the rebuilt
+Torque engine (`common/torque/guigraal`): the install's main menu, server
+list, options and F2 console, with the game below drawn inside the
+`Adventure` control. It also starts from the install folder as the current
+folder, or with `--root DIR`. Prefs go to `~/.graal304-torque`. It needs an
+X11 display. Windows and macOS do not have this program yet.
+
+### The Pascal program
+
 Put `Graal304` in the root of a 3.04 install (where the original
 `graalexe` lies) and start it with no arguments for the start screen. It
 finds the install's files from there, or from `graal-assets/3.04/` and
