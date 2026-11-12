@@ -391,10 +391,8 @@ begin
       { the start position first: the level's NPCs then get playerenters
         and may move the player (start1.graal puts it at 13.5, 37.5), as
         in the original }
-      G.Player.X := StrToFloatDef(StringReplace(Arg('--x', '30'), '.',
-        DefaultFormatSettings.DecimalSeparator, []), 30);
-      G.Player.Y := StrToFloatDef(StringReplace(Arg('--y', '30'), '.',
-        DefaultFormatSettings.DecimalSeparator, []), 30);
+      G.Player.X := DotTextToFloatDef(Arg('--x', '30'), 30);
+      G.Player.Y := DotTextToFloatDef(Arg('--y', '30'), 30);
       OK := G.LoadLevelFile(Arg('--level', ''));
       { offline on the tutorial, 2.05 switches to the tutorial maps }
       if Copy(LowerCase(ExtractFileName(Arg('--level', ''))), 1, 9) = 'tutorial_' then

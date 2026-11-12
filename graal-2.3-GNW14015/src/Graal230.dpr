@@ -425,8 +425,8 @@ begin
       OK := G.LoadLevelFile(Arg('--level', ''));
       if OK then
       begin
-        G.Player.X := StrToFloatDef(Arg('--x', '30'), 30);
-        G.Player.Y := StrToFloatDef(Arg('--y', '30'), 30);
+        G.Player.X := DotTextToFloatDef(Arg('--x', '30'), 30);
+        G.Player.Y := DotTextToFloatDef(Arg('--y', '30'), 30);
         G.Log(Format('%s: %s, %d links, %d signs, %d chests, %d npcs, %d baddies',
           [G.Level.Name, G.Level.Magic, Length(G.Level.Links), Length(G.Level.Signs),
            Length(G.Level.Chests), Length(G.Level.NPCs), Length(G.Level.Baddies)]));
