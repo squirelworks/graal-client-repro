@@ -96,7 +96,7 @@ function StartVoice(S: TSoundData; Pan, Volume: Integer; Loop: Boolean): Boolean
 implementation
 
 uses
-  SysUtils, Classes, Math, GAssetDirs
+  GCompat, SysUtils, Classes, Math, GAssetDirs
 {$IFDEF MSWINDOWS}
   , Windows
 {$ENDIF}

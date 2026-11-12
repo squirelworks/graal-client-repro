@@ -369,7 +369,7 @@ begin
   I := IndexOf(Prop);
   if I < 0 then Exit;
   for J := 0 to High(Props[I].V.Items) do
-    if SameText(Props[I].V.Items[J], Member) then Exit(True);
+    if SameText(Props[I].V.Items[J], Member) then begin Result := True; Exit; end;
 end;
 
 function TDfmObj.SetText(const Prop: string): string;
@@ -411,7 +411,7 @@ function TDfmObj.Find(const AName: string): TDfmObj;
 var
   I: Integer;
 begin
-  if SameText(Name, AName) then Exit(Self);
+  if SameText(Name, AName) then begin Result := Self; Exit; end;
   for I := 0 to High(Children) do
   begin
     Result := Children[I].Find(AName);

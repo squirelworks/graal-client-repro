@@ -25,7 +25,7 @@ unit Terrain217;
 interface
 
 uses
-  Classes, SysUtils, GSurface, GAssetDirs;
+  GCompat, Classes, SysUtils, GSurface, GAssetDirs;
 
 const
   HeightPoints = 9;   { per side of a level's grid }
