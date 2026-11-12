@@ -125,8 +125,10 @@ Rebuild policy, not read from the original:
 
 - [x] Draw the game's frame inside the canvas renderer (#257) and present it
   in a window (`graal304-torque`, X11).
-- [ ] The release program: `Graal304` is still the Pascal program; the zip
-  does not ship `graal304-torque` and the library yet.
+- [x] The release program: the Linux 3.04 zip ships `graal304-torque` and
+  the library (#273).
+- [ ] The 3.153 zip does not ship `graal304-torque` and `libGame3153Lib.so`
+  yet.
 - [ ] The chat-focus key toggle on `ChatBar` and the hardcoded key codes the
   control reads itself (input stage, see `../console/engine` stage 3).
 - [ ] Sword, grab, items, map, voice, PMs, the player list and profiles, sound
@@ -135,6 +137,55 @@ Rebuild policy, not read from the original:
   levels need 2.22's `arrays.dat` beside the install (see the 3.04 README).
 - [ ] Windows and macOS: the loader has a Windows branch but the library is
   only built and run on Linux so far, and the window is X11 only.
+
+## 3.153 (Track A)
+
+The same program and control run a 3.153 install (the Mac `GraalSetup`
+`release` folder). An install with `scripts2D/main2D.cs` is taken for
+3.153, and `setup_engine_304` switches to its profile:
+
+- **`.dso` floats.** Its compiled scripts keep the float tables big-endian
+  (the PPC build; Graal_analysis `torque/scripting.md`). The rest stays
+  little-endian.
+- **Scripts by name.** Every `exec` in 3.153 names only the file
+  (`exec("main2D.cs")`, `exec("ServerListGui.gui")`), and the files sit in
+  `scripts/`, `scripts2D/` and `scriptsgui/`. `Engine::exec_by_name` finds
+  a bare name anywhere in the install. Bitmap names are resolved the same
+  way (`graalscreen_backstone`). Rebuild policy: the match ignores case,
+  and of several files with that name the one with the fewest folders wins.
+- **Four more methods.** 3.153's table has `setNickName`, `setAccountName`,
+  `setLanguage` and `retrieveAccountFields`, which 3.04's lacks
+  (`engine-304.md`). The menu sets the fields before `openServerList` or
+  `startOfflineMode`, and gets them back on wake. Rebuild policy: they are
+  kept in the `$pref::Graal::` variables that 3.04 uses. An untouched
+  nickname is `unknown`, the value the 3.153 lab capture sent.
+- **Game library.** `libGame3153Lib.so` (`graal-3.153-G3D28015/src/Game3153Lib.lpr`)
+  is the same C interface over the 3.153 units. It sends 3.153's login
+  (`G3D28015`). `graal304-torque` picks it for a 3.153 install. The 3.153
+  units now carry the 3.04 game fixes from #258 and #273 (log hook, chat,
+  list hosts, walking by sheet type). The walking rules are the 3.04 ones,
+  taken to hold for 3.153.
+
+Tested here:
+
+- The install's own scripts boot to `MainMenuGui2D` with no script errors.
+- The menu draws in the window, with the background, buttons, labels, the
+  nickname `unknown` and the edits.
+- `tests/online.sh` with `GAME_LIB=libGame3153Lib.so GAME_TOKEN=G3D28015`
+  sends a first frame with 3.153's layout as the Tiger lab capture shows it
+  (5, 37, 34 bigmap and minimap).
+
+Not yet:
+
+- [ ] Fonts. The Mac builds its `.gft` caches from system fonts at run time
+  and ships none. Copy a 3.04 install's `common/ui/cache/*.gft` into the
+  3.153 folder's `fontcache/`.
+- [ ] `graalscreen3d.jpg`, the logo: no JPEG reader yet.
+- [ ] The text edit frames and the language pop-up, which the capture shows.
+- [ ] A pixel comparison with the Tiger capture. It ran at 640 × 480, while
+  the install's prefs say 800 × 600.
+- [ ] The first frame's 34 lines come once here; the capture has them twice.
+- [ ] The 3D mode (protocol 19).
 
 ## Method table (all builds)
 

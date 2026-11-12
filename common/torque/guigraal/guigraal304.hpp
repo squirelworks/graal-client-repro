@@ -35,6 +35,11 @@ class GuiGraal304 {
   // The 31 method names in registration order (engine-304.md).
   static const std::vector<std::string>& method_names();
 
+  // 3.153's four extra methods (setNickName, setAccountName, setLanguage,
+  // retrieveAccountFields), registered for a 3.153 install.
+  void register_3153();
+  static const std::vector<std::string>& method_names_3153();
+
  private:
   void register_methods();
   void echo(const std::string& line);

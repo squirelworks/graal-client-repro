@@ -90,6 +90,7 @@ int main(int argc, char** argv) {
     return 1;
   }
   GuiGraal304 graal(engine, std::move(game));
+  if (is_install_3153(engine)) graal.register_3153();
 
   boot_304(engine);
 

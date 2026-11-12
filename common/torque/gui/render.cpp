@@ -164,6 +164,19 @@ Renderer::Cached* Renderer::load(const std::string& path) {
     }
     note("bitmap " + name + ": " + error);
   }
+  // 3.153 names bitmaps by file name alone, as it does scripts
+  // (Engine::exec_by_name); the same lookup finds them.
+  if (!c->ok && engine_.exec_by_name && path.find('/') == std::string::npos) {
+    std::string found = engine_.find_by_name(path + ".png");
+    if (found.empty()) found = engine_.find_by_name(path);
+    std::string data, error;
+    Image image;
+    if (!found.empty() && engine_.files.read(found, data) &&
+        decode_png(reinterpret_cast<const std::uint8_t*>(data.data()), data.size(), image, error)) {
+      c->image = std::move(image);
+      c->ok = true;
+    }
+  }
   Cached* result = c->ok ? c.get() : nullptr;
   bitmaps_[lowered(path)] = std::move(c);
   return result;

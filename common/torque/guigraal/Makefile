@@ -13,6 +13,7 @@ HEADERS = guigraal304.hpp game304.hpp pascal_game304.hpp game304_abi.h $(ENGINE_
 
 # The 3.04 Pascal game as a shared library (make lib; needs Free Pascal).
 GAME_SRC = ../../../graal-3.04-G3D03014/src
+GAME_SRC_3153 = ../../../graal-3.153-G3D28015/src
 LIB_DIR = build/lib
 
 .PHONY: all test lib clean
@@ -50,6 +51,9 @@ lib: | build
 	mkdir -p $(LIB_DIR)
 	cd $(GAME_SRC) && $(FPC) -Mdelphi -Sh -vew -O2 -Fu../../common -Fu. \
 	  -FE$(CURDIR)/$(LIB_DIR) -FU$(CURDIR)/$(LIB_DIR) Game304Lib.lpr
+	mkdir -p $(LIB_DIR)/units3153
+	cd $(GAME_SRC_3153) && $(FPC) -Mdelphi -Sh -vew -O2 -Fu../../common -Fu. \
+	  -FE$(CURDIR)/$(LIB_DIR) -FU$(CURDIR)/$(LIB_DIR)/units3153 Game3153Lib.lpr
 
 test: build/guigraal-test build/frame-test
 	./build/guigraal-test

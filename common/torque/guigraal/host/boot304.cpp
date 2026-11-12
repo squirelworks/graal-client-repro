@@ -28,7 +28,7 @@ void register_host_stubs(Engine& e) {
   for (const char* name : {"videoSetGammaCorrection", "setOpenGLTextureCompressionHint", "setOpenGLAnisotropy",
                            "setOpenGLMipReduction", "setOpenGLInteriorMipReduction", "setOpenGLSkyMipReduction",
                            "setScreenMode", "setDisplayDevice", "toggleFullScreen",
-                           "lockMouse", "gotoWebPage", "cursorOff", "cursorOn"})
+                           "lockMouse", "gotoWebPage", "cursorOff", "cursorOn", "enableWinConsole"})
     stub(e, "", name, 1, 0);
   stub(e, "", "isDeviceFullScreenOnly", 2, 2, "0");
   for (const char* name : {"repaint", "setCursor", "cursorOn", "cursorOff"})
@@ -38,10 +38,21 @@ void register_host_stubs(Engine& e) {
 
 } // namespace
 
+bool is_install_3153(const Engine& engine) {
+  return engine.files.exists("scripts2D/main2D.cs.dso") || engine.files.exists("scripts2D/main2D.cs");
+}
+
 void setup_engine_304(Engine& engine, const std::string& root, const std::string& prefs,
                       std::function<void(const std::string&)> print) {
   engine.files.root = root;
   engine.files.prefs_dir = prefs;
+  if (is_install_3153(engine)) {
+    // The Mac PPC build: big-endian float tables in its .dso files
+    // (Graal_analysis torque/scripting.md) and exec by file name.
+    engine.float_order = FloatOrder::big;
+    engine.exec_by_name = true;
+    engine.trace.push_back("profile 3.153");
+  }
   engine.print = [&engine, print](const std::string& text) {
     if (print) print(text);
     engine.add_console_text(text);
