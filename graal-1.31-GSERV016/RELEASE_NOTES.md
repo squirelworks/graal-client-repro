@@ -5,7 +5,7 @@ for Linux and Windows. It logs in the way 1.31 did and plays a level
 offline. It is early and many parts still behave like a later Graal: see
 "Not yet".
 
-**Login token: token only.** `GSERV016` is read from the original program, but the original's own login has not been captured on the wire, so this rebuild's login has not been checked against it.
+**Login token: tested against the real client.** The original was run in the lab and `GSERV016` was seen in its login on the wire (lab trace against GServer13); this rebuild sends the same token.
 
 > **Not affiliated.** graal-delphi is an independent fan project. It is not
 > affiliated with, endorsed by, or connected to GraalOnline or

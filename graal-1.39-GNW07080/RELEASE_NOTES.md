@@ -5,7 +5,7 @@ for Linux and Windows. It logs in the way 1.39 did and plays a level
 offline. It is early and many parts still behave like a later Graal: see
 "Not yet".
 
-**Login token: token only.** `GNW07080` is read from the original program, but the original's own login has not been captured on the wire, so this rebuild's login has not been checked against it.
+**Login token: tested against the real client.** The original was run in the lab and `GNW07080` was seen in its login on the wire (traffic captured and decoded under Wine); this rebuild sends the same token.
 
 > **Not affiliated.** graal-delphi is an independent fan project. It is not
 > affiliated with, endorsed by, or connected to GraalOnline or

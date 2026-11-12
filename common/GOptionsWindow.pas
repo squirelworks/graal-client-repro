@@ -37,6 +37,7 @@ unit GOptionsWindow;
 interface
 
 uses
+  GCompat,
   SysUtils, GSurface, GDfmObj, GVclForm, GWindow;
 
 type

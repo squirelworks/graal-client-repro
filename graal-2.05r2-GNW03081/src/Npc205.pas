@@ -27,6 +27,7 @@ unit Npc205;
 interface
 
 uses
+  GCompat,
   Classes, SysUtils, GNumText, Math, GTypes, GLevel, GSurface, GGs1;
 
 const

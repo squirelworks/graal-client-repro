@@ -479,7 +479,7 @@ begin
   if FFull then
   begin
     { back to the window it was }
-    if FModeChanged then ChangeDisplaySettings(nil, 0);
+    if FModeChanged then GwChangeDisplaySettings(nil, 0);
     FModeChanged := False;
     FFull := False;
     SetWindowLong(FWnd, GWL_STYLE, FSaveStyle);
@@ -503,7 +503,7 @@ begin
     DM.dmPelsHeight := 480;
     DM.dmBitsPerPel := 16;
     DM.dmFields := DM_PELSWIDTH or DM_PELSHEIGHT or DM_BITSPERPEL;
-    FModeChanged := ChangeDisplaySettings(@DM, CDS_FULLSCREEN) = DISP_CHANGE_SUCCESSFUL;
+    FModeChanged := GwChangeDisplaySettings(@DM, CDS_FULLSCREEN) = DISP_CHANGE_SUCCESSFUL;
   end
   else if GAltEnterMode = 2 then
     MessageBox(HWND(GWindowOwner), 'Display mode cannot be changed (640x480 16bit)', 'Graal',
@@ -531,7 +531,7 @@ destructor TGWindow.Destroy;
 var
   I, J: Integer;
 begin
-  if FFull and FModeChanged then ChangeDisplaySettings(nil, 0);
+  if FFull and FModeChanged then GwChangeDisplaySettings(nil, 0);
   if FFullscreen then GwChangeDisplaySettings(nil, 0);
   { back to the newest window still open (a dialog's owner), if any }
   for I := High(LiveWindows) downto 0 do

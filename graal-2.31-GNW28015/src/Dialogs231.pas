@@ -29,6 +29,7 @@ unit Dialogs231;
 interface
 
 uses
+  GCompat,
   Classes, GSplit, GSurface, GWindow;
 
 type
@@ -159,7 +160,7 @@ var
   I: Integer;
 begin
   I := Lines.IndexOfName(Name);
-  if I >= 0 then Result := Lines.ValueFromIndex[I] else Result := '';
+  if I >= 0 then Result := ValueAtIndex(Lines, I) else Result := '';
 end;
 
 function TGraalConfig.Bool(const Name: string): Boolean;

@@ -17,6 +17,7 @@ unit GSysUiFont;
 interface
 
 uses
+  GCompat,
   GSurface, GUiFont;
 
 { Width in pixels of S. }

@@ -15,6 +15,7 @@ unit GBetaHud;
 interface
 
 uses
+  GCompat,
   GSurface;
 
 type
@@ -161,6 +162,9 @@ begin
     SheetNames[I] := '';
   end;
 end;
+
+{ Delphi 5 and 7 need an initialization section before finalization }
+initialization
 
 finalization
   FreeHudSheets;

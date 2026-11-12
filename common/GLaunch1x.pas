@@ -36,6 +36,7 @@ unit GLaunch1x;
 interface
 
 uses
+  GCompat,
   Classes, GSplit, GSurface, GWindow, GDfm1x;
 
 type
@@ -452,10 +453,13 @@ begin
 end;
 
 function THeadIcons.Icon(const HeadFile: string): TGSurface;
+const
+  HeadExts: array[0..2] of string = ('.gif', '.png', '.mng');
 var
-  I, N: Integer;
+  I, N, E, K: Integer;
   Img: TGSurface;
   Base, F, Ext: string;
+  Files: array[0..2] of string;
   Found: Boolean;
 begin
   I := FNames.IndexOf(LowerCase(HeadFile));
@@ -468,16 +472,23 @@ begin
   Img := TGSurface.Create(0, 0);
   Found := False;
   Base := ChangeFileExt(HeadFile, '');
-  for Ext in ['.gif', '.png', '.mng'] do
+  { indexed loops: Delphi 5 and 7 have no for-in }
+  for E := 0 to High(HeadExts) do
   begin
+    Ext := HeadExts[E];
     { LevelSibling: FDir + name, or under a shared root this build's copy }
-    for F in [LevelSibling(FDir, 'levels/heads/' + Base + Ext),
-      LevelSibling(FDir, 'levels/' + Base + Ext), LevelSibling(FDir, Base + Ext)] do
+    Files[0] := LevelSibling(FDir, 'levels/heads/' + Base + Ext);
+    Files[1] := LevelSibling(FDir, 'levels/' + Base + Ext);
+    Files[2] := LevelSibling(FDir, Base + Ext);
+    for K := 0 to High(Files) do
+    begin
+      F := Files[K];
       if FileExists(F) and LoadImageFile(F, Img) and (Img.Height >= 96) then
       begin
         Found := True;
         Break;
       end;
+    end;
     if Found then Break;
   end;
   if Found then

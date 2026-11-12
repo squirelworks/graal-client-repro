@@ -18,6 +18,7 @@ unit EditorDialogs;
 interface
 
 uses
+  GCompat,
   Classes, GSurface, GLevel, EditorUI, EditorDoc;
 
 type

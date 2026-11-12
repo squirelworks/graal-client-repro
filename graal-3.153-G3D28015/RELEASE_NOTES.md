@@ -9,7 +9,7 @@ yet.
 
 > **Major defects in fidelity.** This client's Torque layer has not been rebuilt yet (the original is built on the Torque engine), so this release does not behave like the original in many ways. It stays marked this way until the Torque behaviour rebuild (#109, #151, #172) reaches this build.
 
-**Login token: token only.** `G3D28015` is read from the original program, but the original's own login has not been captured on the wire, so this rebuild's login has not been checked against it.
+**Login token: tested against the real client.** The original was run in the lab and `G3D28015` was seen in its login on the wire (Mac OS X lab run in qemu); this rebuild sends the same token.
 
 > **Not affiliated.** graal-delphi is an independent fan project. It is not
 > affiliated with, endorsed by, or connected to GraalOnline or

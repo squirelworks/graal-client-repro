@@ -24,6 +24,7 @@ unit GDfm;
 interface
 
 uses
+  GCompat,
   Classes;
 
 type

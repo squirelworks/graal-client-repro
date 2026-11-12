@@ -12,6 +12,7 @@ unit GDfm1x;
 interface
 
 uses
+  GCompat,
   Classes;
 
 type
