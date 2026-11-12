@@ -27,7 +27,7 @@ type
     PX, PY: Double;
     Rupees: Double;
     Chat: string;
-    Sent, Said, Events: TStringList;
+    Sent, Said, Events, PlayerOps: TStringList;
     Hurt, HurtX, HurtY: Double;
     WarpLevel: string;
     WarpX, WarpY: Double;
@@ -47,6 +47,7 @@ type
     procedure Warp(const Level: string; X, Y: Double); override;
     procedure LayItem(Item: Integer; X, Y: Double); override;
     procedure Send(Id: Integer; const Data: string); override;
+    procedure PlayerCommand(Op: Integer; const A: TGsArgs); override;
   end;
 
 constructor TTestWorld.Create;
@@ -54,6 +55,7 @@ begin
   Sent := TStringList.Create;
   Said := TStringList.Create;
   Events := TStringList.Create;
+  PlayerOps := TStringList.Create;
   Img := TGSurface.Create(32, 48);
   Img.Fill($FF808080); { drawn everywhere: image NPCs are hit on drawn pixels }
   PX := 10;
@@ -66,6 +68,7 @@ begin
   Sent.Free;
   Said.Free;
   Events.Free;
+  PlayerOps.Free;
   Img.Free;
   inherited;
 end;
@@ -116,6 +119,11 @@ begin
   Sent.Add(IntToStr(Id) + ':' + Data);
 end;
 
+procedure TTestWorld.PlayerCommand(Op: Integer; const A: TGsArgs);
+begin
+  PlayerOps.Add(GsCommands[Op - GsFirstOp].Name);
+end;
+
 var
   C: TCheckProc;
 
@@ -135,8 +143,13 @@ var
   M: TNpcManager;
   N: TNpc;
   S: TGsScript;
-  Bad, I: Integer;
+  Bad, I, Ticks: Integer;
 const
+  SleepCases: array[0..8] of record Arg: string; Ticks: Integer; end = (
+    (Arg: '0.01'; Ticks: 0), (Arg: '0'; Ticks: 0), (Arg: '-1'; Ticks: 0),
+    (Arg: '0.04999'; Ticks: 0), (Arg: '0.049995'; Ticks: 1),
+    (Arg: '0.05'; Ticks: 1), (Arg: '0.06'; Ticks: 1), (Arg: '0.1'; Ticks: 2),
+    (Arg: '0.15'; Ticks: 3));
   { each stops part way through a statement; the half-built pieces must
     still be freed (the heap check at exit catches a leak) }
   Broken: array[0..4] of string = (
@@ -244,6 +257,30 @@ begin
   finally
     M.Free;
     W.Free;
+  end;
+
+  { exact 2.05r2: sleep waits floor(seconds * 20 + 0.0001) whole ticks;
+    0 ticks does not yield (#174, GS1-EFFECTS-205R2-20261109-02) }
+  for I := 0 to High(SleepCases) do
+  begin
+    W := TTestWorld.Create;
+    M := RunOne(W, 'if (playerenters) { this.a = 1; sleep ' + SleepCases[I].Arg +
+      '; this.a = 2; }', 'playerenters');
+    try
+      N := M.Npc(0);
+      Ticks := 0;
+      while (N.Ctx.Locals.Get('a', 0) <> 2) and (Ticks < 10) do
+      begin
+        M.Tick;
+        Inc(Ticks);
+      end;
+      C(Ticks = SleepCases[I].Ticks, 'GS1 2.05r2: sleep ' + SleepCases[I].Arg +
+        ' resumes after ' + IntToStr(SleepCases[I].Ticks) + ' ticks (got ' +
+        IntToStr(Ticks) + ')');
+    finally
+      M.Free;
+      W.Free;
+    end;
   end;
 end;
 
@@ -488,6 +525,51 @@ begin
   end;
 end;
 
+{ Exact 2.05r2 keeps these executor entries as no-ops (#174): each one
+  parses, runs, and changes nothing the world or the NPC can see. }
+procedure TestExecutorNoOps;
+const
+  NoOps: array[0..12] of string = (
+    'seturllevel other.nw', 'setfocus 3,4', 'resetfocus', 'setbacktile 5',
+    'canwarp2', 'drawovertrees', 'canwarp', 'join someclass',
+    'freezeplayer2', 'unfreezeplayer', 'setbacktile2 1,2,3,4,5',
+    'setz 1,2,3,4,5,6,7,8', 'updateterrain');
+var
+  W: TTestWorld;
+  M: TNpcManager;
+  N: TNpc;
+  I: Integer;
+  Ok: Boolean;
+begin
+  for I := 0 to High(NoOps) do
+  begin
+    W := TTestWorld.Create;
+    W.IsOnline := True;
+    M := RunOne(W, 'if (playerenters) { ' + NoOps[I] + '; this.after = 1; }', 'playerenters');
+    try
+      N := M.Npc(0);
+      Ok := (N.Ctx.Locals.Get('after', 0) = 1) and (W.PlayerOps.Count = 0) and
+        (W.Sent.Count = 0) and (W.Said.Count = 0) and (W.WarpLevel = '') and
+        (N.X = 5) and (N.Y = 5) and N.Visible and (N.Image = 'block.png');
+      C(Ok, 'NPC: ' + Copy(NoOps[I], 1, Pos(' ', NoOps[I] + ' ') - 1) +
+        ' is a no-op in exact 2.05r2');
+    finally
+      M.Free;
+      W.Free;
+    end;
+  end;
+  { a player command next to them still reaches the player }
+  W := TTestWorld.Create;
+  M := RunOne(W, 'if (playerenters) { unfreezeplayer; setskincolor 3; }', 'playerenters');
+  try
+    C((W.PlayerOps.Count = 1) and (W.PlayerOps[0] = 'setskincolor'),
+      'NPC: a player command after a no-op still reaches the player');
+  finally
+    M.Free;
+    W.Free;
+  end;
+end;
+
 procedure RunNpcTests(Check: TCheckProc; out Skipped: Integer);
 begin
   Skipped := 0;
@@ -495,6 +577,7 @@ begin
   TestLanguage;
   TestNpcCommands;
   TestNpcProps;
+  TestExecutorNoOps;
   TestLibrary(Skipped);
   TestInGame;
 end;

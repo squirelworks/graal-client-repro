@@ -25,6 +25,7 @@ come first.
 
 ## What's new in v0.0.5
 
+- [x] **Neutral window titles.** The server list window is titled "Server List", not the original's caption, which named the original's host (#191).
 - [x] **The chat line.** Tab gives the keys to the white line under the game and back; Enter says what is typed, and what each player says is drawn over the head (in `TEMPSITC.TTF` when the install has it).
 
 - [x] **System weapons stay out of Q.** A weapon whose name starts with `-` (the Reborn server's `-gr_movement`) runs but is not shown in the item list.

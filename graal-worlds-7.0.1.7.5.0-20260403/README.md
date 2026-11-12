@@ -1,6 +1,6 @@
 # Graal Worlds 7.0.1.7.5.0 (scaffold)
 
-Installer `WorldsSetup64-7.0.1.7.5.0` (version resource 7.0.1.7.5.0). The installed "GraalOnline Worlds" folder is the same build: every shared file matches. The bundleVersion is most likely `701750`; the Unity 6 settings layout was not decoded, so that field is not proven.
+Installer `WorldsSetup64-7.0.1.7.5.0` (version resource 7.0.1.7.5.0). The installed Worlds folder is the same build: every shared file matches. The bundleVersion is most likely `701750`; the Unity 6 settings layout was not decoded, so that field is not proven.
 
 The original is a Unity player (`Worlds.exe`) with an IL2CPP
 `GameAssembly.dll` and the native Graal3D plugin beside it. This folder
@@ -26,7 +26,7 @@ folders, this one is named for its build and its date:
 | Unity | 6000.0.63f1 |
 | Plugin | `Graal3DEngine.dll`, no version resource |
 | Build date | 2026-04-03 (GameAssembly time stamp) |
-| Company / product | `toonslab` / `GraalOnline Worlds` |
+| Company / product | `toonslab` / Graal Worlds |
 | Token | None stored |
 
 The playable Worlds stand-in lives in

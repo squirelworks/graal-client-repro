@@ -42,6 +42,7 @@ program GraalB10;
 uses
   SysUtils, Classes,
   GPaths in '../../common/GPaths.pas',
+  GNumText in '../../common/GNumText.pas',
   GTypes in '../../common/GTypes.pas',
   GSocket in '../../common/GSocket.pas',
   GLevel in '../../common/GLevel.pas',

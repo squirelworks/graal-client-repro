@@ -52,7 +52,7 @@ One directory per surface, each with a stub unit (no types, no allocated state) 
 | `net-torque/` | `TqNetTorque` | patched | `GameConnection`. Stock demo in 3.04; Graal's protocol on the later 3D DLL. |
 | `guigraal/` | `TqGuiGraal` | Graal-only | `GuiGraalCtrl`, and `GuiGraal3DCtrl` where that name exists. |
 
-`gameobject` is not in the 3.04 list. `game-tge` is not in the 4.2.0.8 or 5.0.0.7 3D lists. The cut, per program, is [CUTS.md](CUTS.md). `manifests/*.list` is the wire: one directory name per line. Those files are not include files and are not passed to fpc.
+`gameobject` is not in the 3.04 list. `game-tge` is not in the 4.2.0.8 or 5.0.0.7 3D lists. The cut, per program, is [CUTS.md](CUTS.md). `manifests/*.list` is the wire: one directory name per line. They are not include files. `manifests/profiles.py` makes each one a build input: `check` holds every list to the CUTS.md table (exactly the modules marked **yes**), and `build` compiles a generated program that uses those modules' stub units with only their directories on the fpc unit path, so an unlisted module cannot link. `scripts/build.sh` still does not read them; the `torque-profiles` workflow runs `manifests/test_profiles.py` (#152).
 
 6.x is `quattro_lib` (common C++, not Torque). Unpacked 5.30 and 5.31 are already that program. Neither links a unit here. `common/cpp` is not part of this change.
 
@@ -64,5 +64,7 @@ Graal_analysis, behaviour only:
 - `torque/4208-launcher.md`, `torque/4208-engine.md`, `torque/4208-g3d.md`
 - `torque/engine-5007.md`, `torque/g3d-5007.md`, `torque/launcher-5007.md`, `torque/engine-530r3.md`, `torque/engine-531r4.md` (the 5.0.0.7 and unpacked 5.30/5.31 reads). Each fact used from those notes is restated in the module README, so a missing file does not hide the cut.
 - `client-internals/engine-600r2.md` for the 6.x cut
+
+What each component was written from, and the external material it does not use, is in [PROVENANCE.md](PROVENANCE.md) (#110).
 
 Issue comments for this layout are in [ISSUES.md](ISSUES.md). They are not posted.

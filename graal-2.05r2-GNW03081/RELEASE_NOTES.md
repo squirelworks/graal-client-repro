@@ -16,11 +16,13 @@ bodies.
 
 ## What's new in v0.0.5
 
+- [x] **Neutral window titles.** The server list window is titled "Server List", not the original's caption, which named the original's host (#191).
 - [x] Shared GS1 variable storage releases its scalar and array values
 - [x] **Counted raw messages.** Every byte inside a RAWDATA count is kept, a final LF too, as 2.05r2 hands the whole count to its raw dispatcher; a file whose content ends in LF is no longer cut short.
   explicitly, removing the newer TStringList.OwnsObjects dependency while
   preserving clear/reuse/destruction behavior. Lifetime tests run with
   the heap tracer. This change benefits every client using the shared unit.
+- [x] **Script sleep in whole ticks.** `sleep` waits floor(seconds x 20 + 0.0001) ticks of 0.05 s, as 2.05r2 does, so a sleep shorter than a tick (0.01) goes straight on instead of waiting, and 0.06 waits one tick, not two.
 - [ ] Finish the other historical Delphi compatibility work and verify a
   build with an actual period compiler; modern FPC tests do not certify it.
 - [x] **Pictures by kind.** The picture cache keeps each name once per kind (head, body, sword, shield, hat, weapon), because each kind searches its own folders. A picture first asked for without its kind got the built-in stand-in and kept it, so an install's own picture could stay hidden behind the stand-in (in 1.33, `levels/weapons/wbomb1.gif` beside the D button).
@@ -34,7 +36,7 @@ bodies.
   box and nickname placed from the form, and the Training, Options and
   Start buttons drawn from `BUTTON1` where the real one paints them.
 - [x] Start opens the server list as its own 577 x 416 window
-  ("Graalonline.com Server List", `SCREENIMG2`), laid out from this exe's
+  (titled "Server List", `SCREENIMG2`), laid out from this exe's
   `TServerListFrame`: the 2.03 to 2.05 rev 2 server list form.
   "Getting server list ..." shows in the `TShortMessage` box while the
   listserver answers. The account and password are typed on the list, as
