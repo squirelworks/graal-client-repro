@@ -71,8 +71,18 @@ finds the install's files from there, or from `graal-assets/3.04/` and
 It reads the 3.04 install's own layout: tile sheets in `levels/tiles/`
 (`pics1.png`, `picso.png`), the offline tutorial in `levels/tutorial/`,
 `levels/tiledefs/tiledefsOffline.txt` (which gives the tutorial levels the
-`picso.png` sheet), and `license/license.graal`. 3.04 ships no
-`arrays.dat`, so the built-in tile types are used.
+`picso.png` sheet), and `license/license.graal`.
+
+Walking follows 3.04's own rule, which depends on the sheet type that the
+tiledef gives the level (Graal_analysis `torque/304-tile-types.md`).
+On `pics1.png` (type 0, every online level unless a tiledef says
+otherwise), a tile is free only when it is in `arrays.dat` array 0 or 1.
+3.04 has these lists built in rather than in a file. They are 2.22's
+`arrays.dat` without water tiles 1824 and 1825. 3.04 ships no `arrays.dat`, so put
+2.22's in the 3.04 folder or in `graal-assets/3.04/`. Without it the
+rebuild's stand-in table is used, and real levels' grass is a wall. The
+offline tutorial's `picso.png` (type 1) uses 3.04's row rule and needs no
+file.
 
 ```
 GRAAL_PW=... Graal304 --server HOST:PORT --account NAME

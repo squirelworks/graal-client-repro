@@ -1128,6 +1128,21 @@ begin
     Check(G.TileSheetFor('offlinetutorial_a-1.graal') = G.Sheet,
       'addtiledef: a missing image keeps pics1');
     Check(G.TileSheetFor('start.nw') = G.Sheet, 'addtiledef: other levels keep pics1');
+    { 3.04's walking test by sheet type (Graal_analysis
+      torque/304-tile-types.md) }
+    Check((G.SheetTypeFor('offlinetutorial_a-1.graal') = 1) and (G.SheetTypeFor('start.nw') = 0),
+      'addtiledef: the third field is the sheet type, 0 without a tiledef');
+    G.Level.Name := 'offlinetutorial_a-1.graal';
+    Check(not G.TileBlocks(0) and not G.TileBlocks(48) and not G.TileBlocks(1000),
+      'sheet type 1: tiles outside the wall rows are free');
+    Check(G.TileBlocks(32) and G.TileBlocks(26 * 16 + 2) and not G.TileBlocks(26 * 16 + 1) and
+      G.TileBlocks(30 * 16) and G.TileBlocks(47 * 16 + 15) and not G.TileBlocks(48 * 16) and
+      G.TileBlocks(84 * 16) and G.TileBlocks(127 * 16) and G.TileBlocks(144 * 16) and
+      not G.TileBlocks(128 * 16),
+      'sheet type 1: id 32, rows 26-27 from column 2, 30-47, 84-95, 116-127 and rows from 128 with bit 16 block');
+    G.Level.Name := 'start.nw';
+    Check(G.TileBlocks(48) = not G.Arrays.TilePassable(48),
+      'sheet type 0: arrays 0 and 1 decide');
   finally
     G.Free;
   end;
