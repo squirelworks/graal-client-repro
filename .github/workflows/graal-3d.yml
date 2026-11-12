@@ -75,15 +75,3 @@ jobs:
           cat offline.json
           grep -q '"onGround":true' offline.json
 
-  macos:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/')
-    continue-on-error: true
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install Free Pascal
-        run: brew install fpc
-      - name: Build and test
-        run: |
-          scripts/build.sh graal-3d-20000205
-          scripts/test.sh
