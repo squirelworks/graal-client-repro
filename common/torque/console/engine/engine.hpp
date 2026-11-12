@@ -125,6 +125,42 @@ struct FileSystem {
   std::vector<std::string> list() const;  // every file, sorted, root and prefs
 };
 
+// One input event from the host (stage 3). Device names are Torque's
+// ("keyboard", "mouse0", "joystick0"); key names are lower-case Torque object
+// names ("a", "f2", "enter", "escape", "up", "space", "button0"). The host
+// maps its own key codes to these names.
+struct InputEvent {
+  enum Modifier : unsigned { shift = 1, ctrl = 2, alt = 4 };
+  std::string device = "keyboard";
+  std::string key;
+  unsigned modifiers = 0;
+  bool make = true;       // press; false = release
+  bool repeat = false;    // a held key's auto-repeat (text edits only)
+  char ascii = 0;         // printable character for text edits, 0 if none
+};
+
+// A press an ActionMap took; its release goes to the same binding even if
+// the map was popped in between.
+struct PendingBreak {
+  std::string device, key, map;
+  ActionBinding bind;
+};
+
+// A canvas dialog layer, bottom first in Engine::dialogs.
+struct DialogLayer {
+  std::uint32_t control = 0;
+  int layer = 0;
+  std::uint32_t previous_focus = 0;  // first responder before the push
+};
+
+// Text-edit state the console and text-edit controls keep outside the
+// script-visible fields.
+struct TextEditState {
+  std::size_t cursor = 0;
+  std::vector<std::string> history;   // GuiConsoleEditCtrl, oldest first
+  std::size_t history_pos = 0;        // == history.size() when not browsing
+};
+
 struct EngineLimits {
   std::size_t call_depth = 512;
   std::size_t steps = 50'000'000;   // per top-level exec or call
@@ -203,6 +239,22 @@ class Engine {
   static std::string expand_path_from(const std::string& script, const std::string& path);
   const CodeBlock* current_block() const;
 
+  // Input (input304.cpp). A key goes to GlobalActionMap, then the canvas's
+  // first responder, then the pushed ActionMaps from the top. The release
+  // goes wherever the press went. Returns whether something took the event.
+  bool process_input(const InputEvent& event);
+  std::uint32_t first_responder = 0;
+  std::vector<DialogLayer> dialogs;          // Canvas.pushDialog, bottom first
+  std::map<std::uint32_t, TextEditState> edits;
+  std::vector<PendingBreak> pending_breaks;
+  // The console window's lines (GuiConsole). The host's print callback
+  // appends with add_console_text; GuiConsole draws them.
+  std::vector<std::string> console_buffer;
+  std::size_t console_buffer_max = 2000;
+  void add_console_text(const std::string& text);
+  // Each routed event, for the call-chain log (also copied to trace).
+  std::vector<std::string> input_log;
+
   bool quit_requested = false;
   // Called after GuiCanvas::setContent stores the new content (for a renderer).
   std::function<void(SimObject* canvas, SimObject* content)> on_set_content;
@@ -248,5 +300,14 @@ class Engine {
 void register_builtins(Engine& engine);
 void register_classes_304(Engine& engine);
 void register_engine_prefs_304(Engine& engine);
+// GuiCanvas dialogs, focus, GuiConsole, GuiConsoleEditCtrl, GuiInputCtrl and
+// text-edit keys. Call after register_classes_304.
+void register_input_304(Engine& engine);
+// What the engine does when input starts with the canvas (createCanvas).
+void start_input_304(Engine& engine);
+// Control awake state (classes304.cpp): the control's onWake, then children.
+void wake_control(Engine& engine, std::uint32_t id);
+void sleep_control(Engine& engine, std::uint32_t id);
+bool is_control_class(const Engine& engine, const SimObject* object, const char* class_name);
 
 } // namespace Torque

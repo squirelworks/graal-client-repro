@@ -534,6 +534,12 @@ void Engine::delete_object(std::uint32_t id) {
   }
   events.erase(std::remove_if(events.begin(), events.end(),
                               [&](const Event& e) { return e.object == id; }), events.end());
+  // A deleted map is no longer pushed; a deleted dialog leaves the canvas.
+  action_maps.erase(std::remove(action_maps.begin(), action_maps.end(), id), action_maps.end());
+  dialogs.erase(std::remove_if(dialogs.begin(), dialogs.end(),
+                               [&](const DialogLayer& d) { return d.control == id; }), dialogs.end());
+  edits.erase(id);
+  if (first_responder == id) first_responder = 0;
   objects.erase(id);
 }
 
