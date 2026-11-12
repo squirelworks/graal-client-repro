@@ -27,6 +27,8 @@ their place.
 - [x] **Its own resources.** Every RCDATA resource of `GraalX.exe` is
   compiled in (`src/ResGraalX.pas`), with its own icon. Its main form is the
   one 2.02 also has, not 2.01's.
+- [x] **As 2.01 now does:** the minimap only on a level of its grid, and F1
+  opens the Help window from the build's own form.
 
 ## Not yet
 
