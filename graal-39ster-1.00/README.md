@@ -42,6 +42,7 @@ original, and this folder keeps that distinction.
 | `src/Tiles39.pas` | NW base64 pairs to 12-bit ids, ids to sheet cells (each 512-id block 16 columns across), the 10/10/12-bit packed tile, the category table and which categories are walls |
 | `src/Camera39.pas` | the camera: centred on the 16-pixel anchor, clamped to the level, a smaller level centred |
 | `src/Move39.pas` | movement and collision: the edge scan, 3 pixels a nominal update, diagonals at 0.75, vertical before horizontal, 1-pixel shrinking and single-axis slides with 16-pixel snapping |
+| `src/Anim39.pas` | the eight player ganis from the install, the frame position (0.35 x the time factor, waits skipped), loop / return / hold at the end, and the character drawn piece by piece |
 | `src/World39.pas` | a level with the player's sheet and category table, its walls, the player's position and one movement step, drawn into a 640 x 480 frame |
 | `src/Graal39ster.dpr` | the front end: the window, or one frame to a `.bmp` |
 
@@ -91,9 +92,14 @@ The slices of issue #176, in order:
   and player-supplied resource loading; no original script or art imported.
 - [x] Generated NW and category fixtures: 64 x 64 boards, the sheet mapping
   across 512-id blocks and category-index interpretation.
-- [ ] Generated character-piece rendering (body, head, shield, sword and
-  attribute pieces). Viewport clamping and centring are done
-  (`Camera39`); the player is a white box.
+- [x] Generated character-piece rendering: body, head, shield, sword and
+  attribute pieces drawn from the playing gani's row for the facing
+  (`src/Anim39.pas`), and viewport clamping and centring (`Camera39`). Two
+  points are this port's reading, not stated in the notes: which pictures
+  the pieces use when the gani names none the install has (`head0.png`,
+  `body1.png`, `sword1.png`, `shield1.png`, `hat1.png` under `levels/`,
+  the ones a 39ster install keeps), and that the 16-pixel box is the feet
+  of the body, so the gani origin is the box less (16, 32).
 - [x] Movement: cardinal and diagonal, the time factor from the previous
   frame, vertical before horizontal, the 1-unit shrink, single-axis slides
   and 16-pixel snapping, with asymmetric generated obstacles
@@ -103,9 +109,11 @@ The slices of issue #176, in order:
   the other axis (ties to the lower one), taking the farther one only when
   the nearer one is still blocked. Getting up from sitting (2 pixels) is in
   `MovePlayer` but nothing sits yet.
-- [ ] Animation fixtures: looping walk, sword return, held pose, and frame
+- [x] Animation fixtures: looping walk, sword return, held pose, and frame
   commands (wait, sound) skipped; timing tested apart from names that
-  suggest milliseconds.
+  suggest milliseconds. Space swings the sword; the player stands while it
+  swings (this port's reading). Swim, sit, grab, pull and push load and
+  animate but nothing switches to them yet.
 - [ ] Pause, grab and pull, sign paging (3 lines, Up scrolls back) and
   release.
 - [ ] Links between two generated rooms: kept axes, failed loads and the
