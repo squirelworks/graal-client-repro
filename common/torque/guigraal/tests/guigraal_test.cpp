@@ -133,6 +133,7 @@ struct Rig {
     engine.print = [this](const std::string& t) { console << t << "\n"; };
     register_builtins(engine);
     register_classes_304(engine);
+    register_input_304(engine);
     register_text_list_304(engine);
     engine.compiler = [](const std::string& source, const std::string&, DsoBlock& out, std::string& error) {
       CompileError e;

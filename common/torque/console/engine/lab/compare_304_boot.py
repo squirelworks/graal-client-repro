@@ -31,8 +31,8 @@ import tempfile
 KNOWN = {
     # Engine output while the video device starts (createCanvas): video stage.
     "console": "lines from 'Activating the OpenGL display device...' to the next blank line",
-    # Set by the engine during input and video start-up, after the scripts.
-    "prefs": ["$pref::Input::MouseEnabled", "$pref::Video::appliedPref"],
+    # Set by the engine during video start-up, after the scripts.
+    "prefs": ["$pref::Video::appliedPref"],
 }
 
 

@@ -79,7 +79,62 @@ gserver login.
 - [ ] `con.png` and `con.gs`, which the real client asks for before `conf.gs`.
 - [ ] The connector script as a GS2 object (`StartScript_Connector`, `scriptip`, the SSL fields, `StartScript_Fail`) and the other script methods (`senddata`, `setoutdatahandlers`, `setindatahandlers`, `getpassword`).
 - [ ] 6.11 property id tables, GS2, the OpenGL playfield, the real window size.
-- [ ] Side-by-side against the real 6.11r1 client.
+- [x] Side-by-side against the real 6.11r1 client (below).
+- [ ] The real window: title "Graal", app and Window menus, 1024x675 from the saved config, the start-up "Select File" dialog, an app bundle with the Graal icon.
+
+## Polishing run against the real 6.11r1 (2026-11-12)
+
+Real 6.11r1 (x86_64) and this folder side by side on the lab macOS 15
+(Sequoia) VM, offline on a restricted network, one after the other, both
+pointed at a local connector logger. The repro was built natively in the VM
+(FPC 3.2.2, x86_64); `Test6111` passes 127 of 127.
+
+| Area | Real 6.11r1 | This folder | Severity |
+|---|---|---|---|
+| Request headers | `User-Agent: Graal/6.111`, `Connection: Keep-Alive` | Same headers, same order | match |
+| First connector step | TLS on 443 first, then plain HTTP | Plain HTTP only (HTTPS step is a listed TODO) | medium |
+| `conf.gs` request | `GET /conf.gs?p=… HTTP/1.0` | `GET /conf.gs HTTP/1.0`, no `p=` (listed TODO) | low |
+| Retries | 1 HTTPS + 1 HTTP on `con` + 1 HTTP on `con2`, about 0.25 s in all, none more in 90 s | 3 plain-HTTP tries: A, then B twice, then "Couldn't connect to the server" | medium |
+| `--window` on macOS | n/a | Crashed at AppKit start (`EInvalidOp` in `_NSGetCGFloatAppConfig`); fixed here, see below | high, fixed |
+| In-game | Stops at `conf.gs`: the operator signs the reply, so no real in-game frame exists in the lab | Lab login (connector, signature, `EILLLT`, `SEI00001`, lab yard, 6 moves) runs headless | n/a |
+
+The retry pattern was the same with a desktop session: no later retry, and
+the real client draws no failure text.
+
+Screenshots, both clients in the same desktop session at 1280x800:
+
+| Area | Real 6.11r1 | This folder | Severity |
+|---|---|---|---|
+| Window title and menus | "Graal"; app menu "Graal" plus a Window menu | "Graal v6.11r1[Mac OS X]"; app menu "Graal6111"; no Window menu | high |
+| Window size and place | 1024x675 at 50,25 (saved config) | 240x180 lab view, centred | high |
+| Start-up dialog | A "Select File" dialog over the main window (as real 6.03r7 on Linux) | None | high |
+| Playfield offline | Plain light grey; log stops at "Initialized OpenGL"; no in-game frame without the operator's connector | Lab yard; 6 Right + 4 Down moved 10 steps with the camera following | n/a |
+| Dock icon | Graal icon | Generic executable (bare binary, no `.app`) | low |
+| F1 | Nothing | Nothing | match |
+| Quit | Clean, no crash report | Clean, no crash report | match |
+
+A second pass replayed a real signed `conf.gs` reply to the real client
+(private copy, not in the repo), with the game-server address in it sent to
+a local listener that records and never answers:
+
+| Area | Real 6.11r1 | This folder | Severity |
+|---|---|---|---|
+| After `conf.gs` | Accepts the reply first try; one connection to the game server | Accepts its own signed reply; one connection | match |
+| First bytes | About 250 bytes in 2 or 3 writes, each a 2-byte length then the body; the first body (about 195 bytes) zlib-compressed, the rest 49 bytes | A bare 8-byte `SEI00001`, no length prefix, no compression | high (6.11 session framing not built) |
+| No answer | Nothing more, no reconnect; log "Connecting to the login server...", "Serverwarp...", "The connection could not be established!"; none of it drawn | Lab yard | n/a |
+| Window | Blank grey until a login server answers | Draws at once | high |
+| "Select File" dialog | Text in a profile with downloaded GUI files; a blank blue Graal skin in a fresh profile | None | high |
+
+A real in-window comparison needs a lab login server the real client
+accepts: this project's connector script and a 6.11 module in
+seihai-gserver-v2.
+
+Fix from this run: FPC unmasks the invalid-operation, divide-by-zero and
+overflow exceptions, and AppKit's start-up computes with NaNs, so every Cocoa
+window crashed. `common/GWindowCocoa.inc` now masks all floating-point
+exceptions before AppKit starts. Checked on the VM, also in a desktop session: `--window` shows the
+window, walks the lab yard and exits cleanly, and `graal-2.22-GNW03014`
+still builds with the shared unit.
 
 ## Provenance
 

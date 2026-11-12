@@ -1,0 +1,49 @@
+# Stage 3 lab key script for the 3.04 Linux client and tq-boot --input.
+# drive_304_keys.py plays it into the original with xdotool; tq-boot plays
+# it into the rebuild. compare_304_input.py compares what both wrote.
+#
+# At the main menu only GlobalActionMap is active (moveMap is pushed by
+# AdventureGui), so this "a" should reach nothing.
+key a
+# F2 opens ConsoleDlg; the typed line goes through ConsoleEntry::eval.
+key f2
+type echo("x");
+key enter
+# Message formats for calls that fail.
+type nosuchfunction();
+key enter
+type NoSuchObject.foo();
+key enter
+type Canvas.noSuchMethod();
+key enter
+type echo();
+key enter
+type activateKeyboard();
+key enter
+type %local = 1;
+key enter
+# Up recalls the last line (history), Enter runs it again.
+key up
+key enter
+# The saved key map, printed to the console.
+type GlobalActionMap.save();
+key enter
+# Remap "Up" (index 0) to K through the shipped dialog; F2 closes the
+# console so the remap dialog has the keys.
+type OptRemapInputCtrl.index = 0; Canvas.pushDialog(RemapDlg);
+key enter
+key f2
+key k
+# Escape inside the remap dialog: does GlobalActionMap (escapeFromGame)
+# see it first, or the dialog?
+key f2
+type OptRemapInputCtrl.index = 4; Canvas.pushDialog(RemapDlg);
+key enter
+key f2
+key escape
+key f2
+type echo(RemapDlg.isAwake() SPC MessageBoxYesNoDlg.isAwake() SPC $ConsoleActive);
+key enter
+# quit() runs onExit, which saves moveMap to config.cs.
+type quit();
+key enter

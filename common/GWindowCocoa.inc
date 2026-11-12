@@ -246,6 +246,13 @@ begin
   inherited Create;
   FWidth := AWidth;
   FHeight := AHeight;
+  { AppKit and Core Graphics compute with NaNs and denormals and expect the
+    C default, all floating-point exceptions masked. FPC unmasks invalid
+    operation, divide by zero and overflow, and AppKit's start-up
+    (_NSGetCGFloatAppConfig) then stopped the program with EInvalidOp.
+    Mask them all before AppKit runs, as a Cocoa program has them. }
+  SetExceptionMask([exInvalidOp, exDenormalized, exZeroDivide, exOverflow,
+    exUnderflow, exPrecision]);
   Pool := objc_autoreleasePoolPush;
   try
     App := Msg(Cls('NSApplication'), 'sharedApplication');

@@ -4,7 +4,8 @@ FPC ?= fpc
 
 ENGINE_DIR = ../console/engine
 ENGINE = $(ENGINE_DIR)/engine.cpp $(ENGINE_DIR)/interpret.cpp $(ENGINE_DIR)/builtins.cpp \
-  $(ENGINE_DIR)/classes304.cpp $(ENGINE_DIR)/prefs304.cpp $(ENGINE_DIR)/textlist304.cpp \
+  $(ENGINE_DIR)/classes304.cpp $(ENGINE_DIR)/prefs304.cpp $(ENGINE_DIR)/input304.cpp \
+  $(ENGINE_DIR)/textlist304.cpp \
   ../console/dso.cpp ../console/instructions.cpp
 COMPILER = ../console/compiler/parser.cpp ../console/compiler/codegen.cpp
 CONTROL = guigraal304.cpp

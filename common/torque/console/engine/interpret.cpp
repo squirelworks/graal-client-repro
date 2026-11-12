@@ -48,6 +48,10 @@ std::string Engine::execute(std::shared_ptr<CodeBlock> block, std::uint32_t star
       frame.locals[lower(fn->args[i])] = {fn->args[i], Value::of_string((*argv)[i + 1])};
     }
   }
+  Frame* locals_frame = &frame;
+  bool has_locals = in_function;
+  if (!in_function && eval_frame) { locals_frame = eval_frame; has_locals = true; }
+  eval_frame = nullptr;
   frames.push_back(&frame);
   struct Pop { std::vector<Frame*>& f; ~Pop() { f.pop_back(); } } pop{frames};
 
@@ -100,15 +104,15 @@ std::string Engine::execute(std::shared_ptr<CodeBlock> block, std::uint32_t star
     var_bound = false;
     if (name.empty()) return nullptr;
     if (name[0] == '%') {
-      if (!in_function) {
+      if (!has_locals) {
         warn("Accessing local variable in global scope... failed: " + name);
         return nullptr;
       }
       auto key = lower(name);
-      auto it = frame.locals.find(key);
-      if (it == frame.locals.end()) {
+      auto it = locals_frame->locals.find(key);
+      if (it == locals_frame->locals.end()) {
         if (!create) return nullptr;
-        it = frame.locals.emplace(key, std::make_pair(name, Value{})).first;
+        it = locals_frame->locals.emplace(key, std::make_pair(name, Value{})).first;
       }
       return &it->second.second;
     }

@@ -18,7 +18,8 @@
 // clock (the game's network and timers run on it) unless --fast. With
 // --seconds 0 the run ends after the last step.
 //
-// Video and canvas dialog functions are host stubs (written to the trace).
+// Video functions are host stubs (written to the trace); canvas dialogs and
+// focus are the engine's (input304.cpp).
 
 #include <cstdint>
 #include <cstdio>
@@ -59,15 +60,16 @@ void register_host_stubs(Engine& e) {
   e.add_function("", "createCanvas", 2, 2, "createCanvas(windowTitle)", [](Engine& en, SimObject*, Args& a) {
     en.trace.push_back("host stub createCanvas(" + a[1] + ")");
     if (!en.find_object("Canvas")) en.create_object("GuiCanvas", "Canvas");
+    start_input_304(en);
     return std::string("1");
   });
   for (const char* name : {"videoSetGammaCorrection", "setOpenGLTextureCompressionHint", "setOpenGLAnisotropy",
                            "setOpenGLMipReduction", "setOpenGLInteriorMipReduction", "setOpenGLSkyMipReduction",
-                           "setScreenMode", "setDisplayDevice", "toggleFullScreen", "deactivateKeyboard",
+                           "setScreenMode", "setDisplayDevice", "toggleFullScreen",
                            "lockMouse", "gotoWebPage", "cursorOff", "cursorOn"})
     stub(e, "", name, 1, 0);
   stub(e, "", "isDeviceFullScreenOnly", 2, 2, "0");
-  for (const char* name : {"pushDialog", "popDialog", "repaint", "setCursor", "cursorOn", "cursorOff"})
+  for (const char* name : {"repaint", "setCursor", "cursorOn", "cursorOff"})
     stub(e, "GuiCanvas", name, 2, 0);
   stub(e, "GuiCanvas", "isCursorOn", 2, 2, "0");
 }
@@ -158,8 +160,10 @@ int main(int argc, char** argv) {
   engine.print = [&](const std::string& text) {
     console << text << "\n";
     std::cout << text << "\n" << std::flush;
+    engine.add_console_text(text);
   };
   register_classes_304(engine);
+  register_input_304(engine);
   register_engine_prefs_304(engine);
   register_text_list_304(engine);
   engine.compiler = [](const std::string& source, const std::string&, DsoBlock& out, std::string& error) {
