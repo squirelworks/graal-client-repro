@@ -117,6 +117,11 @@ Asm menu() {
   prop(a, "position", "10 90");
   prop(a, "extent", "100 20");
   endNew(a, e);
+  auto lb = beginNew(a, "GuiTextCtrl", "NameLabel");
+  prop(a, "position", "10 120");
+  prop(a, "extent", "20 10");
+  prop(a, "text", "Nickname");
+  endNew(a, lb);
   auto l = beginNew(a, "GuiTextListCtrl", "List");
   prop(a, "position", "200 100");
   prop(a, "extent", "200 100");
@@ -170,7 +175,7 @@ static void testObjectsAndCommands() {
   CHECK(m.errors().empty());
 
   auto root = s.find("MainMenu");
-  CHECK(root && root->isControl() && root->controls().size() == 4);
+  CHECK(root && root->isControl() && root->controls().size() == 5);
   CHECK(root && root->owner() == script);
   auto btn = s.find("gobutton");  // names are found without case
   CHECK(btn && btn->parent() == root.get() && btn->owner() == script);
@@ -322,6 +327,10 @@ static void testDrawing() {
   // The selected row is filled and its columns are drawn at their offsets.
   CHECK(p.has("text 200,100 five"));
   CHECK(p.has("text 300,100 col"));
+  // A label grows to its text (8 characters, 48 pixels) and the font
+  // height, past its 20 x 10 extent.
+  const Rect lr = s.rectOf(*s.find("NameLabel"));
+  CHECK(lr.x == 10 && lr.y == 120 && lr.w == 48 && lr.h == 14);
   CHECK(p.has("text 200,114 seven"));
   // Hidden controls draw nothing.
   s.find("GoButton")->setNumProp("visible", 0);

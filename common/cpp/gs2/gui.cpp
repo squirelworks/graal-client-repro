@@ -155,8 +155,8 @@ Rect Screen::rectOf(const Control& c) const {
   resizeAxis(c.prop("vertSizing", "bottom"), false, oh, nh, y, h);
   int mw = 0, mh = 0;
   parsePair(c.prop("minExtent", "0 0"), mw, mh);
-  w = std::max(w, mw);
-  h = std::max(h, mh);
+  w = std::max({w, mw, c.textMinW});
+  h = std::max({h, mh, c.textMinH});
   return Rect{base.x + x, base.y + y, w, h};
 }
 

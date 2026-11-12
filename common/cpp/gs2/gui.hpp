@@ -77,6 +77,11 @@ class Control : public Var {
   // GuiTextEditCtrl: the cursor position in `text`.
   std::size_t cursor = 0;
 
+  // GuiTextCtrl: its text's width and the font height, measured when it is
+  // drawn. Like Torque's minExtent after setText, the control is never laid
+  // out smaller than this, so a label does not clip its own text.
+  int textMinW = 0, textMinH = 0;
+
   // GuiShowImgCtrl: its particle emitter, the script's `emitter`.
   std::shared_ptr<Emitter> emitter;
 

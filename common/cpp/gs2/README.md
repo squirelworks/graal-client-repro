@@ -251,6 +251,11 @@ guessed.
   control under it, so the main menu's show-images do not cover the
   Offline Test button; the engines' hit rule for show-images is only
   partly read
+- [ ] A `GuiTextCtrl` is never laid out smaller than its text's width and
+  the font height, measured through the painter each time it is drawn.
+  This follows Torque's `GuiTextCtrl`, which raises `minExtent` when its
+  text is set; that the engines keep this behaviour is a reading. It lets
+  the 4.04r2 labels ("Nickname", "Account name") show their whole text.
 - [x] The show-image particle emitter (B5a)
 - [ ] Emitter readings, where the note leaves the value open:
   - defaults: `emitautomatically` on, `maxparticles` 100, `delaymin` 0.1,

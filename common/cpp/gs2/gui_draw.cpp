@@ -114,8 +114,15 @@ class Drawer {
  public:
   Drawer(Screen& s, Painter& p) : s_(s), p_(p) {}
 
-  void draw(const Control& c, const Rect& clip) {
+  void draw(Control& c, const Rect& clip) {
     if (!c.isControl() || !c.flag("visible", true)) return;
+    if (lower(c.type()) == "guitextctrl") {
+      // Torque's GuiTextCtrl raises its minExtent to the text's size when
+      // the text is set; here the text is measured each time it is drawn.
+      const Style st = styleOf(s_, c);
+      c.textMinW = p_.textWidth(c.prop("text"), st.fontType, st.fontSize);
+      c.textMinH = p_.fontHeight(st.fontType, st.fontSize);
+    }
     const Rect r = s_.rectOf(c);
     const Rect cl = intersect(clip, r);
     if (cl.w <= 0 || cl.h <= 0) return;
