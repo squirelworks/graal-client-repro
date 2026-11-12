@@ -1,5 +1,6 @@
 #include "engine.hpp"
 
+#include "gui_host.hpp"
 #include "host.hpp"
 
 #include <cstdlib>
@@ -27,6 +28,9 @@ std::vector<std::string> readLines(const std::string& path) {
 }
 
 }  // namespace
+
+Engine::Engine() = default;
+Engine::~Engine() = default;
 
 Engine& engine() {
   auto& e = slot();
@@ -92,6 +96,7 @@ void Engine::loadGui() {
   canvas_ = std::make_unique<Canvas>();
   canvas_->setTimer(frameTimer(*this, timer_));
   if (guiBuilder_) guiBuilder_(*this);
+  else installScreen();
   loadStartMenus();
 }
 
@@ -164,8 +169,33 @@ void Engine::openServerList() {
 
 void Engine::prepareShutdown() { offline_ = nullptr; }
 
+void Engine::installScreen() {
+  textures_ = std::make_unique<TextureCache>(installDir());
+  painter_ = std::make_unique<SlotPainter>(*textures_);
+  screen_ = std::make_unique<gs2::gui::Screen>(*machine_);
+  screen_->install();
+  screen_->onEngineAction = [this](const std::string& cmd, bool down) {
+    if (action_) action_(cmd, down);
+    else if (down) log("GraalEngine: engine action " + cmd);
+  };
+  screenControl_ = std::make_shared<ScreenControl>(*screen_, *painter_);
+  if (!controlOf_) {
+    controlOf_ = [this](const gs2::VarPtr& var) -> std::shared_ptr<Control> {
+      auto c = screen_->find(var->name());
+      if (!c) return nullptr;
+      screen_->setSize(canvas_->screenWidth(), canvas_->screenHeight());
+      screen_->setContent(c);
+      return screenControl_;
+    };
+  }
+}
+
 void Engine::shutdown() {
   canvas_.reset();
+  screenControl_.reset();
+  screen_.reset();
+  painter_.reset();
+  textures_.reset();
   machine_.reset();
 }
 

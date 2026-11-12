@@ -3,6 +3,7 @@
 #pragma once
 
 #include "canvas.hpp"
+#include "gui.hpp"
 #include "engine_commands.hpp"
 #include "gs2.hpp"
 
@@ -13,6 +14,9 @@
 #include <vector>
 
 namespace graalengine {
+
+class TextureCache;
+class SlotPainter;
 
 class Engine {
  public:
@@ -38,6 +42,14 @@ class Engine {
   // has no control; then the canvas gets an empty control of that name.
   using ControlResolver = std::function<std::shared_ptr<Control>(const gs2::VarPtr&)>;
   void setControlResolver(ControlResolver r) { controlOf_ = std::move(r); }
+
+  // The GS2 screen (common/cpp/gs2/gui.hpp) the menus build, drawn through
+  // the slots. Made by loadGraalGui unless a GUI builder was set; null
+  // before that.
+  gs2::gui::Screen* screen() { return screen_.get(); }
+  // Key bindings that name no script function (moveUp2D, doA, ...), on
+  // press and release. Until the session takes them they are logged.
+  void setEngineActionHandler(std::function<void(const std::string&, bool)> f) { action_ = std::move(f); }
 
   // The GS2 machine the start menus and server scripts run on. Made by
   // graal_engineInitialize; Engine42 unless setProfile chose another first.
@@ -99,12 +111,16 @@ class Engine {
   // Key state from invokeGraalKeyboardEvent, for the `keydown` command.
   bool keyHeld(int vk) const;
 
+  Engine();
+  ~Engine();
+
  private:
   void startMachine();
   void addAdventureCommands(gs2::EngineHost& h);
   gs2::VarPtr runStartScript(const std::string& name, bool keep);
   void setContentFrom(const std::string& objectName);
   void loadStartMenus();
+  void installScreen();
 
   std::string exePath_;
   std::vector<std::string> license_;
@@ -124,6 +140,11 @@ class Engine {
   std::vector<std::string> startNames_;
   Account account_;
   bool keys_[256] = {};
+  std::unique_ptr<TextureCache> textures_;
+  std::unique_ptr<SlotPainter> painter_;
+  std::unique_ptr<gs2::gui::Screen> screen_;
+  std::shared_ptr<Control> screenControl_;
+  std::function<void(const std::string&, bool)> action_;
 };
 
 // The library's one engine.
