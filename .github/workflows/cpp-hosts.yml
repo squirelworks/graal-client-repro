@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'common/torque/**'
+      - 'common/cpp/**'
       - '.github/workflows/cpp-hosts.yml'
   workflow_dispatch:
 permissions:
@@ -26,6 +27,7 @@ jobs:
         run: |
           make -C common/torque/host304 test
           make -C common/torque/host4208 test
+          make -C common/cpp/graalengine test
   windows:
     runs-on: windows-latest
     timeout-minutes: 15
@@ -45,3 +47,4 @@ jobs:
         run: |
           make -C common/torque/host304 test
           make -C common/torque/host4208 test
+          make -C common/cpp/graalengine test

@@ -68,6 +68,33 @@ for B in $BUILDS; do
       esac
     fi
   fi
+  # The 4.x engine library (common/cpp/graalengine) sits next to the
+  # launcher, as GraalEngine.dll sits next to the original Graal.exe.
+  if [ "$B" = "graal-4.04r2-G3D17026" ] && [ -f "$ROOT/common/cpp/graalengine/Makefile" ]; then
+    echo "== common/cpp/graalengine"
+    CXXBIN=${CXX:-g++}
+    if command -v "$CXXBIN" >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
+      case "$(uname -s)" in
+        MINGW*|MSYS*|CYGWIN*)
+          # The Windows launcher is 32-bit (i386-win32), so its DLL must be
+          # too. A compiler with no 32-bit target leaves the DLL out and the
+          # launcher test skips its library half.
+          make -C "$ROOT/common/cpp/graalengine" clean all CXX="$CXXBIN" \
+            CXXFLAGS="-std=c++17 -Wall -Wextra -Werror -O2 -m32" ||
+            echo "::warning::no 32-bit C++ target; 4.x engine library not built"
+          ;;
+        *) make -C "$ROOT/common/cpp/graalengine" clean all CXX="$CXXBIN" ;;
+      esac
+      for L in GraalEngine.dll libgraalengine.so libgraalengine.dylib; do
+        if [ -f "$ROOT/common/cpp/graalengine/build/$L" ]; then cp "$ROOT/common/cpp/graalengine/build/$L" "$OUT/"; fi
+      done
+    else
+      case "$(uname -s)" in
+        Linux) echo "g++ and make are required for the 4.x engine library"; exit 1 ;;
+        *) echo "no g++ or make; 4.x engine library skipped" ;;
+      esac
+    fi
+  fi
   # 6.114's connector is a small C++ program. The playable stand-in is
   # portable C# (mcs or dotnet). Neither is a Unity player.
   if [ -f "$B/src/worlds_host.cpp" ]; then
