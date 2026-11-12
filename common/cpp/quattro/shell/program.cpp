@@ -18,9 +18,6 @@ bool read_file(const std::string& path, std::string& out) {
   return true;
 }
 
-// The playfield walks half a tile per 50 ms tick.
-constexpr double kStep = 0.5;
-
 // The build's label without the platform ("6.03r7").
 std::string short_label(const std::string& label) { return label.substr(0, label.find(' ')); }
 
@@ -64,6 +61,9 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
         break;
       }
     }
+    std::string table;
+    if (read_file(opt_.assets + "/arrays.dat", table) && !World::read_arrays_dat(table, tile_types_, err) && log)
+      log(err);
   }
 }
 
@@ -194,16 +194,13 @@ bool Program::tick() {
   for (Draw::Key k = window_.poll_key(); k != Draw::Key::NoKey; k = window_.poll_key()) {
     if (k == Draw::Key::Close || k == Draw::Key::Escape) quit_ = true;
   }
-  // Walking: half a tile per tick; directions 0 up, 1 left, 2 down, 3 right.
-  // No wall test yet (arrays.dat is the next step).
+  // Walking: half a tile per held arrow per tick, against the walls.
   if (!world_.lobby) {
     auto& p = me_;
-    if (window_.held(Draw::Key::Left)) p.x -= kStep, p.dir = 1;
-    if (window_.held(Draw::Key::Right)) p.x += kStep, p.dir = 3;
-    if (window_.held(Draw::Key::Up)) p.y -= kStep, p.dir = 0;
-    if (window_.held(Draw::Key::Down)) p.y += kStep, p.dir = 2;
-    p.x = std::clamp(p.x, 0.0, Files::kBoardSide - 2.0);
-    p.y = std::clamp(p.y, 0.0, Files::kBoardSide - 2.0);
+    unsigned keys = (window_.held(Draw::Key::Up) ? 1u : 0u) | (window_.held(Draw::Key::Left) ? 2u : 0u) |
+                    (window_.held(Draw::Key::Down) ? 4u : 0u) | (window_.held(Draw::Key::Right) ? 8u : 0u);
+    std::string action = walker_.tick(p, keys, world_.level, tile_types_);
+    if (!action.empty() && props_sent_) session_.connection().send(38, action);
     if (props_sent_) {
       std::string moved = mover_.diff(p);
       if (!moved.empty()) session_.connection().send(2, moved);
