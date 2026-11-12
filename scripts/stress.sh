@@ -21,8 +21,9 @@ set -eu
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 GS=$1
 B=$2
+. "$ROOT/scripts/client-bin.sh"
 SOAK=${3:-${STRESS_SECONDS:-60}}
-CLIENT=$(ls "$ROOT/build/$B"/Graal* 2>/dev/null | grep -v '\.\(heap\|bmp\|json\)$' | head -1)
+CLIENT=$(client_bin || true)
 [ -n "$CLIENT" ] || { echo "$B: not built (scripts/build.sh $B)"; exit 1; }
 # The 6.114 player is a local-only session, not a soak against gserver.
 if [ -x "$ROOT/build/$B/worlds-player" ]; then
