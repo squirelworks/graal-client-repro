@@ -312,9 +312,15 @@ void test_3153_methods() {
 // exec by file name (the 3.153 profile): a script in scripts2D/ runs from
 // exec("name.cs"); without the profile it is not found.
 void test_exec_by_name() {
-  char dir[] = "/tmp/guigraal-test-XXXXXX";
-  if (!mkdtemp(dir)) { check(false, "a temporary folder"); return; }
-  const std::string root = dir;
+  // a fresh folder under the system's temporary folder (no /tmp on Windows)
+  std::error_code ec;
+  std::filesystem::path base = std::filesystem::temp_directory_path(ec), dir;
+  for (unsigned i = 0; !ec; ++i) {
+    dir = base / ("guigraal-test-" + std::to_string(std::rand()) + "-" + std::to_string(i));
+    if (std::filesystem::create_directory(dir, ec)) break;
+  }
+  if (ec) { check(false, "a temporary folder"); return; }
+  const std::string root = dir.generic_string();
   std::filesystem::create_directories(root + "/scripts2D");
   std::filesystem::create_directories(root + "/deep/er");
   std::ofstream(root + "/scripts2D/hello.cs") << "$hello = \"scripts2D\";\n";
