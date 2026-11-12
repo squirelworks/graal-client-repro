@@ -48,6 +48,50 @@ bool read_i5s(std::string_view rest, uint64_t* out, int count) {
   return true;
 }
 
+// The same values as CSV fields, as gs2lib-style servers write the header
+// (Seihai's gserver: `toCSV`, which quotes a field holding a byte past 126,
+// a comma, a quote or a backslash and doubles the quotes and backslashes in
+// it). The fields' bytes, unquoted and joined, are the GINT5s back to back:
+// the DES key's two may be one field of 10 bytes.
+bool read_i5s_csv(std::string_view rest, uint64_t* out, int count) {
+  std::string bytes;
+  size_t i = 0;
+  while (i <= rest.size()) {
+    if (i < rest.size() && rest[i] == '"') {
+      ++i;
+      bool closed = false;
+      while (i < rest.size()) {
+        char c = rest[i];
+        if ((c == '"' || c == '\\') && i + 1 < rest.size() && rest[i + 1] == c) {
+          bytes += c;
+          i += 2;
+        } else if (c == '"') {
+          ++i;
+          closed = true;
+          break;
+        } else {
+          bytes += c;
+          ++i;
+        }
+      }
+      if (!closed) return false;
+      if (i < rest.size() && rest[i] != ',') return false;
+    } else {
+      size_t e = rest.find(',', i);
+      if (e == std::string_view::npos) e = rest.size();
+      bytes.append(rest.substr(i, e - i));
+      i = e;
+    }
+    ++i;  // the comma
+  }
+  if (bytes.size() != 5 * static_cast<size_t>(count)) return false;
+  for (int k = 0; k < count; ++k) {
+    Net::Reader r(std::string_view(bytes).substr(static_cast<size_t>(k) * 5, 5));
+    out[k] = r.gint5();
+  }
+  return true;
+}
+
 int to_int(const std::string& s) {
   if (s.empty() || !std::all_of(s.begin(), s.end(), [](char c) { return std::isdigit(static_cast<unsigned char>(c)); }))
     return -1;
@@ -68,7 +112,7 @@ bool parse_script_packet(std::string_view payload, ScriptDescriptor& d, std::str
   d.cache_flag = to_int(flag);
   d.key.reset();
   uint64_t k[2];
-  if (read_i5s(rest, k, 2)) d.key = Cache::ScriptKey{static_cast<uint32_t>(k[0]), static_cast<uint32_t>(k[1])};
+  if (read_i5s(rest, k, 2) || read_i5s_csv(rest, k, 2)) d.key = Cache::ScriptKey{static_cast<uint32_t>(k[0]), static_cast<uint32_t>(k[1])};
   return !d.type.empty() && !d.name.empty();
 }
 
@@ -78,7 +122,7 @@ bool parse_load_script(std::string_view payload, ScriptDescriptor& d) {
   if (!three_fields(payload, d.type, d.name, flag, rest)) return false;
   d.cache_flag = to_int(flag);
   uint64_t v[3];
-  if (!read_i5s(rest, v, 3)) return false;
+  if (!read_i5s(rest, v, 3) && !read_i5s_csv(rest, v, 3)) return false;
   d.key = Cache::ScriptKey{static_cast<uint32_t>(v[0]), static_cast<uint32_t>(v[1])};
   d.crc = static_cast<uint32_t>(v[2]);
   return !d.type.empty() && !d.name.empty();

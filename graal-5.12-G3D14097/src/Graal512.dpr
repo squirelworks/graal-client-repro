@@ -720,9 +720,10 @@ begin
         Inc(LogSeen);
       end;
       Inc(I);
-      { the launcher's frame tick: 50 ms }
+      { the launcher's frame tick: 50 ms, headless too, so a --connect run
+        has time to hear the server }
       Inc(NextUs, 50000);
-      if (Win <> nil) and (NextUs > MonoUs) then Sleep((NextUs - MonoUs) div 1000);
+      if NextUs > MonoUs then Sleep((NextUs - MonoUs) div 1000);
     end;
     if Dump <> '' then Host.Screen.SaveBMP(Dump);
     Result := 0;

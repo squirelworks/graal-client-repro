@@ -162,7 +162,18 @@ void Engine::setContentFrom(const std::string& objectName) {
   if (controlOf_ && machine_) {
     if (auto var = machine_->universe()->child(objectName)) c = controlOf_(var);
   }
-  if (!c) c = std::make_shared<Control>(objectName);
+  if (!c) {
+    // Nothing of that name: the screen stays empty. Name the root controls
+    // the scripts did make, so a build whose menus use other names shows.
+    std::string roots;
+    if (screen_) {
+      int n = 0;
+      for (const auto& k : screen_->all())
+        if (k && !k->parent() && n++ < 24) roots += (roots.empty() ? "" : ", ") + k->name();
+    }
+    log("GraalEngine: no " + objectName + " to show" + (roots.empty() ? std::string() : "; root controls: " + roots));
+    c = std::make_shared<Control>(objectName);
+  }
   canvas_->setContentControl(std::move(c));
 }
 

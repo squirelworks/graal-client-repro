@@ -455,6 +455,56 @@ void testLabMenuInput() {
 #endif
 }
 
+// Owner-supplied: GRAAL512_ENGINE = the player's own 5.12 engine (its
+// GraalEngine.dll, or a dump of it). As the 5.0 launcher: the menus run on
+// the 5.0 profile, the main menu is the content, and a frame draws it.
+void testLabMenu512() {
+  const char* file = std::getenv("GRAAL512_ENGINE");
+  if (!file || !*file) {
+    std::fprintf(stderr, "skip lab 5.12 menu: GRAAL512_ENGINE not set\n");
+    return;
+  }
+  reset();
+  installRecorder();
+#ifdef _WIN32
+  _putenv_s("GRAAL_ENGINE_FILE", file);
+#else
+  setenv("GRAAL_ENGINE_FILE", file, 1);
+#endif
+  CHECK(graalengine_setBuild("5.12") == 1);
+  graal_engineInitialize("/x/Graal.exe");
+  screenW = 640;
+  screenH = 480;
+  loadGraalGui();
+  auto& e = graalengine::engine();
+  std::string names;
+  for (const auto& n : e.startScriptNames()) names += " " + n;
+  std::fprintf(stderr, "lab 5.12: %zu start scripts:%s\n", e.startScriptNames().size(), names.c_str());
+  CHECK(e.screen() != nullptr);
+  const bool menu = e.screen() && e.screen()->content() && e.screen()->content()->name() == "MainMenuGui2D";
+  CHECK(menu);
+  calls.clear();
+  for (int i = 0; i < 3; ++i) renderGraalCanvas();
+  int fills = 0, texts = 0;
+  for (const auto& c : calls) {
+    if (c.rfind("fill ", 0) == 0) ++fills;
+    if (c.rfind("text ", 0) == 0) ++texts;
+  }
+  std::fprintf(stderr, "lab 5.12 menu: content %s, %d fills, %d texts in three frames\n",
+               e.screen() && e.screen()->content() ? e.screen()->content()->name().c_str() : "(none)", fills,
+               texts);
+  for (const auto& c : calls)
+    if (c.rfind("log ", 0) == 0) std::fprintf(stderr, "  %s\n", c.c_str());
+  for (const auto& m : e.machine()->errors()) std::fprintf(stderr, "  %s\n", m.c_str());
+  CHECK(fills + texts > 0);
+  shutdownGraalEngine();
+#ifdef _WIN32
+  _putenv_s("GRAAL_ENGINE_FILE", "");
+#else
+  unsetenv("GRAAL_ENGINE_FILE");
+#endif
+}
+
 std::vector<std::string> gfx;
 void GE_CALL recGfx(const graal_texture* t, int32_t x, int32_t y, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
                     uint32_t) {
@@ -681,6 +731,7 @@ int main() {
   testLabStartScripts();
   testPainter();
   testLabMenuInput();
+  testLabMenu512();
   testLoopbackSession("4.04r2", "GRAAL404_ENGINE", "win,\"\",\"\",\"\"");
   testLoopbackSession("5.12", "GRAAL512_ENGINE", "win,\"\",\"\",\"\",\"6.2 9200 \"");
   CHECK(graalengine_setBuild("9.99") == 0);
