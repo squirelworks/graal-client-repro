@@ -92,6 +92,7 @@ The engine commands those scripts call, through `gs2::EngineHost`:
 | `Adventure_startOfflineMode` | offline mode, as `startOfflineMode` |
 | `Adventure_openExternalOptions` | `OpenExternalOptions` |
 | `Adventure_selectPath` | `ShowSelectPathDialog` |
+| `Adventure_getInstallationPath` | the exe path given to `graal_engineInitialize` (the 5.x setup dialog compares its base name with `setup`) |
 | `Adventure_quit` | `PrepareShutdownGraal`, then `ShutdownGraal` |
 
 Checked against the player's own 4.04r2 `GraalEngine.dll` (`make test`
@@ -142,8 +143,10 @@ frame), a click in the Nickname box and typing sets the nickname through
 - [x] ~~The start scripts run on the engine's machine, with the engine
   commands they call~~ (C2)
 - [x] ~~The menus drawn: the GUI commands and controls (B4)~~
-- [ ] Text at the script's font and size (the launcher has one font), and
-  `GuiShowImgCtrl` animations (B5)
+- [x] ~~Text at the script's font and size~~ (the 4.04r2 launcher reads
+  Arial with GTrueType; Liberation Sans on Linux)
+- [ ] `GuiShowImgCtrl` animations (B5); text controls growing to their
+  text, as Torque's do
 - [ ] `Adventure_saveGraalOptions`, `Adventure_installGraal` and the
   `Adventure_selectFile*` calls (refused with the engines' "not found"
   error until they are written); the setup test (always passes here)

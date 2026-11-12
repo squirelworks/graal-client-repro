@@ -103,10 +103,12 @@ and typing, and Offline Test reaches offline mode.
 ## Not yet, or not known
 
 - [x] ~~The 14 start menus drawn through the engine library~~
+- [x] ~~Menu text in the launcher's one font~~: it is Arial at the
+  script's size (Windows' own Arial; Liberation Sans on Linux)
 - [ ] The engine's menus as the default in place of the Pascal start
-  screen: the text is drawn in the launcher's one font, not Arial at the
-  script's size, and the animated pictures (`GuiShowImgCtrl`) are not
-  drawn yet.
+  screen: labels still clip at their script size (the text control does
+  not grow to its text yet), and the animated pictures (`GuiShowImgCtrl`)
+  are not drawn yet.
 
 - [ ] The server list and account screens as the real client shows them
   (scripted GUI from the Login server).
