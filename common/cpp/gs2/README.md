@@ -1,4 +1,4 @@
-# GS2 script machine (Tracks B1 to B3)
+# GS2 script machine (Tracks B1 to B4)
 
 The script machine the 4.x, 5.x and 6.x clients share: the engines'
 `TScriptExecutionSpace` running compiled GS2 on a `TGraalVar`. The 4.04r2 to
@@ -7,7 +7,7 @@ menus and every server script on it. Plan: [docs/v3-v6-plan.md](../../../docs/v3
 step B1.
 
 ```
-make -C common/cpp/gs2 test     # unit tests, gs2-dis, gs2-scan
+make -C common/cpp/gs2 test     # unit tests, GUI tests, gs2-dis, gs2-scan
 ```
 
 Written from Graal_analysis `client-internals/gs2-vm-from-engines.md`,
@@ -65,6 +65,64 @@ Preagonal.
   `openURL`, `keydown`, `getResolutionList` and the `Adventure_*` calls.
   A hook left empty leaves the command unregistered, so a script gets the
   engines' "not found" error rather than a silent success.
+
+## GUI objects (B4)
+
+`gui.cpp` is what the menus build and use; `gui_draw.cpp` draws it.
+
+- **Objects.** `Screen::install` takes over `new` for `Gui*` classes,
+  `ActionMap`, and the profiles made from another profile by name (`new
+  GuiTextProfile("GuiSliderProfile")` copies `GuiTextProfile`'s fields,
+  which is how the profiles script builds 111 profiles from a few). Each is
+  a `Control`, and its properties are its child variables, as the
+  scripts set them. The script that runs `new` handles the object's events:
+  a button's press runs `GoButton.onAction` in that script.
+- **Commands.** `addcontrol` adds the new control to the `with` object, or
+  makes it a root outside one. `pushDialog` and `popDialog`, plus
+  `cursorOn` and `cursorOff`. `makeFirstResponder`. The row commands on
+  text lists, pop-up menus and tabs: `clearRows`, `addRow`, `setRowById`,
+  `setSelectedRow`, `setSelectedById`, `getSelectedId`, `getSelected`,
+  `getSelectedText`, `findText`, `findTextId`, `sort` and `rowCount`. The
+  key map commands: `bind`, `unbind`, `getBinding`, `getCommand`, `push`
+  and `pop`, with `GlobalActionMap` always active.
+- **The screen.** One content and dialogs over it. Making a control the
+  content, or pushing it, runs `onWake` down its tree; taking it away runs
+  `onSleep`. Layout follows Torque's `horizSizing` and `vertSizing`
+  against the parent's drawn size, as the 3.04 rebuild does
+  (`common/torque/gui`).
+- **Input.** A press goes to the topmost visible, active control. Buttons
+  run `onAction`. Check boxes toggle `checked`, and radios with one
+  `groupNum` are exclusive. Text edits take the focus. List rows and tabs
+  run `onSelect(id, text)`, plus `onDblClick` on a double click. The
+  focused text edit takes typing, backspace, delete, the arrows, home, end
+  and return (`onAction`). Other keys go to the key maps: a bound script
+  function gets 1 on press and 0 on release. A command that is no script
+  function (`moveUp2D`, `doA`, `toggleConsole`) goes to the engine's
+  `onEngineAction`.
+- **Drawing** goes through a `Painter`: fills, text, and bitmaps by the
+  name the script gives. The engine program supplies the painter: the
+  4.x library on the launcher's draw slots, Quattro on its own renderer.
+  Each control reads its profile, then `GuiDefaultProfile`. Themed buttons
+  and text edits draw from the theme's cells, as in the 3.04 rebuild (nine
+  per button state; eight for a text edit). Check boxes and radios use
+  four cells. Text lists draw their columns; tabs are `tabwidth` wide.
+  `GuiShowImgCtrl`, `GuiGraalCtrl` and `GuiGraal3DCtrl` go back to the
+  engine (B5).
+
+`gs2-scan --run --draw LIST --theme DIR` makes `MainMenuGui2D` the content
+at 800 x 600 and writes every draw call to LIST. On the player's own 4.04r2
+engine, with its `levels3d/gui` folder as the theme:
+
+- the 14 menus run with every GUI command found;
+- the screen holds 180 controls, 111 profiles and the global key map;
+- the main menu lays out as its script places it (logo, nickname box,
+  account and password boxes, the play-as radios, the save-password check
+  box, and the Start, Become a Member, Options and Offline Test buttons).
+
+The only commands still missing are the particle emitter's
+`addglobalmodifier`, `addlocalmodifier` and `removemodifiers`, which belong
+to `GuiShowImgCtrl` (B5). The menu background is a JPEG, which nothing
+here reads yet.
 
 ## Checked against the original
 
@@ -139,6 +197,20 @@ guessed.
   cuts language names, not from the engine
 - [ ] `catchevent` queues the catcher's function with the caught event's
   arguments; what the engines pass is not read
-- [ ] The GUI commands (`addcontrol`, `pushDialog`, the text list's rows,
-  `ActionMap` binds and modifiers) on the Torque GUI layer (B4), then
-  `initialized`
+- [x] The GUI objects, their commands and input, and drawing through a
+  painter (B4)
+- [ ] Which object's script handles a control's events: here the script
+  that ran `new`; the engines' lookup is not read
+- [ ] `GuiTabCtrl.addRow` returns the tab as an object (the options
+  window sets its `hint` inside `with`); other row lists return the index.
+  What the engines return is not read
+- [ ] `x`, `y`, `width` and `height` override `position` and `extent`
+  when set (a few controls in the menus use them); the engines' link
+  between the two is not read
+- [ ] Pop-up menus step to the next row on a press until the open list is
+  drawn; window frames, scroll bars, sliders and multi-line text draw
+  plainly (fill, frame, text), not from the theme
+- [ ] The painter on the 4.x engine library's draw slots, and its key
+  names (after #264), then `initialized`
+- [ ] JPEG bitmaps (`graalv4screen.jpg`, the menu background)
+- [ ] `ActionMap.save` and `load` (the key file), and mouse bindings

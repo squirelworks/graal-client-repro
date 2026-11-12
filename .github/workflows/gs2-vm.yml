@@ -4,11 +4,15 @@ on:
   pull_request:
     paths:
       - 'common/cpp/gs2/**'
+      - 'common/torque/gui/image.*'
+      - 'common/torque/gui/bitmap_array.*'
       - '.github/workflows/gs2-vm.yml'
   push:
     branches: [main]
     paths:
       - 'common/cpp/gs2/**'
+      - 'common/torque/gui/image.*'
+      - 'common/torque/gui/bitmap_array.*'
       - '.github/workflows/gs2-vm.yml'
   workflow_dispatch:
 

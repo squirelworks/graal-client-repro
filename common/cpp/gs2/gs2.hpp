@@ -189,7 +189,12 @@ class Machine {
   void catchEvent(const std::string& objectName, const std::string& event, const VarPtr& catcher,
                   const std::string& function);
 
+  // Whether the variable's script, or a class it joined, defines `name`.
+  bool hasFunction(const VarPtr& var, const std::string& name) const;
   // Run a function now, outside the queue. Returns its result.
+  // `thiso` of the function running now (for commands and the object
+  // factory), null outside a script.
+  VarPtr currentThis() const;
   Value callFunction(const VarPtr& var, const std::string& name, std::vector<Value> args = {});
 
   // Built-in commands. `signature`'s length is the minimum argument count.
@@ -261,6 +266,7 @@ class Machine {
   std::map<std::string, std::shared_ptr<const Script>> classes_;  // lower-cased names
   std::vector<VarPtr> objects_;
   double clock_ = 0;
+  Exec* running_ = nullptr;
   std::uint64_t executed_ = 0;
   std::uint32_t rng_ = 1;
 };

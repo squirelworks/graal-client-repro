@@ -426,6 +426,12 @@ void Machine::runAction(Space& sp, const std::string& name, std::vector<Value> a
   if (ex->suspended) sp.sleeping.push_back(std::move(ex));
 }
 
+bool Machine::hasFunction(const VarPtr& var, const std::string& name) const {
+  auto it = spaces_.find(var.get());
+  const Space* sp = it == spaces_.end() ? nullptr : it->second.get();
+  return findFunction(sp, name, nullptr) != nullptr;
+}
+
 Value Machine::callFunction(const VarPtr& var, const std::string& name, std::vector<Value> args) {
   Space* sp = space(var, false);
   if (!hasCode(sp)) return Value::number(0);
@@ -531,7 +537,18 @@ int compare3(const Machine& m, const Value& x, const Value& y) {
 
 }  // namespace
 
+VarPtr Machine::currentThis() const {
+  if (!running_ || running_->frames.empty()) return nullptr;
+  return running_->frames.back().thiso;
+}
+
 Value Machine::execute(Exec& ex) {
+  struct Running {
+    Exec*& slot;
+    Exec* saved;
+    ~Running() { slot = saved; }
+  } running{running_, running_};
+  running_ = &ex;
   Space* sp = ex.sp;
   auto fail = [&](const std::string& text) {
     error(text, sp);
@@ -752,6 +769,14 @@ Value Machine::execute(Exec& ex) {
           cmd = commands_.find(lower(owner->type() + "." + fname));
           if (cmd != commands_.end()) cname = owner->type() + "." + fname;
         }
+        // A command named without an object runs on the newest `with`
+        // object (the menus call addcontrol and addRow inside `with`), so
+        // that object's class commands are found too.
+        VarPtr selfPtr = owner ? owner : (!ex.with.empty() && ex.with.back() ? ex.with.back() : thiso);
+        if (cmd == commands_.end() && !owner && selfPtr && !selfPtr->type().empty()) {
+          cmd = commands_.find(lower(selfPtr->type() + "." + fname));
+          if (cmd != commands_.end()) cname = selfPtr->type() + "." + fname;
+        }
         if (cmd == commands_.end()) cmd = commands_.find(lower(fname));
         if (cmd != commands_.end()) {
           if (startsWithCi(cname, "adventure.") && !(thiso && startsWithCi(thiso->name(), "login"))) {
@@ -768,9 +793,6 @@ Value Machine::execute(Exec& ex) {
           }
           std::vector<Value> plain;
           for (const auto& v : args) plain.push_back(deref(v));
-          // A command named without an object runs on the newest `with`
-          // object (the menus call addcontrol inside `with (parent)`).
-          VarPtr selfPtr = owner ? owner : (!ex.with.empty() && ex.with.back() ? ex.with.back() : thiso);
           Var& self = selfPtr ? *selfPtr : *universe_;
           Value r = cmd->second.fn(*this, self, plain);
           push(std::move(r));
