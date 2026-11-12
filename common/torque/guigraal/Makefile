@@ -16,7 +16,7 @@ GAME_SRC = ../../../graal-3.04-G3D03014/src
 LIB_DIR = build/lib
 
 .PHONY: all test lib clean
-all: build/guigraal-test build/tq-play
+all: build/guigraal-test build/frame-test build/tq-play build/graal304-torque
 
 build:
 	mkdir -p build
@@ -24,16 +24,36 @@ build:
 build/guigraal-test: $(CONTROL) $(ENGINE) $(COMPILER) $(HEADERS) tests/guigraal_test.cpp | build
 	$(CXX) $(CXXFLAGS) $(CONTROL) $(ENGINE) $(COMPILER) tests/guigraal_test.cpp -o $@
 
-build/tq-play: $(CONTROL) pascal_game304.cpp $(ENGINE) $(COMPILER) $(HEADERS) host/tq_play.cpp | build
-	$(CXX) $(CXXFLAGS) $(CONTROL) pascal_game304.cpp $(ENGINE) $(COMPILER) host/tq_play.cpp -o $@ -ldl
+HOST = host/boot304.cpp pascal_game304.cpp
+HOST_HEADERS = host/boot304.hpp
+
+build/tq-play: $(CONTROL) $(HOST) $(ENGINE) $(COMPILER) $(HEADERS) $(HOST_HEADERS) host/tq_play.cpp | build
+	$(CXX) $(CXXFLAGS) $(CONTROL) $(HOST) $(ENGINE) $(COMPILER) host/tq_play.cpp -o $@ -ldl
+
+# The windowed 3.04 program: the canvas renderer, mouse and an X11 window.
+GUI_DIR = ../gui
+GUI = $(GUI_DIR)/image.cpp $(GUI_DIR)/gft.cpp $(GUI_DIR)/bitmap_array.cpp $(GUI_DIR)/canvas.cpp \
+  $(GUI_DIR)/profile.cpp $(GUI_DIR)/render.cpp $(GUI_DIR)/mouse.cpp
+GUI_HEADERS = $(GUI_DIR)/render.hpp $(GUI_DIR)/mouse.hpp $(GUI_DIR)/canvas.hpp host/window.hpp host/frame304.hpp
+
+build/graal304-torque: $(CONTROL) $(HOST) $(GUI) $(ENGINE) $(COMPILER) $(HEADERS) $(HOST_HEADERS) $(GUI_HEADERS) \
+    host/frame304.cpp host/window_x11.cpp host/graal304_torque.cpp | build
+	$(CXX) $(CXXFLAGS) $(CONTROL) $(HOST) $(GUI) $(ENGINE) $(COMPILER) host/frame304.cpp host/window_x11.cpp \
+	  host/graal304_torque.cpp -o $@ -ldl -lz -lX11
+
+# The frame logic without a window, for tests.
+build/frame-test: $(CONTROL) $(GUI) $(ENGINE) $(COMPILER) $(HEADERS) $(GUI_HEADERS) host/frame304.cpp \
+    tests/frame_test.cpp | build
+	$(CXX) $(CXXFLAGS) $(CONTROL) $(GUI) $(ENGINE) $(COMPILER) host/frame304.cpp tests/frame_test.cpp -o $@ -lz
 
 lib: | build
 	mkdir -p $(LIB_DIR)
 	cd $(GAME_SRC) && $(FPC) -Mdelphi -Sh -vew -O2 -Fu../../common -Fu. \
 	  -FE$(CURDIR)/$(LIB_DIR) -FU$(CURDIR)/$(LIB_DIR) Game304Lib.lpr
 
-test: build/guigraal-test
+test: build/guigraal-test build/frame-test
 	./build/guigraal-test
+	./build/frame-test
 
 clean:
 	rm -rf build

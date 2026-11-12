@@ -20,6 +20,7 @@
 #include "image.hpp"
 #include "profile.hpp"
 
+#include <functional>
 #include <map>
 #include <memory>
 #include <string>
@@ -79,6 +80,25 @@ class Renderer {
   // Problems met while drawing (missing fonts or bitmaps), one per item.
   std::vector<std::string> notes;
 
+  // A host draws a class the renderer does not know (GuiGraalCtrl draws the
+  // game). Keyed by the lower-case class name; the children still draw.
+  using DrawHook = std::function<void(Canvas&, SimObject*, const Rect&)>;
+  std::map<std::string, DrawHook> draw_hooks;
+
+  // Where each control drew in the last render, in drawing order (parents
+  // before children, dialogs after the content), clipped to its parent.
+  struct Placed {
+    std::uint32_t id = 0;
+    Rect rect;      // the control's own box
+    Rect visible;   // the part not clipped away
+  };
+  const std::vector<Placed>& layout() const { return layout_; }
+  // The control drawn last (topmost) whose visible part holds (x, y), or 0.
+  // With `out` set, its own box.
+  std::uint32_t hit(int x, int y, Rect* out = nullptr) const;
+  // A text list's row height for its profile's font.
+  int row_height(const SimObject* list);
+
  private:
   struct Cached {
     bool ok = false;
@@ -94,10 +114,13 @@ class Renderer {
   void draw_text_edit(Canvas& canvas, SimObject* control, const Profile& p, const Rect& rect);
   void draw_window(Canvas& canvas, SimObject* control, const Profile& p, const Rect& rect);
   void draw_bitmap_ctrl(Canvas& canvas, SimObject* control, const Rect& rect, bool tile);
+  void draw_text_list(Canvas& canvas, SimObject* control, const Profile& p, const Rect& rect);
+  void draw_ml_text(Canvas& canvas, SimObject* control, const Profile& p, const Rect& rect);
   Cached* load(const std::string& path);
   void note(const std::string& line);
 
   Engine& engine_;
+  std::vector<Placed> layout_;
   std::map<std::string, std::unique_ptr<GftFont>> fonts_;
   std::map<std::string, std::unique_ptr<Cached>> bitmaps_;
 };

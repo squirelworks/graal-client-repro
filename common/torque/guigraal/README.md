@@ -17,7 +17,46 @@ loaded at run time (`pascal_game304.cpp`). The control talks to an abstract
 make -C common/torque/guigraal test        # guigraal-test (fake game)
 make -C common/torque/guigraal lib all     # the Pascal library and tq-play (needs fpc)
 sh common/torque/guigraal/tests/smoke.sh   # tq-play + the library, end to end
+sh common/torque/guigraal/tests/online.sh  # menu to gserver login on loopback
 ```
+
+`make test` also runs `frame-test`: a hand-built menu and game control drawn
+by the GUI renderer, with clicks, typing, list selection, focus and the game
+frame scaled into the control.
+
+### graal304-torque
+
+`build/graal304-torque [--root INSTALL] [--prefs DIR] [--game LIB]
+[--steps FILE] [--seconds N] [--trace FILE] [--shot FILE.bmp]` is the windowed
+program (Linux, X11 for now). It boots the install from its own `main.cs`
+(`host/boot304.cpp`, shared with `tq-play`), draws the canvas content and the
+pushed dialogs every 50 ms with `../gui` (`host/frame304.cpp`), and shows the
+image in a window (`host/window_x11.cpp`). The defaults are the program's own
+folder for the install, `~/.graal304-torque` for prefs and
+`libGame304Lib.so` beside the program. The canvas size is
+`$pref::Video::resolution`, 800 × 600 if unset.
+
+Rebuild policy, not read from the original:
+
+- A click goes to the topmost control under the pointer (`../gui/mouse.cpp`):
+  buttons, check boxes and radios run `command` then `onAction`; text edits
+  take the first responder; a text list selects the row (a double click runs
+  `altCommand`); a click on `GuiGraalCtrl` gives the keys back to the game.
+  Inactive buttons do nothing. The layout is redrawn before each click, so a
+  script that changed the content since the last frame is hit-tested as it
+  is now.
+- A double click is a second press within 400 ms and 5 pixels.
+- The game frame is scaled into the control's box, nearest pixel; black when
+  no game is running.
+
+### Online test
+
+`tests/online.sh` runs a fake listserver and gserver on loopback
+(`tests/online/fake_servers.py`) and drives a small stand-in install's menu
+functions with `tq-play`. It checks the list request token
+(`G3D30123newmain`), that the account typed into `AccountEdit` reaches the
+listserver, and that the gserver gets the 3.04 login (`G3D03014`, account and
+password) for the Classic row.
 
 ### tq-play
 
@@ -84,8 +123,10 @@ Rebuild policy, not read from the original:
 
 ### Not yet
 
-- [ ] Draw the game's frame inside the canvas renderer (#257) and present it
-  in a window; `tq-play` writes it to a file.
+- [x] Draw the game's frame inside the canvas renderer (#257) and present it
+  in a window (`graal304-torque`, X11).
+- [ ] The release program: `Graal304` is still the Pascal program; the zip
+  does not ship `graal304-torque` and the library yet.
 - [ ] The chat-focus key toggle on `ChatBar` and the hardcoded key codes the
   control reads itself (input stage, see `../console/engine` stage 3).
 - [ ] Sword, grab, items, map, voice, PMs, the player list and profiles, sound
@@ -93,7 +134,7 @@ Rebuild policy, not read from the original:
 - [ ] Walking on the offline tutorial: 3.04 ships no `arrays.dat`, and the
   built-in tile types block the `picso.png` tutorial board.
 - [ ] Windows and macOS: the loader has a Windows branch but the library is
-  only built and run on Linux so far.
+  only built and run on Linux so far, and the window is X11 only.
 
 ## Method table (all builds)
 

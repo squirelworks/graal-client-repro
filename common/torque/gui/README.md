@@ -157,6 +157,16 @@ extents; this matters because the labels' text comes from the language file
 | `GuiTextEditCtrl` | The box filled with `fillColor`, then the eight-cell frame on top (the corner pieces are partly transparent and show the fill in the screenshot); text after the left piece plus `textOffset.x`, `*` for `password` |
 | `GuiWindowCtrl` | Cell meanings read from the window images: title buttons (close, restore, maximize, minimize × normal, pressed, inactive), title bar ends and middle for active and inactive, left and right edges, bottom corners and bottom edge, and in the default theme a 64 × 64 background tile used when `tile` is set. Title in `fontColor` at `textOffset`; buttons for `canClose`, `canMaximize`, `canMinimize` right to left. The placement is rebuild policy until a 3.04 window is captured |
 | `GuiChunkedBitmapCtrl`, `GuiBitmapCtrl` | The control's bitmap tiled (`tile` / `wrap`) or stretched to the box |
+| `GuiTextListCtrl` | One row per line, font height + 2 tall; tab-separated columns at the `columns` offsets; the selected row filled with `fillColorHL` and drawn in `fontColorSEL`. The control grows to hold its rows |
+| `GuiMLTextCtrl` | Plain text, word wrapped; no markup tags yet |
+| `GuiConsole` | The newest lines of `Engine::console_buffer`, bottom-aligned |
+
+The text list, multi-line text and console rules are rebuild policy, not
+read from a 3.04 capture. A host can draw a class itself through
+`Renderer::draw_hooks` (keyed by the lower-case class name); the 3.04 host
+draws `GuiGraalCtrl` that way. `Renderer::hit(x, y)` finds the topmost visible
+control drawn at a point, and `mouse_click` (`mouse.cpp`) turns a click into
+the control's script call.
 
 A text line's top is `(box height - (font height - 2)) / 2` inside its box.
 That fits all seven stage 0 measurements (labels 18 and 23 rows tall start 3
@@ -192,9 +202,9 @@ reader yet), `tests/lab_check.sh` gives:
 - [x] `.gft` reader, theme bitmap-array splitting, software canvas surface.
 - [x] `GuiControlProfile` fields from the `.th` scripts and `customProfiles.cs`, and which cell of each array a control draws per state.
 - [x] Stock control rendering for buttons, text edits, windows, text labels and bitmaps, checked against the same screenshot.
-- [ ] Pop-up menu, check box, radio, scroll, slider, text list and multi-line text. The closed pop-up in the screenshot uses `defaultScroll.png`'s 3 × 3 frame (cells 42 to 50) and a down-arrow cell (39) at the right.
+- [ ] Pop-up menu, check box, radio, scroll and slider (text list, multi-line text and console are drawn, without captures to check them). The closed pop-up in the screenshot uses `defaultScroll.png`'s 3 × 3 frame (cells 42 to 50) and a down-arrow cell (39) at the right.
 - [ ] Highlighted and depressed states, the text cursor and selection: they need input and the first responder.
 - [ ] JPEG bitmaps (`graalscreen.jpg`), so the menu art draws without a converted copy.
 - [ ] A 3.04 capture of a window (the options dialog) to settle the window layout and the theme-relative bitmap fallback.
-- [ ] `GuiCanvas` console object (`pushDialog`, cursor) and presenting the surface through `host304`.
+- [ ] The mouse cursor. The surface is presented in a window by `../guigraal` (`graal304-torque`).
 - [ ] Unicode or characters above 255: the 3.04 caches cover 32 to 255 only.
