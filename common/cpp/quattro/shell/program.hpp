@@ -12,6 +12,7 @@
 #include "../draw/world.hpp"
 #include "../net/connection.hpp"
 #include "../world/player.hpp"
+#include "../world/walk.hpp"
 #include "scripts.hpp"
 
 #include <map>
@@ -47,6 +48,8 @@ class Program {
   const std::map<int, World::Player>& others() const { return others_; }
   Net::Session& session() { return session_; }
   ScriptHost& scripts() { return scripts_; }
+  // Replaces the wall table (tests; arrays.dat from --assets otherwise).
+  void set_tile_types(const World::TileTypes& t) { tile_types_ = t; }
   const std::string& level_name() const { return level_name_; }
   // Pass names of the last frame, in the order they ran.
   const std::vector<std::string>& last_passes() const { return passes_; }
@@ -65,6 +68,8 @@ class Program {
   World::Player me_;
   std::map<int, World::Player> others_;
   World::MoveSender mover_;
+  World::Walker walker_;
+  World::TileTypes tile_types_;
   bool props_sent_ = false;
   ScriptHost scripts_;
   std::string cache_server_;
