@@ -248,5 +248,6 @@ class Engine {
 void register_builtins(Engine& engine);
 void register_classes_304(Engine& engine);
 void register_engine_prefs_304(Engine& engine);
+void register_text_list_304(Engine& engine);   // GuiTextListCtrl rows (textlist304.cpp)
 
 } // namespace Torque

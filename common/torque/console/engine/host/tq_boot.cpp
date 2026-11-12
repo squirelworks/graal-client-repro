@@ -90,6 +90,7 @@ int main(int argc, char** argv) {
   };
   register_classes_304(engine);
   register_engine_prefs_304(engine);
+  register_text_list_304(engine);
   engine.compiler = [](const std::string& source, const std::string&, DsoBlock& out, std::string& error) {
     CompileError e;
     if (compile_script(source, out, e)) return true;

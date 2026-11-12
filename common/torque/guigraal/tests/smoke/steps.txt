@@ -1,0 +1,5 @@
+# tq-play smoke: offline mode from script, walk right for one second
+0     Adventure.startOfflineMode();
+100   moveRight(1);
+1100  moveRight(0);
+1200  Adventure.setChat("smoke test");

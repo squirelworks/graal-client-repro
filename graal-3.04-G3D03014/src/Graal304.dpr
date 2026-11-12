@@ -497,8 +497,8 @@ var
   Win: TGWindow;
   G: TAdventure;
   R: TStartResult;
-  Dir, ListHost, ArrHost, Msg, Lvl, X, Y: string;
-  ListPort, I: Integer;
+  Dir, ListHost, Msg, Lvl, X, Y: string;
+  ListPort: Integer;
   Picked: Boolean;
   Fetch: TListFetch304;
   Info: TStartInfo;
@@ -525,17 +525,7 @@ begin
     { SIGTERM / Ctrl+C end the program on the start screen too }
     InstallStopHandlers;
     SetAssetRoots(Dir, ClientBuildLabel);
-    if AssetPath('license/license.graal') <> '' then
-      Hosts := LoadListHosts(AssetPath('license/license.graal'))
-    else
-      Hosts := LoadListHosts(InstallPath(Dir, 'license' + PathDelim + 'license.graal'));
-    { listserver.graal.in in front, the licence hosts behind it }
-    SetLength(Hosts.Hosts, Length(Hosts.Hosts) + 1);
-    for I := High(Hosts.Hosts) downto 1 do Hosts.Hosts[I] := Hosts.Hosts[I - 1];
-    Hosts.Hosts[0] := DefaultListHost;
-    Hosts.Port := DefaultListPort;
-    ArrHost := DefaultListHost;
-    ReadListServer(Dir, ArrHost, Hosts.Port, ListHost, ListPort);
+    ListHostsFor(Dir, ListHost, ListPort, Hosts);
     FillChar(R, SizeOf(R), 0);
     Msg := '';
     repeat
