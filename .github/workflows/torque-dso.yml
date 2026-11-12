@@ -29,11 +29,15 @@ jobs:
       - uses: actions/checkout@v5
       - name: Build and test DSO reader
         run: make -C common/torque/console test
+      - name: Build and test TorqueScript compiler
+        run: make -C common/torque/console/compiler test
       - name: Check with address and undefined behavior sanitizers
         if: runner.os == 'Linux'
         run: |
           make -C common/torque/console clean
           make -C common/torque/console test CXXFLAGS='-std=c++17 -Wall -Wextra -Werror -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer'
+          make -C common/torque/console/compiler clean
+          make -C common/torque/console/compiler test CXXFLAGS='-std=c++17 -Wall -Wextra -Werror -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer'
 
   windows:
     runs-on: windows-latest
@@ -47,3 +51,6 @@ jobs:
       - name: Build and test changed C++ reader
         shell: msys2 {0}
         run: make -C common/torque/console test
+      - name: Build and test TorqueScript compiler
+        shell: msys2 {0}
+        run: make -C common/torque/console/compiler test
