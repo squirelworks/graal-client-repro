@@ -17,7 +17,7 @@ struct DsoError {
 struct DsoLine { std::uint32_t line, ip; };
 struct DsoIdentifier {
   std::uint32_t string_offset;
-  // The published unused-argument sentinel is exactly the table end.
+  // Unused arguments point at or past the global string table end.
   bool unnamed;
   std::string name;
   std::vector<std::uint32_t> uses;

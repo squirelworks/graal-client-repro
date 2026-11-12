@@ -98,9 +98,9 @@ bool load_dso(const std::vector<std::uint8_t>& bytes, FloatOrder order,
     for (std::uint32_t i = 0; i < ident_size; ++i) {
       DsoIdentifier ident;
       ident.string_offset = in.u32();
-      if (ident.string_offset > block.global_strings.size())
-        in.fail(DsoErrorKind::identifier, "identifier offset outside global strings");
-      ident.unnamed = ident.string_offset == block.global_strings.size();
+      // Unused arguments point at or past the table end: the shipped 3.04
+      // mainMenuGui.cs.dso has two in one header, at end and end + 6.
+      ident.unnamed = ident.string_offset >= block.global_strings.size();
       if (!ident.unnamed) {
         const auto end = block.global_strings.find('\0', ident.string_offset);
         if (end == std::string::npos)
