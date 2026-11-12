@@ -18,6 +18,7 @@ unit GDfmObj;
 interface
 
 uses
+  GCompat,
   SysUtils;
 
 type

@@ -39,6 +39,7 @@ unit Baddy205;
 interface
 
 uses
+  GCompat,
   {$IFNDEF FPC}Windows, {$ENDIF}Classes, SysUtils, Math, GClamp, GTypes, GLevel, GSurface, GArrays;
 
 const

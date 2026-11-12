@@ -39,6 +39,7 @@ unit Map231;
 interface
 
 uses
+  GCompat,
   Classes, GSurface, Adventure;
 
 const

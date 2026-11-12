@@ -18,6 +18,7 @@ unit StartScreen231;
 interface
 
 uses
+  GCompat,
   GSurface, GStartScreen, GraalClient, ListServer231, Adventure;
 
 type

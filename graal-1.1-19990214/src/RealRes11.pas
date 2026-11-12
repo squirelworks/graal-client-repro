@@ -19,6 +19,7 @@ function RealString(Id: Integer): string;
 implementation
 
 uses
+  GCompat,
   SysUtils;
 
 { Each resource is hex text, 2 characters a byte, decoded on use. }

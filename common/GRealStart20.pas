@@ -397,7 +397,7 @@ var
 begin
   Result := Default;
   I := Lang.IndexOfName(Key);
-  if (I >= 0) and (Lang.ValueFromIndex[I] <> '') then Result := Lang.ValueFromIndex[I];
+  if (I >= 0) and (ValueAtIndex(Lang, I) <> '') then Result := ValueAtIndex(Lang, I);
 end;
 
 function ListIcon(const Name: string): Integer;

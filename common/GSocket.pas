@@ -36,6 +36,7 @@ type
 implementation
 
 uses
+  GCompat,
   SysUtils,
 {$IFDEF FPC}
   { WinSock2 comes first so that, where both units declare a name

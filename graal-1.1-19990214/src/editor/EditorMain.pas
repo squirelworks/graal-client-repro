@@ -20,6 +20,7 @@ unit EditorMain;
 interface
 
 uses
+  GCompat,
   GWindow, Adventure;
 
 const

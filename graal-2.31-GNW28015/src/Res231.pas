@@ -15,6 +15,7 @@ function ResFile(const Name: string; out Data: string): Boolean;
 implementation
 
 uses
+  GCompat,
   SysUtils;
 
 const

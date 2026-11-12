@@ -12,6 +12,7 @@ unit StartScreen205;
 interface
 
 uses
+  GCompat,
   GSurface, GStartScreen, GraalClient, Adventure;
 
 type

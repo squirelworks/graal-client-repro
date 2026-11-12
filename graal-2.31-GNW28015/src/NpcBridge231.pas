@@ -16,6 +16,7 @@ unit NpcBridge231;
 interface
 
 uses
+  GCompat,
   Classes, SysUtils, GNumText, Math, GTypes, GLevel, GSurface, GArrays, GFont, GGs1, Npc231,
   Baddy231, Adventure, GAni;
 

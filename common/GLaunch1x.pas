@@ -36,6 +36,7 @@ unit GLaunch1x;
 interface
 
 uses
+  GCompat,
   Classes, GSplit, GSurface, GWindow, GDfm1x;
 
 type

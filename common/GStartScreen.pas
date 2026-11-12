@@ -21,6 +21,7 @@ unit GStartScreen;
 interface
 
 uses
+  GCompat,
   Classes, GSurface, GWindow;
 
 type

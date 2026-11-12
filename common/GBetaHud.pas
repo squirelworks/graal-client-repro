@@ -15,6 +15,7 @@ unit GBetaHud;
 interface
 
 uses
+  GCompat,
   GSurface;
 
 type

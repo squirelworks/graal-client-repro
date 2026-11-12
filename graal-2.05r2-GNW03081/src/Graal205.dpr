@@ -372,7 +372,7 @@ begin
         Port := 14802;
       end;
       if GuiWin <> nil then Pw := GuiPw
-      else Pw := SysUtils.GetEnvironmentVariable(Arg('--password-env', 'GRAAL_PW'));
+      else Pw := EnvVar(Arg('--password-env', 'GRAAL_PW'));
       if G.ConnectServer(Host, Port, Account, Pw) then
       begin
         if NoDelay and not G.Client.Socket.SetNoDelay(True) then
