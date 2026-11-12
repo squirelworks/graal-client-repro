@@ -78,6 +78,12 @@ void test_descriptors() {
     CHECK(g.name == "-gr_movement" && g.cache_flag == 1 && g.key && g.key->lo == lo && g.key->hi == hi && g.crc == crc);
   }
   CHECK(!Shell::parse_load_script("weapon,x,1,\"unclosed", ls));
+  // The lab gserver's own bytes: the key as one quoted field (its quotes
+  // doubled), then the CRC as the text "0".
+  const std::string lab = std::string("weapon,-gr_movement,1,\"\"\"\"\"\x8e" "a5!\x80&]=\",0");
+  Shell::ScriptDescriptor g;
+  CHECK(Shell::parse_load_script(lab, g));
+  CHECK(g.name == "-gr_movement" && g.key && g.crc == 0);
   CHECK(!Shell::parse_script_packet("\x20", got, body));
 }
 

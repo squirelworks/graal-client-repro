@@ -92,6 +92,8 @@ type
     procedure Mouse(X, Y, Action, Button, Clicks, Mods, Wheel: Integer);
     procedure StartOffline;
     procedure Connect(const Name, Host: AnsiString; Port: Integer);
+    { openGraalServerList: the licence's Login host. }
+    procedure OpenServerList;
     procedure Shutdown;
     procedure Unload;
     function Loaded: Boolean;
@@ -1378,6 +1380,11 @@ begin
   if not Loaded then Exit;
   F := TConnectProc(GetProcedureAddress(TLibHandle(FLib), 'connectToGraalServer'));
   if Assigned(F) then F(PAnsiChar(Name), PAnsiChar(Host), Port);
+end;
+
+procedure TEngineHost.OpenServerList;
+begin
+  Call0(FLib, 'openGraalServerList');
 end;
 
 procedure TEngineHost.Shutdown;

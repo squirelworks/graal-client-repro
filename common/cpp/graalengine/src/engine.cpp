@@ -190,6 +190,12 @@ void Engine::connect(const std::string& rawName, const std::string& host, int po
   l.port = port;
   l.account = account_.account;
   l.password = account_.password;
+  // With no account given, the 5.x Windows builds log in as the built-in
+  // guest (protocol/v5v6-windows-unpacked.md, "Login message").
+  if (l.account.empty() && profile_ != gs2::Profile::Engine42) {
+    l.account = "guest";
+    l.password = "7Y3bdzjf";
+  }
   l.nickname = account_.nickname;
   l.installDir = installDir();
   l.build = build_;

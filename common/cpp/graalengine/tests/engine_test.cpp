@@ -456,12 +456,13 @@ void testLabMenuInput() {
 }
 
 // Owner-supplied: GRAAL512_ENGINE = the player's own 5.12 engine (its
-// GraalEngine.dll, or a dump of it). As the 5.0 launcher: the menus run on
-// the 5.0 profile, the main menu is the content, and a frame draws it.
+// GraalEngine.dll, or a dump of it). Its start scripts carry no main menu
+// (the 5.12 launcher's own window is the menu): loadGraalGui makes no
+// content, and the 2D connect makes GraalGui's GUIContainer the screen.
 void testLabMenu512() {
   const char* file = std::getenv("GRAAL512_ENGINE");
   if (!file || !*file) {
-    std::fprintf(stderr, "skip lab 5.12 menu: GRAAL512_ENGINE not set\n");
+    std::fprintf(stderr, "skip lab 5.12 menus: GRAAL512_ENGINE not set\n");
     return;
   }
   reset();
@@ -478,11 +479,18 @@ void testLabMenu512() {
   loadGraalGui();
   auto& e = graalengine::engine();
   std::string names;
-  for (const auto& n : e.startScriptNames()) names += " " + n;
+  bool mainMenu = false;
+  for (const auto& n : e.startScriptNames()) {
+    names += " " + n;
+    if (n == "StartScript_MainMenu") mainMenu = true;
+  }
   std::fprintf(stderr, "lab 5.12: %zu start scripts:%s\n", e.startScriptNames().size(), names.c_str());
-  CHECK(e.screen() != nullptr);
-  const bool menu = e.screen() && e.screen()->content() && e.screen()->content()->name() == "MainMenuGui2D";
-  CHECK(menu);
+  CHECK(!mainMenu);
+  CHECK(e.screen() != nullptr && !e.screen()->content());
+  for (const auto& c : calls)
+    CHECK(c.find("no MainMenuGui2D") == std::string::npos);
+  startOfflineMode();
+  CHECK(e.screen() && e.screen()->content() && e.screen()->content()->name() == "GUIContainer");
   calls.clear();
   for (int i = 0; i < 3; ++i) renderGraalCanvas();
   int fills = 0, texts = 0;
@@ -490,13 +498,8 @@ void testLabMenu512() {
     if (c.rfind("fill ", 0) == 0) ++fills;
     if (c.rfind("text ", 0) == 0) ++texts;
   }
-  std::fprintf(stderr, "lab 5.12 menu: content %s, %d fills, %d texts in three frames\n",
-               e.screen() && e.screen()->content() ? e.screen()->content()->name().c_str() : "(none)", fills,
-               texts);
-  for (const auto& c : calls)
-    if (c.rfind("log ", 0) == 0) std::fprintf(stderr, "  %s\n", c.c_str());
+  std::fprintf(stderr, "lab 5.12 GraalGui: %d fills, %d texts in three frames\n", fills, texts);
   for (const auto& m : e.machine()->errors()) std::fprintf(stderr, "  %s\n", m.c_str());
-  CHECK(fills + texts > 0);
   shutdownGraalEngine();
 #ifdef _WIN32
   _putenv_s("GRAAL_ENGINE_FILE", "");

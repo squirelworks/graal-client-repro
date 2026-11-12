@@ -169,7 +169,9 @@ void Engine::setContentFrom(const std::string& objectName) {
     if (screen_) {
       int n = 0;
       for (const auto& k : screen_->all())
-        if (k && !k->parent() && n++ < 24) roots += (roots.empty() ? "" : ", ") + k->name();
+        if (k && !k->parent() && k->name().size() > 7 &&
+            k->name().compare(k->name().size() - 7, 7, "Profile") != 0 && n++ < 24)
+          roots += (roots.empty() ? "" : ", ") + k->name();
     }
     log("GraalEngine: no " + objectName + " to show" + (roots.empty() ? std::string() : "; root controls: " + roots));
     c = std::make_shared<Control>(objectName);
@@ -195,8 +197,12 @@ void Engine::loadStartMenus() {
   }
   runStartScript("StartScript_Profiles", false);
   // The setup test: the rebuild has no install step, so it always passes.
+  // 5.12's engine carries no StartScript_MainMenu: its main menu is the
+  // launcher's own window, and the engine's first screen is GraalGui once
+  // the launcher connects (the Login server's scripted lists follow).
+  const bool haveMainMenu = startScripts_.count("startscript_mainmenu") != 0 || startScripts_.empty();
   runStartScript("StartScript_MainMenu", true);
-  if (controlOf_ || !canvas_->content()) setContentFrom("MainMenuGui2D");
+  if (haveMainMenu && (controlOf_ || !canvas_->content())) setContentFrom("MainMenuGui2D");
   for (const char* n : {"StartScript_OptionsWindow", "StartScript_PlayerProfile", "StartScript_LoadLevelGui",
                         "StartScript_QuitDialog", "StartScript_MessageBoxDialog",
                         "StartScript_SelectFileDialog"}) {

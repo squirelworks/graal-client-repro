@@ -670,7 +670,12 @@ begin
       if (At > 0) and (Colon > At) then
         Host.Connect(AnsiString(Copy(Target, 1, At - 1)), AnsiString(Copy(Target, At + 1, Colon - At - 1)),
           StrToIntDef(Copy(Target, Colon + 1, MaxInt), 0));
-    end;
+    end
+    else
+      { 5.12's engine has no main-menu script: the launcher's own window is
+        the menu, and the client goes to the Login server (the licence's
+        first host) as guest, whose scripted lists come next. }
+      Host.OpenServerList;
     if HasArg('--window') then
     begin
       Win := TGWindow.Create(PaddedTitle, ScreenW, ScreenH);

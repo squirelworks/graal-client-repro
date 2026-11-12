@@ -85,6 +85,9 @@ std::vector<BuildProfile> make() {
   r500.label = "5.00r7 Windows";
   r500.token = "G3D22067";
   r500.machine_fields = 3;  // win,<md5>,"",<md5> in the lab; "" each here
+  // In Login mode the level, chests and image NPCs are drawn; characters
+  // and the HUD are not (protocol/v5v6-lab-play.md, "The Login server mode").
+  r500.login_draws_tiles = true;
   r500.plo = ids({{0, 25},    {27, 43},   {45, 49},   {67, 69},   {74, 75},   {82, 82},
                   {84, 84},   {101, 102}, {104, 107}, {131, 134}, {140, 140}, {150, 151},
                   {153, 156}, {165, 166}, {168, 176}, {178, 187}, {189, 191}, {193, 195},

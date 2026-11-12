@@ -3,6 +3,7 @@
 #include "../net/gtypes.hpp"
 
 #include <algorithm>
+#include <vector>
 #include <cctype>
 #include <filesystem>
 #include <fstream>
@@ -54,23 +55,24 @@ bool read_i5s(std::string_view rest, uint64_t* out, int count) {
 // it). The fields' bytes, unquoted and joined, are the GINT5s back to back:
 // the DES key's two may be one field of 10 bytes.
 bool read_i5s_csv(std::string_view rest, uint64_t* out, int count) {
-  std::string bytes;
+  std::vector<std::string> fields;
   size_t i = 0;
   while (i <= rest.size()) {
+    std::string f;
     if (i < rest.size() && rest[i] == '"') {
       ++i;
       bool closed = false;
       while (i < rest.size()) {
         char c = rest[i];
         if ((c == '"' || c == '\\') && i + 1 < rest.size() && rest[i + 1] == c) {
-          bytes += c;
+          f += c;
           i += 2;
         } else if (c == '"') {
           ++i;
           closed = true;
           break;
         } else {
-          bytes += c;
+          f += c;
           ++i;
         }
       }
@@ -79,16 +81,34 @@ bool read_i5s_csv(std::string_view rest, uint64_t* out, int count) {
     } else {
       size_t e = rest.find(',', i);
       if (e == std::string_view::npos) e = rest.size();
-      bytes.append(rest.substr(i, e - i));
+      f.assign(rest.substr(i, e - i));
       i = e;
     }
+    fields.push_back(std::move(f));
     ++i;  // the comma
   }
-  if (bytes.size() != 5 * static_cast<size_t>(count)) return false;
-  for (int k = 0; k < count; ++k) {
-    Net::Reader r(std::string_view(bytes).substr(static_cast<size_t>(k) * 5, 5));
+  // A last field of decimal digits that is not a whole GINT5 is the value
+  // as text: the lab's gserver build sent the CRC so ("0").
+  uint64_t last = 0;
+  bool decimalLast = false;
+  if (fields.size() >= 2) {
+    const std::string& f = fields.back();
+    if (!f.empty() && f.size() <= 10 && f.size() != 5 &&
+        std::all_of(f.begin(), f.end(), [](char c) { return c >= '0' && c <= '9'; })) {
+      decimalLast = true;
+      last = std::stoull(f);
+      fields.pop_back();
+    }
+  }
+  std::string bytes;
+  for (const auto& f : fields) bytes += f;
+  const size_t want = static_cast<size_t>(count - (decimalLast ? 1 : 0));
+  if (bytes.size() != 5 * want) return false;
+  for (size_t k = 0; k < want; ++k) {
+    Net::Reader r(std::string_view(bytes).substr(k * 5, 5));
     out[k] = r.gint5();
   }
+  if (decimalLast) out[count - 1] = last;
   return true;
 }
 

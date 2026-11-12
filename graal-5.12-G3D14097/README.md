@@ -62,7 +62,18 @@ gserver that way.
 Graal512 --engine [--engine-lib FILE] [--window] [--frames N] [--connect NAME@HOST:PORT]
 ```
 
-As 4.04r2's `--engine`, with the 5.0 launcher's slot set (95 slots: no
+Unlike 4.04r2, the 5.12 engine carries no `StartScript_MainMenu`: its 11
+start scripts are Profiles, GraalGui, GraalGui3D, OptionsWindow,
+PlayerProfile, QuitDialog, MessageBoxDialog, SetupDialog, SelectFileDialog
+and the two move maps (lab read of the real 5.12 engine). The main menu
+is the launcher's own window, and the client goes to the Login server as
+guest (`guest` and the built-in password, `protocol/v5v6-windows-unpacked.md`),
+whose scripted lists are the next screens. So with no `--connect`, the
+launcher calls `openGraalServerList` (the licence's Login host), and the
+engine shows GraalGui once connected. The Login server draws the level but
+no characters until it sends 178, as the 5.x notes say.
+
+Otherwise it is as 4.04r2's `--engine`, with the 5.0 launcher's slot set (95 slots: no
 `LogGraalMessage`, no stretched draw) and `graalengine_setBuild("5.12")`,
 which gives the engine the 5.12 wire row
 (`common/cpp/quattro/net/profile.cpp`) and the 5.0 GS2 profile. The menus
