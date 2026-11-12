@@ -162,6 +162,9 @@ begin
   end;
 end;
 
+{ Delphi 5 and 7 need an initialization section before finalization }
+initialization
+
 finalization
   FreeHudSheets;
 end.

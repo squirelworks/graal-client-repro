@@ -209,7 +209,7 @@ def write_unit(path, unit, rcdata, exe, md5, strings):
     for i, (n, d) in enumerate(rcdata):
         h = d.hex().upper()
         L.append('const')
-        L.append('  R%d =' % i)
+        L.append('  R%d: string =' % i)
         chunks = [h[j:j + 96] for j in range(0, len(h), 96)] or ['']
         for k, c in enumerate(chunks):
             L.append("    '%s'%s" % (c, ' +' if k < len(chunks) - 1 else ';'))

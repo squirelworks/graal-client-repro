@@ -366,6 +366,9 @@ begin
       DirSlash, [rfReplaceAll]);
 end;
 
+{ Delphi 5 and 7 need an initialization section before finalization }
+initialization
+
 finalization
   ClearRoots;
 end.

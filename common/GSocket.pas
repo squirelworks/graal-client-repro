@@ -235,7 +235,7 @@ begin
 {$IFDEF FPC}
     N := fpSend(FHandle, @Data[Done + 1], Length(Data) - Done, 0);
 {$ELSE}
-    N := WinSock.send(FHandle, Data[Done + 1], Length(Data) - Done, 0);
+    N := WinSock.send(FHandle, PChar(Data)[Done], Length(Data) - Done, 0);
 {$ENDIF}
     if N > 0 then
       Inc(Done, N)
