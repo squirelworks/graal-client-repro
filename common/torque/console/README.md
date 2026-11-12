@@ -25,8 +25,9 @@ Linux 3.04 profile, big for the documented PPC float-table variant. Integer
 fields remain little-endian. There is no plausibility-based autodetection.
 The reader preserves string/float tables, decoded code words, line pairs
 and identifier-use groups. It does not intern names, patch code words or
-validate instruction semantics. The table-end unused-argument sentinel
-is represented separately from a named empty string.
+validate instruction semantics. An unused argument (identifier offset at
+or past the table end; the shipped 3.04 files use both) is represented
+separately from a named empty string.
 
 ### Provenance and validation policy
 
@@ -52,9 +53,11 @@ instruction/operand role and line-table semantics require the later VM.
 ### Remaining work
 
 - [x] Implement the bounded, format-only C++ DSO v33 reader and inspection tool.
-- [ ] Confirm external original-file compatibility in the research lab.
-- [ ] Execute an independently specified bounded VM result and native-call trace.
-- [ ] Implement object/namespace lifetime and integrate the shipped boot sequence.
+- [x] Confirm external original-file compatibility: all 39 shipped 3.04
+  files load (the boot run in [engine/](engine/README.md)).
+- [x] Execute scripts with native calls: [engine/](engine/README.md).
+- [x] Object/namespace lifetime and the shipped boot sequence:
+  [engine/](engine/README.md), checked against the stage 0 capture.
 
 ## Instruction structure inspection
 

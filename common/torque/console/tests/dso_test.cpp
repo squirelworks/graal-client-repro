@@ -84,7 +84,17 @@ int main() {
     bad = original; put32(bad, at, 0xffffffff);
     reject(bad, Torque::DsoErrorKind::truncated);
   }
-  bad = original; put32(bad, 70, 5); reject(bad, Torque::DsoErrorKind::identifier);
+  {
+    // An offset past the table end is also an unused argument (shipped 3.04
+    // files use end and end + 6 in one function header).
+    auto past = original;
+    put32(past, 82, 10);
+    Torque::DsoBlock unnamed;
+    Torque::DsoError none;
+    require(Torque::load_dso(past, Torque::FloatOrder::little, unnamed, none) &&
+                unnamed.identifiers[1].unnamed && unnamed.identifiers[1].string_offset == 10,
+            "offset past the table end is not unnamed");
+  }
   bad = original; put32(bad, 70, 2); bad[11] = 'X';
   reject(bad, Torque::DsoErrorKind::identifier);
   bad = original; put32(bad, 78, 4); reject(bad, Torque::DsoErrorKind::relocation);

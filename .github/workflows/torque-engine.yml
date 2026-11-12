@@ -1,0 +1,57 @@
+name: torque-engine
+
+on:
+  pull_request:
+    paths:
+      - 'common/torque/console/engine/**'
+      - 'common/torque/console/compiler/**'
+      - 'common/torque/console/dso.cpp'
+      - 'common/torque/console/dso.hpp'
+      - 'common/torque/console/instructions.cpp'
+      - 'common/torque/console/instructions.hpp'
+      - '.github/workflows/torque-engine.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'common/torque/console/engine/**'
+      - 'common/torque/console/compiler/**'
+      - 'common/torque/console/dso.cpp'
+      - 'common/torque/console/dso.hpp'
+      - 'common/torque/console/instructions.cpp'
+      - 'common/torque/console/instructions.hpp'
+      - '.github/workflows/torque-engine.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: torque-engine-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    # macOS is built and tested on the lab Sequoia VM, not on GitHub runners
+    # (AGENTS.md, "macOS builds").
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build and test the console engine
+        run: make -C common/torque/console/engine test
+      - name: Check with address and undefined behavior sanitizers
+        run: |
+          make -C common/torque/console/engine clean
+          make -C common/torque/console/engine test CXXFLAGS='-std=c++17 -Wall -Wextra -Werror -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer'
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: make mingw-w64-ucrt-x86_64-gcc
+      - name: Build and test the console engine
+        shell: msys2 {0}
+        run: make -C common/torque/console/engine test
