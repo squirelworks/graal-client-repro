@@ -16,6 +16,7 @@ bodies.
 
 ## What's new in v0.0.5
 
+- [x] **Files from the server.** The raw FILE message (102) is read: its GINT5 time, the name, and every remaining byte of the raw count as the content. Files are kept in memory by name, a later copy replacing the earlier one; they are not written to disk yet.
 - [x] Shared GS1 variable storage releases its scalar and array values
 - [x] **Counted raw messages.** Every byte inside a RAWDATA count is kept, a final LF too, as 2.05r2 hands the whole count to its raw dispatcher; a file whose content ends in LF is no longer cut short.
   explicitly, removing the newer TStringList.OwnsObjects dependency while
