@@ -17,6 +17,12 @@ B=${2:-graal-2.05r2-GNW03081}
 if grep -qs "ClientGeneration = 1;" "$ROOT/$B"/src/Protocol*.pas; then
   exec "$ROOT/scripts/loopback-relay.sh" "$B"
 fi
+# an offline-only client (its profile says OfflineOnly = True, as 39ster's:
+# the original has no socket code) has nothing to log in with
+if grep -qs "OfflineOnly = True;" "$ROOT/$B"/src/Profile*.pas; then
+  echo "$B: offline only, as the original; no loopback login to check"
+  exit 0
+fi
 # worlds-player runs a local-only session on 127.0.0.1. A scaffold that
 # only names modules still skips below. worlds-host sends the hello only.
 PLAYER="$ROOT/build/$B/worlds-player"

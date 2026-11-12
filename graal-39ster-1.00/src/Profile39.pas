@@ -23,6 +23,9 @@ const
   ClientBuildLabel = '39ster 1.00';
   { its folder under graal-assets/ }
   ClientAssetFolders = '39ster';
+  { The original has no socket code (precursors-and-fan-builds.md): no
+    login, no server. scripts/loopback.sh skips a profile that says so. }
+  OfflineOnly = True;
 
   { Start: level13.nw at pixel (512, 512), facing down }
   StartLevel = 'level13.nw';
