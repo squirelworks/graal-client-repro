@@ -11,6 +11,7 @@ program Test222;
 
 uses
   SysUtils, Classes,
+  GClamp in '../../common/GClamp.pas',
   GTypes in '../../common/GTypes.pas',
   GZlib in '../../common/GZlib.pas',
   GBzip2 in '../../common/GBzip2.pas',

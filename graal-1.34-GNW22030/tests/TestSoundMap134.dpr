@@ -8,6 +8,7 @@ program TestSoundMap134;
 
 uses
   SysUtils, Classes,
+  GClamp in '../../common/GClamp.pas',
   GTypes in '../../common/GTypes.pas',
   GSurface in '../../common/GSurface.pas',
   GAssetDirs in '../../common/GAssetDirs.pas',

@@ -8,6 +8,7 @@ program TestSoundMap11;
 
 uses
   SysUtils, Classes,
+  GClamp in '../../common/GClamp.pas',
   GTypes in '../../common/GTypes.pas',
   GSurface in '../../common/GSurface.pas',
   GBetaHud in '../../common/GBetaHud.pas',
