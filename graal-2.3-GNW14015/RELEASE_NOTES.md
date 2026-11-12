@@ -18,6 +18,7 @@ its files, or keep those files in a `graal-assets/` folder beside it.
 
 ## What's new in v0.0.5
 
+- [x] **Chests from the server are drawn.** A chest that arrives only as `PLO_LEVELCHEST` (4), on a board with no chest tiles, is drawn closed, and one sent as already opened is drawn opened, as the real client does (lab run 2026-11-12). Before, it blocked the player and could be opened but stayed invisible until then.
 - [x] **F1 Help window.** F1 opens "Help" from the build's own form (TOptions): the "Game windows" group and Close. It is a real dialog on Windows and drawn elsewhere. Modelled on 2.31: Edit level and Debugger are hidden; the other buttons close it and do nothing yet.
 - [x] **Neutral window titles.** The server list window is titled "Server List" and the start window "Graal", not the original's caption, which named the original's host (#191).
 - [x] **System weapons stay out of Q.** A weapon whose name starts with `-` (the Reborn server's `-gr_movement`) runs but is not shown in the item list.
