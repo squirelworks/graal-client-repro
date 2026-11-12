@@ -41,6 +41,7 @@ program GraalB13;
 
 uses
   SysUtils, Classes,
+  GCompat in '../../common/GCompat.pas',
   GTypes in '../../common/GTypes.pas',
   GSocket in '../../common/GSocket.pas',
   GLevel in '../../common/GLevel.pas',

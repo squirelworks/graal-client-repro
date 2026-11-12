@@ -32,7 +32,7 @@ unit GGs1;
 interface
 
 uses
-  Classes, SysUtils, Math;
+  GCompat, Classes, SysUtils, Math;
 
 const
   GsFirstOp = 600;

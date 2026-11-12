@@ -11,6 +11,7 @@ program Test231;
 
 uses
   SysUtils, Classes,
+  GCompat in '../../common/GCompat.pas',
   GTypes in '../../common/GTypes.pas',
   GZlib in '../../common/GZlib.pas',
   GBzip2 in '../../common/GBzip2.pas',

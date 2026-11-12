@@ -8,6 +8,7 @@ program TestSoundMap202r1;
 
 uses
   SysUtils, Classes,
+  GCompat in '../../common/GCompat.pas',
   GTypes in '../../common/GTypes.pas',
   GSurface in '../../common/GSurface.pas',
   GAssetDirs in '../../common/GAssetDirs.pas',

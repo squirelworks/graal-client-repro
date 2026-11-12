@@ -13,6 +13,7 @@ program TestEditor201r1;
 
 uses
   SysUtils, Classes,
+  GCompat in '../../common/GCompat.pas',
   GLevel in '../../common/GLevel.pas',
   GLevelWrite in '../../common/GLevelWrite.pas',
   EditorDoc in '../src/editor/EditorDoc.pas',

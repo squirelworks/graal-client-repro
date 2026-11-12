@@ -12,6 +12,7 @@ program TestNwb2;
 
 uses
   SysUtils, Classes,
+  GCompat in '../../common/GCompat.pas',
   GTypes in '../../common/GTypes.pas',
   GZlib in '../../common/GZlib.pas',
   GSocket in '../../common/GSocket.pas',
