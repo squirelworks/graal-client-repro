@@ -843,6 +843,51 @@ begin
   end;
 end;
 
+{ #174: the raw FILE 102 handler. GINT5 metadata, a GCHAR name length,
+  the name, then the rest of the raw count as content. The vectors are
+  made up for this test. }
+procedure TestFileMessage;
+var
+  G: TAdventure;
+  Body: string;
+  T: Cardinal;
+
+  procedure SendFile(Meta: Cardinal; const Name, Content: string);
+  var
+    Raw: string;
+  begin
+    Raw := Chr(PLO_FILE + 32) + GInt5(Meta) + Chr(Length(Name) + 32) + Name + Content;
+    G.Client.FeedRaw(Frame(Chr(PLO_RAWDATA + 32) + GInt3(Length(Raw)) + #10 + Raw +
+      Chr(PLO_TOALL + 32) + 'next' + #10));
+  end;
+
+begin
+  G := TAdventure.Create;
+  try
+    SendFile(123456789, 'f', 'A'#10);
+    Check(G.ReceivedFile('f', Body, T) and (Body = 'A'#10) and (T = 123456789),
+      'FILE: name, nonzero GINT5 time and content with its final LF');
+    Check(G.Handled[PLO_TOALL] = 1, 'FILE: the next ordinary message is intact');
+    SendFile(1, 'pics1.png', #0#10#255#13#10#10);
+    Check(G.ReceivedFile('pics1.png', Body, T) and (Body = #0#10#255#13#10#10) and (T = 1),
+      'FILE: binary content with two final LFs is kept whole');
+    SendFile(0, 'empty.txt', '');
+    Check(G.ReceivedFile('empty.txt', Body, T) and (Body = ''),
+      'FILE: an empty file is kept as empty');
+    SendFile(7, 'f', 'B');
+    Check(G.ReceivedFile('f', Body, T) and (Body = 'B') and (T = 7) and
+      (G.FileNames.Count = 3), 'FILE: a later copy of a name replaces the earlier one');
+    G.Receive(PLO_FILE, GInt5(0) + Chr(9 + 32) + 'abc');
+    Check(not G.ReceivedFile('abc', Body, T) and (G.FileNames.Count = 3),
+      'FILE: a name running past the message is rejected');
+    G.Receive(PLO_FILE, '   ');
+    Check(G.FileNames.Count = 3, 'FILE: a message shorter than its header is rejected');
+    Check(G.Handled[PLO_TOALL] = 4, 'FILE: every following message came through');
+  finally
+    G.Free;
+  end;
+end;
+
 { #174: generated fragmented and coalesced TCP frames. The two-byte
   big-endian frame length, the inflated LF boundaries and the RAWDATA
   count are separate layers: where TCP cuts the bytes must not change
@@ -1491,6 +1536,7 @@ begin
   TestLinkPoint;
   TestFuzz;
   TestRawCount;
+  TestFileMessage;
   TestFraming;
   TestReceiveLimits;
   TestTutorials;
