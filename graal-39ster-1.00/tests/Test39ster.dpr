@@ -16,6 +16,7 @@ uses
   Tiles39 in '../src/Tiles39.pas',
   Camera39 in '../src/Camera39.pas',
   Move39 in '../src/Move39.pas',
+  Anim39 in '../src/Anim39.pas',
   World39 in '../src/World39.pas';
 
 var
@@ -452,6 +453,174 @@ begin
   end;
 end;
 
+
+{ --- animation (generated ganis and pictures only) --- }
+
+{ A gani with N steps; each step's four rows place sprite 1 (BODY) and
+  sprite 2 (HEAD) at the given spots, row d using sprite 10 + d (BODY) so
+  the facing can be told apart. Extra header lines go in Head; Wait > 0
+  puts a WAIT line after every step. }
+function MakeGani(N: Integer; const Head: string; Wait: Integer): string;
+var
+  I, D: Integer;
+begin
+  Result := 'GANI0001'#10 +
+    'SPRITE 2 HEAD 0 0 16 16 head'#10;
+  for D := 0 to 3 do
+    Result := Result + Format('SPRITE %d BODY %d 0 16 16 body dir %d', [10 + D, 16 * D, D]) + #10;
+  Result := Result + Head + 'DEFAULTHEAD head.bmp'#10'DEFAULTBODY body.bmp'#10#10'ANI'#10;
+  for I := 1 to N do
+  begin
+    for D := 0 to 3 do
+      Result := Result + Format('%d 8 16, 2 8 0', [10 + D]) + #10;
+    if Wait > 0 then Result := Result + Format('WAIT %d', [Wait]) + #10;
+    Result := Result + #10;
+  end;
+  Result := Result + 'ANIEND'#10;
+end;
+
+procedure WriteGanis(const Dir: string; WalkWait: Integer);
+const
+  Heads: array[TGani39] of string = ('', 'LOOP'#10'CONTINUOUS'#10,
+    'SETBACKTO idle'#10, 'LOOP'#10, '', '', 'LOOP'#10, 'LOOP'#10);
+var
+  G: TGani39;
+begin
+  for G := Low(TGani39) to High(TGani39) do
+    WriteText(Dir + 'levels' + PathDelim + GaniName[G] + '.gani',
+      MakeGani(GaniFrames[G], Heads[G], Ord(G = gWalk) * WalkWait));
+end;
+
+procedure RemoveInstall(const Dir: string);
+var
+  G: TGani39;
+begin
+  for G := Low(TGani39) to High(TGani39) do
+    DeleteFile(Dir + 'levels' + PathDelim + GaniName[G] + '.gani');
+  DeleteFile(Dir + 'levels' + PathDelim + StartLevel);
+  DeleteFile(Dir + 'levels' + PathDelim + 'head.bmp');
+  DeleteFile(Dir + 'levels' + PathDelim + 'body.bmp');
+  DeleteFile(Dir + 'arrays.dat');
+  RemoveDir(Dir + 'levels');
+  RemoveDir(Dir);
+end;
+
+procedure TestAnimationProfile;
+var
+  Set39: TGaniSet39;
+  A: TAnimState39;
+  I: Integer;
+  R: TGani39;
+begin
+  { no install: the profile's frame counts and endings }
+  Set39 := TGaniSet39.Create;
+  try
+    Check((Set39.Frames(gWalk) = 8) and (Set39.Frames(gSword) = 5) and (Set39.Frames(gPull) = 3),
+      'anim: without ganis, the profile frame counts');
+    A.Gani := gIdle;
+    A.Pos := 0;
+    PlayGani(A, gWalk);
+    for I := 1 to 3 do AdvanceAnim(A, Set39, 1);
+    Check(Near(A.Pos, 1.05) and (AnimFrame(A, Set39) = 1), 'anim: 0.35 a nominal update, 3 updates reach frame 1');
+    for I := 1 to 20 do AdvanceAnim(A, Set39, 1);
+    Check((A.Gani = gWalk) and Near(A.Pos, 23 * 0.35 - 8) and (AnimFrame(A, Set39) = 0),
+      'anim: walk loops back to frame 0 after 8 frames');
+    PlayGani(A, gWalk);
+    Check(A.Pos > 0, 'anim: playing the gani already playing does not restart it');
+    PlayGani(A, gSword);
+    for I := 1 to 14 do AdvanceAnim(A, Set39, 1);
+    Check((A.Gani = gSword) and (AnimFrame(A, Set39) = 4), 'anim: the sword is on its last frame after 14 updates');
+    AdvanceAnim(A, Set39, 1);
+    Check((A.Gani = gIdle) and (A.Pos = 0), 'anim: the sword returns to idle when it ends');
+    PlayGani(A, gSit);
+    for I := 1 to 50 do AdvanceAnim(A, Set39, 4);
+    Check((A.Gani = gSit) and (AnimFrame(A, Set39) = 0), 'anim: a held pose stays on its frame');
+    PlayGani(A, gWalk);
+    AdvanceAnim(A, Set39, 2);
+    Check(Near(A.Pos, 0.7), 'anim: the step scales with the time factor (0.7 at 2)');
+    Check(Set39.ReturnTo(gSword, R) and (R = gIdle) and not Set39.ReturnTo(gGrab, R),
+      'anim: only the sword has a return gani by default');
+    Check(GaniByName('Sword.gani', R) and (R = gSword) and not GaniByName('dance', R),
+      'anim: gani names match without case or .gani');
+  finally
+    Set39.Free;
+  end;
+end;
+
+procedure TestAnimationInstall;
+var
+  W: TWorld39;
+  Dir: string;
+  Body, Head: TGSurface;
+  I, X0, Y0, OX, OY: Integer;
+  X1: Double;
+begin
+  Dir := IncludeTrailingPathDelimiter(GetTempDir(False)) + 'g39anim' + PathDelim;
+  ForceDirectories(Dir + 'levels');
+  WriteText(Dir + 'levels' + PathDelim + StartLevel, MakeNw(0));
+  WriteText(Dir + 'arrays.dat', StringOfChar('A', SheetCells));
+  { WAIT 5 after every walk step: the waits are skipped }
+  WriteGanis(Dir, 5);
+  { body: a 64 x 16 strip, one colour per direction; head: one colour }
+  Body := TGSurface.Create(64, 16);
+  Head := TGSurface.Create(16, 16);
+  W := TWorld39.Create;
+  try
+    for I := 0 to 3 do Body.FillRect(16 * I, 0, 16, 16, $FF000000 or (Cardinal(I + 1) shl 20));
+    Head.Fill($FF0000FF);
+    Body.SaveBMP(Dir + 'levels' + PathDelim + 'body.bmp');
+    Head.SaveBMP(Dir + 'levels' + PathDelim + 'head.bmp');
+    SetAssetRootsFor('', Dir, ClientAssetFolders);
+    W.LoadInstall;
+    Check((W.Ganis.Ganis[gWalk] <> nil) and (W.Ganis.Frames(gWalk) = 8),
+      'install anim: the eight generated ganis load');
+    Check(W.LoadLevel(StartLevel), 'install anim: the level loads');
+    W.Anim.Gani := gWalk;
+    W.Anim.Pos := 0;
+    for I := 1 to 3 do AdvanceAnim(W.Anim, W.Ganis, 1);
+    Check(AnimFrame(W.Anim, W.Ganis) = 1, 'install anim: WAIT lines are skipped (frame 1 after 3 updates)');
+    Check(W.Ganis.PieceFile(gIdle, 'HEAD') = 'head.bmp',
+      'install anim: a piece the gani names and the install has is used');
+    Check(W.Ganis.PieceFile(gIdle, 'SHIELD') = PieceShield,
+      'install anim: otherwise the profile''s picture for that piece');
+    { draw: the box at (512, 512), facing down; the gani origin is the box
+      less (16, 32), body at (8, 16) and head at (8, 0) from it }
+    W.PlaceAt(512, 512);
+    W.Facing := fDown;
+    W.Anim.Gani := gIdle;
+    W.Anim.Pos := 0;
+    W.Draw;
+    CameraOrigin(512, 512, 1024, 1024, ViewW, ViewH, OX, OY);
+    X0 := 512 - OX + CharOriginDX;
+    Y0 := 512 - OY + CharOriginDY;
+    Check(W.Screen.GetPixel(X0 + 8 + 1, Y0 + 16 + 1) = ($FF300000 or $FF000000),
+      'draw: the body piece facing down (row 2) at (8, 16) from the gani origin');
+    Check(W.Screen.GetPixel(X0 + 8 + 1, Y0 + 1) = $FF0000FF, 'draw: the head piece at (8, 0)');
+    W.Facing := fLeft;
+    W.Draw;
+    Check(W.Screen.GetPixel(X0 + 8 + 1, Y0 + 16 + 1) = ($FF200000 or $FF000000),
+      'draw: facing left draws the left row');
+    { play: Space starts the sword, which roots the player until it ends }
+    W.PlaceAt(512, 512);
+    W.Update(0, 0, True, 1);
+    X1 := W.PosX;
+    Check(W.Anim.Gani = gSword, 'play: attack starts the sword');
+    for I := 1 to 10 do W.Update(1, 0, False, 1);
+    Check((W.Anim.Gani = gSword) and Near(W.PosX, X1), 'play: the player does not walk while the sword swings');
+    for I := 1 to 5 do W.Update(0, 0, False, 1);
+    Check(W.Anim.Gani = gIdle, 'play: the sword ends in idle');
+    W.Update(1, 0, False, 1);
+    Check((W.Anim.Gani = gWalk) and (W.PosX > X1) and (W.Facing = fRight), 'play: held arrows walk with the walk gani');
+    W.Update(0, 0, False, 1);
+    Check(W.Anim.Gani = gIdle, 'play: letting go stands idle');
+  finally
+    W.Free;
+    Body.Free;
+    Head.Free;
+    RemoveInstall(Dir);
+  end;
+end;
+
 begin
   Passed := 0;
   Failed := 0;
@@ -466,6 +635,8 @@ begin
   TestMovement;
   TestSlides;
   TestWorldStep;
+  TestAnimationProfile;
+  TestAnimationInstall;
   WriteLn(Format('%d passed, %d failed', [Passed, Failed]));
   if Failed > 0 then Halt(1);
 end.

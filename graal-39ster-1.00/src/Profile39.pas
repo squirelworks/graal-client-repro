@@ -23,6 +23,9 @@ const
   ClientBuildLabel = '39ster 1.00';
   { its folder under graal-assets/ }
   ClientAssetFolders = '39ster';
+  { The original has no socket code (precursors-and-fan-builds.md): no
+    login, no server. scripts/loopback.sh skips a profile that says so. }
+  OfflineOnly = True;
 
   { Start: level13.nw at pixel (512, 512), facing down }
   StartLevel = 'level13.nw';
@@ -55,6 +58,21 @@ const
   FrameAdvance = 0.35;   { frame position step x the time factor }
   FreezeDrop = 60;       { the freeze counter drops 60 x the time factor per update }
   SwordFrames = 5;
+
+  { The pictures of the character's pieces when a gani names none the
+    install has. The notes do not say which ones the original picks; these
+    are this port's reading: the pictures its install keeps under levels/. }
+  PieceSprites = 'sprites.png';
+  PieceHead = 'head0.png';
+  PieceBody = 'body1.png';
+  PieceSword = 'sword1.png';
+  PieceShield = 'shield1.png';
+  PieceAttr1 = 'hat1.png';
+  { The gani origin, from the 16-pixel box: the box is the feet of a
+    32 x 32 body drawn at (8, 16), as in the 2.x ganis (this port's
+    reading; the notes do not give it). }
+  CharOriginDX = -16;
+  CharOriginDY = -32;
   SignPageLines = 3;
 
 type

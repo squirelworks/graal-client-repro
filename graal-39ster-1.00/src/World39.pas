@@ -14,7 +14,7 @@ unit World39;
 interface
 
 uses
-  GLevel, GSurface, Profile39, Tiles39;
+  GLevel, GSurface, Profile39, Tiles39, Anim39;
 
 type
   TWorld39 = class
@@ -28,6 +28,9 @@ type
     { the same position with its fraction, which movement keeps }
     PosX, PosY: Double;
     Facing: TFacing39;
+    { the player's ganis and the one playing }
+    Ganis: TGaniSet39;
+    Anim: TAnimState39;
     LastError: string;
     constructor Create;
     destructor Destroy; override;
@@ -45,6 +48,11 @@ type
     { one update with the held directions DX, DY (-1, 0, 1) and time factor
       TF; turns to face the move; True if the box moved }
     function Step(DX, DY: Integer; TF: Double): Boolean;
+    { One frame of play: Attack starts the sword (once it is not already
+      swinging); while it swings the player stands. Otherwise the held
+      directions walk (walk gani) or the player stands (idle). Then the
+      animation advances by TF. }
+    procedure Update(DX, DY: Integer; Attack: Boolean; TF: Double);
     { the frame for the current anchor }
     procedure Draw;
   end;
@@ -64,6 +72,9 @@ begin
   inherited Create;
   Level := TAdventureLevel.Create;
   Categories := TCategoryTable39.Create;
+  Ganis := TGaniSet39.Create;
+  Anim.Gani := gIdle;
+  Anim.Pos := 0;
   Screen := TGSurface.Create(ViewW, ViewH);
   PlaceAt(StartX, StartY);
   Facing := StartFacing;
@@ -72,6 +83,7 @@ end;
 destructor TWorld39.Destroy;
 begin
   Screen.Free;
+  Ganis.Free;
   Sheet.Free;
   Categories.Free;
   Level.Free;
@@ -99,6 +111,11 @@ begin
   if (P = '') or not Categories.LoadFromFile(P) then
   begin
     if P = '' then LastError := 'no arrays.dat' else LastError := Categories.LastError;
+    Result := False;
+  end;
+  if not Ganis.LoadInstall then
+  begin
+    LastError := 'missing ganis under levels/';
     Result := False;
   end;
 end;
@@ -156,6 +173,18 @@ begin
   PlaceAt(X, Y);
 end;
 
+procedure TWorld39.Update(DX, DY: Integer; Attack: Boolean; TF: Double);
+begin
+  if Attack and (Anim.Gani <> gSword) then PlayGani(Anim, gSword);
+  if Anim.Gani <> gSword then
+  begin
+    Step(DX, DY, TF);
+    if (DX <> 0) or (DY <> 0) then PlayGani(Anim, gWalk)
+    else PlayGani(Anim, gIdle);
+  end;
+  AdvanceAnim(Anim, Ganis, TF);
+end;
+
 procedure TWorld39.Draw;
 var
   OX, OY, TX, TY, DX, DY, C: Integer;
@@ -179,8 +208,13 @@ begin
       end;
     end;
   end;
-  { the player's 16-pixel anchor box; the character pieces are not drawn yet }
-  Screen.FillRect(AnchorX - OX, AnchorY - OY, TilePx, TilePx, $FFFFFFFF);
+  { the character, its pieces placed by the gani playing; without the
+    install's ganis, the 16-pixel box it stands on }
+  if Ganis.Ganis[Anim.Gani] <> nil then
+    Ganis.DrawCharacter(Screen, Anim, Facing, AnchorX - OX + CharOriginDX,
+      AnchorY - OY + CharOriginDY)
+  else
+    Screen.FillRect(AnchorX - OX, AnchorY - OY, TilePx, TilePx, $FFFFFFFF);
 end;
 
 end.

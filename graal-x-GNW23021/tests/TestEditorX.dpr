@@ -1,4 +1,4 @@
-{ Tests for the 2.01 built-in level editor: the level writers and
+{ Tests for the GraalX built-in level editor (2.01's, with the .nw writer): the level writers and
   (later) the editor document. Same style as TestX: each check prints a
   line and the run exits 1 if any failed.
 
@@ -290,6 +290,69 @@ begin
     DeleteFile(F);
     B.Free;
     A.Free;
+  end;
+end;
+
+{ GraalX kept the GLEVNW01 writer: a .nw level opened in the editor and
+  saved comes back. An unchanged level saves byte for byte, as the one
+  GraalX run in the research did (VX-GRAALX-NW-SAVE-20261109-01; that run
+  used one synthetic level and no edits). Saving an edited level and
+  reading it again is this rebuild's writer only: how GraalX itself writes
+  edited boards and objects is not known yet. }
+procedure TestNwSaveReload;
+var
+  A, B: TAdventureLevel;
+  D: TEditorDoc;
+  F, S0, S1, Why: string;
+  I: Integer;
+begin
+  F := GetTempDir + 'testgraalx-save.nw';
+  A := SampleLevel;
+  B := TAdventureLevel.Create;
+  D := TEditorDoc.Create(0);
+  try
+    S0 := WriteNW(A);
+    WriteText(F, S0);
+    Check(D.Open(F), 'GraalX save: a .nw level opens in the editor');
+    Check(D.Save and (ReadFileStr(F) = S0),
+      'GraalX save: an unchanged .nw level saves byte for byte');
+    { edits: a board tile, an NPC moved, a sign added }
+    D.SetTile(5, 6, 1234);
+    D.MoveObject(okNPC, 0, 20.5, 21);
+    I := D.AddSign(40, 41);
+    D.Level.Signs[I].Text := 'GraalX edit';
+    Check(D.Modified and D.Save, 'GraalX save: an edited level saves');
+    S1 := ReadFileStr(F);
+    Check(Copy(S1, 1, 9) = 'GLEVNW01'#10, 'GraalX save: still a .nw (GLEVNW01) file');
+    Check(B.LoadFromFile(F), 'GraalX reload: the edited file loads');
+    Check(B.Tile(5, 6) = 1234, 'GraalX reload: the edited tile');
+    Check((Length(B.NPCs) = Length(A.NPCs)) and (B.NPCs[0].X = 20.5) and (B.NPCs[0].Y = 21),
+      'GraalX reload: the moved NPC');
+    Check((Length(B.Signs) = Length(A.Signs) + 1) and
+      (B.Signs[High(B.Signs)].X = 40) and (B.Signs[High(B.Signs)].Y = 41) and
+      (B.Signs[High(B.Signs)].Text = 'GraalX edit'), 'GraalX reload: the added sign');
+    { the reference is the unchanged file as read (the writer turns spaces
+      in link names into _, as GLEVNW01 has no quoting) }
+    A.Free;
+    A := TAdventureLevel.Create;
+    A.LoadFromString(S0);
+    A.Tiles[6 * 64 + 5] := 1234;
+    A.NPCs[0].X := 20.5;
+    A.NPCs[0].Y := 21;
+    SetLength(A.Signs, Length(A.Signs) + 1);
+    A.Signs[High(A.Signs)] := B.Signs[High(B.Signs)];
+    Check(SameObjects(A, B, Why), 'GraalX reload: everything else is unchanged');
+    if Why <> '' then WriteLn('      differs: ', Why);
+    { opened again and saved with no edits: the same bytes }
+    D.Free;
+    D := TEditorDoc.Create(0);
+    Check(D.Open(F) and D.Save and (ReadFileStr(F) = S1),
+      'GraalX save: the edited level saves byte for byte the second time');
+  finally
+    D.Free;
+    B.Free;
+    A.Free;
+    DeleteFile(F);
   end;
 end;
 
@@ -867,6 +930,7 @@ begin
   TestGRV;
   TestNWWrite;
   TestSaveFile;
+  TestNwSaveReload;
   TestEditorBoard;
   TestEditorObjects;
   TestEditorView;

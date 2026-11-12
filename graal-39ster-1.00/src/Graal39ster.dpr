@@ -6,9 +6,9 @@
 
   With no --frame it opens a 640 x 480 window on level13.nw at (512, 512),
   as the original starts. The arrow keys walk the player's box with the
-  original's movement and collision (Move39); Esc or closing the window
-  ends it. Character pieces, animation, pause, signs and links are the
-  next slices (issue #176).
+  original's movement and collision (Move39), Space swings the sword, and
+  the character is drawn from the install's ganis (Anim39); Esc or closing
+  the window ends it. Pause, signs and links are the next slices (#176).
 
   The player's own 39ster install supplies every file: put the program in
   its folder, or keep the install's files in graal-assets/39ster/ next to
@@ -28,6 +28,7 @@ uses
   Tiles39 in 'Tiles39.pas',
   Camera39 in 'Camera39.pas',
   Move39 in 'Move39.pas',
+  Anim39 in 'Anim39.pas',
   World39 in 'World39.pas';
 
 procedure Usage;
@@ -60,7 +61,7 @@ begin
       DX := Ord(Win.Held[gkRight]) - Ord(Win.Held[gkLeft]);
       DY := Ord(Win.Held[gkDown]) - Ord(Win.Held[gkUp]);
       { the time factor comes from the previous frame }
-      W.Step(DX, DY, TimeFactor(T0 - Last));
+      W.Update(DX, DY, Win.Held[gkAttack], TimeFactor(T0 - Last));
       Last := T0;
       W.Draw;
       Win.Present(W.Screen);

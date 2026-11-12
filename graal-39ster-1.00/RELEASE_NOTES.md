@@ -27,6 +27,10 @@ one with `--data DIR`, or keep the install's files in
   long the last frame took. Blocking, jump and throw-through tiles and the
   level's edge stop it; it stops flush against a wall, and pushing into a
   wall corner slides it round onto the open tile.
+- [x] **The character.** The player is drawn from the install's own ganis
+  and pictures, piece by piece (body, head, shield, sword, hat), facing the
+  way it walks. Walking plays the walk animation, standing plays idle, and
+  Space swings the sword, which goes back to idle when it ends.
 
 ## Not yet
 
