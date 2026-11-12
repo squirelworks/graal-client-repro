@@ -1,6 +1,8 @@
 // gs2-scan: find the compiled GS2 scripts a program carries as zlib
 // streams, and report what the machine can run of them.
-//   gs2-scan [--profile 4.2|5.0|6.00] [--out DIR] FILE
+//   gs2-scan [--profile 4.2|5.0|6.00] [--out DIR] [--run] FILE
+// --run attaches every script to its own variable on one machine, runs
+// `created` and reports the commands they called that nothing provides.
 // The program is the player's own copy; nothing it contains is kept here.
 
 #include <zlib.h>
@@ -41,11 +43,14 @@ std::string inflateAt(const unsigned char* p, std::size_t n) {
 int main(int argc, char** argv) {
   gs2::Profile profile = gs2::Profile::Engine42;
   std::string outDir, file;
+  bool runThem = false;
   for (int i = 1; i < argc; ++i) {
     const std::string a = argv[i];
     if (a == "--profile" && i + 1 < argc) {
       const std::string p = argv[++i];
       profile = p == "5.0" ? gs2::Profile::Engine50 : p == "6.00" ? gs2::Profile::Engine600 : gs2::Profile::Engine42;
+    } else if (a == "--run") {
+      runThem = true;
     } else if (a == "--out" && i + 1 < argc) {
       outDir = argv[++i];
     } else {
@@ -67,6 +72,8 @@ int main(int argc, char** argv) {
   int scripts = 0, failed = 0;
   std::size_t functions = 0, instructions = 0;
   std::map<int, std::size_t> refused;
+  gs2::Machine machine(profile);
+  machine.logMissingFunctions = true;
   for (std::size_t i = 0; i + 2 < data.size(); ++i) {
     if (d[i] != 0x78 || (d[i + 1] != 0x01 && d[i + 1] != 0x5e && d[i + 1] != 0x9c && d[i + 1] != 0xda)) continue;
     const std::string s = inflateAt(d + i, data.size() - i);
@@ -83,6 +90,11 @@ int main(int argc, char** argv) {
     instructions += r.script->code.size();
     for (const auto& in : r.script->code)
       if (!gs2::opcodeInProfile(in.op, profile) || !gs2::opcodeImplemented(in.op)) ++refused[in.op];
+    if (runThem) {
+      char name[32];
+      std::snprintf(name, sizeof name, "script%02d", scripts);
+      machine.setScript(machine.newVar(name), s);
+    }
     if (!outDir.empty()) {
       char name[64];
       std::snprintf(name, sizeof name, "/script%02d.gs2", scripts);
@@ -96,6 +108,12 @@ int main(int argc, char** argv) {
     std::printf("opcodes not yet run on engine %s:", gs2::profileName(profile));
     for (const auto& [op, n] : refused) std::printf(" %s(%d)x%zu", gs2::opcodeName(op).c_str(), op, n);
     std::printf("\n");
+  }
+  if (runThem) {
+    for (int pass = 0; pass < 3; ++pass) machine.runScripts();
+    std::printf("ran %llu instructions, %zu objects made\n",
+                static_cast<unsigned long long>(machine.instructionsRun()), machine.objects().size());
+    for (const auto& e : machine.errors()) std::printf("  %s\n", e.c_str());
   }
   return failed ? 1 : 0;
 }

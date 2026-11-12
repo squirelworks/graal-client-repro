@@ -59,8 +59,9 @@ struct LoadResult {
 
 // Read the four big-endian segments and the opcode stream, then apply the
 // engine's load-time pair fusions.
-LoadResult load(const std::uint8_t* data, std::size_t size);
-LoadResult load(const std::string& bytes);
+// The 6.00 engines fold more pairs (234 to 242) than 4.2 and 5.0.
+LoadResult load(const std::uint8_t* data, std::size_t size, Profile profile = Profile::Engine42);
+LoadResult load(const std::string& bytes, Profile profile = Profile::Engine42);
 
 std::string opcodeName(int op);
 std::string disassemble(const Script& s);
@@ -72,6 +73,7 @@ using VarPtr = std::shared_ptr<Var>;
 
 // A slot that names a variable: an owner and a key, or an array element.
 struct Ref {
+  VarPtr var;  // a variable already resolved (makeprop, makeoldscriptvar); owner and key unused
   VarPtr owner;
   std::string ownerName;  // what the script called the owner, kept when it did not resolve
   std::string key;
@@ -101,9 +103,20 @@ class Var : public std::enable_shared_from_this<Var> {
  public:
   enum class Kind { Number, String, Object, Array };
 
-  explicit Var(std::string name = "") : name_(std::move(name)) {}
+  explicit Var(std::string name = "", std::string type = "") : name_(std::move(name)), type_(std::move(type)) {}
+  virtual ~Var() = default;
 
   const std::string& name() const { return name_; }
+  void setName(const std::string& n) { name_ = n; }
+  // The class an object was created as (`new T(...)`), empty for plain variables.
+  const std::string& type() const { return type_; }
+
+  // Whether an assignment to `key` inside `with` (or on `thiso`) lands on this
+  // object rather than on a global. The engines' typed objects answer from
+  // their property set; a plain object made by `new` takes every name until
+  // its class gives the real list.
+  virtual bool acceptsProperty(const std::string& key) const;
+  void setAcceptsAllProperties(bool b) { acceptsAll_ = b; }
 
   Kind kind() const { return kind_; }
   double number() const;
@@ -129,6 +142,8 @@ class Var : public std::enable_shared_from_this<Var> {
   std::weak_ptr<Var> link_;
   std::vector<VarPtr> elems_;
   std::map<std::string, VarPtr> children_;  // keys lower-cased
+  std::string type_;
+  bool acceptsAll_ = false;
 };
 
 // ----------------------------------------------------------------- machine
@@ -184,6 +199,15 @@ class Machine {
   void clearErrors() { errors_.clear(); }
   bool logMissingFunctions = true;
 
+  // `new T(name)`: makes the object. The default makes a plain Var of type T
+  // that accepts every property. The machine keeps every object it made.
+  using Factory = std::function<VarPtr(Machine&, const std::string& type, const std::string& name)>;
+  void setObjectFactory(Factory f) { factory_ = std::move(f); }
+  const std::vector<VarPtr>& objects() const { return objects_; }
+
+  // `_(text)` (opcode 119). The default returns the text unchanged.
+  std::function<std::string(const std::string&)> translate;
+
   // Conversions shared with commands.
   double toNumber(const Value& v) const;
   std::string toString(const Value& v) const;
@@ -216,6 +240,8 @@ class Machine {
   struct CommandEntry { std::string signature; Command fn; };
   std::map<std::string, CommandEntry> commands_;  // lower-cased names
   std::vector<std::string> errors_;
+  Factory factory_;
+  std::vector<VarPtr> objects_;
   double clock_ = 0;
   std::uint64_t executed_ = 0;
   std::uint32_t rng_ = 1;

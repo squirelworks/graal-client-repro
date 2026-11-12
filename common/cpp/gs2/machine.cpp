@@ -54,10 +54,12 @@ std::int32_t toInt32(double d) {
 bool opcodeImplemented(int op) {
   if (op >= 1 && op <= 10) return true;
   if (op >= 20 && op <= 27) return true;
-  if (op >= 30 && op <= 36) return true;
+  if (op >= 30 && op <= 37) return true;
   if (op >= 60 && op <= 79) return true;
-  if (op >= 200 && op <= 233) return true;
+  if (op >= 200 && op <= 240) return true;
   switch (op) {
+    case 40: case 42: case 43: case 47: case 48: case 49: case 121: case 115: case 119:
+    case 163: case 242:
     case 44: case 45: case 46: case 50: case 51: case 52: case 53:
     case 85: case 86: case 87: case 88: case 89: case 90: case 91: case 93: case 94:
     case 97: case 98: case 101: case 102: case 103:
@@ -132,7 +134,7 @@ bool Machine::hasScript(const VarPtr& var) const {
 }
 
 bool Machine::setScript(const VarPtr& var, const std::string& bytes, std::string* error) {
-  auto r = load(bytes);
+  auto r = load(bytes, profile_);
   if (!r.ok()) {
     if (error) *error = r.error;
     if (Space* sp = space(var, false)) { sp->script.reset(); sp->initialized = false; }
@@ -227,6 +229,7 @@ std::string Machine::numberText(double d) {
 namespace {
 
 VarPtr refTarget(const Ref& r, bool create) {
+  if (r.var) return r.var;
   if (!r.owner) return nullptr;
   if (r.index >= 0) {
     auto& el = r.owner->elements();
@@ -251,12 +254,16 @@ VarPtr Machine::resolveName(Exec& ex, const std::string& name, bool create) {
   if (n == "level") return level_;
 
   for (auto it = ex.with.rbegin(); it != ex.with.rend(); ++it)
-    if (*it)
+    if (*it) {
       if (auto v = (*it)->child(name)) return v;
+      if (create && (*it)->acceptsProperty(name)) return (*it)->childOrCreate(name);
+    }
   if (fr && fr->locals)
     if (auto v = fr->locals->child(name)) return v;
-  if (thiso)
+  if (thiso) {
     if (auto v = thiso->child(name)) return v;
+    if (create && thiso->acceptsProperty(name)) return thiso->childOrCreate(name);
+  }
   if (level_)
     if (auto v = level_->child(name)) return v;
   if (auto v = universe_->child(name)) return v;
@@ -411,6 +418,39 @@ void Machine::runScripts() {
 
 // ------------------------------------------------------------ executor
 
+namespace {
+
+int compare3(const Machine& m, const Value& x, const Value& y) {
+  using T = Value::Tag;
+  auto cmpNum = [](double a, double b) { return std::fabs(a - b) < 0.0001 ? 0 : (a < b ? -1 : 1); };
+  if (x.tag == T::String && y.tag == T::String) {
+    const std::string a = lower(x.str), b = lower(y.str);
+    return a == b ? 0 : (a < b ? -1 : 1);
+  }
+  if (x.tag == T::Object && y.tag == T::Object) {
+    const auto a = reinterpret_cast<std::uintptr_t>(x.obj.get()), b = reinterpret_cast<std::uintptr_t>(y.obj.get());
+    return a == b ? 0 : (a < b ? -1 : 1);
+  }
+  if (x.tag == T::Object || y.tag == T::Object) {
+    const Value& o = x.tag == T::Object ? x : y;
+    const Value& other = x.tag == T::Object ? y : x;
+    if (other.tag == T::String && o.obj) {
+      const std::string a = lower(o.obj->name()), b = lower(other.str);
+      const int r = a == b ? 0 : (a < b ? -1 : 1);
+      return x.tag == T::Object ? r : -r;
+    }
+    if (other.tag == T::Number) {
+      const double p = static_cast<double>(reinterpret_cast<std::uintptr_t>(o.obj.get()));
+      const int r = cmpNum(p, other.num);
+      return x.tag == T::Object ? r : -r;
+    }
+    return 0;
+  }
+  return cmpNum(m.toNumber(x), m.toNumber(y));
+}
+
+}  // namespace
+
 Value Machine::execute(Exec& ex) {
   Space* sp = ex.sp;
   auto fail = [&](const std::string& text) {
@@ -492,13 +532,39 @@ Value Machine::execute(Exec& ex) {
       default: return (a != 0 || b != 0) ? 1 : 0;  // 67
     }
   };
-  auto compare = [&](int op, double a, double b) -> double {
+  auto compare = [&](int op, const Value& a, const Value& b) -> double {
+    const int c = compare3(*this, deref(a), deref(b));
     switch (op) {
-      case 72: return a < b;
-      case 73: return a > b;
-      case 74: return a <= b;
-      default: return a >= b;  // 75
+      case 72: return c < 0;
+      case 73: return c > 0;
+      case 74: return c <= 0;
+      default: return c >= 0;  // 75
     }
+  };
+  bool runUnfused = false;
+  // The object conversion that creates a missing name (36, 230, 238).
+  auto objCreate = [&](const Value& v) -> VarPtr {
+    if (v.tag == Value::Tag::Ref || v.tag == Value::Tag::Name) {
+      auto t = varOf(v, true);
+      if (t && t->kind() == Var::Kind::Object) return t->object();
+      return t;
+    }
+    return toObject(v);
+  };
+  auto newObject = [&](const std::string& type, const std::string& name) -> VarPtr {
+    VarPtr o = factory_ ? factory_(*this, type, name) : nullptr;
+    if (!o) {
+      o = std::make_shared<Var>(name, type);
+      o->setAcceptsAllProperties(true);
+    }
+    objects_.push_back(o);
+    return o;
+  };
+  // A count on the stack, truncated toward zero (48 adds 0.0001 first).
+  auto count = [&](double d) -> long {
+    long n = static_cast<long>(std::trunc(d));
+    if (d < 0 && static_cast<double>(n) != d) n -= 1;
+    return n;
   };
   auto unimplemented = [&](int op) {
     fail("opcode " + std::to_string(op) + " (" + opcodeName(op) + ") is not implemented");
@@ -509,7 +575,8 @@ Value Machine::execute(Exec& ex) {
     const Script& s = *frame().script;
     if (ex.pc >= s.code.size()) { ex.stopped = true; break; }
     const Instruction& in = s.code[ex.pc];
-    const int op = in.op;
+    const int op = runUnfused ? in.loadedOp : in.op;
+    runUnfused = false;
     ++executed_;
     std::size_t next = ex.pc + 1;
     const auto target = static_cast<std::size_t>(std::max(0.0, std::trunc(in.num)));
@@ -600,7 +667,11 @@ Value Machine::execute(Exec& ex) {
         auto cmd = commands_.end();
         if (!ownerName.empty()) cmd = commands_.find(lower(ownerName + "." + fname));
         if (cmd != commands_.end()) cname = ownerName + "." + fname;
-        else cmd = commands_.find(lower(fname));
+        if (cmd == commands_.end() && owner && !owner->type().empty()) {
+          cmd = commands_.find(lower(owner->type() + "." + fname));
+          if (cmd != commands_.end()) cname = owner->type() + "." + fname;
+        }
+        if (cmd == commands_.end()) cmd = commands_.find(lower(fname));
         if (cmd != commands_.end()) {
           if (startsWithCi(cname, "adventure.") && !(thiso && startsWithCi(thiso->name(), "login"))) {
             error("Unauthorized call of " + cname, sp);
@@ -644,8 +715,11 @@ Value Machine::execute(Exec& ex) {
       }
       case 8: {  // sleep
         if (!pop(a)) break;
-        ex.wake = clock_ + num(a);
-        ex.suspended = true;
+        const double t = num(a);
+        if (t > 0) {  // anything else does not sleep
+          ex.wake = clock_ + t;
+          ex.suspended = true;
+        }
         break;
       }
       case 9:
@@ -683,15 +757,133 @@ Value Machine::execute(Exec& ex) {
         break;
       }
       case 36: if (pop(a)) push(Value::object(obj(a))); break;
+      case 37: {  // array literal: the values above the marker, in push order
+        std::vector<Value> items;
+        bool marked = false;
+        while (!ex.stack.empty()) {
+          Value v = std::move(ex.stack.back());
+          ex.stack.pop_back();
+          if (v.tag == Value::Tag::Marker) { marked = true; break; }
+          items.push_back(std::move(v));
+        }
+        if (!marked) { fail("array without a marker"); break; }
+        auto arr = std::make_shared<Var>();
+        arr->setArray(items.size());
+        for (std::size_t i = 0; i < items.size(); ++i)
+          if (auto el = arr->elements()[i]) {
+            Value d = deref(items[items.size() - 1 - i]);
+            if (d.tag == Value::Tag::String) el->setString(d.str);
+            else if (d.tag == Value::Tag::Object) {
+              if (d.obj && d.obj->kind() == Var::Kind::Array) el->assignFrom(*d.obj);
+              else el->setObject(d.obj);
+            } else el->setNumber(d.num);
+          }
+        push(Value::object(arr));
+        break;
+      }
+      case 40:  // the name of `new T(name)` becomes a variable name
+        if (!pop(a)) break;
+        push(Value::name(a.tag == Value::Tag::Name ? a.str : str(a)));
+        break;
+      case 42: {  // new T(...): the type on top, the name under it
+        if (!pop(b) || !pop(a)) break;
+        const std::string name = (a.tag == Value::Tag::Name || a.tag == Value::Tag::String) ? a.str : str(a);
+        push(Value::object(newObject(str(b), name)));
+        break;
+      }
+      case 43: {  // makeoldscriptvar: a dotted path, resolved and created
+        if (ex.stack.empty()) { fail("Stack underflow"); break; }
+        Value& top = ex.stack.back();
+        const std::string path = str(top);
+        VarPtr o;
+        std::size_t p = 0;
+        bool first = true, bad = path.empty();
+        while (!bad && p <= path.size()) {
+          const std::size_t dot = path.find('.', p);
+          const std::string piece = path.substr(p, dot == std::string::npos ? std::string::npos : dot - p);
+          if (piece.empty()) { bad = true; break; }
+          if (first) {
+            const std::string l = lower(piece);
+            VarPtr thiso = frame().thiso;
+            if (l == "this") o = ex.with.empty() ? thiso : ex.with.back();
+            else if (l == "thiso") o = thiso;
+            else if (l == "player") o = player_;
+            else if (l == "playero") o = playero_;
+            else if (l == "client" || l == "clientr" || l == "serverr") o = playero_ ? playero_->childOrCreate(piece) : nullptr;
+            else o = player_ ? player_->childOrCreate(piece) : nullptr;
+            first = false;
+          } else {
+            o = o ? o->childOrCreate(piece) : nullptr;
+          }
+          if (dot == std::string::npos) break;
+          p = dot + 1;
+        }
+        top = Value::object(bad ? nullptr : o);
+        break;
+      }
+      case 47: {  // makeprop: the top value as a resolved variable
+        if (ex.stack.empty()) { fail("Stack underflow"); break; }
+        Value& top = ex.stack.back();
+        Ref r;
+        if (top.tag == Value::Tag::Object) r.var = top.obj;
+        else if (top.tag == Value::Tag::Name || top.tag == Value::Tag::String) r.var = resolveName(ex, top.str, true);
+        else if (top.tag == Value::Tag::Ref) r.var = refTarget(top.ref, true);
+        top = Value::reference(std::move(r));
+        break;
+      }
+      case 48: {  // 5.0: an anonymous object from name/value pairs
+        if (ex.stack.empty()) { fail("Stack underflow"); break; }
+        auto o = newObject("", "");
+        long n = count(num(ex.stack.back()) + 0.0001);
+        if (n > 0 && ex.stack.size() >= 3) {
+          ex.stack.pop_back();  // the count
+          while (ex.stack.size() >= 3) {
+            Value val = std::move(ex.stack.back());
+            ex.stack.pop_back();
+            const std::string key = str(ex.stack.back());
+            ex.stack.pop_back();
+            auto c = o->childOrCreate(key);
+            Value d = deref(val);
+            if (d.tag == Value::Tag::String) c->setString(d.str);
+            else if (d.tag == Value::Tag::Object) c->setObject(d.obj);
+            else c->setNumber(d.num);
+          }
+        }
+        if (ex.stack.empty()) push(Value::object(o));
+        else ex.stack.back() = Value::object(o);
+        break;
+      }
+      case 49: {  // 5.0: an array of the numbers under the count
+        if (ex.stack.empty()) { fail("Stack underflow"); break; }
+        long n = std::min(10000L, std::max(0L, count(num(ex.stack.back()))));
+        auto arr = std::make_shared<Var>();
+        arr->setArray(0);
+        // The count goes, then the numbers under it; the array takes the
+        // place of the last one read.
+        std::vector<double> vals;
+        if (n > 0) ex.stack.pop_back();
+        while (n-- > 0 && !ex.stack.empty()) {
+          vals.push_back(num(ex.stack.back()));
+          if (n == 0 || ex.stack.size() == 1) break;
+          ex.stack.pop_back();
+        }
+        auto& el = arr->elements();
+        for (double d : vals) {
+          auto e = std::make_shared<Var>();
+          e->setNumber(d);
+          el.push_back(e);
+        }
+        if (ex.stack.empty()) push(Value::object(arr));
+        else ex.stack.back() = Value::object(arr);
+        break;
+      }
       case 44: if (pop(a)) push(Value::number(num(a) != 0 ? 1 : 0)); break;
       case 45:
         if (ex.stack.empty()) { fail("Stack underflow"); break; }
-        if (target >= kSlots) { fail("frame slot out of range"); break; }
-        slot(target) = deref(ex.stack.back());
+        if (in.num >= 0 && target < kSlots) slot(target) = ex.stack.back();  // out of range: no write
         break;
       case 46:
-        if (target >= kSlots) { fail("frame slot out of range"); break; }
-        push(slot(target));
+        push(in.num >= 0 && target < kSlots ? slot(target) : Value::number(0));
         break;
       case 50:
         if (!pop(b) || !pop(a)) break;
@@ -737,17 +929,13 @@ Value Machine::execute(Exec& ex) {
       case 70:
       case 71: {
         if (!pop(b) || !pop(a)) break;
-        const Value x = deref(a), y = deref(b);
-        bool eq;
-        if (x.tag == Value::Tag::String && y.tag == Value::Tag::String) eq = x.str == y.str;
-        else if (x.tag == Value::Tag::Object || y.tag == Value::Tag::Object) eq = obj(x) == obj(y);
-        else eq = toNumber(x) == toNumber(y);
+        const bool eq = compare3(*this, deref(a), deref(b)) == 0;
         push(Value::number((op == 70) == eq ? 1 : 0));
         break;
       }
       case 72: case 73: case 74: case 75:
         if (!pop(b) || !pop(a)) break;
-        push(Value::number(compare(op, num(a), num(b))));
+        push(Value::number(compare(op, a, b)));
         break;
       case 76: case 77: case 78: case 101: case 102: {
         if (!pop(b) || !pop(a)) break;
@@ -827,6 +1015,41 @@ Value Machine::execute(Exec& ex) {
         push(Value::number(r ? 1 : 0));
         break;
       }
+      case 115: {  // substring(text, start, length); a negative length runs to the end
+        if (!pop(c) || !pop(b) || !pop(a)) break;
+        const std::string t = str(a);
+        long st = floorInt(num(b)), len = floorInt(num(c));
+        if (st < 0) st = 0;
+        if (static_cast<std::size_t>(st) >= t.size()) { push(Value::string("")); break; }
+        push(Value::string(len < 0 ? t.substr(static_cast<std::size_t>(st))
+                                   : t.substr(static_cast<std::size_t>(st), static_cast<std::size_t>(len))));
+        break;
+      }
+      case 119:
+        if (!pop(a)) break;
+        push(Value::string(translate ? translate(str(a)) : str(a)));
+        break;
+      case 121: {  // 5.0 and 6.00: add, or append when either side is a string
+        if (!pop(b) || !pop(a)) break;
+        const Value x = deref(a), y = deref(b);
+        if (x.tag == Value::Tag::String || y.tag == Value::Tag::String) push(Value::string(str(x) + str(y)));
+        else push(Value::number(toNumber(x) + toNumber(y)));
+        break;
+      }
+      case 163: {  // foreach: variable, array, index stay on the stack
+        if (ex.stack.size() < 3) { fail("Stack underflow"); break; }
+        const Value& idx = ex.stack[ex.stack.size() - 1];
+        auto arr = obj(ex.stack[ex.stack.size() - 2]);
+        const long i = floorInt(num(idx));
+        if (arr && arr->kind() == Var::Kind::Array && i >= 0 && static_cast<std::size_t>(i) < arr->elements().size()) {
+          Ref r;
+          r.var = arr->elements()[static_cast<std::size_t>(i)];
+          assign(ex.stack[ex.stack.size() - 3], Value::reference(std::move(r)));
+        } else {
+          next = target;
+        }
+        break;
+      }
       case 130: {
         if (!pop(a)) break;
         auto o = obj(a);
@@ -888,24 +1111,41 @@ Value Machine::execute(Exec& ex) {
       }
       case 224: case 225: case 226: case 227:
         if (!pop(a)) break;
-        push(Value::number(compare(op - 224 + 72, num(a), in.num)));
+        push(Value::number(compare(op - 224 + 72, a, Value::number(in.num))));
         next = ex.pc + 2;
         break;
       case 228: case 229: case 230: case 233: {
-        if (target >= kSlots) { fail("frame slot out of range"); break; }
-        const Value v = slot(target);
-        if (op == 228) { push(v); push(v); }
+        const Value v = in.num >= 0 && target < kSlots ? slot(target) : Value::number(0);
+        if (op == 233) { push(v); push(v); }
+        else if (op == 228) push(Value::number(num(v)));
         else if (op == 229) push(Value::string(str(v)));
-        else if (op == 230) push(Value::number(num(v)));
-        else push(Value::object(obj(v)));
+        else push(Value::object(objCreate(v)));
         next = ex.pc + 2;
         break;
       }
       case 231: case 232: {
-        if (target >= kSlots) { fail("frame slot out of range"); break; }
-        Value& v = slot(target);
-        v = Value::number(num(v) + (op == 231 ? 1 : -1));
+        if (in.num >= 0 && target < kSlots) {
+          Value& v = slot(target);
+          const double d = op == 231 ? 1 : -1;
+          if (auto t = varOf(v, true)) t->setNumber(t->number() + d);
+          else v = Value::number(num(v) + d);
+        }
         next = ex.pc + 3;
+        break;
+      }
+
+      // 6.00's extra folds run as the instructions they replaced, which stay
+      // in the list. 242 stores the register without the makeprop.
+      case 234: case 235: case 236: case 237: case 238: case 239: case 240:
+        next = ex.pc;
+        runUnfused = true;
+        break;
+      case 242: {
+        if (ex.stack.empty()) { fail("Stack underflow"); break; }
+        const double n = ex.pc + 1 < s.code.size() ? s.code[ex.pc + 1].num : -1;
+        const auto i = static_cast<std::size_t>(std::max(0.0, std::trunc(n)));
+        if (n >= 0 && i < kSlots) slot(i) = ex.stack.back();
+        next = ex.pc + 2;
         break;
       }
       default:

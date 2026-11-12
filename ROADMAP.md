@@ -77,7 +77,8 @@ against its original and orders the work in four tracks: Torque (3.04,
 clients, and the Quattro program for late 5 and 6.x.
 
 - [x] B1: the GS2 bytecode loader and machine (`common/cpp/gs2/`)
-- [ ] B2: object creation, array literals and the built-in commands
+- [x] B2: object creation, array literals, registers and the 5.0 and 6.00
+  opcodes; the 4.04r2 menus run `created` with no refused opcode
 - [ ] B3: the menus embedded in the player's own exe run to `initialized`
 
 ## Builds with no folder

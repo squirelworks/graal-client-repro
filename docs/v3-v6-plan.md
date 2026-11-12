@@ -78,14 +78,17 @@ Owned by the threads behind #257, #258 and #259 until those merge.
   frames, events, sleep and `waitfor`, loop limit, per-engine opcode profiles
   (4.2, 5.0, 6.00). Synthetic tests; the 4.04r2 embedded corpus as an
   optional check when an install is present
-- [ ] **B2** Object model: `TGraalVar` properties, child variables and
-  arrays, the universe, classes (`addClassScript`, `join`), the `with` stack,
-  the built-in command table and its signature check
+- [x] **B2** Object model: `TGraalVar` properties, child variables and
+  arrays, the universe, the `with` stack, `new` objects, registers, the
+  command signature check, every opcode the 4.04r2 menus use
 - [ ] **B3** Embedded menus: find and load the `StartScript_*` bytecode from
-  the player's own exe at run time; run each one to `initialized` with no
-  unknown opcode or missing command
-- [ ] **B4** GS2 controls on the Torque canvas and profiles from #257:
-  `GuiControl` tree from script, the stock controls, `GuiShowImgCtrl`,
+  the player's own exe at run time, under their own names; the engine's
+  commands they call (key modifiers, file and path helpers); classes
+  (`addClassScript`, `join`); run each one to `initialized` with no unknown
+  opcode or missing command
+- [ ] **B4** GS2 controls drawn through the engine library's host calls
+  (C1): `addcontrol` and the `GuiControl` tree from script, each class's
+  property set and methods (`addRow` and the rest), `GuiShowImgCtrl`,
   `GuiGraalCtrl` as the playfield
 - [ ] **B5** `TShowImg` and the 2D game behind the playfield, reusing the
   Pascal game library from #258

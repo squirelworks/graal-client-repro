@@ -110,7 +110,7 @@ static void testFusion() {
   CHECK(c[3].op == 208);  // the add before assign is rewritten too; it is stepped over
   CHECK(c[8].op == 210);
   CHECK(c[11].op == 224);
-  CHECK(c[14].op == 228);
+  CHECK(c[14].op == 233);
   CHECK(c[18].op == 231);
   CHECK(r.script->fusedPairs >= 5);
 }
@@ -364,17 +364,17 @@ static void testLimitsAndRefusals() {
   CHECK(hasError(m, "Callstack overrun"));
   CHECK(global(m, "after") == 1);
 
-  // Opcode 48 is a 5.0 opcode: unknown on 4.2, refused (not guessed) on 5.0.
+  // Opcode 54 is a 5.0 opcode: unknown on 4.2, refused (not guessed) on 5.0.
   Asm b;
   b.function("onCreated", {});
-  b.op(Asm::OP48);
+  b.op(54);
   setGlobal(b, "reached", 1);
   b.num(0).op(Asm::RET);
   gs2::Machine m42(gs2::Profile::Engine42), m50(gs2::Profile::Engine50);
   run(m42, b);
   run(m50, b);
-  CHECK(hasError(m42, "unknown opcode 48 for engine 4.2"));
-  CHECK(hasError(m50, "opcode 48 (op48) is not implemented"));
+  CHECK(hasError(m42, "unknown opcode 54 for engine 4.2"));
+  CHECK(hasError(m50, "opcode 54 (op54) is not implemented"));
   CHECK(m42.universe()->child("reached") == nullptr);
 
   // waitfor is refused until its stack layout is read.
@@ -432,7 +432,151 @@ static void testDisassemble() {
   CHECK(d.find("imm.add.assign (number) 1") != std::string::npos);
 }
 
+static void testObjectsFromNew() {
+  // The menus' shape: new T("Name") { field = value; fontColor = {1,2,3}; };
+  // then addcontrol(Name), all as the 4.04r2 corpus compiles it.
+  gs2::Machine m;
+  std::vector<std::string> added;
+  m.addCommand("addcontrol", "o", [&](gs2::Machine& mm, gs2::Var&, std::vector<gs2::Value>& args) {
+    auto o = mm.toObject(args[0]);
+    added.push_back(o ? o->type() + ":" + o->name() : "null");
+    return gs2::Value::number(0);
+  });
+  Asm a;
+  a.function("onCreated", {});
+  a.str("MyProfile").op(40).op(Asm::COPY).op(Asm::COPY).op(Asm::COPY);
+  a.str("GuiControlProfile").op(Asm::TOSTRING).op(42).op(Asm::ASSIGN).op(Asm::TOOBJECT).op(Asm::WITH);
+  const auto end = a.jumpOperand();
+  a.var("tab").op(Asm::FALSE_).op(Asm::ASSIGN);
+  a.var("fontColor").op(Asm::MARKER).num(255).num(224).num(192).op(37).op(Asm::ASSIGN);
+  a.op(Asm::ENDWITH);
+  a.patch(end, a.here());
+  a.op(Asm::MARKER).op(Asm::SWAP).callName("addcontrol").op(Asm::POP);
+  // An unnamed one.
+  a.var("unknown_object").op(Asm::COPY).op(Asm::COPY).op(Asm::COPY);
+  a.str("GuiTextCtrl").op(Asm::TOSTRING).op(42).op(Asm::ASSIGN).op(Asm::TOOBJECT).op(Asm::WITH);
+  const auto end2 = a.jumpOperand();
+  a.var("text").str("hi").op(Asm::ASSIGN);
+  a.op(Asm::ENDWITH);
+  a.patch(end2, a.here());
+  a.op(Asm::MARKER).op(Asm::SWAP).callName("addcontrol").op(Asm::POP);
+  a.num(0).op(Asm::RET);
+  run(m, a);
+  for (const auto& e : m.errors()) std::fprintf(stderr, "  %s\n", e.c_str());
+  CHECK(m.errors().empty());
+  CHECK(added.size() == 2 && added[0] == "GuiControlProfile:MyProfile" && added[1] == "GuiTextCtrl:unknown_object");
+  CHECK(m.objects().size() == 2);
+  auto p = m.objects()[0];
+  CHECK(p->child("tab") && p->child("tab")->number() == 0);
+  auto fc = p->child("fontColor");
+  CHECK(fc && fc->kind() == gs2::Var::Kind::Array && fc->elements().size() == 3 && fc->elements()[0]->number() == 255 &&
+        fc->elements()[2]->number() == 192);
+  CHECK(m.universe()->child("tab") == nullptr);
+  CHECK(m.objects()[1]->child("text") && m.objects()[1]->child("text")->string() == "hi");
+  // The global named after the object links to it.
+  CHECK(m.universe()->child("MyProfile") && m.universe()->child("MyProfile")->object() == p);
+}
+
+static void testRegistersForeachStrings() {
+  gs2::Machine m;
+  m.addCommand("files", "", [&](gs2::Machine&, gs2::Var&, std::vector<gs2::Value>&) {
+    auto arr = std::make_shared<gs2::Var>();
+    arr->setArray(3);
+    arr->elements()[0]->setString("a.cs");
+    arr->elements()[1]->setString("bb.cs");
+    arr->elements()[2]->setString("ccc.cs");
+    return gs2::Value::object(arr);
+  });
+  Asm a;
+  a.function("onCreated", {});
+  // local registers: var "file" makeprop slotstore 0 pop
+  a.var("file").op(47).op(Asm::SLOTSTORE).operand(0).op(Asm::POP);
+  a.var("total").num(0).op(Asm::ASSIGN);
+  a.var("last").str("").op(Asm::ASSIGN);
+  // for (file : files()) { total += length(file); last = file.substring(0, -1); }
+  a.op(Asm::SLOTLOAD).operand(0);
+  a.op(Asm::MARKER).callName("files").op(Asm::TOOBJECT).num(0);
+  const int loop = a.here();
+  a.op(163);
+  const auto exit = a.jumpOperand();
+  a.op(Asm::LOOPCHECK);
+  a.var("total").op(Asm::COPY).op(Asm::SLOTLOAD).operand(0).op(Asm::TOSTRING).op(Asm::LENGTH).op(Asm::ADD).op(Asm::ASSIGN);
+  a.var("last").op(Asm::SLOTLOAD).operand(0).op(Asm::TOSTRING).num(1).num(-1).op(115).op(Asm::ASSIGN);
+  a.op(Asm::INC);
+  a.op(Asm::JMP).jumpOperand(loop);
+  a.patch(exit, a.here());
+  a.op(Asm::POP).op(Asm::POP).op(Asm::POP);
+  // case-insensitive string equality, and the 0.0001 band
+  a.var("ci").str("Hello").str("hELLO").op(Asm::EQ).op(Asm::ASSIGN);
+  a.var("band").num(1).num(1.00001).op(Asm::EQ).op(Asm::ASSIGN);
+  a.var("sorted").str("apple").str("Banana").op(Asm::LT).op(Asm::ASSIGN);
+  a.num(0).op(Asm::RET);
+  run(m, a);
+  for (const auto& e : m.errors()) std::fprintf(stderr, "  %s\n", e.c_str());
+  CHECK(m.errors().empty());
+  CHECK(global(m, "total") == 15);
+  CHECK(globalStr(m, "last") == "cc.cs");
+  CHECK(globalStr(m, "file") == "ccc.cs");
+  CHECK(global(m, "ci") == 1);
+  CHECK(global(m, "band") == 1);
+  CHECK(global(m, "sorted") == 1);
+}
+
+static void testEngine50And600() {
+  // 121 adds numbers or appends strings; 48 builds an object from pairs;
+  // 49 an array from numbers.
+  gs2::Machine m(gs2::Profile::Engine50);
+  Asm a;
+  a.function("onCreated", {});
+  a.var("n").num(2).num(3).op(121).op(Asm::ASSIGN);
+  a.var("s").str("a").num(3).op(121).op(Asm::ASSIGN);
+  a.var("o").num(0).str("x").num(7).str("y").str("why").num(2).op(48).op(Asm::ASSIGN);
+  a.var("arr").num(4).num(5).num(2).op(49).op(Asm::ASSIGN);
+  a.num(0).op(Asm::RET);
+  run(m, a);
+  for (const auto& e : m.errors()) std::fprintf(stderr, "  %s\n", e.c_str());
+  CHECK(global(m, "n") == 5);
+  CHECK(globalStr(m, "s") == "a3");
+  auto o = m.universe()->child("o");
+  auto ob = o ? o->object() : nullptr;
+  CHECK(ob && ob->child("x") && ob->child("x")->number() == 7 && ob->child("y")->string() == "why");
+  auto arr = m.universe()->child("arr");
+  CHECK(arr && arr->kind() == gs2::Var::Kind::Array && arr->elements().size() == 2 &&
+        arr->elements()[0]->number() == 5 && arr->elements()[1]->number() == 4);
+
+  // The 6.00 folds load only on 6.00 and run like the pairs they replace.
+  Asm b;
+  b.function("onCreated", {});
+  b.var("box").op(Asm::TOOBJECT).op(Asm::POP);
+  b.var("box").var("w").op(Asm::MEMBER).num(9).op(Asm::ASSIGN);       // 234
+  b.var("r").var("box").var("w").op(Asm::MEMBER).op(Asm::TOFLOAT).op(Asm::ASSIGN);  // 236
+  b.var("q").op(47).op(Asm::SLOTSTORE).operand(5).op(Asm::POP);        // 242
+  b.num(0).op(Asm::RET);
+  auto r42 = gs2::load(b.bytes(), gs2::Profile::Engine42);
+  auto r600 = gs2::load(b.bytes(), gs2::Profile::Engine600);
+  CHECK(r42.ok() && r600.ok());
+  if (r42.ok() && r600.ok()) {
+    CHECK(r600.script->fusedPairs > r42.script->fusedPairs);
+    bool has236 = false, has242 = false;
+    for (const auto& in : r600.script->code) {
+      has236 |= in.op == 236;
+      has242 |= in.op == 242;
+    }
+    CHECK(has236 && has242);
+  }
+  gs2::Machine m6(gs2::Profile::Engine600);
+  auto box = m6.newVar("box");
+  box->setAcceptsAllProperties(true);
+  run(m6, b);
+  for (const auto& e : m6.errors()) std::fprintf(stderr, "  %s\n", e.c_str());
+  CHECK(m6.errors().empty());
+  CHECK(global(m6, "r") == 9);
+}
+
 int main() {
+  testObjectsFromNew();
+  testRegistersForeachStrings();
+  testEngine50And600();
   testLoader();
   testFusion();
   testProfiles();

@@ -64,7 +64,7 @@ bool isOrderedCompare(int op) { return op >= 72 && op <= 75; }
 
 // The pairs the engines rewrite after a load. The following instructions
 // stay in the list; the executor steps over them.
-int fuse(std::vector<Instruction>& code) {
+int fuse(std::vector<Instruction>& code, Profile profile) {
   int n = 0;
   auto opAt = [&](std::size_t i) { return i < code.size() ? code[i].loadedOp : -1; };
   for (std::size_t i = 0; i < code.size(); ++i) {
@@ -73,12 +73,23 @@ int fuse(std::vector<Instruction>& code) {
     if (a == 20 && isArithOrBool(b)) fused = (c == 50 ? 216 : 200) + (b - 60);
     else if (isArithOrBool(a) && b == 50) fused = 208 + (a - 60);
     else if (a == 20 && isOrderedCompare(b)) fused = 224 + (b - 72);
-    else if (a == 46 && b == 30) fused = 228;
+    else if (a == 46 && b == 33) fused = 228;
     else if (a == 46 && b == 34) fused = 229;
-    else if (a == 46 && b == 33) fused = 230;
-    else if (a == 46 && b == 36) fused = 233;
+    else if (a == 46 && b == 36) fused = 230;
+    else if (a == 46 && b == 30) fused = 233;
     else if (a == 46 && b == 52 && c == 32) fused = 231;
     else if (a == 46 && b == 53 && c == 32) fused = 232;
+    else if (profile == Profile::Engine600) {
+      // 6.00's extra folds. 241 (a name that resolves to a flagged object)
+      // is not made: which objects carry that flag is not read.
+      const bool convert = c == 33 || c == 34 || c == 36 || c == 47;
+      if (a == 22 && b == 35 && convert && !(c == 47 && opAt(i + 3) == 45))
+        fused = c == 33 ? 236 : c == 34 ? 237 : c == 36 ? 238 : 239;
+      else if (a == 22 && b == 35) fused = 234;
+      else if (a == 22 && b == 36) fused = 235;
+      else if (a == 20 && b == 131) fused = 240;
+      else if (a == 47 && b == 45) fused = 242;
+    }
     if (fused) { code[i].op = fused; ++n; }
   }
   return n;
@@ -103,11 +114,11 @@ const Function* Script::findFunction(const std::string& name) const {
   return nullptr;
 }
 
-LoadResult load(const std::string& bytes) {
-  return load(reinterpret_cast<const std::uint8_t*>(bytes.data()), bytes.size());
+LoadResult load(const std::string& bytes, Profile profile) {
+  return load(reinterpret_cast<const std::uint8_t*>(bytes.data()), bytes.size(), profile);
 }
 
-LoadResult load(const std::uint8_t* data, std::size_t size) {
+LoadResult load(const std::uint8_t* data, std::size_t size, Profile profile) {
   LoadResult r;
   auto s = std::make_shared<Script>();
   const std::uint8_t* codeBytes = nullptr;
@@ -222,7 +233,7 @@ LoadResult load(const std::uint8_t* data, std::size_t size) {
         return r;
     }
   }
-  s->fusedPairs = fuse(s->code);
+  s->fusedPairs = fuse(s->code, profile);
   r.script = s;
   return r;
 }
@@ -235,8 +246,8 @@ std::string opcodeName(int op) {
       {25, "false"}, {26, "null"}, {27, "pi"}, {30, "copy"}, {31, "swap"}, {32, "pop"},
       {33, "tofloat"}, {34, "tostring"}, {35, "member"}, {36, "toobject"},
       {37, "arrayend"}, {38, "arraynew"}, {39, "setarray"}, {40, "inlinenew"},
-      {41, "makevar"}, {42, "newobject"}, {43, "objfromstr"}, {44, "inlinecond"},
-      {45, "slotstore"}, {46, "slotload"}, {47, "op47"}, {48, "op48"}, {49, "op49"},
+      {41, "makevar"}, {42, "newobject"}, {43, "makeoldscriptvar"}, {44, "inlinecond"},
+      {45, "slotstore"}, {46, "slotload"}, {47, "makeprop"}, {48, "op48"}, {49, "op49"},
       {50, "assign"}, {51, "paramsend"}, {52, "inc"}, {53, "dec"}, {54, "op54"},
       {60, "add"}, {61, "sub"}, {62, "mul"}, {63, "div"}, {64, "mod"}, {65, "pow"},
       {66, "booland"}, {67, "boolor"}, {68, "not"}, {69, "neg"}, {70, "eq"}, {71, "neq"},
@@ -246,7 +257,7 @@ std::string opcodeName(int op) {
       {88, "sin"}, {89, "cos"}, {90, "arctan"}, {91, "exp"}, {92, "log"}, {93, "min"},
       {94, "max"}, {95, "getangle"}, {96, "getdir"}, {97, "vecx"}, {98, "vecy"},
       {99, "objindices"}, {100, "objlink"}, {101, "shl"}, {102, "shr"}, {103, "char"},
-      {104, "objcompare"}, {110, "trim"}, {111, "length"}, {112, "pos"}, {113, "join"},
+      {104, "compare"}, {110, "trim"}, {111, "length"}, {112, "pos"}, {113, "join"},
       {114, "charat"}, {115, "substring"}, {116, "starts"}, {117, "ends"},
       {118, "tokenize"}, {119, "translate"}, {120, "positions"}, {121, "op121"},
       {130, "size"}, {131, "arrayget"}, {132, "arrayset"}, {133, "array2get"},
@@ -262,12 +273,20 @@ std::string opcodeName(int op) {
   if (op >= 216 && op <= 223) return std::string("imm.") + opcodeName(op - 216 + 60) + ".assign";
   if (op >= 224 && op <= 227) return std::string("imm.") + opcodeName(op - 224 + 72);
   switch (op) {
-    case 228: return "slotload.copy";
+    case 228: return "slotload.tofloat";
     case 229: return "slotload.tostring";
-    case 230: return "slotload.tofloat";
+    case 230: return "slotload.toobject";
     case 231: return "slotinc";
     case 232: return "slotdec";
-    case 233: return "slotload.toobject";
+    case 233: return "slotload.copy";
+    case 234: return "var.member";
+    case 235: return "var.toobject";
+    case 236: return "var.member.tofloat";
+    case 237: return "var.member.tostring";
+    case 238: return "var.member.toobject";
+    case 239: return "var.member.makeprop";
+    case 240: return "imm.arrayget";
+    case 242: return "makeprop.slotstore";
     default: return "op" + std::to_string(op);
   }
 }

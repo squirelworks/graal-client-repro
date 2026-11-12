@@ -16,6 +16,8 @@ std::string lower(std::string s) {
 }
 }  // namespace
 
+bool Var::acceptsProperty(const std::string& key) const { return acceptsAll_ || child(key) != nullptr; }
+
 double Var::number() const {
   switch (kind_) {
     case Kind::Number: return num_;
