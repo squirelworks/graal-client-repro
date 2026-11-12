@@ -261,7 +261,10 @@ guessed.
   - a global clock starts when the modifier is added;
   - one template (`particletypes` is not used yet), and no clipping box
 - [ ] A show-image drawing its ani (`ani`, `actor`, `playerlook`) and the
-  plain image (B5b)
+  plain image (B5b). That is the engine program's part: it gets the
+  control through `Painter::engineControl`, reads those properties, and
+  draws with its own gani reader (the Pascal `GAni` through the game
+  library, or Quattro's)
 - [ ] Pop-up menus step to the next row on a press until the open list is
   drawn; window frames, scroll bars, sliders and multi-line text draw
   plainly (fill, frame, text), not from the theme
