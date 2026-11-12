@@ -96,13 +96,17 @@ every 50 ms, and forwards keys and clicks. `--engine-lib FILE`,
 `--window`, `--frames N`, `--dump FRAME.bmp` and
 `--connect NAME@HOST:PORT` work there. The engine runs the 14 start menus
 it finds in the install's own `GraalEngine.dll` (or `GRAAL_ENGINE_FILE`) on
-the GS2 machine. They are not drawn until the GS2 controls land, so the
-canvas is still black.
+the GS2 machine and draws them through the launcher's slots, with the
+install's own GUI pictures (`levels3d/gui`): the main menu takes clicks
+and typing, and Offline Test reaches offline mode.
 
 ## Not yet, or not known
 
-- [ ] The 14 start menus drawn through the engine library (they run
-  already; the controls are next), in place of the Pascal start screen.
+- [x] ~~The 14 start menus drawn through the engine library~~
+- [ ] The engine's menus as the default in place of the Pascal start
+  screen: the text is drawn in the launcher's one font, not Arial at the
+  script's size, and the animated pictures (`GuiShowImgCtrl`) are not
+  drawn yet.
 
 - [ ] The server list and account screens as the real client shows them
   (scripted GUI from the Login server).

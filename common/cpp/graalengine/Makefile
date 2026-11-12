@@ -4,14 +4,17 @@
 #   make test       the C++ recording-host tests
 CXX ?= g++
 CXXFLAGS ?= -std=c++17 -Wall -Wextra -Werror -O2
-CPPFLAGS += -Iinclude -Isrc -I../gs2 -DGRAALENGINE_BUILD
+CPPFLAGS += -Iinclude -Isrc -I../gs2 -I../../torque/gui -I../third_party/stb -DGRAALENGINE_BUILD
 LDLIBS = -lz
 
 # The GS2 machine (common/cpp/gs2) is linked in: the menus run on it.
 GS2 = ../gs2/loader.cpp ../gs2/machine.cpp ../gs2/var.cpp ../gs2/startscripts.cpp \
-      ../gs2/engine_commands.cpp ../gs2/delivery.cpp
-SOURCES = src/exports.cpp src/engine.cpp src/canvas.cpp src/scripts.cpp $(GS2)
-HEADERS = include/graalengine.h include/graalengine_slots.def src/host.hpp src/canvas.hpp src/engine.hpp
+      ../gs2/engine_commands.cpp ../gs2/delivery.cpp ../gs2/gui.cpp ../gs2/gui_draw.cpp
+# PNG pictures and theme bitmap arrays come from the Torque GUI layer.
+TQGUI = ../../torque/gui/image.cpp ../../torque/gui/bitmap_array.cpp
+SOURCES = src/exports.cpp src/engine.cpp src/canvas.cpp src/scripts.cpp src/gui_host.cpp $(GS2) $(TQGUI)
+# Third-party, built on its own without -Werror.
+HEADERS = include/graalengine.h include/graalengine_slots.def src/host.hpp src/canvas.hpp src/engine.hpp src/gui_host.hpp
 
 ifeq ($(OS),Windows_NT)
 # Not GraalEngine.dll: the player's install has the original under that
@@ -31,13 +34,16 @@ all: $(LIB)
 build:
 	mkdir -p build
 
-$(LIB): $(SOURCES) $(HEADERS) | build
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LIBFLAGS) $(SOURCES) -o $@ $(LDLIBS)
+build/stb_impl.o: src/stb_impl.cpp | build
+	$(CXX) -Isrc -I../third_party/stb -std=c++17 -O2 -fPIC -w $(filter -m32 -m64 -fsanitize=% -g,$(CXXFLAGS)) -c src/stb_impl.cpp -o $@
+
+$(LIB): $(SOURCES) $(HEADERS) build/stb_impl.o | build
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LIBFLAGS) $(SOURCES) build/stb_impl.o -o $@ $(LDLIBS)
 
 # The tests compile the sources in, so they can hang their own controls on
 # the canvas; the launcher-side test (Pascal) loads the shared library.
-build/engine-test$(EXE): tests/engine_test.cpp $(SOURCES) $(HEADERS) | build
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) tests/engine_test.cpp $(SOURCES) -o $@ $(LDLIBS)
+build/engine-test$(EXE): tests/engine_test.cpp $(SOURCES) $(HEADERS) build/stb_impl.o | build
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) tests/engine_test.cpp $(SOURCES) build/stb_impl.o -o $@ $(LDLIBS)
 
 test: $(LIB) build/engine-test$(EXE)
 	./build/engine-test$(EXE)

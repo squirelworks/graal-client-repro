@@ -101,6 +101,26 @@ offline mode adds `GraalGui`. The only commands the scripts still miss are
 the GUI ones B4 brings (`addcontrol`, `addRow`, `clearRows`,
 `setSelectedRow`, the key modifiers); no engine command is missing.
 
+## The menus drawn (C2)
+
+With no GUI builder set, `loadGraalGui` makes the B4 GS2 screen
+(`common/cpp/gs2/gui.hpp`) on the engine's machine, so the start scripts'
+`new GuiControl(...)` builds real controls. A script object made the
+content (`MainMenuGui2D`, `GUIContainer`) becomes that screen's content,
+and the canvas shows one control, `GS2Screen`, that draws it and takes
+its input (`src/gui_host.cpp`):
+
+| Piece | Does |
+|---|---|
+| `TextureCache` | finds a picture by name in `levels3d/gui`, `levels/gui`, then the install root, case ignored, `.png`/`.jpg`/`.gif`/`.bmp` tried when there is no extension; misses are remembered. PNG through `torque/gui/image.cpp`, the rest through the vendored `stb_image` (`common/cpp/third_party/stb`) |
+| `SlotPainter` | the GS2 painter on the slots: `SetClippingRectangle`, `FillScreenRectangle`, `DrawText`, `GetTextWidth`, `GetTextHeight`, `DrawGraphics`, `DrawGraphicsStretched` (tiled `DrawGraphics` on 5.0, which has no stretch slot); bitmap arrays split as Torque does |
+| `ScreenControl` | left press to `Screen::mouseDown`, key press and release by Torque key name to `keyDown`/`keyUp`; key bindings that name no function go to `setEngineActionHandler` |
+
+Checked against the player's own 4.04r2 `GraalEngine.dll` (`make test`
+with `GRAAL404_ENGINE`): the main menu draws (59 fills, 10 texts in a
+frame), a click in the Nickname box and typing sets the nickname through
+`Adventure_setNickName`, and a click on Offline Test starts offline mode.
+
 ## Where the rest plugs in
 
 - The GS2 controls (Track B4) register their object factory and GUI
@@ -108,8 +128,7 @@ the GUI ones B4 brings (`addcontrol`, `addRow`, `clearRows`,
   before the start scripts, and map a script object to its control with
   `Engine::setControlResolver`. Controls derive from `graalengine::Control`
   or are held by one, and draw only through `graalengine::host::<Slot>(...)`
-  (`src/host.hpp`). Until then the content is an empty control of the
-  object's name.
+  (`src/host.hpp`). Without a builder the B4 screen above is used.
 - The session (login, level, walk, chat) plugs in through
   `Engine::setConnector`, `setOfflineStarter` and `setTimer`.
 - The 3D library fills the `GRAAL_BUILD_3D` slots (Track C4).
@@ -122,7 +141,9 @@ the GUI ones B4 brings (`addcontrol`, `addRow`, `clearRows`,
   95 and the 19 3D-only names all match this list
 - [x] ~~The start scripts run on the engine's machine, with the engine
   commands they call~~ (C2)
-- [ ] The menus drawn: the GUI commands and controls (B4)
+- [x] ~~The menus drawn: the GUI commands and controls (B4)~~
+- [ ] Text at the script's font and size (the launcher has one font), and
+  `GuiShowImgCtrl` animations (B5)
 - [ ] `Adventure_saveGraalOptions`, `Adventure_installGraal` and the
   `Adventure_selectFile*` calls (refused with the engines' "not found"
   error until they are written); the setup test (always passes here)
