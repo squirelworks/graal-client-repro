@@ -183,7 +183,9 @@ end;
 
 procedure TGame.LogLine(const S: string);
 begin
-  WriteLn(ErrOutput, S);
+  { started from the start window there is no console: the error output
+    is closed, and writing to it stopped the game with "File not open" }
+  if TextRec(ErrOutput).Mode <> fmClosed then WriteLn(ErrOutput, S);
 end;
 
 procedure TGame.DrawScreen;
