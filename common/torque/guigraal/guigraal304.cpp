@@ -172,7 +172,10 @@ void GuiGraal304::register_methods() {
     if (!list) return std::string();
     const std::string id = engine_.call_method(list, "getSelectedId", {});
     const auto fields = split_tabs(engine_.call_method(list, "getRowTextById", {id}));
-    if (fields.size() <= 7) return std::string();   // a row needs more than seven fields
+    if (fields.size() <= 7) {   // a row needs more than seven fields
+      engine_.trace.push_back("connectToSelectedServer: no server selected (row " + id + ")");
+      return std::string();
+    }
     connect_to(fields[6], static_cast<std::int32_t>(parse_int(fields[7])));
     return std::string();
   });
@@ -281,6 +284,11 @@ void GuiGraal304::tick(bool draw) {
       servers_.clear();
       for (int i = 0, n = game_->list_count(); i < n; ++i) servers_.push_back(game_->list_entry(i));
       engine_.trace.push_back("server lister: " + game_->list_status());
+      engine_.trace.push_back("server lister: " + std::to_string(servers_.size()) + " servers");
+      for (const auto& e : servers_)
+        engine_.trace.push_back("server lister: \"" + e.fields[0] + "\" tab " +
+                                std::to_string(server_category_304(e.fields[0])) + " at " + e.fields[6] + ":" +
+                                e.fields[7]);
       fill_list();
     } else if (r == Game304::list_failed || r == Game304::list_none) {
       list_dropped(game_->list_status());

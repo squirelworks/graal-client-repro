@@ -1,0 +1,5 @@
+# tq-play online test: the menu path to a loopback listserver and gserver
+0     AccountEdit.setText("labacct"); PassEdit.setValue("labpass");
+0     switchToServerList();
+1500  Adventure.selectServerCategory(2); ServerList.setSelectedRow(0);
+1550  connectPressed();
