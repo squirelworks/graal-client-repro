@@ -38,6 +38,21 @@ As in 3.04, with the suffix `3153`: `Protocol3153`, `GraalClient`,
 
 ## Running it
 
+### On the Torque engine (Linux)
+
+The Linux zip also holds `graal304-torque` and `libGame3153Lib.so`. Copy
+both into the root of a 3.153 install (the folder with `main.cs` and
+`scripts2D/`) and start `graal304-torque`. It sees a 3.153 install and runs
+its own scripts on the rebuilt Torque engine (`common/torque/guigraal`):
+the main menu at 640 × 480, its logo and its text, with the game drawn
+inside the `Adventure` control. The install ships no font caches, so the
+fonts are made from the system's Arial, or Liberation Sans or DejaVu Sans
+where there is no Arial. It also starts with `--root DIR`. Prefs go to
+`~/.graal304-torque`. It needs an X11 display. Windows and macOS do not
+have this program yet.
+
+### The Pascal program
+
 Put `Graal3153` in the root of a 3.153 install and start it with no
 arguments for the start screen. It finds the install's files from there,
 or from `graal-assets/3.153/` and `graal-assets/common/` next to it.

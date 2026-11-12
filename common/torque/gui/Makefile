@@ -13,8 +13,11 @@ ENGINE_HEADERS = $(ENGINE_DIR)/engine.hpp $(ENGINE_DIR)/internal.hpp ../console/
 COMPILER = ../console/compiler/parser.cpp ../console/compiler/codegen.cpp
 COMPILER_HEADERS = ../console/compiler/ast.hpp ../console/compiler/parser.hpp ../console/compiler/compile.hpp \
                    ../console/compiler/opcodes.hpp
-RENDER = render.cpp
-RENDER_HEADERS = render.hpp
+RENDER = render.cpp jpeg.cpp system_font.cpp
+RENDER_HEADERS = render.hpp jpeg.hpp system_font.hpp
+# stb_image and stb_truetype (third-party, public domain) as system headers,
+# so their own warnings do not trip -Werror
+STB_FLAGS = -isystem ../../cpp/third_party/stb
 
 .PHONY: all test lab clean
 all: build/gui-inspect build/tq-shot
@@ -29,10 +32,10 @@ build/gui-test: $(SOURCES) $(HEADERS) tests/gui_test.cpp | build
 	$(CXX) $(CXXFLAGS) $(SOURCES) tests/gui_test.cpp -o $@ $(LDLIBS)
 
 build/render-test: $(SOURCES) $(HEADERS) $(RENDER) $(RENDER_HEADERS) $(ENGINE) $(ENGINE_HEADERS) tests/render_test.cpp | build
-	$(CXX) $(CXXFLAGS) $(SOURCES) $(RENDER) $(ENGINE) tests/render_test.cpp -o $@ $(LDLIBS)
+	$(CXX) $(CXXFLAGS) $(STB_FLAGS) $(SOURCES) $(RENDER) $(ENGINE) tests/render_test.cpp -o $@ $(LDLIBS)
 
 build/tq-shot: $(SOURCES) $(HEADERS) $(RENDER) $(RENDER_HEADERS) $(ENGINE) $(ENGINE_HEADERS) $(COMPILER) $(COMPILER_HEADERS) host/tq_shot.cpp | build
-	$(CXX) $(CXXFLAGS) $(SOURCES) $(RENDER) $(ENGINE) $(COMPILER) host/tq_shot.cpp -o $@ $(LDLIBS)
+	$(CXX) $(CXXFLAGS) $(STB_FLAGS) $(SOURCES) $(RENDER) $(ENGINE) $(COMPILER) host/tq_shot.cpp -o $@ $(LDLIBS)
 
 test: build/gui-test build/gui-inspect build/render-test build/tq-shot
 	./build/gui-test

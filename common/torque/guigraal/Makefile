@@ -34,18 +34,21 @@ build/tq-play: $(CONTROL) $(HOST) $(ENGINE) $(COMPILER) $(HEADERS) $(HOST_HEADER
 # The windowed 3.04 program: the canvas renderer, mouse and an X11 window.
 GUI_DIR = ../gui
 GUI = $(GUI_DIR)/image.cpp $(GUI_DIR)/gft.cpp $(GUI_DIR)/bitmap_array.cpp $(GUI_DIR)/canvas.cpp \
-  $(GUI_DIR)/profile.cpp $(GUI_DIR)/render.cpp $(GUI_DIR)/mouse.cpp
+  $(GUI_DIR)/profile.cpp $(GUI_DIR)/render.cpp $(GUI_DIR)/mouse.cpp $(GUI_DIR)/jpeg.cpp $(GUI_DIR)/system_font.cpp
+# stb_image and stb_truetype as system headers (third-party; their own
+# warnings do not trip -Werror)
+STB_FLAGS = -isystem ../../cpp/third_party/stb
 GUI_HEADERS = $(GUI_DIR)/render.hpp $(GUI_DIR)/mouse.hpp $(GUI_DIR)/canvas.hpp host/window.hpp host/frame304.hpp
 
 build/graal304-torque: $(CONTROL) $(HOST) $(GUI) $(ENGINE) $(COMPILER) $(HEADERS) $(HOST_HEADERS) $(GUI_HEADERS) \
     host/frame304.cpp host/window_x11.cpp host/graal304_torque.cpp | build
-	$(CXX) $(CXXFLAGS) $(CONTROL) $(HOST) $(GUI) $(ENGINE) $(COMPILER) host/frame304.cpp host/window_x11.cpp \
+	$(CXX) $(CXXFLAGS) $(STB_FLAGS) $(CONTROL) $(HOST) $(GUI) $(ENGINE) $(COMPILER) host/frame304.cpp host/window_x11.cpp \
 	  host/graal304_torque.cpp -o $@ -ldl -lz -lX11
 
 # The frame logic without a window, for tests.
 build/frame-test: $(CONTROL) $(GUI) $(ENGINE) $(COMPILER) $(HEADERS) $(GUI_HEADERS) host/frame304.cpp \
     tests/frame_test.cpp | build
-	$(CXX) $(CXXFLAGS) $(CONTROL) $(GUI) $(ENGINE) $(COMPILER) host/frame304.cpp tests/frame_test.cpp -o $@ -lz
+	$(CXX) $(CXXFLAGS) $(STB_FLAGS) $(CONTROL) $(GUI) $(ENGINE) $(COMPILER) host/frame304.cpp tests/frame_test.cpp -o $@ -lz
 
 lib: | build
 	mkdir -p $(LIB_DIR)
