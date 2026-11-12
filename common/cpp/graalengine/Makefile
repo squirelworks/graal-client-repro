@@ -5,22 +5,32 @@
 CXX ?= g++
 CXXFLAGS ?= -std=c++17 -Wall -Wextra -Werror -O2
 CPPFLAGS += -Iinclude -Isrc -I../gs2 -I../../torque/gui -I../third_party/stb -DGRAALENGINE_BUILD
-LDLIBS = -lz
+LDLIBS = -lz -lbz2
 
 # The GS2 machine (common/cpp/gs2) is linked in: the menus run on it.
 GS2 = ../gs2/loader.cpp ../gs2/machine.cpp ../gs2/var.cpp ../gs2/startscripts.cpp \
       ../gs2/engine_commands.cpp ../gs2/delivery.cpp ../gs2/gui.cpp ../gs2/gui_draw.cpp ../gs2/emitter.cpp
 # PNG pictures and theme bitmap arrays come from the Torque GUI layer.
 TQGUI = ../../torque/gui/image.cpp ../../torque/gui/bitmap_array.cpp
-SOURCES = src/exports.cpp src/engine.cpp src/canvas.cpp src/scripts.cpp src/gui_host.cpp $(GS2) $(TQGUI)
+# The 2D session is the Quattro program's (common/cpp/quattro): gen-5
+# connection, levels, walking and the world passes.
+Q = ../quattro
+QUATTRO = $(Q)/net/gtypes.cpp $(Q)/net/gen5.cpp $(Q)/net/profile.cpp $(Q)/net/socket.cpp \
+          $(Q)/net/connection.cpp $(Q)/cache/des.cpp $(Q)/cache/grescr.cpp $(Q)/files/level.cpp \
+          $(Q)/draw/world.cpp $(Q)/world/player.cpp $(Q)/world/walk.cpp $(Q)/shell/program.cpp \
+          $(Q)/shell/scripts.cpp ../../torque/gui/canvas.cpp ../../torque/gui/gft.cpp
+SOURCES = src/exports.cpp src/engine.cpp src/canvas.cpp src/scripts.cpp src/gui_host.cpp src/session.cpp \
+          $(GS2) $(TQGUI) $(QUATTRO)
 # Third-party, built on its own without -Werror.
-HEADERS = include/graalengine.h include/graalengine_slots.def src/host.hpp src/canvas.hpp src/engine.hpp src/gui_host.hpp
+HEADERS = include/graalengine.h include/graalengine_slots.def src/host.hpp src/canvas.hpp src/engine.hpp src/gui_host.hpp \
+          src/session.hpp $(wildcard $(Q)/*/*.hpp)
 
 ifeq ($(OS),Windows_NT)
 # Not GraalEngine.dll: the player's install has the original under that
 # name, and the start menus are read from it.
 LIB = build/GraalEngineRepro.dll
 LIBFLAGS = -shared -static-libgcc -static-libstdc++ -Wl,--out-implib,build/libgraalengine.dll.a
+LDLIBS += -lws2_32
 EXE = .exe
 else
 LIB = build/libgraalengine.so
@@ -43,7 +53,7 @@ $(LIB): $(SOURCES) $(HEADERS) build/stb_impl.o | build
 # The tests compile the sources in, so they can hang their own controls on
 # the canvas; the launcher-side test (Pascal) loads the shared library.
 build/engine-test$(EXE): tests/engine_test.cpp $(SOURCES) $(HEADERS) build/stb_impl.o | build
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) tests/engine_test.cpp $(SOURCES) build/stb_impl.o -o $@ $(LDLIBS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) tests/engine_test.cpp $(SOURCES) build/stb_impl.o -o $@ $(LDLIBS) -pthread
 
 test: $(LIB) build/engine-test$(EXE)
 	./build/engine-test$(EXE)

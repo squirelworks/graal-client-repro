@@ -110,8 +110,47 @@ void test_warp_parse() {
 
 }  // namespace
 
+// 4.04r2: the same login and 178 warp; "win" and three fields; 108 is not
+// in its switch, so a ping goes unanswered and is dropped; 41 is delivered.
+void test_session_404() {
+  const BuildProfile* prof = find_profile("4.04r2");
+  CHECK(prof);
+  if (!prof) return;
+  FakeServer login, game;
+  CHECK(login.start() && game.start());
+  std::vector<std::pair<int, std::string>> delivered;
+  Session::Events ev;
+  ev.message = [&](int id, std::string_view b) { delivered.emplace_back(id, std::string(b)); };
+  Session s(*prof, ev);
+  s.next_key = [] { return uint8_t(0x33); };
+  CHECK(s.start("127.0.0.1", login.port(), "guest", "pw"));
+  CHECK(login.conn.accept_from(login.listener));
+  CHECK(s.lobby_mode());
+  CHECK(run_until(s, &login, nullptr, [&] { return login.saw(37, "English"); }));
+  const std::string want = "G3D17026" + gstring("guest") + gstring("pw") + "win,\"\",\"\",\"\"";
+  CHECK(login.login_line == want);
+  login.send(gchar(108) + gchar(0) + gshort(1234) + "\n" + gchar(41) + "hello\n");
+  CHECK(run_until(s, &login, nullptr, [&] { return !delivered.empty(); }));
+  CHECK(delivered.size() == 1 && delivered[0].first == 41 && delivered[0].second == "hello");
+  CHECK(!login.saw(162, "!" + gshort(1234)));
+  CHECK(s.connection().dropped() == 1);
+  CHECK(!s.connection().send(39, "x"));
+  CHECK(!s.connection().send(162, "x"));
+  CHECK(s.connection().send(6, "hi"));
+  login.send(gchar(178) + "0,Lab Server,127.0.0.1," + std::to_string(game.port()) + "\n");
+  std::atomic<bool> accepted{false};
+  std::thread acc([&] { accepted = game.conn.accept_from(game.listener); });
+  bool warped = run_until(s, &login, nullptr, [&] { return s.logins() == 2; });
+  acc.join();
+  CHECK(warped && accepted);
+  CHECK(s.server_name() == "Lab Server");
+  CHECK(run_until(s, nullptr, &game, [&] { return game.saw(37, "English"); }));
+  CHECK(game.login_line == want);
+}
+
 int main() {
   test_warp_parse();
   test_session();
+  test_session_404();
   TEST_MAIN_END();
 }
