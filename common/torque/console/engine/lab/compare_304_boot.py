@@ -13,9 +13,9 @@ quit (the torque-304 stage 0 run in the project's lab files):
     graaldata/client/prefs.cs, graaldata/client/config.cs,
     common/client/prefs.cs   what it wrote on exit
 
-tq-boot starts with no prefs. The stage 0 run was the original's second
-start, so it first ran the prefs.cs its first start exported; that sets the
-same values with the same types, so the exports compare line for line.
+The stage 0 run was the original's second start, so tq-boot is run twice
+on one prefs directory and the second run is compared: it compiles and runs
+the prefs.cs and config.cs the first run wrote, as the original did.
 Neither directory is part of the repository. The script prints each
 comparison and exits 1 when something differs that is not listed in
 KNOWN below (each of those waits on a later stage).
@@ -29,9 +29,8 @@ import tempfile
 
 # Differences that come from stages this engine does not cover yet.
 KNOWN = {
-    # Engine output while the video device starts (createCanvas): GUI/video stage.
+    # Engine output while the video device starts (createCanvas): video stage.
     "console": "lines from 'Activating the OpenGL display device...' to the next blank line",
-    "open-order": [],
     # Set by the engine during input and video start-up, after the scripts.
     "prefs": ["$pref::Input::MouseEnabled", "$pref::Video::appliedPref"],
 }
@@ -81,25 +80,28 @@ def main():
         prefs = os.path.join(tmp, "prefs")
         log = os.path.join(tmp, "console.log")
         trace = os.path.join(tmp, "trace.txt")
-        subprocess.run([args.tq_boot, "--root", args.install, "--prefs", prefs, "--log", log,
-                        "--trace", trace, "--exit"], check=True, stdout=subprocess.DEVNULL)
+        for _ in range(2):
+            subprocess.run([args.tq_boot, "--root", args.install, "--prefs", prefs, "--log", log,
+                            "--trace", trace, "--exit"], check=True, stdout=subprocess.DEVNULL)
         ok = True
         ok &= report("console.log", console_lines(read(os.path.join(args.capture, "console.log"))),
                      console_lines(read(log)))
-        real_dso = [l.split(" ")[0] for l in read(os.path.join(args.capture, "open-order.txt")).splitlines()
-                    if l.endswith(".dso O_RDONLY") and not l.startswith("~prefs/")]
-        ours = [l[5:] + ".dso" for l in read(trace).splitlines()
-                if l.startswith("exec ") and ":" not in l]
-        missing_ok = list(KNOWN["open-order"])
-        filtered_real = []
-        for f in real_dso:
-            if f in missing_ok and f not in ours[len(filtered_real):]:
-                missing_ok.remove(f)
+        # Scripts run, in order: a compiled .dso from the install, or a plain
+        # script the game wrote (read from ~prefs and compiled).
+        real = []
+        for line in read(os.path.join(args.capture, "open-order.txt")).splitlines():
+            path, flags = line.rsplit(" ", 1)
+            if flags != "O_RDONLY":
                 continue
-            filtered_real.append(f)
-        print(f"compiled scripts run: {len(ours)}; original opened {len(real_dso)}; "
-              f"{len(real_dso) - len(filtered_real)} known missing")
-        ok &= report("exec order", filtered_real, ours)
+            if path.startswith("~prefs/"):
+                if path.endswith(".cs"):
+                    real.append(path[len("~prefs/"):])
+            elif path.endswith(".dso"):
+                real.append(path[:-4])
+            elif path.endswith(".cs"):
+                real.append(path)
+        ours = [l[5:] for l in read(trace).splitlines() if l.startswith("exec ") and ":" not in l]
+        ok &= report("scripts run, in order", real, ours)
         for rel in ("graaldata/client/prefs.cs", "common/client/prefs.cs"):
             ok &= report(rel, read(os.path.join(args.capture, rel)).split("\r\n"),
                          read(os.path.join(prefs, rel)).split("\r\n"), KNOWN["prefs"])

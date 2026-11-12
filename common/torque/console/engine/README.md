@@ -41,14 +41,15 @@ make -C common/torque/console/engine test    # unit tests and tq-boot
 
 ## Checked against the original
 
-`lab/compare_304_boot.py` runs `tq-boot` on a 3.04 install and compares it
-with the stage 0 capture of the original starting and quitting (the project's
-lab files; neither is in this repository). Result on 2026-11-12:
+`lab/compare_304_boot.py` runs `tq-boot` twice on a 3.04 install (the stage
+0 capture was the original's second start) and compares the second run with
+the capture of the original starting and quitting (the project's lab files;
+neither is in this repository). Result on 2026-11-12:
 
 | | Original | Rebuild |
 |---|---|---|
 | Console lines from the scripts | 8 | same |
-| Compiled scripts run, in order | 35 | the same 35 in the same order |
+| Scripts run, in order: the root `main.cs`, 35 compiled, the written `prefs.cs` and `config.cs` | 38 | the same 38 in the same order |
 | `graaldata/client/config.cs` (`moveMap.save`) | 19 lines | byte for byte |
 | `graaldata/client/prefs.cs`, `common/client/prefs.cs` (`export("$pref::*")`) | 104 lines each | 102 the same; 2 the engine sets later (below) |
 
@@ -68,12 +69,10 @@ Known differences, each owned by a later stage:
 writes to `DIR`, prints the console, and with `--exit` runs `onExit()` the way
 quitting does. The trace lists each script run and every host stub call.
 
-The root `main.cs` is plain TorqueScript and no compiler is merged, so the
-runner performs its steps itself: declare the empty `onStart`, `onExit` and
-`parseArgs`, `setLogMode(6)`, the `Loading MODS` line, `setModPaths`, `exec`
-of the two mods' `main.cs`, the `Engine initialized...` lines and `onStart()`.
-When a compiler is merged it plugs into `Engine::compiler`, and the runner
-execs the install's own `main.cs` instead.
+Plain scripts go through the TorqueScript compiler (`../compiler`, #254),
+plugged into `Engine::compiler`: the runner execs the install's own root
+`main.cs`, and a second start compiles the `prefs.cs` and `config.cs` the
+first one wrote, as the original does.
 
 Video functions and the other `GuiCanvas` methods the boot calls are host
 stubs in `host/tq_boot.cpp`. They write to the trace only, never to the
@@ -153,8 +152,8 @@ address and undefined-behaviour sanitizers) and Windows.
 
 ## Next
 
-- [ ] Plug in the TorqueScript compiler (root `main.cs`, the prefs and key
-  map files, `eval` and the F2 console).
+- [x] Plug in the TorqueScript compiler (root `main.cs`, the prefs and key
+  map files). `eval` and the F2 console use the same hook once the host sets it.
 - [ ] Stage 2: drawing the canvas and controls from these objects (#248).
 - [ ] Stage 3: input through `ActionMap`, the console dialog.
 - [ ] Compare the message formats and string-unit rules on the original.

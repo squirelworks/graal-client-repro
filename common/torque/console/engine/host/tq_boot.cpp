@@ -5,9 +5,8 @@
 //   tq-boot --root INSTALL --prefs DIR [--log FILE] [--trace FILE]
 //           [--advance MS] [--exit]
 //
-// The root main.cs is plain TorqueScript, and no compiler is merged yet, so
-// this runner performs its steps itself (see README.md, "Boot runner"). When
-// a compiler lands, the runner execs the install's own main.cs instead.
+// Plain scripts (the root main.cs, the prefs.cs and config.cs the game
+// writes) go through the TorqueScript compiler in ../../compiler.
 //
 // Video, canvas and GUI methods that need later stages are host stubs: they
 // keep the boot going and are written to the trace, never to console.log.
@@ -20,6 +19,7 @@
 #include <string>
 
 #include "../engine.hpp"
+#include "../../compiler/compile.hpp"
 
 using namespace Torque;
 
@@ -90,6 +90,12 @@ int main(int argc, char** argv) {
   };
   register_classes_304(engine);
   register_engine_prefs_304(engine);
+  engine.compiler = [](const std::string& source, const std::string&, DsoBlock& out, std::string& error) {
+    CompileError e;
+    if (compile_script(source, out, e)) return true;
+    error = "line " + std::to_string(e.line) + ": " + e.message;
+    return false;
+  };
   register_host_stubs(engine);
   engine.on_set_content = [&](SimObject*, SimObject* content) {
     engine.trace.push_back("canvas content " + (content->name.empty() ? std::to_string(content->id) : content->name));
@@ -97,20 +103,8 @@ int main(int argc, char** argv) {
   engine.set_global("$Game::argc", Value::of_int(1));
   engine.set_global("$Game::argv0", Value::of_string("graalexe"));
 
-  // The root main.cs, step by step: the three default functions it
-  // declares, the log mode, the mod paths and the two mod scripts.
-  for (const char* name : {"onStart", "onExit", "parseArgs"})
-    engine.add_function("", name, 1, 0, std::string(name) + "()", [](Engine&, SimObject*, Args&) {
-      return std::string();
-    });
-  if (engine.global("$logModeSpecified").u32() == 0) engine.call_function("setLogMode", {"6"});
-  engine.call_function("echo", {"--------- Loading MODS ---------"});
-  engine.call_function("setModPaths", {"common;graaldata"});
-  engine.call_function("exec", {"common/main.cs"});
-  engine.call_function("exec", {"graaldata/main.cs"});
-  engine.call_function("echo", {""});
-  engine.call_function("echo", {"Engine initialized..."});
-  engine.call_function("onStart", {});
+  // Boot the way the original does: run the install's own root main.cs.
+  engine.call_function("exec", {"main.cs"});
   if (advance) engine.advance(advance);
   if (do_exit || engine.quit_requested) engine.call_function("onExit", {});
 

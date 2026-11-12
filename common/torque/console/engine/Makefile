@@ -10,8 +10,11 @@ all: build/tq-boot build/engine-test
 build:
 	mkdir -p build
 
-build/tq-boot: $(ENGINE) $(HEADERS) host/tq_boot.cpp | build
-	$(CXX) $(CXXFLAGS) $(ENGINE) host/tq_boot.cpp -o $@
+COMPILER = ../compiler/parser.cpp ../compiler/codegen.cpp
+COMPILER_HEADERS = ../compiler/ast.hpp ../compiler/parser.hpp ../compiler/compile.hpp ../compiler/opcodes.hpp
+
+build/tq-boot: $(ENGINE) $(HEADERS) $(COMPILER) $(COMPILER_HEADERS) host/tq_boot.cpp | build
+	$(CXX) $(CXXFLAGS) $(ENGINE) $(COMPILER) host/tq_boot.cpp -o $@
 
 build/engine-test: $(ENGINE) $(HEADERS) tests/engine_test.cpp tests/assembler.hpp | build
 	$(CXX) $(CXXFLAGS) $(ENGINE) tests/engine_test.cpp -o $@

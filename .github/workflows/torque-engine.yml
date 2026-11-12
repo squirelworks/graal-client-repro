@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'common/torque/console/engine/**'
+      - 'common/torque/console/compiler/**'
       - 'common/torque/console/dso.cpp'
       - 'common/torque/console/dso.hpp'
       - 'common/torque/console/instructions.cpp'
@@ -13,6 +14,7 @@ on:
     branches: [main]
     paths:
       - 'common/torque/console/engine/**'
+      - 'common/torque/console/compiler/**'
       - 'common/torque/console/dso.cpp'
       - 'common/torque/console/dso.hpp'
       - 'common/torque/console/instructions.cpp'
