@@ -57,6 +57,7 @@ class Program {
   GuiHost& gui() { return *gui_; }
   // Replaces the wall table (tests; arrays.dat from --assets otherwise).
   void set_tile_types(const World::TileTypes& t) { tile_types_ = t; }
+  Draw::Assets& assets() { return *assets_; }
   const std::string& level_name() const { return level_name_; }
   // Pass names of the last frame, in the order they ran.
   const std::vector<std::string>& last_passes() const { return passes_; }
@@ -66,6 +67,7 @@ class Program {
   void on_message(int id, std::string_view body);
   void load_local_level(const std::string& name);
   std::string window_title() const;
+  Draw::Actor actor_for(int id, const World::Player& p);
 
   const Net::BuildProfile& profile_;
   Options opt_;
@@ -83,6 +85,9 @@ class Program {
   std::unique_ptr<CanvasPainter> painter_;
   std::string cache_server_;
   Draw::WorldRenderer renderer_;
+  std::unique_ptr<Draw::Assets> assets_;
+  int frame_ = 0;
+  std::map<int, std::pair<std::string, int>> gani_start_;  // id (-1 for me) -> gani, first tick
   Draw::Canvas canvas_;
   std::string level_name_;
   std::vector<std::string> passes_;

@@ -1,5 +1,6 @@
 // Level reading and the world passes, from synthetic levels.
 #include "../draw/world.hpp"
+#include "../files/gani.hpp"
 #include "../files/level.hpp"
 #include "check.hpp"
 
@@ -154,6 +155,91 @@ void test_world_passes() {
 
 }  // namespace
 
+
+const char* kWalk =
+    "GANI0001\n"
+    "SPRITE    0  SPRITES    0    0   24   12 shadow\n"
+    "SPRITE  200     HEAD    0   64   32   32 head down\n"
+    "SPRITE   10     BODY    0    0   32   32 body\n"
+    "SPRITE   20    ATTR1    0    0   16   16 hat\n"
+    "ATTACHSPRITE 200 20 8 -4\n"
+    "ATTACHSPRITE2 10 0 4 28\n"
+    "LOOP\n"
+    "DEFAULTATTR1 hat0.png\n"
+    "\n"
+    "ANI\n"
+    " 10 8 16, 200 8 0\n"
+    " 10 8 16, 200 8 0\n"
+    " 10 8 16, 200 8 0\n"
+    " 10 8 16, PARAM1 0 0, 200 8 0\n"
+    "WAIT 2\n"
+    "\n"
+    " 10 8 17, 200 8 1\n"
+    " 10 8 17, 200 8 1\n"
+    " 10 8 17, 200 8 1\n"
+    " 10 8 17, 200 8 1\n"
+    "PLAYSOUND step.wav 0 0\n"
+    "ANIEND\n";
+
+void test_gani() {
+  Files::Gani g;
+  CHECK(Files::read_gani(kWalk, g));
+  CHECK(g.sprites.size() == 4 && g.loop && g.default_attr[1] == "hat0.png");
+  CHECK(g.steps.size() == 2 && g.steps[0].ticks == 3 && g.steps[1].ticks == 1 && g.steps[1].sound == "step.wav");
+  // The body's shadow goes under it, the hat over the head.
+  const auto& d = g.steps[0].dirs[2];
+  CHECK(d.size() == 4);
+  if (d.size() == 4) {
+    CHECK(d[0].sprite == 0 && d[0].x == 12 && d[0].y == 44);
+    CHECK(d[1].sprite == 10 && d[2].sprite == 200 && d[3].sprite == 20 && d[3].x == 16 && d[3].y == -4);
+  }
+  CHECK(g.steps[0].dirs[3].size() == 5 && g.steps[0].dirs[3][2].sprite == Files::kParamSprite - 1);
+  // Steps by tick, looping over 4 ticks.
+  CHECK(g.step_at(0) == 0 && g.step_at(2) == 0 && g.step_at(3) == 1 && g.step_at(4) == 0 && g.step_at(7) == 1);
+  g.loop = false;
+  CHECK(g.step_at(100) == 1);
+
+  Files::Gani one;
+  CHECK(Files::read_gani("SPRITE 1 SPRITES 0 0 8 8 x\nSINGLEDIRECTION\nANI\n1 0 0\n1 1 1\nANIEND\n", one));
+  CHECK(one.steps.size() == 2 && one.steps[0].dirs[3].size() == 1 && one.steps[1].dirs[0][0].x == 1);
+  // Script and movie blocks are skipped; no steps is a failure.
+  Files::Gani none;
+  CHECK(!Files::read_gani("SCRIPT\nANI\n1 0 0\nSCRIPTEND\n", none));
+  CHECK(!Files::read_gani("1 2", none));
+}
+
+void test_actor_drawing() {
+  Draw::Assets assets;
+  Files::Gani g;
+  CHECK(Files::read_gani(kWalk, g));
+  assets.put_gani("walk", g);
+  assets.put_image("body.png", Draw::Image(32, 32, {0, 200, 0, 255}));
+  assets.put_image("head0.png", Draw::Image(32, 96, {200, 0, 0, 255}));
+  assets.put_image("hat0.png", Draw::Image(16, 16, {0, 0, 200, 255}));
+  Draw::WorldState w;
+  w.player.x = 10;
+  w.player.y = 10;
+  w.player.gani = "walk";
+  Draw::WorldRenderer r;
+  r.set_assets(&assets);
+  Draw::Canvas c(160, 160);
+  Draw::View v;
+  v.left = 8;
+  v.top = 8;
+  r.draw(c, w, v);
+  // The player's top-left is at (32, 32): body at +8,+16, head at +8,+0,
+  // the hat over the head at +16,-4.
+  CHECK(c.surface().at(32 + 10, 32 + 40).g == 200);
+  CHECK(c.surface().at(32 + 10, 32 + 2).r == 200);
+  CHECK(c.surface().at(32 + 18, 32 + 2).b == 200);
+  CHECK(c.surface().at(32 + 30, 32 - 6).r == 0);  // above the hat: nothing
+  // An unknown gani falls back to idle, and with no idle to the box.
+  w.player.gani = "nothing";
+  Draw::Canvas d(160, 160);
+  r.draw(d, w, v);
+  CHECK(d.surface().at(32 + 10, 32 + 40).r == 230);
+}
+
 int main() {
   test_grv103();
   test_runs();
@@ -162,5 +248,7 @@ int main() {
   test_board_packet();
   test_sheet_pos();
   test_world_passes();
+  test_gani();
+  test_actor_drawing();
   TEST_MAIN_END();
 }

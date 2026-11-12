@@ -50,6 +50,8 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
   };
   world_.player.x = 30;
   world_.player.y = 30;
+  assets_ = std::make_unique<Draw::Assets>(Draw::asset_dirs(opt_.assets));
+  renderer_.set_assets(assets_.get());
   gui_ = std::make_unique<GuiHost>(scripts_.machine());
   gui_->screen().setSize(opt_.width, opt_.height);
   std::vector<std::string> dirs;
@@ -84,6 +86,25 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
     if (read_file(opt_.assets + "/arrays.dat", table) && !World::read_arrays_dat(table, tile_types_, err) && log)
       log(err);
   }
+}
+
+Draw::Actor Program::actor_for(int id, const World::Player& p) {
+  Draw::Actor a;
+  a.x = p.x;
+  a.y = p.y;
+  a.chat = p.chat;
+  a.gani = p.gani.empty() ? "idle" : p.gani;
+  a.dir = p.dir;
+  a.head = p.head;
+  a.body = p.body;
+  a.sword = p.sword_image;
+  a.shield = p.shield_image;
+  for (size_t i = 1; i < a.attr.size(); ++i) a.attr[i] = p.attr[i];
+  // A gani plays from the tick it was set.
+  auto& start = gani_start_[id];
+  if (start.first != a.gani) start = {a.gani, frame_};
+  a.ani_tick = frame_ - start.second;
+  return a;
 }
 
 void Program::say(const std::string& text) {
@@ -184,7 +205,10 @@ void Program::on_message(int id, std::string_view body) {
       World::Player& o = others_[pid];
       o.id = pid;
       World::apply_props(r, o, true);
-      if (o.gone) others_.erase(pid);
+      if (o.gone) {
+        others_.erase(pid);
+        gani_start_.erase(pid);
+      }
       break;
     }
     case 14:    // PLO_PLAYERWARP: c x*2, c y*2, level
@@ -233,13 +257,12 @@ bool Program::tick() {
       if (!moved.empty()) session_.connection().send(2, moved);
     }
   }
-  world_.player.x = me_.x;
-  world_.player.y = me_.y;
-  world_.player.chat = me_.chat;
+  ++frame_;
+  world_.player = actor_for(-1, me_);
   world_.others.clear();
   for (const auto& [pid, o] : others_) {
     if (!o.level.empty() && !me_.level.empty() && o.level != me_.level) continue;
-    world_.others.push_back({o.x, o.y, o.chat});
+    world_.others.push_back(actor_for(pid, o));
   }
 
   scripts_.tick();
