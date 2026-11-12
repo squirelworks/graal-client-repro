@@ -83,6 +83,40 @@ void Canvas::stretch_blit(const Image& image, const Rect& src, const Rect& dst) 
   }
 }
 
+namespace {
+// Texel-centre sample position along one axis, and its two neighbours.
+struct Sample { int a, b; double t; };
+Sample sample_axis(int src, int src_len, int dst_len, int d) {
+  if (src_len == dst_len) return {src + d, src + d, 0};
+  const int inset = src_len > 2 ? 1 : 0;
+  const double span = src_len - 2 * inset;
+  double pos = inset + (d + 0.5) * span / dst_len - 0.5;
+  pos = std::clamp(pos, 0.0, double(src_len - 1));
+  const int a = int(pos);
+  const int b = std::min(a + 1, src_len - 1);
+  return {src + a, src + b, pos - a};
+}
+std::uint8_t lerp(int a, int b, double t) { return std::uint8_t(a + (b - a) * t + 0.5); }
+Color lerp(const Color& a, const Color& b, double t) {
+  return {lerp(a.r, b.r, t), lerp(a.g, b.g, t), lerp(a.b, b.b, t), lerp(a.a, b.a, t)};
+}
+}  // namespace
+
+void Canvas::smooth_stretch_blit(const Image& image, const Rect& src, const Rect& dst) {
+  Rect s = intersect(src, {0, 0, image.width, image.height});
+  if (s.empty() || dst.empty() || !(s == src)) return;
+  Rect d = intersect(dst, clip());
+  for (int dy = d.y; dy < d.y + d.height; ++dy) {
+    const Sample sy = sample_axis(s.y, s.height, dst.height, dy - dst.y);
+    for (int dx = d.x; dx < d.x + d.width; ++dx) {
+      const Sample sx = sample_axis(s.x, s.width, dst.width, dx - dst.x);
+      const Color top = lerp(image.at(sx.a, sy.a), image.at(sx.b, sy.a), sx.t);
+      const Color bottom = lerp(image.at(sx.a, sy.b), image.at(sx.b, sy.b), sx.t);
+      blend_pixel(dx, dy, lerp(top, bottom, sy.t));
+    }
+  }
+}
+
 void Canvas::tile_blit(const Image& image, const Rect& src, const Rect& dst) {
   Rect s = intersect(src, {0, 0, image.width, image.height});
   if (s.empty() || dst.empty() || !(s == src)) return;

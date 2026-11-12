@@ -4,11 +4,13 @@ on:
   pull_request:
     paths:
       - 'common/torque/gui/**'
+      - 'common/torque/console/**'
       - '.github/workflows/torque-gui.yml'
   push:
     branches: [main]
     paths:
       - 'common/torque/gui/**'
+      - 'common/torque/console/**'
       - '.github/workflows/torque-gui.yml'
   workflow_dispatch:
 
@@ -32,7 +34,7 @@ jobs:
       - uses: actions/checkout@v5
       - name: Install zlib headers
         run: sudo apt-get update && sudo apt-get install -y zlib1g-dev
-      - name: Build and test GUI foundations
+      - name: Build and test the GUI layer
         run: make -C common/torque/gui test
       - name: Check with address and undefined behavior sanitizers
         if: runner.os == 'Linux'
@@ -49,6 +51,6 @@ jobs:
           msystem: UCRT64
           update: true
           install: make mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-zlib
-      - name: Build and test GUI foundations
+      - name: Build and test the GUI layer
         shell: msys2 {0}
         run: make -C common/torque/gui test

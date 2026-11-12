@@ -12,6 +12,9 @@
 //   - inside a band, a column whose every pixel (within the band) is the
 //     separator colour is a separator column; each maximal run of other
 //     columns is one cell;
+//   - a cell keeps only the rows of its band that are not entirely the
+//     separator colour within its own columns (the window frame's bottom
+//     pieces are 3 rows tall in a 9-row band);
 //   - cells are numbered band by band from the top, left to right.
 //
 // Colours compare as exact RGBA8 values. A piece that is entirely the
