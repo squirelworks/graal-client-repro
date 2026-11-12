@@ -50,6 +50,142 @@ own `arrays.dat`, `state.png`, `maps/newmainmap.png` and
 `levels/webgifs/`. The test 3 archive ships no `pics1.png`, ganis, heads or
 bodies, so those come from the 2.05 rev 2 set.
 
+## Install files from another version
+
+`src/res/Graal21t3Install.res` and `src/res/install-manifest.txt` carry 127 files that the 2.1t3 install does not have. Every one has the same bytes as the file at the same path in the **nm26** install (`graal clients.zip`, `graalnm26/`). Some of them also match older installs (1.28b2 to 1.41r1, 2.05 rev 2). They are stand-ins: the 2.1t3 install in the project files lacks them, and nothing in this folder said so until now. `state.png` replaces the 2.1t3 install's own copy. By folder: `levels/ganis/` 51, `levels/heads/` 33, `levels/tutorial/` 17, top level 10, `sounds/` 9, `levels/weather/` 6, `levels/` 1. Checked on 2026-11-12 by CRC32 against every install in the project files.
+
+<details><summary>The 127 files</summary>
+
+- `body.png`
+- `body2.png`
+- `body3.png`
+- `body4.png`
+- `bomb1.png`
+- `bomb2.png`
+- `letters.png`
+- `levels/ganis/bomy_attack.gani`
+- `levels/ganis/bomy_birce0.png`
+- `levels/ganis/bomy_blindo0.png`
+- `levels/ganis/bomy_draktha0.png`
+- `levels/ganis/bomy_duck.gani`
+- `levels/ganis/bomy_hide.gani`
+- `levels/ganis/bomy_idle.gani`
+- `levels/ganis/bomy_kick.gani`
+- `levels/ganis/bomy_kiro0.png`
+- `levels/ganis/bomy_naifets0.png`
+- `levels/ganis/bomy_nero0.png`
+- `levels/ganis/bomy_sit.gani`
+- `levels/ganis/bomy_vadakar0.png`
+- `levels/ganis/bomy_visio0.png`
+- `levels/ganis/bomy_walk.gani`
+- `levels/ganis/bomy_xen0.png`
+- `levels/ganis/carried.gani`
+- `levels/ganis/carry.gani`
+- `levels/ganis/carrypeople.gani`
+- `levels/ganis/carrystill.gani`
+- `levels/ganis/dead.gani`
+- `levels/ganis/def.gani`
+- `levels/ganis/glare1.gif`
+- `levels/ganis/grab.gani`
+- `levels/ganis/gralats.gani`
+- `levels/ganis/hidden.gani`
+- `levels/ganis/hiddenstill.gani`
+- `levels/ganis/hurt.gani`
+- `levels/ganis/idle.gani`
+- `levels/ganis/kick.gani`
+- `levels/ganis/lava.gani`
+- `levels/ganis/lift.gani`
+- `levels/ganis/pull.gani`
+- `levels/ganis/push.gani`
+- `levels/ganis/ride.gani`
+- `levels/ganis/rideeat.gani`
+- `levels/ganis/ridefire.gani`
+- `levels/ganis/ridehurt.gani`
+- `levels/ganis/ridestill.gani`
+- `levels/ganis/ridesword.gani`
+- `levels/ganis/shoot.gani`
+- `levels/ganis/sit.gani`
+- `levels/ganis/skip.gani`
+- `levels/ganis/skip.png`
+- `levels/ganis/skip_icon.png`
+- `levels/ganis/sleep.gani`
+- `levels/ganis/spin.gani`
+- `levels/ganis/swim.gani`
+- `levels/ganis/sword.gani`
+- `levels/ganis/walk.gani`
+- `levels/ganis/walkslow.gani`
+- `levels/heads/head0.gif`
+- `levels/heads/head1.gif`
+- `levels/heads/head10.gif`
+- `levels/heads/head11.gif`
+- `levels/heads/head12.gif`
+- `levels/heads/head13.gif`
+- `levels/heads/head14.gif`
+- `levels/heads/head15.gif`
+- `levels/heads/head16.gif`
+- `levels/heads/head17.gif`
+- `levels/heads/head18.gif`
+- `levels/heads/head19.gif`
+- `levels/heads/head2.gif`
+- `levels/heads/head20.gif`
+- `levels/heads/head21.gif`
+- `levels/heads/head22.gif`
+- `levels/heads/head23.gif`
+- `levels/heads/head24.gif`
+- `levels/heads/head25.gif`
+- `levels/heads/head26.gif`
+- `levels/heads/head27.gif`
+- `levels/heads/head28.gif`
+- `levels/heads/head29.gif`
+- `levels/heads/head3.gif`
+- `levels/heads/head4.gif`
+- `levels/heads/head5.gif`
+- `levels/heads/head6.gif`
+- `levels/heads/head7.gif`
+- `levels/heads/head8.gif`
+- `levels/heads/head814.gif`
+- `levels/heads/head9.gif`
+- `levels/heads/headcheater.gif`
+- `levels/heads/sleepkoji.gif`
+- `levels/tutorial/tutorial_a-1.graal`
+- `levels/tutorial/tutorial_a-2.graal`
+- `levels/tutorial/tutorial_a-3.graal`
+- `levels/tutorial/tutorial_a-4.graal`
+- `levels/tutorial/tutorial_b-1.graal`
+- `levels/tutorial/tutorial_b-2.graal`
+- `levels/tutorial/tutorial_b-2_house.graal`
+- `levels/tutorial/tutorial_b-3.graal`
+- `levels/tutorial/tutorial_b-4.graal`
+- `levels/tutorial/tutorial_c-1.graal`
+- `levels/tutorial/tutorial_c-2.graal`
+- `levels/tutorial/tutorial_c-3.graal`
+- `levels/tutorial/tutorial_c-4.graal`
+- `levels/tutorial/tutorial_housegate.png`
+- `levels/tutorial/tutorialmap.png`
+- `levels/tutorial/tutorialmap.txt`
+- `levels/tutorial/tutorialmap2.png`
+- `levels/weather/arrayclouds.graal`
+- `levels/weather/arrayrain.graal`
+- `levels/weather/arraysnow.graal`
+- `levels/weather/cloud.gif`
+- `levels/weather/raindrop.gif`
+- `levels/weather/snow.gif`
+- `levels/worldu-13.nw`
+- `pics1.png`
+- `sounds/bomyload.wav`
+- `sounds/bomyload0.wav`
+- `sounds/bomyload1.wav`
+- `sounds/bomyload2.wav`
+- `sounds/bomyload3.wav`
+- `sounds/bomyload4.wav`
+- `sounds/bomywalk0.wav`
+- `sounds/bomywalk1.wav`
+- `sounds/bomywalk2.wav`
+- `sprites.png`
+- `state.png`
+
+</details>
+
 ## Checks for 0.0.1
 
 - Builds with Free Pascal on Linux and Windows; `Test21t3`,

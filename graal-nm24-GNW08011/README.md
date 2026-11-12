@@ -61,6 +61,49 @@ Files this build opens, for the assets zip: `pics1.png`, `arrays.dat`,
 `levels/bodies/`, `levels/swords/`, `levels/shields/`, `levels/ganis/`,
 `maps/newmainmap.png` with `maps/newmainmap.txt`, `map.png`, and `sounds/`.
 
+## Install files from another version
+
+`src/res/GraalNm24Install.res` and `src/res/install-manifest.txt` carry 34 files that the nm24 install does not have. Every one has the same bytes as the file at the same path in the **nm26** install (`graal clients.zip`, `graalnm26/`). Some of them also match older installs (1.28b2 to 1.41r1, 2.05 rev 2). They are stand-ins: the nm24 install in the project files lacks them, and nothing in this folder said so until now. By folder: `levels/heads/` 33, top level 1. Checked on 2026-11-12 by CRC32 against every install in the project files.
+
+<details><summary>The 34 files</summary>
+
+- `headsconfig.txt`
+- `levels/heads/head0.gif`
+- `levels/heads/head1.gif`
+- `levels/heads/head10.gif`
+- `levels/heads/head11.gif`
+- `levels/heads/head12.gif`
+- `levels/heads/head13.gif`
+- `levels/heads/head14.gif`
+- `levels/heads/head15.gif`
+- `levels/heads/head16.gif`
+- `levels/heads/head17.gif`
+- `levels/heads/head18.gif`
+- `levels/heads/head19.gif`
+- `levels/heads/head2.gif`
+- `levels/heads/head20.gif`
+- `levels/heads/head21.gif`
+- `levels/heads/head22.gif`
+- `levels/heads/head23.gif`
+- `levels/heads/head24.gif`
+- `levels/heads/head25.gif`
+- `levels/heads/head26.gif`
+- `levels/heads/head27.gif`
+- `levels/heads/head28.gif`
+- `levels/heads/head29.gif`
+- `levels/heads/head3.gif`
+- `levels/heads/head4.gif`
+- `levels/heads/head5.gif`
+- `levels/heads/head6.gif`
+- `levels/heads/head7.gif`
+- `levels/heads/head8.gif`
+- `levels/heads/head814.gif`
+- `levels/heads/head9.gif`
+- `levels/heads/headcheater.gif`
+- `levels/heads/sleepkoji.gif`
+
+</details>
+
 ## Checks for 0.0.1
 
 - Builds with Free Pascal on Linux and Windows; `TestNm24`,
