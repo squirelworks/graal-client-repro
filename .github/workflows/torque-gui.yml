@@ -1,0 +1,54 @@
+name: torque-gui
+
+on:
+  pull_request:
+    paths:
+      - 'common/torque/gui/**'
+      - '.github/workflows/torque-gui.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'common/torque/gui/**'
+      - '.github/workflows/torque-gui.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: torque-gui-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unix:
+    strategy:
+      fail-fast: false
+      matrix:
+        # macOS is built and tested on the lab Sequoia VM, not on GitHub runners
+        # (AGENTS.md, "macOS builds").
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install zlib headers
+        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev
+      - name: Build and test GUI foundations
+        run: make -C common/torque/gui test
+      - name: Check with address and undefined behavior sanitizers
+        if: runner.os == 'Linux'
+        run: |
+          make -C common/torque/gui clean
+          make -C common/torque/gui test CXXFLAGS='-std=c++17 -Wall -Wextra -Werror -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer'
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: make mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-zlib
+      - name: Build and test GUI foundations
+        shell: msys2 {0}
+        run: make -C common/torque/gui test
