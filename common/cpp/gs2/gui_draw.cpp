@@ -114,8 +114,15 @@ class Drawer {
  public:
   Drawer(Screen& s, Painter& p) : s_(s), p_(p) {}
 
-  void draw(const Control& c, const Rect& clip) {
+  void draw(Control& c, const Rect& clip) {
     if (!c.isControl() || !c.flag("visible", true)) return;
+    if (lower(c.type()) == "guitextctrl") {
+      // Torque's GuiTextCtrl raises its minExtent to the text's size when
+      // the text is set; here the text is measured each time it is drawn.
+      const Style st = styleOf(s_, c);
+      c.textMinW = p_.textWidth(c.prop("text"), st.fontType, st.fontSize);
+      c.textMinH = p_.fontHeight(st.fontType, st.fontSize);
+    }
     const Rect r = s_.rectOf(c);
     const Rect cl = intersect(clip, r);
     if (cl.w <= 0 || cl.h <= 0) return;
@@ -131,6 +138,13 @@ class Drawer {
     const bool active = c.flag("active", true);
     if (t == "guishowimgctrl" || t == "guigraalctrl" || t == "guigraal3dctrl") {
       p_.engineControl(c, r);
+      if (c.emitter)
+        for (const Particle* q : c.emitter->drawOrder()) {
+          if (q->image.empty()) continue;
+          const double rgba[4] = {q->f[FRed], q->f[FGreen], q->f[FBlue], q->f[FAlpha]};
+          p_.sprite(q->image, q->f[FX], q->f[FY], q->f[FRotation], q->f[FZoom] * q->f[FStretchX],
+                    q->f[FZoom] * q->f[FStretchY], rgba, q->mode);
+        }
       return;
     }
     if (t == "guibitmapctrl" || t == "guichunkedbitmapctrl") {

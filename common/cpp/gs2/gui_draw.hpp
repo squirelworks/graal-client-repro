@@ -56,6 +56,12 @@ class Painter {
   virtual bool bitmapSize(const std::string& file, int& w, int& h) = 0;
   virtual std::vector<Rect> cells(const std::string& file) = 0;
   virtual void bitmap(const std::string& file, const Rect& src, const Rect& dst) = 0;
+  // One particle: `file` whole, centred on (x, y), turned by `rotation`
+  // radians and scaled by (sx, sy), tinted by red, green, blue and alpha
+  // (0 to 1) with blend `mode` (0 add, 1 transparent, 2 subtract, 3
+  // day-night).
+  virtual void sprite(const std::string& /*file*/, double /*x*/, double /*y*/, double /*rotation*/, double /*sx*/,
+                      double /*sy*/, const double* /*rgba*/, int /*mode*/) {}
   // Controls the engine draws itself (GuiShowImgCtrl, GuiGraalCtrl,
   // GuiGraal3DCtrl): called with the control's rectangle, before its
   // children.
