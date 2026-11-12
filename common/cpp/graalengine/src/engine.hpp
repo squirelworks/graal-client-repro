@@ -17,6 +17,7 @@ namespace graalengine {
 
 class TextureCache;
 class SlotPainter;
+class Session2D;
 
 class Engine {
  public:
@@ -90,7 +91,10 @@ class Engine {
   void startOffline();
   void connect(const std::string& name, const std::string& host, int port);
   void openServerList();
-  void enableScriptedControls(bool on) { scriptedControls_ = on; }
+  // enableGraalScriptedControls: also the scripts' `scriptedcontrols`
+  // variable, which GraalGui's playfield reads on wake to push the
+  // MoveMap2D key bindings.
+  void enableScriptedControls(bool on);
   bool scriptedControls() const { return scriptedControls_; }
   void prepareShutdown();
   void shutdown();
@@ -103,6 +107,9 @@ class Engine {
   };
   const Target& lastTarget() const { return target_; }
   bool offlineRequested() const { return offlineRequested_; }
+  // The 2D session connectToGraalServer started when no connector was set
+  // (src/session.hpp); null before that.
+  Session2D* session() { return session_.get(); }
   int initializeCount() const { return initCount_; }
 
   // Writes one line through the LogGraalMessage slot.
@@ -145,6 +152,7 @@ class Engine {
   std::unique_ptr<gs2::gui::Screen> screen_;
   std::shared_ptr<Control> screenControl_;
   std::function<void(const std::string&, bool)> action_;
+  std::unique_ptr<Session2D> session_;
 };
 
 // The library's one engine.

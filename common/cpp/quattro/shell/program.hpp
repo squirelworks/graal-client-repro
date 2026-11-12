@@ -31,6 +31,7 @@ struct Options {
   std::string account;
   std::string password;
   std::string language = "English";
+  std::string nickname;  // empty: "unknown", as the lab's 6.03r7 sent
   std::string assets;  // the player's own Graal folder (levels, pics1.png)
   std::string program;  // the player's own 6.x program file, for its StartScript_* shell
   int width = 640;     // window size: see README, "Window size"
@@ -44,6 +45,9 @@ class Program {
   bool start();
   // One tick: network, keys, draw, present. False when the program should end.
   bool tick();
+  // Sets the player's chat and sends it once the props are out (the
+  // engine library's chat bar; Adventure_setChat).
+  void say(const std::string& text);
 
   const Draw::WorldState& world() const { return world_; }
   const World::Player& me() const { return me_; }

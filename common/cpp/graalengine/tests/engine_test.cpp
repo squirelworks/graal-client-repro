@@ -8,13 +8,18 @@
 #include "image.hpp"
 
 #include "../../gs2/tests/assembler.hpp"
+#include "../../quattro/tests/fake_server.hpp"
+#include "../../quattro/shell/program.hpp"
+#include "session.hpp"
 
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <chrono>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -524,6 +529,137 @@ void testPainter() {
   fs::remove_all(dir);
 }
 
+// The 2D session on loopback, as connectToGraalServer starts it with no
+// connector set: the 4.04r2 login line with the account the menus set,
+// the 178 hand-on, the level, the own props, walking from the moveRight2D
+// binding, and the chat bar's text as the player's chat.
+void testLoopbackSession() {
+  using QuattroTest::FakeServer;
+  using Quattro::Net::gchar;
+  using Quattro::Net::gshort;
+  using Quattro::Net::gstring;
+  namespace QW = Quattro::World;
+  namespace fs = std::filesystem;
+  reset();
+  installRecorder();
+  const fs::path dir = fs::temp_directory_path() / "graalengine-session";
+  fs::remove_all(dir);
+  fs::create_directories(dir);
+  const char* lab = std::getenv("GRAAL404_ENGINE");
+  const bool withMenus = lab && *lab;
+  if (withMenus) {
+#ifdef _WIN32
+    _putenv_s("GRAAL_ENGINE_FILE", lab);
+#else
+    setenv("GRAAL_ENGINE_FILE", lab, 1);
+#endif
+  }
+  screenW = 640;
+  screenH = 480;
+  CHECK(graal_engineInitialize((dir / "Graal4.exe").string().c_str()) == 1);
+  auto& e = graalengine::engine();
+  loadGraalGui();
+  auto run = [&](const std::string& code) {
+    using gs2asm::Asm;
+    Asm a;
+    a.function("onCreated", {});
+    a.op(Asm::MARKER).str(code.substr(code.find(' ') + 1)).callName(code.substr(0, code.find(' '))).op(Asm::POP);
+    a.num(0).op(Asm::RET);
+    auto v = e.machine()->newVar("t" + std::to_string(std::rand()));
+    std::string err;
+    CHECK(e.machine()->setScript(v, a.bytes(), &err));
+    e.machine()->runScripts();
+  };
+  run("Adventure_setAccountName guest");
+  run("Adventure_setPassWord pw");
+  run("Adventure_setNickName Tester");
+
+  FakeServer login, game;
+  CHECK(login.start() && game.start());
+  auto pump = [&](FakeServer* s, auto done) {
+    auto end = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    while (std::chrono::steady_clock::now() < end) {
+      renderGraalCanvas();
+      if (s->conn.connected()) s->pump();
+      if (done()) return true;
+      std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    return false;
+  };
+  connectToGraalServer("Login", "127.0.0.1", login.port());
+  CHECK(e.session() != nullptr);
+  if (!e.session()) return;
+  CHECK(login.conn.accept_from(login.listener));
+  CHECK(pump(&login, [&] { return login.saw(37, "English"); }));
+  const std::string line = "G3D17026" + gstring("guest") + gstring("pw") + "win,\"\",\"\",\"\"";
+  CHECK(login.login_line == line);
+
+  login.send(gchar(178) + "0,Lab Server,127.0.0.1," + std::to_string(game.port()) + "\n");
+  std::thread acc([&] { game.conn.accept_from(game.listener); });
+  bool warped = pump(&login, [&] { return e.session()->program().session().logins() == 2; });
+  acc.join();
+  CHECK(warped);
+  CHECK(pump(&game, [&] { return game.saw(37, "English"); }));
+
+  std::string board;
+  for (int i = 0; i < 64 * 64; ++i) board += std::string("\x07\x00", 2);
+  const std::string raw = gchar(101) + board + "\n";
+  game.send(gchar(6) + "onlinestartlocal.nw\n" + gchar(100) + Quattro::Net::gint3(uint32_t(raw.size())) + "\n" + raw);
+  CHECK(pump(&game, [&] { return e.session()->program().world().have_level; }));
+  game.send(gchar(9) + gchar(QW::kX2) + gshort(QW::to_pixels2(20)) + gchar(QW::kY2) + gshort(QW::to_pixels2(22)) + "\n");
+  auto sentProps = [&](const std::string& part) {
+    for (auto& [id, b] : game.got)
+      if (id == 2 && b.find(part) != std::string::npos) return true;
+    return false;
+  };
+  CHECK(pump(&game, [&] { return sentProps("Tester"); }));
+
+  const std::size_t before = game.got.size();
+  CHECK(e.session()->action("moveRight2D", true));
+  CHECK(pump(&game, [&] { return e.session()->program().me().x > 20; }));
+  e.session()->action("moveRight2D", false);
+  CHECK(pump(&game, [&] {
+    for (std::size_t i = before; i < game.got.size(); ++i)
+      if (game.got[i].first == 2) return true;
+    return false;
+  }));
+  CHECK(!e.session()->action("doA", true));
+
+  run("Adventure_setChat hello there");
+  CHECK(pump(&game, [&] { return game.saw(2, gchar(QW::kCurChat) + gstring("hello there")); }));
+
+  CHECK(e.session()->haveFrame());
+  CHECK(e.session()->frame().width == screenW && e.session()->frame().height == screenH);
+  // With the player's own engine file (the lab run above leaves it set),
+  // the 2D connect made GUIContainer the content, and its GuiGraalCtrl
+  // (GraalControl) shows the world.
+  if (withMenus) {
+    graal_setDrawGraphics(recGfx);
+    graal_setDrawGraphicsStretched(recStretch);
+    gfx.clear();
+    renderGraalCanvas();
+    bool shown = false;
+    for (const auto& g : gfx)
+      if (g.find(" GraalControl ") != std::string::npos) shown = true;
+    CHECK(shown);
+    std::fprintf(stderr, "lab session: GraalControl drawn %s\n", shown ? "yes" : "no");
+    // The arrow key through the MoveMap2D binding (moveRight2D) walks.
+    const double x0 = e.session()->program().me().x;
+    invokeGraalKeyboardEvent(0x27, 0, 0, 1);
+    const bool walked = pump(&game, [&] { return e.session()->program().me().x > x0; });
+    invokeGraalKeyboardEvent(0x27, 0, 0, 0);
+    CHECK(walked);
+    std::fprintf(stderr, "lab session: right arrow walks %s\n", walked ? "yes" : "no");
+#ifdef _WIN32
+    _putenv_s("GRAAL_ENGINE_FILE", "");
+#else
+    unsetenv("GRAAL_ENGINE_FILE");
+#endif
+  }
+  shutdownGraalEngine();
+  fs::remove_all(dir);
+}
+
 }  // namespace
 
 int main() {
@@ -537,6 +673,7 @@ int main() {
   testLabStartScripts();
   testPainter();
   testLabMenuInput();
+  testLoopbackSession();
   if (failures) {
     std::fprintf(stderr, "%d check(s) failed\n", failures);
     return 1;

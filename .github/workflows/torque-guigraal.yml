@@ -8,6 +8,7 @@ on:
       - 'common/torque/console/compiler/**'
       - 'common/torque/gui/**'
       - 'graal-3.04-G3D03014/src/**'
+      - 'graal-3.153-G3D28015/src/**'
       - 'common/*.pas'
       - '.github/workflows/torque-guigraal.yml'
   push:
@@ -18,6 +19,7 @@ on:
       - 'common/torque/console/compiler/**'
       - 'common/torque/gui/**'
       - 'graal-3.04-G3D03014/src/**'
+      - 'graal-3.153-G3D28015/src/**'
       - 'common/*.pas'
       - '.github/workflows/torque-guigraal.yml'
   workflow_dispatch:
@@ -50,4 +52,6 @@ jobs:
           make -C common/torque/guigraal lib all
           sh common/torque/guigraal/tests/smoke.sh
       - name: Online path against loopback list and game servers
-        run: sh common/torque/guigraal/tests/online.sh
+        run: |
+          sh common/torque/guigraal/tests/online.sh
+          GAME_LIB=libGame3153Lib.so GAME_TOKEN=G3D28015 sh common/torque/guigraal/tests/online.sh

@@ -42,7 +42,7 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
   ev.message = [this](int id, std::string_view body) { on_message(id, body); };
   session_.set_events(std::move(ev));
   world_.lobby_tiles = profile_.login_draws_tiles;
-  me_.nickname = "unknown";  // the lab's 6.03r7 sent "unknown" with no nickname set
+  me_.nickname = opt_.nickname.empty() ? "unknown" : opt_.nickname;  // the lab's 6.03r7 sent "unknown" with no nickname set
   me_.language = opt_.language;
   scripts_.set_send([this](int id, std::string_view body) { return session_.connection().send(id, body); });
   scripts_.on_log = [this](const std::string& s) {
@@ -105,6 +105,11 @@ Draw::Actor Program::actor_for(int id, const World::Player& p) {
   if (start.first != a.gani) start = {a.gani, frame_};
   a.ani_tick = frame_ - start.second;
   return a;
+}
+
+void Program::say(const std::string& text) {
+  me_.chat = text;
+  if (props_sent_) session_.connection().send(2, Net::gchar(World::kCurChat) + Net::gstring(text));
 }
 
 std::string Program::window_title() const {

@@ -1,4 +1,4 @@
-// graal304-torque: the 3.04 client on the rebuilt Torque engine, in a
+// graal304-torque: the 3.04 (or 3.153) client on the rebuilt Torque engine, in a
 // window. It boots the install's own main.cs, draws the install's own
 // menus, routes keys through its ActionMaps and clicks to its controls,
 // and hosts the 2D game as GuiGraalCtrl.
@@ -6,9 +6,10 @@
 //   graal304-torque [--root INSTALL] [--prefs DIR] [--game LIB]
 //                   [--steps FILE] [--seconds N] [--trace FILE] [--shot FRAME.bmp]
 //
-// --root defaults to the program's folder (put it in a 3.04 install, beside
-// graalexe), then the current folder, whichever holds main.cs; --prefs to ~/.graal304-torque; --game to libGame304Lib.so next
-// to the program. --steps runs scripted statements as tq-play does (for lab
+// --root defaults to the program's folder (put it in a 3.04 or 3.153
+// install, beside main.cs), then the current folder, whichever holds
+// main.cs; --prefs to ~/.graal304-torque; --game to libGame304Lib.so
+// (libGame3153Lib.so for a 3.153 install) next to the program. --steps runs scripted statements as tq-play does (for lab
 // runs); --seconds ends the program after N seconds; --shot writes the last
 // window image when the program ends.
 
@@ -50,7 +51,7 @@ void usage() {
 int main(int argc, char** argv) {
   const std::string here = program_dir(argv[0]);
   unsigned seconds = 0;
-  std::string root, prefs, lib = here + "/libGame304Lib.so", steps_path, trace_path, shot;
+  std::string root, prefs, lib, steps_path, trace_path, shot;
   for (int i = 1; i < argc; ++i) {
     std::string a = argv[i];
     auto next = [&]() -> std::string {
@@ -70,10 +71,14 @@ int main(int argc, char** argv) {
   if (root.empty()) root = has_main(here) || !has_main(".") ? here : std::string(".");
   if (!has_main(root)) {
     std::cerr << "graal304-torque: no main.cs in " << root << ".\n"
-              << "Copy graal304-torque and libGame304Lib.so into your Graal 3.04 folder (beside graalexe),\n"
+              << "Copy graal304-torque and the game library into your Graal 3.04 or 3.153 folder (beside main.cs),\n"
               << "run it from that folder, or pass --root with that folder.\n";
     return 1;
   }
+  // a 3.153 install (scripts2D/main2D.cs) runs the 3.153 game library
+  const bool is_3153 = std::ifstream(root + "/scripts2D/main2D.cs.dso").good() ||
+                       std::ifstream(root + "/scripts2D/main2D.cs").good();
+  if (lib.empty()) lib = here + (is_3153 ? "/libGame3153Lib.so" : "/libGame304Lib.so");
   if (prefs.empty()) {
     const char* home = std::getenv("HOME");
     prefs = std::string(home ? home : ".") + "/.graal304-torque";
@@ -94,6 +99,7 @@ int main(int argc, char** argv) {
     return 1;
   }
   GuiGraal304 graal(engine, std::move(game));
+  if (is_install_3153(engine)) graal.register_3153();
   boot_304(engine);
 
   int width = 800, height = 600;

@@ -175,6 +175,11 @@ class Engine {
 
   FileSystem files;
   FloatOrder float_order = FloatOrder::little;
+  // 3.153 profile: exec("name.cs") with no folder finds the script by file
+  // name anywhere in the install (its scripts are in scripts/, scripts2D/
+  // and scriptsgui/ and every exec names only the file).
+  bool exec_by_name = false;
+  std::string find_by_name(const std::string& name) const;
   EngineLimits limits;
   // Console output: one call per echo/warn/error, before line splitting.
   std::function<void(const std::string&)> print;

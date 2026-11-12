@@ -3,6 +3,9 @@
 // engine code is used. Each case states what the control must do.
 
 #include <cstdio>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -286,6 +289,46 @@ void test_text_list() {
   check_eq(r.eval("return ServerList.getSelectedId() SPC ServerList.rowCount();"), "-1 2", "removing the selected row");
 }
 
+// 3.153's four methods keep the fields in the $pref::Graal:: variables
+// the 3.04 code reads; retrieveAccountFields fills the menu's edits.
+void test_3153_methods() {
+  Rig r;
+  r.graal->register_3153();
+  check_eq(std::to_string(GuiGraal304::method_names_3153().size()), "4", "four 3.153 methods");
+  r.eval("new GuiTextEditCtrl(NickEdit); new GuiTextEditCtrl(AccountEdit);"
+         "$pref::Graal::nickname = \"\"; $pref::Graal::accountname = \"\";");
+  r.eval("Adventure.retrieveAccountFields();");
+  check_eq(r.eval("return NickEdit.getValue() @ \"|\" @ AccountEdit.getValue();"), "unknown|",
+           "an untouched start window shows the nickname unknown");
+  r.eval("Adventure.setNickName(\"nick\"); Adventure.setAccountName(\"acct\"); Adventure.setLanguage(\"Deutsch\");");
+  check_eq(r.eval("return $pref::Graal::nickname SPC $pref::Graal::accountname SPC $pref::Graal::language;"),
+           "nick acct Deutsch", "the setters keep the fields in $pref::Graal::");
+  r.eval("NickEdit.setValue(\"\"); Adventure.retrieveAccountFields();");
+  check_eq(r.eval("return NickEdit.getValue() @ \"|\" @ AccountEdit.getValue();"), "nick|acct",
+           "retrieveAccountFields gives them back");
+  check_eq(r.eval("return Adventure.setNickName();"), "", "setNickName takes one argument");
+}
+
+// exec by file name (the 3.153 profile): a script in scripts2D/ runs from
+// exec("name.cs"); without the profile it is not found.
+void test_exec_by_name() {
+  char dir[] = "/tmp/guigraal-test-XXXXXX";
+  if (!mkdtemp(dir)) { check(false, "a temporary folder"); return; }
+  const std::string root = dir;
+  std::filesystem::create_directories(root + "/scripts2D");
+  std::filesystem::create_directories(root + "/deep/er");
+  std::ofstream(root + "/scripts2D/hello.cs") << "$hello = \"scripts2D\";\n";
+  std::ofstream(root + "/deep/er/hello.cs") << "$hello = \"deeper\";\n";
+  Rig r;
+  r.engine.files.root = root;
+  r.eval("exec(\"hello.cs\");");
+  check_eq(r.eval("return $hello;"), "", "without the profile a bare name is looked up at the root only");
+  r.engine.exec_by_name = true;
+  r.eval("exec(\"hello.cs\");");
+  check_eq(r.eval("return $hello;"), "scripts2D", "with it the shallowest file of that name runs");
+  std::filesystem::remove_all(root);
+}
+
 } // namespace
 
 int main() {
@@ -295,6 +338,8 @@ int main() {
   test_list_drop_and_direct();
   test_offline();
   test_text_list();
+  test_3153_methods();
+  test_exec_by_name();
   if (failures) {
     std::cerr << failures << " failure(s)\n";
     return 1;
