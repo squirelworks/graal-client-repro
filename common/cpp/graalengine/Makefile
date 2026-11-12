@@ -9,7 +9,7 @@ LDLIBS = -lz
 
 # The GS2 machine (common/cpp/gs2) is linked in: the menus run on it.
 GS2 = ../gs2/loader.cpp ../gs2/machine.cpp ../gs2/var.cpp ../gs2/startscripts.cpp \
-      ../gs2/engine_commands.cpp ../gs2/delivery.cpp ../gs2/gui.cpp ../gs2/gui_draw.cpp
+      ../gs2/engine_commands.cpp ../gs2/delivery.cpp ../gs2/gui.cpp ../gs2/gui_draw.cpp ../gs2/emitter.cpp
 # PNG pictures and theme bitmap arrays come from the Torque GUI layer.
 TQGUI = ../../torque/gui/image.cpp ../../torque/gui/bitmap_array.cpp
 SOURCES = src/exports.cpp src/engine.cpp src/canvas.cpp src/scripts.cpp src/gui_host.cpp $(GS2) $(TQGUI)
