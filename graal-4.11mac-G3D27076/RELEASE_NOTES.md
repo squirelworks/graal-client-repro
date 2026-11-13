@@ -1,7 +1,7 @@
-# Graal 4.20r6 (G3D27076)
+# Graal 4.11 Mac (G3D27076)
 
-The first rebuild of the Graal 4.20r6 client, in Delphi (Object Pascal).
-The original 4.20r6 is a Mac OS X (PowerPC) program built from the 4.x
+The first rebuild of the Graal 4.11 Mac client, in Delphi (Object Pascal).
+The original 4.11 Mac is a Mac OS X (PowerPC) program built from the 4.x
 engine. This rebuild runs on Linux and Windows. It is an early
 version: most of the game (NPCs, items, weapons, the script engine, the
 3D mode) is not there yet.
@@ -16,11 +16,15 @@ version: most of the game (NPCs, items, weapons, the script engine, the
 
 These zips hold no original Graal code, graphics, sounds or levels. The
 program carries small original default graphics and a starter level of its
-own, so it runs as it is. Put it in the root of a 4.20r6 install you own (or
+own, so it runs as it is. Put it in the root of a 4.11 Mac install you own (or
 point it at one with `--data DIR`) and the install's tiles, ganis, heads and
 bodies take their place. The shared `graal-assets/` folder next to the
-program works too (`graal-assets/4.20r6/`, then `graal-assets/4.20r8/`,
+program works too (`graal-assets/4.11mac/`, then `graal-assets/4.20r8/`,
 then `graal-assets/common/`).
+
+## What's new in v0.0.5
+
+- [x] **Renamed from 4.20r6 to 4.11 Mac.** This client was released before as "4.20r6" (`graal-4.20r6-G3D27076`), because the archive copy of the Mac binary it was built from was labelled 4.20r6. That binary (built 2006-09-19, token `G3D27076`) is the Mac download graalonline.com served while 4.11 was current. The real Mac 4.20r6 is a later binary with the token `G3D21126`, and it gets its own folder. The program is now `Graal411mac`. It sends the same token as before.
 
 ## What's new in v0.0.4.2
 
@@ -44,7 +48,7 @@ then `graal-assets/common/`).
 | `…-linux.zip` | Linux x86-64 | X11 |
 | `…-windows.zip` | Windows, 32-bit | GDI |
 
-Each zip has `Graal420r6` (the client) and the build's README. The test
+Each zip has `Graal411mac` (the client) and the build's README. The test
 programs are built and run on every release but no longer shipped.
 
 On Windows the first start may show **"Windows protected your PC"**. That

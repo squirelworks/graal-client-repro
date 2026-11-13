@@ -1,11 +1,11 @@
-{ Adventure: TAdventure, the game state and frame loop of the Mac 4.20r6,
+{ Adventure: TAdventure, the game state and frame loop of the Mac 4.11,
   carried over from the 4.20r8 and 4.04r2 rebuilds (and 3.153 and 2.22
   before them), since all of them speak the gen-5 wire. What 4.x does
   differently, from the notes and the lab runs (graal_analysis
   protocol/v4x-clients.md, version-profiles/4.04-4.20.toml,
-  version-profiles/lab-mac-tiger-2026-10-31.md for 4.20r6 in qemu,
+  version-profiles/lab-mac-tiger-2026-10-31.md for 4.11 Mac in qemu,
   client-internals/live-behaviour-404.md for 4.04r2). The qemu run saw
-  4.20r6 send the same kinds of message as 4.04r2 (37, 23, 157, 46, 44,
+  4.11 Mac send the same kinds of message as 4.04r2 (37, 23, 157, 46, 44,
   props with X2 / Y2, 34, 24); the frame order and timings were measured
   on 4.04r2 and are taken to hold:
   - the first server is a game server named Login; it hands the client on
@@ -39,7 +39,7 @@ unit Adventure;
 interface
 
 uses
-  Classes, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GAssetDirs, GraalClient, Protocol420r6;
+  Classes, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GAssetDirs, GraalClient, Protocol411mac;
 
 const
   { The game view. 640x480 is assumed for 2.22 as for 2.05; not read from
@@ -1292,7 +1292,7 @@ begin
   begin
     if FWarpPending then Exit;
     { 2.22 asks with LEVELWARPMOD when it holds the level (its mod time
-      first), else with LEVELWARP; 4.20r6 is taken to do the same, with no
+      first), else with LEVELWARP; 4.11 Mac is taken to do the same, with no
       tamper check after it }
     C := CachedLevel(L.Dest, False);
     if (C <> nil) and C.HasModTime and C.HasBoard then
@@ -1434,7 +1434,7 @@ var
 begin
   AskGani(OwnGani);
   FClient.SendPacket(PLI_ENTERLEVEL, '');
-  { 44 went out empty in the qemu run of 4.20r6 }
+  { 44 went out empty in the qemu run of 4.11 Mac }
   FClient.SendPacket(PLI_PROCESSLIST, '');
   FClient.SendPacket(PLI_PLAYERPROPS,
     GChar(PLPROP_NICKNAME) + GString(Player.Nickname) +
@@ -1883,7 +1883,7 @@ begin
       PLO_UNFREEZEPLAYER: Frozen := False;
       PLO_SERVERWARP: ServerWarp(Data);
       PLO_LISTPROCESSES:
-        { answered with an empty 44, as the qemu run of 4.20r6 saw (the
+        { answered with an empty 44, as the qemu run of 4.11 Mac saw (the
           Windows clients list their window titles; the Mac one did not) }
         FClient.SendPacket(PLI_PROCESSLIST, '');
       PLO_HASPROCESSRUNNING:

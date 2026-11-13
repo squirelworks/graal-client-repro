@@ -1,6 +1,6 @@
-/* Windows resources for Graal420r6.exe: the shared manifest and a version
+/* Windows resources for Graal411mac.exe: the shared manifest and a version
    block, so Windows and antivirus see a named, versioned program
-   instead of a bare exe. Built only on Windows ({$R} in Graal420r6.dpr).
+   instead of a bare exe. Built only on Windows ({$R} in Graal411mac.dpr).
    The release workflow stamps the version lines from the tag; keep
    0,0,0,0 and "0.0.0-dev" here. */
 1 24 "../../common/win/graal-delphi.manifest"
@@ -19,11 +19,11 @@ BEGIN
     BLOCK "040904B0"
     BEGIN
       VALUE "CompanyName", "squirelworks"
-      VALUE "FileDescription", "graal-delphi 4.20 rev 6 client"
+      VALUE "FileDescription", "graal-delphi 4.11 Mac client"
       VALUE "FileVersion", "0.0.0-dev"
-      VALUE "InternalName", "Graal420r6"
+      VALUE "InternalName", "Graal411mac"
       VALUE "LegalCopyright", "graal-delphi contributors. Independent fan rebuild, not affiliated with GraalOnline."
-      VALUE "OriginalFilename", "Graal420r6.exe"
+      VALUE "OriginalFilename", "Graal411mac.exe"
       VALUE "ProductName", "graal-delphi"
       VALUE "ProductVersion", "0.0.0-dev"
       VALUE "Comments", "https://github.com/squirelworks/graal-client-repro"

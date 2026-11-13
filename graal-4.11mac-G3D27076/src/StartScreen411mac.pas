@@ -1,9 +1,9 @@
-{ StartScreen420r6: what 4.20r6 plugs into the shared start screen
+{ StartScreen411mac: what 4.11 Mac plugs into the shared start screen
   (common/GStartScreen.pas): where it starts and its character.
 
   Start asks listserver.graal.in on 14922 for a list (a listserver.txt
   next to the program names another), with the listserver step in
-  ListServer420r6. The real 4.20r6 has no listserver: it logs in to the
+  ListServer411mac. The real 4.11 Mac has no listserver: it logs in to the
   Login server named in license/license.graal (graal_analysis
   protocol/v4x-clients.md). When the install has that file, its Login
   host and fallbacks are added as extra rows after the list; picking one
@@ -12,17 +12,17 @@
 
   The start screen is this project's own (common/GStartScreen.pas); the
   original start window and its pictures are never drawn. }
-unit StartScreen420r6;
+unit StartScreen411mac;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
 
 interface
 
 uses
-  GSurface, GStartScreen, GraalClient, ListServer420r6, Adventure, Protocol420r6;
+  GSurface, GStartScreen, GraalClient, ListServer411mac, Adventure, Protocol411mac;
 
 type
-  TListFetch420r6 = class(TListFetch)
+  TListFetch411mac = class(TListFetch)
   public
     Client: TListServerClient;
     StartMs: Int64;
@@ -36,7 +36,7 @@ type
   end;
 
   { Draws G's player, idle and facing down, for the start screen. }
-  TCharacter420r6 = class
+  TCharacter411mac = class
   public
     G: TAdventure;
     procedure Draw(S: TGSurface; X, Y: Integer; const Nick: string);
@@ -49,7 +49,7 @@ uses
 
 { The licence file's Login hosts, as rows after whatever the list gave.
   Ends the fetch: Done when there is any row, else Failed. }
-procedure TListFetch420r6.AddLoginRows;
+procedure TListFetch411mac.AddLoginRows;
 var
   I, N: Integer;
 begin
@@ -66,7 +66,7 @@ begin
   if Length(Servers) > 0 then Done := True else Failed := True;
 end;
 
-procedure TListFetch420r6.Start(const Host: string; Port: Integer;
+procedure TListFetch411mac.Start(const Host: string; Port: Integer;
   const Account, Password: string);
 begin
   FreeAndNil(Client);
@@ -85,7 +85,7 @@ begin
   Client.SendRequest(Account, Password);
 end;
 
-procedure TListFetch420r6.Poll;
+procedure TListFetch411mac.Poll;
 begin
   if (Client = nil) or Done or Failed then Exit;
   Client.Poll;
@@ -120,13 +120,13 @@ begin
   end;
 end;
 
-destructor TListFetch420r6.Destroy;
+destructor TListFetch411mac.Destroy;
 begin
   Client.Free;
   inherited Destroy;
 end;
 
-procedure TCharacter420r6.Draw(S: TGSurface; X, Y: Integer; const Nick: string);
+procedure TCharacter411mac.Draw(S: TGSurface; X, Y: Integer; const Nick: string);
 begin
   G.Player.Nickname := Nick;
   G.Player.X := 0;

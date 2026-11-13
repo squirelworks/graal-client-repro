@@ -1,17 +1,17 @@
-{ Protocol420r6: message ids and constants of the 4.20r6 Mac OS X client
+{ Protocol411mac: message ids and constants of the 4.11 Mac OS X client
   (G3D27076).
 
   The original is one PowerPC binary built from the 4.x engine source; on
   the wire it is gen 5, as 2.22 to 3.153 (graal_analysis
   protocol/v4x-clients.md). This rebuild runs on Linux and Windows.
   Sources: protocol/v4x-clients.md, version-profiles/4.04-4.20.toml, the
-  lab run of the real 4.20r6 in qemu (version-profiles/
+  lab run of the real 4.11 Mac in qemu (version-profiles/
   lab-mac-tiger-2026-10-31.md) and the 4.04r2 lab runs where that one is
   silent (client-internals/live-behaviour-404.md). There is no listserver protocol any more: the
   client logs in to a game server named Login, which serves the list and
-  hands the client on with 178. 4.20r6 handles 99 server ids; every other
+  hands the client on with 178. 4.11 Mac handles 99 server ids; every other
   id is ignored silently. }
-unit Protocol420r6;
+unit Protocol411mac;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
 
@@ -21,11 +21,11 @@ const
   { The 8-byte version token in the login line (v4x-clients.md, "Version
     tokens": 27 July 2006). }
   ClientVersionToken = 'G3D27076';
-  ClientBuildLabel = '4.20r6';
-  { Its folders under graal-assets: its own, then 4.20r8's. The files the
-    two installs ship are byte for byte the same, so the shared zip keeps
-    one copy, under 4.20r8. }
-  AssetVersions = '4.20r6;4.20r8';
+  ClientBuildLabel = '4.11 Mac';
+  { Its folders under graal-assets: its own, then 4.20r8's. The 4.11 Mac
+    install has not been compared with 4.20r8's yet; 4.20r8's files stand
+    in until it is. }
+  AssetVersions = '4.11mac;4.20r8';
   { After the password the login line carries an unprefixed comma list:
     the platform and three machine fields. }
   LoginPlatform = 'mac';
@@ -51,7 +51,7 @@ const
   ZlibFrom = $30;
   Bz2From = $1000;
 
-  { The out buffer is sent at the end of each tick. 4.20r6's own threshold
+  { The out buffer is sent at the end of each tick. 4.11 Mac's own threshold
     for an early flush is not traced; this one keeps a raw body under the
     u16be frame length. }
   OutFlushAt = 60000;
@@ -165,7 +165,7 @@ const
   PLO_PING = 108;  { was PLO_UNKNOWN108 }
   PLO_UNKNOWN196 = 196;
 
-  { player props (2.1+ forms; 4.20r6 parses its own stream up to 74 and
+  { player props (2.1+ forms; 4.11 Mac parses its own stream up to 74 and
     other players' up to 76, as 2.22) }
   PLPROP_NICKNAME = 0;
   PLPROP_MAXPOWER = 1;
@@ -231,13 +231,13 @@ const
   TextCodePage = 0;
 
   { PLI_SHOWIMG (24) = GCHAR 9. 4.04r2 sends it every 5.14 to 5.15 s
-    (live-behaviour-404.md, third run). The qemu run of 4.20r6 saw 16 to
+    (live-behaviour-404.md, third run). The qemu run of 4.11 Mac saw 16 to
     19 s between them, on an emulated PowerPC that runs far slower than a
     real Mac; 4.04r2's period is taken until a real Mac is timed. }
   ShowImgEveryMs = 5145;
 
 function PLOName(Id: Integer): string;
-{ True for the 99 server ids 4.20r6's receive switch has a case for. }
+{ True for the 99 server ids 4.11 Mac's receive switch has a case for. }
 function PLOKnown(Id: Integer): Boolean;
 
 implementation

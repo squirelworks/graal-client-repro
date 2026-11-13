@@ -93,7 +93,7 @@ that has it:
 | 3.04 | `3.04` | `3.04/` (the Linux install, `graal-decompile/torque/lin304`) |
 | 4.04r2 (PR #35) | `4.04r2` | `4.04r2/` |
 | 4.20r8 (PR #38) | `4.20r8` | `4.20r8/` |
-| 4.20r6 (PR #40) | `4.20r6;4.20r8` | `4.20r6/` (none shipped), then `4.20r8/`: its install's files are 4.20r8's byte for byte |
+| 4.11 Mac (PR #40, first named 4.20r6) | `4.11mac;4.20r8` | `4.11mac/` (none shipped), then `4.20r8/`: the 4.11 Mac install is not yet compared with it |
 | 5.00r7 | `5.00r7` | `5.00r7/` |
 | 1.1.9 (1999-02-11, `graal-1.1.9-19990211`) | `1.1.9;b15;b11` | `1.1.9/`, then `b15/`, `b11/` |
 | 1.1 (1999-02-14, `graal-1.1-19990214`) | `1.1;1.1.9;b15;b11` | `1.1/`, then `1.1.9/`, `b15/`, `b11/` |
@@ -228,7 +228,7 @@ with `--fallback b12=b11 --fallback b13=b11 --fallback b14=b11
   and the tutorial at the top and in `levels/`, so with only the zip it
   draws the built-in tiles and does not find Training; it needs the
   build to search 3.04's own folders.
-- 4.04r2, 4.20r8 and 4.20r6 keep their tiles in `levels/tiles/` and the
+- 4.04r2, 4.20r8 and 4.11 Mac keep their tiles in `levels/tiles/` and the
   tutorial in `levels/tutorial/`, as 3.04 does, and ship no `arrays.dat`
   or `sprites.png`. The 4.x builds read `levels/tiles/`,
   `levels/tutorial/` and `levels/tiledefs/` (PRs #35, #38, #40).
@@ -286,7 +286,7 @@ would save.
 | 3.04 (Linux) | Torque install (`graal-decompile/torque/lin304`, from Drive "Graal v3.04[Linux][Obsolete].sh"): `levels/` with `tiles/`, `tutorial/`, `images/`; `sounds/`, `maps/`, `license/`; Torque scripts in `common/`, `graaldata/` (cut) | 414 | 5600 | 110 same as 2.22 | **yes** (`3.04/`) |
 | 4.04r2 | thin Windows install, dumped from its Thinstall package (`graal-decompile/unpacked-installers/4.04r2/files`): `levels/` (`tiles/`, `tutorial/`, `ganis/`, `images/`, heads, bodies), `levels3d/` GUI, `languages3D/`, `license/`, `sounds/` | 131 | | | **yes** (`4.04r2/`, 68 kept) |
 | 4.20r8 | Linux installer 4.208 (Drive "Graal v4.20r8[Linux][Installer].bin", autopackage; laid out by its install script). The Windows "Unpacked" 7z on Drive is password-protected | 130 | | | **yes** (`4.20r8/`, 69 kept) |
-| 4.20r6 | Linux installer 4.206 (Drive "Graal v4.20r6[Linux][Installer][2007-01-10].bin"); the rebuild is of the Mac 4.20r6, whose dmg is not unpacked. Same files as 4.20r8 byte for byte except `license/sig.graal` | 130 | | | **yes** (reads `4.20r8/`) |
+| 4.11 Mac | none compared yet (Batch-1 `Graal-4.11-macppc-Graal4.dmg.bz2` holds it). The 4.20r6 Linux installer 4.206 (Drive "Graal v4.20r6[Linux][Installer][2007-01-10].bin") has the same files as 4.20r8 byte for byte except `license/sig.graal`; that was the reason for the fallback when this folder was named 4.20r6 | 130 | | | **yes** (reads `4.20r8/`) |
 | 3.153 (Mac) | install in `graal-decompile/torque/mac3153`; not inventoried until a build lands | | | | no |
 | 5.00r7 | "Graal v5.00r7[Windows][Unpacked][CRC Patch].7z", supplied by Squirrel: a played install with `levels/` (`tiles/`, `tiledefs/`, `ganis/`, `images/`, heads, bodies, swords, shields, hats), `sounds/`, `maps/`, `levels3d/`, `license/`, plus the last player's `pms/`, `profiles/`, `scriptfiles/`, `buddyaccounts.txt`, `game_config.txt` and the `weblevels/`, `webfiles/`, `updatepackages/` caches (all cut) | 2575 | 38 MB | 30 same as 4.20r8 | **yes** (`5.00r7/`, 1962 kept) |
 | 5.12 to 6.03r7 | unpacked Windows clients in `graal-decompile/unpacked-installers/` | | | | no |
