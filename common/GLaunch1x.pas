@@ -304,6 +304,9 @@ begin
         if Value = '' then Continue;
         if Key = 'serveraddr' then
         begin
+          { the real client writes the address in quotes: serveraddr="host" }
+          if (Length(Value) >= 2) and (Value[1] = '"') and (Value[Length(Value)] = '"') then
+            Value := Copy(Value, 2, Length(Value) - 2);
           C := Pos(':', Value);
           if C > 0 then
           begin
