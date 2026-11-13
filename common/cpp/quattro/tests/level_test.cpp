@@ -157,6 +157,11 @@ void test_world_passes() {
   w.player.y = 60;
   f = Draw::follow(w, 640, 480);
   CHECK(f.left == 64 - 40 && f.top == 64 - 30);
+  // Wider than the level (1280 = 80 tiles): the player stays centred.
+  w.player.x = 30;
+  w.player.y = 30;
+  f = Draw::follow(w, 1280, 1024);
+  CHECK(f.left == 31.5 - 40 && f.top == 0);  // 1024 high fits: clamped
 }
 
 }  // namespace
@@ -261,9 +266,9 @@ void test_body_colours() {
   CHECK(px(5).r == 255 && px(5).g == 173);           // skin
   CHECK(px(6).b == 255 && px(6).r == 0);             // coat
   CHECK(px(4).r == 255 && px(4).g == 0);             // sleeves
-  CHECK(px(3).b == 8);                               // shoes
+  CHECK(px(3).b == 0 && px(3).a == 255);             // shoes: black
   CHECK(px(1).g == 255 && px(1).r == 0);             // belt
-  CHECK(px(0).b == 8 && px(0).r == 0);               // outline: colour 18
+  CHECK(px(0).b == 0 && px(0).r == 0 && px(0).a == 255);  // outline: colour 18
   CHECK(px(2).a == 0);                               // clear
   // Cached per colour set; a different set is a different image.
   CHECK(assets.body("body.png", colors) == b);

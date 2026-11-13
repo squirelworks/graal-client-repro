@@ -17,7 +17,16 @@
 
   Slots the rebuild cannot serve yet (Flash, the microphone, the external
   windows) are still registered, as the original registers all of them;
-  they record the call in Events and do nothing else. }
+  they record the call in Events and do nothing else.
+
+  3D servers (Track C4): a server whose list name starts with `3 ` makes
+  the engine call StartGraal3D. As the original launcher does
+  (Graal_analysis graal3d/torque-engine-4x.md), this unit then loads the 3D
+  library beside the engine library (common/cpp/graal3dengine), calls its
+  loadGraal3DEngine, connects again with the same name, host and port, and
+  from then on calls runGraal3DEngine once per frame before
+  renderGraalCanvas. The load waits for the next Render, outside the
+  engine's own connect call. }
 unit GEngineHost;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
@@ -62,7 +71,13 @@ type
     FLibPath: string;
     FError: string;
     FMissing: TStringList;
+    F3DLib: PtrUInt;
+    F3DWanted: Boolean;
+    FLastName, FLastHost: AnsiString;
+    FLastPort: Integer;
     procedure SetError(const S: string);
+    procedure Start3D;
+    procedure Unload3D;
   public
     { The frame the engine draws into, sized to the window. }
     Screen: TGSurface;
@@ -99,6 +114,11 @@ type
     procedure Shutdown;
     procedure Unload;
     function Loaded: Boolean;
+    { The 3D library is loaded (after a `3 ` server was picked). }
+    function Loaded3D: Boolean;
+    { The 3D library's login step (0 before the mission start, then 2 to 6);
+      0 when it is not loaded. }
+    function Graal3DLoginStep: Integer;
     { The library's slot list. }
     function SlotCount: Integer;
     function SlotName(I: Integer): string;
@@ -112,6 +132,11 @@ type
   start menus),
   libgraalengine.dylib on macOS, libgraalengine.so elsewhere. }
 function EngineLibName: string;
+
+{ The 3D library's file name next to the engine library:
+  Graal3DEngineRepro.dll on Windows (not the player's Graal3DEngine.dll),
+  libgraal3dengine.dylib on macOS, libgraal3dengine.so elsewhere. }
+function Graal3DLibName: string;
 
 { The number of launcher functions this unit has, and each one's slot name. }
 function HostSlotCount: Integer;
@@ -152,6 +177,19 @@ begin
   Result := 'libgraalengine.dylib';
 {$ELSE}
   Result := 'libgraalengine.so';
+{$ENDIF}
+{$ENDIF}
+end;
+
+function Graal3DLibName: string;
+begin
+{$IFDEF MSWINDOWS}
+  Result := 'Graal3DEngineRepro.dll';
+{$ELSE}
+{$IFDEF DARWIN}
+  Result := 'libgraal3dengine.dylib';
+{$ELSE}
+  Result := 'libgraal3dengine.so';
 {$ENDIF}
 {$ENDIF}
 end;
@@ -1023,6 +1061,8 @@ end;
 procedure cbStart3D; cdecl;
 begin
   Note('StartGraal3D');
+  { Loaded on the next Render, then the same server is connected again. }
+  if Cur <> nil then Cur.F3DWanted := True;
 end;
 
 procedure cbShutdownPrep; cdecl;
@@ -1350,7 +1390,67 @@ end;
 procedure TEngineHost.Render;
 begin
   Cur := Self;
+  if F3DWanted then Start3D;
+  Call0(F3DLib, 'runGraal3DEngine');
   Call0(FLib, 'renderGraalCanvas');
+end;
+
+procedure TEngineHost.Start3D;
+type
+  TLoad3D = function(CmdLine: PAnsiChar): LongInt; cdecl;
+var
+  Path: string;
+  Abi: TIntFn;
+  Load3D: TLoad3D;
+begin
+  F3DWanted := False;
+  if not Loaded then Exit;
+  if F3DLib = 0 then
+  begin
+    Path := ExtractFilePath(FLibPath) + Graal3DLibName;
+    if FileExists(Path) then F3DLib := PtrUInt(LoadLibrary(Path));
+    if F3DLib = 0 then
+    begin
+      { The original launcher has this sentence with its download link. }
+      Note('Graal3D missing ' + Path);
+      Log.Add('You need to download Graal3D for playing this server!');
+      Exit;
+    end;
+    Abi := TIntFn(GetProcedureAddress(TLibHandle(F3DLib), 'graal3dengine_abi'));
+    Load3D := TLoad3D(GetProcedureAddress(TLibHandle(F3DLib), 'loadGraal3DEngine'));
+    if not Assigned(Abi) or (Abi() <> 1) or not Assigned(Load3D) then
+    begin
+      Note('Graal3D refused ' + Path);
+      Unload3D;
+      Exit;
+    end;
+    Load3D('');
+    Note('Graal3D loaded');
+  end;
+  Connect(FLastName, FLastHost, FLastPort);
+end;
+
+procedure TEngineHost.Unload3D;
+begin
+  if F3DLib = 0 then Exit;
+  Call0(F3DLib, 'endGraal3DEngine');
+  UnloadLibrary(TLibHandle(F3DLib));
+  F3DLib := 0;
+end;
+
+function TEngineHost.Loaded3D: Boolean;
+begin
+  Result := F3DLib <> 0;
+end;
+
+function TEngineHost.Graal3DLoginStep: Integer;
+var
+  F: TIntFn;
+begin
+  Result := 0;
+  if F3DLib = 0 then Exit;
+  F := TIntFn(GetProcedureAddress(TLibHandle(F3DLib), 'graal3dengine_loginStep'));
+  if Assigned(F) then Result := F();
 end;
 
 procedure TEngineHost.Key(VK, Ch, Mods: Integer; Down: Boolean);
@@ -1381,6 +1481,9 @@ var
   F: TConnectProc;
 begin
   if not Loaded then Exit;
+  FLastName := Name;
+  FLastHost := Host;
+  FLastPort := Port;
   F := TConnectProc(GetProcedureAddress(TLibHandle(FLib), 'connectToGraalServer'));
   if Assigned(F) then F(PAnsiChar(Name), PAnsiChar(Host), Port);
 end;
@@ -1401,6 +1504,8 @@ begin
   if FLib <> 0 then
   begin
     Shutdown;
+    { The 3D library imports from the engine library: it goes first. }
+    Unload3D;
     UnloadLibrary(TLibHandle(FLib));
     FLib := 0;
   end;

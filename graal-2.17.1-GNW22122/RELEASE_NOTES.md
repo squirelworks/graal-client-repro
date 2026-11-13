@@ -36,6 +36,7 @@ come first.
 - [x] **System weapons stay out of Q.** A weapon whose name starts with `-` (the Reborn server's `-gr_movement`) runs but is not shown in the item list.
 
 - [x] **Its fallback install files.** Every place that sets up the asset search now passes the build's whole version list (`graal-assets/2.17.1/` then `graal-assets/2.22/`). Some passed the bare version, so with only `graal-assets/` next to the program those parts found nothing and drew the built-in stand-in art.
+- [x] **Install file sources recorded.** The README now says that the carried install files are the Graal Reborn 2.22.0 repack's set, since no 2.17.1 install has been found, and why its `headsconfig.txt` is most likely 2.17.1's own.
 - [x] **Pictures by kind.** The picture cache keeps each name once per kind (head, body, sword, shield, hat, weapon), because each kind searches its own folders. A picture first asked for without its kind got the built-in stand-in and kept it, so an install's own picture could stay hidden behind the stand-in (in 1.33, `levels/weapons/wbomb1.gif` beside the D button).
 
 ## What's new in v0.0.4

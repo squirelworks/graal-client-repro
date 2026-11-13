@@ -104,7 +104,13 @@ window shows more of the level and nothing scales: tiles stay 16 pixels,
 the HUD's left part keeps its x from the left edge and the hearts theirs
 from the right. The HUD draws from the player's own `state.png` (and
 `sprites.png` and `swordN.png`); with no `state.png` there is no HUD.
-The Windows 6.x window and frame were not measured.
+The 6.03r7 window title is the server name alone ("Lab Server"), and the
+view centres on the player's middle (x + 1.5, y + 1.5), as the 2026-11-13
+frames lab showed against the real Linux client; the HUD, tiles and
+camera match it pixel for pixel there, at 640 x 480 to 1280 x 1024. The
+view is clamped to the level while it fits; a view wider than the level
+(1280) keeps the player centred with black either side. The Windows 6.x window and frame
+were not measured.
 
 ## Rebuild choices (not the original's)
 
@@ -130,6 +136,9 @@ The Windows 6.x window and frame were not measured.
   with C->S 23, and what comes back (102, or 68 / 102 / 69 for a large file;
   30 when the server has none) is kept in `<assets>/levels/images/downloads/`
   and drawn from at once. Asking for `pics1.png` so is a rebuild choice.
+  Only a file the program asked for is kept, up to 8 MiB; a name with a
+  folder, drive or stream part (`/`, `\`, `:`, `..`), a control character or a
+  Windows device name (`con.png`, `com1.png` ...) is never asked for or saved.
 - Walls come from `arrays.dat` in `--assets` or an asset root (array 0 passable, array 1 liquids). With no `arrays.dat` every tile is passable; where 6.x reads its own table was not seen in the lab. The 0.0625 snap after a step is left out.
 - GUI text uses the built-in Liberation Sans 16 px faces (the same tables as `common/GUiFont.pas`) in place of the player's TrueType faces; GUI bitmaps are read as PNG from `--assets` and its `gui`, `images` and `levels` folders. The playfield follows the player over the whole window and is clipped to the `GuiGraalCtrl`.
 - The initial props send nickname "unknown", as the lab's 6.03r7 did with no nickname set.

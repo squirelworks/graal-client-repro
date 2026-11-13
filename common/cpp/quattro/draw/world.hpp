@@ -58,7 +58,8 @@ struct View {
   double left = 0, top = 0;  // tiles at the canvas's top-left
 };
 
-// Centres the view on the player, clamped to the level.
+// Centres the view on the player, clamped to the level when the view fits
+// in it.
 View follow(const WorldState& w, int canvas_w, int canvas_h);
 
 // Pass names in the order they run, for tests and the profiler.

@@ -63,7 +63,7 @@ void test_program() {
   Shell::Program p(*prof, opt, win);
   CHECK(p.start());
   CHECK(login.conn.accept_from(login.listener));
-  CHECK(win.title() == "Graal 6.03r7 - Login");
+  CHECK(win.title() == "Login");
 
   CHECK(run(p, &login, nullptr, [&] { return login.saw(37, "English"); }));
   login.send(send_level("onlinestartlocal.nw", 7));
@@ -84,7 +84,7 @@ void test_program() {
   acc.join();
   CHECK(warped);
   CHECK(run(p, nullptr, &game, [&] { return game.saw(37, "English"); }));
-  CHECK(win.title() == "Graal 6.03r7 - Lab Server");
+  CHECK(win.title() == "Lab Server");
   game.send(send_level("onlinestartlocal.nw", 7));
   CHECK(run(p, nullptr, &game, [&] { return p.world().have_level; }));
   p.tick();
@@ -189,6 +189,21 @@ void test_downloads() {
 
   // Walls from the extra root's arrays.dat: tile 7 is free, so the player walks.
   CHECK(p.tile_types().loaded && !p.tile_types().blocks(7) && p.tile_types().blocks(5));
+
+  // A file nobody asked for is not kept, nor is one whose name is unsafe
+  // (a Windows device name or a stream) even when a player names it.
+  std::string junk = gchar(102) + Net::gint5(0) + gchar(8) + "evil.png" + std::string(png.begin(), png.end()) + "\n";
+  game.send(gchar(100) + Net::gint3(static_cast<uint32_t>(junk.size())) + "\n" + junk + gchar(68) + "big.png\n" +
+            gchar(8) + Net::gshort(9) + gchar(World::kBodyImg) + Net::gstring("con.png") + gchar(World::kX) +
+            gchar(60) + "\n" + gchar(8) + Net::gshort(10) + gchar(World::kBodyImg) + Net::gstring("a:b.png") + "\n");
+  CHECK(run(p, nullptr, &game, [&] { return p.others().count(10) == 1; }));
+  for (int i = 0; i < 30; ++i) {
+    p.tick();
+    game.pump();
+  }
+  CHECK(!fs::exists(install / "levels/images/downloads/evil.png"));
+  CHECK(p.asked().count("con.png") == 0 && p.asked().count("a:b.png") == 0);
+  CHECK(!game.saw(23, "con.png") && !game.saw(23, "a:b.png"));
 
   // A file the server does not have is not asked for again.
   game.send(gchar(30) + "body7.png\n");

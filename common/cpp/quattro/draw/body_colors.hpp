@@ -18,6 +18,7 @@ namespace Quattro::Draw {
 // The 20 player colours, index 0..19 (white, yellow, orange, pink, red,
 // darkred, lightgreen, green, darkgreen, lightblue, blue, darkblue, brown,
 // cynober, purple, darkpurple, lightgray, gray, black, transparent).
+// Black is (0, 0, 0), as the real 6.03r7 draws it (frames lab).
 Torque::Gui::Color player_colour(int index);
 
 // The PLTE entries of a PNG (with tRNS alpha), or empty when it has none.

@@ -20,7 +20,7 @@ bool read_file(const std::string& path, std::string& out) {
   return true;
 }
 
-std::string lower(std::string s) {
+std::string lower_name(std::string s) {
   for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
   return s;
 }
@@ -29,12 +29,32 @@ std::string lower(std::string s) {
 std::string find_below(const std::string& root, const std::string& name) {
   namespace fs = std::filesystem;
   std::error_code ec;
-  const std::string want = lower(name);
+  const std::string want = lower_name(name);
   for (fs::recursive_directory_iterator it(root, fs::directory_options::skip_permission_denied | fs::directory_options::follow_directory_symlink, ec), end;
        !ec && it != end; it.increment(ec)) {
-    if (it->is_regular_file(ec) && lower(it->path().filename().string()) == want) return it->path().string();
+    if (it->is_regular_file(ec) && lower_name(it->path().filename().string()) == want) return it->path().string();
   }
   return {};
+}
+
+// A file name the program may ask for and save in the downloads folder:
+// a plain name of at most 128 characters, with no folder, drive or stream
+// part (no '/', '\\', ':', ".."), no control characters, and not a Windows
+// device name (con, nul, com1 ... with any extension).
+bool safe_file_name(const std::string& name) {
+  if (name.empty() || name.size() > 128 || name.find("..") != std::string::npos) return false;
+  for (unsigned char c : name)
+    if (c < 32 || c == '/' || c == '\\' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' ||
+        c == '>' || c == '|')
+      return false;
+  std::string base = lower_name(name.substr(0, name.find('.')));
+  while (!base.empty() && base.back() == ' ') base.pop_back();
+  for (const char* dev : {"con", "prn", "aux", "nul"})
+    if (base == dev) return false;
+  if (base.size() == 4 && (base.compare(0, 3, "com") == 0 || base.compare(0, 3, "lpt") == 0) && base[3] >= '0' &&
+      base[3] <= '9')
+    return false;
+  return true;
 }
 
 // The build's label without the platform ("6.03r7").
@@ -133,10 +153,8 @@ bool Program::load_tile_sheet() {
 }
 
 void Program::want_file(const std::string& name) {
-  if (name.empty() || name.find_first_of("/\\") != std::string::npos || name.find("..") != std::string::npos) return;
-  std::string key = name;
-  for (char& c : key) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-  if (!asked_.insert(key).second) return;
+  if (!safe_file_name(name)) return;
+  if (!asked_.insert(lower_name(name)).second) return;
   session_.connection().send(23, name);  // PLI_WANTFILE
   if (log) log("asking for " + name);
 }
@@ -156,9 +174,18 @@ void Program::ask_for_missing() {
   for (const auto& [pid, o] : others_) images(o);
 }
 
+bool Program::wanted(const std::string& name) const {
+  return opt_.download_files && safe_file_name(name) && asked_.count(lower_name(name)) != 0;
+}
+
 void Program::save_download(const std::string& name, const std::string& data) {
-  if (name.empty() || name.find_first_of("/\\") != std::string::npos || name.find("..") != std::string::npos) return;
-  if (opt_.assets.empty()) return;
+  // Only a file this program asked for is kept; anything else the server
+  // sends is dropped.
+  if (!wanted(name) || opt_.assets.empty()) return;
+  if (data.size() > kMaxDownload) {
+    if (log) log(name + " is too large to keep");
+    return;
+  }
   std::string dir = opt_.assets + "/levels/images/downloads";
   std::error_code ec;
   std::filesystem::create_directories(dir, ec);
@@ -170,9 +197,7 @@ void Program::save_download(const std::string& name, const std::string& data) {
   out.write(data.data(), static_cast<std::streamsize>(data.size()));
   out.close();
   assets_->forget(name);
-  std::string key = name;
-  for (char& c : key) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-  if (key == "pics1.png") load_tile_sheet();
+  if (lower_name(name) == "pics1.png") load_tile_sheet();
   if (log) log("got " + name + " (" + std::to_string(data.size()) + " bytes)");
 }
 
@@ -199,7 +224,7 @@ Draw::Actor Program::actor_for(int id, const World::Player& p) {
   a.chat = p.chat;
   a.gani = p.gani.empty() ? "idle" : p.gani;
   // replaceani from an offline level's script (idle -> human2_idle in 4.x).
-  if (auto r = replace_ani_.find(lower(a.gani)); r != replace_ani_.end()) a.gani = r->second;
+  if (auto r = replace_ani_.find(lower_name(a.gani)); r != replace_ani_.end()) a.gani = r->second;
   a.dir = p.dir;
   a.head = p.head;
   a.body = p.body;
@@ -220,10 +245,13 @@ void Program::say(const std::string& text) {
 }
 
 std::string Program::window_title() const {
-  // "Graal 6.03r7 - Lab Server", as the lab saw after the warp.
+  // The real 6.03r7 Linux client shows the server name alone (frames lab,
+  // 2026-11-13). Other rows: "Graal 5.12 - Lab Server", the rebuild's form.
   // Offline, the server name is "Offline" (the 2.x clients read
   // tiledefsOffline.txt for it: Graal_analysis client-internals/offline-tutorial-205.md).
-  return "Graal " + short_label(profile_.label) + " - " + (offline_ ? std::string("Offline") : session_.server_name());
+  const std::string server = offline_ ? std::string("Offline") : session_.server_name();
+  if (profile_.title_is_server) return server;
+  return "Graal " + short_label(profile_.label) + " - " + server;
 }
 
 bool Program::load_offline_level(const std::string& name) {
@@ -264,7 +292,7 @@ namespace {
 // The arguments of each `command ` in a script, to ';', a line end or '}'.
 std::vector<std::vector<std::string>> calls_of(const std::string& script, const std::string& command) {
   std::vector<std::vector<std::string>> out;
-  const std::string low = lower(script), key = command + " ";
+  const std::string low = lower_name(script), key = command + " ";
   for (size_t p = low.find(key); p != std::string::npos; p = low.find(key, p + key.size())) {
     if (p > 0 && (std::isalnum(static_cast<unsigned char>(low[p - 1])) || low[p - 1] == '_')) continue;
     size_t e = p + key.size();
@@ -295,12 +323,12 @@ void Program::read_level_script() {
   for (const auto& npc : world_.level.npcs) {
     for (const auto& a : calls_of(npc.script, "addtiledef")) {
       if (a.size() < 2 || a[0].empty() || a[0].find("..") != std::string::npos) continue;
-      std::pair<std::string, std::string> def{lower(a[1]), a[0]};
+      std::pair<std::string, std::string> def{lower_name(a[1]), a[0]};
       tiledefs_.erase(std::remove(tiledefs_.begin(), tiledefs_.end(), def), tiledefs_.end());
       tiledefs_.insert(tiledefs_.begin(), def);
     }
     for (const auto& a : calls_of(npc.script, "replaceani"))
-      if (a.size() >= 2 && !a[0].empty()) replace_ani_[lower(a[0])] = a[1];
+      if (a.size() >= 2 && !a[0].empty()) replace_ani_[lower_name(a[0])] = a[1];
     for (const auto& a : calls_of(npc.script, "setplayerprop")) {
       if (a.size() < 2 || a[0].size() < 2 || a[0][0] != '#') continue;
       const std::string code = a[0].substr(1);
@@ -321,7 +349,7 @@ void Program::read_level_script() {
 void Program::pick_tile_sheet() {
   // An addtiledef image for every level whose name starts with its prefix.
   std::string image;
-  const std::string name = lower(level_name_);
+  const std::string name = lower_name(level_name_);
   for (const auto& [prefix, img] : tiledefs_)
     if (name.compare(0, prefix.size(), prefix) == 0) {
       image = img;
@@ -357,7 +385,7 @@ bool Program::start_offline(const std::string& file, double x, double y, const s
   me_.x = x;
   me_.y = y;
   window_.set_title(window_title());
-  const bool is_gmap = lower(file).size() > 5 && lower(file).compare(file.size() - 5, 5, ".gmap") == 0;
+  const bool is_gmap = lower_name(file).size() > 5 && lower_name(file).compare(file.size() - 5, 5, ".gmap") == 0;
   walker_.clamp = true;
   if (!is_gmap) return load_offline_level(file);
   std::string data, path, err;
@@ -543,12 +571,20 @@ void Program::on_message(int id, std::string_view body) {
       std::string rest = r.rest();
       if (!r.ok() || rest.size() < n) break;
       std::string name = rest.substr(0, n), data = rest.substr(n);
-      if (auto it = large_.find(name); it != large_.end()) it->second += data;
-      else save_download(name, data);
+      if (auto it = large_.find(name); it != large_.end()) {
+        if (it->second.size() + data.size() > kMaxDownload) {
+          if (log) log(name + " is too large to keep");
+          large_.erase(it);
+        } else {
+          it->second += data;
+        }
+      } else {
+        save_download(name, data);
+      }
       break;
     }
     case 68:  // PLO_LARGEFILESTART: name; 102 chunks follow until 69
-      large_[std::string(body)].clear();
+      if (wanted(std::string(body))) large_[std::string(body)].clear();
       break;
     case 69:  // PLO_LARGEFILEEND: name
       if (auto it = large_.find(std::string(body)); it != large_.end()) {

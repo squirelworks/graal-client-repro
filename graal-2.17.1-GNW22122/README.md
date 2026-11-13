@@ -129,6 +129,23 @@ the original files (2.22's `levels/`), and checked against the frames the
 - [ ] The link test point was measured on 2.05, not on 2.17.1.
 - [ ] Everything listed under "Not yet" for 2.05.
 
+## Where the carried install files come from
+
+No 2.17.1 install has been found. `Graal_2171.exe` survives only inside the
+Graal Reborn 2.22.0 repack, next to the 2.22 and 2.31 exes, and the 633 files
+in `src/res/install-manifest.txt` are that folder's files byte for byte
+(several are from 2009 to 2012, after 2.17.1). So they are a stand-in set from
+the 2.22 repack, not 2.17.1's own install.
+
+`headsconfig.txt` (1302 bytes, CRC 686A4DC5) is the one file the exe opens by
+name that a reader would expect to differ by version. It is the same file
+that the 2.3 install ships, and both copies are dated 26 November 2001,
+before 2.17.1 (December 2002). The 2.05 rev 2 and 1.x installs carry an
+older 1670-byte list. So 2.17.1 most likely shipped this same file, but that
+is an inference until a 2.17.1 install turns up. (Checked 2026-11-13 against
+every headsconfig.txt on the owner's lab machine: seven distinct files, none
+from a 2.17.1 install.)
+
 ## Build and run
 
 As for 2.05: `scripts/build.sh graal-2.17.1-GNW22122`, `scripts/test.sh`,
