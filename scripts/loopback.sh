@@ -14,6 +14,11 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 GS=$1
 B=${2:-graal-2.05r2-GNW03081}
 . "$ROOT/scripts/client-bin.sh"
+# Point a copied server config at $PORT. Not `sed -i`: BSD sed (macOS)
+# reads the next word as a backup suffix.
+set_port() {
+  sed "s/14802/$PORT/" "$1" > "$1.tmp" && mv "$1.tmp" "$1"
+}
 # the 1998 builds (gen 1) talk to a relay, not to a gserver
 if grep -qs "ClientGeneration = 1;" "$ROOT/$B"/src/Protocol*.pas; then
   exec "$ROOT/scripts/loopback-relay.sh" "$B"
@@ -153,11 +158,11 @@ if grep -qs "ConnectorOnly = True;" "$ROOT/$B"/src/*.pas; then
   GSDIR=$(cd "$(dirname "$GS")/../.." && pwd)
   WORK=$(mktemp -d)
   CPID=""
-  trap 'kill $PID 2>/dev/null || true; if [ -n "$CPID" ]; then kill "$CPID" 2>/dev/null || true; fi; rm -rf "$WORK"' EXIT
+  trap 'if [ -n "${PID:-}" ]; then kill "$PID" 2>/dev/null || true; fi; if [ -n "$CPID" ]; then kill "$CPID" 2>/dev/null || true; fi; rm -rf "$WORK"' EXIT
   PORT=${LOOPBACK_PORT:-14862}
   CPORT=$((PORT + 1))
   cp -r "$GSDIR/world" "$WORK/world"
-  sed -i "s/14802/$PORT/" "$WORK/world/config/server.txt"
+  set_port "$WORK/world/config/server.txt"
   "$GS" --world "$WORK/world" --verbose > "$WORK/gserver.log" 2>&1 &
   PID=$!
   CLIENT=$(client_bin)
@@ -198,10 +203,10 @@ fi
 if grep -qs "ClearHelloStop = True;" "$ROOT/$B"/src/*.pas; then
   GSDIR=$(cd "$(dirname "$GS")/../.." && pwd)
   WORK=$(mktemp -d)
-  trap 'kill $PID 2>/dev/null || true; rm -rf "$WORK"' EXIT
+  trap 'if [ -n "${PID:-}" ]; then kill "$PID" 2>/dev/null || true; fi; rm -rf "$WORK"' EXIT
   PORT=${LOOPBACK_PORT:-14862}
   cp -r "$GSDIR/world" "$WORK/world"
-  sed -i "s/14802/$PORT/" "$WORK/world/config/server.txt"
+  set_port "$WORK/world/config/server.txt"
   printf '\n%s\n' "${B##*-}" >> "$WORK/world/config/allowedversions.txt"
   "$GS" --world "$WORK/world" --verbose > "$WORK/gserver.log" 2>&1 &
   PID=$!
@@ -237,11 +242,11 @@ if grep -qs "ClearHelloStop = True;" "$ROOT/$B"/src/*.pas; then
 fi
 GSDIR=$(cd "$(dirname "$GS")/../.." && pwd)
 WORK=$(mktemp -d)
-trap 'kill $PID 2>/dev/null || true; rm -rf "$WORK"' EXIT
+trap 'if [ -n "${PID:-}" ]; then kill "$PID" 2>/dev/null || true; fi; rm -rf "$WORK"' EXIT
 PORT=${LOOPBACK_PORT:-14862}
 cp -r "$GSDIR/world" "$WORK/world"
 # a port of its own, so a gserver left running on 14802 does not answer
-sed -i "s/14802/$PORT/" "$WORK/world/config/server.txt"
+set_port "$WORK/world/config/server.txt"
 # the build's own token too (the folder name ends with it), for builds
 # seihai-core has no profile for
 printf '\n%s\n' "${B##*-}" >> "$WORK/world/config/allowedversions.txt"

@@ -42,7 +42,7 @@ program Graal230;
 { A windowed program on Windows, like 2.05: started with no arguments it
   opens the start screen. With arguments it attaches to the console it was
   started from (OpenConsoleIO) and runs as before. }
-{$IFDEF MSWINDOWS}{$IFDEF FPC}{$APPTYPE GUI}{$ELSE}{$APPTYPE CONSOLE}{$ENDIF}{$ENDIF}
+{$IFDEF MSWINDOWS}{$APPTYPE GUI}{$ENDIF}
 { Windows: version info and manifest (src/Graal230.rc), and the DEP and ASLR
   flags ($0100 NX_COMPAT, $0040 DYNAMIC_BASE; the relocations come from -WR
   in the Windows build flags). }
@@ -50,46 +50,46 @@ program Graal230;
 
 uses
   SysUtils, Classes,
-  GClamp in '../../common/GClamp.pas',
-  GCompat in '../../common/GCompat.pas',
-  GPaths in '../../common/GPaths.pas',
-  GSplit in '../../common/GSplit.pas',
-  GNumText in '../../common/GNumText.pas',
-  GTypes in '../../common/GTypes.pas',
-  GZlib in '../../common/GZlib.pas',
-  GSocket in '../../common/GSocket.pas',
-  GSecCrypto in '../../common/GSecCrypto.pas',
-  GSecLogin in '../../common/GSecLogin.pas',
-  GLevel in '../../common/GLevel.pas',
-  GSurface in '../../common/GSurface.pas',
-  GArrays in '../../common/GArrays.pas',
-  GBzip2 in '../../common/GBzip2.pas',
-  GBuiltin in '../../common/GBuiltin.pas',
-  GAssetDirs in '../../common/GAssetDirs.pas',
-  GAni in '../../common/GAni.pas',
-  GFont in '../../common/GFont.pas',
-  GWindow in '../../common/GWindow.pas',
+  GClamp in '..\..\common\GClamp.pas',
+  GCompat in '..\..\common\GCompat.pas',
+  GPaths in '..\..\common\GPaths.pas',
+  GSplit in '..\..\common\GSplit.pas',
+  GNumText in '..\..\common\GNumText.pas',
+  GTypes in '..\..\common\GTypes.pas',
+  GZlib in '..\..\common\GZlib.pas',
+  GSocket in '..\..\common\GSocket.pas',
+  GSecCrypto in '..\..\common\GSecCrypto.pas',
+  GSecLogin in '..\..\common\GSecLogin.pas',
+  GLevel in '..\..\common\GLevel.pas',
+  GSurface in '..\..\common\GSurface.pas',
+  GArrays in '..\..\common\GArrays.pas',
+  GBzip2 in '..\..\common\GBzip2.pas',
+  GBuiltin in '..\..\common\GBuiltin.pas',
+  GAssetDirs in '..\..\common\GAssetDirs.pas',
+  GAni in '..\..\common\GAni.pas',
+  GFont in '..\..\common\GFont.pas',
+  GWindow in '..\..\common\GWindow.pas',
   Protocol230 in 'Protocol230.pas',
   GraalClient in 'GraalClient.pas',
-  GGs1 in 'GGs1.pas',
+  GGs1 in '..\..\common\GGs1.pas',
   Npc230 in 'Npc230.pas',
   Baddy230 in 'Baddy230.pas',
   NpcBridge230 in 'NpcBridge230.pas',
   Adventure in 'Adventure.pas',
-  GSound in '../../common/GSound.pas',
+  GSound in '..\..\common\GSound.pas',
   Sound230 in 'Sound230.pas',
   Map230 in 'Map230.pas',
-  GStartScreen in '../../common/GStartScreen.pas',
+  GStartScreen in '..\..\common\GStartScreen.pas',
   ListServer230 in 'ListServer230.pas',
   StartScreen230 in 'StartScreen230.pas',
-  GDfmObj in '../../common/GDfmObj.pas',
-  GVclForm in '../../common/GVclForm.pas',
-  GOptionsWindow in '../../common/GOptionsWindow.pas',
+  GDfmObj in '..\..\common\GDfmObj.pas',
+  GVclForm in '..\..\common\GVclForm.pas',
+  GOptionsWindow in '..\..\common\GOptionsWindow.pas',
   Res230 in 'Res230.pas',
   Dialogs230 in 'Dialogs230.pas',
-  GTrueType in '../../common/GTrueType.pas',
-  GUiFont in '../../common/GUiFont.pas',
-  GSysUiFont in '../../common/GSysUiFont.pas',
+  GTrueType in '..\..\common\GTrueType.pas',
+  GUiFont in '..\..\common\GUiFont.pas',
+  GSysUiFont in '..\..\common\GSysUiFont.pas',
   RealStart230 in 'RealStart230.pas',
   RunMode in 'RunMode.pas';
 
@@ -412,7 +412,7 @@ begin
         Port := 14802;
       end;
       if GuiWin <> nil then Pw := GuiPw
-      else Pw := SysUtils.GetEnvironmentVariable(Arg('--password-env', 'GRAAL_PW'));
+      else Pw := EnvVar(Arg('--password-env', 'GRAAL_PW'));
       { Seihai secure login (not in the original; off unless asked for) }
       if HasArg('--secure-login') or HasArg('--server-key') then
       begin

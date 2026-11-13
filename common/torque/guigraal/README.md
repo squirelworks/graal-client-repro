@@ -173,6 +173,10 @@ Rebuild policy, not read from the original:
   console's lines and input line (`../gui/render.cpp`), and the list step
   moving on to the `license.graal` hosts when the first listserver stays
   silent (`tests/online.sh` with `LIST_FALLBACK=1`).
+- [x] The re-check with #308: pop-up menus open on a click and pick a row
+  (`../gui/mouse.cpp`, drawn over everything by `../gui/render.cpp`); ML
+  text reads `<just:...>`, `<color:...>` and `<br>` and drops other tags
+  instead of drawing them; `forceReflow`; tabs in console lines.
 - [ ] An app icon: no original icon to take it from yet (the Windows exe
   has the default icon for the same reason). The app is not signed beyond
   the linker's ad-hoc signature, so macOS asks once before opening it.

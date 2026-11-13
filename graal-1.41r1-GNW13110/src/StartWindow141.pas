@@ -24,7 +24,7 @@ unit StartWindow141;
 interface
 
 uses
-  Classes, GSurface, GWindow;
+  Classes, GSurface, GWindow, GCompat;
 
 type
   { scTraining is One Player: a level next to the program, offline }

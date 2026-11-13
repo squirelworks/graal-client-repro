@@ -25,7 +25,7 @@ unit Adventure;
 interface
 
 uses
-  Classes, GLevel, GSurface, GBetaHud, GBetaPlayer, GArrays, GAni, GBuiltin, GAssetDirs, GRelay, ProtocolB11;
+  Classes, GLevel, GSurface, GBetaHud, GBetaPlayer, GArrays, GAni, GBuiltin, GAssetDirs, GRelay, ProtocolB11, GCompat;
 
 const
   ScreenW = 640;

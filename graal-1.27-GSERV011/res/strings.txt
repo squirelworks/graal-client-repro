@@ -1,0 +1,230 @@
+65296	Stream has already been opened
+65297	TabControl Zugriffsfehler
+65298	Ungültiger Besitzer
+65299	Fehler bei Einfügen von RichEdit-Zeile
+65300	Das Laden des Streams ist mißlungen
+65301	Das Speichern des Streams ist mißlungen
+65312	%s not made
+65313	Stream not opend
+65314	%s cannot be made
+65315	%s cannot be initialized
+65316	%s cannot be locked
+65317	%s not loaded
+65318	Form not found
+65319	Necessary since DirectX5
+65320	3D device not found
+65321	Display mode cannot be changed (%dx%d %dbit)
+65322	DIB is invalid
+65323	Bitcount in invalid (%d)
+65324	PixelFormat in invalid
+65325	Wave is invalid
+65326	It should be either of 8 or 16 or 24 or 32
+65327	Format is invalid
+65328	Clipboard does not support Icons
+65329	Text exceeds memo capacity
+65330	Bits index out of range
+65331	Invalid data type for '%s'
+65332	Failed to get data for '%s'
+65333	Menu '%s' is already being used by another form
+65334	No MCI device open
+65335	Unknown error code
+65336	DirectDraw
+65337	Direct3D RetainedMode
+65338	DirectSound
+65339	Clipper
+65340	Surface
+65341	Primary Surface
+65342	Sound Buffer
+65343	Primary Buffer
+65344	Space
+65345	PgUp
+65346	PgDn
+65347	End
+65348	Home
+65349	Left
+65350	Up
+65351	Right
+65352	Down
+65353	Ins
+65354	Del
+65355	Shift+
+65356	Ctrl+
+65357	Alt+
+65358	(Unknown)
+65359	Unable to insert a line
+65360	Confirm
+65361	&Yes
+65362	&No
+65363	OK
+65364	Cancel
+65365	&Help
+65366	&Abort
+65367	&Retry
+65368	&Ignore
+65369	&All
+65370	N&o to All
+65371	Yes to &All
+65372	BkSp
+65373	Tab
+65374	Esc
+65375	Enter
+65376	&Retry
+65377	Abort
+65378	&All
+65379	Cannot drag a form
+65380	An error returned from DDE  ($0%x)
+65381	DDE Error - conversation not established ($0%x)
+65382	Error occurred when DDE ran out of memory ($0%x)
+65383	Unable to connect DDE conversation
+65384	Metafiles
+65385	Enhanced Metafiles
+65386	Icons
+65387	Bitmaps
+65388	Invalid property value
+65389	Warning
+65390	Error
+65391	Information
+65392	%s property out of range
+65393	Menu index out of range
+65394	Menu inserted twice
+65395	Sub-menu is not in menu
+65396	Not enough timers available
+65397	GroupIndex cannot be less than a previous menu item's GroupIndex
+65398	Cannot create form. No MDI forms are currently active
+65399	Can only modify an image if it contains a bitmap
+65400	A control cannot have itself as its parent
+65401	OK
+65402	Cancel
+65403	&Yes
+65404	&No
+65405	&Help
+65406	&Close
+65407	&Ignore
+65408	Out of system resources
+65409	Canvas does not allow drawing
+65410	Invalid image size
+65411	Invalid ImageList
+65412	Unable to Replace Image
+65413	Invalid ImageList Index
+65414	Failed to read ImageList data from stream
+65415	Failed to write ImageList data to stream
+65416	Error creating window device context
+65417	Error creating window class
+65418	Cannot focus a disabled or invisible window
+65419	Control '%s' has no parent window
+65420	Cannot hide an MDI Child Form
+65421	Cannot change Visible in OnShow or OnHide
+65422	Cannot make a visible window modal
+65423	Scrollbar property out of range
+65424	Operation not allowed on sorted string list
+65425	String list does not allow duplicates
+65426	A component named %s already exists
+65427	''%s'' is not a valid component name
+65428	A class named %s already exists
+65429	Invalid property value
+65430	Invalid property path
+65431	Property does not exist
+65432	Property is read-only
+65433	Error reading %s%s%s: %s
+65434	Ancestor for '%s' not found
+65435	Bitmap image is not valid
+65436	Icon image is not valid
+65437	Metafile is not valid
+65438	Cannot change the size of an icon
+65439	Unsupported clipboard format
+65440	Donnerstag
+65441	Freitag
+65442	Samstag
+65443	Cannot assign a %s to a %s
+65444	Cannot create file %s
+65445	Cannot open file %s
+65446	Stream read error
+65447	Stream write error
+65448	Out of memory while expanding memory stream
+65449	Can't write to a read-only resource stream
+65450	Class %s not found
+65451	Invalid stream format
+65452	Resource %s not found
+65453	List index out of bounds (%d)
+65454	List capacity out of bounds (%d)
+65455	List count out of bounds (%d)
+65456	August
+65457	September
+65458	Oktober
+65459	November
+65460	Dezember
+65461	So
+65462	Mo
+65463	Di
+65464	Mi
+65465	Do
+65466	Fr
+65467	Sa
+65468	Sonntag
+65469	Montag
+65470	Dienstag
+65471	Mittwoch
+65472	Apr
+65473	Mai
+65474	Jun
+65475	Jul
+65476	Aug
+65477	Sep
+65478	Okt
+65479	Nov
+65480	Dez
+65481	Januar
+65482	Februar
+65483	März
+65484	April
+65485	Mai
+65486	Juni
+65487	Juli
+65488	Schreiben
+65489	Format-Ergebnis länger als 4096 Zeichen
+65490	Fehler beim Erzeugen von Varianten-Array
+65491	Variante ist kein Array
+65492	Varianten-Array-Index außerhalb des zulässigen Bereichs
+65493	Externe Exception %x
+65494	Bedingungsfehler
+65495	Interface wird nicht unterstützt
+65496	%s (%s, Zeile %d)
+65497	Abstrakter Fehler
+65498	Zugriffsverletzung bei Adresse %p in Modul '%s'  %s von Adresse %p
+65499	Fehler von Win32. Code: %d.\n%s
+65500	Eine Win32 API-Funktion ist fehlgeschlagen
+65501	Jan
+65502	Feb
+65503	Mär
+65504	Überlauf bei Fließkommaoperation
+65505	Unterlauf bei Fließkommaoperation
+65506	Ungültige Zeigeroperation
+65507	Ungültige Typumwandlung
+65508	Zugriffsverletzung bei Adresse %p. %s von Adresse %p
+65509	Stack-Überlauf
+65510	Strg-C gedrückt
+65511	Priviligierte Instruktion
+65512	Exception %s im Modul %s bei %p.\n%s%s
+65513	Anwendungsfehler
+65514	Format '%s' ungültig oder inkompatibel mit Argument
+65515	Kein Argument für Format '%s'
+65516	Typkonvertierung von Variant ungültig
+65517	Ungültige Variantenoperation
+65518	Varianten-Methodenaufrufe werden nicht unterstützt
+65519	Lesen
+65520	'%s' ist kein gültiger Integerwert
+65521	'%s' ist kein gültiger Fließkommawert
+65522	Speicher reicht nicht aus
+65523	I/O-Fehler %d
+65524	Datei nicht gefunden
+65525	Ungültiger Dateiname
+65526	Zu viele Dateien geöffnet
+65527	Dateizugriff verweigert
+65528	Lesen nach Dateiende (EOF)
+65529	Kapazität der Diskette/Festplatte erschöpft
+65530	Ungültige numerische Eingabe
+65531	Division durch Null
+65532	Bereichsüberschreitung
+65533	Integer-Überlauf
+65534	Fehler bei Fließkommaoperation
+65535	Fließkommadivision durch Null

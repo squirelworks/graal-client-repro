@@ -164,7 +164,7 @@ type
 implementation
 
 uses
-  SysUtils, GSecCrypto;
+  SysUtils, GCompat, GPaths, GSecCrypto;
 
 const
   SigContext = 'seihai-login-v1/server-hello'#0;
@@ -326,32 +326,32 @@ end;
 function PinDir: string;
 begin
   Result := PinDirOverride;
-  if Result = '' then Result := GetEnvironmentVariable('GRAAL_SECURE_DIR');
+  if Result = '' then Result := EnvVar('GRAAL_SECURE_DIR');
   if Result <> '' then Exit;
 {$IFDEF MSWINDOWS}
-  Result := GetEnvironmentVariable('APPDATA');
+  Result := EnvVar('APPDATA');
   if Result = '' then Result := ExtractFilePath(ParamStr(0));
-  Result := IncludeTrailingPathDelimiter(Result) + 'graal-delphi';
+  Result := WithTrailingSep(Result) + 'graal-delphi';
 {$ELSE}
-  Result := GetEnvironmentVariable('XDG_CONFIG_HOME');
+  Result := EnvVar('XDG_CONFIG_HOME');
   if Result = '' then
   begin
-    Result := GetEnvironmentVariable('HOME');
+    Result := EnvVar('HOME');
     if Result = '' then Result := ExtractFilePath(ParamStr(0))
-    else Result := IncludeTrailingPathDelimiter(Result) + '.config';
+    else Result := WithTrailingSep(Result) + '.config';
   end;
-  Result := IncludeTrailingPathDelimiter(Result) + 'graal-delphi';
+  Result := WithTrailingSep(Result) + 'graal-delphi';
 {$ENDIF}
 end;
 
 function PinFile: string;
 begin
-  Result := IncludeTrailingPathDelimiter(PinDir) + 'known_servers.txt';
+  Result := WithTrailingSep(PinDir) + 'known_servers.txt';
 end;
 
 function RefusedFile: string;
 begin
-  Result := IncludeTrailingPathDelimiter(PinDir) + 'refused_servers.txt';
+  Result := WithTrailingSep(PinDir) + 'refused_servers.txt';
 end;
 
 { the file's lines, or none if it cannot be read }
@@ -385,7 +385,7 @@ procedure AppendLine(const Path, Line: string);
 var
   F: TextFile;
 begin
-  ForceDirectories(ExtractFileDir(Path));
+  MakeDirs(ExtractFileDir(Path));
   AssignFile(F, Path);
   {$I-}
   if FileExists(Path) then Append(F) else Rewrite(F);
@@ -479,10 +479,10 @@ var
 begin
   Result := smOff;
   if ModeSet then begin Result := ModeGiven; Exit; end;
-  W := GetEnvironmentVariable('GRAAL_SECURE_LOGIN');
+  W := EnvVar('GRAAL_SECURE_LOGIN');
   if W = '' then
   begin
-    Lines := ReadLines(IncludeTrailingPathDelimiter(PinDir) + 'secure_login.txt');
+    Lines := ReadLines(WithTrailingSep(PinDir) + 'secure_login.txt');
     if Length(Lines) > 0 then W := Lines[0];
     if Pos(' ', W) > 0 then W := Copy(W, 1, Pos(' ', W) - 1);
   end;

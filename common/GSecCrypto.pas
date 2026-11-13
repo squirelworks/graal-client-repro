@@ -70,6 +70,14 @@ uses
 {$ENDIF}
   SysUtils;
 
+{$IFNDEF FPC}
+{ Delphi 4-7 have no usable unsigned 64-bit type. Int64 does the same here:
+  every QWord sum, product, and, or, xor and shl wraps the same bits, and
+  Delphi's shr on Int64 shifts in zeros. Nothing below compares two QWords. }
+type
+  QWord = Int64;
+{$ENDIF}
+
 { ---- small helpers ---- }
 
 function SameBytes(const A, B: string): Boolean;
@@ -94,22 +102,22 @@ begin
   Result := D = 0;
 end;
 
-function Rol32(X: Cardinal; N: Integer): Cardinal; inline;
+function Rol32(X: Cardinal; N: Integer): Cardinal; {$IFDEF FPC}inline;{$ENDIF}
 begin
   Result := (X shl N) or (X shr (32 - N));
 end;
 
-function Ror32(X: Cardinal; N: Integer): Cardinal; inline;
+function Ror32(X: Cardinal; N: Integer): Cardinal; {$IFDEF FPC}inline;{$ENDIF}
 begin
   Result := (X shr N) or (X shl (32 - N));
 end;
 
-function Ror64(X: QWord; N: Integer): QWord; inline;
+function Ror64(X: QWord; N: Integer): QWord; {$IFDEF FPC}inline;{$ENDIF}
 begin
   Result := (X shr N) or (X shl (64 - N));
 end;
 
-function LE32(const S: string; P: Integer): Cardinal; inline;
+function LE32(const S: string; P: Integer): Cardinal; {$IFDEF FPC}inline;{$ENDIF}
 begin
   Result := Cardinal(Ord(S[P])) or (Cardinal(Ord(S[P + 1])) shl 8) or
     (Cardinal(Ord(S[P + 2])) shl 16) or (Cardinal(Ord(S[P + 3])) shl 24);
@@ -322,9 +330,13 @@ const
     $d6, $9c, $f7, $a2, $de, $f9, $de, $14, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, $10);
 
-function Sar(V: Int64; N: Integer): Int64; inline;
+function Sar(V: Int64; N: Integer): Int64; {$IFDEF FPC}inline;{$ENDIF}
 begin
+{$IFDEF FPC}
   Result := SarInt64(V, N);
+{$ELSE}
+  if V < 0 then Result := not ((not V) shr N) else Result := V shr N;
+{$ENDIF}
 end;
 
 procedure Car25519(var O: TGf);
@@ -1033,7 +1045,7 @@ end;
 { ---- random ---- }
 
 {$IFDEF MSWINDOWS}
-function RtlGenRandom(Buf: Pointer; Len: ULONG): BOOLEAN; stdcall;
+function RtlGenRandom(Buf: Pointer; Len: Cardinal): ByteBool; stdcall;
   external 'advapi32.dll' name 'SystemFunction036';
 
 function RandomBytes(N: Integer; out Data: string): Boolean;

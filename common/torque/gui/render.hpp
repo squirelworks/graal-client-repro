@@ -102,6 +102,13 @@ class Renderer {
   // A text list's row height for its profile's font.
   int row_height(const SimObject* list);
 
+  // The pop-up menu whose list is open (0: none), and where that list drew
+  // in the last render: rows top down, `popup_row_height` each. The mouse
+  // opens and closes it; render draws it over everything else.
+  std::uint32_t open_popup = 0;
+  Rect popup_list;
+  int popup_row_height = 16;
+
  private:
   struct Cached {
     bool ok = false;
@@ -120,6 +127,7 @@ class Renderer {
   void draw_bitmap_ctrl(Canvas& canvas, SimObject* control, const Rect& rect, bool tile);
   void draw_text_list(Canvas& canvas, SimObject* control, const Profile& p, const Rect& rect);
   void draw_ml_text(Canvas& canvas, SimObject* control, const Profile& p, const Rect& rect);
+  void draw_popup_list(Canvas& canvas);
   Cached* load(const std::string& path);
   void note(const std::string& line);
 
