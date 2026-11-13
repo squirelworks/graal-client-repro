@@ -1,14 +1,37 @@
 # Graal 1.41 rev 1 (`GNW13110`)
 
 The 1.41 rev 1 client, rebuilt. Original: `Graal.exe` 1.41 rev 1, 1,506,816
-bytes (MD5 `a97740e711ffe9b698ec03712d4c06af`), Delphi with DelphiX and
-zlib. The token dates it 13 Nov 2000. It is the first build of the third
-generation: the gen-3 cipher and the key byte in the login line, and the
-first build with a server list window.
+bytes (SHA-256 `fdf0aff28d5e400a2ff83be09f56b89a8f9b84d0502ecdeaeaa36e461c45dc8b`,
+from `Graal v1.41r1.rar`), Delphi with DelphiX and zlib. The token dates it
+13 Nov 2000. It is the first build of the third generation: the gen-3
+cipher and the key byte in the login line, and the first build with a
+server list window.
 
-The only surviving copy was patched for graal.in: it carries
-`listserver.graal.in:14923` and graal.in links. The token and the code look
-untouched.
+## Which copy is the original
+
+Three copies of the 1.41r1 exe are held, all FileVersion 1.4.1.1 and all
+1,506,816 bytes. They were compared byte for byte on 2026-11-13:
+
+| Copy | SHA-256 | Listserver | Server list title, links |
+|---|---|---|---|
+| `Graal v1.41r1.rar` (Batch-1 variant A) | `fdf0aff2…` | `www.graalonline.com` 14910 | "Graalonline.com Server List", graalonline.com |
+| installed folder `Graal_v1.41r1\` (Batch-1 variant B) | `b08c8d14…` | `listserver.graal.in` 14923 | as variant A |
+| `graal_1411\` (MD5 `a97740e7…`, the copy this folder was first built from) | `281b752a…` | `listserver.graal.in` 14923 | "Graal.in Server List", graal.in links |
+
+Variant A is the unpatched original. The graal.in copy was patched in two
+steps. Variant B changes only the listserver host and port and where the
+game window's "Edit flags" button enters its click
+handler: further in, so the start of the handler is skipped. What that
+start does has not been read yet; it is listed under "Not yet". The
+`graal_1411` copy keeps both and adds the graal.in title, hints and links
+in the server list form and the web links. Nothing else differs: the
+token, the gen-3 cipher, the login, the message handling and every other
+embedded form, picture and icon are the same bytes in all three (the
+`graal_1411` copy's cursor directory headers differ too, as a resource
+editor leaves them). So the
+token and cipher this folder sends stand as they were, the forms and icon
+compiled in from the patched copy are the original's, and only the server
+list title changed (it now reads "Graalonline.com Server List").
 
 This folder starts as a copy of `graal-2.05r2-GNW03081` and is changed where
 the version notes (graal_analysis `version-profiles/141-217.md`, "1.41 rev1")
@@ -49,7 +72,8 @@ Same split as the 2.05 rev 2 rebuild, with the `205` units renamed `141`:
 ## The listserver
 
 The real 1.41 opens a plain zlib link to the listserver and sends nothing;
-the server sends the list. This was checked in the lab on 2026-11-04: the
+the server sends the list. The unpatched exe asks `www.graalonline.com` on
+port 14910, which no longer answers. This was checked in the lab on 2026-11-04: the
 real exe under Wine connected to `seihai-listserver` on 14923 and sent no
 byte until the list came. The public listserver's legacy port answers only
 a classic login, so the rebuild sends one (id 0 `newmain`, then id 1 with
@@ -102,6 +126,8 @@ C2 stands in for the login line. What the build sends with its login line follow
 
 ## Not yet (0.0.2)
 
+- [ ] What the start of the original's "Edit flags" click handler does (the
+  graal.in copies skip it), and whether the rebuild's Edit flags matches.
 - [ ] Drawing from the 1.41 sprite sheet. The wire already carries 1.41 sprite
   numbers, but the rebuild still draws through its own poses.
 - [ ] Two to four players on one computer, save games, the F1 options window.

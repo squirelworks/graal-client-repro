@@ -84,6 +84,7 @@ void WorldRenderer::draw_tiles(Canvas& c, const WorldState& w, const View& v) co
 void WorldRenderer::draw_objects(Canvas& c, const WorldState& w, const View& v) const {
   // Chests: a framed 2 x 2 tile box until chest.png is drawn. Stand-in.
   for (const auto& ch : w.level.chests) {
+    if (!w.chest_boxes) break;
     int px = static_cast<int>(std::lround((ch.x - v.left) * kTile));
     int py = static_cast<int>(std::lround((ch.y - v.top) * kTile));
     c.fill_rect({px, py, 2 * kTile, 2 * kTile}, {150, 90, 30, 255});
@@ -101,6 +102,13 @@ void WorldRenderer::draw_player(Canvas& c, const WorldState& w, const View& v) c
   int px = static_cast<int>(std::lround((w.player.x - v.left) * kTile));
   int py = static_cast<int>(std::lround((w.player.y - v.top) * kTile));
   draw_actor(c, w.player, px, py, {230, 60, 60, 255});
+  const Image* sprites = assets_ ? assets_->image("sprites.png") : nullptr;
+  if (!sprites) return;
+  for (const auto& e : w.effects) {
+    int ex = static_cast<int>(std::lround(e.x - v.left * kTile));
+    int ey = static_cast<int>(std::lround(e.y - v.top * kTile));
+    c.blit(*sprites, e.src, ex, ey);
+  }
 }
 
 namespace {
@@ -126,13 +134,16 @@ void WorldRenderer::draw_actor(Canvas& c, const Actor& a, int px, int py, Color 
     return;
   }
   const auto& parts = g->steps[g->step_at(a.ani_tick)].dirs[static_cast<size_t>(a.dir & 3)];
+  int head_y = 0;  // the carried object follows the head
   for (const auto& part : parts) {
     const Files::GaniSprite* s = g->sprite(part.sprite);
     if (!s) continue;
     std::string sheet = upper(s->sheet), file;
     if (sheet == "SPRITES") file = "sprites.png";
-    else if (sheet == "HEAD") file = !a.head.empty() ? a.head : !g->default_head.empty() ? g->default_head : "head0.png";
-    else if (sheet == "BODY") file = !a.body.empty() ? a.body : !g->default_body.empty() ? g->default_body : "body.png";
+    else if (sheet == "HEAD") {
+      head_y = part.y;
+      file = !a.head.empty() ? a.head : !g->default_head.empty() ? g->default_head : "head0.png";
+    } else if (sheet == "BODY") file = !a.body.empty() ? a.body : !g->default_body.empty() ? g->default_body : "body.png";
     else if (sheet == "SWORD") file = a.sword.empty() ? "sword1.png" : a.sword;
     else if (sheet == "SHIELD") file = a.shield.empty() ? "shield1.png" : a.shield;
     else if (sheet.compare(0, 4, "ATTR") == 0) {
@@ -148,6 +159,12 @@ void WorldRenderer::draw_actor(Canvas& c, const Actor& a, int px, int py, Color 
     }
     const Image* img = file.empty() ? nullptr : sheet == "BODY" ? assets_->body(file, a.colors) : assets_->image(file);
     if (img) c.blit(*img, {s->x, s->y, s->w, s->h}, px + part.x, py + part.y);
+  }
+  if (a.carry.width > 0) {
+    const Image* sprites = assets_->image("sprites.png");
+    int dy = head_y - 22;
+    if (a.lift_tick >= 0 && a.lift_tick < Actor::kLiftTicks) dy = 8 + (-22 - 8) * a.lift_tick / Actor::kLiftTicks;
+    if (sprites) c.blit(*sprites, a.carry, px + 8, py + dy);
   }
 }
 

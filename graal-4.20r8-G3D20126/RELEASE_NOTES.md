@@ -27,6 +27,7 @@ program works too (`graal-assets/4.20r8/`, then `graal-assets/common/`).
 
 ## What's new in v0.0.4.2
 
+- **The frame cipher steps compressed bodies rounded down** (`len div 4`, at most 4), as the stock 4.04r2 engine and 5.12 do; raw bodies still step `(len + 3) div 4`. seihai-gserver now does the same for this version, and the rebuild had dropped with "bad frame from the server" right after entering a level.
 - The C++ host now shares first-frame framing and loopback transport with
   the other existing host. Version-specific wire fields stay in its adapter;
   independent codec and TCP delivery tests do not establish historical login.

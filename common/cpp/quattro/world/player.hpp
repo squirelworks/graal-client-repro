@@ -46,6 +46,7 @@ struct Player {
   int z = 0;
   int sprite = 2, dir = 2, status = 0, gmap_x = 0, gmap_y = 0;
   int code_page = 0;
+  int carry_sprite = -1;  // what is carried over the head, -1 none
   std::array<std::string, 31> attr;  // gattrib 1..30
   bool gone = false;
 };

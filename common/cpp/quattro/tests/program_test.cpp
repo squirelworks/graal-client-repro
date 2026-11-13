@@ -72,11 +72,12 @@ void test_program() {
   CHECK(p.world().lobby);
   p.tick();
   CHECK(p.last_passes() == Draw::pass_order());
-  // Lobby: black where the tiles are, the chest drawn at (31,31).
+  // Lobby: black where the tiles are; 6.03r7 draws no chest of its own,
+  // so (31,31) stays black too.
   CHECK((win.last().at(1, 1) == Draw::Color{0, 0, 0, 255}));
   Draw::View v = Draw::follow(p.world(), 640, 480);
   int cx = static_cast<int>((31 - v.left) * 16) + 4, cy = static_cast<int>((31 - v.top) * 16) + 4;
-  CHECK((win.last().at(cx, cy) == Draw::Color{150, 90, 30, 255}));
+  CHECK((win.last().at(cx, cy) == Draw::Color{0, 0, 0, 255}));
 
   login.send(gchar(178) + "0,Lab Server,127.0.0.1," + std::to_string(game.port()) + "\n");
   std::thread acc([&] { game.conn.accept_from(game.listener); });
@@ -305,6 +306,28 @@ void test_offline() {
   CHECK(p.level_name() == "maze_c-1.graal");
   CHECK(p.me().y > 63 && p.me().y < 64);
   win.keys.clear();
+
+  // The engine's bindings: a move walks; D toggles the weapon state on its
+  // press, and Q (no weapon list) is D, so D held through Q is one press.
+  const double x0 = p.me().x;
+  CHECK(p.action("moveLeft2D", true));
+  p.tick();
+  CHECK(p.action("moveLeft2D", false));
+  CHECK(p.me().x < x0);
+  const int status = p.me().status;
+  CHECK(p.action("doD", true));
+  p.tick();
+  CHECK(p.me().status == (status ^ 1));
+  CHECK(p.action("doQ", true) && p.action("doD", false));
+  p.tick();
+  CHECK(p.me().status == (status ^ 1));
+  CHECK(p.action("doQ", false));
+  p.tick();
+  CHECK(p.action("doQ", true));
+  p.tick();
+  CHECK(p.me().status == status);
+  CHECK(p.action("doQ", false));
+  CHECK(!p.action("doM", true) && !p.action("moveUp", true));
 
   CHECK(!p.start_offline("missing.gmap", 30, 30));
   CHECK(p.start_offline("maze_a-1.graal", 10, 12));  // a level alone, found below levels/

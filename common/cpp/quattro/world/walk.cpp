@@ -112,10 +112,12 @@ bool step(Player& p, int dir, const Files::Level& level, const TileTypes& types)
   return false;
 }
 
-std::string Walker::tick(Player& p, unsigned keys, const Files::Level& level, const TileTypes& types) {
+std::string Walker::tick(Player& p, unsigned keys, const Files::Level& level, const TileTypes& types,
+                         bool carrying) {
   if ((keys & 0xF) == 0) {
     blocked_ticks_ = 0;
     if (p.gani == "walk" || p.gani == "push") p.gani = "idle";
+    if (p.gani == "carry") p.gani = "carrystill";
     return {};
   }
   bool refused = false;
@@ -127,6 +129,11 @@ std::string Walker::tick(Player& p, unsigned keys, const Files::Level& level, co
     p.y = std::max(0.0, std::min(p.y, Files::kBoardSide - 2.0));
   }
   blocked_ticks_ = refused ? blocked_ticks_ + 1 : 0;
+  if (carrying) {
+    // No push while carrying (rebuild choice: the lab did not push with a load).
+    p.gani = "carry";
+    return {};
+  }
   p.gani = pushing() ? "push" : "walk";
   if (!pushing()) return {};
   int t = blocked_ticks_ - kPushAfter;

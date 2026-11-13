@@ -24,7 +24,8 @@
       byte, the body. The client picks 2 (raw) under 0x30 bytes unless zlib
       is shorter, 4 (zlib) from 0x30, 6 (bz2) from 0x1000. Even codes are
       XORed: one LCG step per 4-byte group present, at most 12 groups raw or
-      4 compressed; a short last group still steps. Each direction has its
+      4 compressed; a short last group steps only in a raw body (the
+      stock 4.04r2 engine rounds compressed ones down, as 5.12 does). Each direction has its
       own iterator, seeded 0x04A80B38, with the same key.
   Receive: u16be -> undo XOR -> inflate / bunzip -> split on #10, with the
   PLO_RAWDATA escape, as in 2.05. }
@@ -159,18 +160,23 @@ end;
 {$IFOPT R+}{$DEFINE RANGE_WAS_ON}{$R-}{$ENDIF}
 procedure TGen5.Apply(var Body: string; CType: Integer);
 var
-  Groups, Present, G, J, P: Integer;
+  Groups, G, J, P: Integer;
   K: Cardinal;
 begin
   if (CType and 1) <> 0 then Exit; { odd codes are not XORed }
-  if CType = CompressNone then Groups := XorGroupsRaw
-  else Groups := XorGroupsPacked;
-  { 4.04r2 steps a packed body Length div 4 times, rounded down, and a raw
-    one rounded up, as 5.12 (read in the engine library 2026-11-13;
-    seihai-core 0.1.0 gen5_round_down) }
-  if CType = CompressNone then Present := (Length(Body) + 3) div 4
-  else Present := Length(Body) div 4;
-  if Present < Groups then Groups := Present;
+  { Raw bodies step once per group present, a short last one too;
+    compressed ones only per whole group (the stock 4.04r2 engine, as
+    5.12: len shr 2, at most 4). }
+  if CType = CompressNone then
+  begin
+    Groups := XorGroupsRaw;
+    if (Length(Body) + 3) div 4 < Groups then Groups := (Length(Body) + 3) div 4;
+  end
+  else
+  begin
+    Groups := XorGroupsPacked;
+    if Length(Body) div 4 < Groups then Groups := Length(Body) div 4;
+  end;
   UniqueString(Body);
   for G := 0 to Groups - 1 do
   begin
