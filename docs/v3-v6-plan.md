@@ -14,7 +14,7 @@ engines, and each engine is built once and shared:
 | Engine | Builds | What the original is | What we build |
 |---|---|---|---|
 | **Torque (TGE 1.2)** | 3.04 Linux, 3.153 Mac | One program: Torque's console runs the install's `.dso` menus; Graal's 2D game is one console class, `GuiGraalCtrl` | `common/torque/` (C++), active |
-| **Split: Delphi launcher plus engine library** | 4.04r2, 4.20r6 Mac, 4.20r8, 5.00r7, 5.12 | A Delphi launcher owns the window and draws through 94 `graal_set` callbacks; `GraalEngine` keeps Torque's canvas and controls but no console, and runs the menus as compiled **GS2** (`TScriptExecutionSpace`, `TGraalVar`, `TShowImg`, `TAdventure`); `Graal3DEngine` is a cut-down Torque world for 3D servers | Pascal launcher (the existing folders) plus the shared GS2 core below as the engine library |
+| **Split: Delphi launcher plus engine library** | 4.04r2, 4.11 Mac, 4.20r8, 5.00r7, 5.12 | A Delphi launcher owns the window and draws through 94 `graal_set` callbacks; `GraalEngine` keeps Torque's canvas and controls but no console, and runs the menus as compiled **GS2** (`TScriptExecutionSpace`, `TGraalVar`, `TShowImg`, `TAdventure`); `Graal3DEngine` is a cut-down Torque world for 3D servers | Pascal launcher (the existing folders) plus the shared GS2 core below as the engine library |
 | **Quattro (`quattro_lib`)** | 5.24r3 onwards, 5.30r3, 5.31r4, every 6.x | One native C++ program: GS2 controls named after Torque's, GS2 scripts for every shell dialog, OpenGL, no Torque left | One C++ program per build on the same GS2 core |
 
 The piece the 4.x, 5.x and 6.x clients all share is the GS2 script machine
@@ -34,7 +34,7 @@ Graal_analysis read of the real build. Open PRs are counted as not merged.
 | **3.04** Linux `G3D03014` | Pascal stand-in (start screen, list, login, level, walk, chat). Separately, `common/torque` boots the install's own `main.cs` and its 38 scripts and matches the original's console log and saved prefs (#255). GUI drawing (#257), keys and F2 console (#259) and `GuiGraalCtrl` hosting the 2D game (#258) are open. All of it runs only in the windowless lab tools. | TGE 1.2 program; menus are `.dso`; game is `GuiGraalCtrl` (31 methods) | A windowed `Graal304` built on the Torque engine that replaces the stand-in; UDP between players; the Tutorial level; side-by-side run |
 | **3.153** Mac PPC `G3D28015` | Pascal stand-in with 3.04's login frame | Same engine as 3.04 on PowerPC: big-endian `.dso` float tables, the Mac script layout, four `GuiGraalCtrl` methods 3.04 lacks (`setNickName`, `setAccountName`, `setLanguage`, `retrieveAccountFields`) | Never tried on Torque. Needs a 3.153 boot profile, the PPC DSO variant and the four methods; 3D mode (protocol 19 on port + 1) is a later gate |
 | **4.04r2** `G3D17026` | Pascal stand-in with the real start form and its resources | Delphi launcher plus `GraalEngine`; menus are 14 compiled GS2 scripts embedded in the exe (129 functions, 15,799 instructions on the Linux build; one tied to live loading) | GS2 machine, `TGraalVar` objects, the GS2 controls, `TShowImg`, the callback host, update packages (`GRPKG001`), 3D DLL |
-| **4.20r6** Mac `G3D27076` | Pascal stand-in; no macOS window back end | Mac build of the 4.20 split | Same as 4.20r8, plus a Mac window |
+| **4.11 Mac** `G3D27076` (first named 4.20r6) | Pascal stand-in; no macOS window back end | Mac build of the 4.1x split | Same as 4.20r8, plus a Mac window |
 | **4.20r8** `G3D20126` | Pascal stand-in, a Delphi shell that names the forms, and a C++ boot stub (`host4208`) that is not the engine | Delphi launcher plus `GraalEngine.dll` and `Graal3DEngine.dll` (`torque/4208-*.md`) | As 4.04r2; `GR-V1.05` board layers |
 | **5.00r7** `G3D22067` | Pascal stand-in; Login-server mode reaches the server list | Same split; engine adds opcodes 48, 49, 54, 121 and `TGraalUniverse::runScripts` | The Login server's scripted GUI (GS2), `GR-V1.05`, `GRPKG001`, base-file requests, 3D (protocol 24) |
 | 5.12 `G3D14097` | `graal-5.12-G3D14097`: the Pascal stand-in with 5.12's wire rules, and `--engine` over the engine library with the 5.12 row (menus, login, level, walk, chat) | Same split | Launcher resources, the scripted Login GUI, 3D |
@@ -106,7 +106,7 @@ Owned by the threads behind #257, #258 and #259 until those merge.
   `renderGraalCanvas`, key forwarding, as a C ABI the Pascal launcher loads
 - [ ] **C2** 4.04r2 on it: the real launcher form, the embedded menus drawn
   through the callbacks, loopback login, level, walk, chat
-- [ ] **C3** 4.20r8 and 4.20r6, then 5.00r7 (opcode profile 5.0, the Login
+- [ ] **C3** 4.20r8 and 4.11 Mac, then 5.00r7 (opcode profile 5.0, the Login
   server's GUI), then a 5.12 folder
 - [ ] **C4** 3D: `Graal3DEngine` as a separate library, protocol 21 and 24
 

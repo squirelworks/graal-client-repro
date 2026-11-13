@@ -156,6 +156,7 @@ were not measured.
   client-internals/live-behaviour-404.md). Other characters in a server
   name are escaped the same way (rebuild reading); the `FILE` list inside
   the package is not acted on.
+- `Program::list_update` / `list_delete` keep the player list a 5.x launcher shows: every player the server names with 8, on any level, until a `DISCONNECT` (51) prop; leaving the level (50) keeps the row. Rows go out only when the nick, head, account, level, community name or first attribute changes. All rows are dropped at a warp (178) and when the link drops. `BuildProfile::last_prop` lets 5.12 read props 81 and 82 (community name); other rows stop at 80 as 2.22 does.
 - Offline (`Program::start_offline`, the engine library's offline mode): a
   level or a gmap from `--assets`; a gmap's parts join at their edges as one
   board in global tiles (the 2.22 lab crossing), and a part's name is

@@ -291,9 +291,9 @@ begin
     Wire := C.Sent;
     Len := (Ord(Wire[1]) shl 8) or Ord(Wire[2]);
     Check(ZDecompress(Copy(Wire, 3, Len), Plain) and
-      (Plain = '%' + Chr(CaptureKey + 32) + 'G3D27076' + GString('acc') + GString('pw') +
+      (Plain = '%' + Chr(CaptureKey + 32) + 'G3D21126' + GString('acc') + GString('pw') +
         'mac,"","",""'#10),
-      'login: 5 (key, G3D27076, account, password, mac and three empty machine fields) alone in the plain zlib frame');
+      'login: 5 (key, G3D21126, account, password, mac and three empty machine fields) alone in the plain zlib frame');
     Check(ServerReadAll(Codec, Copy(Wire, Len + 3, MaxInt), Msgs) and (Msgs.Count >= 2) and
       (Msgs[0] = GChar(PLI_LANGUAGE) + 'English') and
       (Msgs[1] = GChar(PLI_WANTFILE) + 'basepackage.gupd'),
@@ -327,10 +327,10 @@ begin
     Wire := C.Sent;
     Len := (Ord(Wire[1]) shl 8) or Ord(Wire[2]);
     Check(ZDecompress(Copy(Wire, 3, Len), Plain) and
-      (Plain = GChar(7) + GChar(CaptureKey) + 'G3D27076newmain' + #10 +
+      (Plain = GChar(7) + GChar(CaptureKey) + 'G3D21126newmain' + #10 +
         GChar(1) + GString('acc') + GString('pw') + #10) and
       (Length(Wire) = Len + 2),
-      'list: id 7 (key, G3D27076, newmain) and id 1 (account, password) in one plain zlib frame');
+      'list: id 7 (key, G3D21126, newmain) and id 1 (account, password) in one plain zlib frame');
     List := GChar(2) +
       GChar(8) + GString('P Classic') + GString('English') + GString('A server') +
         GString('http://x') + GString('2.22') + GString('12') +

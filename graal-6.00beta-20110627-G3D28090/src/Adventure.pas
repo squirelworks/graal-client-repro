@@ -1,23 +1,14 @@
-{ Adventure: TAdventure, the game state and frame loop of the Mac 4.20r6,
-  carried over from the 4.20r8 and 4.04r2 rebuilds (and 3.153 and 2.22
-  before them), since all of them speak the gen-5 wire. What 4.x does
-  differently, from the notes and the lab runs (graal_analysis
-  protocol/v4x-clients.md, version-profiles/4.04-4.20.toml,
-  version-profiles/lab-mac-tiger-2026-10-31.md for 4.20r6 in qemu,
-  client-internals/live-behaviour-404.md for 4.04r2). The qemu run saw
-  4.20r6 send the same kinds of message as 4.04r2 (37, 23, 157, 46, 44,
-  props with X2 / Y2, 34, 24); the frame order and timings were measured
-  on 4.04r2 and are taken to hold:
-  - the first server is a game server named Login; it hands the client on
-    with 178 (x,name,host,port), split on commas only;
-  - after the login burst: 23 idle.gani and 157 idle, 46 ENTERLEVEL, 44
-    (empty, as the qemu run saw), the own props, 24, then 34 pics1.png;
-  - walking sends GANI and SPRITE on the first step, then X2 / Y2 (78, 79:
-    half-pixels, sign in the low bit) every 50 ms tick, only the axes that
-    moved; X and Y (15, 16) are never sent; each new gani goes out once per
-    connection as 23 NAME.gani and 157;
-  - 24 = 9 every 5.14 s, alone in the level too; no tamper check;
-  - 99 handled server ids: 4.20r8's 101 without 41 and 196.
+{ Adventure: TAdventure, the game state and frame loop of 6.00beta-20110627, carried
+  over from the 3.153 rebuild (itself from 2.22), since 6.00beta-20110627 keeps the
+  gen-5 wire (graal_analysis protocol/v6x-clients.md,
+  version-profiles/5.00-6.03.toml). What 6.00beta-20110627 does differently
+  (protocol/v5v6-lab-play.md; the Windows 6.03r7 run stands in): the first
+  server is named Login, and while the server's name starts with "login"
+  no characters and no tiles are drawn; a server warp (178) moves it to the
+  server it names, split on commas only; first props nickname, colours,
+  language, OSTYPE win and the position; movement goes out as X2 / Y2
+  (78, 79) every tick, only the coordinate that changed; and it answers
+  the process-list request (182) with 44. No tamper check anywhere.
   The notes below are the 2.22 ones they came from.
 
   As in 2.05, TAdventure owns the level, the local player, the link to the
@@ -39,7 +30,7 @@ unit Adventure;
 interface
 
 uses
-  Classes, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GAssetDirs, GraalClient, Protocol420r6;
+  Classes, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GAssetDirs, GraalClient, Protocol600b;
 
 const
   { The game view. 640x480 is assumed for 2.22 as for 2.05; not read from
@@ -142,8 +133,6 @@ type
     FLog: TStrings;
     FSentX, FSentY: Double;
     FSentDir, FSentGmapX, FSentGmapY: Integer;
-    FNextShowImgMs: Int64;
-    FGanisAsked: string;  { ',name,' for each gani asked this connection }
     FSentGani: string;
     FPropsSent: Boolean;
     FOthers: TList;
@@ -180,11 +169,11 @@ type
     procedure CrossEdges;
     procedure ReceiveFile(const Data: string);
     procedure ServerWarp(const Data: string);
-    procedure AskGani(const Name: string);
+    procedure ListProcesses;
   public
-    { The name the client gives the server it is on. The first server is
-      Login; 178 names the next one. While the lower-case name starts with
-      'login' no players and no HUD are drawn (live-behaviour-404.md). }
+    { The current server's name: FirstServerName for an address given
+      straight, the list entry's name for a server picked from a list, the
+      name a server warp (178) gives. }
     ServerName: string;
     Level: TCachedLevel;   { the level the player is in }
     Gmap: TGmap;           { the active gmap, nil off a gmap or before it loads }
@@ -222,6 +211,10 @@ type
     UseWallClock: Boolean;
     constructor Create;
     destructor Destroy; override;
+    { True while ServerName starts with "login" (any case): Login mode,
+      where 6.00beta-20110627 (as 6.03r7) draws chests and image NPCs but no tiles and no
+      characters. }
+    function LoginMode: Boolean;
     procedure Log(const S: string);
     { Points pics1, arrays.dat and the image folders at an install. }
     procedure UseInstall(const Dir: string);
@@ -230,8 +223,6 @@ type
     procedure DrawPlayer(P: TServerPlayer; CamX, CamY: Integer);
     { The built-in tile sheet and tile types (done by Create). }
     procedure UseBuiltins;
-    { Adds the lines of a tiledefs file (as 3.04's) as addtiledefs. }
-    procedure LoadTileDefsFile(const Path: string);
     { Notes the addtiledef lines in L's NPC scripts. }
     procedure NoteTileDefs(L: TAdventureLevel);
     { The tile sheet for a level: an addtiledef image whose prefix starts
@@ -245,8 +236,6 @@ type
     { One frame: network in, game step, network out, draw. }
     procedure Tick;
     procedure Draw;
-    { True while the server's name starts with 'login'. }
-    function LoginSession: Boolean;
     { Loads a level (or a .gmap and its levels) from disk for offline play;
       links then look for their levels next to it, then in the install. }
     function LoadLevelFile(const FileName: string): Boolean;
@@ -280,6 +269,11 @@ function NowMs: Int64;
   colour derived from its index, so a frame still shows the board layout. }
 procedure MakeIndexSheet(Sheet: TGSurface);
 { Old-style sprite prop -> pose (servers that send no GANI). }
+{ X2 / Y2 / Z2 (78 to 80): a GSHORT holding abs(tiles x 16) shl 1, the
+  low bit the sign (graal_analysis protocol/player-props.md), so whole
+  pixels. }
+function ToPixels2(Tiles: Double): Integer;
+function FromPixels2(V: Integer): Double;
 function SpriteWalkStep(Sprite: Integer): Integer;
 
 implementation
@@ -382,8 +376,6 @@ begin
   if (Name = '') or (Pos('..', Name) > 0) or (Pos('/', Name) > 0) or
     (Pos('\', Name) > 0) then Exit;
   Result := AssetPath('levels/' + Name);
-  { the 4.x installs keep the offline tutorial in levels/tutorial/ }
-  if Result = '' then Result := AssetPath('levels/tutorial/' + Name);
   if Result = '' then Result := AssetPath(Name);
 end;
 
@@ -412,7 +404,8 @@ begin
   else if Kind = 'sword' then F := FindFile(Name, ['levels/swords/', 'levels/', ''])
   else if Kind = 'shield' then F := FindFile(Name, ['levels/shields/', 'levels/', ''])
   else if Kind = 'hat' then F := FindFile(Name, ['levels/hats/', 'levels/', ''])
-  else F := FindFile(Name, ['', 'levels/', 'levels/images/', 'levels/tiles/']);
+  else F := FindFile(Name, ['', 'levels/', 'levels/images/', 'levels/tiles/',
+    'levels/images/downloads/']);
   S := nil;
   if F <> '' then
   begin
@@ -581,6 +574,21 @@ end;
 
 { The walk frames of the classic sprite numbers (2.05 sprite-step table):
   sprite numbers 1 to 5 are walk poses. }
+function ToPixels2(Tiles: Double): Integer;
+var
+  P: Integer;
+begin
+  P := Round(Tiles * 16);
+  if P < 0 then Result := ((-P) shl 1) or 1
+  else Result := P shl 1;
+end;
+
+function FromPixels2(V: Integer): Double;
+begin
+  if (V and 1) <> 0 then Result := -(V shr 1) / 16
+  else Result := (V shr 1) / 16;
+end;
+
 function SpriteWalkStep(Sprite: Integer): Integer;
 const
   Steps: array[1..5] of Integer = (3, 2, 1, 0, 0);
@@ -626,16 +634,13 @@ begin
   while not R.Eof do
   begin
     P := R.ReadGChar;
-    { the ids the parsers accept: 2.22's, raised to 80 as in 2.31 and
-      3.153 (protocol/player-props.md; version-profiles/3.04-3.153.md),
-      which 4.x keeps (X2 / Y2 / Z2) }
+    { the ids each 2.22 parser accepts (protocol/player-props.md) }
     if Other then
     begin
       if (P = 1) or ((P >= 3) and (P <= 7)) or (P = 14) or (P = 22) or
         ((P >= 25) and (P <= 29)) or (P = 77) or (P > 80) then Exit;
     end
-    else if (P = 50) or (P = 51) or (P = 53) or ((P >= 75) and (P <= 77)) or
-      (P > 80) then Exit;
+    else if (P = 50) or (P = 51) or (P = 53) or (P = 77) or (P > 80) then Exit;
     case P of
       PLPROP_NICKNAME: Nickname := R.ReadGString;
       PLPROP_MAXPOWER: MaxPower := R.ReadGChar;
@@ -713,18 +718,9 @@ begin
       PLPROP_PLANGUAGE: Language := R.ReadGString;
       PLPROP_OSTYPE: OsType := R.ReadGString;
       PLPROP_TEXTCODEPAGE: CodePage := R.ReadGInt3;
-      PLPROP_X2, PLPROP_Y2, PLPROP_Z2:
-        { s: abs(v * 16) shl 1, low bit = sign; half-pixels }
-        begin
-          V := R.ReadGShort;
-          if (V and 1) <> 0 then V := -(V shr 1) else V := V shr 1;
-          case P of
-            PLPROP_X2: X := V / 16;
-            PLPROP_Y2: Y := V / 16;
-          else
-            Z := Round(V / 16);
-          end;
-        end;
+      PLPROP_X2: X := FromPixels2(R.ReadGShort);
+      PLPROP_Y2: Y := FromPixels2(R.ReadGShort);
+      PLPROP_Z2: Z := Round(FromPixels2(R.ReadGShort));
       PLPROP_HORSEGIF, PLPROP_GATTRIB6..PLPROP_GATTRIB9,
       PLPROP_GATTRIB10..PLPROP_GATTRIB30:
         R.ReadGString;
@@ -760,6 +756,7 @@ begin
   FLog := TStringList.Create;
   LoginMs := -1;
   UseWallClock := True;
+  ServerName := FirstServerName;
   FClient := TAdventureClient.Create;
   FClient.OnMessage := HandleMessage;
   FClient.OnLog := ClientLog;
@@ -881,62 +878,22 @@ var
 begin
   Assets.Dir := Dir;
   { the folder itself, then graal-assets/<version>/ and graal-assets/common/ }
-  SetAssetRoots(Dir, AssetVersions);
+  SetAssetRoots(Dir, ClientBuildLabel);
   if AssetsFolder <> '' then Log('assets: ' + AssetsFolder);
   { the install's tile sheet and tile types replace the built-in ones, but
     not a sheet given with --sheet }
   if (Sheet.Width = 0) or SheetBuiltin then
   begin
-    { the 4.x installs keep their tile sheets in levels/tiles/ }
+    { a 5.x/6.x install keeps its tile sheet in levels/tiles/ }
     P := FirstAssetPath(['pics1.png', 'pics1.gif', 'levels/tiles/pics1.png',
       'levels/tiles/pics1.gif']);
     if (P <> '') and LoadImageFile(P, Sheet) then SheetBuiltin := False;
   end;
-  LoadTileDefsFile(AssetPath('levels/tiledefs/tiledefsOffline.txt'));
   P := AssetPath('arrays.dat');
   if (P <> '') and Arrays.LoadFromFile(P) then
     Log('arrays.dat loaded')
   else
     Log('arrays.dat not found in ' + Dir + ': using the built-in tile types');
-end;
-
-{ The tile definitions file 3.04 reads for offline play
-  (levels/tiledefs/tiledefsOffline.txt; lab-304-linux-2026-10-30.md): one
-  line per sheet, IMAGE,PREFIX,... Each line is taken as an addtiledef.
-  The 4.x installs ship no such file; one dropped there is read. }
-procedure TAdventure.LoadTileDefsFile(const Path: string);
-var
-  L, Parts: TStringList;
-  I: Integer;
-  Img, Prefix: string;
-begin
-  if Path = '' then Exit;
-  L := TStringList.Create;
-  Parts := TStringList.Create;
-  try
-    try
-      L.LoadFromFile(Path);
-    except
-      Exit;
-    end;
-    for I := 0 to L.Count - 1 do
-    begin
-      Parts.Clear;
-      Parts.Delimiter := ',';
-      Parts.StrictDelimiter := True;
-      Parts.DelimitedText := Trim(L[I]);
-      if Parts.Count < 2 then Continue;
-      Img := Trim(Parts[0]);
-      Prefix := LowerCase(Trim(Parts[1]));
-      if (Img = '') or (Pos('..', Img) > 0) then Continue;
-      if FTileDefs.IndexOf(Prefix + #9 + Img) < 0 then
-        FTileDefs.Add(Prefix + #9 + Img);
-    end;
-    Log(Format('%d tile definitions from %s', [FTileDefs.Count, ExtractFileName(Path)]));
-  finally
-    Parts.Free;
-    L.Free;
-  end;
 end;
 
 function TAdventure.ConnectServer(const Host: string; Port: Word;
@@ -954,8 +911,8 @@ begin
     Log('connect failed: ' + FClient.LastError);
     Exit;
   end;
-  Log(Format('connected to %s:%d, key %d, token %s', [Host, Port, FClient.Key,
-    ClientVersionToken]));
+  Log(Format('connected to %s:%d (server %s), key %d, token %s', [Host, Port,
+    ServerName, FClient.Key, ClientVersionToken]));
   FClient.SendLogin(Account, Password, 'English');
   FClient.Flush;
 end;
@@ -1292,7 +1249,7 @@ begin
   begin
     if FWarpPending then Exit;
     { 2.22 asks with LEVELWARPMOD when it holds the level (its mod time
-      first), else with LEVELWARP; 4.20r6 is taken to do the same, with no
+      first), else with LEVELWARP; 6.00beta-20110627 is taken to do the same, with no
       tamper check after it }
     C := CachedLevel(L.Dest, False);
     if (C <> nil) and C.HasModTime and C.HasBoard then
@@ -1400,57 +1357,36 @@ begin
   Result := Player.AniName;
 end;
 
-{ 23 NAME.gani and 157 (UPDATEGANI: i5 checksum 0, as the client holds no
-  copy, then the name), once per gani and connection (third lab run, on 4.04r2). }
-procedure TAdventure.AskGani(const Name: string);
-begin
-  if (Name = '') or (Pos(',' + Name + ',', FGanisAsked) > 0) then Exit;
-  if FGanisAsked = '' then FGanisAsked := ',';
-  FGanisAsked := FGanisAsked + Name + ',';
-  FClient.SendPacket(PLI_WANTFILE, Name + '.gani');
-  FClient.SendPacket(PLI_UPDATEGANI, GInt5(0) + Name);
-end;
-
-{ X2 / Y2 / Z2 as sent: abs(v * 16) shl 1, low bit = sign. }
-function Pos2(V: Double): string;
-var
-  N: Integer;
-begin
-  N := Round(Abs(V) * 16) shl 1;
-  if V < 0 then N := N or 1;
-  Result := GShort(N);
-end;
-
-{ The messages after the login burst, as the third lab run saw 4.04r2
-  send them: 23 idle.gani and 157 idle; 46 ENTERLEVEL; 44 (the window
-  list); the own props; 24; 34 pics1.png. The real client also asks for
-  its head and default weapon images and sends four 152 / 154 GUI texts
-  (pmguilds, pmservers, the lister options); not yet. ADJACENTLEVEL on a
-  gmap. The props set (0, 18, 31, 33, 52, 75, 76) is 3.04's, assumed. }
+{ The first client frame after the login burst. The lab saw 5.x and 6.x send its
+  own props as nickname, colours, language, OSTYPE (win) and then the
+  position (protocol/v5v6-lab-play.md, "Client"); the position goes as
+  X2 / Y2. Then UPDATEFILE for the player's head, and ADJACENTLEVEL on a
+  gmap. The base-file requests the real client makes (basepackage.gupd
+  by 47 or 23) are not sent. }
 procedure TAdventure.SendLoginFrame;
 var
   F: string;
   MT: Cardinal;
+  I: Integer;
+  Cols: string;
 begin
-  AskGani(OwnGani);
-  FClient.SendPacket(PLI_ENTERLEVEL, '');
-  { 44 went out empty in the qemu run of 4.20r6 }
-  FClient.SendPacket(PLI_PROCESSLIST, '');
+  Cols := '';
+  for I := 0 to 4 do Cols := Cols + GChar(Player.Colors[I]);
   FClient.SendPacket(PLI_PLAYERPROPS,
     GChar(PLPROP_NICKNAME) + GString(Player.Nickname) +
-    GChar(PLPROP_STATUS) + GChar(Player.Status) +
-    GChar(PLPROP_UDPPORT) + GInt3(0) +   { no UDP peer channel yet }
-    GChar(PLPROP_ADDITFLAGS) + GChar(0) +
+    GChar(PLPROP_COLORS) + Cols +
     GChar(PLPROP_PLANGUAGE) + GString(Player.Language) +
     GChar(PLPROP_OSTYPE) + GString(OsType) +
-    GChar(PLPROP_TEXTCODEPAGE) + GInt3(TextCodePage));
-  FClient.SendPacket(PLI_SHOWIMG, GChar(9));
-  FNextShowImgMs := ClockMs + ShowImgEveryMs;
-  MT := 0;
-  F := Assets.FindFile('pics1.png', ['', 'levels/', 'levels/images/']);
-  if F <> '' then
-    MT := Cardinal(Round((FileDateToDateTime(FileAge(F)) - 25569.0) * 86400.0));
-  FClient.SendPacket(PLI_UPDATEFILE, GInt5(MT) + 'pics1.png');
+    GChar(PLPROP_X2) + GShort(ToPixels2(Player.X)) +
+    GChar(PLPROP_Y2) + GShort(ToPixels2(Player.Y)));
+  if Player.HeadImage <> '' then
+  begin
+    MT := 0;
+    F := Assets.FindFile(Player.HeadImage, ['', 'levels/', 'levels/heads/']);
+    if F <> '' then
+      MT := Cardinal(Round((FileDateToDateTime(FileAge(F)) - 25569.0) * 86400.0));
+    FClient.SendPacket(PLI_UPDATEFILE, GInt5(MT) + Player.HeadImage);
+  end;
   AskAdjacent;
   FSentX := Player.X;
   FSentY := Player.Y;
@@ -1461,27 +1397,23 @@ begin
   FPropsSent := True;
 end;
 
-{ Every 50 ms tick (lab): GANI and SPRITE when they change, then the axes
-  that moved as X2 / Y2; the gmap cell props on a crossing. }
 procedure TAdventure.SendMovedProps;
 var
   S, G: string;
 begin
+  { a diff of the changed props, in id order, every tick (50 ms): the lab
+    saw 5.x and 6.x send only the coordinate that changed, as X2 or Y2, each tick
+    while walking, with the gani change in the same message as the first
+    step (lab-v5-2026-10-30.md, "Movement") }
   if not FPropsSent then Exit;
   S := '';
   G := OwnGani;
-  { a new gani goes out with SPRITE, as on the first step of a walk }
-  if G <> FSentGani then
-  begin
-    AskGani(G);
-    S := S + GChar(PLPROP_GANI) + GString(G) + GChar(PLPROP_SPRITE) + GChar(Player.Dir);
-  end
-  else if Player.Dir <> FSentDir then
-    S := S + GChar(PLPROP_SPRITE) + GChar(Player.Dir);
+  if G <> FSentGani then S := S + GChar(PLPROP_GANI) + GString(G);
+  if Player.Dir <> FSentDir then S := S + GChar(PLPROP_SPRITE) + GChar(Player.Dir);
   if Player.GmapX <> FSentGmapX then S := S + GChar(PLPROP_GMAPLEVELX) + GChar(Player.GmapX);
   if Player.GmapY <> FSentGmapY then S := S + GChar(PLPROP_GMAPLEVELY) + GChar(Player.GmapY);
-  if Player.X <> FSentX then S := S + GChar(PLPROP_X2) + Pos2(Player.X);
-  if Player.Y <> FSentY then S := S + GChar(PLPROP_Y2) + Pos2(Player.Y);
+  if Player.X <> FSentX then S := S + GChar(PLPROP_X2) + GShort(ToPixels2(Player.X));
+  if Player.Y <> FSentY then S := S + GChar(PLPROP_Y2) + GShort(ToPixels2(Player.Y));
   if S = '' then Exit;
   FClient.SendPacket(PLI_PLAYERPROPS, S);
   FSentX := Player.X;
@@ -1490,6 +1422,19 @@ begin
   FSentGani := G;
   FSentGmapX := Player.GmapX;
   FSentGmapY := Player.GmapY;
+end;
+
+function TAdventure.LoginMode: Boolean;
+begin
+  Result := LowerCase(Copy(ServerName, 1, 5)) = 'login';
+end;
+
+{ PLO_LISTPROCESSES (182): the real client answers with 44 and a comma
+  list of what runs on the machine (the lab saw window titles). The
+  rebuild names only its own game window, the server's name. }
+procedure TAdventure.ListProcesses;
+begin
+  FClient.SendPacket(PLI_PROCESSLIST, ServerName);
 end;
 
 { ---- messages from the server ---- }
@@ -1532,41 +1477,43 @@ begin
   end;
 end;
 
-{ PLO_SERVERWARP (178): four comma fields, 2 = host, 3 = port; the client
-  closes the link and logs in there with a new key and the same account
-  (08-lab-findings, part C). Fewer fields: ignored. }
-procedure SplitCommas(const S: string; L: TStringList);
-var
-  I, From: Integer;
-begin
-  L.Clear;
-  From := 1;
-  for I := 1 to Length(S) + 1 do
-    if (I > Length(S)) or (S[I] = ',') then
-    begin
-      L.Add(Copy(S, From, I - From));
-      From := I + 1;
-    end;
-end;
-
+{ PLO_SERVERWARP (178): "x,name,host,port", split on commas only (the
+  lab's unquoted "0,Lab Server,<host>,14900" kept the whole name); the
+  client closes the link, logs in there with a new key and the same
+  account, and the name becomes the server's name, which ends Login mode
+  (lab-v5-2026-10-30.md). Fewer fields: ignored. }
 procedure TAdventure.ServerWarp(const Data: string);
 var
   F: TStringList;
   Port: Integer;
+  Rest: string;
+  P: Integer;
 begin
   F := TStringList.Create;
   try
-    { split on commas only: a server name may hold spaces
-      (5.00-6.03.toml, serverwarp_fields) }
-    SplitCommas(Data, F);
+    Rest := Data;
+    while Rest <> '' do
+    begin
+      P := Pos(',', Rest);
+      if P = 0 then
+      begin
+        F.Add(Rest);
+        Rest := '';
+      end
+      else
+      begin
+        F.Add(Copy(Rest, 1, P - 1));
+        Delete(Rest, 1, P);
+      end;
+    end;
     if F.Count < 4 then Exit;
-    Port := StrToIntDef(F[3], -1);
-    if (Port <= 0) or (Port > 65535) or (F[2] = '') then
+    Port := StrToIntDef(Trim(F[3]), -1);
+    if (Port <= 0) or (Port > 65535) or (Trim(F[2]) = '') then
     begin
       Log('SERVERWARP: bad host or port');
       Exit;
     end;
-    Log(Format('SERVERWARP to %s %s:%d', [F[1], F[2], Port]));
+    Log(Format('SERVERWARP to %s %s:%d', [F[1], Trim(F[2]), Port]));
     Inc(ServerWarps);
     FClient.Flush;
     FClient.Disconnect;
@@ -1574,11 +1521,9 @@ begin
     BoardLoaded := False;
     FPropsSent := False;
     FWarpPending := False;
-    FGanisAsked := '';
-    FNextShowImgMs := 0;
     while FOthers.Count > 0 do RemoveOther(Others[0].Id);
     ServerName := F[1];
-    ConnectServer(F[2], Port, FAccount, FPassword);
+    ConnectServer(Trim(F[2]), Port, FAccount, FPassword);
   finally
     F.Free;
   end;
@@ -1825,31 +1770,6 @@ begin
                 T.Tiles[(Y0 + I div W) * BoardW + X0 + I mod W] := V;
             end;
         end;
-      PLO_BOARDLAYER:
-        begin
-          { 107: c layer, c x, c y, c w, c h, then w*h s tiles
-            (v4x-clients.md). Layer 0 is the board; the rebuild draws no
-            other layer yet, so those changes are read and dropped. }
-          V := R.ReadGChar;
-          X0 := R.ReadGChar;
-          Y0 := R.ReadGChar;
-          W := R.ReadGChar;
-          H := R.ReadGChar;
-          if (V = 0) and (X0 < BoardW) and (Y0 < BoardH) and (W >= 1) and
-            (W <= BoardW) and (H >= 1) and (H <= BoardH) and
-            (R.Remaining >= 2 * W * H) then
-            for I := 0 to W * H - 1 do
-            begin
-              MX := R.ReadGShort;
-              if (X0 + I mod W < BoardW) and (Y0 + I div W < BoardH) then
-                Level.Tiles[(Y0 + I div W) * BoardW + X0 + I mod W] := MX;
-            end;
-        end;
-      PLO_PING:
-        { 108 subtype 0 asks for an answer (162, '!' and a 2-byte value);
-          what the value is, is not in the notes, so the rebuild sends
-          none. }
-        ;
       PLO_SIGNATURE: { 1: quit; 0: quit unless the host is loopback }
         begin
           V := R.ReadGChar;
@@ -1882,15 +1802,7 @@ begin
       PLO_FREEZEPLAYER2: Frozen := True;
       PLO_UNFREEZEPLAYER: Frozen := False;
       PLO_SERVERWARP: ServerWarp(Data);
-      PLO_LISTPROCESSES:
-        { answered with an empty 44, as the qemu run of 4.20r6 saw (the
-          Windows clients list their window titles; the Mac one did not) }
-        FClient.SendPacket(PLI_PROCESSLIST, '');
-      PLO_HASPROCESSRUNNING:
-        { The real client answers whether a title is open; the id of that
-          answer is not in the notes, so the rebuild accepts 183 and sends
-          nothing back. }
-        ;
+      PLO_LISTPROCESSES: ListProcesses;
       PLO_TOALL: Log('TOALL ' + Data);
     else
       ; { handled by 2.22; their effects belong to later stages }
@@ -1949,13 +1861,8 @@ begin
     centre pushed ahead in the walking direction }
   if Moved then FollowLink(LinkAt(Player.X + 1.5 + AX, Player.Y + 2 + AY));
   SendMovedProps;
-  { 24 = 9 every 5.14 s, alone in the level too (third lab run, on 4.04r2) }
-  if FPropsSent and FClient.Connected and (FNextShowImgMs > 0) and
-    (ClockMs >= FNextShowImgMs) then
-  begin
-    FClient.SendPacket(PLI_SHOWIMG, GChar(9));
-    FNextShowImgMs := ClockMs + ShowImgEveryMs;
-  end;
+  { the lab saw 24 about every 5 s from these clients; its payload and
+    condition were not recorded, so the rebuild sends none yet }
   FClient.Flush;
   if not Headless then Draw;
 end;
@@ -2169,6 +2076,8 @@ begin
   if CamY < 0 then CamY := 0;
   X0 := CamX div TileSize;
   Y0 := CamY div TileSize;
+  { Login mode: no tiles before the first server warp (6.03r7's lab run) }
+  if not (LoginMode and not LoginTiles) then
   for TY := Y0 to Y0 + ScreenH div TileSize + 1 do
     for TX := X0 to X0 + ScreenW div TileSize + 1 do
       if (TX < WorldW) and (TY < WorldH) then
@@ -2177,18 +2086,11 @@ begin
         if T >= 0 then
           DrawTile(Screen, Tiles, T, TX * TileSize - CamX, TY * TileSize - CamY);
       end;
-  { on the Login server the draw-layer mask is 0: the level is only a
-    backdrop, no players are drawn }
-  if LoginSession then Exit;
-  { others first, then the player on top }
+  { others first, then the player on top; none in Login mode }
+  if LoginMode then Exit;
   for I := 0 to FOthers.Count - 1 do
     DrawPlayer(Others[I], CamX, CamY);
   DrawPlayer(Player, CamX, CamY);
-end;
-
-function TAdventure.LoginSession: Boolean;
-begin
-  Result := LowerCase(Copy(ServerName, 1, 5)) = 'login';
 end;
 
 end.

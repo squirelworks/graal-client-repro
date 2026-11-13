@@ -55,6 +55,15 @@ void GE_CALL recText(int32_t x, int32_t y, const char* t, const char*, int32_t, 
 void GE_CALL recLog(const char* line) { calls.push_back(std::string("log ") + line); }
 void GE_CALL rec3D() { calls.push_back("start3d"); }
 void GE_CALL recServerLogin(const char* s) { calls.push_back(std::string("serverlogin ") + s); }
+void GE_CALL recListerConnect() { calls.push_back("listerconnect"); }
+void GE_CALL recStatusIcons(const char* s) { calls.push_back(std::string("statusicons ") + s); }
+void GE_CALL recListUpdate(int32_t id, const char* nick, const char* head, const char* props, int32_t flags) {
+  calls.push_back("listupdate " + std::to_string(id) + "|" + nick + "|" + head + "|" + props + "|" + std::to_string(flags));
+}
+void GE_CALL recListDelete(int32_t id) { calls.push_back("listdelete " + std::to_string(id)); }
+void GE_CALL recMessageBox(const char* t, const char* x, int32_t k) {
+  calls.push_back(std::string("messagebox ") + t + "|" + x + "|" + std::to_string(k));
+}
 void GE_CALL recOptions() { calls.push_back("options"); }
 void GE_CALL recUrl(const char* u) { calls.push_back(std::string("url ") + u); }
 
@@ -701,7 +710,19 @@ void testLoopbackSession(const char* build, const char* labEnv, const std::strin
     return false;
   };
   graal_setOnServerLogin(recServerLogin);
+  graal_setOnServerListerConnect(recListerConnect);
+  graal_setSetGraalStatusIcons(recStatusIcons);
+  graal_setExternalPlayerlistUpdate(recListUpdate);
+  graal_setExternalPlayerlistDelete(recListDelete);
+  graal_setOpenMessageBox(recMessageBox);
   calls.clear();
+  const bool five = e.build()[0] == '5';
+  auto seen = [&](const std::string& prefix) {
+    std::vector<std::string> out;
+    for (const auto& c : calls)
+      if (c.rfind(prefix, 0) == 0) out.push_back(c);
+    return out;
+  };
   connectToGraalServer("Login", "127.0.0.1", login.port());
   CHECK(e.session() != nullptr);
   if (!e.session()) return;
@@ -721,11 +742,16 @@ void testLoopbackSession(const char* build, const char* labEnv, const std::strin
   CHECK(pump(&game, [&] { return game.saw(37, "English"); }));
   // The launcher hears of each login by the server's name (it titles its
   // window with it).
-  {
-    std::vector<std::string> logins;
-    for (const auto& c : calls)
-      if (c.rfind("serverlogin ", 0) == 0) logins.push_back(c);
-    CHECK((logins == std::vector<std::string>{"serverlogin Login", "serverlogin Lab Server"}));
+  // (4.x: as each login is sent. 5.12 waits for the server to accept it;
+  // see below.)
+  if (!five) CHECK((seen("serverlogin ") == std::vector<std::string>{"serverlogin Login", "serverlogin Lab Server"}));
+  if (five) {
+    CHECK(seen("serverlogin ").empty());
+    // The short status list first; its own player-list row deleted before
+    // the first connect and again at the warp (the lab's 5.12 deleted it
+    // on every disconnect, a warp included).
+    CHECK((seen("statusicons ") == std::vector<std::string>{"statusicons Online,Away,DND"}));
+    CHECK((seen("listdelete ") == std::vector<std::string>{"listdelete 1", "listdelete 1"}));
   }
 
   std::string board;
@@ -740,6 +766,29 @@ void testLoopbackSession(const char* build, const char* labEnv, const std::strin
     return false;
   };
   CHECK(pump(&game, [&] { return sentProps("Tester"); }));
+  if (five) {
+    // Accepted: the server's name, the lister call and the full status
+    // list; then the client's own row (no nick, flag 0x4000) and another
+    // player's, and that player's leaving.
+    CHECK((seen("serverlogin ") == std::vector<std::string>{"serverlogin Lab Server"}));
+    CHECK(seen("listerconnect").size() == 1);
+    CHECK(seen("statusicons ").back() == "statusicons Online,Away,DND,Eating,Hiding,No PMs,RPing,Sparring,PKing");
+    {
+      const auto self = seen("listupdate ");
+      CHECK(self.size() == 1 && self[0] == "listupdate 1|||account=guest,level=onlinestartlocal.nw,communityname=,attr[1]=|16384");
+    }
+    game.send(gchar(8) + gshort(4) + gchar(QW::kNickname) + gstring("lab205") + gchar(QW::kHeadGif) + gchar(0) +
+              gchar(QW::kCurLevel) + gstring("labprobe-write.nw") + gchar(QW::kAccountName) + gstring("pc:9284355") +
+              gchar(QW::kCommunityName) + gstring("guest") + "\n");
+    CHECK(pump(&game, [&] { return seen("listupdate 4").size() == 1; }));
+    CHECK(seen("listupdate 4").back() ==
+          "listupdate 4|lab205|head0.png|account=pc:9284355,level=labprobe-write.nw,communityname=guest,attr[1]=|8192");
+    game.send(gchar(8) + gshort(4) + gchar(QW::kConnected) + "\n");
+    CHECK(pump(&game, [&] { return seen("listdelete 4").size() == 1; }));
+    CHECK(seen("messagebox ").empty());
+  } else {
+    CHECK(seen("listupdate ").empty() && seen("statusicons ").empty());
+  }
 
   const std::size_t before = game.got.size();
   CHECK(e.session()->action("moveRight2D", true));
