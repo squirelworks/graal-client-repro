@@ -28,6 +28,7 @@ the install's files come first.
 - [x] **Neutral window titles.** The server list window is titled "Server List", not the original's caption, which named the original's host (#191).
 - [x] **Pictures by kind.** The picture cache keeps each name once per kind (head, body, sword, shield, hat, weapon), because each kind searches its own folders. A picture first asked for without its kind got the built-in stand-in and kept it, so an install's own picture could stay hidden behind the stand-in (in 1.33, `levels/weapons/wbomb1.gif` beside the D button).
 - [x] **F1 window captions.** The Help window takes its title and button captions from your install's language file (`Options=`, `Options-<button>=`), as the original does, so an install whose file says "Options" and "More options" shows those. The buttons are drawn letter-spaced with the hotkey letter in red, and the current level field shows the level's full path, selected.
+- [x] **The install's own offline tile definitions.** `levels/tiledefs/tiledefsoffline.txt` in the carried install files is now the NewWorld beta 1 install's own copy (798 bytes). The old copy (993 bytes) matched no install in the project files: it had nine extra `picso.png` prefix lines (`map_`, `azmir_`, `gladdamir_`, `khaldri_`, `kola_`, `love_`, `order_`, `sahkis_` and, in one, `map`) for levels the beta 1 install doesn't ship. The `.res` was rebuilt with `scripts/res/install_res.py` from the beta 1 install; no other file changed.
 
 ## What's new in v0.0.4
 
