@@ -23,6 +23,7 @@ program works too (`graal-assets/4.20r8/`, then `graal-assets/common/`).
 
 ## What's new in v0.0.4.2
 
+- **Online with the current Seihai gserver.** A compressed frame body now steps the cipher once per whole 4-byte group, rounded down, as the real 4.20 engine library does (and as seihai-gserver does through seihai-core 0.1.0). Before, the client rounded up and dropped with "bad frame from the server" right after it logged in.
 - The C++ host now shares first-frame framing and loopback transport with
   the other existing host. Version-specific wire fields stay in its adapter;
   independent codec and TCP delivery tests do not establish historical login.

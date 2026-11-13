@@ -24,6 +24,7 @@ then `graal-assets/common/`).
 
 ## What's new in v0.0.4.2
 
+- [x] **Online with the current Seihai gserver.** A compressed frame body now steps the cipher once per whole 4-byte group, rounded down, as the real 4.20 engine library does (and as seihai-gserver does through seihai-core 0.1.0). Before, the client rounded up and dropped with "bad frame from the server" right after it logged in.
 - [x] **Pictures by kind.** The picture cache keeps each name once per kind (head, body, sword, shield, hat, weapon), because each kind searches its own folders. A picture first asked for without its kind got the built-in stand-in and kept it, so an install's own picture could stay hidden behind the stand-in (in 1.33, `levels/weapons/wbomb1.gif` beside the D button).
 
 ## What's new in v0.0.4
