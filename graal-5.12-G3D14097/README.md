@@ -152,9 +152,23 @@ checked against a 5.12 install:
   not). The `0x0001` (Staff) flag the real engine set on the NPC-Server is
   not sent: when to set it is not known. Whether chat makes a call was not
   seen.
-- [ ] The rest of the 5.12 launcher: its tray menu (Show Game, Show Player
-  List, Quit), the "Players: N online" window (`TPlayerList`), the options,
-  profile, controls and message forms. The stand-in start screen still
+- [x] ~~The Players window and the tray menu~~ with `--engine --window`:
+  a second window titled "Players: N online" (N counts the player's own
+  row, as the lab's 5.12 did), listing each player's head and nick under
+  the fixed groups Staff, Buddies, Guild, Normal, Ignore and Offline, with
+  three tabs along the top and the Status list, Profile and Options along
+  the bottom (`src/PlayerList512.pas`). On Windows the program's icon sits in
+  the tray, its tip "<server>: N online", its right-click menu Show Game,
+  Show Player List (both checked while shown), a separator and Quit
+  (`src/Tray512.pas`). Closing the Players window hides it. The rebuild
+  draws the window in a plain look of its own, not the original form.
+  Players go under Normal (Staff for flag `0x0001`). Buddies, Guild, Ignore
+  and Offline stay empty, and the tabs, Status list and buttons do nothing
+  yet. Other systems have no tray. `--players-log` prints the list at the
+  end of a run and `--players-dump FILE.bmp` saves the window.
+- [ ] The rest of the 5.12 launcher: the "PlayerList Options" form, the
+  options, profile, controls and message forms, and what the Players
+  window's tabs, Status list and buttons do. The stand-in start screen still
   uses 5.00r7's look.
 - [ ] The Login server's scripted GUI (server list, accounts) and GS2 in
   general: 140 and 197 (class and weapon scripts, the `GRESCR01` cache),

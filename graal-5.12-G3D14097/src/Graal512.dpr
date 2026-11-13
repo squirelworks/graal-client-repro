@@ -71,7 +71,10 @@ uses
   GStartScreen in '../../common/GStartScreen.pas',
   ListServer512 in 'ListServer512.pas',
   StartScreen512 in 'StartScreen512.pas',
-  RunMode in 'RunMode.pas';
+  RunMode in 'RunMode.pas',
+  GUiFont in '../../common/GUiFont.pas',
+  PlayerList512 in 'PlayerList512.pas',
+  Tray512 in 'Tray512.pas';
 
 var
   { Set while the start screen runs a game: the arguments it chose, read
@@ -120,6 +123,7 @@ begin
   WriteLn('  --server HOST:PORT --account NAME [--password-env VAR] [--server-name NAME]');
   WriteLn('  --level FILE [--x X --y Y]');
   WriteLn('  --engine [--engine-lib FILE] [--window] [--frames N] [--connect NAME@HOST:PORT]');
+  WriteLn('           [--players-log] [--players-dump LIST.bmp]');
   WriteLn('  common: [--data DIR] [--window | --headless] [--frames N] [--seconds N]');
   WriteLn('          [--keys SCRIPT] [--walk script|idle|random] [--walk-ms N] [--seed N]');
   WriteLn('          [--link-every N] [--nodelay] [--stats-every N]');
@@ -638,7 +642,65 @@ end;
   menus are the install's own, run on the GS2 machine; Start logs in
   through the library's session.
   Options: --engine-lib FILE, --window, --frames N, --dump FRAME.bmp,
-  --connect NAME@HOST:PORT. }
+  --connect NAME@HOST:PORT, --players-log (the player list at the end),
+  --players-dump LIST.bmp (the Players window at the end). }
+type
+  { Heads for the Players window, read once each from the install and
+    graal-assets (as the engine's session finds them, downloads included). }
+  THeadCache = class
+  private
+    FNames: TStringList;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    function Find(const Name: string): TGSurface;
+  end;
+
+constructor THeadCache.Create;
+begin
+  inherited Create;
+  FNames := TStringList.Create;
+  FNames.CaseSensitive := False;
+  FNames.OwnsObjects := True;
+end;
+
+destructor THeadCache.Destroy;
+begin
+  FNames.Free;
+  inherited;
+end;
+
+function THeadCache.Find(const Name: string): TGSurface;
+var
+  I: Integer;
+  P: string;
+  S: TGSurface;
+begin
+  I := FNames.IndexOf(Name);
+  if I >= 0 then
+  begin
+    Result := TGSurface(FNames.Objects[I]);
+    Exit;
+  end;
+  Result := nil;
+  if (Pos('/', Name) > 0) or (Pos('\', Name) > 0) or (Pos('..', Name) > 0) then Exit;
+  P := AssetPath('levels/heads/' + Name);
+  if P = '' then P := AssetPath('levels/images/downloads/' + Name);
+  if P = '' then P := AssetPath('levels/' + Name);
+  if P = '' then P := AssetPath(Name);
+  S := nil;
+  if P <> '' then
+  begin
+    S := TGSurface.Create(1, 1);
+    if not LoadImageFile(P, S) then FreeAndNil(S);
+  end;
+  { a miss is kept too, so it is not looked for every frame; the engine
+    may download the file later, so a miss is forgotten when the list
+    changes }
+  FNames.AddObject(Name, S);
+  Result := S;
+end;
+
 function RunEngine: Integer;
 const
   { The 5.12 game window: 800 x 600 inside the frame (measured on the lab's
@@ -649,9 +711,12 @@ const
   ArrowKey: array[0..3] of TGKey = (gkUp, gkLeft, gkDown, gkRight);
 var
   Host: TEngineHost;
-  Win: TGWindow;
+  Win, Players: TGWindow;
+  ListPic: TGSurface;
+  Heads: THeadCache;
+  Tray: Boolean;
   Lib, Dump, Target, Chars, Titled: string;
-  Frames, I, K, X, Y, At, Colon, LogSeen: Integer;
+  Frames, I, K, X, Y, At, Colon, LogSeen, ListSeen: Integer;
   Was: array[0..4] of Boolean;
   NextUs: Int64;
 begin
@@ -662,6 +727,11 @@ begin
   else if HasArg('--window') then Frames := 0
   else Frames := 1;
   Win := nil;
+  Players := nil;
+  Tray := False;
+  ListPic := TGSurface.Create(PlayerListW, PlayerListH);
+  Heads := THeadCache.Create;
+  SetAssetRootsFor(ExtractFilePath(ParamStr(0)), Arg('--data', ''), ClientBuildLabel);
   Host := TEngineHost.Create(EngineW, EngineH);
   try
     if not Host.Load(Lib) then
@@ -699,7 +769,18 @@ begin
     begin
       Win := TGWindow.Create(PaddedTitle, EngineW, EngineH);
       if not Win.Ok then FreeAndNil(Win);
+      { the launcher's Players window (TPlayerList) and its tray icon; both
+        windows start shown, as the tray menu's two check marks say }
+      if Win <> nil then
+      begin
+        GWindowClass := 'TPlayerList';
+        Players := TGWindow.Create(PlayerListTitle(0), PlayerListW, PlayerListH);
+        GWindowClass := 'TGraalWindow';
+        if not Players.Ok then FreeAndNil(Players);
+        Tray := TrayStart('Graal');
+      end;
     end;
+    ListSeen := -1;
     Titled := '';
     FillChar(Was, SizeOf(Was), 0);
     LogSeen := 0;
@@ -712,6 +793,18 @@ begin
       begin
         Win.Pump;
         if Win.Closed then Break;
+        if (Players <> nil) and Players.Closed then
+        begin
+          { closing the Players window hides it; the tray brings it back }
+          Players.Closed := False;
+          Players.SetShown(False);
+        end;
+        case TrayTake of
+          tcShowGame: Win.SetShown(not Win.Shown);
+          tcShowPlayers: if Players <> nil then Players.SetShown(not Players.Shown);
+          tcQuit: Break;
+        end;
+        if Tray then TraySetChecks(Win.Shown, (Players <> nil) and Players.Shown);
         Host.Active := True;
         for K := 0 to 3 do
           if Win.Held[ArrowKey[K]] <> Was[K] then
@@ -746,6 +839,21 @@ begin
         WriteLn('logged in to ', Titled);
       end;
       if Win <> nil then Win.Present(Host.Screen);
+      if Host.ListChanges <> ListSeen then
+      begin
+        { the engine's player list changed: the Players window, its title
+          and the tray tip follow }
+        ListSeen := Host.ListChanges;
+        Heads.Free;
+        Heads := THeadCache.Create;
+        DrawPlayerList(ListPic, Host, Heads.Find);
+        if Players <> nil then
+        begin
+          Players.SetTitle(PlayerListTitle(Host.OnlineCount));
+          Players.Present(ListPic);
+        end;
+        if Tray and (Host.ServerName <> '') then TraySetTip(TrayTip(Host.ServerName, Host.OnlineCount));
+      end;
       while LogSeen < Host.Log.Count do
       begin
         WriteLn(Host.Log[LogSeen]);
@@ -758,10 +866,23 @@ begin
       if NextUs > MonoUs then Sleep((NextUs - MonoUs) div 1000);
     end;
     if Dump <> '' then Host.Screen.SaveBMP(Dump);
+    if HasArg('--players-dump') then ListPic.SaveBMP(Arg('--players-dump', ''));
+    if HasArg('--players-log') then
+    begin
+      { the list as the launcher holds it, one row per line (lab checks) }
+      WriteLn(PlayerListTitle(Host.OnlineCount));
+      for K := 0 to High(Host.Players) do
+        WriteLn('  ', Host.Players[K].Id, ' ', Host.Players[K].Nick, ' ', Host.Players[K].Head, ' ',
+          Host.Players[K].Props, ' $', IntToHex(Host.Players[K].Flags, 4));
+    end;
     Result := 0;
   finally
+    if Tray then TrayStop;
+    Players.Free;
     Win.Free;
     Host.Free;
+    Heads.Free;
+    ListPic.Free;
   end;
 end;
 
