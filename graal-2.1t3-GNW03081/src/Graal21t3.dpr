@@ -105,6 +105,9 @@ var
   { Set while the start screen runs a game: the arguments it chose, read
     in place of the command line. }
   GuiArgs: TStringList = nil;
+  { the start screen's language file while a game runs (not owned): F1's
+    Help window is worded from its Options keys }
+  HelpLang: TStringList = nil;
   { why the last game ended, for the start screen }
   LastGameError: string = '';
 
@@ -457,7 +460,7 @@ begin
           if Win.WasPressed(gkOptions) then
           begin
             if OwnResource('TOPTIONS', OptForm) and
-              (RunOptionsWindow(OptForm, 'Graal', G.Level.Name) = oaEditLevel) then
+              (RunOptionsWindow(OptForm, 'Graal', G.Level.Name, '', HelpLang) = oaEditLevel) then
               EditorKey(Win, G, Online);
             if Win.Closed then Break;
           end;
@@ -731,6 +734,7 @@ begin
           Win.Reshape(GameTitle + ': ' + R.ServerName, ScreenW, ScreenH)
         else
           Win.Reshape(GameTitle, ScreenW, ScreenH);
+        if RS <> nil then HelpLang := RS.Lang else HelpLang := nil;
         if RunGame(Win, R.Password, R.Nickname) <> 0 then
           Msg := LastGameError
         else
@@ -740,6 +744,7 @@ begin
       end;
     until Win.Closed or StopRequested;
   finally
+    HelpLang := nil;
     RS.Free;
     Win.Free;
   end;

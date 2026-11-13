@@ -17,7 +17,11 @@ struct BuildProfile {
   std::string label;       // "6.03r7 Linux"
   std::string token;       // the 8-character version token
   std::string platform;    // first field of the login line's comma list
-  int machine_fields = 0;  // fields after the platform; the rebuild sends "" for each
+  // The machine fields after the platform, each with its leading comma. The
+  // original hashes its machine; the rebuild reads no machine values and
+  // sends fixed made-up ones of the same shape (kFakeWinFields,
+  // kFakeLinuxFields).
+  std::string machine_fields;
   // Server -> client ids the receive switch handles. Ids 100 and 108 are
   // taken before that switch and are not in this set (see handles_pre_switch).
   std::bitset<256> plo;
@@ -45,6 +49,15 @@ struct BuildProfile {
   // 80; the lab's 5.12 listed players' community names, prop 82).
   int last_prop = 80;
 };
+
+// Made-up machine fields, the shape the originals send. Windows: the MD5
+// hex of "SquirrelOS product id SQRL7-ACORN-OAK42-NUTS1", of "SquirrelNIC
+// MAC AC:04:2D:5E:ED:01" and of "SquirrelBIOS C: volume serial ACE5-5EED".
+// Linux: the MD5 hex of "SquirrelNIC eth0 MAC AC:04:2D:5E:ED:02" and of
+// "SquirrelFS /etc inode 424242", an empty field, and a SquirrelOS kernel
+// release, two spaces and version (the original's uname layout).
+extern const char kFakeWinFields[];
+extern const char kFakeLinuxFields[];
 
 // Every row this program can run as.
 const std::vector<BuildProfile>& profiles();

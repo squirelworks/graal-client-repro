@@ -23,6 +23,7 @@ place.
 
 - [x] **Seihai secure login (optional, off by default).** With `--secure-login auto` (or `required`, or `secure_login.txt` in the settings folder), the account and password go sealed to a Seihai game server (`SEI00001`), after the server's key is checked and pinned. Servers that do not know it get the original login under `auto`. Off, the login is byte for byte the original's. This is not in the original game.
 - [x] **Checked against the unpatched original.** The copy this rebuild was first made from had been patched for graal.in. Of the two other 1.41r1 copies held, the one in `Graal v1.41r1.rar` is the unpatched original (listserver `www.graalonline.com`, port 14910). The token, the cipher, the forms and the icon are the same bytes in all copies, so they stay. The server list window is titled "Graalonline.com Server List" again, as in the original. The default listserver stays `listserver.graal.in` on 14923, because the original's is gone.
+- [x] **F1 shows the level's full path.** The F1 window's Current level field holds the level file's full path, as the real 1.x shows it, not the bare file name (#302).
 
 ## What's new in v0.0.4.2
 

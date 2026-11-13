@@ -14,7 +14,7 @@ interface
 
 uses
   Classes, SysUtils, GNumText, Math, GTypes, GLevel, GSurface, GArrays, GFont, GGs1, Npc125,
-  Baddy125, Adventure;
+  Baddy125, Adventure, GCompat;
 
 type
   TAdventureNpcWorld = class(TNpcWorld)

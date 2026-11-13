@@ -52,6 +52,12 @@ HEADERS = guigraal304.hpp game304.hpp pascal_game304.hpp game304_abi.h $(ENGINE_
 # The 3.04 Pascal game as a shared library (make lib; needs Free Pascal).
 GAME_SRC = ../../../graal-3.04-G3D03014/src
 GAME_SRC_3153 = ../../../graal-3.153-G3D28015/src
+# The other 3.x builds on this program, each its own library over its own
+# folder's units: 3.0beta and 3.01 (3.04's, on the gen-4 link) and 3.151
+# (3.153's, on Linux).
+GAME_SRC_30B = ../../../graal-3.0beta-G3D16053/src
+GAME_SRC_301 = ../../../graal-3.01-G3D27063/src
+GAME_SRC_3151 = ../../../graal-3.151-G3D27015/src
 # This folder from GAME_SRC. Paths given to a native Windows compiler stay
 # relative: it misreads MSYS (/d/a/...) paths (scripts/build.sh).
 FROM_GAME = ../../common/torque/guigraal
@@ -120,6 +126,15 @@ lib: | build
 	mkdir -p $(LIB_DIR)/units3153
 	set -f; cd $(GAME_SRC_3153) && $(FPC) -Mdelphi -Sh -vew -O2 $(LIB_FPCFLAGS) -Fu../../common -Fu. \
 	  -FE$(FROM_GAME)/$(LIB_DIR) -FU$(FROM_GAME)/$(LIB_DIR)/units3153 Game3153Lib.lpr
+	mkdir -p $(LIB_DIR)/units30b
+	set -f; cd $(GAME_SRC_30B) && $(FPC) -Mdelphi -Sh -vew -O2 $(LIB_FPCFLAGS) -Fu../../common -Fu. \
+	  -FE$(FROM_GAME)/$(LIB_DIR) -FU$(FROM_GAME)/$(LIB_DIR)/units30b Game30bLib.lpr
+	mkdir -p $(LIB_DIR)/units301
+	set -f; cd $(GAME_SRC_301) && $(FPC) -Mdelphi -Sh -vew -O2 $(LIB_FPCFLAGS) -Fu../../common -Fu. \
+	  -FE$(FROM_GAME)/$(LIB_DIR) -FU$(FROM_GAME)/$(LIB_DIR)/units301 Game301Lib.lpr
+	mkdir -p $(LIB_DIR)/units3151
+	set -f; cd $(GAME_SRC_3151) && $(FPC) -Mdelphi -Sh -vew -O2 $(LIB_FPCFLAGS) -Fu../../common -Fu. \
+	  -FE$(FROM_GAME)/$(LIB_DIR) -FU$(FROM_GAME)/$(LIB_DIR)/units3151 Game3151Lib.lpr
 
 test: build/guigraal-test$(EXE) build/frame-test$(EXE)
 	./build/guigraal-test$(EXE)

@@ -28,7 +28,7 @@ from decompiled code:
 | | 3.153 | 5.00r7 (this folder) |
 |---|---|---|
 | Game token | `G3D28015` | `G3D22067` |
-| Login line | ends at the password | then `win,"","",""` (platform and three machine fields) |
+| Login line | ends at the password | then `win` and three machine fields (made-up hashes) |
 | First frame | 5, 37, 34 bigmap, 34 minimap | 5 alone; 37 in its own gen-5 frame |
 | Listserver | `G3D30123newmain` | none: the first server is a game server named `Login` |
 | Login mode | no | while the server's name starts with "login", no characters are drawn |
@@ -40,8 +40,9 @@ from decompiled code:
 
 The machine fields are MD5 hashes of the Windows product id, the adapter
 MAC and the `C:` volume serial on the original. The rebuild reads none of
-them and sends each as `""`, which is what the real 5.00r7 sent for its MAC
-field in the lab. Its answer to 182 names only its own game window (the
+them and sends fixed made-up hashes of the same shape (MD5 hex of
+SquirrelOS, SquirrelNIC and SquirrelBIOS strings). The real 5.00r7 sent
+`""` for its MAC field in the lab, which had no network card. Its answer to 182 names only its own game window (the
 server's name), not the processes on the machine.
 
 ## Units

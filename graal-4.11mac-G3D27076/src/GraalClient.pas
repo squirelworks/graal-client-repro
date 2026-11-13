@@ -568,15 +568,17 @@ begin
   if Sec.Want then
   begin
     StartSecure(GChar(ClientType) + GChar(FKey), ClientVersionToken, '',
-      GString(Account) + GString(Password) + LoginPlatform + ',"","",""');
+      GString(Account) + GString(Password) + LoginPlatform + ',136e7764c5e302092c02953b69eebed8,65e5a8ee6e0d22852a2e92a64056765e,""');
     Exit;
   end;
   { GCHAR type, GCHAR key, token, GSTRING account, GSTRING password, then
     the comma list: mac, a hash of the Ethernet MAC, a hash of stat("/etc"),
-    and an empty field. The rebuild sends the hashes empty, so it never
-    hands a server an id of the player's machine. The qemu run captured
-    mac,"",<32 hex>,"". }
-  SendPacket(ClientType, GChar(FKey) + ClientVersionToken + GString(Account) + GString(Password) + LoginPlatform + ',"","",""');
+    and an empty field. The rebuild reads no machine values. It sends
+    fixed made-up hashes of the same shape: the MD5 hex of "SquirrelBook en0
+    MAC AC:04:2D:5E:ED:03" and of "SquirrelFS /etc stat 424243". The qemu
+    run captured mac,"",<32 hex>,"" (no network card there). }
+  SendPacket(ClientType, GChar(FKey) + ClientVersionToken + GString(Account) +
+    GString(Password) + LoginPlatform + ',136e7764c5e302092c02953b69eebed8,65e5a8ee6e0d22852a2e92a64056765e,""');
   Flush;
   SendAfterLogin;
 end;

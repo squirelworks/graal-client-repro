@@ -116,15 +116,15 @@ were not measured.
 
 - Item keys: the stone's carry sprite was not seen, so lifting it sends
   only the first carry sprite, and a thrown stone breaks into nothing.
-  The item-drawing lab's frames were 120-450 ms apart on a loaded VM, so
-  how long the pieces of a broken object and a cut bush's leaves last,
-  how fast they spread and how often the leaf image flips are estimates
-  (`world/effects.hpp`, marked APPROX); the sign's two piece images are
-  put left and right by guess. Only the green gralat was seen over a
-  chest; other items use the Pascal clients' item sprite table. Carrying
-  never pushes. Esc still quits with no GUI (the lab saw Esc toggle the
-  status bit like D, Q and Tab). Through `Program::action` (the engine library's
-  bindings), `doQ` does D and `doS2` (Space) does S.
+  The effect timings are the item-drawing lab's 50 ms series; the leaves'
+  paths are rounded to one rule per corner, and where the pieces of a
+  break start was measured facing right and down only. The gralat the
+  server drops from a cut bush is a floor item and is not drawn yet. Only
+  the green gralat was seen over a chest; other items use the Pascal
+  clients' item sprite table. Carrying never pushes. Esc still quits with
+  no GUI (the lab saw Esc toggle the status bit like D, Q and Tab).
+  Through `Program::action` (the engine library's bindings), `doQ` does
+  D and `doS2` (Space) does S.
 - Stand-ins until the real art is drawn: tiles with no `pics1.png` are flat
   colours from their id; chests are boxes (6.03r7 draws none, as the
   real client does), and so is a player when no
@@ -169,7 +169,8 @@ were not measured.
 
 - Receive limits: 16 MiB per frame and 4 MiB of unfinished message. The
   original's were not read.
-- The machine fields of the login line are sent as `""`; the original
-  sends hashes of the machine.
+- The machine fields of the login line are made up: fixed MD5 hex of
+  Squirrel-themed strings and a SquirrelOS kernel string, the shape the
+  original sends (it hashes the machine). No machine is read.
 - The PLI 50 size counts the id byte, the body and the newline; the note
   gives the cap, not what is counted.

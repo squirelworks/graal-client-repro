@@ -15,7 +15,7 @@ bool buildLoginFrame(int key, const std::string &account, const std::string &pas
 
   // First frame only: id 5. GCHAR(id) is id + 0x20.
   // Token kVersionToken is the documented 4.20r8 row.
-  // Machine fields stay empty, as in Test420.
+  // Machine fields: the made-up hashes Test420 asserts.
   // Ids 37 and 23 are later gen-5 frames and are not appended here.
   const int kLogin = 5;
 
@@ -25,7 +25,7 @@ bool buildLoginFrame(int key, const std::string &account, const std::string &pas
   plain += kVersionToken;
   plain += gString(account);
   plain += gString(password);
-  plain += "win,\"\",\"\",\"\"";
+  plain += "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400";
   plain += '\n';
 
   return HostNet::encodeFirstFrame(plain, key, out, error);

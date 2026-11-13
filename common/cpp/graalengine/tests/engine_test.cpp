@@ -978,8 +978,8 @@ int main() {
   testLabMenuInput();
   testLabMenu512();
   testOfflineTutorial();
-  testLoopbackSession("4.04r2", "GRAAL404_ENGINE", "win,\"\",\"\",\"\"");
-  testLoopbackSession("5.12", "GRAAL512_ENGINE", "win,\"\",\"\",\"\",\"6.2 9200 \"");
+  testLoopbackSession("4.04r2", "GRAAL404_ENGINE", "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400");
+  testLoopbackSession("5.12", "GRAAL512_ENGINE", "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400,\"6.2 9200 \"");
   testGraal3DBridge();
   CHECK(graalengine_setBuild("9.99") == 0);
   if (failures) {

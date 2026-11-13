@@ -21,7 +21,7 @@ unit EditorDialogs;
 interface
 
 uses
-  Classes, GSurface, GLevel, EditorUI, EditorDoc;
+  Classes, GSurface, GLevel, EditorUI, EditorDoc, GCompat;
 
 type
   TCtlKind = (ckLabel, ckEdit, ckMemo, ckButton, ckList, ckCombo, ckGroup,

@@ -290,12 +290,12 @@ begin
     Len := (Ord(Wire[1]) shl 8) or Ord(Wire[2]);
     Check(ZDecompress(Copy(Wire, 3, Len), Plain) and
       (Plain = '%' + Chr(CaptureKey + 32) + 'G3D28090' + GString('acc') + GString('pw') +
-        'linux,"","","",""' + #10),
+        'linux,c3adb4be4be05a76d9ffdc3e88ba180b,b94291e395c1ae186c7ee9b2d6c685be,"","2.6.38-1-squirrelos  #1-SquirrelOS SMP Mon Jun 27 12:00:00 UTC 2011"' + #10),
       'login: 5 (key, G3D28090, account, password, linux and four machine fields) alone in the plain zlib frame');
     Check(ServerReadAll(Codec, Copy(Wire, Len + 3, MaxInt), Msgs) and
       (Msgs.Count = 1) and (Msgs[0] = GChar(PLI_LANGUAGE) + 'English'),
       'login: 37 English in its own gen-5 frame, and no tamper check');
-    Check(LoginTail = 'linux,"","","",""', 'login: the tail is linux and four empty quoted fields');
+    Check(LoginTail = 'linux,c3adb4be4be05a76d9ffdc3e88ba180b,b94291e395c1ae186c7ee9b2d6c685be,"","2.6.38-1-squirrelos  #1-SquirrelOS SMP Mon Jun 27 12:00:00 UTC 2011"', 'login: the tail is linux, two made-up machine hashes, the empty field and the quoted SquirrelOS kernel string');
     C.Sent := '';
     C.StartOffline(CaptureKey);
     C.SendLogin('acc', StringOfChar('p', 300), 'English');

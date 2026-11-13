@@ -42,7 +42,7 @@ program Graal2100;
 { A windowed program on Windows, like 2.05: started with no arguments it
   opens the start screen. With arguments it attaches to the console it was
   started from (OpenConsoleIO) and runs as before. }
-{$IFDEF MSWINDOWS}{$IFDEF FPC}{$APPTYPE GUI}{$ELSE}{$APPTYPE CONSOLE}{$ENDIF}{$ENDIF}
+{$IFDEF MSWINDOWS}{$APPTYPE GUI}{$ENDIF}
 { Windows: version info and manifest (src/Graal2100.rc), and the DEP and ASLR
   flags ($0100 NX_COMPAT, $0040 DYNAMIC_BASE; the relocations come from -WR
   in the Windows build flags). }
@@ -51,8 +51,8 @@ program Graal2100;
   scripts/res/extract_res.py): its start window and server list forms and
   art, its icon and tutorial levels }
 { Delphi's linker reads only backslash paths here }
-{$IFDEF FPC}{$R res/Graal2100Res.res}{$ELSE}{$R res\Graal2100Res.res}{$ENDIF}
-{$IFDEF FPC}{$R res/Graal2100Install.res}{$ELSE}{$R res\Graal2100Install.res}{$ENDIF}
+{$IFDEF FPC}{$R res\Graal2100Res.res}{$ELSE}{$R res\Graal2100Res.res}{$ENDIF}
+{$IFDEF FPC}{$R res\Graal2100Install.res}{$ELSE}{$R res\Graal2100Install.res}{$ENDIF}
 
 uses
   SysUtils, Classes,
@@ -377,7 +377,7 @@ begin
         Port := 14802;
       end;
       if GuiWin <> nil then Pw := GuiPw
-      else Pw := SysUtils.GetEnvironmentVariable(Arg('--password-env', 'GRAAL_PW'));
+      else Pw := EnvVar(Arg('--password-env', 'GRAAL_PW'));
       if G.ConnectServer(Host, Port, Account, Pw) then
       begin
         if NoDelay and not G.Client.Socket.SetNoDelay(True) then

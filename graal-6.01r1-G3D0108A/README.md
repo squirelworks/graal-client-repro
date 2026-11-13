@@ -32,7 +32,7 @@ from decompiled code:
 | Server ids handled | 92 | 91: no 111 (`creationtime.dat`) |
 
 Everything else is 6.03r7's: the login line ends with `linux` and four
-machine fields (sent as `""`), Login mode draws no tiles and no characters
+machine fields (made-up hashes and a SquirrelOS kernel string), Login mode draws no tiles and no characters
 (taken from the 6.03r7 lab run), long frames, the flush at 0x1000 bytes,
 OSTYPE `linux`. 6.01r1 also does not send 160 (folder delete), which the
 rebuild never sends anyway.

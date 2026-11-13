@@ -34,14 +34,16 @@ from decompiled code:
 | 108 | not handled | accepted; subtype 0 would be answered with 162, whose value is not in the notes, so no answer is sent |
 | 196 | not handled | read and dropped, as the real client does |
 
-The login line (`win` and three machine fields, sent empty), the Login
+The login line (`win` and three machine fields, made-up hashes), the Login
 session, 178, the messages after login, X2/Y2 walking and 24 every
 5.145 s are as in 4.04r2. The second lab run saw 4.20r8 send the same
 messages as 4.04r2; the frame order and the 24 period were timed on
 4.04r2 only.
 
 Choices made for players' privacy, where the real client sends more: the
-machine fields are empty, and the answer to 182 names only the program.
+machine fields are fixed made-up hashes of SquirrelOS, SquirrelNIC and
+SquirrelBIOS strings in the original's shape, and the answer to 182 names
+only the program.
 
 ## Units
 

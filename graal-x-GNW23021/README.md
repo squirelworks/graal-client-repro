@@ -334,10 +334,20 @@ GraalX's own slices (issue #175):
   byte for byte, with everything else unchanged. The edited case checks
   this rebuild's writer only: how GraalX itself writes edited boards and
   objects, and every directive, is still unverified.
-- [ ] The embedded tutorial levels checked against GraalX at run time.
+- [x] The embedded tutorial levels checked against GraalX at run time
+  (lab, Windows XP, 2026-11-13): Training opens `tutorial_b-4.graal`, as
+  2.01 does (F1 shows it), from an embedded level byte-identical in
+  GraalX, 2.01 and 2.05 rev 2. It loads no `.nw`.
+- [ ] Training's ground: from the same install, real GraalX draws stone
+  walls and big trees where real 2.01 (and this rebuild) draws the dirt
+  path; 2.05 rev 2, 2.1 test and NewMain look like GraalX. Taking away
+  `picso.png` or `tiledefsoffline.txt` changes nothing, so it comes from
+  the exe (the start position or the tile drawing) and needs a static
+  read before the rebuild can follow it.
 - [ ] Movement, combat, rendering, sound and network differences, if any,
   from more GraalX evidence.
-- [ ] No side-by-side run against the real GraalX yet.
+- [ ] A full side-by-side run against the real GraalX (Training and Esc
+  were compared on 2026-11-13).
 
 Carried over from 2.01:
 

@@ -11,7 +11,8 @@
 // main.cs; --prefs to ~/.graal304-torque (%APPDATA%\graal304-torque on
 // Windows); --game to the game library next to the program:
 // libGame304Lib.so on Linux, Game304Lib.dll on Windows, libGame304Lib.dylib
-// on macOS (Game3153Lib for a 3.153 install). --steps runs scripted
+// on macOS (Game3153Lib for a 3.153 install; the one library beside the
+// program when there is only one, as in the 3.0beta, 3.01 and 3.151 zips). --steps runs scripted
 // statements as tq-play does (for lab runs); --seconds ends the program
 // after N seconds; --shot writes the last window image when the program
 // ends.
@@ -206,7 +207,17 @@ int main(int argc, char** argv) {
   // a 3.153 install (scripts2D/main2D.cs) runs the 3.153 game library
   const bool is_3153 = std::ifstream(root + "/scripts2D/main2D.cs.dso").good() ||
                        std::ifstream(root + "/scripts2D/main2D.cs").good();
-  if (lib.empty()) lib = here + "/" + game_lib_file(is_3153 ? "Game3153Lib" : "Game304Lib");
+  // Each release zip ships one game library beside the program (3.04's,
+  // 3.153's, or 3.0beta's, 3.01's or 3.151's on the same program). If
+  // exactly one is there, it is the build; otherwise the install picks.
+  if (lib.empty()) {
+    std::vector<std::string> present;
+    for (const char* base : {"Game304Lib", "Game3153Lib", "Game30bLib", "Game301Lib", "Game3151Lib"}) {
+      const std::string file = here + "/" + game_lib_file(base);
+      if (std::ifstream(file).good()) present.push_back(file);
+    }
+    lib = present.size() == 1 ? present[0] : here + "/" + game_lib_file(is_3153 ? "Game3153Lib" : "Game304Lib");
+  }
   if (prefs.empty()) prefs = default_prefs();
   make_dir(prefs);
   std::vector<Step> steps;
@@ -248,6 +259,16 @@ int main(int argc, char** argv) {
       ++next_step;
     }
     frame.step();
+    // setScreenMode (Options, Apply) changed the resolution pref.
+    int want_w = width, want_h = height;
+    canvas_size_304(engine, want_w, want_h);
+    if (want_w != width || want_h != height) {
+      width = want_w;
+      height = want_h;
+      window->resize(width, height);
+      frame.resize(width, height);
+      engine.trace.push_back("window " + std::to_string(width) + " x " + std::to_string(height));
+    }
     window->present(frame.image());
     std::this_thread::sleep_until(start + std::chrono::milliseconds(50));
   }

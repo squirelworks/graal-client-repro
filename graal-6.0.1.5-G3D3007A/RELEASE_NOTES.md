@@ -24,6 +24,7 @@ to the program works too.
 
 - [x] **Seihai secure login (optional, off by default).** With `--secure-login auto` (or `required`, or `secure_login.txt` in the settings folder), the account and password go sealed to a Seihai game server or list server (`SEI00001`), after the server's key is checked and pinned. Servers that do not know it get the original login under `auto`. Off, the login is byte for byte the original's. This is not in the original 6.0.1.5.
 - [x] **New client.** 6.0.1.5 has a folder of its own, started from `graal-6.01r1-G3D0108A` with its own token `G3D3007A` and the Windows login tail (`win` and four machine fields) and `win` as its system name.
+- [x] **Machine fields in the original's shape.** The login line now sends `win`, three fixed made-up MD5 hashes (of SquirrelOS, SquirrelNIC and SquirrelBIOS strings) and the quoted Windows version `"6.2 9200 "`, the shape the real client sends. Nothing is read from your machine.
 
 ## Downloads
 
@@ -47,7 +48,7 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 - The start screen: nick name, Training, Start. Start fetches the server
   list from `listserver.txt` next to the program, or else
   `listserver.graal.in` on port 14922. Then account, password and Connect.
-- Login with `G3D3007A`, the platform `win` and four empty machine
+- Login with `G3D3007A`, the platform `win` and made-up machine
   fields; the language in its own frame; no tamper check.
 - The Login server: a server reached by its address alone is called
   Login, and there neither the tiles nor any characters are drawn, until

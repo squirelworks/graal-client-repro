@@ -1322,7 +1322,8 @@ var
   O: TDfmObj;
   F: TVclForm;
   C: TVclCtl;
-  I, Buttons, Mapped: Integer;
+  I, Buttons, Mapped, X, Y, Diff: Integer;
+  Texts: TStringList;
 begin
   Check(OwnResource('TOPTIONS', Data) and (Copy(Data, 1, 4) = 'TPF0'), 'F1: TOPTIONS is carried');
   Img := TGSurface.Create(1, 1);
@@ -1330,6 +1331,25 @@ begin
   try
     Check(RenderOptionsWindow(Data, 'level1.graal', Img) and (Img.Width = 370) and
       (Img.Height = 259), 'F1: the Help window draws at the form''s 370 x 259');
+    { the language file words the buttons: "&Playerlist (F7)", not the
+      form's "Player List" (lab, 2026-11-13) }
+    Texts := TStringList.Create;
+    try
+      Texts.Add('Options=Help');
+      Texts.Add('Options-PlayerListButton=&Playerlist (F7)');
+      Check(RenderOptionsWindow(Data, 'level1.graal', Shown, '', Texts) and
+        (Shown.Width = Img.Width) and (Shown.Height = Img.Height),
+        'F1: the worded window draws at the same size');
+      Diff := 0;
+      for Y := 0 to Img.Height - 1 do
+        for X := 0 to Img.Width - 1 do
+          if Img.GetPixel(X, Y) <> Shown.GetPixel(X, Y) then Inc(Diff);
+      Check(Diff > 0, 'F1: the language file''s caption changes the drawn button');
+      Check(OptionsTextKey('Button1') = 'Options-MoreButton', 'F1: Button1 is worded by Options-MoreButton');
+      Check(OptionsTextKey('') = 'Options', 'F1: the title by Options');
+    finally
+      Texts.Free;
+    end;
   finally
     Shown.Free;
     Img.Free;

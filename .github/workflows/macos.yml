@@ -1,0 +1,179 @@
+name: macos
+
+# macOS 15 on GitHub's hosted runners (squirelworks/seihai#401). The other
+# workflows run Linux and Windows on every PR; this one runs the same build
+# and test commands on macOS on demand, once a week, and on a PR that
+# changes this file, so macOS breaks are caught without making every PR
+# wait on a macOS runner.
+on:
+  workflow_dispatch:
+    inputs:
+      builds:
+        description: Client folders for the clients job, space-separated (empty = all)
+        default: ''
+  schedule:
+    - cron: '17 5 * * 1'
+  pull_request:
+    paths:
+      - .github/workflows/macos.yml
+
+concurrency:
+  group: macos-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SAN: -std=c++17 -Wall -Wextra -Werror -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer
+
+jobs:
+  # Every Delphi client: build, unit tests, then a loopback login into
+  # seihai-gserver (ci.yml).
+  clients:
+    runs-on: macos-15
+    # The build takes about 20 minutes and the tests about an hour, as on
+    # Linux (ci.yml's build-and-test); loopback adds about 15.
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+        with:
+          repository: squirelworks/seihai-gserver
+          path: seihai-gserver
+      - name: Install Free Pascal
+        run: brew install fpc && fpc -iV
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: seihai-gserver
+      - name: Build (Delphi mode)
+        env:
+          PICKED: ${{ inputs.builds }}
+        run: |
+          BUILDS=$PICKED
+          [ -n "$BUILDS" ] || BUILDS=$(ls -d graal-*/ | tr -d / | grep -v '^graal-3d-' | tr '\n' ' ')
+          echo "BUILDS=$BUILDS" >> "$GITHUB_ENV"
+          scripts/build.sh $BUILDS
+      - name: Unit tests
+        run: scripts/test.sh
+      - name: Build seihai-gserver
+        run: cargo build --release --manifest-path seihai-gserver/Cargo.toml
+      - name: Log each rebuild into seihai-gserver
+        run: |
+          . scripts/v7.sh
+          for B in $BUILDS; do
+            if is_v7 "$B"; then
+              scripts/loopback.sh seihai-gserver/target/release/seihai-gserver "$B" || v7_warn "$B" "loopback failed"
+            else
+              scripts/loopback.sh seihai-gserver/target/release/seihai-gserver "$B"
+            fi
+          done
+
+  # The C++ libraries and hosts (gs2-vm, quattro, torque-*, cpp-hosts,
+  # host-boot), each with the sanitizer pass its Linux job runs.
+  cpp:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - name: GS2 machine
+        run: |
+          make -C common/cpp/gs2 test
+          make -C common/cpp/gs2 clean
+          make -C common/cpp/gs2 test CXXFLAGS="$SAN"
+      - name: Quattro
+        run: |
+          make -C common/cpp/quattro test
+          make -C common/cpp/quattro clean
+          make -C common/cpp/quattro test CXXFLAGS="$SAN"
+      - name: Torque console, compiler, native, vm, engine and GUI
+        run: |
+          for D in console console/compiler console/native console/vm console/engine gui; do
+            echo "::group::common/torque/$D"
+            make -C common/torque/$D test
+            make -C common/torque/$D clean
+            make -C common/torque/$D test CXXFLAGS="$SAN"
+            echo "::endgroup::"
+          done
+      - name: Hosts (cpp-hosts, host-boot)
+        run: |
+          make -C common/torque/host304 test
+          make -C common/torque/host4208 test
+          make -C common/cpp/graalengine test
+          make -C common/cpp/graal3dengine test
+          python3 scripts/tests/host_script_selection.py
+
+  # torque-guigraal, torque-profiles and graal-3d: these need Free Pascal.
+  torque-and-graal3d:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+        with:
+          repository: squirelworks/graal_analysis
+          path: graal_analysis
+          sparse-checkout: graal3d/reference-server
+      - name: Install Free Pascal
+        run: brew install fpc && fpc -iV
+      - name: guigraal control tests
+        run: |
+          make -C common/torque/guigraal test
+          make -C common/torque/guigraal clean
+          make -C common/torque/guigraal test CXXFLAGS="$SAN"
+          make -C common/torque/guigraal clean
+      - name: guigraal game library and tq-play, end to end
+        run: |
+          make -C common/torque/guigraal lib all
+          sh common/torque/guigraal/tests/smoke.sh
+      - name: guigraal online path against loopback list and game servers
+        run: |
+          # LIST_FALLBACK's silent listserver is on 127.0.0.2, which Linux
+          # routes on lo by default and macOS only with an lo0 alias.
+          sudo ifconfig lo0 alias 127.0.0.2 up
+          sh common/torque/guigraal/tests/online.sh
+          GAME_LIB=libGame3153Lib.dylib GAME_TOKEN=G3D28015 sh common/torque/guigraal/tests/online.sh
+          LIST_FALLBACK=1 sh common/torque/guigraal/tests/online.sh
+      - name: Torque profiles
+        run: |
+          python3 common/torque/manifests/profiles.py check
+          python3 common/torque/manifests/test_profiles.py -v
+      - name: Graal3D build and test
+        run: |
+          scripts/build.sh graal-3d-20000205 graal-3d-20010523
+          scripts/test.sh
+      - name: Graal3D offline walk and loopback
+        run: |
+          build/graal-3d-20000205/Graal3D --offline --data "$RUNNER_TEMP" --frames 80 \
+            --keys "fwd*40,jump*8,right*10,say:hi" --dump build/graal-3d-20000205/offline.bmp | tee offline.json
+          grep -q '"builtinLevel":true' offline.json
+          grep -q '"onGround":true' offline.json
+          graal-3d-20000205/loopback3d.sh graal_analysis/graal3d/reference-server/g3dserver.py
+
+  # The Java clients and the Game Boy Color demo.
+  java-and-gb:
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      GBDK_VERSION: 4.3.0
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: javagraal, zelda-online1, zelda-online2
+        run: |
+          javagraal-2000/build.sh
+          zelda-online1-Z3V102/build.sh
+          zelda-online2-Z3V103/build.sh
+      - name: Install GBDK-2020
+        run: |
+          curl -sSL -o gbdk.tar.gz "https://github.com/gbdk-2020/gbdk-2020/releases/download/$GBDK_VERSION/gbdk-macos-arm64.tar.gz"
+          tar xzf gbdk.tar.gz -C "$RUNNER_TEMP"
+          echo "GBDK_HOME=$RUNNER_TEMP/gbdk" >> "$GITHUB_ENV"
+      - name: graalgb ROM and emulator smoke
+        run: |
+          graalgb-1.10/build.sh
+          shasum -a 256 build/graalgb-1.10/GraalGB.gbc
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/python" -m pip install --quiet pyboy==2.8.1 pillow==13.0.0
+          "$RUNNER_TEMP/venv/bin/python" -I graalgb-1.10/tests/smoke.py build/graalgb-1.10 build/graalgb-1.10/shots

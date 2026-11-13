@@ -700,7 +700,13 @@ begin
     Exit;
   end;
   if N.Str('PasswordChar') <> '' then T := StringOfChar('*', Length(Text)) else T := Text;
-  while (T <> '') and (UiTextWidth(T, Bold(N)) > Right - X - 6) do Delete(T, 1, 1);
+  { an edit with the caret shows the end of its text; any other box
+    (the server list's read-only Name, Version, ...) shows the start and
+    clips on the right }
+  if Focused then
+    while (T <> '') and (UiTextWidth(T, Bold(N)) > Right - X - 6) do Delete(T, 1, 1)
+  else
+    while (T <> '') and (UiTextWidth(T, Bold(N)) > Right - X - 6) do Delete(T, Length(T), 1);
   TW := UiTextWidth(T, Bold(N));
   if Focused and Combo and (N.Str('Style') = 'csDropDownList') then
   begin
@@ -1324,6 +1330,8 @@ begin
               begin
                 Page := pgList;
                 Win.SetTitle(Title2);
+                { the first row comes up picked, its details filled in
+                  (the real 2.05r2, lab on Windows 10, 2026-11-13) }
                 Sel := -1;
                 if Length(Fetch.Servers) > 0 then Sel := 0;
               end
@@ -1386,15 +1394,18 @@ begin
             begin
               N := Art.List.Child(I);
               if not N.Bool('Visible', True) then Continue;
+              { the captions as the language file names them
+                (ServerList-Label1 ..., ServerList-Button1), else the
+                form's own }
               if N.ClassName_ = 'TLabel' then
               begin
-                T := N.Str('Caption');
+                T := Art.Text('ServerList-' + N.Name, N.Str('Caption'));
                 DrawLabel(S, N, T);
               end
               else if N.ClassName_ = 'TPanel' then DrawPanel(S, N)
               else if N.ClassName_ = 'TPaintButton' then
-                PicButton(S, GlyphOf(N), N.Int('Left'), N.Int('Top'), N.Str('Caption'),
-                  Pressed(10 + I))
+                PicButton(S, GlyphOf(N), N.Int('Left'), N.Int('Top'),
+                  Art.Text('ServerList-' + N.Name, N.Str('Caption')), Pressed(10 + I))
               else if N = AccBox then DrawBox(S, N, R.Account, Focus = 2)
               else if N = PassBox then DrawBox(S, N, R.Password, Focus = 3)
               else if SameText(N.Name, 'Edit1') then DrawBox(S, N, ListName(Srv.Name), False)

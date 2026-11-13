@@ -13,7 +13,7 @@ unit StartScreen2151;
 interface
 
 uses
-  GSurface, GStartScreen, GraalClient, Adventure;
+  GSurface, GStartScreen, GraalClient, Adventure, GCompat;
 
 type
   TListFetch2151 = class(TListFetch)

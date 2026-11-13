@@ -269,15 +269,19 @@ certificate does nothing for anyone else's PC. The options:
   still start with no reputation: the box keeps showing until enough
   people have run the signed files.
 - **SignPath Foundation** signs open-source projects for free, but the
-  repository needs an OSI licence first (see Licence below: not chosen
-  yet).
+  repository needs an OSI licence first (it has one now: Apache-2.0, see
+  Licence below).
 
 Whichever is chosen, the signing step goes in `.github/workflows/release.yml`
 on the Windows job, between "Build and test" and "Pack".
 
 ## Licence
 
-Not chosen yet.
+[Apache License 2.0](LICENSE), the same as the Seihai server stack. Unless
+you say otherwise, a contribution you submit is licensed the same way. The
+licence covers the code and the stand-in assets in this repo; it grants no
+rights to Graal's names or to any original Graal file, none of which is
+included.
 
 ## Every build is a GUI program
 

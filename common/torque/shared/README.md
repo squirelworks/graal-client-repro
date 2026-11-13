@@ -6,8 +6,8 @@ adapters: different tokens, message sets and platform tails. No separate copy
 of the socket/compression implementation remains in either host.
 
 Observed inputs are described in each host's login.hpp and folder tests.
-The 3.04 id-34 timestamp prefix and empty 4.20r8 machine fields retain their
-existing provisional status. Sharing the codec supplies no new wire evidence.
+The 3.04 id-34 timestamp prefix keeps its existing provisional status; the
+4.20r8 machine fields are made-up hashes in the original's shape. Sharing the codec supplies no new wire evidence.
 
 The shared transport starts Winsock before hostname lookup for both hosts.
 An empty host uses loopback; a resolved non-loopback destination is rejected.

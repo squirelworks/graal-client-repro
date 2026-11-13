@@ -11,6 +11,10 @@ exits. It does not play the game.
 > affiliated with, endorsed by, or connected to Graal Online, Cyberjoueurs,
 > or Stéphane Portha ("unixmad").
 
+## What's new in v0.0.5
+
+- [x] **Machine fields in the original's shape.** The login line now sends `win`, three fixed made-up MD5 hashes (of SquirrelOS, SquirrelNIC and SquirrelBIOS strings) and the quoted Windows version `"6.2 9200 "`, the shape the real client sends. Nothing is read from your machine.
+
 ## What's new in v0.0.4.2
 
 - First scaffold of this folder. File versions 5.303 and 5.314, one

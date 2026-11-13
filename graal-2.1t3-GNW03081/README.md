@@ -209,6 +209,12 @@ C2 stands in for the login line. What the build sends with its login line follow
 
 ## Not yet (0.0.2)
 
+- [ ] Which language file wins. The real 2.1 test reads a
+  `languageEnglish.txt` at the top of the install before `languages/`
+  (lab on Windows 10, 2026-11-13): in an install that has an old 1.x file
+  there, its F1 window becomes "Options" with Save games, More options and
+  "Player List (F7)", and its start and list windows change. The rebuild
+  reads `languages/` first.
 - [ ] The test 3 start window layout, with the account fields on the first page.
 - [ ] The tabbed options window (General, Video, Audio, Controls).
 - [ ] Anything props 43 to 45 do on screen (they are read and dropped).

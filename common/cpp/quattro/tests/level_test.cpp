@@ -250,7 +250,7 @@ void test_actor_drawing() {
   CHECK(c.surface().at(32 + 18, 32 + 2).b == 200);
   CHECK(c.surface().at(32 + 30, 32 - 6).r == 0);  // above the hat: nothing
   // A carried object: its sprites.png cell at (8, head y - 22); while
-  // lifting it starts at (8, +8). Effects at world pixels, over the player.
+  // lifting it starts on the ground row (8, +47). Effects at world pixels, over the player.
   Draw::Image sprites(64, 64, {0, 0, 0, 0});
   for (int y = 0; y < 32; ++y)
     for (int x = 0; x < 32; ++x) sprites.at(x, y) = {1, 2, 3, 255};
@@ -266,7 +266,7 @@ void test_actor_drawing() {
   w.player.lift_tick = 0;
   Draw::Canvas f(160, 160);
   r.draw(f, w, v);
-  CHECK(f.surface().at(32 + 8, 32 + 8).b == 3 && f.surface().at(32 + 8, 32 + 7).b != 3);
+  CHECK(f.surface().at(32 + 8, 32 + 47).b == 3 && f.surface().at(32 + 8, 32 + 46).b != 3);
   w.player.carry = {0, 0, 0, 0};
   w.player.lift_tick = -1;
   w.effects.clear();

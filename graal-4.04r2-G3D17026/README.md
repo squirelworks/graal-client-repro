@@ -25,7 +25,7 @@ from decompiled code:
 |---|---|---|
 | Game token | `G3D28015` | `G3D17026` |
 | First server | listserver, `G3D30123` hello | a game server named `Login`, from `license/license.graal`; the rebuild asks `listserver.graal.in:14922` first and offers the Login hosts as extra rows |
-| Login line | ends at the password | adds `win` and three machine fields (sent empty) |
+| Login line | ends at the password | adds `win` and three machine fields (made-up hashes) |
 | After the login line | 37, 34 bigmap, 34 minimap in the same frame | its own frame, then 37 and 23 `basepackage.gupd` |
 | After the login burst | props, 34 for the head | 23 `idle.gani` and 157, 46, 44, props, 24, 34 `pics1.png` |
 | Walking | X / Y every 100 ms | GANI and SPRITE on the first step, then X2 / Y2 every 50 ms tick, only the axes that moved |
@@ -36,7 +36,9 @@ from decompiled code:
 Choices made for players' privacy, where the real client sends more:
 
 - The three machine fields of the login line (hashes of the Windows
-  product id, the MAC address and the `C:` serial) are sent empty.
+  product id, the MAC address and the `C:` serial) are fixed made-up
+  hashes of SquirrelOS, SquirrelNIC and SquirrelBIOS strings, in the
+  same shape. Nothing is read from the player's machine.
 - The answer to 182 (44) names only the program, not every open window.
 - 183 (is this window open?) gets no answer; the answer id is not in the
   notes.

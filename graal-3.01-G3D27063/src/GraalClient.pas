@@ -1,0 +1,530 @@
+{ GraalClient: TGraalClient and TAdventureClient, the 3.01 game link
+  (carried over from the 3.04 rebuild).
+  3.04 is a C++ program on the Torque engine, not Delphi, but on the wire
+  it is the 2.22 client (graal_analysis protocol/v3x-clients.md): the same
+  gen-5 codec, framing and compression thresholds. The rebuild keeps the
+  2.22 class split. What 3.04 does differently at login (lab run,
+  version-profiles/lab-304-linux-2026-10-30.md): one plain zlib frame
+  holds 5 (login), 37 (language) and two 34 (UPDATEFILE bigmap.txt and
+  minimap.txt), and no tamper check follows, ever.
+  3.01 differs in one place: it is a client type 4 (gen 4), so after the
+  login frame every frame body is bz2 with no compression byte, and the
+  first 4 dwords are XORed with the same LCG (protocol/codec-and-framing.md,
+  ENCRYPT_GEN_4). EncodeFrame and DecodeFrame below do that; the gen-5
+  notes that follow are kept for PackBody, which the gen-4 path no longer
+  uses on the game link. The listserver link is taken to keep 3.04's gen-5
+  frames (not known for this build).
+  The notes below are the 2.22 ones, which hold for 3.04 too.
+
+  Same class split as 2.05 (graal_analysis client-internals/
+  client-architecture-205.md; client-versions.md: "all four clients are
+  Delphi builds with the same network classes"):
+    TGraalClient      socket, out buffer, u16be frames, receive split
+    TAdventureClient  the gen-5 frame codec, the login line builder
+
+  What changed from 2.05 (protocol/codec-and-framing.md, "Gen 4/5 partial
+  XOR", and protocol/client-versions.md, "Gen-5 send on the client"):
+    - Messages are no longer touched one by one; the whole frame body is.
+    - Login: type 5, the key, GNW03014, account, password. That one frame
+      is u16be + zlib with no compression byte and no XOR, so the key can
+      be read. It is flushed by itself, then the socket switches to gen 5.
+    - Every later frame, both ways: u16be (body length + 1), a compression
+      byte, the body. The client picks 2 (raw) under 0x30 bytes unless zlib
+      is shorter, 4 (zlib) from 0x30, 6 (bz2) from 0x1000. Even codes are
+      XORed: one LCG step per 4-byte group present, at most 12 groups raw or
+      4 compressed; a short last group still steps. Each direction has its
+      own iterator, seeded 0x04A80B38, with the same key.
+  Receive: u16be -> undo XOR -> inflate / bunzip -> split on #10, with the
+  PLO_RAWDATA escape, as in 2.05. }
+unit GraalClient;
+
+{$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
+
+interface
+
+uses
+  GSocket;
+
+type
+  TMessageEvent = procedure(Id: Integer; const Data: string) of object;
+  TLogEvent = procedure(const Line: string) of object;
+
+  TGraalClient = class
+  protected
+    FSocket: TGSocket;
+    FOut: string;      { pending, uncompressed messages }
+    FInRaw: string;    { bytes from the socket, not yet a whole frame }
+    FInPlain: string;  { decoded stream, not yet whole messages }
+    FRawPending: Integer; { > 0: the next n bytes are one message }
+    FOnMessage: TMessageEvent;
+    FOnLog: TLogEvent;
+    FFramesIn, FFramesOut, FMessagesIn, FMessagesOut: Integer;
+    FBytesIn, FBytesOut: Int64;
+    procedure Log(const S: string);
+    { Hooks for the frame codec; the base class is plain zlib both ways. }
+    function EncodeFrame(const Plain: string): string; virtual;
+    function DecodeFrame(const Body: string; out Plain: string): Boolean; virtual;
+    procedure SplitMessages;
+    procedure DeliverMessage(const Msg: string);
+    { Logs Why, drops the link and the receive buffers. }
+    procedure Fail(const Why: string);
+  public
+    LastError: string;
+    { Tests: with Sink set, the client counts as connected and Flush
+      appends each frame (length included) to Sent instead of a socket. }
+    Sink: Boolean;
+    Sent: string;
+    constructor Create;
+    destructor Destroy; override;
+    function Connect(const Host: string; Port: Word): Boolean; virtual;
+    procedure Disconnect;
+    function Connected: Boolean;
+    { Queues one message. Returns False if Data holds #10 (dropped). }
+    function SendPacket(Id: Integer; const Data: string): Boolean; virtual;
+    procedure Flush;
+    { Called from the tick: read the socket, unpack frames, dispatch. }
+    procedure Poll;
+    { Takes bytes as if they came from the socket: frames, then messages.
+      Poll uses it; tests and the fuzzer call it directly. }
+    procedure FeedRaw(const Bytes: string);
+    property OnMessage: TMessageEvent read FOnMessage write FOnMessage;
+    property OnLog: TLogEvent read FOnLog write FOnLog;
+    property FramesIn: Integer read FFramesIn;
+    property FramesOut: Integer read FFramesOut;
+    property MessagesIn: Integer read FMessagesIn;
+    property MessagesOut: Integer read FMessagesOut;
+    { bytes on the wire, frame headers included }
+    property BytesIn: Int64 read FBytesIn;
+    property BytesOut: Int64 read FBytesOut;
+    property Socket: TGSocket read FSocket;
+  end;
+
+  { One direction of the gen-5 codec. }
+  TGen5 = class
+  public
+    Key: Byte;
+    Iterator: Cardinal;
+    constructor Create(AKey: Byte);
+    { XORs Body in place for compression type CType (even codes only). }
+    procedure Apply(var Body: string; CType: Integer);
+  end;
+
+  TAdventureClient = class(TGraalClient)
+  protected
+    FKey: Byte;
+    FLoginFrame: Boolean; { the next flush is the fixed login frame }
+    FOutCodec, FInCodec: TGen5;
+    { True on the game link (gen 4); the listserver link keeps 3.04's
+      gen-5 frames (TListServerClient sets it False). }
+    FGen4: Boolean;
+    function EncodeFrame(const Plain: string): string; override;
+    function DecodeFrame(const Body: string; out Plain: string): Boolean; override;
+    procedure ResetCodec;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    function Connect(const Host: string; Port: Word): Boolean; override;
+    property Gen4: Boolean read FGen4 write FGen4;
+    { The login frame as 3.04 sends it: login, language, and UPDATEFILE
+      for bigmap.txt and minimap.txt, all in the fixed plain zlib frame. }
+    procedure SendLogin(const Account, Password, Language: string);
+    { Sets up the codec state without a socket (tests, the fuzzer). }
+    procedure StartOffline(AKey: Byte);
+    procedure SendToAll(const Text: string);
+    property Key: Byte read FKey write FKey;
+    property OutCodec: TGen5 read FOutCodec;
+    property InCodec: TGen5 read FInCodec;
+  end;
+
+{ The compression byte 3.04 (as 2.22) picks for an out buffer, and the body. }
+function PackBody(const Plain: string; out CType: Integer): string;
+
+implementation
+
+uses
+  SysUtils, GTypes, GZlib, GBzip2, Protocol301;
+
+{ TGen5 }
+
+constructor TGen5.Create(AKey: Byte);
+begin
+  inherited Create;
+  Key := AKey;
+  Iterator := CipherSeed;
+end;
+
+{ the iterator wraps at 32 bits on purpose }
+{$IFOPT Q+}{$DEFINE OVERFLOW_WAS_ON}{$Q-}{$ENDIF}
+{$IFOPT R+}{$DEFINE RANGE_WAS_ON}{$R-}{$ENDIF}
+procedure TGen5.Apply(var Body: string; CType: Integer);
+var
+  Groups, G, J, P: Integer;
+  K: Cardinal;
+begin
+  if (CType and 1) <> 0 then Exit; { odd codes are not XORed }
+  if CType = CompressNone then Groups := XorGroupsRaw
+  else Groups := XorGroupsPacked;
+  if (Length(Body) + 3) div 4 < Groups then Groups := (Length(Body) + 3) div 4;
+  UniqueString(Body);
+  for G := 0 to Groups - 1 do
+  begin
+    Iterator := Iterator * CipherMul + Key;
+    K := Iterator;
+    for J := 0 to 3 do
+    begin
+      P := G * 4 + J + 1;
+      if P > Length(Body) then Break;
+      Body[P] := Chr(Ord(Body[P]) xor ((K shr (8 * J)) and $FF));
+    end;
+  end;
+end;
+{$IFDEF RANGE_WAS_ON}{$R+}{$ENDIF}
+{$IFDEF OVERFLOW_WAS_ON}{$Q+}{$ENDIF}
+
+function PackBody(const Plain: string; out CType: Integer): string;
+var
+  Z: string;
+begin
+  if Length(Plain) >= Bz2From then
+  begin
+    CType := CompressBz2;
+    Result := BZ2Compress(Plain);
+  end
+  else if Length(Plain) >= ZlibFrom then
+  begin
+    CType := CompressZlib;
+    Result := ZCompress(Plain);
+  end
+  else
+  begin
+    Z := ZCompress(Plain);
+    if Length(Z) < Length(Plain) then
+    begin
+      CType := CompressZlib;
+      Result := Z;
+    end
+    else
+    begin
+      CType := CompressNone;
+      Result := Plain;
+    end;
+  end;
+end;
+
+{ TGraalClient }
+
+constructor TGraalClient.Create;
+begin
+  inherited Create;
+  FSocket := TGSocket.Create;
+end;
+
+destructor TGraalClient.Destroy;
+begin
+  FSocket.Free;
+  inherited Destroy;
+end;
+
+procedure TGraalClient.Log(const S: string);
+begin
+  if Assigned(FOnLog) then FOnLog(S);
+end;
+
+function TGraalClient.Connect(const Host: string; Port: Word): Boolean;
+begin
+  FOut := '';
+  FInRaw := '';
+  FInPlain := '';
+  FRawPending := 0;
+  Result := FSocket.Connect(Host, Port);
+  if not Result then LastError := FSocket.LastError;
+end;
+
+procedure TGraalClient.Disconnect;
+begin
+  FSocket.Close;
+  Sink := False;
+end;
+
+function TGraalClient.Connected: Boolean;
+begin
+  Result := FSocket.Connected or Sink;
+end;
+
+function TGraalClient.EncodeFrame(const Plain: string): string;
+begin
+  Result := ZCompress(Plain);
+end;
+
+function TGraalClient.DecodeFrame(const Body: string; out Plain: string): Boolean;
+begin
+  Result := ZDecompress(Body, Plain);
+end;
+
+function TGraalClient.SendPacket(Id: Integer; const Data: string): Boolean;
+var
+  Msg: string;
+begin
+  Result := False;
+  if Pos(#10, Data) > 0 then Exit; { silently dropped }
+  Msg := GChar(Id) + Data + #10;
+  if (FOut <> '') and (Length(FOut) + Length(Msg) > OutFlushAt) then
+    Flush;
+  FOut := FOut + Msg;
+  Inc(FMessagesOut);
+  if Length(FOut) > OutDropAt then
+  begin
+    LastError := 'more than 256 KB queued';
+    Disconnect;
+    Exit;
+  end;
+  Result := True;
+end;
+
+procedure TGraalClient.Flush;
+var
+  Z: string;
+begin
+  if (FOut = '') or not Connected then Exit;
+  Z := EncodeFrame(FOut);
+  FOut := '';
+  if Length(Z) > $FFFF then
+  begin
+    LastError := 'frame too long for its u16 length';
+    Disconnect;
+    Exit;
+  end;
+  if Sink then
+    Sent := Sent + Chr((Length(Z) shr 8) and $FF) + Chr(Length(Z) and $FF) + Z
+  else
+    FSocket.Send(Chr((Length(Z) shr 8) and $FF) + Chr(Length(Z) and $FF) + Z);
+  Inc(FFramesOut);
+  Inc(FBytesOut, Length(Z) + 2);
+end;
+
+procedure TGraalClient.Poll;
+var
+  Got: string;
+begin
+  if not FSocket.Connected then Exit;
+  Got := '';
+  if not FSocket.Poll(Got) then
+    LastError := FSocket.LastError;
+  if Got <> '' then
+  begin
+    Inc(FBytesIn, Length(Got));
+    FeedRaw(Got);
+  end;
+end;
+
+procedure TGraalClient.FeedRaw(const Bytes: string);
+var
+  P, Len: Integer;
+  Body: string;
+begin
+  FInRaw := FInRaw + Bytes;
+  { frames are read by position and the used bytes dropped once, so a burst
+    of many frames is linear, not quadratic }
+  P := 1;
+  while Length(FInRaw) - P + 1 >= 2 do
+  begin
+    Len := (Ord(FInRaw[P]) shl 8) or Ord(FInRaw[P + 1]);
+    if Length(FInRaw) - P + 1 < Len + 2 then Break;
+    if not DecodeFrame(Copy(FInRaw, P + 2, Len), Body) then
+    begin
+      Fail('bad frame from the server');
+      Exit;
+    end;
+    if Length(Body) > InFrameMax then
+    begin
+      Fail('frame from the server inflates past the limit');
+      Exit;
+    end;
+    Inc(P, Len + 2);
+    Inc(FFramesIn);
+    FInPlain := FInPlain + Body;
+    SplitMessages;
+    if FInRaw = '' then Exit; { Fail cleared the buffers }
+  end;
+  if P > 1 then Delete(FInRaw, 1, P - 1);
+end;
+
+procedure TGraalClient.Fail(const Why: string);
+begin
+  LastError := Why;
+  Log(Why);
+  Disconnect;
+  FInRaw := '';
+  FInPlain := '';
+  FRawPending := 0;
+end;
+
+procedure TGraalClient.DeliverMessage(const Msg: string);
+var
+  Id: Integer;
+begin
+  if Msg = '' then Exit;
+  Id := Ord(Msg[1]) - $20;
+  Inc(FMessagesIn);
+  if Assigned(FOnMessage) then
+    FOnMessage(Id, Copy(Msg, 2, MaxInt));
+end;
+
+procedure TGraalClient.SplitMessages;
+var
+  P, E, N: Integer;
+  Msg: string;
+  R: TGReader;
+begin
+  P := 1;
+  N := Length(FInPlain);
+  while P <= N do
+  begin
+    if FRawPending > 0 then
+    begin
+      if N - P + 1 < FRawPending then Break;
+      Msg := Copy(FInPlain, P, FRawPending);
+      Inc(P, FRawPending);
+      FRawPending := 0;
+      if (Msg <> '') and (Msg[Length(Msg)] = #10) then
+        SetLength(Msg, Length(Msg) - 1);
+      DeliverMessage(Msg);
+      Continue;
+    end;
+    E := P;
+    while (E <= N) and (FInPlain[E] <> #10) do Inc(E);
+    if E > N then Break;
+    Msg := Copy(FInPlain, P, E - P);
+    P := E + 1;
+    if (Msg <> '') and (Ord(Msg[1]) - $20 = PLO_RAWDATA) then
+    begin
+      R := TGReader.Create(Copy(Msg, 2, MaxInt));
+      try
+        FRawPending := R.ReadGInt3;
+      finally
+        R.Free;
+      end;
+      { a GINT3 length is at most 3670015, under InPendingMax }
+      Continue;
+    end;
+    DeliverMessage(Msg);
+  end;
+  if P > 1 then Delete(FInPlain, 1, P - 1);
+  if Length(FInPlain) > InPendingMax then
+    Fail('unfinished message from the server is past the limit');
+end;
+
+{ TAdventureClient }
+
+destructor TAdventureClient.Destroy;
+begin
+  FOutCodec.Free;
+  FInCodec.Free;
+  inherited Destroy;
+end;
+
+procedure TAdventureClient.ResetCodec;
+begin
+  FOutCodec.Free;
+  FInCodec.Free;
+  FOutCodec := TGen5.Create(FKey);
+  FInCodec := TGen5.Create(FKey);
+  FLoginFrame := True;
+end;
+
+procedure TAdventureClient.StartOffline(AKey: Byte);
+begin
+  FKey := AKey and $7F;
+  ResetCodec;
+  FOut := '';
+  FInRaw := '';
+  FInPlain := '';
+  FRawPending := 0;
+end;
+
+constructor TAdventureClient.Create;
+begin
+  inherited Create;
+  FGen4 := True;
+end;
+
+function TAdventureClient.Connect(const Host: string; Port: Word): Boolean;
+begin
+  FKey := Random(256) and $7F;
+  ResetCodec;
+  Result := inherited Connect(Host, Port);
+end;
+
+function TAdventureClient.EncodeFrame(const Plain: string): string;
+var
+  CType: Integer;
+begin
+  if FLoginFrame then
+  begin
+    { the fixed "zlib, no cipher, no compression byte" login frame }
+    FLoginFrame := False;
+    Result := ZCompress(Plain);
+    Exit;
+  end;
+  if FGen4 then
+  begin
+    { gen 4: every later frame is a bz2 body with no compression byte, its
+      first 4 dwords XORed (codec-and-framing.md, ENCRYPT_GEN_4) }
+    Result := BZ2Compress(Plain);
+    FOutCodec.Apply(Result, CompressBz2);
+    Exit;
+  end;
+  Result := PackBody(Plain, CType);
+  FOutCodec.Apply(Result, CType);
+  Result := Chr(CType) + Result;
+end;
+
+function TAdventureClient.DecodeFrame(const Body: string; out Plain: string): Boolean;
+var
+  CType: Integer;
+  B: string;
+begin
+  Plain := '';
+  Result := False;
+  if (Body = '') or (FInCodec = nil) then Exit;
+  if FGen4 then
+  begin
+    { gen 4: no compression byte; the body is always bz2 }
+    B := Body;
+    FInCodec.Apply(B, CompressBz2);
+    Result := BZ2Decompress(B, Plain, InFrameMax);
+    Exit;
+  end;
+  CType := Ord(Body[1]);
+  B := Copy(Body, 2, MaxInt);
+  FInCodec.Apply(B, CType);
+  case CType of
+    1, 2: begin Plain := B; Result := True; end;
+    3, 4: Result := ZDecompress(B, Plain);
+    5, 6: Result := BZ2Decompress(B, Plain, InFrameMax);
+  end;
+end;
+
+procedure TAdventureClient.SendLogin(const Account, Password, Language: string);
+begin
+  { GCHAR type, GCHAR key, token, GSTRING account, GSTRING password; the
+    line ends at the password, and account and password are plain
+    strings (v3x-clients.md). The rest of the first frame is the lab
+    capture's: 37, then 34 for bigmap.txt and minimap.txt with no cached
+    mod time. Flushed by the caller, so it all goes in the login frame. }
+  SendPacket(ClientType, GChar(FKey) + ClientVersionToken + GString(Account) +
+    GString(Password));
+  SendPacket(PLI_LANGUAGE, Language);
+  SendPacket(PLI_UPDATEFILE, GInt5(0) + 'bigmap.txt');
+  SendPacket(PLI_UPDATEFILE, GInt5(0) + 'minimap.txt');
+end;
+
+procedure TAdventureClient.SendToAll(const Text: string);
+var
+  T: string;
+begin
+  T := Copy(Text, 1, 200);
+  SendPacket(PLI_TOALL, GChar(Length(T)) + T);
+end;
+
+end.

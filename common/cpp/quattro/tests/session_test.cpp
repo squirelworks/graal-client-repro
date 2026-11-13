@@ -57,8 +57,8 @@ void test_session() {
 
   CHECK(run_until(s, &login, nullptr, [&] { return login.saw(37, "English"); }));
   CHECK(login.key == 0x11);
-  // key, token, account, password, then "linux" and four empty fields.
-  std::string want = "G3D0511C" + gstring("guest") + gstring("pw") + "linux,\"\",\"\",\"\",\"\"";
+  // key, token, account, password, then "linux" and the four made-up machine fields.
+  std::string want = "G3D0511C" + gstring("guest") + gstring("pw") + "linux,c3adb4be4be05a76d9ffdc3e88ba180b,b94291e395c1ae186c7ee9b2d6c685be,\"\",\"2.6.38-1-squirrelos  #1-SquirrelOS SMP Mon Jun 27 12:00:00 UTC 2011\"";
   CHECK(login.login_line == want);
   // No tamper check follows the language packet.
   for (auto& [id, b] : login.got) CHECK(id != 39);
@@ -127,7 +127,7 @@ void test_session_404() {
   CHECK(login.conn.accept_from(login.listener));
   CHECK(s.lobby_mode());
   CHECK(run_until(s, &login, nullptr, [&] { return login.saw(37, "English"); }));
-  const std::string want = "G3D17026" + gstring("guest") + gstring("pw") + "win,\"\",\"\",\"\"";
+  const std::string want = "G3D17026" + gstring("guest") + gstring("pw") + "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400";
   CHECK(login.login_line == want);
   login.send(gchar(108) + gchar(0) + gshort(1234) + "\n" + gchar(41) + "hello\n");
   CHECK(run_until(s, &login, nullptr, [&] { return !delivered.empty(); }));
@@ -165,7 +165,7 @@ void test_session_512() {
   CHECK(s.start("127.0.0.1", login.port(), "guest", "pw"));
   CHECK(login.conn.accept_from(login.listener));
   CHECK(run_until(s, &login, nullptr, [&] { return login.saw(37, "English"); }));
-  const std::string want = "G3D14097" + gstring("guest") + gstring("pw") + "win,\"\",\"\",\"\",\"6.2 9200 \"";
+  const std::string want = "G3D14097" + gstring("guest") + gstring("pw") + "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400,\"6.2 9200 \"";
   CHECK(login.login_line == want);
   CHECK(!login.frame_types.empty());
   for (int t : login.frame_types) CHECK(t == kZlib);

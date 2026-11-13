@@ -65,4 +65,4 @@ or release by hand. Start with [HANDOFF-CURSOR.md](HANDOFF-CURSOR.md) and
 
 ## macOS builds
 
-macOS is built and tested on the lab's Sequoia (macOS 15) VM with the same build and test commands the Linux job runs; GitHub CI covers Linux and Windows.
+macOS is built and tested by `.github/workflows/macos.yml` on GitHub's hosted macOS 15 runners, with the same build and test commands the Linux jobs run. It runs on demand (`workflow_dispatch`), weekly, and on a PR that changes it; the per-PR workflows cover Linux and Windows. The lab's Sequoia VM is for reproducing a macOS failure by hand.

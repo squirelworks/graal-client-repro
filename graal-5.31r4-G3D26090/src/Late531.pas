@@ -42,10 +42,14 @@ const
   { Documented game-server token for 5.30r3 and 5.31r4. The images do
     not store this literal. LoginPlain sends it anyway. }
   ClientVersionToken = 'G3D26090';
-  { After the password: platform, three empty machine hashes, and an
-    empty quoted OS field. The original fills the hashes and the OS
-    string. This rebuild reads no machine values. }
-  LoginTail = 'win,"","","",""';
+  { After the password: platform, three machine hashes, and the quoted
+    Windows version. This rebuild reads no machine values. It sends
+    fixed made-up ones of the same shape: the MD5 hex of "SquirrelOS
+    product id SQRL7-ACORN-OAK42-NUTS1", of "SquirrelNIC MAC
+    AC:04:2D:5E:ED:01" and of "SquirrelBIOS C: volume serial ACE5-5EED",
+    then the version Windows 8 and later report to a program with no
+    manifest. }
+  LoginTail = 'win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400,"6.2 9200 "';
   CompanyName = 'Linux Cyberjoueurs';
   ProductName = 'Graal';
   EngineLibrary = 'quattro_lib';

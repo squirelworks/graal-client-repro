@@ -26,13 +26,14 @@ const
     the platform, three machine fields (MD5 hex of the Windows product id,
     the adapter MAC and the C: volume serial on the original), then, new in
     5.12, the quoted Windows version (protocol/v5v6-windows-unpacked.md,
-    "Login message"). The rebuild reads no machine values: each goes as ""
-    (two quote marks), the value the real 5.00r7 sent for its MAC field in
-    the lab. The version is what Windows 8 and later report to a program
+    "Login message"). The rebuild reads no machine
+    values. It sends fixed made-up ones of the same shape: the MD5 hex of
+    "SquirrelOS product id SQRL7-ACORN-OAK42-NUTS1", of "SquirrelNIC MAC
+    AC:04:2D:5E:ED:01" and of "SquirrelBIOS C: volume serial ACE5-5EED".
+    The version is what Windows 8 and later report to a program
     with no manifest, which the lab's 5.12 sent. }
   LoginPlatform = 'win';
-  LoginMachineFields = 3;
-  EmptyMachineField = '""';
+  LoginMachineFields = ',c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400';
   LoginOsVersion = '6.2 9200 ';
   { The name 5.12 gives the first server it reaches. While the current
     server's name starts with "login" (any case) it draws no characters

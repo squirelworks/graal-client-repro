@@ -94,7 +94,7 @@ README, "Seihai secure login". CI logs in once more with
 
 - [ ] Nothing past the token has been read from 6.0.3.4 itself: its protector hides the code. The ids handled, the Login mode and the framing are 6.03r7's.
 - [ ] The token was read from memory, not yet seen on the wire.
-- [ ] The four Windows machine fields are sent as `""`; the original sends the MD5 of the product id, the adapter MAC and the `C:\` volume serial, then the quoted Windows version.
+- [x] ~~The four Windows machine fields are sent as `""`~~: they now carry made-up MD5 hashes of SquirrelOS, SquirrelNIC and SquirrelBIOS strings, then the quoted Windows version, the shape the original sends.
 - [ ] No side-by-side run against the real client; that is 0.0.2 work.
 - [ ] Everything still missing from `graal-6.03r7-G3D0511C`:
 

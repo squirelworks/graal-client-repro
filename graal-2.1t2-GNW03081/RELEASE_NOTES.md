@@ -25,6 +25,7 @@ DIR`) and the install's files come first.
 ## What's new in v0.0.5
 
 - [x] **Seihai secure login (optional, off by default).** With `--secure-login auto` (or `required`, or `secure_login.txt` in the settings folder), the account and password go sealed to a Seihai game server (`SEI00001`), after the server's key is checked and pinned. Servers that do not know it get the original login under `auto`. Off, the login is byte for byte the original's. This is not in the original game.
+- [x] **F1 worded by the language file.** The Help window takes its title and captions from the install's `Options` keys, as the real 2.1 test does ("&Playerlist (F7)", "Se&rverlist (F8)"), not the form's title-cased "Player List" (#302, lab on Windows XP, 2026-11-13).
 
 ## What's new in v0.0.4.2
 
