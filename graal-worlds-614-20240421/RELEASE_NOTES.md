@@ -11,7 +11,7 @@ Unity player was not built.
 > affiliated with, endorsed by, or connected to Graal Online, Cyberjoueurs,
 > or Stéphane Portha ("unixmad").
 
-## What's new in v0.0.5
+## What's new in v0.0.4.2
 
 - The folder is now `graal-worlds-614-20240421`, named for the build
   and its date. 6.114 is the plugin's version, shared by builds 548 to

@@ -18,7 +18,7 @@ program carries small default graphics and a starter level of its own, so
 it runs as it is. Put it in the folder of a 2.31 install you own, next to
 its files, or keep those files in a `graal-assets/` folder beside it.
 
-## What's new in v0.0.5
+## What's new in v0.0.4.2
 
 - [x] **Minimap only on the map.** The minimap is drawn only on a level of its grid, as the real client does: a server's level off the map (or a house or cave) shows none. Before, it was drawn on every level.
 - [x] **Chests from the server are drawn.** A chest that arrives only as `PLO_LEVELCHEST` (4), on a board with no chest tiles, is drawn closed, and one sent as already opened is drawn opened, as the real client does (lab run 2026-11-12). Before, it blocked the player and could be opened but stayed invisible until then.

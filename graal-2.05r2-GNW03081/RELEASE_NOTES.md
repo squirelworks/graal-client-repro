@@ -16,7 +16,7 @@ client carries simple graphics of its own; put a 2.05 install you own next
 to it, or point `--data DIR` at one, for the real tiles, ganis, heads and
 bodies.
 
-## What's new in v0.0.5
+## What's new in v0.0.4.2
 
 - [x] **Minimap only on the map.** The minimap is drawn only on a level of its grid, as the real client does: a server's level off the map (or a house or cave) shows none. Before, it was drawn on every level.
 - [x] **F1 Help window.** F1 opens "Help", drawn from the build's own form (TOptions) with its painted buttons and the current level. Edit level opens the editor; Load level, Debugger, Playerlist, ServerList, General options and Controls close it and do nothing yet. Its ground is the start window's picture, because the form paints its own and that routine was not read.

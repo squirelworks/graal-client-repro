@@ -10,7 +10,7 @@ host and it does not borrow another version's token.
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").
 
-## What's new in v0.0.5
+## What's new in v0.0.4.2
 
 - A window (when `--window` can open one), a software camera, a local
   player, and lab-only collision on `levels/lab-yard.lvl`.

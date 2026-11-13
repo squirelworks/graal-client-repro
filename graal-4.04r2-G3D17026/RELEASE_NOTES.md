@@ -21,7 +21,7 @@ point it at one with `--data DIR`) and the install's tiles, ganis, heads and
 bodies take their place. The shared `graal-assets/` folder next to the
 program works too (`graal-assets/4.04r2/`, then `graal-assets/common/`).
 
-## What's new in v0.0.5
+## What's new in v0.0.4.2
 
 - [x] **Offline Test plays the tutorial.** With `--engine`, Offline Test now opens the install's offline tutorial (`levels/tutorial`) in its centre part, with its own tiles and the 4.x character its level sets up, and you can walk across all nine parts of the map with the arrow keys.
 - [x] **The main menu moves.** With `--engine`, the menu's animated pictures play as in the original: the character walking in the bottom corner, the lamp post, the monster by the title and the chimney smoke, drawn from the install's own ganis and pictures.

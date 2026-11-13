@@ -20,7 +20,7 @@ keep a `graal-assets/` folder next to it, or point it at one with
 `--data DIR`) and the install's tiles, ganis, heads, bodies and levels take
 their place.
 
-## What's new in v0.0.5
+## What's new in v0.0.4.2
 
 - [x] **New client.** GraalX joins the set as its own folder, on the 2.01
   baseline (#175).

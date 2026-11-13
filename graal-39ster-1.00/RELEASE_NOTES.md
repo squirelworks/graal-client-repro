@@ -17,7 +17,7 @@ Put the program in the folder of a 39ster install you own, or point it at
 one with `--data DIR`, or keep the install's files in
 `graal-assets/39ster/` next to it.
 
-## What's new in v0.0.5
+## What's new in v0.0.4.2
 
 - [x] **New client.** 39ster's client joins the set as its own profile
   (#176): level13.nw at (512, 512), the 640 x 480 view and the camera

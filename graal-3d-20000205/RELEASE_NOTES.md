@@ -15,7 +15,7 @@ These zips hold no original Graal3D code, meshes, textures or levels. The
 client carries a simple stand-in level and player of its own; put your
 Graal3D files next to it for the real ones.
 
-## What's new in v0.0.5
+## What's new in v0.0.4.2
 
 - [x] **The sky.** The level's cloud ceiling is drawn to the horizon, as the real client draws it, instead of a black sky.
 - [x] **Logo and nickname banner.** The view carries the real client's black strip across the top with your nickname in large white letters, and the install's `logo.bmp` at its top left.

@@ -24,7 +24,7 @@ unblock the zip before you extract it: right-click it, **Properties**,
 tick **Unblock**, **OK**. Then nothing in the folder is asked about again.
 See [Windows says "Windows protected your PC"](https://github.com/squirelworks/graal-client-repro#windows-says-windows-protected-your-pc).
 
-## What's new in v0.0.5
+## What's new in v0.0.4.2
 
 - [x] **Asleep at the start.** One Player starts asleep in the left bed, only the head showing, as the real client does; the first key wakes the player, who gets up without acting on that press.
 - [x] **F1 Options window.** F1 opens "Options" from the build's own form (TOptions), with the current level's file name filled in. F6 opens it too, as in this build. The other buttons close it and do nothing yet. Linux and macOS draw the form in a window of their own.

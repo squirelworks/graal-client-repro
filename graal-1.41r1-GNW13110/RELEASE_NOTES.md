@@ -19,7 +19,7 @@ keep a `graal-assets/` folder next to it, or point it at one with
 `--data DIR`) and the install's tiles, heads, bodies and levels take their
 place.
 
-## What's new in v0.0.5
+## What's new in v0.0.4.2
 
 - [x] **F1 Help window.** F1 opens "Help" from the build's own form (TOptions): the save games and level editing groups with the current level, Debugger, Playerlist, Serverlist, General options, Controls and Close. It is a real dialog on Windows and drawn elsewhere. Edit level opens the editor; the other buttons close it and do nothing yet.
 - [x] **The counts and the sword in the status display.** The rupee, bomb and arrow counts come from the digit sprites of the sprite sheet (arrays.dat sprites 268 to 277) when the state picture has no digit row (224 x 81, up to 1.37), so they show again. The player's sword picture stands beside the S button, as in the real client.

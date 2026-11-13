@@ -24,7 +24,7 @@ unblock the zip before you extract it: right-click it, **Properties**,
 tick **Unblock**, **OK**. Then nothing in the folder is asked about again.
 See [Windows says "Windows protected your PC"](https://github.com/squirelworks/graal-client-repro#windows-says-windows-protected-your-pc).
 
-## What's new in v0.0.5
+## What's new in v0.0.4.2
 
 - [x] **F1 Options window.** F1 opens "Options" from the build's own form (TOptions), with the current level's file name filled in. The other buttons close it and do nothing yet. Linux and macOS draw the form in a window of their own.
 - [x] **The player as the original draws it.** The player is drawn from your install's own body sheet and `heads.gif`, posed by the tables of its `arrays.dat`, instead of the project's stand-in art. The 1st and 2nd Graal draw the sheet in its own colours, with the shield.
