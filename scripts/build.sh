@@ -72,10 +72,21 @@ for B in $BUILDS; do
         make -C "$G" lib build/graal304-torque CXX="${CXX:-g++}" FPC="$FPC"
         cp "$G/build/graal304-torque" "$G/build/lib/lib$GAMEBASE.so" "$OUT/"
         ;;
-      Darwin/darwin)
-        echo "== common/torque/guigraal (graal304-torque, Cocoa, lib$GAMEBASE.dylib)"
-        make -C "$G" lib build/graal304-torque CXX="${CXX:-c++}" FPC="$FPC"
-        cp "$G/build/graal304-torque" "$G/build/lib/lib$GAMEBASE.dylib" "$OUT/"
+      Darwin/darwin|Linux/darwin)
+        # macOS: graal304-torque.app with the game library inside. On Linux
+        # (release-all's macOS job) the C++ side is cross-built with the
+        # <cpu>-darwin-clang++ wrapper scripts/release/darwin-cross.sh makes.
+        if [ "$(uname -s)" = Darwin ]; then DCXX=${CXX:-c++}
+        else DCXX="$("$FPC" -iTP 2>/dev/null)-darwin-clang++"; fi
+        if command -v "$DCXX" >/dev/null 2>&1; then
+          echo "== common/torque/guigraal (graal304-torque.app, lib$GAMEBASE.dylib)"
+          rm -rf "$G/build/graal304-torque" "$G/build/lib"
+          make -C "$G" lib app PLATFORM=macos CXX="$DCXX" FPC="$FPC" APP_LIB="lib$GAMEBASE.dylib"
+          rm -rf "$OUT/graal304-torque.app"
+          cp -R "$G/build/graal304-torque.app" "$OUT/"
+        else
+          echo "::warning::no $DCXX; graal304-torque.app not built"
+        fi
         ;;
       MINGW*/win32|MSYS*/win32|CYGWIN*/win32|MINGW*/win64|MSYS*/win64|CYGWIN*/win64)
         # A 32-bit Free Pascal (i386-win32, the release's) needs a 32-bit

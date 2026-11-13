@@ -173,6 +173,8 @@ class X11Window : public Window {
 
 } // namespace
 
+void show_error(const std::string&, const std::string&) {}
+
 std::unique_ptr<Window> Window::open(const std::string& title, int width, int height, std::string& error) {
   auto w = std::make_unique<X11Window>();
   if (!w->init(title, width, height, error)) return nullptr;
