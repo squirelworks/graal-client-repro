@@ -117,6 +117,9 @@ jobs:
           sh common/torque/guigraal/tests/smoke.sh
       - name: guigraal online path against loopback list and game servers
         run: |
+          # LIST_FALLBACK's silent listserver is on 127.0.0.2, which Linux
+          # routes on lo by default and macOS only with an lo0 alias.
+          sudo ifconfig lo0 alias 127.0.0.2 up
           sh common/torque/guigraal/tests/online.sh
           GAME_LIB=libGame3153Lib.dylib GAME_TOKEN=G3D28015 sh common/torque/guigraal/tests/online.sh
           LIST_FALLBACK=1 sh common/torque/guigraal/tests/online.sh
