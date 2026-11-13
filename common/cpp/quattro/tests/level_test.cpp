@@ -249,6 +249,27 @@ void test_actor_drawing() {
   CHECK(c.surface().at(32 + 10, 32 + 2).r == 200);
   CHECK(c.surface().at(32 + 18, 32 + 2).b == 200);
   CHECK(c.surface().at(32 + 30, 32 - 6).r == 0);  // above the hat: nothing
+  // A carried object: its sprites.png cell at (8, head y - 22); while
+  // lifting it starts at (8, +8). Effects at world pixels, over the player.
+  Draw::Image sprites(64, 64, {0, 0, 0, 0});
+  for (int y = 0; y < 32; ++y)
+    for (int x = 0; x < 32; ++x) sprites.at(x, y) = {1, 2, 3, 255};
+  for (int y = 32; y < 44; ++y)
+    for (int x = 0; x < 24; ++x) sprites.at(x, y) = {4, 5, 6, 255};
+  assets.put_image("sprites.png", sprites);
+  w.player.carry = {0, 0, 32, 32};
+  w.effects.push_back({{0, 32, 24, 12}, 9 * 16, 13 * 16});
+  Draw::Canvas e(160, 160);
+  r.draw(e, w, v);
+  CHECK(e.surface().at(32 + 8, 32 - 22).b == 3 && e.surface().at(32 + 8, 32 - 23).b != 3);
+  CHECK(e.surface().at(16, 80).b == 6 && e.surface().at(16 + 24, 80).b != 6);
+  w.player.lift_tick = 0;
+  Draw::Canvas f(160, 160);
+  r.draw(f, w, v);
+  CHECK(f.surface().at(32 + 8, 32 + 8).b == 3 && f.surface().at(32 + 8, 32 + 7).b != 3);
+  w.player.carry = {0, 0, 0, 0};
+  w.player.lift_tick = -1;
+  w.effects.clear();
   // An unknown gani falls back to idle, and with no idle to the box.
   w.player.gani = "nothing";
   Draw::Canvas d(160, 160);

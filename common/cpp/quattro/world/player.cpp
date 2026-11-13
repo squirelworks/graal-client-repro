@@ -98,7 +98,12 @@ int apply_props(Net::Reader& r, Player& p, bool other) {
       case kZ: p.z = static_cast<int>(r.gchar()) - 50; break;
       case kMagicPoints: p.mp = static_cast<int>(r.gchar()); break;
       case kAlignment: p.ap = static_cast<int>(r.gchar()); break;
-      case kCarrySprite: case kHorseBushes: case kEffectColors:
+      case kCarrySprite: {
+        int v = static_cast<int>(r.gchar());
+        p.carry_sprite = v >= 128 ? v - 256 : v;
+        break;
+      }
+      case kHorseBushes: case kEffectColors:
       case kAdditFlags: case kStatusMsg:
         r.gchar();
         break;

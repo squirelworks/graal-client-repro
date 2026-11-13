@@ -43,6 +43,19 @@ struct Actor {
   std::string head, body, sword, shield;
   std::array<std::string, 31> attr;  // 1..30
   std::array<int, 5> colors{};      // skin, coat, sleeves, shoes, belt
+  // The carried object's cell on sprites.png (width 0: nothing carried),
+  // drawn at (8, head y - 22) from the top-left. `lift_tick` >= 0 while it
+  // is being lifted: it rises from (8, +8) over kLiftTicks.
+  Rect carry{0, 0, 0, 0};
+  int lift_tick = -1;
+  static constexpr int kLiftTicks = 6;
+};
+
+// A sprite of sprites.png at world pixels (x, y): thrown objects and their
+// shadows, pieces, leaves, a chest's item.
+struct EffectSprite {
+  Rect src{0, 0, 0, 0};
+  int x = 0, y = 0;
 };
 
 struct WorldState {
@@ -53,6 +66,7 @@ struct WorldState {
   bool lobby = false;        // server name starts with "login"
   bool lobby_tiles = false;  // the build draws tiles in the lobby
   bool chest_boxes = true;   // stand-in boxes for chests (6.03r7 draws none)
+  std::vector<EffectSprite> effects;  // over the players
 };
 
 struct View {

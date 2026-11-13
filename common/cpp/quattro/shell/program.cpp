@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -235,6 +236,7 @@ Draw::Actor Program::actor_for(int id, const World::Player& p) {
   a.shield = p.shield_image;
   for (size_t i = 1; i < a.attr.size(); ++i) a.attr[i] = p.attr[i];
   for (size_t i = 0; i < a.colors.size(); ++i) a.colors[i] = p.colors[i];
+  a.carry = sprite_cell(World::carried_sprite(p.carry_sprite));
   // A gani plays from the tick it was set.
   auto& start = gani_start_[id];
   if (start.first != a.gani) start = {a.gani, frame_};
@@ -268,6 +270,12 @@ bool Program::action(std::string_view command, bool down) {
     }
   }
   return known;
+}
+
+Draw::Rect Program::sprite_cell(int sprite) const {
+  int x, y, w, h;
+  if (!World::sprite_rect(object_tables_, sprite, x, y, w, h)) return {0, 0, 0, 0};
+  return {x, y, w, h};
 }
 
 void Program::say(const std::string& text) {
@@ -510,6 +518,7 @@ void Program::on_message(int id, std::string_view body) {
       world_.level = Files::Level{};
       world_.have_level = false;
       item_keys_.new_level();
+      effects_.clear();
       load_local_level(level_name_);
       break;
     case 7: {  // PLO_BOARDMODIFY: x, y, w, h, then the tiles row by row
@@ -665,25 +674,56 @@ bool Program::tick() {
                      action_items_;
     // The item keys first (sword, lift, throw, grab); a swing or a lift
     // holds the walk.
+    int carried = p.carry_sprite;
     auto sent = item_keys_.tick(p, items, keys, world_.level, object_tables_, tile_types_);
+    for (const auto& pk : sent) {
+      // What the keys did, for the effects: a throw, or a bush cut.
+      if (pk.id == 11)
+        effects_.throw_object(carried, static_cast<int>(std::lround(p.x * Draw::kTile)),
+                              static_cast<int>(std::lround(p.y * Draw::kTile)), p.dir);
+      if (pk.id == 1 && p.gani == "sword" && pk.body.size() >= 2) {
+        Net::Reader br(pk.body);
+        int bx = static_cast<int>(br.gchar()), by = static_cast<int>(br.gchar());
+        effects_.cut_bush(bx, by);
+      }
+    }
     if (props_sent_) {
       for (const auto& pk : sent) session_.connection().send(pk.id, pk.body);
       if (!sent.empty()) mover_.gani_sent(p);
     }
-    std::string action = walker_.tick(p, item_keys_.busy() ? 0u : keys, world_.level, tile_types_);
+    std::string action =
+        walker_.tick(p, item_keys_.busy() ? 0u : keys, world_.level, tile_types_, item_keys_.carrying());
     if (offline_) cross_gmap_edge();
-    if (props_sent_)
-      for (const auto& pk : item_keys_.touch_chests(p, item_keys_.busy() ? 0u : keys, world_.level))
-        session_.connection().send(pk.id, pk.body);
+    for (const auto& pk : item_keys_.touch_chests(p, item_keys_.busy() ? 0u : keys, world_.level)) {
+      Net::Reader cr(pk.body);
+      int cx = static_cast<int>(cr.gchar()), cy = static_cast<int>(cr.gchar());
+      for (const auto& ch : world_.level.chests)
+        if (ch.x == cx && ch.y == cy) effects_.chest_item(ch.item, cx, cy);
+      if (props_sent_) session_.connection().send(pk.id, pk.body);
+    }
     if (!action.empty() && props_sent_) session_.connection().send(38, action);
     if (props_sent_) {
       std::string moved = mover_.diff(p);
       if (!moved.empty()) session_.connection().send(2, moved);
     }
   }
+  // The thrown objects, pieces, leaves and chest items; a chest item's
+  // time out sends its ITEMDEL.
+  for (const auto& pk : effects_.tick())
+    if (props_sent_) session_.connection().send(pk.id, pk.body);
   if (opt_.download_files && props_sent_ && frame_ % 10 == 0) ask_for_missing();
   ++frame_;
   world_.player = actor_for(-1, me_);
+  // Our own load shows from the press on, before its carry sprite is sent.
+  if (item_keys_.carrying()) {
+    world_.player.carry = sprite_cell(World::carried_sprite(item_keys_.carry_sprite()));
+    world_.player.lift_tick = item_keys_.lifting() ? world_.player.ani_tick : -1;
+  }
+  world_.effects.clear();
+  for (const auto& pc : effects_.pieces()) {
+    Draw::Rect r = sprite_cell(pc.sprite);
+    if (r.width > 0) world_.effects.push_back({r, pc.x, pc.y});
+  }
   world_.others.clear();
   for (const auto& [pid, o] : others_) {
     if (!o.level.empty() && !me_.level.empty() && o.level != me_.level) continue;

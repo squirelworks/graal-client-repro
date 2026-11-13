@@ -52,8 +52,10 @@ bool step(Player& p, int dir, const Files::Level& level, const TileTypes& types)
 class Walker {
  public:
   // keys: bit 0 up, 1 left, 2 down, 3 right. Returns the 38 action to send
-  // this tick, or empty.
-  std::string tick(Player& p, unsigned keys, const Files::Level& level, const TileTypes& types);
+  // this tick, or empty. While `carrying`, the gani is `carry` when moving
+  // and `carrystill` when not (item-drawing lab).
+  std::string tick(Player& p, unsigned keys, const Files::Level& level, const TileTypes& types,
+                   bool carrying = false);
   bool pushing() const { return blocked_ticks_ >= kPushAfter; }
   // Keep the player on the board (0 to 62). Off for a gmap, whose parts
   // join at the edges (the program wraps the position).
