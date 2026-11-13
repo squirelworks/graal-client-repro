@@ -162,6 +162,9 @@ class X11Window : public Window {
       case XK_Up: return Key::Up;
       case XK_Down: return Key::Down;
       case XK_Escape: return Key::Escape;
+      case XK_a: case XK_A: return Key::A;
+      case XK_s: case XK_S: return Key::S;
+      case XK_d: case XK_D: return Key::D;
       default: return Key::NoKey;
     }
   }
