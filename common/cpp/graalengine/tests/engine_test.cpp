@@ -696,8 +696,8 @@ void testLoopbackSession(const char* build, const char* labEnv, const std::strin
   run("Adventure_setNickName Tester");
 
   FakeServer login, game;
-  // A server for 5.12 steps short packed frames as 5.12 does.
-  login.round_down = game.round_down = e.build() == "5.12";
+  // A server for 5.12 or 4.04r2 steps short packed frames as they do.
+  login.round_down = game.round_down = e.build() == "5.12" || e.build() == "4.04r2";
   CHECK(login.start() && game.start());
   auto pump = [&](FakeServer* s, auto done) {
     auto end = std::chrono::steady_clock::now() + std::chrono::seconds(3);
@@ -756,7 +756,7 @@ void testLoopbackSession(const char* build, const char* labEnv, const std::strin
   const std::string raw = gchar(101) + board + "\n";
   game.send(gchar(6) + "onlinestartlocal.nw\n" + gchar(100) + Quattro::Net::gint3(uint32_t(raw.size())) + "\n" + raw);
   CHECK(pump(&game, [&] { return e.session()->program().world().have_level; }));
-  game.send(gchar(9) + gchar(QW::kX2) + gshort(QW::to_pixels2(20)) + gchar(QW::kY2) + gshort(QW::to_pixels2(22)) + "\n");
+  game.send(gchar(9) + gchar(QW::kSwordPower) + gchar(1) + gchar(QW::kX2) + gshort(QW::to_pixels2(20)) + gchar(QW::kY2) + gshort(QW::to_pixels2(22)) + "\n");
   auto sentProps = [&](const std::string& part) {
     for (auto& [id, b] : game.got)
       if (id == 2 && b.find(part) != std::string::npos) return true;
@@ -796,7 +796,11 @@ void testLoopbackSession(const char* build, const char* labEnv, const std::strin
       if (game.got[i].first == 2) return true;
     return false;
   }));
-  CHECK(!e.session()->action("doA", true));
+  // The sword key (doS) swings: the gani goes out as a prop.
+  CHECK(e.session()->action("doS", true));
+  CHECK(pump(&game, [&] { return sentProps("sword"); }));
+  e.session()->action("doS", false);
+  CHECK(!e.session()->action("doM", true));  // the map: not built yet
 
   run("Adventure_setChat hello there");
   CHECK(pump(&game, [&] { return game.saw(2, gchar(QW::kCurChat) + gstring("hello there")); }));
@@ -823,6 +827,17 @@ void testLoopbackSession(const char* build, const char* labEnv, const std::strin
     invokeGraalKeyboardEvent(0x27, 0, 0, 0);
     CHECK(walked);
     std::fprintf(stderr, "lab session: right arrow walks %s\n", walked ? "yes" : "no");
+    // The S key through the binding (doS) swings the sword.
+    const std::size_t sent0 = game.got.size();
+    invokeGraalKeyboardEvent('S', 0, 0, 1);
+    const bool swung = pump(&game, [&] {
+      for (std::size_t i = sent0; i < game.got.size(); ++i)
+        if (game.got[i].first == 2 && game.got[i].second.find("sword") != std::string::npos) return true;
+      return false;
+    });
+    invokeGraalKeyboardEvent('S', 0, 0, 0);
+    CHECK(swung);
+    std::fprintf(stderr, "lab session: S swings %s\n", swung ? "yes" : "no");
 #ifdef _WIN32
     _putenv_s("GRAAL_ENGINE_FILE", "");
 #else

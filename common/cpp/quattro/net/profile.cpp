@@ -75,6 +75,10 @@ std::vector<BuildProfile> make() {
   r404.pli = ids({{0, 6},   {18, 19}, {23, 24}, {28, 28}, {30, 31}, {34, 35},
                   {37, 38}, {44, 44}, {46, 46}, {157, 157}});
   r404.answers_ping = false;
+  // The stock 4.04r2 GraalEngine.dll steps the cipher as 5.12 does:
+  // len >> 2 for zlib and bzip2 bodies (at most 4), (len + 3) >> 2 for raw
+  // ones (at most 12), both ways (read for seihai-core #41).
+  r404.packed_round_down = true;
   rows.push_back(r404);
 
   // 5.00r7 and 5.12 (Windows, the GraalEngine.dll session, used by
@@ -87,6 +91,7 @@ std::vector<BuildProfile> make() {
   r500.label = "5.00r7 Windows";
   r500.token = "G3D22067";
   r500.machine_fields = 3;  // win,<md5>,"",<md5> in the lab; "" each here
+  r500.packed_round_down = false;  // 5.00r7 rounds up both ways
   // In Login mode the level, chests and image NPCs are drawn; characters
   // and the HUD are not (protocol/v5v6-lab-play.md, "The Login server mode").
   r500.login_draws_tiles = true;

@@ -150,9 +150,19 @@ var
   K: Cardinal;
 begin
   if (CType and 1) <> 0 then Exit; { odd codes are not XORed }
-  if CType = CompressNone then Groups := XorGroupsRaw
-  else Groups := XorGroupsPacked;
-  if (Length(Body) + 3) div 4 < Groups then Groups := (Length(Body) + 3) div 4;
+  { Raw bodies step once per group present, a short last one too;
+    compressed ones only per whole group (as the stock 4.04r2 engine and
+    5.12: len shr 2, at most 4; seihai-core sets this for 4.20r6 too). }
+  if CType = CompressNone then
+  begin
+    Groups := XorGroupsRaw;
+    if (Length(Body) + 3) div 4 < Groups then Groups := (Length(Body) + 3) div 4;
+  end
+  else
+  begin
+    Groups := XorGroupsPacked;
+    if Length(Body) div 4 < Groups then Groups := Length(Body) div 4;
+  end;
   UniqueString(Body);
   for G := 0 to Groups - 1 do
   begin

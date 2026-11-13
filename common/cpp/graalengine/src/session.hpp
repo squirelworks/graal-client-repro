@@ -43,7 +43,7 @@ class Session2D {
   // One frame: network, walking, the world drawn into the frame.
   void tick();
   // A key binding with no script function, on press and release. True when
-  // the session takes it (the four moves).
+  // the session takes it (the four moves, doA, doS, doS2, doD and doQ).
   bool action(const std::string& cmd, bool down);
   void say(const std::string& text);
 

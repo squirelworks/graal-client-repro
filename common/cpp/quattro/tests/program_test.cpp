@@ -350,6 +350,28 @@ void test_offline() {
   CHECK(p.me().y > 63 && p.me().y < 64);
   win.keys.clear();
 
+  // The engine's bindings: a move walks; D toggles the weapon state on its
+  // press, and Q (no weapon list) is D, so D held through Q is one press.
+  const double x0 = p.me().x;
+  CHECK(p.action("moveLeft2D", true));
+  p.tick();
+  CHECK(p.action("moveLeft2D", false));
+  CHECK(p.me().x < x0);
+  const int status = p.me().status;
+  CHECK(p.action("doD", true));
+  p.tick();
+  CHECK(p.me().status == (status ^ 1));
+  CHECK(p.action("doQ", true) && p.action("doD", false));
+  p.tick();
+  CHECK(p.me().status == (status ^ 1));
+  CHECK(p.action("doQ", false));
+  p.tick();
+  CHECK(p.action("doQ", true));
+  p.tick();
+  CHECK(p.me().status == status);
+  CHECK(p.action("doQ", false));
+  CHECK(!p.action("doM", true) && !p.action("moveUp", true));
+
   CHECK(!p.start_offline("missing.gmap", 30, 30));
   CHECK(p.start_offline("maze_a-1.graal", 10, 12));  // a level alone, found below levels/
   CHECK(p.level_name() == "maze_a-1.graal" && p.me().x == 10);

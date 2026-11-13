@@ -243,6 +243,34 @@ Draw::Actor Program::actor_for(int id, const World::Player& p) {
   return a;
 }
 
+bool Program::action(std::string_view command, bool down) {
+  // The 2D bindings (Graal_analysis torque/scripting.md): the arrows, A, S
+  // (Space is doS2, a second sword key) and D. Q with no weapon toggles the
+  // weapon state as D does (the 6.03r7 item-keys lab, world/actions.hpp);
+  // there is no weapon list yet, so Q always does.
+  static const struct {
+    const char* name;
+    unsigned move, item;
+  } kBindings[] = {
+      {"moveUp2D", 1u, 0}, {"moveLeft2D", 2u, 0}, {"moveDown2D", 4u, 0}, {"moveRight2D", 8u, 0},
+      {"doA", 0, World::kKeyA}, {"doS", 0, World::kKeyS}, {"doS2", 0, World::kKeyS}, {"doD", 0, World::kKeyD},
+      {"doQ", 0, World::kKeyD},
+  };
+  bool known = false;
+  action_moves_ = action_items_ = 0;
+  for (unsigned i = 0; i < sizeof kBindings / sizeof kBindings[0]; ++i) {
+    if (command == kBindings[i].name) {
+      known = true;
+      action_held_ = down ? (action_held_ | (1u << i)) : (action_held_ & ~(1u << i));
+    }
+    if (action_held_ & (1u << i)) {
+      action_moves_ |= kBindings[i].move;
+      action_items_ |= kBindings[i].item;
+    }
+  }
+  return known;
+}
+
 void Program::say(const std::string& text) {
   me_.chat = text;
   if (props_sent_) session_.connection().send(2, Net::gchar(World::kCurChat) + Net::gstring(text));
@@ -683,9 +711,11 @@ bool Program::tick() {
   if (!world_.lobby) {
     auto& p = me_;
     unsigned keys = (window_.held(Draw::Key::Up) ? 1u : 0u) | (window_.held(Draw::Key::Left) ? 2u : 0u) |
-                    (window_.held(Draw::Key::Down) ? 4u : 0u) | (window_.held(Draw::Key::Right) ? 8u : 0u);
+                    (window_.held(Draw::Key::Down) ? 4u : 0u) | (window_.held(Draw::Key::Right) ? 8u : 0u) |
+                    action_moves_;
     unsigned items = (window_.held(Draw::Key::A) ? World::kKeyA : 0u) |
-                     (window_.held(Draw::Key::S) ? World::kKeyS : 0u) | (window_.held(Draw::Key::D) ? World::kKeyD : 0u);
+                     (window_.held(Draw::Key::S) ? World::kKeyS : 0u) | (window_.held(Draw::Key::D) ? World::kKeyD : 0u) |
+                     action_items_;
     // The item keys first (sword, lift, throw, grab); a swing or a lift
     // holds the walk.
     auto sent = item_keys_.tick(p, items, keys, world_.level, object_tables_, tile_types_);

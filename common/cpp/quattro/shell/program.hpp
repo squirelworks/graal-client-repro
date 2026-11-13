@@ -72,6 +72,10 @@ class Program {
   // Sets the player's chat and sends it once the props are out (the
   // engine library's chat bar; Adventure_setChat).
   void say(const std::string& text);
+  // A key binding by its command, on press and release (the engine
+  // library's MoveMap2D: moveUp2D ... and doA, doS, doS2, doD, doQ). Held
+  // next to the window's own keys. False for a command it does not take.
+  bool action(std::string_view command, bool down);
 
   const Draw::WorldState& world() const { return world_; }
   const World::Player& me() const { return me_; }
@@ -148,6 +152,8 @@ class Program {
   World::TileTypes tile_types_;
   World::ObjectTables object_tables_;
   World::ItemKeys item_keys_;
+  unsigned action_held_ = 0;  // bindings held by action(), one bit per binding
+  unsigned action_moves_ = 0, action_items_ = 0;  // what they hold: walk keys, World::ItemKey bits
   bool props_sent_ = false;
   ScriptHost scripts_;
   std::unique_ptr<GuiHost> gui_;
