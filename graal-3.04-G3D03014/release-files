@@ -2,4 +2,4 @@ graal304-torque
 libGame304Lib.so
 graal304-torque.exe
 Game304Lib.dll
-libGame304Lib.dylib
+graal304-torque.app

@@ -66,7 +66,7 @@ jobs:
         if: runner.os == 'Windows'
         continue-on-error: true
         shell: pwsh
-        run: C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm --needed mingw-w64-i686-gcc mingw-w64-i686-zlib"
+        run: C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm --needed make mingw-w64-i686-gcc mingw-w64-i686-zlib"
       - name: Install Free Pascal (macOS)
         if: runner.os == 'macOS'
         run: brew install fpc

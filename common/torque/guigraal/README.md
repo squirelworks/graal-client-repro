@@ -40,7 +40,7 @@ Windows) and the game library beside the program. The canvas size is
 |---|---|---|---|
 | Linux | X11 (`host/window_x11.cpp`) | `graal304-torque`, `libGame304Lib.so` | `make lib all` |
 | Windows | Win32 GDI (`host/window_win32.cpp`) | `graal304-torque.exe`, `Game304Lib.dll` | `make lib all` in an MSYS2 shell; the g++ and the Free Pascal must be the same CPU (both i386, as the release, or both x86_64) |
-| macOS | Cocoa (`host/window_cocoa.mm`) | `graal304-torque`, `libGame304Lib.dylib` | `make lib all` (Xcode command line tools and Free Pascal) |
+| macOS | Cocoa (`host/window_cocoa.mm`) | `graal304-torque.app` with `libGame304Lib.dylib` inside | `make lib all app` (Xcode command line tools and Free Pascal), or cross-built on Linux by `scripts/release/darwin-cross.sh` and `scripts/build.sh` |
 
 `make PLATFORM=windows CXX=i686-w64-mingw32-g++ WINDRES=i686-w64-mingw32-windres`
 cross-builds the Windows program from Linux. `tests/window.sh` runs the
@@ -161,8 +161,14 @@ Rebuild policy, not read from the original:
   levels need 2.22's `arrays.dat` beside the install (see the 3.04 README).
 - [x] Windows and macOS: Win32 and Cocoa windows, the library as
   `Game304Lib.dll` and `libGame304Lib.dylib`, and the Windows release zip.
-- [ ] The macOS release zip: release-all cross-builds macOS on Linux with no
-  C++ toolchain for Cocoa yet, so macOS players build it with `make lib all`.
+- [x] The macOS release zips (x86_64 and arm64) carry `graal304-torque.app`.
+  The app holds the program and the game library (`make app`; `APP_LIB`
+  names the library) and finds the install in the folder that holds it.
+  A start-up error (no `main.cs`, no library) shows a message box when no
+  console reads the error, on Windows and macOS.
+- [ ] An app icon: no original icon to take it from yet (the Windows exe
+  has the default icon for the same reason). The app is not signed beyond
+  the linker's ad-hoc signature, so macOS asks once before opening it.
 
 ## 3.153 (Track A)
 

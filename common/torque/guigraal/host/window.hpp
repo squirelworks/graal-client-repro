@@ -39,6 +39,10 @@ inline std::string punctuation_key_name(char c) {
   }
 }
 
+// Tell the player why the program cannot start: a message box on Windows
+// and macOS, nothing more on X11 (the console line is enough there).
+void show_error(const std::string& title, const std::string& text);
+
 class Window {
  public:
   static std::unique_ptr<Window> open(const std::string& title, int width, int height, std::string& error);
