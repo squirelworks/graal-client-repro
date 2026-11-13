@@ -18,7 +18,7 @@ View follow(const WorldState& w, int canvas_w, int canvas_h) {
   const double vh = static_cast<double>(canvas_h) / kTile;
   View v;
   v.left = std::clamp(w.player.x + 1.5 - vw / 2, 0.0, std::max(0.0, Files::kBoardSide - vw));
-  v.top = std::clamp(w.player.y + 2.0 - vh / 2, 0.0, std::max(0.0, Files::kBoardSide - vh));
+  v.top = std::clamp(w.player.y + 1.5 - vh / 2, 0.0, std::max(0.0, Files::kBoardSide - vh));
   return v;
 }
 

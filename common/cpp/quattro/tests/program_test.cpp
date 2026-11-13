@@ -61,7 +61,7 @@ void test_program() {
   Shell::Program p(*prof, opt, win);
   CHECK(p.start());
   CHECK(login.conn.accept_from(login.listener));
-  CHECK(win.title() == "Graal 6.03r7 - Login");
+  CHECK(win.title() == "Login");
 
   CHECK(run(p, &login, nullptr, [&] { return login.saw(37, "English"); }));
   login.send(send_level("onlinestartlocal.nw", 7));
@@ -82,7 +82,7 @@ void test_program() {
   acc.join();
   CHECK(warped);
   CHECK(run(p, nullptr, &game, [&] { return game.saw(37, "English"); }));
-  CHECK(win.title() == "Graal 6.03r7 - Lab Server");
+  CHECK(win.title() == "Lab Server");
   game.send(send_level("onlinestartlocal.nw", 7));
   CHECK(run(p, nullptr, &game, [&] { return p.world().have_level; }));
   p.tick();

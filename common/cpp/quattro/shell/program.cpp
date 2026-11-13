@@ -200,7 +200,9 @@ void Program::say(const std::string& text) {
 }
 
 std::string Program::window_title() const {
-  // "Graal 6.03r7 - Lab Server", as the lab saw after the warp.
+  // The real 6.03r7 Linux client shows the server name alone (frames lab,
+  // 2026-11-13). Other rows: "Graal 5.12 - Lab Server", the rebuild's form.
+  if (profile_.title_is_server) return session_.server_name();
   return "Graal " + short_label(profile_.label) + " - " + session_.server_name();
 }
 
