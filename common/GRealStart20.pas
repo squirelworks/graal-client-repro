@@ -1279,14 +1279,6 @@ begin
               Fetch.Start(ListHost, ListPort, '', '');
               FetchStart := NowMs;
               ExtraSent := False;
-              { nothing saved: the account and password boxes keep the
-                form's own text (guest, the password masked), as the real
-                2.0x list shows them }
-              if (R.Account = '') and (AccBox <> nil) then
-              begin
-                R.Account := AccBox.Str('Text');
-                if R.Password = '' then R.Password := PassBox.Str('Text');
-              end;
               Page := pgFetch;
               { the list's caption says it loads until the servers are in }
               Shape(Art.List, Title2 + ' (loading...)');
@@ -1338,9 +1330,10 @@ begin
               begin
                 Page := pgList;
                 Win.SetTitle(Title2);
-                { no row is picked until the player picks one (the real
-                  2.0x list, polishing run 2026-11-12) }
+                { the first row comes up picked, its details filled in
+                  (the real 2.05r2, lab on Windows 10, 2026-11-13) }
                 Sel := -1;
+                if Length(Fetch.Servers) > 0 then Sel := 0;
               end
               else if Fetch.Failed and (Chars <> '') then
               begin

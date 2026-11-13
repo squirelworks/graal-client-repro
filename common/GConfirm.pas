@@ -3,7 +3,8 @@
   really want to quit Graal?", OK and Cancel; lab, 2.01, 2.05r2 and GraalX
   on Windows XP, 2026-11-13).
 
-  On Windows it is the real message box (warning icon), owned by the
+  On Windows it is the real message box (question icon, as the real
+  clients show it; lab on Windows 10, 2026-11-13), owned by the
   window in front. Elsewhere it is drawn in a small window of its own:
   Enter or OK says yes, Esc, Cancel or the close box says no. }
 unit GConfirm;
@@ -59,7 +60,7 @@ end;
 function AskOkCancel(const Title, Text: string): Boolean;
 begin
   Result := MessageBoxA(GetActiveWindow, PChar(Text), PChar(Title),
-    MB_OKCANCEL or MB_ICONWARNING or MB_DEFBUTTON1) = IDOK;
+    MB_OKCANCEL or MB_ICONQUESTION or MB_DEFBUTTON1) = IDOK;
 end;
 {$ELSE}
 function AskOkCancel(const Title, Text: string): Boolean;
