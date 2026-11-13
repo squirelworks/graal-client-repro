@@ -164,7 +164,7 @@ jobs:
           if-no-files-found: ignore
       - name: Install Free Pascal (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y fp-compiler fp-units-base fp-units-fcl libx11-dev
+        run: sudo apt-get update && sudo apt-get install -y fp-compiler fp-units-base fp-units-fcl libx11-dev g++ zlib1g-dev libbz2-dev
       - name: Install Free Pascal (Windows)
         if: runner.os == 'Windows'
         run: choco install freepascal -y --no-progress
@@ -299,7 +299,7 @@ jobs:
           name: stress-gserver
           path: seihai-gserver
       - name: Install Free Pascal
-        run: sudo apt-get update && sudo apt-get install -y fp-compiler fp-units-base fp-units-fcl libx11-dev
+        run: sudo apt-get update && sudo apt-get install -y fp-compiler fp-units-base fp-units-fcl libx11-dev g++ zlib1g-dev libbz2-dev
       - name: Build
         run: scripts/build.sh "${{ matrix.build }}"
       - name: Stress
