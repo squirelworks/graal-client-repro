@@ -48,7 +48,9 @@ seen = {}
 ls, gs = socket.socket(), socket.socket()
 for s in (ls, gs):
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind(('127.0.0.1', 0)); s.listen(4); s.settimeout(20)
+    # 60 s: the fallback run presses Connect 10.5 s into tq-play, and a
+    # macOS runner can take several seconds more to start it.
+    s.bind(('127.0.0.1', 0)); s.listen(4); s.settimeout(60)
 lport, gport = ls.getsockname()[1], gs.getsockname()[1]
 
 def listserver():
@@ -82,7 +84,7 @@ held = []
 if fallback:
     silent = socket.socket()
     silent.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    silent.bind(('127.0.0.2', lport)); silent.listen(4); silent.settimeout(20)
+    silent.bind(('127.0.0.2', lport)); silent.listen(4); silent.settimeout(60)
     def hold():
         try:
             conn, _ = silent.accept()

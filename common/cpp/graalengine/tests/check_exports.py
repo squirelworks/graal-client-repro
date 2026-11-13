@@ -43,6 +43,10 @@ def exported(lib):
                 elif line.strip() == "":
                     in_table = False
         return names
+    if sys.platform == "darwin":
+        # Mach-O: the external defined symbols, with C's leading underscore.
+        out = subprocess.run(["nm", "-gU", lib], capture_output=True, text=True, check=True).stdout
+        return {l.split()[-1].removeprefix("_") for l in out.splitlines() if l.strip()}
     out = subprocess.run(["nm", "-D", "--defined-only", lib], capture_output=True, text=True, check=True).stdout
     return {l.split()[-1] for l in out.splitlines() if l.strip()}
 

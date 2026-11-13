@@ -41,8 +41,7 @@ concurrency:
 
 jobs:
   linux:
-    # macOS is built and tested on the lab Sequoia VM, not on GitHub runners
-    # (AGENTS.md, "macOS builds").
+    # macOS runs in macos.yml (AGENTS.md, "macOS builds").
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5

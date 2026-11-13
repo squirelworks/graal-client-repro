@@ -5,7 +5,8 @@
 # frame. Needs build/tq-play, make lib and python3. GAME_LIB and
 # GAME_TOKEN pick the library and its login token (3.153:
 # GAME_LIB=libGame3153Lib.so GAME_TOKEN=G3D28015). LIST_FALLBACK=1 puts a
-# listserver that never answers first (on 127.0.0.2, so Linux only): the
+# listserver that never answers first (on 127.0.0.2: Linux, or macOS with
+# `ifconfig lo0 alias 127.0.0.2`): the
 # client gives up on it after 8 seconds and asks the license.graal host.
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
