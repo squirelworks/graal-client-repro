@@ -11,6 +11,7 @@
 #include "../../quattro/tests/fake_server.hpp"
 #include "../../quattro/shell/program.hpp"
 #include "session.hpp"
+#include "showimg.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -529,6 +530,57 @@ void writePng(const std::filesystem::path& p, const Torque::Gui::Image& img) {
   CHECK(Torque::Gui::write_file(p.string(), Torque::Gui::encode_png(img), err));
 }
 
+// The show-images: a GuiShowImgCtrl's `ani` drawn with its `actor` from
+// the install's ganis and pictures, stepping each frame; a particle turned
+// and tinted into a picture of its own.
+void testShowImages() {
+  reset();
+  installRecorder();
+  graal_setDrawGraphics(recGfx);
+  namespace fs = std::filesystem;
+  const fs::path dir = fs::temp_directory_path() / "graalengine-showimg-test";
+  fs::remove_all(dir);
+  fs::create_directories(dir / "levels" / "ganis");
+  fs::create_directories(dir / "levels" / "heads");
+  fs::create_directories(dir / "levels" / "particles");
+  {
+    std::ofstream g(dir / "levels" / "ganis" / "wave.gani", std::ios::binary);
+    g << "GANI0001\nSPRITE 1 HEAD 0 0 4 4 head\nSINGLEDIRECTION\nANI\n1 0 0\n\n1 2 0\nANIEND\n";
+  }
+  writePng(dir / "levels" / "heads" / "red.png", Torque::Gui::Image(4, 4, {255, 0, 0, 255}));
+  writePng(dir / "levels" / "particles" / "puff.png", Torque::Gui::Image(2, 2, {255, 255, 255, 255}));
+  CHECK(graal_engineInitialize((dir / "Graal4.exe").string().c_str()) == 1);
+  loadGraalGui();
+  auto& e = graalengine::engine();
+  CHECK(e.screen() && e.showImg());
+  if (!e.screen() || !e.showImg()) return;
+  auto c = std::make_shared<gs2::gui::Control>("Ani", "GuiShowImgCtrl");
+  c->setProp("ani", "wave,some.wav");
+  c->setNumProp("offsetx", 3);
+  c->setNumProp("offsety", 1);
+  c->actor = std::make_shared<gs2::Var>("actor");
+  c->actor->childOrCreate("head")->setString("red.png");
+  gfx.clear();
+  CHECK(e.showImg()->drawControl(*c, {10, 20, 12, 8}));
+  CHECK(gfx.size() == 1 && gfx[0] == "gfx showimg 12x8 at 10,20 from 0,0,12,8");
+  // A control with no gani in the install draws nothing.
+  auto none = std::make_shared<gs2::gui::Control>("None", "GuiShowImgCtrl");
+  none->setProp("ani", "missing");
+  CHECK(!e.showImg()->drawControl(*none, {0, 0, 8, 8}));
+  // A particle: 2x2 white, scaled 2, half alpha, drawn centred on (50, 50).
+  gfx.clear();
+  const double rgba[4] = {1, 1, 1, 0.5};
+  e.showImg()->sprite("puff.png", 50, 50, 0, 2, 2, rgba, 1);
+  CHECK(gfx.size() == 1 && gfx[0] == "gfx particle 4x4 at 48,48 from 0,0,4,4");
+  // Frames step the show-images on.
+  const int f0 = e.showImg()->frame();
+  renderGraalCanvas();
+  renderGraalCanvas();
+  CHECK(e.showImg()->frame() == f0 + 2);
+  shutdownGraalEngine();
+  fs::remove_all(dir);
+}
+
 // The painter finds the menus' pictures by name, case and extension
 // ignored, decodes them once and draws through the slots.
 void testPainter() {
@@ -744,6 +796,7 @@ int main() {
   testNoStartScripts();
   testLabStartScripts();
   testPainter();
+  testShowImages();
   testLabMenuInput();
   testLabMenu512();
   testLoopbackSession("4.04r2", "GRAAL404_ENGINE", "win,\"\",\"\",\"\"");

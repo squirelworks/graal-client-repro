@@ -12,6 +12,7 @@
 #include "../draw/window.hpp"
 #include "../draw/world.hpp"
 #include "../net/connection.hpp"
+#include "../world/actions.hpp"
 #include "../world/player.hpp"
 #include "../world/walk.hpp"
 #include "gui_host.hpp"
@@ -70,6 +71,7 @@ class Program {
   // Replaces the wall table (tests; arrays.dat from --assets otherwise).
   void set_tile_types(const World::TileTypes& t) { tile_types_ = t; }
   const World::TileTypes& tile_types() const { return tile_types_; }
+  void set_object_tables(const World::ObjectTables& t) { object_tables_ = t; }
   Draw::Assets& assets() { return *assets_; }
   const std::string& level_name() const { return level_name_; }
   // Files asked for with C->S 23, lower case.
@@ -100,6 +102,8 @@ class Program {
   World::MoveSender mover_;
   World::Walker walker_;
   World::TileTypes tile_types_;
+  World::ObjectTables object_tables_;
+  World::ItemKeys item_keys_;
   bool props_sent_ = false;
   ScriptHost scripts_;
   std::unique_ptr<GuiHost> gui_;

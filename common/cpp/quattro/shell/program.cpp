@@ -84,6 +84,7 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
   for (const auto& root : roots()) {
     if (!read_file(root + "/arrays.dat", table)) continue;
     if (!World::read_arrays_dat(table, tile_types_, err) && log) log(err);
+    World::read_object_tables(table, object_tables_);
     break;
   }
 }
@@ -241,8 +242,22 @@ void Program::on_message(int id, std::string_view body) {
       level_name_ = std::string(body);
       world_.level = Files::Level{};
       world_.have_level = false;
+      item_keys_.new_level();
       load_local_level(level_name_);
       break;
+    case 7: {  // PLO_BOARDMODIFY: x, y, w, h, then the tiles row by row
+      int x = static_cast<int>(r.gchar()), y = static_cast<int>(r.gchar());
+      int w = static_cast<int>(r.gchar()), h = static_cast<int>(r.gchar());
+      if (world_.level.layers.empty() || !r.ok()) break;
+      for (int ty = y; ty < y + h; ++ty)
+        for (int tx = x; tx < x + w; ++tx) {
+          unsigned t = r.gshort();
+          if (!r.ok()) break;
+          if (tx >= 0 && ty >= 0 && tx < Files::kBoardSide && ty < Files::kBoardSide)
+            world_.level.layers[0][static_cast<size_t>(tx + ty * Files::kBoardSide)] = static_cast<uint16_t>(t);
+        }
+      break;
+    }
     case 101: {  // PLO_BOARDPACKET
       std::string err;
       if (Files::apply_board_packet(body, world_.level, err))
@@ -362,7 +377,19 @@ bool Program::tick() {
     auto& p = me_;
     unsigned keys = (window_.held(Draw::Key::Up) ? 1u : 0u) | (window_.held(Draw::Key::Left) ? 2u : 0u) |
                     (window_.held(Draw::Key::Down) ? 4u : 0u) | (window_.held(Draw::Key::Right) ? 8u : 0u);
-    std::string action = walker_.tick(p, keys, world_.level, tile_types_);
+    unsigned items = (window_.held(Draw::Key::A) ? World::kKeyA : 0u) |
+                     (window_.held(Draw::Key::S) ? World::kKeyS : 0u) | (window_.held(Draw::Key::D) ? World::kKeyD : 0u);
+    // The item keys first (sword, lift, throw, grab); a swing or a lift
+    // holds the walk.
+    auto sent = item_keys_.tick(p, items, keys, world_.level, object_tables_, tile_types_);
+    if (props_sent_) {
+      for (const auto& pk : sent) session_.connection().send(pk.id, pk.body);
+      if (!sent.empty()) mover_.gani_sent(p);
+    }
+    std::string action = walker_.tick(p, item_keys_.busy() ? 0u : keys, world_.level, tile_types_);
+    if (props_sent_)
+      for (const auto& pk : item_keys_.touch_chests(p, item_keys_.busy() ? 0u : keys, world_.level))
+        session_.connection().send(pk.id, pk.body);
     if (!action.empty() && props_sent_) session_.connection().send(38, action);
     if (props_sent_) {
       std::string moved = mover_.diff(p);

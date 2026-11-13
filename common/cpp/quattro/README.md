@@ -51,7 +51,7 @@ this program. This directory does.
 | `files/` | levels and packages | **done**: `GR-V1.00`–`1.05` (1.05 board layers), the 101 board packet, links, chests, signs; `GANI0001` sprite-mode ganis (sprites, steps, WAIT, SINGLEDIRECTION, ATTACHSPRITE/2, defaults). Packages and movie-mode ganis next |
 | `draw/` | the draw passes and the window | **done**: the world passes in the original's order on a software canvas (shared with `common/torque/gui`), the lobby rule, an Xlib window and a headless window; players drawn from their gani with head, body, sword, shield and hats from the player's folder (`draw/assets`), the body in the player's five colours; the 6.x HUD (`draw/hud`: tabs, sword and glove, AP and MP bars, counters, hearts) |
 | `shell/` | the program loop, `StartScript_*`, `GuiGraalCtrl` | **started**: the 50 ms loop, level name/board/links/chests from the session, window title per server, and the script host on `gs2::Machine` (140, 197 with the `GRESCR01` cache, 33/34, 190), and the GUI host: `StartScript_*` read from the player's own program file (`--program`), `MainMenuGui2D` as the content, the world drawn in its `GuiGraalCtrl`, mouse and keys from the window. The show-image emitters run each tick and draw through the painter (add, transparent, subtract, day-night). Next: the engine actions and `GuiShowImgCtrl` animations |
-| `world/` | `TServerPlayer` and the props | **done**: the prop stream of 9 and 8 (the 2.22 table plus X2/Y2/Z2), the initial props after login, and the X2/Y2 movement diff each tick; walking against `arrays.dat` walls and chests with the six-point box, the corner nudge, and `push` with 38 `pushed,0` |
+| `world/` | `TServerPlayer` and the props | **done**: the prop stream of 9 and 8 (the 2.22 table plus X2/Y2/Z2), the initial props after login, and the X2/Y2 movement diff each tick; walking against `arrays.dat` walls and chests with the six-point box, the corner nudge, and `push` with 38 `pushed,0`; the item keys (`world/actions`): S swings and cuts bushes (1 BOARDMODIFY), A lifts, throws (11) or grabs and pulls, D toggles the status bit, walking into a chest opens it (20); the server's 7 BOARDMODIFY is applied |
 | `gui/` | the GS2 controls | in `common/cpp/gs2` (`gui.hpp`, B4): one control tree for 4.x to 6.x; Quattro paints it on its canvas (`shell/gui_host`) |
 
 The split with Track B: `common/cpp/gs2/` owns the bytecode loader, the
@@ -108,6 +108,12 @@ The Windows 6.x window and frame were not measured.
 
 ## Rebuild choices (not the original's)
 
+- Item keys: the flight and break of a thrown object, a cut bush's
+  leaves, the item over an opened chest and the carried object are not
+  drawn; walking while carrying plays `walk` (the lab did not walk with a
+  load); the stone's carry sprite was not seen, so lifting it sends only
+  the first carry sprite. Q, Tab and Esc are not item keys yet (Esc still
+  quits with no GUI); the lab saw them toggle the same status bit as D.
 - Stand-ins until the real art is drawn: tiles with no `pics1.png` are flat
   colours from their id; chests are boxes, and so is a player when no
   gani (not even `idle`) is in `--assets`. Body colours take the

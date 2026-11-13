@@ -1,4 +1,5 @@
 // The player prop stream and the props the client sends.
+#include "../world/actions.hpp"
 #include "../world/player.hpp"
 #include "../world/walk.hpp"
 #include "check.hpp"
@@ -177,6 +178,107 @@ void test_push() {
   CHECK(p.gani == "walk" && p.y > 30);
 }
 
+// arrays.dat with a bush (tiles 2, 3 / 18, 19) in the cut and lift lists,
+// leaving 677, 678 / 693, 694; tile 5 a wall.
+std::string flat(std::vector<uint32_t> v) {
+  std::string s = u32(static_cast<uint32_t>(v.size()));
+  for (auto x : v) s += u32(x);
+  return s;
+}
+std::string obj_list(uint32_t a, uint32_t b, uint32_t c, uint32_t d) {
+  // one object: column 0 (rows a, c), column 1 (rows b, d)
+  return u32(0x10001) + u32(0x10002) + flat({a, c}) + flat({b, d});
+}
+std::string items_dat() {
+  std::string d = flat({0, 2, 3, 18, 19, 677, 678, 693, 694}) + flat({});
+  for (int i = 2; i <= 8; ++i) d += flat({});
+  d += obj_list(2, 3, 18, 19) + obj_list(677, 678, 693, 694) + obj_list(2, 3, 18, 19) + obj_list(677, 678, 693, 694);
+  return d;
+}
+
+std::string gani_of(const std::vector<Packet>& out) {
+  for (const auto& p : out)
+    if (p.id == 2 && !p.body.empty() && p.body[0] == gchar(kGani)[0]) {
+      Net::Reader r(p.body);
+      r.gchar();
+      return r.gstring();
+    }
+  return {};
+}
+
+void test_item_keys() {
+  std::string d = items_dat();
+  ObjectTables tables;
+  TileTypes types;
+  std::string err;
+  CHECK(read_object_tables(d, tables) && tables.loaded && tables.cut.size() == 1 && tables.lift_left.size() == 1);
+  CHECK(read_arrays_dat(d, types, err));
+  CHECK(object_tile(tables.cut[0], 1, 0) == 3 && object_tile(tables.cut[0], 0, 1) == 18);
+
+  // S facing right with a bush at the blade's tip (x + 3.5, y + 2).
+  Files::Level l = open_level();
+  set_tile(l, 34, 32, 2);
+  set_tile(l, 35, 32, 3);
+  set_tile(l, 34, 33, 18);
+  set_tile(l, 35, 33, 19);
+  Player p;
+  p.x = 31;
+  p.y = 30;
+  p.dir = 3;
+  p.sword_power = 1;
+  ItemKeys k;
+  auto out = k.tick(p, kKeyS, 0, l, tables, types);
+  CHECK(out.size() == 2 && gani_of(out) == "sword" && out[0].body.substr(out[0].body.size() - 2) == gchar(kSprite) + gchar(3));
+  CHECK(out[1].id == 1 && out[1].body == board_modify(34, 32, 2, 2, {677, 678, 693, 694}));
+  CHECK(l.tile(35, 33) == 694 && k.busy());
+  for (int t = 1; t < ItemKeys::kSwordTicks; ++t) CHECK(k.tick(p, kKeyS, 0, l, tables, types).empty());
+  out = k.tick(p, kKeyS, 0, l, tables, types);  // 0.25 s: idle; holding S does not swing again
+  CHECK(gani_of(out) == "idle" && !k.busy());
+  CHECK(k.tick(p, kKeyS, 0, l, tables, types).empty());
+
+  // A on the bush: lift, the carry sprite at 0.20 s, carrystill at 0.30 s.
+  set_tile(l, 34, 32, 2);
+  set_tile(l, 35, 32, 3);
+  set_tile(l, 34, 33, 18);
+  set_tile(l, 35, 33, 19);
+  k.tick(p, 0, 0, l, tables, types);
+  out = k.tick(p, kKeyA, 0, l, tables, types);
+  CHECK(out.size() == 2 && out[0].id == 1 && gani_of(out) == "lift" && k.carrying());
+  CHECK(out[1].body.substr(out[1].body.size() - 2) == gchar(kCarrySprite) + gchar(static_cast<unsigned>(-1)));
+  std::vector<std::string> seen;
+  for (int t = 1; t <= ItemKeys::kCarryStillAfter; ++t)
+    for (const auto& pk : k.tick(p, 0, 0, l, tables, types)) seen.push_back(std::to_string(t) + ":" + pk.body);
+  CHECK(seen.size() == 2 && seen[0] == "4:" + gchar(kCarrySprite) + gchar(1));
+  CHECK(seen[1] == "6:" + gchar(kGani) + gstring("carrystill") && !k.busy() && k.carrying());
+  // A again: thrown.
+  out = k.tick(p, kKeyA, 0, l, tables, types);
+  CHECK(out.size() == 2 && out[0].id == 11 && out[0].body.empty() && gani_of(out) == "idle" && !k.carrying());
+
+  // A against a wall: grab; with the arrow away held, pull.
+  set_tile(l, 34, 32, 5);
+  k.tick(p, 0, 0, l, tables, types);
+  CHECK(gani_of(k.tick(p, kKeyA, 0, l, tables, types)) == "grab");
+  k.tick(p, 0, 0, l, tables, types);
+  CHECK(gani_of(k.tick(p, kKeyA, 2, l, tables, types)) == "pull");
+
+  // D toggles bit 0 of the status.
+  p.status = 20;
+  k.tick(p, 0, 0, l, tables, types);
+  out = k.tick(p, kKeyD, 0, l, tables, types);
+  CHECK(p.status == 21 && out.size() == 1 && out[0].body == gchar(kStatus) + gchar(21));
+
+  // Walking up into a chest opens it once.
+  Files::Level c = open_level();
+  c.chests.push_back({49, 22, 1, 0});
+  Player q;
+  q.x = 48;
+  q.y = 23;
+  q.dir = 0;
+  out = k.touch_chests(q, 1, c);
+  CHECK(out.size() == 1 && out[0].id == 20 && out[0].body == gchar(49) + gchar(22));
+  CHECK(k.touch_chests(q, 1, c).empty() && k.touch_chests(q, 0, c).empty());
+}
+
 }  // namespace
 
 int main() {
@@ -187,5 +289,6 @@ int main() {
   test_arrays_dat();
   test_walls();
   test_push();
+  test_item_keys();
   TEST_MAIN_END();
 }
