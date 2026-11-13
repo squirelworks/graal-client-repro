@@ -17,6 +17,8 @@ connector script.
 | `graal-1.1-19990214` | none | - | - |
 | `graal-1.1.9-19990211` | none | - | - |
 | `graal-1.21-GSERV007` | `GSERV007` | - | `graal-1.21-GSERV007/src/Protocol121.pas:26` (`ClientVersionToken`) |
+| `graal-1.25-GSERV009` | `GSERV009` | - | `graal-1.25-GSERV009/src/Protocol125.pas:26` (`ClientVersionToken`) |
+| `graal-1.27-GSERV011` | `GSERV011` | - | `graal-1.27-GSERV011/src/Protocol127.pas:26` (`ClientVersionToken`) |
 | `graal-1.28b2-GSERV013` | `GSERV013` | - | `graal-1.28b2-GSERV013/src/Protocol128b2.pas:26` (`ClientVersionToken`) |
 | `graal-1.3.9.1x-GNW12080` | `GNW12080` | - | `graal-1.3.9.1x-GNW12080/src/Protocol1391x.pas:28` (`ClientVersionToken`) |
 | `graal-1.31-GSERV016` | `GSERV016` | - | `graal-1.31-GSERV016/src/Protocol131.pas:23` (`ClientVersionToken`) |
@@ -27,8 +29,11 @@ connector script.
 | `graal-1.36-GNW10050` | `GNW10050` | - | `graal-1.36-GNW10050/src/Protocol136.pas:23` (`ClientVersionToken`) |
 | `graal-1.37-GNW21050` | `GNW21050` | - | `graal-1.37-GNW21050/src/Protocol137.pas:23` (`ClientVersionToken`) |
 | `graal-1.38-GNW22060` | `GNW22060` | - | `graal-1.38-GNW22060/src/Protocol138.pas:23` (`ClientVersionToken`) |
+| `graal-1.38r1-GNW02070` | `GNW02070` | - | `graal-1.38r1-GNW02070/src/Protocol138r1.pas:24` (`ClientVersionToken`) |
 | `graal-1.39-GNW07080` | `GNW07080` | - | `graal-1.39-GNW07080/src/Protocol139.pas:23` (`ClientVersionToken`) |
+| `graal-1.39r1-GNW07080` | `GNW07080` | - | `graal-1.39r1-GNW07080/src/Protocol139r1.pas:24` (`ClientVersionToken`) |
 | `graal-1.3test-GSERV014` | `GSERV014` | - | `graal-1.3test-GSERV014/src/Protocol13test.pas:23` (`ClientVersionToken`) |
+| `graal-1.40r1-GNW23090` | `GNW23090` | - | `graal-1.40r1-GNW23090/src/Protocol140r1.pas:23` (`ClientVersionToken`) |
 | `graal-1.41r1-GNW13110` | `GNW13110` | - | `graal-1.41r1-GNW13110/src/Protocol141.pas:22` (`ClientVersionToken`) |
 | `graal-2.0-GNW24011` | `GNW24011` | - | `graal-2.0-GNW24011/src/Protocol200.pas:20` (`ClientVersionToken`) |
 | `graal-2.01-GNW23021` | `GNW23021` | - | `graal-2.01-GNW23021/src/Protocol201.pas:20` (`ClientVersionToken`) |
@@ -45,28 +50,58 @@ connector script.
 | `graal-2.0r2-GNW24011` | `GNW24011` | - | `graal-2.0r2-GNW24011/src/Protocol200r2.pas:20` (`ClientVersionToken`) |
 | `graal-2.0r3-GNW24011` | `GNW24011` | - | `graal-2.0r3-GNW24011/src/Protocol200r3.pas:20` (`ClientVersionToken`) |
 | `graal-2.1.0.0-GNW31101` | `GNW31101` | - | `graal-2.1.0.0-GNW31101/src/Protocol2100.pas:25` (`ClientVersionToken`) |
+| `graal-2.12-GNW01012` | `GNW01012` | - | `graal-2.12-GNW01012/src/Protocol212.pas:28` (`ClientVersionToken`) |
+| `graal-2.13-GNW23012` | `GNW23012` | - | `graal-2.13-GNW23012/src/Protocol213.pas:28` (`ClientVersionToken`) |
+| `graal-2.14-GNW30042` | `GNW30042` | - | `graal-2.14-GNW30042/src/Protocol214.pas:28` (`ClientVersionToken`) |
+| `graal-2.15-GNW19052` | `GNW19052` | - | `graal-2.15-GNW19052/src/Protocol215.pas:28` (`ClientVersionToken`) |
+| `graal-2.151-GNW20052` | `GNW20052` | - | `graal-2.151-GNW20052/src/Protocol2151.pas:28` (`ClientVersionToken`) |
+| `graal-2.16-GNW12102` | `GNW12102` | - | `graal-2.16-GNW12102/src/Protocol216.pas:26` (`ClientVersionToken`) |
 | `graal-2.17.1-GNW22122` | `GNW22122` | - | `graal-2.17.1-GNW22122/src/Protocol217.pas:23` (`ClientVersionToken`) |
+| `graal-2.18-GNW21033` | `GNW21033` | - | `graal-2.18-GNW21033/src/Protocol218.pas:26` (`ClientVersionToken`) |
+| `graal-2.19-GNW15053` | `GNW15053` | - | `graal-2.19-GNW15053/src/Protocol219.pas:26` (`ClientVersionToken`) |
 | `graal-2.1t2-GNW03081` | `GNW03081` | - | `graal-2.1t2-GNW03081/src/Protocol21t2.pas:19` (`ClientVersionToken`) |
 | `graal-2.1t3-GNW03081` | `GNW03081` | - | `graal-2.1t3-GNW03081/src/Protocol21t3.pas:19` (`ClientVersionToken`) |
+| `graal-2.2-GNW28063` | `GNW28063` | - | `graal-2.2-GNW28063/src/Protocol220.pas:26` (`ClientVersionToken`) |
+| `graal-2.21-GNW01113` | `GNW01113` | - | `graal-2.21-GNW01113/src/Protocol221.pas:26` (`ClientVersionToken`) |
 | `graal-2.22-GNW03014` | `GNW03014` | `GNW30123` | `graal-2.22-GNW03014/src/Protocol222.pas:18` (`ClientVersionToken`)<br>`graal-2.22-GNW03014/src/ListServer222.pas:22` (`ListToken`) |
 | `graal-2.3-GNW14015` | `GNW14015` | `GNW30123` | `graal-2.3-GNW14015/src/Protocol230.pas:21` (`ClientVersionToken`)<br>`graal-2.3-GNW14015/src/ListServer230.pas:22` (`ListToken`) |
 | `graal-2.31-GNW28015` | `GNW28015` | `GNW30123` | `graal-2.31-GNW28015/src/Protocol231.pas:17` (`ClientVersionToken`)<br>`graal-2.31-GNW28015/src/ListServer231.pas:22` (`ListToken`) |
+| `graal-3.01-G3D27063` | `G3D27063` | `G3D30123` | `graal-3.01-G3D27063/src/Protocol301.pas:23` (`ClientVersionToken`)<br>`graal-3.01-G3D27063/src/Protocol301.pas:29` (`ListVersionToken`) |
 | `graal-3.04-G3D03014` | `G3D03014` | `G3D30123` | `graal-3.04-G3D03014/src/Protocol304.pas:18` (`ClientVersionToken`)<br>`graal-3.04-G3D03014/src/Protocol304.pas:23` (`ListVersionToken`) |
+| `graal-3.0beta-G3D16053` | `G3D16053` | `G3D30123` | `graal-3.0beta-G3D16053/src/Protocol30b.pas:23` (`ClientVersionToken`)<br>`graal-3.0beta-G3D16053/src/Protocol30b.pas:29` (`ListVersionToken`) |
+| `graal-3.151-G3D27015` | `G3D27015` | `G3D30123` | `graal-3.151-G3D27015/src/Protocol3151.pas:22` (`ClientVersionToken`)<br>`graal-3.151-G3D27015/src/Protocol3151.pas:27` (`ListVersionToken`) |
 | `graal-3.153-G3D28015` | `G3D28015` | `G3D30123` | `graal-3.153-G3D28015/src/Protocol3153.pas:20` (`ClientVersionToken`)<br>`graal-3.153-G3D28015/src/Protocol3153.pas:25` (`ListVersionToken`) |
 | `graal-39ster-1.00` | none | - | - |
 | `graal-3d-20000205` | `GR3DV002` | - | `graal-3d-20000205/src/Codec3D.pas:19` (`VersionString`) |
+| `graal-3d-20010523` | `GR3DV003` | - | `graal-3d-20010523/src/Codec3D.pas:19` (`VersionString`) |
+| `graal-4.02.11-G3D28095` | `G3D28095` | - | `graal-4.02.11-G3D28095/src/Protocol40211.pas:23` (`ClientVersionToken`) |
+| `graal-4.03r1-G3D11125` | `G3D11125` | - | `graal-4.03r1-G3D11125/src/Protocol403r1.pas:24` (`ClientVersionToken`) |
+| `graal-4.03r3-G3D09125` | `G3D09125` | - | `graal-4.03r3-G3D09125/src/Protocol403r3.pas:24` (`ClientVersionToken`) |
 | `graal-4.04r2-G3D17026` | `G3D17026` | - | `graal-4.04r2-G3D17026/src/Protocol404.pas:21` (`ClientVersionToken`) |
+| `graal-4.04r2linux-G3D19026` | `G3D19026` | - | `graal-4.04r2linux-G3D19026/src/Protocol404r2lx.pas:23` (`ClientVersionToken`) |
+| `graal-4.04r2mac-G3D18026` | `G3D18026` | - | `graal-4.04r2mac-G3D18026/src/Protocol404r2mac.pas:23` (`ClientVersionToken`) |
+| `graal-4.11-G3D26076` | `G3D26076` | - | `graal-4.11-G3D26076/src/Protocol411.pas:24` (`ClientVersionToken`) |
+| `graal-4.11linux-G3D28076` | `G3D28076` | - | `graal-4.11linux-G3D28076/src/Protocol411lx.pas:23` (`ClientVersionToken`) |
 | `graal-4.11mac-G3D27076` | `G3D27076` | - | `graal-4.11mac-G3D27076/src/Protocol411mac.pas:23` (`ClientVersionToken`) |
+| `graal-4.20linux-G3D22126` | `G3D22126` | - | `graal-4.20linux-G3D22126/src/Protocol420linux.pas:24` (`ClientVersionToken`) |
 | `graal-4.20r6-G3D21126` | `G3D21126` | - | `graal-4.20r6-G3D21126/src/Protocol420r6.pas:25` (`ClientVersionToken`) |
 | `graal-4.20r8-G3D20126` | `G3D20126` | - | `graal-4.20r8-G3D20126/src/Protocol420.pas:21` (`ClientVersionToken`) |
-| `graal-5.00r7-G3D22067` | `G3D22067` | `G3D30123` | `graal-5.00r7-G3D22067/src/Protocol500.pas:21` (`ClientVersionToken`)<br>`graal-5.00r7-G3D22067/src/Protocol500.pas:43` (`ListVersionToken`) |
-| `graal-5.12-G3D14097` | `G3D14097` | `G3D30123` | `graal-5.12-G3D14097/src/Protocol512.pas:21` (`ClientVersionToken`)<br>`graal-5.12-G3D14097/src/Protocol512.pas:47` (`ListVersionToken`) |
+| `graal-5.00r7-G3D22067` | `G3D22067` | `G3D30123` | `graal-5.00r7-G3D22067/src/Protocol500.pas:21` (`ClientVersionToken`)<br>`graal-5.00r7-G3D22067/src/Protocol500.pas:45` (`ListVersionToken`) |
+| `graal-5.12-G3D14097` | `G3D14097` | `G3D30123` | `graal-5.12-G3D14097/src/Protocol512.pas:21` (`ClientVersionToken`)<br>`graal-5.12-G3D14097/src/Protocol512.pas:48` (`ListVersionToken`) |
+| `graal-5.12mac-G3D15097` | `G3D15097` | `G3D30123` | `graal-5.12mac-G3D15097/src/Protocol512mac.pas:24` (`ClientVersionToken`)<br>`graal-5.12mac-G3D15097/src/Protocol512mac.pas:49` (`ListVersionToken`) |
+| `graal-5.24r4-G3D15010` | `G3D15010` | `G3D30123` | `graal-5.24r4-G3D15010/src/Protocol524r4.pas:23` (`ClientVersionToken`)<br>`graal-5.24r4-G3D15010/src/Protocol524r4.pas:52` (`ListVersionToken`) |
 | `graal-5.31r4-G3D26090` | `G3D26090` | - | `graal-5.31r4-G3D26090/src/Late531.pas:44` (`ClientVersionToken`) |
-| `graal-6.0.1.5-G3D3007A` | `G3D3007A` | `G3D30123` | `graal-6.0.1.5-G3D3007A/src/Protocol6015.pas:23` (`ClientVersionToken`)<br>`graal-6.0.1.5-G3D3007A/src/Protocol6015.pas:50` (`ListVersionToken`) |
-| `graal-6.0.3.4-G3D2505C` | `G3D2505C` | `G3D30123` | `graal-6.0.3.4-G3D2505C/src/Protocol6034.pas:23` (`ClientVersionToken`)<br>`graal-6.0.3.4-G3D2505C/src/Protocol6034.pas:49` (`ListVersionToken`) |
-| `graal-6.00beta-20110627-G3D28090` | `G3D28090` | `G3D30123` | `graal-6.00beta-20110627-G3D28090/src/Protocol600b.pas:23` (`ClientVersionToken`)<br>`graal-6.00beta-20110627-G3D28090/src/Protocol600b.pas:49` (`ListVersionToken`) |
-| `graal-6.01r1-G3D0108A` | `G3D0108A` | `G3D30123` | `graal-6.01r1-G3D0108A/src/Protocol601.pas:23` (`ClientVersionToken`)<br>`graal-6.01r1-G3D0108A/src/Protocol601.pas:49` (`ListVersionToken`) |
-| `graal-6.03r7-G3D0511C` | `G3D0511C` | `G3D30123` | `graal-6.03r7-G3D0511C/src/Protocol603.pas:23` (`ClientVersionToken`)<br>`graal-6.03r7-G3D0511C/src/Protocol603.pas:48` (`ListVersionToken`) |
+| `graal-6.0.1.5-G3D3007A` | `G3D3007A` | `G3D30123` | `graal-6.0.1.5-G3D3007A/src/Protocol6015.pas:23` (`ClientVersionToken`)<br>`graal-6.0.1.5-G3D3007A/src/Protocol6015.pas:52` (`ListVersionToken`) |
+| `graal-6.0.3.4-G3D2505C` | `G3D2505C` | `G3D30123` | `graal-6.0.3.4-G3D2505C/src/Protocol6034.pas:23` (`ClientVersionToken`)<br>`graal-6.0.3.4-G3D2505C/src/Protocol6034.pas:51` (`ListVersionToken`) |
+| `graal-6.004mac-G3D27090` | `G3D27090` | `G3D30123` | `graal-6.004mac-G3D27090/src/Protocol6004mac.pas:24` (`ClientVersionToken`)<br>`graal-6.004mac-G3D27090/src/Protocol6004mac.pas:52` (`ListVersionToken`) |
+| `graal-6.00b1-G3D03048` | `G3D03048` | `G3D30123` | `graal-6.00b1-G3D03048/src/Protocol600b1.pas:23` (`ClientVersionToken`)<br>`graal-6.00b1-G3D03048/src/Protocol600b1.pas:52` (`ListVersionToken`) |
+| `graal-6.00b2-G3D15010` | `G3D15010` | `G3D30123` | `graal-6.00b2-G3D15010/src/Protocol600b2.pas:23` (`ClientVersionToken`)<br>`graal-6.00b2-G3D15010/src/Protocol600b2.pas:52` (`ListVersionToken`) |
+| `graal-6.00beta-20110627-G3D28090` | `G3D28090` | `G3D30123` | `graal-6.00beta-20110627-G3D28090/src/Protocol600b.pas:23` (`ClientVersionToken`)<br>`graal-6.00beta-20110627-G3D28090/src/Protocol600b.pas:50` (`ListVersionToken`) |
+| `graal-6.00r4-G3D26090` | `G3D26090` | `G3D30123` | `graal-6.00r4-G3D26090/src/Protocol600r4.pas:23` (`ClientVersionToken`)<br>`graal-6.00r4-G3D26090/src/Protocol600r4.pas:52` (`ListVersionToken`) |
+| `graal-6.015mac-G3D3107A` | `G3D3107A` | `G3D30123` | `graal-6.015mac-G3D3107A/src/Protocol6015mac.pas:24` (`ClientVersionToken`)<br>`graal-6.015mac-G3D3107A/src/Protocol6015mac.pas:52` (`ListVersionToken`) |
+| `graal-6.01r1-G3D0108A` | `G3D0108A` | `G3D30123` | `graal-6.01r1-G3D0108A/src/Protocol601.pas:23` (`ClientVersionToken`)<br>`graal-6.01r1-G3D0108A/src/Protocol601.pas:50` (`ListVersionToken`) |
+| `graal-6.03r7-G3D0511C` | `G3D0511C` | `G3D30123` | `graal-6.03r7-G3D0511C/src/Protocol603.pas:23` (`ClientVersionToken`)<br>`graal-6.03r7-G3D0511C/src/Protocol603.pas:49` (`ListVersionToken`) |
+| `graal-6.03r7win-G3D0311C` | `G3D0311C` | `G3D30123` | `graal-6.03r7win-G3D0311C/src/Protocol603w.pas:23` (`ClientVersionToken`)<br>`graal-6.03r7win-G3D0311C/src/Protocol603w.pas:51` (`ListVersionToken`) |
 | `graal-6.1.1.3-GNP1905C` | `GNP1905C` | - | `graal-6.1.1.3-GNP1905C/src/Frame6113.pas:29` (`ClearHello`) |
 | `graal-6.11r1-mac` | none | - | - |
 | `graal-b1-19980906` | none | - | - |
@@ -99,6 +134,7 @@ connector script.
 | `graal-worlds-614-20240421` | `GNP1905C` | - | `graal-worlds-614-20240421/src/ModulesWorlds.pas:26` (`ConnectorToken`) |
 | `graal-worlds-7.0.1.7.5.0-20260403` | none | - | - |
 | `graal-worlds-71243-20241015` | none | - | - |
+| `graal-worlds2013-G3D2204D` | `G3D2204D` | `G3D30123` | `graal-worlds2013-G3D2204D/src/Protocol2204d.pas:28` (`ClientVersionToken`)<br>`graal-worlds2013-G3D2204D/src/Protocol2204d.pas:56` (`ListVersionToken`) |
 | `graal-x-GNW23021` | `GNW23021` | - | `graal-x-GNW23021/src/ProtocolX.pas:25` (`ClientVersionToken`) |
 | `graalgb-1.10` | none | - | - |
 | `javagraal-2000` | none | - | - |
