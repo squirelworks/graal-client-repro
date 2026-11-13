@@ -19,6 +19,9 @@ uses
 
 type
   TTextFn = procedure(S: PAnsiChar); cdecl;
+  TListUpdateFn = procedure(Id: LongInt; Nick, Head, Props: PAnsiChar; Flags: LongInt); cdecl;
+  TListDeleteFn = procedure(Id: LongInt); cdecl;
+  TMessageBoxFn = procedure(Title, Text: PAnsiChar; Kind: LongInt); cdecl;
 
 var
   Failed: Integer = 0;
@@ -72,6 +75,17 @@ begin
     H.LoadGui;
     TTextFn(HostSlotFn('OnServerLogin'))('Lab Server');
     Check(H.ServerName = 'Lab Server', 'OnServerLogin gives the launcher the server''s name for its title');
+    { The player list, as the lab's 5.12 engine reported it. }
+    TTextFn(HostSlotFn('SetGraalStatusIcons'))('Online,Away,DND,Eating,Hiding,No PMs,RPing,Sparring,PKing');
+    Check((H.Statuses.Count = 9) and (H.Statuses[5] = 'No PMs'), 'SetGraalStatusIcons fills the Status names');
+    TListUpdateFn(HostSlotFn('ExternalPlayerlistUpdate'))(1, '', '', 'account=guest,level=a.nw,communityname=,attr[1]=', $4000);
+    TListUpdateFn(HostSlotFn('ExternalPlayerlistUpdate'))(4, 'lab205', 'head0.png', 'account=pc:1,level=b.nw,communityname=guest,attr[1]=', $2000);
+    TListUpdateFn(HostSlotFn('ExternalPlayerlistUpdate'))(4, 'lab205', 'head25.png', 'account=pc:1,level=b.nw,communityname=guest,attr[1]=', $2000);
+    Check((H.OnlineCount = 2) and (H.Players[1].Head = 'head25.png'), 'ExternalPlayerlistUpdate adds a row, then updates it in place');
+    TListDeleteFn(HostSlotFn('ExternalPlayerlistDelete'))(4);
+    Check((H.OnlineCount = 1) and (H.PlayerIndex(1) = 0) and (H.PlayerIndex(4) = -1), 'ExternalPlayerlistDelete removes the row by id');
+    TMessageBoxFn(HostSlotFn('OpenMessageBox'))('Warning', 'You have been disconnected from the game server.', 1);
+    Check((H.MessageCount = 1) and (H.MessageTitle = 'Warning'), 'OpenMessageBox keeps the warning for the launcher');
     H.ClipW := 1;
     H.Render;
     Check((H.ClipX = 0) and (H.ClipY = 0) and (H.ClipW = 640) and (H.ClipH = 480),

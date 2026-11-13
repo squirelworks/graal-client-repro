@@ -20,21 +20,21 @@ double from_pixels2(unsigned v) {
 
 namespace {
 
-bool rejected(int prop, bool other) {
+bool rejected(int prop, bool other, int last_prop) {
   // The ids each 2.22 parser accepts (protocol/player-props.md).
   if (other)
     return prop == 1 || (prop >= 3 && prop <= 7) || prop == 14 || prop == 22 || (prop >= 25 && prop <= 29) ||
-           prop == 77 || prop > 80;
-  return prop == 50 || prop == 51 || prop == 53 || prop == 77 || prop > 80;
+           prop == 77 || prop > last_prop;
+  return prop == 50 || prop == 51 || prop == 53 || prop == 77 || prop > last_prop;
 }
 
 }  // namespace
 
-int apply_props(Net::Reader& r, Player& p, bool other) {
+int apply_props(Net::Reader& r, Player& p, bool other, int last_prop) {
   int applied = 0;
   while (!r.at_end()) {
     int prop = static_cast<int>(r.gchar());
-    if (rejected(prop, other)) return applied;
+    if (rejected(prop, other, last_prop)) return applied;
     switch (prop) {
       case kNickname: p.nickname = r.gstring(); break;
       case kMaxPower: p.max_power = static_cast<int>(r.gchar()); break;
@@ -110,6 +110,8 @@ int apply_props(Net::Reader& r, Player& p, bool other) {
       case kBodyImg: p.body = r.gstring(); break;
       case kLanguage: p.language = r.gstring(); break;
       case kOsType: p.os_type = r.gstring(); break;
+      case kCommunityName: p.community = r.gstring(); break;
+      case kListCategory: r.gchar(); break;
       case kCodePage: p.code_page = static_cast<int>(r.gint3()); break;
       case kX2: p.x = from_pixels2(r.gshort()); break;
       case kY2: p.y = from_pixels2(r.gshort()); break;
@@ -125,6 +127,7 @@ int apply_props(Net::Reader& r, Player& p, bool other) {
         break;
       case kConnected:
         p.gone = true;
+        p.disconnected = true;
         if (!r.at_end()) r.gchar();
         break;
       default:

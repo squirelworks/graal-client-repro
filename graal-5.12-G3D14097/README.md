@@ -134,8 +134,24 @@ checked against a 5.12 install:
   game window is 800 x 600 inside the frame (the lab's 5.12 screenshot),
   titled "G r a a l" until the engine logs in, then with the server's name
   spaced out ("L a b   S e r v e r"), which the engine hands the launcher
-  through `OnServerLogin`. The launcher's form (`TGraalWindow`) holds no
+  through `OnServerLogin` once the server accepts the login. The launcher's form (`TGraalWindow`) holds no
   start art: everything in it is the engine's.
+- [x] ~~What the engine tells the launcher about players~~: the calls the
+  lab's 5.12 engine made under hooks. `ExternalPlayerlistUpdate(id, nick,
+  head, props, flags)` for each player the server names, on any level, again
+  whenever one of those fields changes. `props` is
+  `account=..,level=..,communityname=..,attr[1]=..`. The flags are `0x4000`
+  for the client's own row (no nick) and `0x2000` for a player on this
+  server. `ExternalPlayerlistDelete(id)` comes when the player leaves the
+  server; the own row is deleted before the first connect and at each
+  warp. `SetGraalStatusIcons` gets "Online,Away,DND" at start and the
+  longer list once logged in. `OnServerLogin` then `OnServerListerConnect`
+  come when the login is accepted. `OpenMessageBox("Warning", "You have been
+  disconnected from the game server.", 1)` comes when the link drops (the
+  real one also showed it at each warp from the lobby; the rebuild does
+  not). The `0x0001` (Staff) flag the real engine set on the NPC-Server is
+  not sent: when to set it is not known. Whether chat makes a call was not
+  seen.
 - [ ] The rest of the 5.12 launcher: its tray menu (Show Game, Show Player
   List, Quit), the "Players: N online" window (`TPlayerList`), the options,
   profile, controls and message forms. The stand-in start screen still

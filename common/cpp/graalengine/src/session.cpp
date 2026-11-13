@@ -10,6 +10,12 @@ namespace graalengine {
 
 namespace QD = Quattro::Draw;
 
+namespace {
+// The lab's 5.12 status names: before the login, then once logged in.
+constexpr const char* kStatusesStart = "Online,Away,DND";
+constexpr const char* kStatusesOnline = "Online,Away,DND,Eating,Hiding,No PMs,RPing,Sparring,PKing";
+}  // namespace
+
 // The program's window: the frame it presents is kept for the playfield,
 // and the held arrows come from the engine's key bindings.
 class EngineWindow : public QD::Window {
@@ -59,11 +65,32 @@ Session2D::Session2D(Login login) : login_(std::move(login)), window_(std::make_
     engine().log("GraalEngine: " + s);
   };
   frame_.name = "GraalControl";
+  // What the 5.12 engine tells its launcher besides drawing (the lab's
+  // 5.12 under hooks, 2026-11-13): the player-list rows, the status names,
+  // the server's name once the login is accepted, and a warning when the
+  // link drops. The 4.x rows keep their earlier calls.
+  five_ = !login_.build.empty() && login_.build[0] == '5';
+  if (!five_) return;
+  program_->list_update = [](const Quattro::Shell::Program::ListRow& r) {
+    host::ExternalPlayerlistUpdate(r.id, r.nick.c_str(), r.head.c_str(), r.props.c_str(), r.flags);
+  };
+  program_->list_delete = [](int id) { host::ExternalPlayerlistDelete(id); };
+  program_->logged_in = [this] {
+    host::OnServerLogin(program_->session().server_name().c_str());
+    host::OnServerListerConnect();
+    host::SetGraalStatusIcons(kStatusesOnline);
+  };
+  program_->disconnected = [](const std::string&) {
+    host::OpenMessageBox("Warning", "You have been disconnected from the game server.", 1);
+  };
 }
 
 Session2D::~Session2D() = default;
 
-bool Session2D::start() { return program_->start(); }
+bool Session2D::start() {
+  if (five_) host::SetGraalStatusIcons(kStatusesStart);
+  return program_->start();
+}
 
 bool Session2D::startOffline(const std::string& file, double x, double y) {
   return program_->start_offline(file, x, y);
@@ -75,7 +102,7 @@ void Session2D::tick() {
   // OnServerLogin with the server's name; the 5.x launcher titles its game
   // window with it (the lab's 5.12 window read "L a b   S e r v e r" after
   // the warp, version-profiles/lab-v5-2026-10-30.md).
-  if (const int n = program_->session().logins(); n != loginsSeen_) {
+  if (const int n = program_->session().logins(); !five_ && n != loginsSeen_) {
     loginsSeen_ = n;
     host::OnServerLogin(program_->session().server_name().c_str());
   }

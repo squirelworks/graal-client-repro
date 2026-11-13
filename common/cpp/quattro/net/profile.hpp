@@ -37,6 +37,9 @@ struct BuildProfile {
   // FrameEncoder::set_compress_always).
   bool packed_round_down = false;
   bool compress_always = false;
+  // The highest player prop id the build reads (2.22's parsers stop past
+  // 80; the lab's 5.12 listed players' community names, prop 82).
+  int last_prop = 80;
 };
 
 // Every row this program can run as.
