@@ -14,6 +14,7 @@
 #include "../files/gmap.hpp"
 #include "../net/connection.hpp"
 #include "../world/actions.hpp"
+#include "../world/effects.hpp"
 #include "../world/player.hpp"
 #include "../world/walk.hpp"
 #include "gui_host.hpp"
@@ -87,6 +88,7 @@ class Program {
   void set_tile_types(const World::TileTypes& t) { tile_types_ = t; }
   const World::TileTypes& tile_types() const { return tile_types_; }
   void set_object_tables(const World::ObjectTables& t) { object_tables_ = t; }
+  const World::Effects& effects() const { return effects_; }
   Draw::Assets& assets() { return *assets_; }
   const std::string& level_name() const { return level_name_; }
   // Files asked for with C->S 23, lower case.
@@ -104,6 +106,8 @@ class Program {
   void cross_gmap_edge();
   std::string window_title() const;
   Draw::Actor actor_for(int id, const World::Player& p);
+  // A list 24 sprite's rect on sprites.png; width 0 when there is none.
+  Draw::Rect sprite_cell(int sprite) const;
   void draw_hud();
   std::vector<std::string> roots() const;
   bool load_tile_sheet();
@@ -126,6 +130,7 @@ class Program {
   World::ItemKeys item_keys_;
   unsigned action_held_ = 0;  // bindings held by action(), one bit per binding
   unsigned action_moves_ = 0, action_items_ = 0;  // what they hold: walk keys, World::ItemKey bits
+  World::Effects effects_;
   bool props_sent_ = false;
   ScriptHost scripts_;
   std::unique_ptr<GuiHost> gui_;

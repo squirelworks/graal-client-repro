@@ -59,9 +59,6 @@ std::vector<Object> objects(const Node& list) {
 
 int tile_of(double v) { return static_cast<int>(std::floor(v)); }
 
-// The carry sprite of each lift entry, as the lab saw them (bush, sign, pot).
-constexpr int kLiftSprite[3] = {1, 7, 5};
-
 std::string prop_gani(const std::string& g) { return gchar(kGani) + gstring(g); }
 std::string prop_carry(int sprite) { return gchar(kCarrySprite) + gchar(static_cast<unsigned>(sprite)); }
 
@@ -82,8 +79,22 @@ bool read_object_tables(std::string_view data, ObjectTables& out) {
     t.lift_left = objects(lists[12]);
     t.loaded = true;
   }
+  if (lists.size() > 24)
+    for (int v : lists[24].values) t.sprites.push_back(static_cast<uint32_t>(v));
   out = t;
   return true;
+}
+
+bool sprite_rect(const ObjectTables& t, int i, int& x, int& y, int& w, int& h) {
+  x = y = w = h = 0;
+  if (i < 0 || i >= static_cast<int>(t.sprites.size())) return false;
+  // x: 9 bits, y / 2: 10 bits, w / 2 and h / 2: 6 bits each.
+  uint32_t v = t.sprites[static_cast<size_t>(i)];
+  h = static_cast<int>(v & 63) * 2;
+  w = static_cast<int>((v >> 6) & 63) * 2;
+  y = static_cast<int>((v >> 12) & 1023) * 2;
+  x = static_cast<int>(v >> 23);
+  return w > 0 && h > 0;
 }
 
 void probe_point(const Player& p, double& x, double& y) {
@@ -158,8 +169,10 @@ std::vector<Packet> ItemKeys::tick(Player& p, unsigned keys, unsigned arrows, Fi
     p.gani = "idle";
     out.push_back({2, prop_gani(p.gani)});
   } else if (mode_ == Mode::Lift) {
-    if (ticks_ == kCarrySpriteAfter && carry_kind_ >= 0 && carry_kind_ < 3)
-      out.push_back({2, prop_carry(kLiftSprite[carry_kind_])});
+    if (ticks_ == kCarrySpriteAfter && carry_kind_ >= 0 && carry_kind_ < 3) {
+      p.carry_sprite = ItemKeys::kLiftSprites[carry_kind_];
+      out.push_back({2, prop_carry(p.carry_sprite)});
+    }
     if (ticks_ >= kCarryStillAfter) {
       mode_ = Mode::Carry;
       p.gani = "carrystill";
@@ -193,6 +206,7 @@ std::vector<Packet> ItemKeys::tick(Player& p, unsigned keys, unsigned arrows, Fi
       mode_ = Mode::Free;
       carry_kind_ = -1;
       p.gani = "idle";
+      p.carry_sprite = -1;
       out.push_back({11, ""});
       out.push_back({2, prop_gani(p.gani) + prop_carry(-1)});
       return out;
@@ -208,6 +222,7 @@ std::vector<Packet> ItemKeys::tick(Player& p, unsigned keys, unsigned arrows, Fi
       ticks_ = 0;
       carry_kind_ = e;
       p.gani = "lift";
+      p.carry_sprite = -1;
       if (!board.empty()) out.push_back({1, board});
       out.push_back({2, prop_gani(p.gani) + prop_carry(-1)});
       return out;

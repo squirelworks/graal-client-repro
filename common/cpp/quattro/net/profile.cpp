@@ -45,6 +45,7 @@ std::vector<BuildProfile> make() {
   r603.pli = pli_603();
   r603.answers_ping = true;
   r603.hud_6x = true;  // the 6.03r7 HUD lab (draw/hud.hpp)
+  r603.draws_chests = false;  // item-keys lab: only grass shows, the chest still blocks
   r603.title_is_server = true;  // the 6.03r7 frames lab: "HUD Lab 603"
   rows.push_back(r603);
 
