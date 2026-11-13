@@ -166,6 +166,13 @@ Rebuild policy, not read from the original:
   names the library) and finds the install in the folder that holds it.
   A start-up error (no `main.cs`, no library) shows a message box when no
   console reads the error, on Windows and macOS.
+- [x] What the Linux lab on the real 3.04 install found missing: the
+  Options dialog's `setVisible`, `setActive`, `performClick`, `getExtent`,
+  `resize`, `getDisplayDeviceList`, `getResolutionList` and
+  `getDesktopResolution` (`../console/engine/classes304.cpp`), the F2
+  console's lines and input line (`../gui/render.cpp`), and the list step
+  moving on to the `license.graal` hosts when the first listserver stays
+  silent (`tests/online.sh` with `LIST_FALLBACK=1`).
 - [ ] An app icon: no original icon to take it from yet (the Windows exe
   has the default icon for the same reason). The app is not signed beyond
   the linker's ad-hoc signature, so macOS asks once before opening it.
