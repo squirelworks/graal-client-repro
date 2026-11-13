@@ -12,7 +12,7 @@
 
 namespace Quattro::Draw {
 
-enum class Key { NoKey, Left, Right, Up, Down, Escape, Close, A, S, D };
+enum class Key { NoKey, Left, Right, Up, Down, Escape, Close, A, S, D, Q, Tab };
 
 // Input for the GUI: keys by their Torque names ("a", "enter", "left"),
 // with the typed character, and mouse presses in window pixels.

@@ -81,6 +81,7 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
   ev.message = [this](int id, std::string_view body) { on_message(id, body); };
   session_.set_events(std::move(ev));
   world_.lobby_tiles = profile_.login_draws_tiles;
+  world_.chest_boxes = profile_.draws_chests;
   me_.nickname = opt_.nickname.empty() ? "unknown" : opt_.nickname;  // the lab's 6.03r7 sent "unknown" with no nickname set
   me_.language = opt_.language;
   scripts_.set_send([this](int id, std::string_view body) { return session_.connection().send(id, body); });
@@ -656,7 +657,11 @@ bool Program::tick() {
                     (window_.held(Draw::Key::Down) ? 4u : 0u) | (window_.held(Draw::Key::Right) ? 8u : 0u) |
                     action_moves_;
     unsigned items = (window_.held(Draw::Key::A) ? World::kKeyA : 0u) |
-                     (window_.held(Draw::Key::S) ? World::kKeyS : 0u) | (window_.held(Draw::Key::D) ? World::kKeyD : 0u) |
+                     (window_.held(Draw::Key::S) ? World::kKeyS : 0u) |
+                     // D, Q and Tab toggle the same status bit (item-keys lab)
+                     (window_.held(Draw::Key::D) || window_.held(Draw::Key::Q) || window_.held(Draw::Key::Tab)
+                          ? World::kKeyD
+                          : 0u) |
                      action_items_;
     // The item keys first (sword, lift, throw, grab); a swing or a lift
     // holds the walk.

@@ -52,6 +52,7 @@ struct WorldState {
   std::vector<Actor> others;
   bool lobby = false;        // server name starts with "login"
   bool lobby_tiles = false;  // the build draws tiles in the lobby
+  bool chest_boxes = true;   // stand-in boxes for chests (6.03r7 draws none)
 };
 
 struct View {

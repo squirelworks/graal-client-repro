@@ -165,6 +165,8 @@ class X11Window : public Window {
       case XK_a: case XK_A: return Key::A;
       case XK_s: case XK_S: return Key::S;
       case XK_d: case XK_D: return Key::D;
+      case XK_q: case XK_Q: return Key::Q;
+      case XK_Tab: return Key::Tab;
       default: return Key::NoKey;
     }
   }

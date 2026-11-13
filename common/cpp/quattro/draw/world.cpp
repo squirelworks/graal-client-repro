@@ -84,6 +84,7 @@ void WorldRenderer::draw_tiles(Canvas& c, const WorldState& w, const View& v) co
 void WorldRenderer::draw_objects(Canvas& c, const WorldState& w, const View& v) const {
   // Chests: a framed 2 x 2 tile box until chest.png is drawn. Stand-in.
   for (const auto& ch : w.level.chests) {
+    if (!w.chest_boxes) break;
     int px = static_cast<int>(std::lround((ch.x - v.left) * kTile));
     int py = static_cast<int>(std::lround((ch.y - v.top) * kTile));
     c.fill_rect({px, py, 2 * kTile, 2 * kTile}, {150, 90, 30, 255});

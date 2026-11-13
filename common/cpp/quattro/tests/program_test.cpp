@@ -72,11 +72,12 @@ void test_program() {
   CHECK(p.world().lobby);
   p.tick();
   CHECK(p.last_passes() == Draw::pass_order());
-  // Lobby: black where the tiles are, the chest drawn at (31,31).
+  // Lobby: black where the tiles are; 6.03r7 draws no chest of its own,
+  // so (31,31) stays black too.
   CHECK((win.last().at(1, 1) == Draw::Color{0, 0, 0, 255}));
   Draw::View v = Draw::follow(p.world(), 640, 480);
   int cx = static_cast<int>((31 - v.left) * 16) + 4, cy = static_cast<int>((31 - v.top) * 16) + 4;
-  CHECK((win.last().at(cx, cy) == Draw::Color{150, 90, 30, 255}));
+  CHECK((win.last().at(cx, cy) == Draw::Color{0, 0, 0, 255}));
 
   login.send(gchar(178) + "0,Lab Server,127.0.0.1," + std::to_string(game.port()) + "\n");
   std::thread acc([&] { game.conn.accept_from(game.listener); });

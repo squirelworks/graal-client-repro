@@ -149,6 +149,11 @@ void test_world_passes() {
   r.draw(c, w, v);
   CHECK((c.surface().at(1, 1) == Draw::Color{0, 0, 0, 255}));
   CHECK((c.surface().at(2 * 16 + 4, 2 * 16 + 4) == Draw::Color{150, 90, 30, 255}));
+  // 6.03r7 draws no chest of its own: only the board's tiles.
+  w.chest_boxes = false;
+  r.draw(c, w, v);
+  CHECK((c.surface().at(2 * 16 + 4, 2 * 16 + 4) != Draw::Color{150, 90, 30, 255}));
+  w.chest_boxes = true;
 
   // The view follows the player and stops at the level's edges.
   Draw::View f = Draw::follow(w, 640, 480);
