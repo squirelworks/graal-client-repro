@@ -7,6 +7,10 @@ name: macos
 # wait on a macOS runner.
 on:
   workflow_dispatch:
+    inputs:
+      builds:
+        description: Client folders for the clients job, space-separated (empty = all)
+        default: ''
   schedule:
     - cron: '17 5 * * 1'
   pull_request:
@@ -41,8 +45,11 @@ jobs:
         with:
           workspaces: seihai-gserver
       - name: Build (Delphi mode)
+        env:
+          PICKED: ${{ inputs.builds }}
         run: |
-          BUILDS=$(ls -d graal-*/ | tr -d / | grep -v '^graal-3d-' | tr '\n' ' ')
+          BUILDS=$PICKED
+          [ -n "$BUILDS" ] || BUILDS=$(ls -d graal-*/ | tr -d / | grep -v '^graal-3d-' | tr '\n' ' ')
           echo "BUILDS=$BUILDS" >> "$GITHUB_ENV"
           scripts/build.sh $BUILDS
       - name: Unit tests

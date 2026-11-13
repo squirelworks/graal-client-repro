@@ -34,7 +34,14 @@ for T in "$ROOT"/build/*/Test*; do
   case $(uname -s) in
     MINGW*|MSYS*|CYGWIN*) LOG=$(cygpath -w "$HEAPLOG") ;;
   esac
-  HEAPTRC="log=$LOG" "$T" || fail "$TB" "$(basename "$T") failed"
+  # The program's own FAIL lines go into the summary at the end too.
+  if HEAPTRC="log=$LOG" "$T" > "$T.out" 2>&1; then
+    cat "$T.out"
+  else
+    cat "$T.out"
+    fail "$TB" "$(basename "$T") failed$(grep '^FAIL' "$T.out" | sed 's/^/\
+    /')"
+  fi
   if [ -f "$HEAPLOG" ]; then
     cat "$HEAPLOG" >&2
   fi
