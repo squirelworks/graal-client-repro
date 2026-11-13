@@ -687,8 +687,8 @@ void testLoopbackSession(const char* build, const char* labEnv, const std::strin
   run("Adventure_setNickName Tester");
 
   FakeServer login, game;
-  // A server for 5.12 steps short packed frames as 5.12 does.
-  login.round_down = game.round_down = e.build() == "5.12";
+  // A server for 5.12 or 4.04r2 steps short packed frames as they do.
+  login.round_down = game.round_down = e.build() == "5.12" || e.build() == "4.04r2";
   CHECK(login.start() && game.start());
   auto pump = [&](FakeServer* s, auto done) {
     auto end = std::chrono::steady_clock::now() + std::chrono::seconds(3);
