@@ -580,7 +580,7 @@ levels/sneakpeek/wbow1.gif                            423  AA646442
 levels/sneakpeek/wbowi1.gif                           305  E0455CF1
 levels/swords/sword1.png                             4714  B9B2D272
 levels/tiledefs/tiledefsNW%032Introduction.txt        798  7D1F7A2F
-levels/tiledefs/tiledefsoffline.txt                   993  91D2B540
+levels/tiledefs/tiledefsoffline.txt                   798  7D1F7A2F
 levels/weapons/_crossbow.nw                         22652  A5DA9C0F
 levels/weapons/bwmedbow.png                           518  B0A52535
 levels/weapons/bwsuperbow.png                         518  E69A0BC2
