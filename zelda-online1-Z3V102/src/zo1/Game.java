@@ -31,6 +31,10 @@ public class Game {
   public int ticks;
   public String signText; // the sign being read, or null
   public String status = "";
+  /** The title screen is up: the board waits for a key. */
+  public boolean title;
+  /** What the HUD shows; nothing in this build changes them yet. */
+  public int rupees = 0, bombs = 0, arrows = 5, hearts = 3;
 
   // held keys, one bit per direction, and the action key
   public int keys;
@@ -57,9 +61,13 @@ public class Game {
     return true;
   }
 
-  /** The start: level1.zelda, near the middle of the board. */
+  /**
+   * The start: level1.zelda at (23, 37), measured in the original (Mirae
+   * lab, 2026-11-13: the view origin at (64, 192) and the body's left edge
+   * at 184).
+   */
   public boolean start(String name) {
-    x = 30; y = 29;
+    x = 23; y = 37;
     return enter(name == null ? START_LEVEL : name, -1, -1);
   }
 
@@ -87,6 +95,7 @@ public class Game {
   }
 
   public void tick() {
+    if (title) return;
     ticks++;
     boolean actPressed = action && !actionWas;
     int newKeys = keys & ~keysWas;

@@ -29,6 +29,7 @@ public class ZeldaOnline1 extends Canvas {
 
   Game game;
   Renderer renderer;
+  java.awt.image.BufferedImage titleImage;
 
   ZeldaOnline1(Game game, Renderer renderer) {
     this.game = game;
@@ -41,7 +42,25 @@ public class ZeldaOnline1 extends Canvas {
     });
   }
 
+  int swallow = -1; // the key that left the title, until it is let go
+
   void key(int code, boolean down) {
+    synchronized (game) {
+      if (game.title) {
+        // any key leaves it (Enter, Up, 'a' and Space were tried); a click
+        // does not. A modifier alone is not a key here.
+        if (down && code != KeyEvent.VK_SHIFT && code != KeyEvent.VK_CONTROL
+            && code != KeyEvent.VK_ALT && code != KeyEvent.VK_META) {
+          game.title = false;
+          swallow = code;
+        }
+        return;
+      }
+      if (code == swallow) {
+        if (!down) swallow = -1;
+        return;
+      }
+    }
     int bit = -1;
     switch (code) {
       case KeyEvent.VK_UP: bit = Game.UP; break;
@@ -64,6 +83,11 @@ public class ZeldaOnline1 extends Canvas {
 
   public void paint(Graphics g) {
     synchronized (game) {
+      if (game.title) {
+        if (titleImage == null) titleImage = renderer.title();
+        g.drawImage(titleImage, 0, 0, null);
+        return;
+      }
       renderer.draw(game);
     }
     g.drawImage(renderer.frame(), 0, 0, Renderer.VIEW_W * Renderer.SCALE, Renderer.VIEW_H * Renderer.SCALE, null);
@@ -79,13 +103,13 @@ public class ZeldaOnline1 extends Canvas {
   }
 
   static void usage() {
-    System.out.println("ZeldaOnline1 [--data DIR] [--level NAME] [--keys KEYS] [--dump FILE.png] [--headless]");
+    System.out.println("ZeldaOnline1 [--data DIR] [--level NAME] [--keys KEYS] [--dump FILE.png] [--headless] [--title]");
   }
 
   public static void main(String[] args) throws Exception {
     File data = null;
     String level = null, keys = null, dump = null;
-    boolean headless = false;
+    boolean headless = false, titleArg = false;
     for (int i = 0; i < args.length; i++) {
       String a = args[i];
       if (a.equals("--data") && i + 1 < args.length) data = new File(args[++i]);
@@ -93,6 +117,7 @@ public class ZeldaOnline1 extends Canvas {
       else if (a.equals("--keys") && i + 1 < args.length) keys = args[++i];
       else if (a.equals("--dump") && i + 1 < args.length) dump = args[++i];
       else if (a.equals("--headless")) headless = true;
+      else if (a.equals("--title")) titleArg = true;
       else if (a.equals("--help") || a.equals("-h")) { usage(); return; }
       else { usage(); System.exit(2); }
     }
@@ -103,7 +128,11 @@ public class ZeldaOnline1 extends Canvas {
       System.err.println(game.status);
       System.exit(1);
     }
-    if (keys != null || dump != null || headless || GraphicsEnvironment.isHeadless()) {
+    boolean scripted = keys != null || dump != null || headless || GraphicsEnvironment.isHeadless();
+    // the window opens on the title screen; a scripted run skips it unless
+    // --title asks for it (then its first key leaves it)
+    game.title = !scripted || titleArg;
+    if (scripted) {
       runScripted(game, renderer, keys == null ? "" : keys, dump);
       return;
     }
@@ -114,6 +143,7 @@ public class ZeldaOnline1 extends Canvas {
   static void runScripted(Game game, Renderer renderer, String keys, String dump) throws Exception {
     for (int i = 0; i < keys.length(); i++) {
       char c = keys.charAt(i);
+      if (game.title) { game.title = false; continue; }
       game.keys = c == 'u' ? 1 << Game.UP : c == 'l' ? 1 << Game.LEFT : c == 'd' ? 1 << Game.DOWN : c == 'r' ? 1 << Game.RIGHT : 0;
       game.action = c == 'a';
       game.tick();
@@ -121,6 +151,10 @@ public class ZeldaOnline1 extends Canvas {
     System.out.println("level " + game.level.name + " x " + game.x + " y " + game.y
         + (game.signText != null ? " sign" : "") + (game.assets.usingStandIn ? " (stand-in graphics)" : ""));
     if (dump != null) {
+      if (game.title) {
+        ImageIO.write(renderer.title(), "png", new File(dump));
+        return;
+      }
       renderer.draw(game);
       ImageIO.write(renderer.frame(), "png", new File(dump));
     }

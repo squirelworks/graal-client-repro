@@ -3,9 +3,10 @@
 Java Graal, rebuilt. The original is a Java 1.1 applet (512x418) that
 Cyberjoueur served on its site in July 2000, next to their other Java games.
 In code terms it is Zelda Online 2's game and client with Graal art
-(`pics1.gif`, `sprites.gif`, `letters.gif`) and Graal levels. It starts on
-`level13.graal`, has no start window, and joins the relay on its own host's
-port 14802, one room per level.
+(`pics1.gif`, `sprites.gif`, `letters.gif`) and Graal levels. It opens on
+a title screen, starts on `level13.graal` at (20.5, 38), has no start
+window, and joins the relay on its own host's port 14802, one room per
+level.
 
 This build is written in Java, like the original, and targets Java 8 class
 files, so any Java 8 or newer runs it. It uses only AWT.
@@ -78,6 +79,14 @@ copy: the four top files plus the levels and the GIFs and sounds in
 
 ## What works (0.0.1)
 
+- The title screen as measured (Mirae lab, 2026-11-13): black, the logo
+  box at (100, 130), "Press any key to start!" from x 151. Letters,
+  digits, Space and the arrows leave it; Enter, Esc, Tab, Shift, F1 and
+  clicks do not, and the key that leaves it does nothing in the game.
+  `--title` shows it in a scripted run.
+- The start at (20.5, 38) on `level13.graal`, with the view centred on
+  the 32x32 body in the 512x384 board view (origin (88, 432)), and the
+  chat field in the 30 rows from y 386.
 - The window, the board from `pics1.gif` (16-pixel Graal sheets and
   8-pixel Zelda Online sheets), NPC images from the levels.
 - Levels: all formats above; 206 levels of an early Delphi Graal install
@@ -96,4 +105,7 @@ copy: the four top files plus the levels and the GIFs and sounds in
 - [ ] The full tile-type table: whether the walkable-tile list in a Graal
   `arrays.dat` is read the same way as Zelda Online's has only been
   checked by walking.
-- [ ] The original start position (not known).
+- [ ] The title screen's logo: the original's picture is not here, so an
+  outline and the name stand in for it.
+- [ ] Whether the view stops at the board's edges (the lab runs did not
+  reach one; the rebuild clamps).

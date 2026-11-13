@@ -145,7 +145,12 @@ These are for 0.0.2 and later:
   rebuild sets the same flag but needs a Game Boy Color: on an older model
   it shows a blank screen.
 - [ ] A side-by-side, action-by-action comparison with the demo (this is the
-  0.0.2 check).
+  0.0.2 check). Done so far (Mirae lab, 2026-11-13, mGBA): with the
+  original assets the first room's 32x32 background map, its attributes
+  and its palettes are byte for byte the demo's; neither ROM has a title
+  screen; the facing matches (down at the start, right after three Right
+  taps, down after two Down taps). The only difference seen was the
+  player's body (above).
 
 ## Assets the build opens
 

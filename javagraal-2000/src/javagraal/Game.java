@@ -41,6 +41,8 @@ public class Game {
   public Net net; // null in one-player mode
   public boolean showOwnName;
   public String typing; // the chat line being typed, or null
+  /** The title screen is up: the board waits for a key. */
+  public boolean title;
 
   // held keys, one bit per direction, and the action key
   public int keys;
@@ -67,9 +69,13 @@ public class Game {
     return true;
   }
 
-  /** The start: level13.graal, near the middle of the board. */
+  /**
+   * The start: level13.graal at (20.5, 38), measured in the original
+   * (Mirae lab, 2026-11-13: the view origin at world pixel (88, 432) and
+   * the body's left edge at 328).
+   */
   public boolean start(String name) {
-    x = 30; y = 29;
+    x = 20.5; y = 38;
     return enter(name == null ? START_LEVEL : name, -1, -1);
   }
 
@@ -97,6 +103,7 @@ public class Game {
   }
 
   public void tick() {
+    if (title) return;
     ticks++;
     boolean actPressed = action && !actionWas;
     int newKeys = keys & ~keysWas;

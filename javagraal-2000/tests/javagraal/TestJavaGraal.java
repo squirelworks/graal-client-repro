@@ -22,6 +22,7 @@ public class TestJavaGraal {
 
   public static void main(String[] args) throws Exception {
     board();
+    titleAndView();
     signs();
     arrays();
     standInLevels();
@@ -143,6 +144,31 @@ public class TestJavaGraal {
     check(l.signs.size() == 1 && ((Level.Sign) l.signs.elementAt(0)).text.startsWith("Welcome!"), "stand-in sign");
     check(l.tile(0, 0) == StandIn.TREE && l.tile(30, 29) == StandIn.GRASS, "stand-in board");
     check(StandIn.level("nosuch.graal") == null, "unknown stand-in");
+  }
+
+  static void titleAndView() {
+    Game g = new Game(new Assets(null, null));
+    g.start(null);
+    check(Renderer.GAME_H == 384 && Renderer.CHAT_Y + Renderer.CHAT_H <= Renderer.VIEW_H, "512x384 board, chat field under it");
+    // the original's start, where the stand-in board lets it stand
+    g.x = 20.5; g.y = 38;
+    int camX = (int) Math.round(g.x * Renderer.U) + Renderer.U - Renderer.VIEW_W / 2;
+    int camY = (int) Math.round(g.y * Renderer.U) + Renderer.U - Renderer.GAME_H / 2;
+    check(camX == 88 && camY == 432, "the start's view origin is the original's (88, 432)");
+    g.title = true;
+    double x0 = g.x;
+    hold(g, Game.RIGHT, 5);
+    check(g.x == x0 && g.ticks == 0, "the title screen holds the board");
+    Renderer r = new Renderer(g.assets.tileSheet(), g.assets);
+    r.draw(g);
+    boolean white = false;
+    for (int x = 151; x < 300 && !white; x++)
+      for (int y = 305; y < 320 && !white; y++)
+        white = (r.frame().getRGB(x, y) & 0xFFFFFF) == 0xFFFFFF;
+    check(white && (r.frame().getRGB(5, 5) & 0xFFFFFF) == 0, "title: black, with the white line from x 151");
+    g.title = false;
+    hold(g, -1, 1);
+    check(g.ticks == 1, "off the title, the board runs");
   }
 
   static Game standIn() {

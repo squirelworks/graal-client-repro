@@ -7,7 +7,9 @@ import java.awt.Graphics;
 import java.awt.image.BufferedImage;
 
 /**
- * Draws one frame: the applet's 512x418 box, 16 pixels per board tile.
+ * Draws one frame: the applet's 512x418 box, 16 pixels per board tile. The
+ * board fills the top 512x384; the chat field is the 30 rows from y 386
+ * (Mirae lab, 2026-11-13).
  * An 8-pixel tile sheet is drawn at double size. The view follows the
  * player and stops at the board edges. Players are the rebuild's own
  * stand-in figure; level NPCs show their image (the script is ignored, as
@@ -15,6 +17,8 @@ import java.awt.image.BufferedImage;
  */
 public class Renderer {
   public static final int VIEW_W = 512, VIEW_H = 418, SCALE = 1, U = 16;
+  /** The board view and the chat field under it. */
+  public static final int GAME_H = 384, CHAT_Y = 386, CHAT_H = 30;
 
   BufferedImage sheet;
   int ts;
@@ -49,13 +53,21 @@ public class Renderer {
 
   public void draw(Game g) {
     java.awt.Graphics2D gr = (java.awt.Graphics2D) frame.getGraphics();
-    int px = (int) Math.round(g.x * U), py = (int) Math.round(g.y * U);
-    int camX = clamp(px + U - VIEW_W / 2, 0, 64 * U - VIEW_W);
-    int camY = clamp(py + U - VIEW_H / 2, 0, 64 * U - VIEW_H);
     gr.setColor(Color.black);
     gr.fillRect(0, 0, VIEW_W, VIEW_H);
+    if (g.title) {
+      drawTitle(gr);
+      gr.dispose();
+      return;
+    }
+    gr.setClip(0, 0, VIEW_W, GAME_H);
+    // the view is centred on the 32x32 body (clamping at the board's edges
+    // is the rebuild's own; the lab runs did not reach an edge)
+    int px = (int) Math.round(g.x * U), py = (int) Math.round(g.y * U);
+    int camX = clamp(px + U - VIEW_W / 2, 0, 64 * U - VIEW_W);
+    int camY = clamp(py + U - GAME_H / 2, 0, 64 * U - GAME_H);
     int tx0 = camX / U, ty0 = camY / U;
-    for (int ty = ty0; ty <= ty0 + VIEW_H / U + 1 && ty < 64; ty++) {
+    for (int ty = ty0; ty <= ty0 + GAME_H / U + 1 && ty < 64; ty++) {
       for (int tx = tx0; tx <= tx0 + VIEW_W / U + 1 && tx < 64; tx++) {
         int t = g.level.tile(tx, ty);
         int dx = tx * U - camX, dy = ty * U - camY;
@@ -88,13 +100,8 @@ public class Renderer {
     if (g.showOwnName) drawText(gr, g.nickname, px - camX, py - camY + 24 + 6);
     gr.setTransform(keep);
     if (g.signText != null) drawSign(gr, g.signText);
-    if (g.typing != null) {
-      gr.setColor(new Color(0, 0, 0, 160));
-      gr.fillRect(0, VIEW_H - 22, VIEW_W, 22);
-      gr.setColor(Color.white);
-      gr.setFont(new Font("Dialog", Font.PLAIN, 16));
-      gr.drawString("> " + g.typing + "_", 6, VIEW_H - 6);
-    }
+    gr.setClip(null);
+    drawChatField(gr, g.typing);
     gr.dispose();
   }
 
@@ -154,8 +161,39 @@ public class Renderer {
     }
   }
 
+  /**
+   * The title screen: black, the logo in a 307x117 box at (100, 130) and
+   * "Press any key to start!" in white from x 151, baseline 319 (Mirae lab,
+   * 2026-11-13). The logo is the original's picture, which is not here: a
+   * plain outline and the name stand in for it.
+   */
+  void drawTitle(Graphics gr) {
+    gr.setColor(new Color(90, 90, 90));
+    gr.drawRect(100, 130, 307 - 1, 117 - 1);
+    gr.setColor(Color.white);
+    gr.setFont(new Font("Serif", Font.BOLD, 64));
+    FontMetrics fm = gr.getFontMetrics();
+    gr.drawString(JavaGraal.TITLE, 100 + (307 - fm.stringWidth(JavaGraal.TITLE)) / 2, 130 + 117 / 2 + fm.getAscent() / 3);
+    gr.setFont(new Font("Dialog", Font.BOLD, 16));
+    gr.drawString("Press any key to start!", 151, 319);
+  }
+
+  /** The chat field under the board, with the line being typed. */
+  void drawChatField(Graphics gr, String typing) {
+    gr.setColor(new Color(192, 192, 192));
+    gr.fillRect(0, GAME_H, VIEW_W, VIEW_H - GAME_H);
+    gr.setColor(Color.white);
+    gr.fillRect(0, CHAT_Y, VIEW_W, CHAT_H);
+    gr.setColor(Color.gray);
+    gr.drawRect(0, CHAT_Y, VIEW_W - 1, CHAT_H - 1);
+    if (typing == null) return;
+    gr.setColor(Color.black);
+    gr.setFont(new Font("Dialog", Font.PLAIN, 14));
+    gr.drawString(typing + "_", 6, CHAT_Y + CHAT_H - 9);
+  }
+
   void drawSign(Graphics gr, String text) {
-    int bx = 32, by = VIEW_H - 120, bw = VIEW_W - 64, bh = 100;
+    int bx = 32, by = GAME_H - 120, bw = VIEW_W - 64, bh = 100;
     gr.setColor(new Color(0, 0, 60));
     gr.fillRect(bx, by, bw, bh);
     gr.setColor(Color.white);

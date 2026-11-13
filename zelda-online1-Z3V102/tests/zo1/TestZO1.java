@@ -22,6 +22,7 @@ public class TestZO1 {
 
   public static void main(String[] args) throws Exception {
     board();
+    titleHudStart();
     signs();
     arrays();
     standInLevels();
@@ -112,6 +113,28 @@ public class TestZO1 {
     Game g = new Game(new Assets(null, null));
     g.start(null);
     return g;
+  }
+
+  static void titleHudStart() {
+    Game g = new Game(new Assets(null, null));
+    g.start(null);
+    // the original's view origin from (23, 37), by the rebuild's rule
+    int camX = 23 * 8 + 8 - Renderer.VIEW_W / 2, camY = 37 * 8 + 8 - Renderer.VIEW_H / 2;
+    check(camX == 64 && camY == 192, "the start's view origin is the original's (64, 192)");
+    g.title = true;
+    hold(g, Game.RIGHT, 5);
+    check(g.ticks == 0, "the title screen holds the board");
+    Renderer r = new Renderer(g.assets.tileSheet());
+    java.awt.image.BufferedImage t = r.title();
+    boolean white = false;
+    for (int x = 121; x < 300 && !white; x++)
+      for (int y = 370; y <= 382 && !white; y++)
+        white = (t.getRGB(x, y) & 0xFFFFFF) == 0xFFFFFF;
+    check(t.getWidth() == 512 && t.getHeight() == 448 && white, "title: 512x448, the white line from x 121 on rows 370-382");
+    g.title = false;
+    r.draw(g);
+    check((r.frame().getRGB(27, 50) & 0xFFFFFF) == 0x28B43C, "HUD: the magic fill at (24, 47)");
+    check(g.rupees == 0 && g.bombs == 0 && g.arrows == 5 && g.hearts == 3, "HUD: 000 / 00 / 05 and three hearts");
   }
 
   static void hold(Game g, int dir, int ticks) {

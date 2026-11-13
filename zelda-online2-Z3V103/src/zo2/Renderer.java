@@ -54,6 +54,7 @@ public class Renderer {
     drawPlayer(gr, g, px - camX, py - camY);
     drawText(gr, g.chat, px - camX, py - camY - 4);
     if (g.showOwnName) drawText(gr, g.nickname, px - camX, py - camY + 24 + 6);
+    drawHud(gr, g);
     if (g.signText != null) drawSign(gr, g.signText);
     if (g.typing != null) {
       gr.setColor(new Color(0, 0, 0, 160));
@@ -63,6 +64,69 @@ public class Renderer {
       gr.drawString("> " + g.typing + "_", 3, VIEW_H - 3);
     }
     gr.dispose();
+  }
+
+  /**
+   * The HUD, unscaled: the same as Zelda Online 1's, where that original puts it (Mirae lab, 2026-11-13):
+   * its picture at (20, 12), the 8x8 magic fill at (24, 47), the counters
+   * "000 / 00 / 05" from x 65, 97 and 121 on rows 24-29, and the hearts
+   * at x 162, 170 and 178. The picture is the original's and is not here:
+   * the rebuild draws plain stand-ins in the same places.
+   */
+  void drawHud(Graphics gr, Game g) {
+    gr.setColor(new Color(0, 0, 0, 90));
+    gr.fillRect(20, 12, 8 + 4, 44);
+    gr.setColor(new Color(40, 180, 60));
+    gr.fillRect(24, 47, 8, 8);
+    gr.setFont(new Font("Monospaced", Font.BOLD, 8));
+    drawCounter(gr, pad(g.rupees, 3), 65);
+    drawCounter(gr, pad(g.bombs, 2), 97);
+    drawCounter(gr, pad(g.arrows, 2), 121);
+    for (int i = 0; i < g.hearts && i < 3; i++) {
+      int hx = 162 + i * 8;
+      gr.setColor(new Color(220, 30, 40));
+      gr.fillRect(hx, 24, 3, 3);
+      gr.fillRect(hx + 4, 24, 3, 3);
+      gr.fillRect(hx + 1, 26, 5, 2);
+      gr.fillRect(hx + 2, 28, 3, 1);
+    }
+  }
+
+  static String pad(int v, int n) {
+    String t = Integer.toString(Math.max(0, v));
+    while (t.length() < n) t = "0" + t;
+    return t;
+  }
+
+  void drawCounter(Graphics gr, String text, int x) {
+    gr.setColor(Color.black);
+    gr.drawString(text, x + 1, 30);
+    gr.setColor(Color.white);
+    gr.drawString(text, x, 29);
+  }
+
+  /**
+   * The title screen at the window's scale (512x448): black, the logo
+   * drawn at scale 2 from (100, 76), and "Press any key to start!" from
+   * x 121 on rows 370-382 (Mirae lab, 2026-11-13). The logo is the
+   * original's picture and is not here: an outline and the name stand in.
+   */
+  public BufferedImage title() {
+    BufferedImage t = new BufferedImage(VIEW_W * SCALE, VIEW_H * SCALE, BufferedImage.TYPE_INT_RGB);
+    Graphics gr = t.getGraphics();
+    gr.setColor(Color.black);
+    gr.fillRect(0, 0, t.getWidth(), t.getHeight());
+    gr.setColor(new Color(90, 90, 90));
+    gr.drawRect(100, 76, 312 - 1, 200 - 1);
+    gr.setColor(Color.white);
+    gr.setFont(new Font("Serif", Font.BOLD, 40));
+    FontMetrics fm = gr.getFontMetrics();
+    String name = "Zelda Online";
+    gr.drawString(name, 100 + (312 - fm.stringWidth(name)) / 2, 76 + 100 + fm.getAscent() / 3);
+    gr.setFont(new Font("Dialog", Font.BOLD, 16));
+    gr.drawString("Press any key to start!", 121, 382);
+    gr.dispose();
+    return t;
   }
 
   static int clamp(int v, int lo, int hi) {

@@ -12,6 +12,11 @@ The zip holds no original code, graphics or levels. The game carries simple
 stand-in graphics and two small levels of its own, so it runs with nothing
 next to it.
 
+## What's new in v0.0.5
+
+- A title screen, as the original's: "Press any key to start!" on black (the logo is a stand-in). A letter, digit, Space or arrow starts the game.
+- The game starts where the original does on `level13.graal`, with the same view, and the chat line is a field under the 512x384 board.
+
 ## What's new in v0.0.4.2
 
 - Reads the shared asset root: in a folder holding `_clients/`, it takes `_clients/<label>/` first and then only the root files its `files.txt` names, never a file from another version's install (#192).

@@ -31,6 +31,10 @@ public class Game {
   public int ticks;
   public String signText; // the sign being read, or null
   public String status = "";
+  /** The title screen is up: the board waits for a key. */
+  public boolean title;
+  /** What the HUD shows; nothing in this build changes them yet. */
+  public int rupees = 0, bombs = 0, arrows = 5, hearts = 3;
 
   // what the options window sets, and what multiplayer sends
   public String nickname = "unknown";
@@ -96,6 +100,7 @@ public class Game {
   }
 
   public void tick() {
+    if (title) return;
     ticks++;
     boolean actPressed = action && !actionWas;
     int newKeys = keys & ~keysWas;

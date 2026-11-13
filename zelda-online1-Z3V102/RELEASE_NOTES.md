@@ -12,6 +12,12 @@ The zip holds no original code, graphics or levels. The game carries simple
 stand-in graphics and two small levels of its own, so it runs with nothing
 next to it.
 
+## What's new in v0.0.5
+
+- A title screen, as the original's: "Press any key to start!" (the logo is a stand-in). Any key starts the game.
+- The HUD in the original's places: the magic bar, rupees, bombs and arrows (000 / 00 / 05) and three hearts, drawn with stand-ins.
+- The game starts where the original does on `level1.zelda`.
+
 ## What's new in v0.0.4.2
 
 - Reads the shared asset root: in a folder holding `_clients/`, it takes `_clients/<label>/` first and then only the root files its `files.txt` names, never a file from another version's install (#192).

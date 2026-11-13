@@ -3,8 +3,8 @@
 Zelda Online 2, the "local version" of July 1998, rebuilt, together with the
 GServ lobby it shipped with. The original is a Java 1.1 application by
 Stefan Knorr: a start window with "One-Player mode" and "Multiplayer mode",
-a server address field and the player's options, then the game in a
-512x448 view. Multiplayer goes through GServ on port 14801, one lobby room
+a server address field, Play and Cancel, then the game in a 512x448 view
+with a chat field and an Options button under it. Multiplayer goes through GServ on port 14801, one lobby room
 per level. It is the step between Zelda Online 1 and the first Delphi Graal.
 
 This build is written in Java, like the original, and targets Java 8 class
@@ -37,7 +37,7 @@ the game ships its levels in: `Z3-V1.03`.
 
 | Class | What it does |
 |---|---|
-| `zo2.ZeldaOnline2` | start window (modes, address, nickname, own name, colours), game window, chat line, headless mode |
+| `zo2.ZeldaOnline2` | the "Zelda Start" window (modes, address, Play, Cancel), the game window with its title screen, chat field and Options window (nickname, own name, colours), headless mode |
 | `zo2.Net` | the game's side of the lobby: room per level, party on the first `+`, state push on `P`, D payloads, level leader |
 | `zo2.Relay` | the text-line socket |
 | `zo2.Game` | the 50 ms tick: walking, collision, corner slide, push counter, links, signs |
@@ -80,7 +80,17 @@ zip from your own copy: `pics1.gif`, `arrays.dat` and the levels only.
 
 ## What works (0.0.1)
 
-- The start window with both modes and the options; the game window.
+- The "Zelda Start" window laid out as measured (Mirae lab, 2026-11-13):
+  568x380, the teal panel at (14, 14)-(171, 286) with two figures, the
+  grey bold title and four lines (the rebuild's own words), One-Player
+  mode (124k) selected over Multiplayer mode (133k), the server address, a
+  line at y 323, Play (100x28 at 341, 341) and Cancel (at 455, 341). The
+  original fills the address with 127.0.0.1; the rebuild fills it with the
+  community host.
+- The game window, 512x482 inside: the 512x448 view, then a chat field
+  and an Options button. It opens on Zelda Online 1's title screen (any
+  key starts) and shows Zelda Online 1's HUD, with stand-ins for the
+  original pictures.
 - Levels, links, signs, walking, collision, corner slide and push timing.
 - Multiplayer: room per level (`Zlevel11.6` for `level1.zelda`), party on
   the first `+`, the state push on `P`, positions every 2 ticks, chat,
@@ -98,5 +108,7 @@ zip from your own copy: `pics1.gif`, `arrays.dat` and the levels only.
 - [ ] The password save (its alphabet and mask are not in the notes yet).
 - [ ] Sound.
 - [ ] The colour list from the original (the rebuild's list is its own).
+- [ ] The "Cropping board images..." line the original shows on its title
+  screen before "Press any key to start!".
 - [ ] The original start position (not known; the rebuild starts near the
   middle of `level1`).

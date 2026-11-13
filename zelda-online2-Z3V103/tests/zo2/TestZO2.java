@@ -22,6 +22,7 @@ public class TestZO2 {
 
   public static void main(String[] args) throws Exception {
     board();
+    titleAndHud();
     signs();
     arrays();
     standInLevels();
@@ -109,6 +110,19 @@ public class TestZO2 {
     check(l.signs.size() == 1 && ((Level.Sign) l.signs.elementAt(0)).text.startsWith("Welcome!"), "stand-in sign");
     check(l.tile(0, 0) == StandIn.TREE && l.tile(30, 29) == StandIn.GRASS, "stand-in board");
     check(StandIn.level("nosuch.zelda") == null, "unknown stand-in");
+  }
+
+  static void titleAndHud() {
+    Game g = standIn();
+    g.title = true;
+    hold(g, Game.RIGHT, 5);
+    check(g.ticks == 0, "the title screen holds the board");
+    Renderer r = new Renderer(g.assets.tileSheet());
+    java.awt.image.BufferedImage t = r.title();
+    check(t.getWidth() == 512 && t.getHeight() == 448, "title at the window's 512x448");
+    g.title = false;
+    r.draw(g);
+    check((r.frame().getRGB(27, 50) & 0xFFFFFF) == 0x28B43C, "HUD: the magic fill at (24, 47), as Zelda Online 1");
   }
 
   static Game standIn() {
