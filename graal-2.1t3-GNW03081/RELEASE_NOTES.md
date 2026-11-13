@@ -21,6 +21,10 @@ like the original. Put it at the top of a Graal install you own (or keep a
 `graal-assets/` folder next to it, or point it at one with `--data DIR`) and
 the install's files come first.
 
+## What's new in v0.0.5
+
+- [x] **F1 worded by the language file.** The Help window takes its title and captions from the install's `Options` keys, as the real 2.1 test does ("&Playerlist (F7)", "Se&rverlist (F8)"), not the form's title-cased "Player List" (#302, lab on Windows XP, 2026-11-13).
+
 ## What's new in v0.0.4.2
 
 - [x] **Minimap only on the map.** The minimap is drawn only on a level of its grid, as the real client does: a server's level off the map (or a house or cave) shows none. Before, it was drawn on every level.

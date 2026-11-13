@@ -38,6 +38,7 @@ uses
   GDfmObj in '../../common/GDfmObj.pas',
   GVclForm in '../../common/GVclForm.pas',
   GOptionsWindow in '../../common/GOptionsWindow.pas',
+  GConfirm in '../../common/GConfirm.pas',
   GUiFont in '../../common/GUiFont.pas',
   GDfm in '../../common/GDfm.pas',
   GRealStart20 in '../../common/GRealStart20.pas',
@@ -60,6 +61,21 @@ begin
     Inc(Failed);
     WriteLn('FAIL  ', What);
   end;
+end;
+
+{ Esc's question box when it is drawn (not Windows): wide enough for its
+  text, OK left of Cancel at the bottom, both inside the box }
+procedure TestConfirmLayout;
+var
+  W, H: Integer;
+  Ok, Cancel: array[0..3] of Integer;
+begin
+  ConfirmLayout('Do you really want to quit Graal?', W, H, Ok, Cancel);
+  Check(W > UiTextWidth('Do you really want to quit Graal?', ufRegular),
+    'Esc box: wider than its question');
+  Check((Ok[0] + Ok[2] <= Cancel[0]) and (Ok[1] = Cancel[1]), 'Esc box: OK left of Cancel');
+  Check((Cancel[0] + Cancel[2] <= W) and (Ok[1] + Ok[3] <= H) and (Ok[0] >= 0),
+    'Esc box: both buttons inside it');
 end;
 
 procedure TestGTypes;
@@ -1581,6 +1597,7 @@ begin
 end;
 
 begin
+  TestConfirmLayout;
   TestGTypes;
   TestHelpForm;
   TestGen3Capture;

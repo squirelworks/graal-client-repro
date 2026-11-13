@@ -81,6 +81,7 @@ uses
   GDfmObj in '../../common/GDfmObj.pas',
   GVclForm in '../../common/GVclForm.pas',
   GOptionsWindow in '../../common/GOptionsWindow.pas',
+  GConfirm in '../../common/GConfirm.pas',
   GDfm in '../../common/GDfm.pas',
   GUiFont in '../../common/GUiFont.pas',
   GRes20x in '../../common/GRes20x.pas',
@@ -105,6 +106,12 @@ var
     start screen; 0: Alt+Enter does nothing }
   GuiFullW: Integer = 0;
   GuiFullH: Integer = 0;
+  { Esc in offline play asks first; OK ends the program (QuitAsked), as
+    the real 2.0x's message box does. Its words come from the language
+    file (MainWindow-Error0, Reconnect-Error5) when the start screen ran. }
+  QuitAsked: Boolean = False;
+  QuitTitle: string = 'Warning';
+  QuitText: string = 'Do you really want to quit Graal?';
 
 function ArgCount: Integer;
 begin
@@ -446,7 +453,18 @@ begin
         if Win <> nil then
         begin
           Win.Pump;
-          if Win.Closed or Win.Held[gkEscape] then Break;
+          if Win.Closed then Break;
+          if Win.Held[gkEscape] then
+          begin
+            if Online then Break;
+            Win.SetKey(gkEscape, False);
+            if AskOkCancel(QuitTitle, QuitText) then
+            begin
+              QuitAsked := True;
+              Break;
+            end;
+            if Win.Closed then Break;
+          end;
           { F1: the Help window (GRealStart20.RunHelp20) }
           if Win.WasPressed(gkOptions) then
           begin
@@ -723,6 +741,11 @@ begin
         G.Free;
       end;
       if not Picked or Win.Closed or StopRequested then Exit;
+      if Art <> nil then
+      begin
+        QuitTitle := Art.Text('MainWindow-Error0', 'Warning');
+        QuitText := Art.Text('Reconnect-Error5', 'Do you really want to quit Graal?');
+      end;
       GuiArgs := TStringList.Create;
       try
         GuiArgs.Add('--window');
@@ -764,6 +787,8 @@ begin
           Msg := LastGameError
         else
           Msg := '';
+        { OK in Esc's question ends the program, not only the game }
+        if QuitAsked then Exit;
       finally
         FreeAndNil(GuiArgs);
       end;

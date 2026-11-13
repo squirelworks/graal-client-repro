@@ -22,6 +22,7 @@ their place.
 
 ## What's new in v0.0.5
 
+- [x] **Esc asks before quitting.** In offline play, Esc opens the real client's question, "Warning" / "Do you really want to quit Graal?" with OK and Cancel (worded from the language file's `MainWindow-Error0` and `Reconnect-Error5`); OK ends the program and Cancel goes back to the game. Before, Esc dropped straight back to the start window. On Windows it is a real message box. Online, Esc still leaves the game; the real "Continue / End" scroll is not built yet (#302, lab on Windows XP, 2026-11-13).
 - [x] **Server list as the language file words it.** The list window's labels and Connect button take their `ServerList-*` captions from the install's language file (the form's own text when a key is missing), no row is picked until the player picks one, the Account and Password boxes keep the form's `guest` (the password masked) when nothing was saved, and the read-only Name, Language, Version and Homepage boxes show the start of their text instead of clipping it on the left (#302, from the 2026-11-12 polishing run).
 
 ## What's new in v0.0.4.2

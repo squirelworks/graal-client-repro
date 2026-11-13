@@ -77,3 +77,12 @@ Files this build opens, for the assets zip: `pics1.png`, `arrays.dat`,
   `body.png`, `water.wav`).
 - [ ] The first gani system as NewMain had it, and the NewMain start window art.
 - [ ] The 1.42 level and NPC features listed in `newfeatures142.txt`.
+- [ ] Training's start (lab, Windows XP, 2026-11-13). The real client opens
+  an intro sign on `levels/tutorial/tutorial_b-4.graal`, and the NPC
+  timeouts wait while it is open. Paged through, it draws the two debug
+  NPCs at about (20,56) and (20,58) as gralat sparkles with their
+  "playerhurtdx: 0" / "playerhurtdy: 0" messages in the white bold
+  outlined NPC font, partly under the minimap; the view is the same as
+  the rebuild's. So the labels are the level's own, not stray: what the
+  rebuild lacks is the intro sign, the outlined message font, the
+  sparkle and Stefan's "And take this money" line.
