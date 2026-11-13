@@ -2,10 +2,18 @@
 # tq-play from the menu to a game server, all on loopback: the stand-in
 # install's menu functions ask a fake listserver for the list, pick the
 # Classic server and log in to a fake gserver, which records the first
-# frame. Needs build/tq-play, make lib and python3.
+# frame. Needs build/tq-play, make lib and python3. GAME_LIB and
+# GAME_TOKEN pick the library and its login token (3.153:
+# GAME_LIB=libGame3153Lib.so GAME_TOKEN=G3D28015).
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 BUILD="$HERE/../build"
+# GAME_LIB names the library file; by default 3.04's under this system's name
+if [ -n "${GAME_LIB:-}" ]; then LIB="$BUILD/lib/$GAME_LIB"; else
+  LIB="$BUILD/lib/libGame304Lib.so"
+  [ -f "$LIB" ] || LIB="$BUILD/lib/Game304Lib.dll"
+  [ -f "$LIB" ] || LIB="$BUILD/lib/libGame304Lib.dylib"
+fi
 WORK=$(mktemp -d)
 trap 'kill $SERVERS 2>/dev/null || true; rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/install" "$WORK/prefs"
@@ -13,21 +21,22 @@ cp "$HERE/online/main.cs" "$WORK/install/main.cs"
 python3 "$HERE/online/fake_servers.py" "$WORK/seen.json" "$WORK/install/listserver.txt" &
 SERVERS=$!
 for i in $(seq 50); do [ -s "$WORK/install/listserver.txt" ] && break; sleep 0.1; done
-"$BUILD/tq-play" --root "$WORK/install" --prefs "$WORK/prefs" --game "$BUILD/lib/libGame304Lib.so" \
+"$BUILD/tq-play" --root "$WORK/install" --prefs "$WORK/prefs" --game "$LIB" \
   --steps "$HERE/online/steps.txt" --seconds 4 --log "$WORK/console.txt" --trace "$WORK/trace.txt" >/dev/null
 wait $SERVERS || true
 cat "$WORK/console.txt"
 grep -v '^host stub' "$WORK/trace.txt" | grep -v '^exec ' || true
 cat "$WORK/seen.json"; echo
-python3 - "$WORK/seen.json" <<'PY'
+python3 - "$WORK/seen.json" "${GAME_TOKEN:-G3D03014}" <<'PY'
 import json, sys
 s = json.load(open(sys.argv[1]))
+TOKEN = sys.argv[2]
 def need(ok, what):
     if not ok: sys.exit("online: " + what)
 need(s.get('list_token') == 'G3D30123newmain', "the list request token")
 need(s.get('list_account') == 'labacct', "the account typed into AccountEdit reached the listserver")
 f = s.get('game_first_frame', '')
-need('G3D03014' in f, "the gserver got the 3.04 login")
+need(TOKEN in f, "the gserver got the game login " + TOKEN)
 need('labacct' in f and 'labpass' in f, "with the account and password")
 print("online: passed")
 PY

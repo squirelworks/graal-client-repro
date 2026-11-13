@@ -44,6 +44,7 @@ std::vector<BuildProfile> make() {
   r603.plo = plo_603();
   r603.pli = pli_603();
   r603.answers_ping = true;
+  r603.hud_6x = true;  // the 6.03r7 HUD lab (draw/hud.hpp)
   rows.push_back(r603);
 
   // 6.01r1: the 6.03r7 receive set without 111, the send set without 160.
@@ -74,6 +75,45 @@ std::vector<BuildProfile> make() {
                   {37, 38}, {44, 44}, {46, 46}, {157, 157}});
   r404.answers_ping = false;
   rows.push_back(r404);
+
+  // 5.00r7 and 5.12 (Windows, the GraalEngine.dll session, used by
+  // common/cpp/graalengine). Graal_analysis protocol/v5x-clients.md,
+  // protocol/v5v6-windows-unpacked.md and version-profiles/5.00-6.03.toml:
+  // the 4.04r2 receive switch less 100 and with 41, 105-107, 140, 170,
+  // 182, 183, 190, 191, 193-195 and 197 (100 ids, the same for both); the
+  // same Login server and 178 hand-on; no ping answer, never 39.
+  BuildProfile r500 = r404;
+  r500.label = "5.00r7 Windows";
+  r500.token = "G3D22067";
+  r500.machine_fields = 3;  // win,<md5>,"",<md5> in the lab; "" each here
+  // In Login mode the level, chests and image NPCs are drawn; characters
+  // and the HUD are not (protocol/v5v6-lab-play.md, "The Login server mode").
+  r500.login_draws_tiles = true;
+  r500.plo = ids({{0, 25},    {27, 43},   {45, 49},   {67, 69},   {74, 75},   {82, 82},
+                  {84, 84},   {101, 102}, {104, 107}, {131, 134}, {140, 140}, {150, 151},
+                  {153, 156}, {165, 166}, {168, 176}, {178, 187}, {189, 191}, {193, 195},
+                  {197, 197}});
+  // The send wrappers' constant ids and those seen on the wire (a floor;
+  // 5.00-6.03.toml).
+  r500.pli = ids({{1, 2},   {4, 19},  {21, 24}, {26, 26},  {28, 29},   {32, 38},
+                  {41, 41}, {44, 44}, {47, 47}, {50, 50},  {79, 81},   {92, 93},
+                  {96, 98}, {130, 130}, {152, 152}, {154, 159}, {161, 161}});
+  rows.push_back(r500);
+
+  // 5.12: 5.00r7's sets (its receive switch is identical; its send code was
+  // not read, and every id the lab saw it send is in 5.00r7's set).
+  // Different: the token, a fifth login field (the quoted Windows
+  // version, "6.2 9200 " on Windows 8 and later), every body below the
+  // bzip2 size zlib-compressed, and packed bodies stepped len / 4 rounded
+  // down (protocol/v5v6-lab-play.md).
+  BuildProfile r512 = r500;
+  r512.label = "5.12 Windows";
+  r512.token = "G3D14097";
+  r512.has_os_version = true;
+  r512.os_version = "6.2 9200 ";
+  r512.packed_round_down = true;
+  r512.compress_always = true;
+  rows.push_back(r512);
 
   return rows;
 }

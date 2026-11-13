@@ -37,7 +37,7 @@ Graal_analysis read of the real build. Open PRs are counted as not merged.
 | **4.20r6** Mac `G3D27076` | Pascal stand-in; no macOS window back end | Mac build of the 4.20 split | Same as 4.20r8, plus a Mac window |
 | **4.20r8** `G3D20126` | Pascal stand-in, a Delphi shell that names the forms, and a C++ boot stub (`host4208`) that is not the engine | Delphi launcher plus `GraalEngine.dll` and `Graal3DEngine.dll` (`torque/4208-*.md`) | As 4.04r2; `GR-V1.05` board layers |
 | **5.00r7** `G3D22067` | Pascal stand-in; Login-server mode reaches the server list | Same split; engine adds opcodes 48, 49, 54, 121 and `TGraalUniverse::runScripts` | The Login server's scripted GUI (GS2), `GR-V1.05`, `GRPKG001`, base-file requests, 3D (protocol 24) |
-| 5.12 `G3D14097` | No folder | Same split | Folder, then as 5.00r7 |
+| 5.12 `G3D14097` | `graal-5.12-G3D14097`: the Pascal stand-in with 5.12's wire rules, and `--engine` over the engine library with the 5.12 row (menus, login, level, walk, chat) | Same split | Launcher resources, the scripted Login GUI, 3D |
 | 5.24r3, 5.24r4 `G3D15010` | No folder | First `quattro_lib` builds | Folder on the Quattro program |
 | **5.31r4** `G3D26090` (and 5.30r3) | Scaffold: sends the token, no window, no session | `quattro_lib`, Torque control names and GUI field names still present | Everything: Quattro program on the GS2 core |
 | **6.01r1** Linux `G3D0108A` | Pascal stand-in | `quattro_lib` (Linux) | Quattro program; GS2 GUI from the Login server (140, 197); `GRESCR01` cache |

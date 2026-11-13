@@ -28,13 +28,37 @@ frame scaled into the control.
 
 `build/graal304-torque [--root INSTALL] [--prefs DIR] [--game LIB]
 [--steps FILE] [--seconds N] [--trace FILE] [--shot FILE.bmp]` is the windowed
-program (Linux, X11 for now). It boots the install from its own `main.cs`
+program. It boots the install from its own `main.cs`
 (`host/boot304.cpp`, shared with `tq-play`), draws the canvas content and the
 pushed dialogs every 50 ms with `../gui` (`host/frame304.cpp`), and shows the
-image in a window (`host/window_x11.cpp`). The defaults are the program's own
-folder for the install, `~/.graal304-torque` for prefs and
-`libGame304Lib.so` beside the program. The canvas size is
+image in a window. The defaults are the program's own folder for the
+install, `~/.graal304-torque` for prefs (`%APPDATA%\graal304-torque` on
+Windows) and the game library beside the program. The canvas size is
 `$pref::Video::resolution`, 800 × 600 if unset.
+
+| System | Window | Program, library | Build |
+|---|---|---|---|
+| Linux | X11 (`host/window_x11.cpp`) | `graal304-torque`, `libGame304Lib.so` | `make lib all` |
+| Windows | Win32 GDI (`host/window_win32.cpp`) | `graal304-torque.exe`, `Game304Lib.dll` | `make lib all` in an MSYS2 shell; the g++ and the Free Pascal must be the same CPU (both i386, as the release, or both x86_64) |
+| macOS | Cocoa (`host/window_cocoa.mm`) | `graal304-torque`, `libGame304Lib.dylib` | `make lib all` (Xcode command line tools and Free Pascal) |
+
+`make PLATFORM=windows CXX=i686-w64-mingw32-g++ WINDRES=i686-w64-mingw32-windres`
+cross-builds the Windows program from Linux. `tests/window.sh` runs the
+program on a stand-in install, walks offline and checks the trace and the
+window image (CI: Xvfb on Linux, the Windows runner's desktop).
+
+Each window is a fixed-size frame around the canvas with only close and
+minimise. They differ only where their systems do:
+
+- Windows: a GUI program (no console window); started from a console it
+  writes its console lines there. The exe is linked statically, so it needs
+  no MinGW DLLs, and carries the shared manifest and version info
+  (`graal-3.04-G3D03014/src/Graal304Torque.rc`).
+- macOS: Cmd+Q and Cmd+W close the window as its close button does; the
+  Option keys are Torque's `alt`.
+- All three: keys held when the window loses focus are released (Windows,
+  macOS), so the player does not keep walking; punctuation keys carry their
+  Torque names (`comma`, `period`, ...) and type into text edits.
 
 Rebuild policy, not read from the original:
 
@@ -125,16 +149,86 @@ Rebuild policy, not read from the original:
 
 - [x] Draw the game's frame inside the canvas renderer (#257) and present it
   in a window (`graal304-torque`, X11).
-- [ ] The release program: `Graal304` is still the Pascal program; the zip
-  does not ship `graal304-torque` and the library yet.
+- [x] The release program: the Linux 3.04 zip ships `graal304-torque` and
+  the library (#273).
+- [x] The Linux 3.153 zip ships `graal304-torque` and `libGame3153Lib.so`
+  (`scripts/build.sh`, `graal-3.153-G3D28015/release-files`).
 - [ ] The chat-focus key toggle on `ChatBar` and the hardcoded key codes the
   control reads itself (input stage, see `../console/engine` stage 3).
 - [ ] Sword, grab, items, map, voice, PMs, the player list and profiles, sound
   (stage 5, 2D parity).
 - [x] Walking on the offline tutorial (3.04's `picso.png` row rule). Online
   levels need 2.22's `arrays.dat` beside the install (see the 3.04 README).
-- [ ] Windows and macOS: the loader has a Windows branch but the library is
-  only built and run on Linux so far, and the window is X11 only.
+- [x] Windows and macOS: Win32 and Cocoa windows, the library as
+  `Game304Lib.dll` and `libGame304Lib.dylib`, and the Windows release zip.
+- [ ] The macOS release zip: release-all cross-builds macOS on Linux with no
+  C++ toolchain for Cocoa yet, so macOS players build it with `make lib all`.
+
+## 3.153 (Track A)
+
+The same program and control run a 3.153 install (the Mac `GraalSetup`
+`release` folder). An install with `scripts2D/main2D.cs` is taken for
+3.153, and `setup_engine_304` switches to its profile:
+
+- **`.dso` floats.** Its compiled scripts keep the float tables big-endian
+  (the PPC build; Graal_analysis `torque/scripting.md`). The rest stays
+  little-endian.
+- **Scripts by name.** Every `exec` in 3.153 names only the file
+  (`exec("main2D.cs")`, `exec("ServerListGui.gui")`), and the files sit in
+  `scripts/`, `scripts2D/` and `scriptsgui/`. `Engine::exec_by_name` finds
+  a bare name anywhere in the install. Bitmap names are resolved the same
+  way (`graalscreen_backstone`). Rebuild policy: the match ignores case,
+  and of several files with that name the one with the fewest folders wins.
+- **Four more methods.** 3.153's table has `setNickName`, `setAccountName`,
+  `setLanguage` and `retrieveAccountFields`, which 3.04's lacks
+  (`engine-304.md`). The menu sets the fields before `openServerList` or
+  `startOfflineMode`, and gets them back on wake. Rebuild policy: they are
+  kept in the `$pref::Graal::` variables that 3.04 uses. An untouched
+  nickname is `unknown`, the value the 3.153 lab capture sent.
+- **Game library.** `libGame3153Lib.so` (`graal-3.153-G3D28015/src/Game3153Lib.lpr`)
+  is the same C interface over the 3.153 units. It sends 3.153's login
+  (`G3D28015`). `graal304-torque` picks it for a 3.153 install. The 3.153
+  units now carry the 3.04 game fixes from #258 and #273 (log hook, chat,
+  list hosts, walking by sheet type). The walking rules are the 3.04 ones,
+  taken to hold for 3.153.
+
+Tested here:
+
+- The install's own scripts boot to `MainMenuGui2D` with no script errors.
+- The menu draws in the window, with the background, buttons, labels, the
+  nickname `unknown` and the edits.
+- `tests/online.sh` with `GAME_LIB=libGame3153Lib.so GAME_TOKEN=G3D28015`
+  sends a first frame with 3.153's layout as the Tiger lab capture shows it
+  (5, 37, 34 bigmap and minimap).
+
+Pixel check against the Tiger capture (2026-11-12): the 640 × 480 game
+area cut from the capture against `graal304-torque --shot` on a clean
+3.153 install (no file from 3.04), fonts from Liberation Sans:
+
+- 98.76 % of pixels within 8 levels per channel, 98.65 % within 2;
+- text boxes within a few pixels: "Welcome to Graal!" 119 wide against
+  127, "Nickname:" 47 against 46, "Account:" 39 against 41 (Liberation
+  Sans and its rasteriser against the Mac's Arial);
+- the rest is data, not drawing: the account name and password the lab
+  typed, and the pop-up's text (below).
+
+Not yet:
+
+- [x] Fonts. The Mac builds its `.gft` caches from system fonts at run time
+  and ships none; the renderer builds them from a TrueType file the same
+  way, at three quarters of the profile size (`../gui/README.md`, "Fonts
+  without a cache"). No 3.04 file is used.
+- [x] `graalscreen3d.jpg`, the logo, through the JPEG reader.
+- [x] The text edit frames (`defaultTextEdit.png`, which the 3.153 profile
+  names without `hasBitmapArray`) and the closed language pop-up.
+- [x] A pixel comparison with the Tiger capture. The capture's game area is
+  640 × 480 while the install's prefs say `800 600 Default`, so a
+  resolution whose depth is not a number gives 640 × 480
+  (`canvas_size_304`, rebuild policy). Result below.
+- [ ] The language pop-up's text: the capture shows it empty, the rebuild
+  shows `English`, the entry the scripts select.
+- [ ] The first frame's 34 lines come once here; the capture has them twice.
+- [ ] The 3D mode (protocol 19).
 
 ## Method table (all builds)
 

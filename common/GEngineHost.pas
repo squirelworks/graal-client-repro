@@ -81,6 +81,10 @@ type
       (EngineBuild4x or EngineBuild50). Returns the number registered.
       Slots of that build this unit has no function for are in Missing. }
     function RegisterSlots(Build: Integer): Integer;
+    { Tells the library which build the launcher is ('4.04r2', '5.00r7',
+      '5.12'): its wire row and GS2 profile. Call before Initialize. False
+      when the library has no row for it (or no graalengine_setBuild). }
+    function SetBuild(const Lbl: AnsiString): Boolean;
     function Initialize(const ExePath: string): Boolean;
     procedure LoadGui;
     procedure Render;
@@ -88,6 +92,8 @@ type
     procedure Mouse(X, Y, Action, Button, Clicks, Mods, Wheel: Integer);
     procedure StartOffline;
     procedure Connect(const Name, Host: AnsiString; Port: Integer);
+    { openGraalServerList: the licence's Login host. }
+    procedure OpenServerList;
     procedure Shutdown;
     procedure Unload;
     function Loaded: Boolean;
@@ -119,6 +125,7 @@ uses
 type
   TSetter = procedure(Fn: Pointer); cdecl;
   TInit = function(ExePath: PAnsiChar): LongInt; cdecl;
+  TSetBuild = function(Lbl: PAnsiChar): LongInt; cdecl;
   TProc0 = procedure; cdecl;
   TKeyProc = procedure(VK, Ch, Mods, Down: LongInt); cdecl;
   TMouseProc = procedure(X, Y, Action, Button, Clicks, Mods, Wheel: LongInt); cdecl;
@@ -1303,6 +1310,16 @@ begin
   end;
 end;
 
+function TEngineHost.SetBuild(const Lbl: AnsiString): Boolean;
+var
+  F: TSetBuild;
+begin
+  Result := False;
+  if not Loaded then Exit;
+  F := TSetBuild(GetProcedureAddress(TLibHandle(FLib), 'graalengine_setBuild'));
+  Result := Assigned(F) and (F(PAnsiChar(Lbl)) <> 0);
+end;
+
 function TEngineHost.Initialize(const ExePath: string): Boolean;
 var
   F: TInit;
@@ -1363,6 +1380,11 @@ begin
   if not Loaded then Exit;
   F := TConnectProc(GetProcedureAddress(TLibHandle(FLib), 'connectToGraalServer'));
   if Assigned(F) then F(PAnsiChar(Name), PAnsiChar(Host), Port);
+end;
+
+procedure TEngineHost.OpenServerList;
+begin
+  Call0(FLib, 'openGraalServerList');
 end;
 
 procedure TEngineHost.Shutdown;

@@ -50,12 +50,18 @@ class Cipher {
   }
   // XORs `body` in place for compression byte `type`. Odd types are left.
   void apply(std::string& body, uint8_t type);
+  // 5.12 steps len / 4 rounded down for zlib and bzip2 bodies (still at
+  // most 4 groups) and rounds up only for raw ones (Graal_analysis
+  // protocol/v5v6-lab-play.md, "5.12's cipher step count"). Every other
+  // build rounds up in both cases.
+  void set_packed_round_down(bool on) { round_down_ = on; }
   uint8_t key() const { return key_; }
   uint32_t iterator() const { return it_; }
 
  private:
   uint8_t key_ = 0;
   uint32_t it_ = kCipherSeed;
+  bool round_down_ = false;
 };
 
 // zlib and bzip2 on strings. Decompression stops with false past `limit`.
@@ -81,10 +87,16 @@ class FrameEncoder {
   // Returns the whole frame: length bytes, then the body.
   std::string encode(std::string_view plain);
   bool login_sent() const { return !login_; }
+  // 5.12: the packed step rule above, and every body below the bzip2 size
+  // compressed with zlib, short ones too (protocol/v5v6-windows-unpacked.md,
+  // "5.12 sends even short bodies zlib-compressed").
+  void set_packed_round_down(bool on) { cipher_.set_packed_round_down(on); }
+  void set_compress_always(bool on) { compress_always_ = on; }
 
  private:
   Cipher cipher_;
   bool login_;
+  bool compress_always_ = false;
 };
 
 // Splits an incoming byte stream into frames and the frames into messages.
@@ -107,6 +119,8 @@ class FrameDecoder {
 
   // Decodes one frame body (compression byte first) to plain bytes.
   bool decode_body(std::string_view body, std::string& plain);
+  // 5.12's decoder steps packed bodies rounded down (Cipher above).
+  void set_packed_round_down(bool on) { cipher_.set_packed_round_down(on); }
 
  private:
   void split();

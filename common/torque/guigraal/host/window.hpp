@@ -1,8 +1,8 @@
 #pragma once
 
 // A plain desktop window that shows a canvas image and reports keys and
-// clicks in the console engine's terms. X11 on Linux; other systems are
-// not done yet (README.md, "Not yet").
+// clicks in the console engine's terms. X11 on Linux (window_x11.cpp),
+// Win32 on Windows (window_win32.cpp), Cocoa on macOS (window_cocoa.mm).
 
 #include <memory>
 #include <string>
@@ -19,6 +19,25 @@ struct WindowEvent {
   int x = 0, y = 0;               // Kind::click, window pixels
   bool double_click = false;
 };
+
+// The Torque name of an unshifted punctuation key ("comma" for ','), empty
+// for anything else. Each window maps letters, digits and named keys itself.
+inline std::string punctuation_key_name(char c) {
+  switch (c) {
+    case ',': return "comma";
+    case '.': return "period";
+    case '/': return "slash";
+    case '\\': return "backslash";
+    case ';': return "semicolon";
+    case '\'': return "apostrophe";
+    case '[': return "lbracket";
+    case ']': return "rbracket";
+    case '-': return "minus";
+    case '=': return "equals";
+    case '`': return "tilde";
+    default: return std::string();
+  }
+}
 
 class Window {
  public:

@@ -24,6 +24,10 @@ struct FakeServer {
   std::unique_ptr<FrameDecoder> dec;
   std::string buf;
   bool have_login = false;
+  // A server for a 5.12 profile steps packed frames as 5.12 does, and the
+  // frame types the client used are kept.
+  bool round_down = false;
+  std::vector<int> frame_types;
 
   bool start() { return listener.listen_loopback(); }
   uint16_t port() const { return listener.local_port(); }
@@ -47,8 +51,18 @@ struct FakeServer {
       }
       enc = std::make_unique<FrameEncoder>(key, false);
       dec = std::make_unique<FrameDecoder>(key, [this](int id, std::string_view b) { got.emplace_back(id, std::string(b)); });
+      enc->set_packed_round_down(round_down);
+      enc->set_compress_always(round_down);
+      dec->set_packed_round_down(round_down);
     }
     if (have_login && !buf.empty()) {
+      // The compression byte of each whole frame in the buffer.
+      for (size_t p = 0; p + 2 < buf.size();) {
+        size_t len = (static_cast<unsigned char>(buf[p]) << 8) | static_cast<unsigned char>(buf[p + 1]);
+        if (len == 0xFFFF || p + 2 + len > buf.size()) break;
+        frame_types.push_back(static_cast<unsigned char>(buf[p + 2]));
+        p += 2 + len;
+      }
       dec->feed(buf);
       buf.clear();
     }

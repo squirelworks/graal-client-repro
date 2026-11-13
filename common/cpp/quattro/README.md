@@ -48,8 +48,8 @@ this program. This directory does.
 | `net/` | `TSocket`, the game connection, the session | **done**: wire integers, gen-5 codec (6.x long frames, raw-data escape), build rows, socket, connection, 178 warp |
 | `cache/` | `weblevels` script cache | **done**: DES with Graal's key twist, CRC32, `GRESCR01` read and write |
 | `tools/` | (none) | `quattro-session` logs a session; `quattro-play` runs the program in a window or headless (`--shot` writes the last frame as PNG) |
-| `files/` | levels and packages | **done**: `GR-V1.00`–`1.05` (1.05 board layers), the 101 board packet, links, chests, signs. Packages next |
-| `draw/` | the draw passes and the window | **done**: the world passes in the original's order on a software canvas (shared with `common/torque/gui`), the lobby rule, an Xlib window and a headless window. Ganis, HUD and the GUI pass next |
+| `files/` | levels and packages | **done**: `GR-V1.00`–`1.05` (1.05 board layers), the 101 board packet, links, chests, signs; `GANI0001` sprite-mode ganis (sprites, steps, WAIT, SINGLEDIRECTION, ATTACHSPRITE/2, defaults). Packages and movie-mode ganis next |
+| `draw/` | the draw passes and the window | **done**: the world passes in the original's order on a software canvas (shared with `common/torque/gui`), the lobby rule, an Xlib window and a headless window; players drawn from their gani with head, body, sword, shield and hats from the player's folder (`draw/assets`), the body in the player's five colours; the 6.x HUD (`draw/hud`: tabs, sword and glove, AP and MP bars, counters, hearts) |
 | `shell/` | the program loop, `StartScript_*`, `GuiGraalCtrl` | **started**: the 50 ms loop, level name/board/links/chests from the session, window title per server, and the script host on `gs2::Machine` (140, 197 with the `GRESCR01` cache, 33/34, 190), and the GUI host: `StartScript_*` read from the player's own program file (`--program`), `MainMenuGui2D` as the content, the world drawn in its `GuiGraalCtrl`, mouse and keys from the window. The show-image emitters run each tick and draw through the painter (add, transparent, subtract, day-night). Next: the engine actions and `GuiShowImgCtrl` animations |
 | `world/` | `TServerPlayer` and the props | **done**: the prop stream of 9 and 8 (the 2.22 table plus X2/Y2/Z2), the initial props after login, and the X2/Y2 movement diff each tick; walking against `arrays.dat` walls and chests with the six-point box, the corner nudge, and `push` with 38 `pushed,0` |
 | `gui/` | the GS2 controls | in `common/cpp/gs2` (`gui.hpp`, B4): one control tree for 4.x to 6.x; Quattro paints it on its canvas (`shell/gui_host`) |
@@ -65,11 +65,21 @@ commands. Nothing here re-implements the machine.
 |---|---|---|---|
 | 6.03r7 Linux | `G3D0511C` | `net/profile.cpp` | `graal-6.03r7-G3D0511C` |
 | 6.01r1 Linux | `G3D0108A` | `net/profile.cpp` | `graal-6.01r1-G3D0108A` |
+| 4.04r2 Windows (the engine library's session) | `G3D17026` | `net/profile.cpp` | `graal-4.04r2-G3D17026` |
+| 5.00r7 Windows (the engine library's session) | `G3D22067` | `net/profile.cpp` | `graal-5.00r7-G3D22067` |
+| 5.12 Windows (the engine library's session) | `G3D14097` | `net/profile.cpp` | `graal-5.12-G3D14097` |
 | 5.30r3, 5.31r4, Windows 6.00r2, 6.00r4, 6.03r7, 6.00 betas | | later (Track D3, D5) | |
 | 6.11r1 Mac, 6.1.1.3 | set by the connector script | later (Track D4) | |
 
 Linux first: those two are unpacked native binaries, so their notes are the
 most complete.
+
+The 4.x and 5.0 rows are used by `common/cpp/graalengine`, whose session
+is this program's. 5.12 carries two codec rules of its own, set from its
+row: a fifth login field (the quoted Windows version), and compressed
+frames that are always zlib below the bzip2 size and stepped `len / 4`
+rounded down (`Cipher::set_packed_round_down`; Graal_analysis
+`protocol/v5v6-lab-play.md`, "5.12's cipher step count").
 
 ## Build and test
 
@@ -87,14 +97,24 @@ LAB_PW=... common/cpp/quattro/build/quattro-session --build 6.03r7 \
 
 ## Window size
 
-The program opens 640 x 480 for now, as Seihai's Issho does, and
-`quattro-play --size WxH` changes it. The real 6.03r7 window and HUD
-measurements (Seihai issue 444) are the next input for this.
+The 6.03r7 row opens 1024 x 768, the size the real Linux client starts at
+(HUD lab, 2026-11-12); other rows open 640 x 480, as Seihai's Issho does.
+`quattro-play --size WxH` changes it. As in the real client, a bigger
+window shows more of the level and nothing scales: tiles stay 16 pixels,
+the HUD's left part keeps its x from the left edge and the hearts theirs
+from the right. The HUD draws from the player's own `state.png` (and
+`sprites.png` and `swordN.png`); with no `state.png` there is no HUD.
+The Windows 6.x window and frame were not measured.
 
 ## Rebuild choices (not the original's)
 
 - Stand-ins until the real art is drawn: tiles with no `pics1.png` are flat
-  colours from their id; chests, the player and other players are boxes.
+  colours from their id; chests are boxes, and so is a player when no
+  gani (not even `idle`) is in `--assets`. Body colours take the
+  palette entries and the 20 colours of the Pascal clients; that 6.x uses
+  the same entries was not seen in a lab. `PARAMn` sprites (the carried object) are
+  not drawn yet. A gani steps once per 50 ms tick and starts over when the
+  player's gani changes.
 - Upper board layers treat tile 0 as empty; each layer's bit stream starts
   on a new byte. The 5.x note gives the layer count and boards, not these.
 - Walls come from `arrays.dat` in `--assets` (array 0 passable, array 1 liquids). With no `arrays.dat` every tile is passable; where 6.x reads its own table was not seen in the lab. The 0.0625 snap after a step is left out.

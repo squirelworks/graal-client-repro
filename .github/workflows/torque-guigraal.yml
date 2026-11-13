@@ -7,7 +7,9 @@ on:
       - 'common/torque/console/engine/**'
       - 'common/torque/console/compiler/**'
       - 'common/torque/gui/**'
+      - 'common/cpp/third_party/stb/**'
       - 'graal-3.04-G3D03014/src/**'
+      - 'graal-3.153-G3D28015/src/**'
       - 'common/*.pas'
       - '.github/workflows/torque-guigraal.yml'
   push:
@@ -17,7 +19,9 @@ on:
       - 'common/torque/console/engine/**'
       - 'common/torque/console/compiler/**'
       - 'common/torque/gui/**'
+      - 'common/cpp/third_party/stb/**'
       - 'graal-3.04-G3D03014/src/**'
+      - 'graal-3.153-G3D28015/src/**'
       - 'common/*.pas'
       - '.github/workflows/torque-guigraal.yml'
   workflow_dispatch:
@@ -37,7 +41,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Install Free Pascal
-        run: sudo apt-get update && sudo apt-get install -y fp-compiler fp-units-base fp-units-fcl libx11-dev
+        run: sudo apt-get update && sudo apt-get install -y fp-compiler fp-units-base fp-units-fcl libx11-dev xvfb
       - name: Control tests (fake game)
         run: make -C common/torque/guigraal test
       - name: Control tests with address and undefined behavior sanitizers
@@ -50,4 +54,45 @@ jobs:
           make -C common/torque/guigraal lib all
           sh common/torque/guigraal/tests/smoke.sh
       - name: Online path against loopback list and game servers
-        run: sh common/torque/guigraal/tests/online.sh
+        run: |
+          sh common/torque/guigraal/tests/online.sh
+          GAME_LIB=libGame3153Lib.so GAME_TOKEN=G3D28015 sh common/torque/guigraal/tests/online.sh
+      - name: The windowed program on Xvfb
+        run: xvfb-run -a sh common/torque/guigraal/tests/window.sh
+
+  windows:
+    # The Windows release's pair: Chocolatey's i386-win32 Free Pascal and
+    # MSYS2's 32-bit MinGW g++, so the exe can load the game DLL.
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Free Pascal
+        shell: pwsh
+        run: choco install freepascal -y --no-progress
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW32
+          update: false
+          install: >-
+            make
+            python
+            mingw-w64-i686-gcc
+            mingw-w64-i686-zlib
+      - name: Control tests
+        shell: msys2 {0}
+        run: make -C common/torque/guigraal test
+      - name: Game library and the Win32 program
+        shell: msys2 {0}
+        run: |
+          FPCBIN=$(ls -d /c/tools/freepascal/bin/*/fpc.exe | head -1)
+          make -C common/torque/guigraal lib all FPC="$FPCBIN" \
+            FPCFLAGS='-FuC:\tools\freepascal\units\i386-win32\*'
+          objdump -p common/torque/guigraal/build/graal304-torque.exe | grep 'DLL Name'
+      - name: tq-play end to end, the window, and the online path
+        shell: msys2 {0}
+        run: |
+          sh common/torque/guigraal/tests/smoke.sh
+          sh common/torque/guigraal/tests/window.sh
+          sh common/torque/guigraal/tests/online.sh
+          GAME_LIB=Game3153Lib.dll GAME_TOKEN=G3D28015 sh common/torque/guigraal/tests/online.sh

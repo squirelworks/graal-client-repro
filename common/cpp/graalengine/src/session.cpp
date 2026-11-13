@@ -1,5 +1,6 @@
 #include "session.hpp"
 
+#include "engine.hpp"
 #include "host.hpp"
 #include "../../quattro/shell/program.hpp"
 
@@ -30,21 +31,23 @@ class EngineWindow : public QD::Window {
 };
 
 Session2D::Session2D(Login login) : login_(std::move(login)), window_(std::make_unique<EngineWindow>()) {
-  const auto* profile = Quattro::Net::find_profile("4.04r2");
+  const auto* profile = Quattro::Net::find_profile(login_.build);
+  if (!profile) profile = Quattro::Net::find_profile("4.04r2");
   Quattro::Shell::Options opt;
-  opt.build = "4.04r2";
+  opt.build = login_.build;
   opt.host = login_.host;
   opt.port = static_cast<uint16_t>(login_.port);
   opt.account = login_.account;
   opt.password = login_.password;
   opt.nickname = login_.nickname;
+  opt.server_name = login_.name.empty() ? std::string("Login") : login_.name;
   opt.assets = login_.installDir;
   opt.width = host::GetScreenWidth() > 0 ? host::GetScreenWidth() : 640;
   opt.height = host::GetScreenHeight() > 0 ? host::GetScreenHeight() : 480;
   program_ = std::make_unique<Quattro::Shell::Program>(*profile, opt, *window_);
   program_->log = [this](const std::string& s) {
     log_.push_back(s);
-    host::LogGraalMessage(("GraalEngine: " + s).c_str());
+    engine().log("GraalEngine: " + s);
   };
   frame_.name = "GraalControl";
 }

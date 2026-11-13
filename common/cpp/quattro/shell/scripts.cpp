@@ -3,6 +3,7 @@
 #include "../net/gtypes.hpp"
 
 #include <algorithm>
+#include <vector>
 #include <cctype>
 #include <filesystem>
 #include <fstream>
@@ -48,6 +49,69 @@ bool read_i5s(std::string_view rest, uint64_t* out, int count) {
   return true;
 }
 
+// The same values as CSV fields, as gs2lib-style servers write the header
+// (Seihai's gserver: `toCSV`, which quotes a field holding a byte past 126,
+// a comma, a quote or a backslash and doubles the quotes and backslashes in
+// it). The fields' bytes, unquoted and joined, are the GINT5s back to back:
+// the DES key's two may be one field of 10 bytes.
+bool read_i5s_csv(std::string_view rest, uint64_t* out, int count) {
+  std::vector<std::string> fields;
+  size_t i = 0;
+  while (i <= rest.size()) {
+    std::string f;
+    if (i < rest.size() && rest[i] == '"') {
+      ++i;
+      bool closed = false;
+      while (i < rest.size()) {
+        char c = rest[i];
+        if ((c == '"' || c == '\\') && i + 1 < rest.size() && rest[i + 1] == c) {
+          f += c;
+          i += 2;
+        } else if (c == '"') {
+          ++i;
+          closed = true;
+          break;
+        } else {
+          f += c;
+          ++i;
+        }
+      }
+      if (!closed) return false;
+      if (i < rest.size() && rest[i] != ',') return false;
+    } else {
+      size_t e = rest.find(',', i);
+      if (e == std::string_view::npos) e = rest.size();
+      f.assign(rest.substr(i, e - i));
+      i = e;
+    }
+    fields.push_back(std::move(f));
+    ++i;  // the comma
+  }
+  // A last field of decimal digits that is not a whole GINT5 is the value
+  // as text: the lab's gserver build sent the CRC so ("0").
+  uint64_t last = 0;
+  bool decimalLast = false;
+  if (fields.size() >= 2) {
+    const std::string& f = fields.back();
+    if (!f.empty() && f.size() <= 10 && f.size() != 5 &&
+        std::all_of(f.begin(), f.end(), [](char c) { return c >= '0' && c <= '9'; })) {
+      decimalLast = true;
+      last = std::stoull(f);
+      fields.pop_back();
+    }
+  }
+  std::string bytes;
+  for (const auto& f : fields) bytes += f;
+  const size_t want = static_cast<size_t>(count - (decimalLast ? 1 : 0));
+  if (bytes.size() != 5 * want) return false;
+  for (size_t k = 0; k < want; ++k) {
+    Net::Reader r(std::string_view(bytes).substr(k * 5, 5));
+    out[k] = r.gint5();
+  }
+  if (decimalLast) out[count - 1] = last;
+  return true;
+}
+
 int to_int(const std::string& s) {
   if (s.empty() || !std::all_of(s.begin(), s.end(), [](char c) { return std::isdigit(static_cast<unsigned char>(c)); }))
     return -1;
@@ -68,7 +132,7 @@ bool parse_script_packet(std::string_view payload, ScriptDescriptor& d, std::str
   d.cache_flag = to_int(flag);
   d.key.reset();
   uint64_t k[2];
-  if (read_i5s(rest, k, 2)) d.key = Cache::ScriptKey{static_cast<uint32_t>(k[0]), static_cast<uint32_t>(k[1])};
+  if (read_i5s(rest, k, 2) || read_i5s_csv(rest, k, 2)) d.key = Cache::ScriptKey{static_cast<uint32_t>(k[0]), static_cast<uint32_t>(k[1])};
   return !d.type.empty() && !d.name.empty();
 }
 
@@ -78,7 +142,7 @@ bool parse_load_script(std::string_view payload, ScriptDescriptor& d) {
   if (!three_fields(payload, d.type, d.name, flag, rest)) return false;
   d.cache_flag = to_int(flag);
   uint64_t v[3];
-  if (!read_i5s(rest, v, 3)) return false;
+  if (!read_i5s(rest, v, 3) && !read_i5s_csv(rest, v, 3)) return false;
   d.key = Cache::ScriptKey{static_cast<uint32_t>(v[0]), static_cast<uint32_t>(v[1])};
   d.crc = static_cast<uint32_t>(v[2]);
   return !d.type.empty() && !d.name.empty();

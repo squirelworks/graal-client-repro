@@ -1,7 +1,9 @@
 #include "world.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
+#include <cstdlib>
 
 namespace Quattro::Draw {
 
@@ -33,7 +35,7 @@ void WorldRenderer::draw(Canvas& c, const WorldState& w, const View& v,
     if (trace) trace(name);
   };
   mark("Game_Draw");
-  c.clear({0, 0, 0, 255});
+  c.fill_rect(c.clip(), {0, 0, 0, 255});  // inside the clip: the playfield may be one control
   mark("Draw_Tiles");
   if (w.have_level && (!w.lobby || w.lobby_tiles)) draw_tiles(c, w, v);
   mark("Game_Draw_GetDrawObjects");
@@ -84,16 +86,62 @@ void WorldRenderer::draw_objects(Canvas& c, const WorldState& w, const View& v) 
   for (const auto& o : w.others) {
     int px = static_cast<int>(std::lround((o.x - v.left) * kTile));
     int py = static_cast<int>(std::lround((o.y - v.top) * kTile));
-    c.fill_rect({px + 8, py + 8, 32, 40}, {80, 120, 230, 255});
+    draw_actor(c, o, px, py, {80, 120, 230, 255});
   }
 }
 
 void WorldRenderer::draw_player(Canvas& c, const WorldState& w, const View& v) const {
-  // The player as a 3 x 3 tile box until ganis are drawn. Stand-in.
   int px = static_cast<int>(std::lround((w.player.x - v.left) * kTile));
   int py = static_cast<int>(std::lround((w.player.y - v.top) * kTile));
-  c.fill_rect({px + 8, py + 8, 32, 40}, {230, 60, 60, 255});
-  c.frame_rect({px + 8, py + 8, 32, 40}, {255, 255, 255, 255});
+  draw_actor(c, w.player, px, py, {230, 60, 60, 255});
+}
+
+namespace {
+std::string upper(std::string s) {
+  for (char& ch : s) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+  return s;
+}
+}  // namespace
+
+// The gani's step for the actor's tick and facing, each part from its
+// sheet (as the Pascal clients draw it, common/GAni.pas), the body in the
+// player's colours.
+void WorldRenderer::draw_actor(Canvas& c, const Actor& a, int px, int py, Color box) const {
+  const Files::Gani* g = nullptr;
+  if (assets_) {
+    g = assets_->gani(a.gani.empty() ? "idle" : a.gani);
+    if (!g) g = assets_->gani("idle");
+  }
+  if (!g || g->steps.empty()) {
+    // No ganis: a box where the body is. Stand-in.
+    c.fill_rect({px + 8, py + 8, 32, 40}, box);
+    c.frame_rect({px + 8, py + 8, 32, 40}, {255, 255, 255, 255});
+    return;
+  }
+  const auto& parts = g->steps[g->step_at(a.ani_tick)].dirs[static_cast<size_t>(a.dir & 3)];
+  for (const auto& part : parts) {
+    const Files::GaniSprite* s = g->sprite(part.sprite);
+    if (!s) continue;
+    std::string sheet = upper(s->sheet), file;
+    if (sheet == "SPRITES") file = "sprites.png";
+    else if (sheet == "HEAD") file = !a.head.empty() ? a.head : !g->default_head.empty() ? g->default_head : "head0.png";
+    else if (sheet == "BODY") file = !a.body.empty() ? a.body : !g->default_body.empty() ? g->default_body : "body.png";
+    else if (sheet == "SWORD") file = a.sword.empty() ? "sword1.png" : a.sword;
+    else if (sheet == "SHIELD") file = a.shield.empty() ? "shield1.png" : a.shield;
+    else if (sheet.compare(0, 4, "ATTR") == 0) {
+      int n = std::atoi(sheet.c_str() + 4);
+      if (n >= 1 && n <= 30) {
+        if (n < static_cast<int>(a.attr.size()) && !a.attr[static_cast<size_t>(n)].empty()) file = a.attr[static_cast<size_t>(n)];
+        else file = g->default_attr[static_cast<size_t>(n)];
+      }
+    } else if (sheet.compare(0, 5, "PARAM") == 0) {
+      continue;  // the caller's parameter images: not drawn yet
+    } else {
+      file = s->sheet;
+    }
+    const Image* img = file.empty() ? nullptr : sheet == "BODY" ? assets_->body(file, a.colors) : assets_->image(file);
+    if (img) c.blit(*img, {s->x, s->y, s->w, s->h}, px + part.x, py + part.y);
+  }
 }
 
 }  // namespace Quattro::Draw

@@ -148,9 +148,48 @@ void test_session_404() {
   CHECK(game.login_line == want);
 }
 
+// 5.12: the 5-field login line, every frame zlib with 5.12's step rule,
+// and the 178 hand-on, against a server stepping as 5.12 does.
+void test_session_512() {
+  const BuildProfile* prof = find_profile("5.12");
+  CHECK(prof);
+  if (!prof) return;
+  FakeServer login, game;
+  login.round_down = game.round_down = true;
+  CHECK(login.start() && game.start());
+  std::vector<std::pair<int, std::string>> delivered;
+  Session::Events ev;
+  ev.message = [&](int id, std::string_view b) { delivered.emplace_back(id, std::string(b)); };
+  Session s(*prof, ev);
+  s.next_key = [] { return uint8_t(0x4B); };
+  CHECK(s.start("127.0.0.1", login.port(), "guest", "pw"));
+  CHECK(login.conn.accept_from(login.listener));
+  CHECK(run_until(s, &login, nullptr, [&] { return login.saw(37, "English"); }));
+  const std::string want = "G3D14097" + gstring("guest") + gstring("pw") + "win,\"\",\"\",\"\",\"6.2 9200 \"";
+  CHECK(login.login_line == want);
+  CHECK(!login.frame_types.empty());
+  for (int t : login.frame_types) CHECK(t == kZlib);
+  // Short frames from the server (13 and 7 bytes of zlib are typical) keep
+  // both iterators in step.
+  for (int i = 0; i < 5; ++i) login.send(gchar(41) + std::string(static_cast<size_t>(i), 'x') + "\n");
+  CHECK(run_until(s, &login, nullptr, [&] { return delivered.size() == 5; }));
+  CHECK(delivered.size() == 5 && delivered[4].second == "xxxx");
+  CHECK(s.connection().send(6, "hi"));
+  CHECK(run_until(s, &login, nullptr, [&] { return login.saw(6, "hi"); }));
+  login.send(gchar(178) + "0,Lab Server,127.0.0.1," + std::to_string(game.port()) + "\n");
+  std::atomic<bool> accepted{false};
+  std::thread acc([&] { accepted = game.conn.accept_from(game.listener); });
+  bool warped = run_until(s, &login, nullptr, [&] { return s.logins() == 2; });
+  acc.join();
+  CHECK(warped && accepted);
+  CHECK(run_until(s, nullptr, &game, [&] { return game.saw(37, "English"); }));
+  CHECK(game.login_line == want);
+}
+
 int main() {
   test_warp_parse();
   test_session();
   test_session_404();
+  test_session_512();
   TEST_MAIN_END();
 }

@@ -95,6 +95,19 @@ int main() {
   auto owned = std::make_unique<TinyGame>();
   TinyGame* game = owned.get();
   GuiGraal304 graal(engine, std::move(owned));
+  // The canvas size from $pref::Video::resolution: numbers are kept, a
+  // depth that is not a number ("800 600 Default", 3.153) gives 640 x 480.
+  const auto size_for = [&](const std::string& pref) {
+    engine.set_global("$pref::Video::resolution", Value::of_string(pref));
+    int w = 0, h = 0;
+    canvas_size_304(engine, w, h);
+    return std::to_string(w) + "x" + std::to_string(h);
+  };
+  check(size_for("1024 768 32") == "1024x768", "resolution with a bit depth");
+  check(size_for("800 600 Default") == "640x480", "resolution with a named depth");
+  check(size_for("") == "800x600", "no resolution");
+  check(size_for("10 10 16") == "800x600", "too small a resolution");
+  engine.set_global("$pref::Video::resolution", Value::of_string(std::string()));
   check(engine.evaluate(kTree), "the test tree runs");
   Frame304 frame(engine, graal, 800, 600);
   frame.draw();

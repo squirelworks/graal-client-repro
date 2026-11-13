@@ -4,6 +4,7 @@
 // from a compiler or a server.
 #include "../../gs2/tests/assembler.hpp"
 #include "../shell/scripts.hpp"
+#include "../net/gtypes.hpp"
 #include "check.hpp"
 
 #include <filesystem>
@@ -54,6 +55,35 @@ void test_descriptors() {
   CHECK(Shell::parse_load_script(Shell::make_load_script(d), ls));
   CHECK(ls.crc == 0xDEADBEEFu && ls.key->hi == 0xA0B0C0D0u && ls.name == "-System");
   CHECK(!Shell::parse_load_script("weapon,x,1,short", ls));
+
+  // As Seihai's gserver writes it: CSV fields, the 10 key bytes as one
+  // field and the CRC as another, a field quoted when it holds a byte past
+  // 126, a comma, a quote or a backslash (doubled inside the quotes).
+  auto csv = [](const std::string& f) {
+    bool complex = false;
+    for (unsigned char c : f) complex |= c < 32 || c > 126 || c == '"' || c == ',' || c == '\\';
+    if (!complex) return f;
+    std::string q = "\"";
+    for (char c : f) {
+      q += c;
+      if (c == '"' || c == '\\') q += c;
+    }
+    return q + "\"";
+  };
+  for (uint32_t lo : {0x01020304u, 0x0000000Cu, 0x7FFFFFFFu}) {
+    const uint32_t hi = 0xA0B0C0D0u, crc = 0x2C2C2C2Cu ^ lo;
+    const std::string hdr = "weapon,-gr_movement,1," + csv(Quattro::Net::gint5(lo) + Quattro::Net::gint5(hi)) + "," + csv(Quattro::Net::gint5(crc));
+    Shell::ScriptDescriptor g;
+    CHECK(Shell::parse_load_script(hdr, g));
+    CHECK(g.name == "-gr_movement" && g.cache_flag == 1 && g.key && g.key->lo == lo && g.key->hi == hi && g.crc == crc);
+  }
+  CHECK(!Shell::parse_load_script("weapon,x,1,\"unclosed", ls));
+  // The lab gserver's own bytes: the key as one quoted field (its quotes
+  // doubled), then the CRC as the text "0".
+  const std::string lab = std::string("weapon,-gr_movement,1,\"\"\"\"\"\x8e" "a5!\x80&]=\",0");
+  Shell::ScriptDescriptor g;
+  CHECK(Shell::parse_load_script(lab, g));
+  CHECK(g.name == "-gr_movement" && g.key && g.crc == 0);
   CHECK(!Shell::parse_script_packet("\x20", got, body));
 }
 

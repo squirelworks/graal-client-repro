@@ -1,4 +1,4 @@
-// graal304-torque: the 3.04 client on the rebuilt Torque engine, in a
+// graal304-torque: the 3.04 (or 3.153) client on the rebuilt Torque engine, in a
 // window. It boots the install's own main.cs, draws the install's own
 // menus, routes keys through its ActionMaps and clicks to its controls,
 // and hosts the 2D game as GuiGraalCtrl.
@@ -6,11 +6,15 @@
 //   graal304-torque [--root INSTALL] [--prefs DIR] [--game LIB]
 //                   [--steps FILE] [--seconds N] [--trace FILE] [--shot FRAME.bmp]
 //
-// --root defaults to the program's folder (put it in a 3.04 install, beside
-// graalexe), then the current folder, whichever holds main.cs; --prefs to ~/.graal304-torque; --game to libGame304Lib.so next
-// to the program. --steps runs scripted statements as tq-play does (for lab
-// runs); --seconds ends the program after N seconds; --shot writes the last
-// window image when the program ends.
+// --root defaults to the program's folder (put it in a 3.04 or 3.153
+// install, beside main.cs), then the current folder, whichever holds
+// main.cs; --prefs to ~/.graal304-torque (%APPDATA%\graal304-torque on
+// Windows); --game to the game library next to the program:
+// libGame304Lib.so on Linux, Game304Lib.dll on Windows, libGame304Lib.dylib
+// on macOS (Game3153Lib for a 3.153 install). --steps runs scripted
+// statements as tq-play does (for lab runs); --seconds ends the program
+// after N seconds; --shot writes the last window image when the program
+// ends.
 
 #include <chrono>
 #include <cstdlib>
@@ -21,7 +25,20 @@
 #include <vector>
 
 #include <sys/stat.h>
+
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#include <direct.h>
+#include <cstdio>
+#include <io.h>
+#elif defined(__APPLE__)
+#include <mach-o/dyld.h>
+#else
 #include <unistd.h>
+#endif
 
 #include "../pascal_game304.hpp"
 #include "boot304.hpp"
@@ -33,12 +50,68 @@ using namespace Torque;
 namespace {
 
 std::string program_dir(const char* argv0) {
+  std::string path;
+#ifdef _WIN32
+  char buf[MAX_PATH * 4];
+  const DWORD n = GetModuleFileNameA(nullptr, buf, DWORD(sizeof buf));
+  if (n > 0 && n < sizeof buf) path.assign(buf, n);
+#elif defined(__APPLE__)
+  char buf[4096];
+  std::uint32_t size = sizeof buf;
+  if (_NSGetExecutablePath(buf, &size) == 0) path = buf;
+#else
   char buf[4096];
   const ssize_t n = readlink("/proc/self/exe", buf, sizeof buf - 1);
-  std::string path = n > 0 ? std::string(buf, std::size_t(n)) : std::string(argv0);
-  const std::size_t slash = path.find_last_of('/');
+  if (n > 0) path.assign(buf, std::size_t(n));
+#endif
+  if (path.empty()) path = argv0;
+  const std::size_t slash = path.find_last_of("/\\");
   return slash == std::string::npos ? std::string(".") : path.substr(0, slash);
 }
+
+// The game library's file name for this system: Game304Lib ->
+// libGame304Lib.so, Game304Lib.dll (Free Pascal's Windows name) or
+// libGame304Lib.dylib.
+std::string game_lib_file(const std::string& base) {
+#ifdef _WIN32
+  return base + ".dll";
+#elif defined(__APPLE__)
+  return "lib" + base + ".dylib";
+#else
+  return "lib" + base + ".so";
+#endif
+}
+
+std::string default_prefs() {
+#ifdef _WIN32
+  const char* appdata = std::getenv("APPDATA");
+  if (appdata && *appdata) return std::string(appdata) + "\\graal304-torque";
+#endif
+  const char* home = std::getenv("HOME");
+  return std::string(home ? home : ".") + "/.graal304-torque";
+}
+
+void make_dir(const std::string& dir) {
+#ifdef _WIN32
+  _mkdir(dir.c_str());
+#else
+  mkdir(dir.c_str(), 0755);
+#endif
+}
+
+#ifdef _WIN32
+// The program is a GUI program (no console window of its own). Started from
+// a console with nowhere else to write, it writes the console lines there.
+void attach_console() {
+  HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);
+  if (out && out != INVALID_HANDLE_VALUE && GetFileType(out) != FILE_TYPE_UNKNOWN) return;
+  if (!AttachConsole(ATTACH_PARENT_PROCESS)) return;
+  if (!std::freopen("CONOUT$", "w", stdout)) return;
+  std::freopen("CONOUT$", "w", stderr);
+  std::cout.clear();
+  std::cerr.clear();
+}
+#endif
 
 void usage() {
   std::cerr << "usage: graal304-torque [--root INSTALL] [--prefs DIR] [--game LIB] [--steps FILE]\n"
@@ -48,9 +121,12 @@ void usage() {
 } // namespace
 
 int main(int argc, char** argv) {
+#ifdef _WIN32
+  attach_console();
+#endif
   const std::string here = program_dir(argv[0]);
   unsigned seconds = 0;
-  std::string root, prefs, lib = here + "/libGame304Lib.so", steps_path, trace_path, shot;
+  std::string root, prefs, lib, steps_path, trace_path, shot;
   for (int i = 1; i < argc; ++i) {
     std::string a = argv[i];
     auto next = [&]() -> std::string {
@@ -70,15 +146,16 @@ int main(int argc, char** argv) {
   if (root.empty()) root = has_main(here) || !has_main(".") ? here : std::string(".");
   if (!has_main(root)) {
     std::cerr << "graal304-torque: no main.cs in " << root << ".\n"
-              << "Copy graal304-torque and libGame304Lib.so into your Graal 3.04 folder (beside graalexe),\n"
+              << "Copy graal304-torque and the game library into your Graal 3.04 or 3.153 folder (beside main.cs),\n"
               << "run it from that folder, or pass --root with that folder.\n";
     return 1;
   }
-  if (prefs.empty()) {
-    const char* home = std::getenv("HOME");
-    prefs = std::string(home ? home : ".") + "/.graal304-torque";
-  }
-  mkdir(prefs.c_str(), 0755);
+  // a 3.153 install (scripts2D/main2D.cs) runs the 3.153 game library
+  const bool is_3153 = std::ifstream(root + "/scripts2D/main2D.cs.dso").good() ||
+                       std::ifstream(root + "/scripts2D/main2D.cs").good();
+  if (lib.empty()) lib = here + "/" + game_lib_file(is_3153 ? "Game3153Lib" : "Game304Lib");
+  if (prefs.empty()) prefs = default_prefs();
+  make_dir(prefs);
   std::vector<Step> steps;
   if (!steps_path.empty() && !read_steps(steps_path, steps)) {
     std::cerr << "graal304-torque: cannot read " << steps_path << "\n";
@@ -94,6 +171,7 @@ int main(int argc, char** argv) {
     return 1;
   }
   GuiGraal304 graal(engine, std::move(game));
+  if (is_install_3153(engine)) graal.register_3153();
   boot_304(engine);
 
   int width = 800, height = 600;
@@ -132,6 +210,7 @@ int main(int argc, char** argv) {
     write_bmp(shot, px.data(), img.width, img.height);
   }
   if (!trace_path.empty()) {
+    engine.trace.push_back("player " + graal.game().player() + ", state " + std::to_string(graal.game().state()));
     std::ofstream out(trace_path, std::ios::binary);
     for (const auto& line : engine.trace) out << line << "\n";
     for (const auto& line : frame.log) out << line << "\n";

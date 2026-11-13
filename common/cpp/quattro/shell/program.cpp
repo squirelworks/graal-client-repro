@@ -50,6 +50,9 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
   };
   world_.player.x = 30;
   world_.player.y = 30;
+  assets_ = std::make_unique<Draw::Assets>(Draw::asset_dirs(opt_.assets));
+  renderer_.set_assets(assets_.get());
+  hud_ = std::make_unique<Draw::Hud>(assets_.get());
   gui_ = std::make_unique<GuiHost>(scripts_.machine());
   gui_->screen().setSize(opt_.width, opt_.height);
   std::vector<std::string> dirs;
@@ -62,6 +65,7 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
     canvas_.push_clip({r.x, r.y, r.w, r.h});
     renderer_.draw(canvas_, world_, Draw::follow(world_, canvas_.width(), canvas_.height()),
                    [this](const std::string& name) { passes_.push_back(name); });
+    draw_hud();
     canvas_.pop_clip();
   };
   if (!opt_.program.empty()) {
@@ -86,6 +90,42 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
   }
 }
 
+void Program::draw_hud() {
+  if (!profile_.hud_6x || world_.lobby) return;
+  Draw::HudState s;
+  s.half_hearts = me_.power;
+  s.gralats = me_.rupees;
+  s.bombs = me_.bombs;
+  s.arrows = me_.arrows;
+  s.ap = me_.ap;
+  s.mp = me_.mp;
+  s.glove_power = me_.glove_power;
+  s.sword_power = me_.sword_power;
+  s.sword_image = me_.sword_image;
+  hud_->draw(canvas_, s);
+  passes_.push_back("HUD");
+}
+
+Draw::Actor Program::actor_for(int id, const World::Player& p) {
+  Draw::Actor a;
+  a.x = p.x;
+  a.y = p.y;
+  a.chat = p.chat;
+  a.gani = p.gani.empty() ? "idle" : p.gani;
+  a.dir = p.dir;
+  a.head = p.head;
+  a.body = p.body;
+  a.sword = p.sword_image;
+  a.shield = p.shield_image;
+  for (size_t i = 1; i < a.attr.size(); ++i) a.attr[i] = p.attr[i];
+  for (size_t i = 0; i < a.colors.size(); ++i) a.colors[i] = p.colors[i];
+  // A gani plays from the tick it was set.
+  auto& start = gani_start_[id];
+  if (start.first != a.gani) start = {a.gani, frame_};
+  a.ani_tick = frame_ - start.second;
+  return a;
+}
+
 void Program::say(const std::string& text) {
   me_.chat = text;
   if (props_sent_) session_.connection().send(2, Net::gchar(World::kCurChat) + Net::gstring(text));
@@ -97,7 +137,7 @@ std::string Program::window_title() const {
 }
 
 bool Program::start() {
-  bool ok = session_.start(opt_.host, opt_.port, opt_.account, opt_.password, opt_.language);
+  bool ok = session_.start(opt_.host, opt_.port, opt_.account, opt_.password, opt_.language, opt_.server_name);
   window_.set_title(window_title());
   return ok;
 }
@@ -128,6 +168,9 @@ void Program::on_message(int id, std::string_view body) {
   Net::Reader r(body);
   switch (id) {
     case 6:  // PLO_LEVELNAME
+      // The same name again after its board (a Seihai gserver sends it
+      // once more with the level's props) keeps the board.
+      if (world_.have_level && body == level_name_) break;
       level_name_ = std::string(body);
       world_.level = Files::Level{};
       world_.have_level = false;
@@ -184,7 +227,10 @@ void Program::on_message(int id, std::string_view body) {
       World::Player& o = others_[pid];
       o.id = pid;
       World::apply_props(r, o, true);
-      if (o.gone) others_.erase(pid);
+      if (o.gone) {
+        others_.erase(pid);
+        gani_start_.erase(pid);
+      }
       break;
     }
     case 14:    // PLO_PLAYERWARP: c x*2, c y*2, level
@@ -233,13 +279,12 @@ bool Program::tick() {
       if (!moved.empty()) session_.connection().send(2, moved);
     }
   }
-  world_.player.x = me_.x;
-  world_.player.y = me_.y;
-  world_.player.chat = me_.chat;
+  ++frame_;
+  world_.player = actor_for(-1, me_);
   world_.others.clear();
   for (const auto& [pid, o] : others_) {
     if (!o.level.empty() && !me_.level.empty() && o.level != me_.level) continue;
-    world_.others.push_back({o.x, o.y, o.chat});
+    world_.others.push_back(actor_for(pid, o));
   }
 
   scripts_.tick();
@@ -255,6 +300,7 @@ bool Program::tick() {
   } else {
     renderer_.draw(canvas_, world_, Draw::follow(world_, canvas_.width(), canvas_.height()),
                    [this](const std::string& name) { passes_.push_back(name); });
+    draw_hud();
   }
   window_.present(canvas_.surface());
   return !quit_;

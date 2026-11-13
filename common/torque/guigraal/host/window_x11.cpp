@@ -45,7 +45,7 @@ std::string key_name(KeySym k) {
     case XK_Page_Up: return "pageup";
     case XK_Page_Down: return "pagedown";
     case XK_Insert: return "insert";
-    default: return std::string();
+    default: return k < 128 ? punctuation_key_name(char(k)) : std::string();
   }
 }
 

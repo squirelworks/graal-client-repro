@@ -39,6 +39,7 @@ struct Player {
   std::string nickname, account, level, gani, head, body, chat, language, os_type;
   int max_power = 0, power = 0, rupees = 0, arrows = 0, bombs = 0;
   int sword_power = 0, shield_power = 0, glove_power = 0, bomb_power = 0;
+  int ap = 50, mp = 0;  // alignment points 0..100, magic points
   std::string sword_image, shield_image;
   std::array<int, 5> colors{};
   double x = 30, y = 30;

@@ -19,6 +19,10 @@ namespace Torque {
 void setup_engine_304(Engine& engine, const std::string& root, const std::string& prefs,
                       std::function<void(const std::string&)> print);
 
+// True for a 3.153 install (scripts2D/main2D.cs). setup_engine_304 then
+// reads its .dso files with big-endian floats and execs scripts by name.
+bool is_install_3153(const Engine& engine);
+
 // Runs the install's own root main.cs, as the original does.
 void boot_304(Engine& engine);
 

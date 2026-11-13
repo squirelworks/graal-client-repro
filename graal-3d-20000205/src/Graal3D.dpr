@@ -29,7 +29,7 @@ program Graal3D;
 uses
   SysUtils, Classes, GSurface, GFont, GAssetDirs, GStartScreen,
   Window3D, Codec3D, Config3D, Math3D, XFile3D, Render3D, World3D,
-  Client3D, Res3D, GUiFont, Connect3D, Builtin3D, Run3D;
+  Client3D, Res3D, GUiFont, Connect3D, Builtin3D, Run3D, Overlay3D;
 
 const
   BuildName = 'graal-3d-20000205';
@@ -64,6 +64,7 @@ type
     Client: TClient3D;
     Renderer: TRenderer3D;
     Screen: TGSurface;
+    Overlay: TOverlay3D;
     ChatText: string;
     ChatFocus: Boolean;
     Message: string;
@@ -150,10 +151,12 @@ begin
   Renderer := TRenderer3D.Create(ViewW, ViewH);
   Renderer.Textures.Find := FindFile;
   Screen := TGSurface.Create(ScreenW, ScreenH);
+  Overlay := TOverlay3D.Create;
 end;
 
 destructor TGame.Destroy;
 begin
+  Overlay.Free;
   Screen.Free;
   Renderer.Free;
   Client.Free;
@@ -195,6 +198,9 @@ begin
   World.Draw(Renderer);
   Screen.Fill($FF000000);
   Screen.Blit(Renderer.Surface, 0, 0, ViewW, ViewH, 0, 0);
+  { the nickname banner and the logo (Overlay3D) }
+  Overlay.Load(FindFile);
+  Overlay.Draw(Screen, ViewW, World.Me.Nick);
   { the chat log: newest at the bottom left, older lines above }
   Y := ViewH - 5 - 14;
   for I := High(World.Chat) downto 0 do
