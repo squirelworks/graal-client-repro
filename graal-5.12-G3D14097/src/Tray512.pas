@@ -111,7 +111,7 @@ begin
   if Wnd = 0 then Exit;
   FillChar(Data, SizeOf(Data), 0);
   Data.cbSize := SizeOf(Data);
-  Data.Wnd := Wnd;
+  Data.hWnd := Wnd;
   Data.uID := 1;
   Data.uFlags := NIF_ICON or NIF_MESSAGE or NIF_TIP;
   Data.uCallbackMessage := WM_TRAY;
