@@ -25,7 +25,9 @@ jobs:
   # seihai-gserver (ci.yml).
   clients:
     runs-on: macos-15
-    timeout-minutes: 90
+    # The build takes about 20 minutes and the tests about an hour, as on
+    # Linux (ci.yml's build-and-test); loopback adds about 15.
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v5
       - uses: actions/checkout@v5
