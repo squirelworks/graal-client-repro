@@ -31,12 +31,13 @@ What this tree was written from, and what it was not. The language decision (C++
 | Material | Where | Licence |
 |---|---|---|
 | zlib (system library, linked, not vendored) | `shared/`, both hosts, `gui/` | zlib licence |
+| Torque3D's string Huffman frequency table and tree build, with its copyright notice | `common/cpp/third_party/torque3d/huffman.hpp`, `huffman.cpp` (used by `common/cpp/graal3dengine`) | MIT (`common/cpp/third_party/torque3d/LICENSE.txt`) |
 | C++ standard library, Free Pascal RTL | everywhere | their own licences, as shipped with the compiler |
 
 ## Engines this tree does not use
 
 - **TGE 1.2** was a commercial SDK and is not open source. None of its source is in this repository, and none was used to write it. The rebuilt classes are named after the classes the original Graal binaries register, as the notes record.
-- **Torque3D** (the later, MIT-licensed engine) is not a base for this work (HANDOFF-CURSOR.md: "No modern Torque3D base"). The project compared Torque3D with Graal's engine as research, outside this repository. No Torque3D code is here. If any Torque3D code is ever brought in, its copyright notice and MIT licence text must travel with it, and this file must name the files.
+- **Torque3D** (the later, MIT-licensed engine) is not a base for this work (HANDOFF-CURSOR.md: "No modern Torque3D base"). The project compared Torque3D with Graal's engine as research, outside this repository. No Torque3D code is here except the string Huffman table named in the table above (`common/cpp/third_party/torque3d`). If any more Torque3D code is ever brought in, its copyright notice and MIT licence text must travel with it, and this file must name the files.
 
 ## Keeping this current
 

@@ -4,6 +4,9 @@
 #include "graalengine.h"
 #include "host.hpp"
 
+#include <algorithm>
+#include <cstring>
+
 namespace graalengine::host {
 
 Table& table() {
@@ -81,6 +84,32 @@ GE_API int32_t GE_CALL graalengine_abi(void) { return GRAALENGINE_ABI; }
 
 GE_API int32_t GE_CALL graalengine_setBuild(const char* label) {
   return graalengine::engine().setBuild(label ? label : "") ? 1 : 0;
+}
+
+GE_API const char* GE_CALL graalengine_build(void) { return graalengine::engine().build().c_str(); }
+
+GE_API void GE_CALL graalengine_graal3DLoginStep(int32_t step) { graalengine::engine().graal3DLoginStep(step); }
+
+GE_API void GE_CALL graalengine_logLine(const char* line) { graalengine::engine().log(line ? line : ""); }
+
+GE_API int32_t GE_CALL isGraal3DMode(void) { return graalengine::engine().graal3DMode() ? 1 : 0; }
+
+GE_API void GE_CALL getGraalLoginInfo(char* account, int32_t accountSize, char* nickname, int32_t nicknameSize,
+                                      char* password, int32_t passwordSize) {
+  const auto a = graalengine::engine().loginAccount();
+  auto put = [](char* out, int32_t size, const std::string& v) {
+    if (!out || size <= 0) return;
+    const size_t n = std::min(v.size(), static_cast<size_t>(size - 1));
+    std::memcpy(out, v.data(), n);
+    out[n] = '\0';
+  };
+  put(account, accountSize, a.account);
+  put(nickname, nicknameSize, a.nickname);
+  put(password, passwordSize, a.password);
+}
+
+GE_API void GE_CALL setGraal3DConnectionError(const char* reason) {
+  graalengine::engine().graal3DConnectionError(reason ? reason : "");
 }
 
 GE_API int32_t GE_CALL graalengine_slotCount(void) { return kSlotCount; }
