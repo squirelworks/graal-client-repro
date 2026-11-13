@@ -1,0 +1,155 @@
+object ConnectFrame: TConnectFrame
+  Left = 251
+  Top = 163
+  Width = 501
+  Height = 357
+  ActiveControl = Button1
+  BorderIcons = [biSystemMenu, biMinimize]
+  Caption = 'Graal - The Adventure'
+  Color = clBtnFace
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -14
+  Font.Name = 'MS Sans Serif'
+  Font.Style = []
+  OldCreateOrder = True
+  Position = poScreenCenter
+  Scaled = False
+  OnClose = FormClose
+  OnCreate = FormCreate
+  PixelsPerInch = 96
+  TextHeight = 16
+  object Image1: TImage
+    Left = 336
+    Top = 8
+    Width = 118
+    Height = 66
+    AutoSize = True
+    Picture.Data = {binary, 4090 bytes}
+    Transparent = True
+  end
+  object Label1: TLabel
+    Left = 96
+    Top = 8
+    Width = 217
+    Height = 97
+    Alignment = taCenter
+    AutoSize = False
+    Caption = 'Welcome to Graal! Select the game mode and your character. Press F1 in the game to open the options window and the editor!'
+    Color = clBtnFace
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -14
+    Font.Name = 'MS Sans Serif'
+    Font.Style = []
+    ParentColor = False
+    ParentFont = False
+    Transparent = True
+    WordWrap = True
+  end
+  object Image2: TImage
+    Left = 184
+    Top = 243
+    Width = 145
+    Height = 60
+    AutoSize = True
+    Picture.Data = {binary, 4690 bytes}
+    Transparent = True
+  end
+  object Image3: TImage
+    Left = 8
+    Top = 16
+    Width = 157
+    Height = 300
+    AutoSize = True
+    Picture.Data = {binary, 49090 bytes}
+    Transparent = True
+  end
+  object Label3: TLabel
+    Left = 160
+    Top = 137
+    Width = 75
+    Height = 16
+    Caption = 'Game mode'
+  end
+  object Label2: TLabel
+    Left = 160
+    Top = 108
+    Width = 61
+    Height = 16
+    Caption = 'Language'
+  end
+  object Label4: TLabel
+    Left = 160
+    Top = 166
+    Width = 58
+    Height = 16
+    Caption = 'Character'
+  end
+  object Label5: TLabel
+    Left = 160
+    Top = 195
+    Width = 67
+    Height = 16
+    Caption = 'Nick Name'
+  end
+  object PaintBox1: TPaintBox
+    Left = 416
+    Top = 167
+    Width = 64
+    Height = 16
+    Hint = 'Click on a head to select that player'
+    ParentShowHint = False
+    ShowHint = True
+    OnMouseDown = PaintBox1MouseDown
+    OnPaint = PaintBox1Paint
+  end
+  object Button1: TButton
+    Left = 368
+    Top = 280
+    Width = 83
+    Height = 28
+    Caption = '&Start'
+    TabOrder = 0
+  end
+  object ModeSelect: TComboBox
+    Left = 264
+    Top = 134
+    Width = 145
+    Height = 24
+    Style = csDropDownList
+    ItemHeight = 16
+    Items.Strings = ('One Player' 'One Player Online' 'Two Players' 'Three Players' 'Four Players')
+    TabOrder = 1
+    OnChange = ModeSelectChange
+  end
+  object languagebox: TComboBox
+    Left = 264
+    Top = 105
+    Width = 145
+    Height = 24
+    Style = csDropDownList
+    ItemHeight = 16
+    TabOrder = 2
+    OnChange = languageboxChange
+  end
+  object characterbox: TComboBox
+    Left = 264
+    Top = 163
+    Width = 145
+    Height = 22
+    Style = csOwnerDrawFixed
+    DropDownCount = 10
+    ItemHeight = 16
+    TabOrder = 3
+    OnChange = characterboxChange
+    OnDrawItem = characterboxDrawItem
+  end
+  object Edit3: TEdit
+    Left = 264
+    Top = 190
+    Width = 145
+    Height = 24
+    TabOrder = 4
+  end
+end
