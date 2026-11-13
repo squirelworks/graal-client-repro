@@ -482,12 +482,15 @@ end;
 procedure TAdventureClient.SendLogin(const Account, Password, Language: string);
 begin
   { GCHAR type, GCHAR key, token, GSTRING account, GSTRING password, then
-    the comma list. The real client fills the three machine fields with
-    hashes of the Windows product id, the network card's MAC and the C:
-    volume serial. The rebuild sends them empty, so it never hands a
-    server an id of the player's machine. }
+    the comma list: linux, a hash of the Ethernet MAC, a hash of stat("/etc"),
+    an empty field and the kernel's uname string, as the Linux 6.x builds
+    send it; the Linux 4.20 login line has not been read, so this shape is
+    taken from the Linux 6.x rows (inferred). The rebuild reads no machine
+    values. It sends fixed made-up ones of the same shape: the MD5 hex of
+    "SquirrelNIC eth0 MAC AC:04:2D:5E:ED:02" and of "SquirrelFS /etc inode
+    424242", and a SquirrelOS kernel string. }
   SendPacket(ClientType, GChar(FKey) + ClientVersionToken + GString(Account) +
-    GString(Password) + LoginPlatform + ',"","",""');
+    GString(Password) + LoginPlatform + ',c3adb4be4be05a76d9ffdc3e88ba180b,b94291e395c1ae186c7ee9b2d6c685be,"","2.6.38-1-squirrelos  #1-SquirrelOS SMP Mon Jun 27 12:00:00 UTC 2011"');
   Flush;
   SendPacket(PLI_LANGUAGE, Language);
   { no cached copy of the update package: asked by name (third lab run) }

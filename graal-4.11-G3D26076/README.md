@@ -28,6 +28,10 @@ every 5.145 s are as in 4.20r8 (and 4.04r2, whose lab runs they were timed on). 
 4.20r8 launcher shell (`Shell420`, for the 4.2.0.8 engine host) is not
 carried over.
 
+The machine fields are fixed made-up hashes of SquirrelOS, SquirrelNIC and
+SquirrelBIOS strings in the original's shape, as in 4.20r8. Nothing is read
+from the player's machine.
+
 ## Units
 
 As in 4.20r8, with the suffix `411`: `Protocol411`, `GraalClient`, `Adventure`, `Graal411.dpr`, `ListServer411`, `StartScreen411`, `RunMode`.

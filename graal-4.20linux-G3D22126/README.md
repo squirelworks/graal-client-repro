@@ -22,7 +22,7 @@ from decompiled code:
 | | 4.20r8 | 4.20 Linux (this folder) |
 |---|---|---|
 | Game token | `G3D20126` | `G3D22126` |
-| Login line platform | `win` | `linux`, three machine fields sent empty (the Linux 4.x line is not read; the name is the Linux 6.x clients') |
+| Login comma list | `win`, three hashes | `linux`, two hashes, empty, kernel string (inferred: the Linux 6.x name and shape) |
 | OSTYPE, code page | `wind`, 1252 (assumed) | `linux`, 1250 (the Linux 3.04's lab values, assumed) |
 | 44 (in the login burst and the answer to 182) | the program's name | empty, as the Mac 4.11 sent it (taken for Linux) |
 
@@ -30,6 +30,11 @@ The Login session, 178, the messages after login, X2/Y2 walking and 24
 every 5.145 s are as in 4.20r8 (and 4.04r2, whose lab runs they were timed on). The
 4.20r8 launcher shell (`Shell420`, for the 4.2.0.8 engine host) is not
 carried over.
+
+The machine fields are fixed made-up values of the original's shape: the
+MD5 hex of "SquirrelNIC eth0 MAC AC:04:2D:5E:ED:02" and of "SquirrelFS
+/etc inode 424242", and the kernel string
+`2.6.38-1-squirrelos  #1-SquirrelOS SMP Mon Jun 27 12:00:00 UTC 2011`. Nothing is read from the player's machine.
 
 ## Units
 
