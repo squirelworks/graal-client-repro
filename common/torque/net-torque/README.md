@@ -9,7 +9,7 @@ What it has to do later:
 - 5.0.0.7 3D: one check lets only protocol 24 through.
 - `TGraalConnection` is a Graal game type. It has no console methods. It stays outside this unit. In 3.04 it is not a child of `NetConnection`.
 
-`torque/network.md` records the protocol 3.04, 3.153, 4.04r2, 4.20r6 Mac and 5.12 accept (9, 19, 19, 21, 24). A later implementation has to match those. The 4.2.0.8 Windows 3D note gives no protocol number, so none is stated for that DLL.
+`torque/network.md` records the protocol 3.04, 3.153, 4.04r2, the 2006-09-19 Mac build and 5.12 accept (9, 19, 19, 21, 24). That Mac build was recorded as 4.20r6 but is the 4.11 Mac (`graal-4.11mac-G3D27076`), so 21 is a 4.11 Mac reading; no 4.20 build has a recorded number yet. A later implementation has to match those. The 4.2.0.8 Windows 3D note gives no protocol number, so none is stated for that DLL.
 
 | Version | Linked? |
 |---|---|

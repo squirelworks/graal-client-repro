@@ -1,13 +1,13 @@
-{ Graal 4.20r6 (G3D27076), rebuilt. The original is a Mac OS X (PowerPC)
+{ Graal 4.11 Mac (G3D27076), rebuilt. The original is a Mac OS X (PowerPC)
   program built from the 4.x engine source; this rebuild runs on Linux and
   Windows and carries the 4.20r8 one over, since both speak the same
   gen-5 wire and log in the same way (graal_analysis
   protocol/v4x-clients.md).
 
   Command line:
-    Graal420r6 --server HOST:PORT --account NAME [--password-env VAR]
+    Graal411mac --server HOST:PORT --account NAME [--password-env VAR]
              [--server-name NAME]
-    Graal420r6 --level FILE.graal|FILE.nw|FILE.gmap [--x X --y Y]
+    Graal411mac --level FILE.graal|FILE.nw|FILE.gmap [--x X --y Y]
   common options:
     --data DIR        a Graal install: pics1, arrays.dat, levels/ganis, heads,
                       bodies, swords, shields, hats
@@ -24,7 +24,7 @@
     --walk-ms N       random walk: a new direction every N ms (default 100)
     --seed N          random walk seed
     --link-every N    random walk: every N seconds head for the nearest link
-    --nodelay         set TCP_NODELAY (4.20r6's setting is not traced)
+    --nodelay         set TCP_NODELAY (4.11 Mac's setting is not traced)
     --server-name N   the name the client gives the server (default none);
                       a name starting with "login" is a Login session: no
                       players drawn, and 178 hands the client on
@@ -39,17 +39,17 @@
   Exit codes, online: 0 logged in and ended cleanly, 1 error, 2 never
   logged in, 3 the link dropped after login. Offline: 0 the level parsed,
   1 it did not. 64: bad command line. }
-program Graal420r6;
+program Graal411mac;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
 { A windowed program on Windows, like 2.05: started with no arguments it
   opens the start screen. With arguments it attaches to the console it was
   started from (OpenConsoleIO) and runs as before. }
 {$IFDEF MSWINDOWS}{$IFDEF FPC}{$APPTYPE GUI}{$ELSE}{$APPTYPE CONSOLE}{$ENDIF}{$ENDIF}
-{ Windows: version info and manifest (src/Graal420r6.rc), and the DEP and ASLR
+{ Windows: version info and manifest (src/Graal411mac.rc), and the DEP and ASLR
   flags ($0100 NX_COMPAT, $0040 DYNAMIC_BASE; the relocations come from -WR
   in the Windows build flags). }
-{$IFDEF MSWINDOWS}{$IFDEF FPC}{$R Graal420r6.rc}{$SETPEOPTFLAGS $0140}{$ENDIF}{$ENDIF}
+{$IFDEF MSWINDOWS}{$IFDEF FPC}{$R Graal411mac.rc}{$SETPEOPTFLAGS $0140}{$ENDIF}{$ENDIF}
 
 uses
   SysUtils, Classes,
@@ -67,12 +67,12 @@ uses
   GAni in '../../common/GAni.pas',
   GFont in '../../common/GFont.pas',
   GWindow in '../../common/GWindow.pas',
-  Protocol420r6 in 'Protocol420r6.pas',
+  Protocol411mac in 'Protocol411mac.pas',
   GraalClient in 'GraalClient.pas',
   Adventure in 'Adventure.pas',
   GStartScreen in '../../common/GStartScreen.pas',
-  ListServer420r6 in 'ListServer420r6.pas',
-  StartScreen420r6 in 'StartScreen420r6.pas',
+  ListServer411mac in 'ListServer411mac.pas',
+  StartScreen411mac in 'StartScreen411mac.pas',
   RunMode in 'RunMode.pas';
 
 var
@@ -489,7 +489,7 @@ begin
   Result := ExitCode_;
 end;
 
-{ Training: the notes do not say whether 4.20r6 plays offline. The start
+{ Training: the notes do not say whether 4.11 Mac plays offline. The start
   screen's Training button loads an offline tutorial level when the
   install has one (levels whose names start with offlinetutorial, as in
   2.22 to 3.x), else the built-in starter level (a start.nw next to the
@@ -517,9 +517,9 @@ var
   Dir, ListHost, ArrHost, Msg, Lvl, X, Y: string;
   ListPort: Integer;
   Picked: Boolean;
-  Fetch: TListFetch420r6;
+  Fetch: TListFetch411mac;
   Info: TStartInfo;
-  Who: TCharacter420r6;
+  Who: TCharacter411mac;
   Hosts: TListHosts;
   LoginMode: Boolean;
   I: Integer;
@@ -538,7 +538,7 @@ begin
       Exit;
     end;
     { Start asks listserver.graal.in on 14922 for a list (a
-      listserver.txt next to the program names another). The real 4.20r6
+      listserver.txt next to the program names another). The real 4.11 Mac
       logs in to the Login server named in license/license.graal (line 0
       host, line 1 port, lines 5 and 6 fallbacks); when the install has
       that file its hosts are added as extra rows, never the default. }
@@ -556,14 +556,14 @@ begin
     repeat
       Win.TakeChars;
       G := TAdventure.Create;
-      Fetch := TListFetch420r6.Create;
+      Fetch := TListFetch411mac.Create;
       Fetch.LoginHosts := Hosts;
-      Who := TCharacter420r6.Create;
+      Who := TCharacter411mac.Create;
       try
         G.UseInstall(Dir);
         Who.G := G;
         Info.Title := 'graal-delphi';
-        Info.Subtitle := '4.20r6 rebuilt';
+        Info.Subtitle := '4.11 Mac rebuilt';
         Info.DrawCharacter := Who.Draw;
         Info.StopRequested := StopRequested;
         Picked := RunStartScreen(Win, G.Screen, Fetch, Info, Dir, ListHost, ListPort, Msg, R);

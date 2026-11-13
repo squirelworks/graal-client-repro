@@ -1,11 +1,11 @@
 { Protocol420r6: message ids and constants of the 4.20r6 Mac OS X client
-  (G3D27076).
+  (G3D21126).
 
   The original is one PowerPC binary built from the 4.x engine source; on
   the wire it is gen 5, as 2.22 to 3.153 (graal_analysis
   protocol/v4x-clients.md). This rebuild runs on Linux and Windows.
   Sources: protocol/v4x-clients.md, version-profiles/4.04-4.20.toml, the
-  lab run of the real 4.20r6 in qemu (version-profiles/
+  lab run of the 4.11 Mac in qemu, taken for 4.20r6 (version-profiles/
   lab-mac-tiger-2026-10-31.md) and the 4.04r2 lab runs where that one is
   silent (client-internals/live-behaviour-404.md). There is no listserver protocol any more: the
   client logs in to a game server named Login, which serves the list and
@@ -18,13 +18,15 @@ unit Protocol420r6;
 interface
 
 const
-  { The 8-byte version token in the login line (v4x-clients.md, "Version
-    tokens": 27 July 2006). }
-  ClientVersionToken = 'G3D27076';
+  { The 8-byte version token in the login line. G3D21126 is the listed
+    token of the Mac 4.20r6 (Batch-1 TOKENS.md); it has not been read from
+    the binary or seen on the wire. Read as G3D + day, month, year digit it
+    is 21 Dec 2006, the binary's build date. }
+  ClientVersionToken = 'G3D21126';
   ClientBuildLabel = '4.20r6';
-  { Its folders under graal-assets: its own, then 4.20r8's. The files the
-    two installs ship are byte for byte the same, so the shared zip keeps
-    one copy, under 4.20r8. }
+  { Its folders under graal-assets: its own, then 4.20r8's. The 4.20r6
+    Linux install ships 4.20r8's files byte for byte; the Mac install has
+    not been compared yet. }
   AssetVersions = '4.20r6;4.20r8';
   { After the password the login line carries an unprefixed comma list:
     the platform and three machine fields. }
@@ -231,7 +233,7 @@ const
   TextCodePage = 0;
 
   { PLI_SHOWIMG (24) = GCHAR 9. 4.04r2 sends it every 5.14 to 5.15 s
-    (live-behaviour-404.md, third run). The qemu run of 4.20r6 saw 16 to
+    (live-behaviour-404.md, third run). The qemu run of the 4.11 Mac (taken for 4.20r6) saw 16 to
     19 s between them, on an emulated PowerPC that runs far slower than a
     real Mac; 4.04r2's period is taken until a real Mac is timed. }
   ShowImgEveryMs = 5145;

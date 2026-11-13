@@ -136,8 +136,8 @@ task lists mechanically on 2026-11-05 and some are older than the code).
     RFC vectors), pins, `off`/`auto`/`required` (off by default)
   - [x] Gen 5 Delphi: 2.22, 2.3, 2.31, game and list links, loopback
     against seihai-gserver and seihai-listserver
-  - [x] 3.04, 3.153, 4.04r2, 4.20r6, 4.20r8, 5.00r7, 5.12, 6.01r1,
-    6.0.1.5, 6.0.3.4, 6.03r7 (platform fields inside C2), game and list
+  - [x] 3.04, 3.153, 4.04r2, 4.11 Mac, 4.20r6, 4.20r8, 5.00r7, 5.12,
+    6.00 beta, 6.01r1, 6.0.1.5, 6.0.3.4, 6.03r7 (platform fields inside C2), game and list
     links
   - [ ] 5.31r4: its folder is a scaffold that speaks to no server yet, so
     the login goes in when its link does

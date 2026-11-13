@@ -65,6 +65,16 @@ type
     A, B, C, D, TX, TY: Single;
   end;
 
+  { One row of the 5.x player list (ExternalPlayerlistUpdate): the lab's
+    5.12 sent the id, nick, head image, "account=..,level=..,
+    communityname=..,attr[1]=.." and flags (ListSelf for the client's own
+    row, ListServer for a player on this server). }
+  TListedPlayer = record
+    Id: Integer;
+    Nick, Head, Props: string;
+    Flags: Integer;
+  end;
+
   TEngineHost = class
   private
     FLib: PtrUInt;
@@ -90,6 +100,23 @@ type
     Active: Boolean;
     { The server the engine last logged in to (OnServerLogin), '' before. }
     ServerName: string;
+    { The player list the engine reports (ExternalPlayerlistUpdate and
+      Delete), in the order the rows first came. }
+    Players: array of TListedPlayer;
+    { The status names (SetGraalStatusIcons), for the Players window's
+      Status list. }
+    Statuses: TStringList;
+    { Bumped on every change of Players, ServerName or Statuses, so a
+      window can tell when to redraw. }
+    ListChanges: Integer;
+    { The last OpenMessageBox, '' before; MessageCount counts them. }
+    MessageTitle, MessageText: string;
+    MessageCount: Integer;
+    { The row for an id, -1 when it is not listed. }
+    function PlayerIndex(Id: Integer): Integer;
+    { What the 5.12 launcher's Players window and tray show: every listed
+      row, the client's own included. }
+    function OnlineCount: Integer;
     constructor Create(AWidth, AHeight: Integer);
     destructor Destroy; override;
     { Loads the library and checks its interface version. }
@@ -1037,9 +1064,54 @@ begin
   Cur.Log.Add(Str(S));
 end;
 
-procedure cbMessageBox(Title, Text: PAnsiChar); cdecl;
+procedure cbMessageBox(Title, Text: PAnsiChar; Kind: LongInt); cdecl;
 begin
   Note('MessageBox ' + Str(Title) + ': ' + Str(Text));
+  if Cur = nil then Exit;
+  Cur.MessageTitle := Str(Title);
+  Cur.MessageText := Str(Text);
+  Inc(Cur.MessageCount);
+end;
+
+procedure cbPlayerlistUpdate(Id: LongInt; Nick, Head, Props: PAnsiChar; Flags: LongInt); cdecl;
+var
+  I: Integer;
+begin
+  if Cur = nil then Exit;
+  I := Cur.PlayerIndex(Id);
+  if I < 0 then
+  begin
+    I := Length(Cur.Players);
+    SetLength(Cur.Players, I + 1);
+  end;
+  Cur.Players[I].Id := Id;
+  Cur.Players[I].Nick := Str(Nick);
+  Cur.Players[I].Head := Str(Head);
+  Cur.Players[I].Props := Str(Props);
+  Cur.Players[I].Flags := Flags;
+  Inc(Cur.ListChanges);
+end;
+
+procedure cbPlayerlistDelete(Id: LongInt); cdecl;
+var
+  I, J: Integer;
+begin
+  if Cur = nil then Exit;
+  I := Cur.PlayerIndex(Id);
+  if I < 0 then Exit;
+  for J := I to High(Cur.Players) - 1 do Cur.Players[J] := Cur.Players[J + 1];
+  SetLength(Cur.Players, Length(Cur.Players) - 1);
+  Inc(Cur.ListChanges);
+end;
+
+procedure cbStatusIcons(S: PAnsiChar); cdecl;
+begin
+  Note('StatusIcons ' + Str(S));
+  if Cur = nil then Exit;
+  Cur.Statuses.Delimiter := ',';
+  Cur.Statuses.StrictDelimiter := True;
+  Cur.Statuses.DelimitedText := Str(S);
+  Inc(Cur.ListChanges);
 end;
 
 procedure cbServerText(S: PAnsiChar); cdecl;
@@ -1050,7 +1122,9 @@ end;
 procedure cbServerLogin(S: PAnsiChar); cdecl;
 begin
   Note('ServerLogin ' + Str(S));
-  if Cur <> nil then Cur.ServerName := Str(S);
+  if Cur = nil then Exit;
+  Cur.ServerName := Str(S);
+  Inc(Cur.ListChanges);
 end;
 
 procedure cbListerConnect; cdecl;
@@ -1173,7 +1247,7 @@ begin
   Add('SetGraalFullscreen', @cbInt);
   Add('ShowGraalWindow', @cbInt);
   Add('MakeGraalScreenshot', @cbScreenshot);
-  Add('SetGraalStatusIcons', @cbInt);
+  Add('SetGraalStatusIcons', @cbStatusIcons);
   Add('GetGraalActionKeyText', @cbEmptyText);
   Add('GetVirtualKeyCode', @cbKeyCode);
   Add('SwitchToSetupMode', @cbInt);
@@ -1190,8 +1264,8 @@ begin
   Add('LogGraalMessage', @cbLog);
   Add('OpenExternalLogWindow', @cbNone);
   Add('OpenExternalPlayerlist', @cbNone);
-  Add('ExternalPlayerlistUpdate', @cbText);
-  Add('ExternalPlayerlistDelete', @cbText);
+  Add('ExternalPlayerlistUpdate', @cbPlayerlistUpdate);
+  Add('ExternalPlayerlistDelete', @cbPlayerlistDelete);
   Add('OpenExternalPM', @cbText2);
   Add('OpenExternalHistory', @cbText);
   Add('OpenExternalProfile', @cbText);
@@ -1243,8 +1317,27 @@ begin
   Log := TStringList.Create;
   Events := TStringList.Create;
   FMissing := TStringList.Create;
+  Statuses := TStringList.Create;
   Active := True;
   FLib := 0;
+end;
+
+function TEngineHost.PlayerIndex(Id: Integer): Integer;
+var
+  I: Integer;
+begin
+  Result := -1;
+  for I := 0 to High(Players) do
+    if Players[I].Id = Id then
+    begin
+      Result := I;
+      Exit;
+    end;
+end;
+
+function TEngineHost.OnlineCount: Integer;
+begin
+  Result := Length(Players);
 end;
 
 destructor TEngineHost.Destroy;
@@ -1254,6 +1347,7 @@ begin
   Log.Free;
   Events.Free;
   FMissing.Free;
+  Statuses.Free;
   inherited;
 end;
 

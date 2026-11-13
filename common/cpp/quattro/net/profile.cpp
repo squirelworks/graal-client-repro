@@ -120,6 +120,7 @@ std::vector<BuildProfile> make() {
   r512.os_version = "6.2 9200 ";
   r512.packed_round_down = true;
   r512.compress_always = true;
+  r512.last_prop = 82;  // its player list showed each player's community name
   rows.push_back(r512);
 
   return rows;

@@ -1,13 +1,13 @@
-{ GraalClient: TGraalClient and TAdventureClient, the 4.20r6 game link.
+{ GraalClient: TGraalClient and TAdventureClient, the 4.11 Mac game link.
   4.x is a Delphi launcher over a C++ engine DLL that holds the network
   code; on the wire it is gen 5 as 2.22 (graal_analysis
   protocol/v4x-clients.md, "Cipher and framing"), so the rebuild keeps the
-  2.22 class split. What 4.20r6 does at login (v4x-clients.md, "Login
+  2.22 class split. What 4.11 Mac does at login (v4x-clients.md, "Login
   packet", and client-internals/live-behaviour-404.md): the login line
   alone in the fixed plain zlib frame, with a comma list after the
   password (platform and three machine fields); then 37 (language) and 23
   for basepackage.gupd in gen 5. No tamper check, ever. The qemu run of
-  the Mac 4.20r6 (version-profiles/lab-mac-tiger-2026-10-31.md) saw the
+  the Mac 4.11 (version-profiles/lab-mac-tiger-2026-10-31.md) saw the
   same login line, with mac as the platform.
 
   Same class split as 2.05 (graal_analysis client-internals/
@@ -139,13 +139,13 @@ type
     property InCodec: TGen5 read FInCodec;
   end;
 
-{ The compression byte 4.20r6 (as 2.22) picks for an out buffer, and the body. }
+{ The compression byte 4.11 Mac (as 2.22) picks for an out buffer, and the body. }
 function PackBody(const Plain: string; out CType: Integer): string;
 
 implementation
 
 uses
-  SysUtils, GTypes, GZlib, GBzip2, Protocol420r6;
+  SysUtils, GTypes, GZlib, GBzip2, Protocol411mac;
 
 { TGen5 }
 
@@ -167,7 +167,7 @@ begin
   if (CType and 1) <> 0 then Exit; { odd codes are not XORed }
   { Raw bodies step once per group present, a short last one too;
     compressed ones only per whole group (as the stock 4.04r2 engine and
-    5.12: len shr 2, at most 4; seihai-core sets this for 4.20r6 too). }
+    5.12: len shr 2, at most 4; seihai-core sets this for G3D27076 too). }
   if CType = CompressNone then
   begin
     Groups := XorGroupsRaw;

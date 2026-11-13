@@ -3,7 +3,7 @@
   before them), since all of them speak the gen-5 wire. What 4.x does
   differently, from the notes and the lab runs (graal_analysis
   protocol/v4x-clients.md, version-profiles/4.04-4.20.toml,
-  version-profiles/lab-mac-tiger-2026-10-31.md for 4.20r6 in qemu,
+  version-profiles/lab-mac-tiger-2026-10-31.md for the 4.11 Mac in qemu (taken for 4.20r6),
   client-internals/live-behaviour-404.md for 4.04r2). The qemu run saw
   4.20r6 send the same kinds of message as 4.04r2 (37, 23, 157, 46, 44,
   props with X2 / Y2, 34, 24); the frame order and timings were measured
@@ -1466,7 +1466,7 @@ var
 begin
   AskGani(OwnGani);
   FClient.SendPacket(PLI_ENTERLEVEL, '');
-  { 44 went out empty in the qemu run of 4.20r6 }
+  { 44 went out empty in the qemu run of the 4.11 Mac (taken for 4.20r6) }
   FClient.SendPacket(PLI_PROCESSLIST, '');
   FClient.SendPacket(PLI_PLAYERPROPS,
     GChar(PLPROP_NICKNAME) + GString(Player.Nickname) +
@@ -1915,7 +1915,7 @@ begin
       PLO_UNFREEZEPLAYER: Frozen := False;
       PLO_SERVERWARP: ServerWarp(Data);
       PLO_LISTPROCESSES:
-        { answered with an empty 44, as the qemu run of 4.20r6 saw (the
+        { answered with an empty 44, as the qemu run of the 4.11 Mac (taken for 4.20r6) saw (the
           Windows clients list their window titles; the Mac one did not) }
         FClient.SendPacket(PLI_PROCESSLIST, '');
       PLO_HASPROCESSRUNNING:

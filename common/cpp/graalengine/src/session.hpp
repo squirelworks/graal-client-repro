@@ -62,6 +62,7 @@ class Session2D {
   graal_texture frame_{};
   std::vector<std::string> log_;
   int loginsSeen_ = 0;
+  bool five_ = false;  // a 5.x row: the 5.12 launcher calls (player list, status names)
 };
 
 }  // namespace graalengine

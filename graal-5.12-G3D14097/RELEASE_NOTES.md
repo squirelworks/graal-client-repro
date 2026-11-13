@@ -26,6 +26,8 @@ to the program works too (`graal-assets/5.12/`, then
 ## What's new in v0.0.5
 
 - [x] **Seihai secure login (optional, off by default).** With `--secure-login auto` (or `required`, or `secure_login.txt` in the settings folder), the account and password go sealed to a Seihai game server or list server (`SEI00001`), after the server's key is checked and pinned. Servers that do not know it get the original login under `auto`. Off, the login is byte for byte the original's. This is not in the original 5.12.
+- [x] **The engine tells the launcher who is online.** As the real 5.12 engine does (lab run under hooks), the engine's session sends the launcher a row for each player the server names, on any level (id, nick, head, account, level, community name, first attribute, and flags for the player's own row and players on this server), updates it when one of those changes and deletes it when the player leaves. It also sends the status names ("Online, Away, DND", then the longer list once logged in), and a "You have been disconnected" warning when the link drops. The launcher keeps the list for its Players window. The window title now changes when the server accepts the login, not when the login is sent.
+- [x] **The Players window and the tray icon.** With `--engine --window` a second window, "Players: N online", lists who is on the server by head and nick under 5.12's groups (Staff, Buddies, Guild, Normal, Ignore, Offline). On Windows the program's icon sits in the tray with "<server>: N online" as its tip and the original's menu: Show Game, Show Player List, Quit. The list's tabs, Status list and buttons are drawn but do nothing yet.
 
 ## What's new in v0.0.4.2
 
