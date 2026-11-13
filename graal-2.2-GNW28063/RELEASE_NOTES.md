@@ -8,7 +8,7 @@ for testing servers with the 2.2 login.
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").
 
-## What's new in v0.0.1
+## What's new in v0.0.5
 
 - [x] **The 2.2 token, `GNW28063`**, with the generation-4 link (type 4, bzip2 frames, partial XOR).
 - Everything else is as in the 2.17.1 rebuild.
