@@ -122,8 +122,9 @@ were not measured.
   server drops from a cut bush is a floor item and is not drawn yet. Only
   the green gralat was seen over a chest; other items use the Pascal
   clients' item sprite table. Carrying never pushes. Esc still quits with
-  no GUI (the lab saw Esc toggle the status bit like D, Q and Tab). Through `Program::action` (the engine library's
-  library's bindings), `doQ` does D and `doS2` (Space) does S.
+  no GUI (the lab saw Esc toggle the status bit like D, Q and Tab).
+  Through `Program::action` (the engine library's bindings), `doQ` does
+  D and `doS2` (Space) does S.
 - Stand-ins until the real art is drawn: tiles with no `pics1.png` are flat
   colours from their id; chests are boxes (6.03r7 draws none, as the
   real client does), and so is a player when no
