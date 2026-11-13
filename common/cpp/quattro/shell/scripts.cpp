@@ -161,6 +161,9 @@ std::string make_load_script(const ScriptDescriptor& d) {
 }
 
 ScriptHost::ScriptHost() : machine_(gs2::Profile::Engine600) {
+  player_ = std::make_shared<gs2::Var>("player");
+  player_->setAcceptsAllProperties(true);
+  machine_.setPlayer(player_);
   machine_.addCommand("echo", "s", [this](gs2::Machine& m, gs2::Var&, std::vector<gs2::Value>& args) {
     note("echo: " + m.toString(args[0]));
     return gs2::Value::number(0);
@@ -175,6 +178,13 @@ void ScriptHost::note(const std::string& s) {
 gs2::VarPtr ScriptHost::weapon(const std::string& name) const {
   auto it = weapons_.find(lower(name));
   return it == weapons_.end() ? nullptr : it->second;
+}
+
+bool ScriptHost::fire(const std::string& name) {
+  gs2::VarPtr w = weapon(name);
+  if (!w || !machine_.hasScript(w)) return false;
+  machine_.queueEvent(w, "WeaponFired");  // runs onWeaponFired
+  return true;
 }
 
 std::string ScriptHost::cache_path(const ScriptDescriptor& d) const {

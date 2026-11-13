@@ -15,7 +15,8 @@
 //   Nothing is sent when it lands.
 // - A against anything else that blocks: gani `grab`; with the arrow away
 //   from it held, `pull`. Only the pose changes; it stays after release.
-// - D (and Q, Tab with no weapon): the status prop toggles bit 0 (20 <-> 21).
+// - D (and Q, Tab) with no weapon shown: the status prop toggles bit 0
+//   (20 <-> 21). With one, the program uses the weapon instead (weapons.hpp).
 // - Walking into a closed chest opens it: 20 OPENCHEST x, y, once.
 //
 // The probe point and the 2 x 2 match follow the 2.22 Pascal rebuild's

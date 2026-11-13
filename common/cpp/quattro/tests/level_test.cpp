@@ -258,7 +258,7 @@ void test_actor_drawing() {
     for (int x = 0; x < 24; ++x) sprites.at(x, y) = {4, 5, 6, 255};
   assets.put_image("sprites.png", sprites);
   w.player.carry = {0, 0, 32, 32};
-  w.effects.push_back({{0, 32, 24, 12}, 9 * 16, 13 * 16});
+  w.effects.push_back({{0, 32, 24, 12}, 9 * 16, 13 * 16, {}});
   Draw::Canvas e(160, 160);
   r.draw(e, w, v);
   CHECK(e.surface().at(32 + 8, 32 - 22).b == 3 && e.surface().at(32 + 8, 32 - 23).b != 3);

@@ -71,6 +71,12 @@ class ScriptHost {
 
   gs2::Machine& machine() { return machine_; }
   gs2::VarPtr weapon(const std::string& name) const;
+  // 194 (PLO_RESETCLIENT, was CLEARWEAPONS): every weapon goes.
+  void clear_weapons() { weapons_.clear(); }
+  // Raises onWeaponFired on the named weapon; false when it has no script.
+  bool fire(const std::string& name);
+  // The `player` the scripts see (the program fills its fields each tick).
+  gs2::VarPtr player() const { return player_; }
   const std::map<std::string, std::string>& classes() const { return classes_; }
   const std::vector<std::string>& log() const { return log_; }
   std::function<void(const std::string&)> on_log;
@@ -83,6 +89,7 @@ class ScriptHost {
   gs2::Machine machine_;
   SendFn send_;
   std::string cache_dir_;
+  gs2::VarPtr player_;
   std::map<std::string, gs2::VarPtr> weapons_;  // lower-cased names
   std::map<std::string, std::string> classes_;  // name -> bytecode
   std::vector<std::string> log_;

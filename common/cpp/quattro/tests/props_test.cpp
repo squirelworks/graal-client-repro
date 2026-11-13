@@ -1,6 +1,7 @@
 // The player prop stream and the props the client sends.
 #include "../world/actions.hpp"
 #include "../world/effects.hpp"
+#include "../world/weapons.hpp"
 #include "../world/player.hpp"
 #include "../world/walk.hpp"
 #include "check.hpp"
@@ -397,6 +398,80 @@ void test_carry_walk() {
   CHECK(p.gani == "carrystill");
 }
 
+
+void test_weapon_list() {
+  WeaponList w;
+  CHECK(w.selected() == nullptr && !w.any_shown());
+  CHECK(w.add("-System") && w.selected_index() == 0 && !w.any_shown());  // nothing else to pick
+  CHECK(w.add_default(8) && w.selected()->name == "Bomb" && w.selected()->image == "wbomb1.png" && w.selected()->item == 8);
+  CHECK(!w.add_default(5) && !w.add("Bomb"));  // a heart is no weapon; a name the list has is skipped
+  CHECK(w.add_default(7) && w.selected()->name == "Bow" && w.selected_index() == 2);
+  CHECK(w.add("Stick", "stick.png") && w.selected_index() == 3);
+  w.select_next();  // wraps past the hidden -System to Bomb
+  CHECK(w.selected()->name == "Bomb");
+  w.select(3);
+  w.remove("Stick");  // the index is gone: the new last entry
+  CHECK(w.selected()->name == "Bow");
+  w.select(1);
+  w.remove("-System");  // index 1 still exists
+  CHECK(w.selected_index() == 1 && w.selected()->name == "Bow");
+  CHECK(default_weapon_name(23) == "Joltbomb" && default_weapon_image(22) == "wbowi4.png");
+  w.clear();
+  CHECK(w.list().empty() && w.selected() == nullptr);
+}
+
+void test_combat() {
+  std::string d = items_dat();
+  ObjectTables tables;
+  TileTypes types;
+  std::string err;
+  CHECK(read_object_tables(d, tables) && read_arrays_dat(d, types, err));
+  Files::Level l = open_level();
+  // A bush one step past the bomb's corner, and a wall in the arrow's way.
+  set_tile(l, 34, 32, 2);
+  set_tile(l, 35, 32, 3);
+  set_tile(l, 34, 33, 18);
+  set_tile(l, 35, 33, 19);
+  set_tile(l, 36, 32, 5);
+
+  Player p;
+  p.x = 31;
+  p.y = 30;
+  p.dir = 3;
+  p.bombs = 1;
+  Combat c;
+  auto out = c.lay_bomb(p, 1);  // 1.5 tiles right of the body: (33, 31)
+  CHECK(out.size() == 1 && out[0].id == 4 && out[0].body == gchar(66) + gchar(62) + gchar(9) + gchar(55));
+  CHECK(p.bombs == 0 && c.bombs().size() == 1 && c.bombs()[0].mine);
+  CHECK(c.lay_bomb(p, 1).empty());  // none left
+  for (int t = 1; t < Combat::kFuse; ++t) CHECK(c.tick(l, tables, types).empty());
+  out = c.tick(l, tables, types);  // the fuse ends: explosion, then the bush is cut
+  CHECK(out.size() == 2 && out[0].id == 27 && out[0].body == gchar(2) + gchar(66) + gchar(62) + gchar(9));
+  CHECK(out[1].id == 1 && out[1].body == board_modify(34, 32, 2, 2, {677, 678, 693, 694}));
+  CHECK(l.tile(34, 32) == 677 && c.bombs().empty() && c.blasts().size() == 1);
+  for (int t = 0; t < Combat::kBlastTicks; ++t) c.tick(l, tables, types);
+  CHECK(c.blasts().empty());
+
+  p.arrows = 1;
+  out = c.shoot(p, 0);  // from (33.5, 31.75), right
+  CHECK(out.size() == 1 && out[0].id == 9 && out[0].body == gchar(67) + gchar(64) + gchar(11) + gchar(110) + gchar(1));
+  CHECK(p.arrows == 0 && c.shoot(p, 0).empty());
+  c.tick(l, tables, types);
+  c.tick(l, tables, types);
+  CHECK(c.shots().size() == 1 && c.shots()[0].x == 35.5);
+  c.tick(l, tables, types);  // its middle reaches the wall at (36, 32)
+  CHECK(c.shots().empty());
+
+  // Others' bombs, shots and explosions from the server.
+  CHECK(c.on_message(11, gshort(5) + gchar(20) + gchar(40) + gchar(10) + gchar(30)));
+  CHECK(c.bombs().size() == 1 && !c.bombs()[0].mine && c.bombs()[0].x == 10 && c.bombs()[0].power == 2 && c.bombs()[0].fuse == 30);
+  CHECK(c.on_message(12, gchar(20) + gchar(40)) && c.bombs().empty());
+  CHECK(c.on_message(19, gshort(5) + gchar(20) + gchar(40) + gchar(9) + gchar(108) + gchar(1)));
+  CHECK(c.shots().size() == 1 && c.shots()[0].dir == 1 && c.shots()[0].kind == 0 && !c.shots()[0].mine);
+  CHECK(c.on_message(36, gshort(5) + gchar(2) + gchar(20) + gchar(40) + gchar(11)));
+  CHECK(c.blasts().size() == 1 && c.blasts()[0].power == 3 && !c.blasts()[0].mine);
+  CHECK(!c.on_message(13, ""));
+}
 }  // namespace
 
 int main() {
@@ -410,5 +485,7 @@ int main() {
   test_item_keys();
   test_effects();
   test_carry_walk();
+  test_weapon_list();
+  test_combat();
   TEST_MAIN_END();
 }

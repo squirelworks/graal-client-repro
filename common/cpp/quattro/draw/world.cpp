@@ -102,12 +102,13 @@ void WorldRenderer::draw_player(Canvas& c, const WorldState& w, const View& v) c
   int px = static_cast<int>(std::lround((w.player.x - v.left) * kTile));
   int py = static_cast<int>(std::lround((w.player.y - v.top) * kTile));
   draw_actor(c, w.player, px, py, {230, 60, 60, 255});
-  const Image* sprites = assets_ ? assets_->image("sprites.png") : nullptr;
-  if (!sprites) return;
+  if (!assets_) return;
   for (const auto& e : w.effects) {
+    const Image* sheet = assets_->image(e.image.empty() ? "sprites.png" : e.image);
+    if (!sheet) continue;
     int ex = static_cast<int>(std::lround(e.x - v.left * kTile));
     int ey = static_cast<int>(std::lround(e.y - v.top * kTile));
-    c.blit(*sprites, e.src, ex, ey);
+    c.blit(*sheet, e.src, ex, ey);
   }
 }
 

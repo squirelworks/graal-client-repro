@@ -17,6 +17,7 @@
 #include "../world/effects.hpp"
 #include "../world/player.hpp"
 #include "../world/walk.hpp"
+#include "../world/weapons.hpp"
 #include "gui_host.hpp"
 #include "scripts.hpp"
 
@@ -90,6 +91,12 @@ class Program {
   const World::TileTypes& tile_types() const { return tile_types_; }
   void set_object_tables(const World::ObjectTables& t) { object_tables_ = t; }
   const World::Effects& effects() const { return effects_; }
+  // The weapon list (33, 34, 43, 194) and the bombs, blasts and shots in the level.
+  const World::WeaponList& weapons() const { return weapons_; }
+  const World::Combat& combat() const { return combat_; }
+  // Uses the selected weapon, as D does: a server weapon with a script gets
+  // onWeaponFired; a built-in one lays its bomb or fires its shot.
+  void fire_weapon();
   Draw::Assets& assets() { return *assets_; }
   const std::string& level_name() const { return level_name_; }
   // Files asked for with C->S 23, lower case.
@@ -146,6 +153,12 @@ class Program {
   void list_player(int id, const World::Player& p, int flags);
   void unlist(int id);
   void unlist_all();
+  void send_packets(const std::vector<World::Packet>& out);
+  void send_counts();  // props 4 and 5 when the arrow or bomb count changed
+  void register_weapon_commands();
+  void sync_player_in();   // the script's `player` from me_
+  void sync_player_out();  // what a script changed back into me_
+  void combat_effects();   // bombs, blasts and shots as effect sprites
 
   const Net::BuildProfile& profile_;
   Options opt_;
@@ -164,7 +177,13 @@ class Program {
   World::ItemKeys item_keys_;
   unsigned action_held_ = 0;  // bindings held by action(), one bit per binding
   unsigned action_moves_ = 0, action_items_ = 0;  // what they hold: walk keys, World::ItemKey bits
+  bool action_d_ = false, action_q_ = false;      // doD, doQ held
   World::Effects effects_;
+  World::WeaponList weapons_;
+  World::Combat combat_;
+  bool weapon_keys_[2] = {false, false};  // D, and Q/Tab, last tick (with a weapon shown)
+  int sent_arrows_ = -1, sent_bombs_ = -1;
+  struct { double x = 0, y = 0; int dir = 0, bombs = 0, arrows = 0; } script_seen_;
   bool props_sent_ = false;
   ScriptHost scripts_;
   std::unique_ptr<GuiHost> gui_;
