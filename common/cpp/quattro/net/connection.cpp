@@ -33,8 +33,8 @@ void Connection::close() {
 }
 
 std::string Connection::login_line(const std::string& account, const std::string& password) const {
-  std::string line = gchar(key_) + profile_.token + gstring(account) + gstring(password) + profile_.platform;
-  for (int i = 0; i < profile_.machine_fields; ++i) line += ",\"\"";
+  std::string line = gchar(key_) + profile_.token + gstring(account) + gstring(password) + profile_.platform +
+                     profile_.machine_fields;
   if (profile_.has_os_version) line += ",\"" + profile_.os_version + "\"";
   return line;
 }

@@ -6,6 +6,9 @@
 
 namespace Quattro::Net {
 
+const char kFakeWinFields[] = ",c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400";
+const char kFakeLinuxFields[] = ",c3adb4be4be05a76d9ffdc3e88ba180b,b94291e395c1ae186c7ee9b2d6c685be,\"\",\"2.6.38-1-squirrelos #1-SquirrelOS SMP Mon Jun 27 12:00:00 UTC 2011\"";
+
 namespace {
 
 using Range = std::pair<int, int>;
@@ -40,7 +43,7 @@ std::vector<BuildProfile> make() {
   r603.label = "6.03r7 Linux";
   r603.token = "G3D0511C";
   r603.platform = "linux";
-  r603.machine_fields = 4;
+  r603.machine_fields = kFakeLinuxFields;
   r603.plo = plo_603();
   r603.pli = pli_603();
   r603.answers_ping = true;
@@ -61,7 +64,7 @@ std::vector<BuildProfile> make() {
   // common/cpp/graalengine). From Graal_analysis protocol/v4x-clients.md
   // and version-profiles/4.04-4.20.toml, as graal-4.04r2-G3D17026's
   // Protocol404 carries them: the same gen-5 cipher and login line ("win"
-  // and three empty machine fields), no ping answer (108 is not in its
+  // and three machine fields), no ping answer (108 is not in its
   // switch), never 39. Its first server is a game server named Login that
   // hands the player on with 178, as the 6.x lobby does. The send set is
   // the ids that rebuild sends (the notes give no full list).
@@ -69,7 +72,7 @@ std::vector<BuildProfile> make() {
   r404.label = "4.04r2 Windows";
   r404.token = "G3D17026";
   r404.platform = "win";
-  r404.machine_fields = 3;
+  r404.machine_fields = kFakeWinFields;
   r404.plo = ids({{0, 25},    {27, 43},   {45, 49},   {67, 69},   {74, 75},   {82, 82},
                   {84, 84},   {100, 102}, {104, 106}, {131, 134}, {150, 151}, {153, 156},
                   {165, 166}, {168, 176}, {178, 187}, {189, 191}, {193, 195}});
@@ -96,7 +99,7 @@ std::vector<BuildProfile> make() {
   BuildProfile r500 = r404;
   r500.label = "5.00r7 Windows";
   r500.token = "G3D22067";
-  r500.machine_fields = 3;  // win,<md5>,"",<md5> in the lab; "" each here
+  r500.machine_fields = kFakeWinFields;  // win,<md5>,"",<md5> in the lab (no network card)
   r500.packed_round_down = false;  // 5.00r7 rounds up both ways
   r500.update_packages = false;    // the same rule in the lab; not wired for 5.x here yet
   // In Login mode the level, chests and image NPCs are drawn; characters

@@ -44,7 +44,7 @@ from decompiled code:
 | | 4.20r8 | 4.20r6 (this folder) |
 |---|---|---|
 | Game token | `G3D20126` | `G3D21126` |
-| Login line platform | `win` | `mac` (the hash fields are sent empty) |
+| Login line platform | `win` | `mac` (the hash fields are fixed made-up hashes of SquirrelBook and SquirrelFS strings) |
 | OSTYPE, code page | `wind`, 1252 (assumed) | `mac`, 0 (seen in the qemu run) |
 | 44 (in the login burst and the answer to 182) | the program's name | empty, as the qemu run saw |
 | Server ids handled | 101 | 99: no 41, no 196 |

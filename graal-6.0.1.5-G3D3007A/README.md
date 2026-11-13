@@ -83,7 +83,7 @@ From the program's folder (or `--data`), then `graal-assets/6.0.1.5/`, then
 ## Not yet, or not known
 
 - [ ] Nothing past the token has been read from 6.0.1.5 itself: its protector hides the code. The ids handled, the Login mode and the framing are 6.01r1's.
-- [ ] The four Windows machine fields are sent as `""`; the original sends the MD5 of the product id, the adapter MAC and the `C:\` volume serial, then the quoted Windows version.
+- [x] ~~The four Windows machine fields are sent as `""`~~: they now carry made-up MD5 hashes of SquirrelOS, SquirrelNIC and SquirrelBIOS strings, then the quoted Windows version, the shape the original sends.
 - [ ] 6.0.0.7 is not checked separately; it is taken to behave as 6.0.1.5.
 - [ ] No side-by-side run against the real client; that is 0.0.2 work.
 - [ ] Everything still missing from `graal-6.01r1-G3D0108A`:

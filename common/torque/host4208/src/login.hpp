@@ -10,7 +10,8 @@
 // That is what graal-4.20r8-G3D20126/tests/Test420.dpr asserts.
 //
 // Machine fields: the real client sends three machine hashes. This host
-// sends the empty fields from that test (win,"","",""). Ids 37 and 23
+// sends the made-up hashes from that test (MD5 hex of SquirrelOS,
+// SquirrelNIC and SquirrelBIOS strings; no machine is read). Ids 37 and 23
 // follow in later gen-5 frames. They are not this frame and this host
 // does not send them.
 

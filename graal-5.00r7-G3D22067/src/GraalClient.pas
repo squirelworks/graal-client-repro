@@ -489,12 +489,8 @@ begin
 end;
 
 function LoginTail: string;
-var
-  I: Integer;
 begin
-  Result := LoginPlatform;
-  for I := 1 to LoginMachineFields do
-    Result := Result + ',' + EmptyMachineField;
+  Result := LoginPlatform + LoginMachineFields;
 end;
 
 procedure TAdventureClient.SendToAll(const Text: string);

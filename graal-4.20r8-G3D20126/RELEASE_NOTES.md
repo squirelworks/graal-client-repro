@@ -21,6 +21,10 @@ point it at one with `--data DIR`) and the install's tiles, ganis, heads and
 bodies take their place. The shared `graal-assets/` folder next to the
 program works too (`graal-assets/4.20r8/`, then `graal-assets/common/`).
 
+## What's new in v0.0.5
+
+- [x] **Machine fields in the original's shape.** The login line's three machine fields are no longer empty. They carry fixed made-up MD5 hashes (of SquirrelOS, SquirrelNIC and SquirrelBIOS strings), the shape the real client sends. Nothing is read from your machine.
+
 ## What's new in v0.0.4.2
 
 - **The frame cipher steps compressed bodies rounded down** (`len div 4`, at most 4), as the stock 4.04r2 engine and 5.12 do; raw bodies still step `(len + 3) div 4`. seihai-gserver now does the same for this version, and the rebuild had dropped with "bad frame from the server" right after entering a level.

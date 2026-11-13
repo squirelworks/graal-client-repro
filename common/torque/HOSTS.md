@@ -32,7 +32,7 @@ Nothing else is shared. Each host has its own copy of `controls`, and the frame 
 | Sources | `src/main.cpp`, `src/surface.cpp`, `src/controls.cpp`, `src/login.cpp` + shared ([Makefile](host4208/Makefile)) |
 | Token | `G3D20126` (`kVersionToken`, [src/login.cpp](host4208/src/login.cpp)): the documented Windows 4.20r8 game-server token (`protocol/v4x-clients.md`). The original builds it one character at a time, so its image has no string literal. |
 | First frame | The login line alone: plain zlib, no compression byte, id 5, key, token, account, password, then `win` and three machine fields. Same encoding `graal-4.20r8-G3D20126/tests/Test420.dpr` asserts. Ids 37 and 23 follow in later gen-5 frames, which this host does not send. |
-| Provisional | The machine fields. The real client sends three machine hashes; this host sends the test's empty fields (`win,"","",""`). |
+| Machine fields | The real client sends three machine hashes; this host sends the test's made-up ones (MD5 hex of three Squirrel-themed strings). |
 | Script | None. The 4.2.0.8 engine has no Torque console, no `SimObject` and no `.dso`. `scripts/level-tile.cs` is a provisional line script that opens a `TServerLevel` and places one tile. |
 | Platforms | As host304. On Windows, `Shell420` in `graal-4.20r8-G3D20126` (Delphi) is the program that starts this host. |
 

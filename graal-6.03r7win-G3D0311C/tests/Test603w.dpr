@@ -290,12 +290,12 @@ begin
     Len := (Ord(Wire[1]) shl 8) or Ord(Wire[2]);
     Check(ZDecompress(Copy(Wire, 3, Len), Plain) and
       (Plain = '%' + Chr(CaptureKey + 32) + 'G3D0311C' + GString('acc') + GString('pw') +
-        'win,"","","",""' + #10),
+        'win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400,"6.2 9200 "' + #10),
       'login: 5 (key, G3D0311C, account, password, win and four machine fields) alone in the plain zlib frame');
     Check(ServerReadAll(Codec, Copy(Wire, Len + 3, MaxInt), Msgs) and
       (Msgs.Count = 1) and (Msgs[0] = GChar(PLI_LANGUAGE) + 'English'),
       'login: 37 English in its own gen-5 frame, and no tamper check');
-    Check(LoginTail = 'win,"","","",""', 'login: the tail is win and four empty quoted fields');
+    Check(LoginTail = 'win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400,"6.2 9200 "', 'login: the tail is win, three made-up machine hashes and the quoted Windows version');
     C.Sent := '';
     C.StartOffline(CaptureKey);
     C.SendLogin('acc', StringOfChar('p', 300), 'English');

@@ -35,8 +35,8 @@ If nothing is listening, the program still prints the frame and exits 0.
 | `setContentControl(MainMenuGui2D)` | The note's content switch when setup passes. |
 | `Point2I` size | Not recovered. The name is registered and no size is invented. |
 | `GBitmap` pixels | Not drawn. The DLL calls out to the launcher for pixels. |
-| First frame | Login line alone, plain zlib, no compression byte. Shape from `tests/Test420.dpr`: id 5, key, token, account, password, `win,"","",""`. |
-| Machine fields | Provisional against a real PC. The three hashes are empty, as in that test. A real client fills them. |
+| First frame | Login line alone, plain zlib, no compression byte. Shape from `tests/Test420.dpr`: id 5, key, token, account, password, `win` and three made-up hashes. |
+| Machine fields | Made up, as in that test: the MD5 hex of three Squirrel-themed strings, the shape a real client sends. No machine is read. |
 | Ids 37 and 23 | The next messages in that test, in later gen-5 frames. Not sent here. |
 | TorqueScript | Absent. Not run. |
 
