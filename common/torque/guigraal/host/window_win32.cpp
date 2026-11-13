@@ -251,6 +251,10 @@ class Win32Window : public Window {
 
 } // namespace
 
+void show_error(const std::string& title, const std::string& text) {
+  MessageBoxA(nullptr, text.c_str(), title.c_str(), MB_OK | MB_ICONERROR);
+}
+
 std::unique_ptr<Window> Window::open(const std::string& title, int width, int height, std::string& error) {
   auto w = std::make_unique<Win32Window>();
   if (!w->init(title, width, height, error)) return nullptr;

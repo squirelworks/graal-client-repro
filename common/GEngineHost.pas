@@ -88,6 +88,8 @@ type
     Events: TStringList;
     Clipboard: AnsiString;
     Active: Boolean;
+    { The server the engine last logged in to (OnServerLogin), '' before. }
+    ServerName: string;
     constructor Create(AWidth, AHeight: Integer);
     destructor Destroy; override;
     { Loads the library and checks its interface version. }
@@ -1048,6 +1050,7 @@ end;
 procedure cbServerLogin(S: PAnsiChar); cdecl;
 begin
   Note('ServerLogin ' + Str(S));
+  if Cur <> nil then Cur.ServerName := Str(S);
 end;
 
 procedure cbListerConnect; cdecl;

@@ -42,6 +42,15 @@ Session2D::Session2D(Login login) : login_(std::move(login)), window_(std::make_
   opt.nickname = login_.nickname;
   opt.server_name = login_.name.empty() ? std::string("Login") : login_.name;
   opt.assets = login_.installDir;
+  // As the launchers' own files (GAssetDirs): the install first, then
+  // graal-assets/<version>/ and graal-assets/common/ next to it.
+  {
+    std::string label = login_.build.substr(0, login_.build.find(' '));
+    opt.asset_roots = {login_.installDir + "/graal-assets/" + label, login_.installDir + "/graal-assets/common"};
+  }
+  // A real install starts with few images and fetches the rest from the
+  // server (C->S 23), as the lab's 5.12 did.
+  opt.download_files = true;
   opt.width = host::GetScreenWidth() > 0 ? host::GetScreenWidth() : 640;
   opt.height = host::GetScreenHeight() > 0 ? host::GetScreenHeight() : 480;
   program_ = std::make_unique<Quattro::Shell::Program>(*profile, opt, *window_);
@@ -58,6 +67,14 @@ bool Session2D::start() { return program_->start(); }
 
 void Session2D::tick() {
   program_->tick();
+  // Each login (the first server, then each warp) goes to the launcher's
+  // OnServerLogin with the server's name; the 5.x launcher titles its game
+  // window with it (the lab's 5.12 window read "L a b   S e r v e r" after
+  // the warp, version-profiles/lab-v5-2026-10-30.md).
+  if (const int n = program_->session().logins(); n != loginsSeen_) {
+    loginsSeen_ = n;
+    host::OnServerLogin(program_->session().server_name().c_str());
+  }
   const auto& img = window_->last;
   if (img.empty()) return;
   pixels_.resize(img.pixels.size());

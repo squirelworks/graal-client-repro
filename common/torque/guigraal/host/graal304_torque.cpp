@@ -34,10 +34,11 @@
 #include <direct.h>
 #include <cstdio>
 #include <io.h>
-#elif defined(__APPLE__)
-#include <mach-o/dyld.h>
 #else
 #include <unistd.h>
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
 #endif
 
 #include "../pascal_game304.hpp"
@@ -100,18 +101,44 @@ void make_dir(const std::string& dir) {
 }
 
 #ifdef _WIN32
+bool g_console_attached = false;
+
 // The program is a GUI program (no console window of its own). Started from
 // a console with nowhere else to write, it writes the console lines there.
 void attach_console() {
   HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);
   if (out && out != INVALID_HANDLE_VALUE && GetFileType(out) != FILE_TYPE_UNKNOWN) return;
   if (!AttachConsole(ATTACH_PARENT_PROCESS)) return;
+  g_console_attached = true;
   if (!std::freopen("CONOUT$", "w", stdout)) return;
   std::freopen("CONOUT$", "w", stderr);
   std::cout.clear();
   std::cerr.clear();
 }
 #endif
+
+// A start-up error: on the console, and in a message box where there may be
+// no console to read (a double-clicked exe or app).
+// Whether stderr goes nowhere a person or a script reads: a double-clicked
+// exe has no console, and an app started from the Finder writes to
+// /dev/null. A console, a pipe or a file (tests, CI) gets no box, which
+// would wait for a click.
+bool no_reader_for_stderr() {
+#ifdef _WIN32
+  if (g_console_attached) return false;
+  HANDLE err = GetStdHandle(STD_ERROR_HANDLE);
+  return !err || err == INVALID_HANDLE_VALUE || GetFileType(err) == FILE_TYPE_UNKNOWN;
+#else
+  struct stat st;
+  if (fstat(2, &st) != 0) return true;
+  return S_ISCHR(st.st_mode) && !isatty(2);
+#endif
+}
+
+void fail(const std::string& text) {
+  std::cerr << "graal304-torque: " << text << "\n";
+  if (no_reader_for_stderr()) show_error("graal304-torque", text);
+}
 
 void usage() {
   std::cerr << "usage: graal304-torque [--root INSTALL] [--prefs DIR] [--game LIB] [--steps FILE]\n"
@@ -143,11 +170,37 @@ int main(int argc, char** argv) {
     else { usage(); return 2; }
   }
   auto has_main = [](const std::string& dir) { return std::ifstream(dir + "/main.cs").good(); };
-  if (root.empty()) root = has_main(here) || !has_main(".") ? here : std::string(".");
+  // In a macOS app bundle (graal304-torque.app/Contents/MacOS) the install
+  // is the folder that holds the .app; a double-clicked app starts in /.
+  const std::string bundle_suffix = ".app/Contents/MacOS";
+  std::string beside = here;
+  if (here.size() > bundle_suffix.size() &&
+      here.compare(here.size() - bundle_suffix.size(), bundle_suffix.size(), bundle_suffix) == 0) {
+    const std::string app = here.substr(0, here.size() - std::string("/Contents/MacOS").size());
+    const std::size_t slash = app.find_last_of('/');
+    beside = slash == std::string::npos ? std::string(".") : app.substr(0, slash);
+  }
+  const bool in_bundle = beside != here;
+  // A quarantined app opened where it was unzipped runs from a read-only
+  // copy (App Translocation), away from the install beside it.
+  if (in_bundle && root.empty() && here.find("/AppTranslocation/") != std::string::npos && !has_main(".")) {
+    fail("macOS is running graal304-torque.app from a temporary copy, so it cannot see your Graal folder.\n"
+         "Quit, then drag graal304-torque.app with the Finder into your Graal 3.04 or 3.153 folder\n"
+         "(beside main.cs), or run: xattr -dr com.apple.quarantine graal304-torque.app");
+    return 1;
+  }
+  if (root.empty()) {
+    if (has_main(here)) root = here;
+    else if (has_main(beside)) root = beside;
+    else if (has_main(".")) root = ".";
+    else root = beside;
+  }
   if (!has_main(root)) {
-    std::cerr << "graal304-torque: no main.cs in " << root << ".\n"
-              << "Copy graal304-torque and the game library into your Graal 3.04 or 3.153 folder (beside main.cs),\n"
-              << "run it from that folder, or pass --root with that folder.\n";
+    fail("no main.cs in " + root + ".\n" +
+         std::string(in_bundle ? "Put graal304-torque.app into your Graal 3.04 or 3.153 folder (beside main.cs),\n"
+                               : "Copy graal304-torque and the game library into your Graal 3.04 or 3.153 folder "
+                                 "(beside main.cs),\n") +
+         "run it from that folder, or pass --root with that folder.");
     return 1;
   }
   // a 3.153 install (scripts2D/main2D.cs) runs the 3.153 game library
@@ -167,7 +220,7 @@ int main(int argc, char** argv) {
   std::string error;
   auto game = load_pascal_game304(lib, root, error);
   if (!game) {
-    std::cerr << "graal304-torque: " << error << "\n";
+    fail(error);
     return 1;
   }
   GuiGraal304 graal(engine, std::move(game));
@@ -178,7 +231,7 @@ int main(int argc, char** argv) {
   canvas_size_304(engine, width, height);
   auto window = Window::open("Graal 3.04 (Torque rebuild)", width, height, error);
   if (!window) {
-    std::cerr << "graal304-torque: " << error << "\n";
+    fail(error);
     return 1;
   }
   Frame304 frame(engine, graal, width, height);

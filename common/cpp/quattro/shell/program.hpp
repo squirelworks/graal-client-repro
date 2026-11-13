@@ -19,6 +19,8 @@
 #include "scripts.hpp"
 
 #include <map>
+#include <set>
+#include <vector>
 
 #include <functional>
 #include <memory>
@@ -38,6 +40,12 @@ struct Options {
   // connected to a server by name (the engine library's connectToGraalServer).
   std::string server_name = "Login";
   std::string assets;  // the player's own Graal folder (levels, pics1.png)
+  // More folders searched after `assets`, laid out the same way (the
+  // engine library's graal-assets/<build>/ and graal-assets/common/).
+  std::vector<std::string> asset_roots;
+  // Asks the server for images the folders lack (C->S 23) and keeps what
+  // it sends in <assets>/levels/images/downloads/. Off: nothing is asked.
+  bool download_files = false;
   std::string program;  // the player's own 6.x program file, for its StartScript_* shell
   int width = 640;     // window size: see README, "Window size"
   int height = 480;
@@ -62,9 +70,12 @@ class Program {
   GuiHost& gui() { return *gui_; }
   // Replaces the wall table (tests; arrays.dat from --assets otherwise).
   void set_tile_types(const World::TileTypes& t) { tile_types_ = t; }
+  const World::TileTypes& tile_types() const { return tile_types_; }
   void set_object_tables(const World::ObjectTables& t) { object_tables_ = t; }
   Draw::Assets& assets() { return *assets_; }
   const std::string& level_name() const { return level_name_; }
+  // Files asked for with C->S 23, lower case.
+  const std::set<std::string>& asked() const { return asked_; }
   // Pass names of the last frame, in the order they ran.
   const std::vector<std::string>& last_passes() const { return passes_; }
   std::function<void(const std::string&)> log;
@@ -75,6 +86,11 @@ class Program {
   std::string window_title() const;
   Draw::Actor actor_for(int id, const World::Player& p);
   void draw_hud();
+  std::vector<std::string> roots() const;
+  bool load_tile_sheet();
+  void want_file(const std::string& name);
+  void ask_for_missing();
+  void save_download(const std::string& name, const std::string& data);
 
   const Net::BuildProfile& profile_;
   Options opt_;
@@ -102,6 +118,8 @@ class Program {
   std::string level_name_;
   std::vector<std::string> passes_;
   bool quit_ = false;
+  std::set<std::string> asked_;                // files asked for (C->S 23), lower case
+  std::map<std::string, std::string> large_;   // large files being received
 };
 
 }  // namespace Quattro::Shell

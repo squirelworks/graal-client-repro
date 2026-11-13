@@ -54,6 +54,7 @@ void GE_CALL recText(int32_t x, int32_t y, const char* t, const char*, int32_t, 
 }
 void GE_CALL recLog(const char* line) { calls.push_back(std::string("log ") + line); }
 void GE_CALL rec3D() { calls.push_back("start3d"); }
+void GE_CALL recServerLogin(const char* s) { calls.push_back(std::string("serverlogin ") + s); }
 void GE_CALL recOptions() { calls.push_back("options"); }
 void GE_CALL recUrl(const char* u) { calls.push_back(std::string("url ") + u); }
 
@@ -699,6 +700,8 @@ void testLoopbackSession(const char* build, const char* labEnv, const std::strin
     }
     return false;
   };
+  graal_setOnServerLogin(recServerLogin);
+  calls.clear();
   connectToGraalServer("Login", "127.0.0.1", login.port());
   CHECK(e.session() != nullptr);
   if (!e.session()) return;
@@ -713,6 +716,14 @@ void testLoopbackSession(const char* build, const char* labEnv, const std::strin
   acc.join();
   CHECK(warped);
   CHECK(pump(&game, [&] { return game.saw(37, "English"); }));
+  // The launcher hears of each login by the server's name (it titles its
+  // window with it).
+  {
+    std::vector<std::string> logins;
+    for (const auto& c : calls)
+      if (c.rfind("serverlogin ", 0) == 0) logins.push_back(c);
+    CHECK((logins == std::vector<std::string>{"serverlogin Login", "serverlogin Lab Server"}));
+  }
 
   std::string board;
   for (int i = 0; i < 64 * 64; ++i) board += std::string("\x07\x00", 2);
