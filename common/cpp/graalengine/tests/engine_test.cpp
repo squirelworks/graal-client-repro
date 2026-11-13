@@ -262,7 +262,7 @@ void testConnectAndLicence() {
   calls.clear();
   connectToGraalServer("3 Seihai Test", "127.0.0.1", 14800);
   CHECK(seen == "Seihai Test@127.0.0.1:14800 3d");
-  CHECK((calls == std::vector<std::string>{"start3d"}));
+  CHECK(calls.size() == 1 && calls[0] == "start3d");
 
   connectToGraalServer("U Classic", "127.0.0.1", 14801);
   CHECK(seen == "Classic@127.0.0.1:14801");
@@ -801,7 +801,7 @@ void testGraal3DBridge() {
   // No 3D library: StartGraal3D, no 3D mode.
   calls.clear();
   connectToGraalServer("3 Lab", "127.0.0.1", 14900);
-  CHECK((calls == std::vector<std::string>{"start3d"}));
+  CHECK(calls.size() == 1 && calls[0] == "start3d");
   CHECK(isGraal3DMode() == 0);
 
   // With it: the link on port + 1, 3D mode, the TCP side as for 2D.
@@ -840,7 +840,7 @@ void testGraal3DBridge() {
   calls.clear();
   setGraal3DConnectionError("The 3D server connection has timed out");
   CHECK(isGraal3DMode() == 0);
-  CHECK((calls == std::vector<std::string>{"log GraalEngine: The 3D server connection has timed out"}));
+  CHECK(calls.size() == 1 && calls[0] == "log GraalEngine: The 3D server connection has timed out");
   graalengine_logLine("a line");
   CHECK(calls.back() == "log a line");
   reset();
