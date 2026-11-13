@@ -26,6 +26,7 @@ struct BuildProfile {
   bool answers_ping = false;      // PLO 108 sub 0 -> PLI 162
   bool login_lobby_mode = true;   // name starting "login": no characters, HUD
   bool login_draws_tiles = false; // tiles drawn in that mode
+  bool hud_6x = false;            // the built-in 6.x HUD (draw/hud.hpp)
   unsigned login_port = 14900;    // compiled-in login server port
   // A last login field after the machine fields, sent quoted ("" for none):
   // 5.12's Windows version (protocol/v5v6-windows-unpacked.md).

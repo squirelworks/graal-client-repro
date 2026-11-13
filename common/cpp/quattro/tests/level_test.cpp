@@ -1,5 +1,6 @@
 // Level reading and the world passes, from synthetic levels.
 #include "../draw/body_colors.hpp"
+#include "../draw/hud.hpp"
 #include "../draw/world.hpp"
 #include "../files/gani.hpp"
 #include "../files/level.hpp"
@@ -270,6 +271,70 @@ void test_body_colours() {
   CHECK(Draw::player_colour(19).a == 0 && Draw::player_colour(20).r == 255);
 }
 
+void test_hud() {
+  bool small = true;
+  // Up to 4 hearts: full size, one row, 45 px apart from width - 198.
+  auto h = Draw::Hud::heart_slots(7, 1024, small);
+  CHECK(!small && h.size() == 4);
+  CHECK(h[0].x == 826 && h[3].x == 961 && h[0].y == 24 && h[3].half && !h[2].half);
+  CHECK(Draw::Hud::heart_slots(0, 1024, small).empty());
+  // 5 hearts: one small row, lower; 20: rows of 5, 6, 5, 4.
+  h = Draw::Hud::heart_slots(10, 1024, small);
+  CHECK(small && h.size() == 5 && h[0].y == 34 && h[4].x == 826 + 4 * 35);
+  h = Draw::Hud::heart_slots(11, 1024, small);  // 5.5: the half in row 2, still 10 px lower
+  CHECK(h.size() == 6 && h[5].half && h[5].x == 808 && h[5].y == 54);
+  CHECK(Draw::Hud::heart_slots(12, 1024, small)[0].y == 24);
+  h = Draw::Hud::heart_slots(40, 1024, small);
+  CHECK(h.size() == 20);
+  CHECK(h[5].x == 808 && h[5].y == 44 && h[11].x == 826 && h[11].y == 64 && h[16].x == 843 && h[16].y == 84);
+  h = Draw::Hud::heart_slots(40, 800, small);
+  CHECK(h[0].x == 602);  // anchored to the right edge
+  CHECK(Draw::Hud::counter_text(0, false) == "0" && Draw::Hud::counter_text(1234, false) == "1234");
+  CHECK(Draw::Hud::counter_text(5, true) == "05" && Draw::Hud::counter_text(100, true) == "10");
+  // Drawing: a synthetic sheet, each piece its own colour.
+  Draw::Assets assets;
+  Draw::Image sheet(224, 145, {0, 0, 0, 0});
+  auto paint = [&](int x, int y, int w, int hh, Torque::Gui::Color col) {
+    for (int yy = y; yy < y + hh; ++yy)
+      for (int xx = x; xx < x + w; ++xx) sheet.at(xx, yy) = col;
+  };
+  paint(0, 0, 40, 44, {255, 0, 0, 255});      // heart
+  paint(202, 0, 22, 30, {0, 0, 255, 255});    // tab
+  paint(0, 97, 130, 22, {0, 255, 0, 255});    // AP frame
+  paint(0, 119, 100, 10, {255, 255, 0, 255}); // AP fill
+  paint(1, 81, 11, 14, {255, 255, 255, 255}); // digit 0
+  assets.put_image("state.png", sheet);
+  Draw::Hud hud(&assets);
+  Draw::Canvas c(1024, 200);
+  Draw::HudState s;
+  s.half_hearts = 2;
+  s.ap = 30;
+  hud.draw(c, s);
+  CHECK(c.surface().at(826 + 5, 24 + 5).r == 255);       // the heart
+  CHECK(c.surface().at(15 + 3, 30 + 3).b == 255);        // tab A
+  CHECK(c.surface().at(145 + 3, 30 + 3).b == 255);       // tab D
+  CHECK(c.surface().at(37 + 29, 71 + 2).g == 255 && c.surface().at(37 + 29, 71 + 2).r == 255);  // AP 30
+  CHECK(c.surface().at(37 + 31, 71 + 2).r == 0);          // past it: the frame
+  CHECK(c.surface().at(282, 48 + 3).r == 255);            // "0" under the gralat
+  CHECK(c.surface().at(15 + 3, 90 + 3).g == 0);           // no MP bar at 0
+  // Digits 12 px apart from centre - 6 * digits; sword and glove.
+  Draw::Image sword(128, 96, {0, 0, 0, 0});
+  for (int y = 36; y < 64; ++y) sword.at(100, y) = {9, 9, 9, 255};
+  assets.put_image("sword1.png", sword);
+  Draw::Image sprites(64, 256, {0, 0, 0, 0});
+  sprites.at(28, 212) = {7, 7, 7, 255};
+  assets.put_image("sprites.png", sprites);
+  s.gralats = 0;
+  s.bombs = 0;
+  s.sword_power = 1;
+  s.glove_power = 2;
+  Draw::Canvas d(1024, 200);
+  hud.draw(d, s);
+  CHECK(d.surface().at(326 + 1, 48 + 1).r == 255 && d.surface().at(338 + 1, 48 + 1).r == 255);  // "00"
+  CHECK(d.surface().at(105 + 6, 31 + 10).r == 9);   // sword: source + (11, -5)
+  CHECK(d.surface().at(40, 29).r == 7);             // glove power 2
+}
+
 int main() {
   test_grv103();
   test_runs();
@@ -281,5 +346,6 @@ int main() {
   test_gani();
   test_actor_drawing();
   test_body_colours();
+  test_hud();
   TEST_MAIN_END();
 }

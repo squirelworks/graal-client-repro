@@ -25,7 +25,7 @@ int usage() {
 int main(int argc, char** argv) {
   Shell::Options opt;
   std::string target, pw_env, shot;
-  bool headless = false;
+  bool headless = false, sized = false;
   int seconds = 0;
   for (int i = 1; i < argc; ++i) {
     std::string a = argv[i];
@@ -40,6 +40,7 @@ int main(int argc, char** argv) {
     else if (a == "--seconds") seconds = std::atoi(next().c_str());
     else if (a == "--shot") shot = next();
     else if (a == "--size") {
+      sized = true;
       std::string s = next();
       if (std::sscanf(s.c_str(), "%dx%d", &opt.width, &opt.height) != 2 || opt.width < 64 || opt.height < 64 ||
           opt.width > 4096 || opt.height > 4096)
@@ -47,6 +48,10 @@ int main(int argc, char** argv) {
     } else return usage();
   }
   const Net::BuildProfile* prof = Net::find_profile(opt.build);
+  if (prof && prof->hud_6x && !sized) {  // the 6.03r7 lab: 1024 x 768 on first start
+    opt.width = 1024;
+    opt.height = 768;
+  }
   size_t colon = target.rfind(':');
   if (!prof || colon == std::string::npos || opt.account.empty() || pw_env.empty()) return usage();
   const char* pw = std::getenv(pw_env.c_str());

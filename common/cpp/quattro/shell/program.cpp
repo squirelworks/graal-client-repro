@@ -52,6 +52,7 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
   world_.player.y = 30;
   assets_ = std::make_unique<Draw::Assets>(Draw::asset_dirs(opt_.assets));
   renderer_.set_assets(assets_.get());
+  hud_ = std::make_unique<Draw::Hud>(assets_.get());
   gui_ = std::make_unique<GuiHost>(scripts_.machine());
   gui_->screen().setSize(opt_.width, opt_.height);
   std::vector<std::string> dirs;
@@ -64,6 +65,7 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
     canvas_.push_clip({r.x, r.y, r.w, r.h});
     renderer_.draw(canvas_, world_, Draw::follow(world_, canvas_.width(), canvas_.height()),
                    [this](const std::string& name) { passes_.push_back(name); });
+    draw_hud();
     canvas_.pop_clip();
   };
   if (!opt_.program.empty()) {
@@ -86,6 +88,22 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
     if (read_file(opt_.assets + "/arrays.dat", table) && !World::read_arrays_dat(table, tile_types_, err) && log)
       log(err);
   }
+}
+
+void Program::draw_hud() {
+  if (!profile_.hud_6x || world_.lobby) return;
+  Draw::HudState s;
+  s.half_hearts = me_.power;
+  s.gralats = me_.rupees;
+  s.bombs = me_.bombs;
+  s.arrows = me_.arrows;
+  s.ap = me_.ap;
+  s.mp = me_.mp;
+  s.glove_power = me_.glove_power;
+  s.sword_power = me_.sword_power;
+  s.sword_image = me_.sword_image;
+  hud_->draw(canvas_, s);
+  passes_.push_back("HUD");
 }
 
 Draw::Actor Program::actor_for(int id, const World::Player& p) {
@@ -282,6 +300,7 @@ bool Program::tick() {
   } else {
     renderer_.draw(canvas_, world_, Draw::follow(world_, canvas_.width(), canvas_.height()),
                    [this](const std::string& name) { passes_.push_back(name); });
+    draw_hud();
   }
   window_.present(canvas_.surface());
   return !quit_;

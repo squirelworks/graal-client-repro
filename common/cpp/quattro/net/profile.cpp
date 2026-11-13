@@ -44,6 +44,7 @@ std::vector<BuildProfile> make() {
   r603.plo = plo_603();
   r603.pli = pli_603();
   r603.answers_ping = true;
+  r603.hud_6x = true;  // the 6.03r7 HUD lab (draw/hud.hpp)
   rows.push_back(r603);
 
   // 6.01r1: the 6.03r7 receive set without 111, the send set without 160.
