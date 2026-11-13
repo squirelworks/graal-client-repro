@@ -8,6 +8,7 @@
 // straight into the session until they are loaded from the player's install.
 #pragma once
 
+#include "../draw/hud.hpp"
 #include "../draw/window.hpp"
 #include "../draw/world.hpp"
 #include "../net/connection.hpp"
@@ -71,6 +72,7 @@ class Program {
   void load_local_level(const std::string& name);
   std::string window_title() const;
   Draw::Actor actor_for(int id, const World::Player& p);
+  void draw_hud();
 
   const Net::BuildProfile& profile_;
   Options opt_;
@@ -89,6 +91,7 @@ class Program {
   std::string cache_server_;
   Draw::WorldRenderer renderer_;
   std::unique_ptr<Draw::Assets> assets_;
+  std::unique_ptr<Draw::Hud> hud_;
   int frame_ = 0;
   std::map<int, std::pair<std::string, int>> gani_start_;  // id (-1 for me) -> gani, first tick
   Draw::Canvas canvas_;

@@ -96,7 +96,9 @@ int apply_props(Net::Reader& r, Player& p, bool other) {
       case kGmapX: p.gmap_x = static_cast<int>(r.gchar()); break;
       case kGmapY: p.gmap_y = static_cast<int>(r.gchar()); break;
       case kZ: p.z = static_cast<int>(r.gchar()) - 50; break;
-      case kCarrySprite: case kHorseBushes: case kEffectColors: case kMagicPoints: case kAlignment:
+      case kMagicPoints: p.mp = static_cast<int>(r.gchar()); break;
+      case kAlignment: p.ap = static_cast<int>(r.gchar()); break;
+      case kCarrySprite: case kHorseBushes: case kEffectColors:
       case kAdditFlags: case kStatusMsg:
         r.gchar();
         break;
