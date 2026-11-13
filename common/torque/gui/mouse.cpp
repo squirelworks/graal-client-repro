@@ -18,6 +18,26 @@ std::string label(const SimObject* o) {
 }  // namespace
 
 std::string mouse_click(Engine& e, Renderer& r, int x, int y, bool double_click) {
+  // An open pop-up list takes the click: a row picks that entry (the menu's
+  // onSelect, then its command), anywhere else closes the list.
+  if (r.open_popup) {
+    SimObject* menu = e.object(r.open_popup);
+    const Rect l = r.popup_list;
+    r.open_popup = 0;
+    if (!menu) return std::string();
+    if (x >= l.x && y >= l.y && x < l.x + l.width && y < l.y + l.height) {
+      const int row = (y - l.y - 1) / std::max(1, r.popup_row_height);
+      if (row >= 0 && static_cast<std::size_t>(row) < menu->rows.size()) {
+        const std::uint32_t id = menu->id;
+        e.call_method(menu, "setSelected", {menu->rows[std::size_t(row)].second});
+        if (SimObject* still = e.object(id)) {
+          const std::string cmd = still->field("command");
+          if (!cmd.empty()) e.evaluate(cmd);
+        }
+      }
+    }
+    return label(menu);
+  }
   Rect box;
   std::uint32_t id = r.hit(x, y, &box);
   // The nearest control under the pointer, or a parent of it, that takes clicks.
@@ -30,6 +50,10 @@ std::string mouse_click(Engine& e, Renderer& r, int x, int y, bool double_click)
       const std::string cmd = o->field("command");
       if (!cmd.empty()) e.evaluate(cmd);
       if (e.object(o->id)) e.call_method(o, "onAction", {});
+      return label(o);
+    }
+    if (is_control_class(e, o, "GuiPopUpMenuCtrl")) {
+      if (active(o) && !o->rows.empty()) r.open_popup = o->id;
       return label(o);
     }
     if (is_control_class(e, o, "GuiTextEditCtrl") || is_control_class(e, o, "GuiConsoleEditCtrl")) {
