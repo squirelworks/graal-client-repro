@@ -773,6 +773,46 @@ void testLoopbackSession(const char* build, const char* labEnv, const std::strin
   fs::remove_all(dir);
 }
 
+// Offline mode with no starter set: the install's offline tutorial gmap
+// (levels/tutorial), its centre part, and walking with the moves.
+void testOfflineTutorial() {
+  namespace fs = std::filesystem;
+  reset();
+  installRecorder();
+  const fs::path dir = fs::temp_directory_path() / "graalengine-offline";
+  fs::remove_all(dir);
+  fs::create_directories(dir / "levels/tutorial");
+  std::ofstream(dir / "levels/tutorial/offlinetutorial.gmap", std::ios::binary)
+      << "GRMAP001\r\nWIDTH 3\r\nHEIGHT 3\r\nGENERATED offlinetutorial_c-3.graal\r\n";
+  for (char col : {'a', 'b', 'c'})
+    for (char row : {'1', '2', '3'}) {
+      Quattro::Files::Board b{};
+      b.fill(7);
+      std::ofstream(dir / "levels/tutorial" / (std::string("offlinetutorial_") + col + "-" + row + ".graal"),
+                    std::ios::binary)
+          << "GR-V1.03" + Quattro::Files::write_board_stream(b);
+    }
+  CHECK(graalengine_setBuild("4.04r2") == 1);
+  CHECK(graal_engineInitialize((dir / "Graal4.exe").string().c_str()) == 1);
+  auto& e = graalengine::engine();
+  loadGraalGui();
+  startOfflineMode();
+  CHECK(e.session() != nullptr);
+  if (!e.session()) return;
+  auto& p = e.session()->program();
+  CHECK(p.offline() && p.level_name() == "offlinetutorial_b-2.graal");
+  CHECK(p.me().x == 30 && p.me().y == 30);
+  renderGraalCanvas();
+  CHECK(e.session()->haveFrame());
+  CHECK(e.session()->action("moveRight2D", true));
+  for (int i = 0; i < 4; ++i) e.session()->tick();
+  e.session()->action("moveRight2D", false);
+  CHECK(p.me().x == 32);
+  CHECK(p.session().logins() == 0);  // nothing on the wire
+  shutdownGraalEngine();
+  fs::remove_all(dir);
+}
+
 }  // namespace
 
 int main() {
@@ -788,6 +828,7 @@ int main() {
   testShowImages();
   testLabMenuInput();
   testLabMenu512();
+  testOfflineTutorial();
   testLoopbackSession("4.04r2", "GRAAL404_ENGINE", "win,\"\",\"\",\"\"");
   testLoopbackSession("5.12", "GRAAL512_ENGINE", "win,\"\",\"\",\"\",\"6.2 9200 \"");
   CHECK(graalengine_setBuild("9.99") == 0);

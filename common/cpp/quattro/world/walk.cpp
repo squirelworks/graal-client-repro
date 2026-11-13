@@ -122,8 +122,10 @@ std::string Walker::tick(Player& p, unsigned keys, const Files::Level& level, co
   for (int dir = 0; dir < 4; ++dir) {
     if (keys & (1u << dir)) refused |= !step(p, dir, level, types);
   }
-  p.x = std::max(0.0, std::min(p.x, Files::kBoardSide - 2.0));
-  p.y = std::max(0.0, std::min(p.y, Files::kBoardSide - 2.0));
+  if (clamp) {
+    p.x = std::max(0.0, std::min(p.x, Files::kBoardSide - 2.0));
+    p.y = std::max(0.0, std::min(p.y, Files::kBoardSide - 2.0));
+  }
   blocked_ticks_ = refused ? blocked_ticks_ + 1 : 0;
   p.gani = pushing() ? "push" : "walk";
   if (!pushing()) return {};

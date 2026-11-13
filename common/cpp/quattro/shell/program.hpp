@@ -11,6 +11,7 @@
 #include "../draw/hud.hpp"
 #include "../draw/window.hpp"
 #include "../draw/world.hpp"
+#include "../files/gmap.hpp"
 #include "../net/connection.hpp"
 #include "../world/player.hpp"
 #include "../world/walk.hpp"
@@ -47,6 +48,13 @@ class Program {
   Program(const Net::BuildProfile& profile, Options opt, Draw::Window& window);
 
   bool start();
+  // Offline mode: no session, the level (or a gmap's part) from the
+  // player's folder, walking across the gmap's parts at the edges. `file`
+  // is a .graal/.nw level or a .gmap, looked up under the assets folder;
+  // `part` is the gmap's start level (empty: the centre cell). False when
+  // the file or its start level is not there.
+  bool start_offline(const std::string& file, double x, double y, const std::string& part = {});
+  bool offline() const { return offline_; }
   // One tick: network, keys, draw, present. False when the program should end.
   bool tick();
   // Sets the player's chat and sends it once the props are out (the
@@ -70,6 +78,10 @@ class Program {
  private:
   void on_message(int id, std::string_view body);
   void load_local_level(const std::string& name);
+  bool load_offline_level(const std::string& name);
+  void read_level_script();
+  void pick_tile_sheet();
+  void cross_gmap_edge();
   std::string window_title() const;
   Draw::Actor actor_for(int id, const World::Player& p);
   void draw_hud();
@@ -98,6 +110,14 @@ class Program {
   std::string level_name_;
   std::vector<std::string> passes_;
   bool quit_ = false;
+  bool offline_ = false;
+  Files::Gmap gmap_;
+  bool have_gmap_ = false;
+  std::string offline_dir_;  // the offline file's folder, searched first
+  // From the offline level's own script (read_level_script).
+  std::vector<std::pair<std::string, std::string>> tiledefs_;  // prefix, image; newest first
+  std::map<std::string, std::string> replace_ani_;
+  std::map<std::string, Draw::Image> sheets_;  // "" is the default sheet
 };
 
 }  // namespace Quattro::Shell

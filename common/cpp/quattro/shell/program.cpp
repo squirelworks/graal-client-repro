@@ -3,6 +3,8 @@
 #include "../net/gtypes.hpp"
 
 #include <algorithm>
+#include <cctype>
+#include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <sstream>
@@ -16,6 +18,23 @@ bool read_file(const std::string& path, std::string& out) {
   if (!in) return false;
   out.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
   return true;
+}
+
+std::string lower(std::string s) {
+  for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  return s;
+}
+
+// A file under `root` by its name, any case, in any folder below it.
+std::string find_below(const std::string& root, const std::string& name) {
+  namespace fs = std::filesystem;
+  std::error_code ec;
+  const std::string want = lower(name);
+  for (fs::recursive_directory_iterator it(root, fs::directory_options::skip_permission_denied | fs::directory_options::follow_directory_symlink, ec), end;
+       !ec && it != end; it.increment(ec)) {
+    if (it->is_regular_file(ec) && lower(it->path().filename().string()) == want) return it->path().string();
+  }
+  return {};
 }
 
 // The build's label without the platform ("6.03r7").
@@ -78,8 +97,9 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
     std::vector<std::uint8_t> bytes;
     std::string err;
     Draw::Image sheet;
-    for (const char* rel : {"/pics1.png", "/levels/pics1.png"}) {
+    for (const char* rel : {"/pics1.png", "/levels/pics1.png", "/levels/tiles/pics1.png"}) {
       if (Torque::Gui::read_file(opt_.assets + rel, bytes, err) && Torque::Gui::decode_png(bytes, sheet, err)) {
+        sheets_[""] = sheet;
         renderer_.set_tile_sheet(std::move(sheet));
         break;
       }
@@ -112,6 +132,8 @@ Draw::Actor Program::actor_for(int id, const World::Player& p) {
   a.y = p.y;
   a.chat = p.chat;
   a.gani = p.gani.empty() ? "idle" : p.gani;
+  // replaceani from an offline level's script (idle -> human2_idle in 4.x).
+  if (auto r = replace_ani_.find(lower(a.gani)); r != replace_ani_.end()) a.gani = r->second;
   a.dir = p.dir;
   a.head = p.head;
   a.body = p.body;
@@ -133,7 +155,195 @@ void Program::say(const std::string& text) {
 
 std::string Program::window_title() const {
   // "Graal 6.03r7 - Lab Server", as the lab saw after the warp.
-  return "Graal " + short_label(profile_.label) + " - " + session_.server_name();
+  // Offline, the server name is "Offline" (the 2.x clients read
+  // tiledefsOffline.txt for it: Graal_analysis client-internals/offline-tutorial-205.md).
+  return "Graal " + short_label(profile_.label) + " - " + (offline_ ? std::string("Offline") : session_.server_name());
+}
+
+bool Program::load_offline_level(const std::string& name) {
+  std::string data, err;
+  std::vector<std::string> dirs;
+  if (!offline_dir_.empty()) dirs.push_back(offline_dir_ + "/");
+  if (!opt_.assets.empty()) dirs.insert(dirs.end(), {opt_.assets + "/levels/", opt_.assets + "/"});
+  std::string path;
+  for (const std::string& dir : dirs)
+    if (read_file(dir + name, data)) {
+      path = dir + name;
+      break;
+    }
+  if (path.empty() && !opt_.assets.empty()) {
+    path = find_below(opt_.assets + "/levels", name);
+    if (path.empty() || !read_file(path, data)) {
+      if (log) log("offline: no level " + name);
+      return false;
+    }
+  }
+  if (path.empty()) return false;
+  Files::Level lv;
+  if (!Files::read_level(data, lv, err)) {
+    if (log) log(name + ": " + err);
+    return false;
+  }
+  world_.level = std::move(lv);
+  world_.have_level = true;
+  level_name_ = name;
+  me_.level = name;
+  read_level_script();
+  pick_tile_sheet();
+  return true;
+}
+
+namespace {
+
+// The arguments of each `command ` in a script, to ';', a line end or '}'.
+std::vector<std::vector<std::string>> calls_of(const std::string& script, const std::string& command) {
+  std::vector<std::vector<std::string>> out;
+  const std::string low = lower(script), key = command + " ";
+  for (size_t p = low.find(key); p != std::string::npos; p = low.find(key, p + key.size())) {
+    if (p > 0 && (std::isalnum(static_cast<unsigned char>(low[p - 1])) || low[p - 1] == '_')) continue;
+    size_t e = p + key.size();
+    while (e < script.size() && script[e] != ';' && script[e] != '\n' && script[e] != '\r' && script[e] != '}') ++e;
+    std::vector<std::string> args;
+    std::stringstream in(script.substr(p + key.size(), e - p - key.size()));
+    for (std::string a; std::getline(in, a, ',');) {
+      a.erase(0, a.find_first_not_of(" \t"));
+      a.erase(a.find_last_not_of(" \t") + 1);
+      args.push_back(a);
+    }
+    out.push_back(std::move(args));
+  }
+  return out;
+}
+
+}  // namespace
+
+void Program::read_level_script() {
+  // Offline there is no server to run the level's NPCs, and no GS1 engine
+  // here yet: like the Pascal 4.04r2 rebuild's tile defs, the lines the
+  // offline tutorial's `playerenters` block sets up are read wherever they
+  // stand, without their condition (rebuild reading). That block sets the
+  // look (`setplayerprop` #1 sword, #2 shield, #3 head, #8 body, #Pn
+  // attribute n: npc-library/gs1-command-reference-205.md), the tile sheet
+  // (`addtiledef image,prefix`), the gani names (`replaceani old,new`) and
+  // the first gani (`setani`).
+  for (const auto& npc : world_.level.npcs) {
+    for (const auto& a : calls_of(npc.script, "addtiledef")) {
+      if (a.size() < 2 || a[0].empty() || a[0].find("..") != std::string::npos) continue;
+      std::pair<std::string, std::string> def{lower(a[1]), a[0]};
+      tiledefs_.erase(std::remove(tiledefs_.begin(), tiledefs_.end(), def), tiledefs_.end());
+      tiledefs_.insert(tiledefs_.begin(), def);
+    }
+    for (const auto& a : calls_of(npc.script, "replaceani"))
+      if (a.size() >= 2 && !a[0].empty()) replace_ani_[lower(a[0])] = a[1];
+    for (const auto& a : calls_of(npc.script, "setplayerprop")) {
+      if (a.size() < 2 || a[0].size() < 2 || a[0][0] != '#') continue;
+      const std::string code = a[0].substr(1);
+      if (code == "1") me_.sword_image = a[1];
+      else if (code == "2") me_.shield_image = a[1];
+      else if (code == "3") me_.head = a[1];
+      else if (code == "8") me_.body = a[1];
+      else if ((code[0] == 'P' || code[0] == 'p') && code.size() > 1) {
+        const int n = std::atoi(code.c_str() + 1);
+        if (n >= 1 && static_cast<size_t>(n) < me_.attr.size()) me_.attr[static_cast<size_t>(n)] = a[1];
+      }
+    }
+    for (const auto& a : calls_of(npc.script, "setani"))
+      if (!a.empty() && !a[0].empty()) me_.gani = a[0];
+  }
+}
+
+void Program::pick_tile_sheet() {
+  // An addtiledef image for every level whose name starts with its prefix.
+  std::string image;
+  const std::string name = lower(level_name_);
+  for (const auto& [prefix, img] : tiledefs_)
+    if (name.compare(0, prefix.size(), prefix) == 0) {
+      image = img;
+      break;
+    }
+  auto it = sheets_.find(image);
+  if (it == sheets_.end() && !image.empty() && !opt_.assets.empty()) {
+    std::vector<std::uint8_t> bytes;
+    std::string err;
+    Draw::Image sheet;
+    std::vector<std::string> dirs;
+    if (!offline_dir_.empty()) dirs.push_back(offline_dir_);
+    for (const char* sub : {"/levels/tiles", "/levels", "", "/levels/images", "/images"}) dirs.push_back(opt_.assets + sub);
+    for (const auto& d : dirs)
+      if (Torque::Gui::read_file(d + "/" + image, bytes, err) && Torque::Gui::decode_png(bytes, sheet, err)) {
+        it = sheets_.emplace(image, std::move(sheet)).first;
+        break;
+      }
+    if (it == sheets_.end() && log) log("offline: no tile sheet " + image);
+  }
+  if (it == sheets_.end()) it = sheets_.find("");
+  if (it != sheets_.end()) renderer_.set_tile_sheet(it->second);
+}
+
+bool Program::start_offline(const std::string& file, double x, double y, const std::string& part) {
+  offline_ = true;
+  have_gmap_ = false;
+  offline_dir_.clear();
+  tiledefs_.clear();
+  replace_ani_.clear();
+  world_.lobby = false;
+  others_.clear();
+  me_.x = x;
+  me_.y = y;
+  window_.set_title(window_title());
+  const bool is_gmap = lower(file).size() > 5 && lower(file).compare(file.size() - 5, 5, ".gmap") == 0;
+  walker_.clamp = true;
+  if (!is_gmap) return load_offline_level(file);
+  std::string data, path, err;
+  if (!opt_.assets.empty()) {
+    for (const std::string& dir : {opt_.assets + "/levels/", opt_.assets + "/"})
+      if (read_file(dir + file, data)) {
+        path = dir + file;
+        break;
+      }
+    if (path.empty()) {
+      path = find_below(opt_.assets + "/levels", file);
+      if (!path.empty() && !read_file(path, data)) path.clear();
+    }
+  }
+  if (path.empty()) {
+    if (log) log("offline: no map " + file);
+    return false;
+  }
+  if (!Files::read_gmap(data, gmap_, err)) {
+    if (log) log(file + ": " + err);
+    return false;
+  }
+  have_gmap_ = true;
+  walker_.clamp = false;  // the gmap's parts hold the edges
+  offline_dir_ = std::filesystem::path(path).parent_path().string();
+  // The 2.x Training starts in the centre cell (b-2 of 3 x 3).
+  std::string first = part.empty() ? gmap_.at(gmap_.width / 2, gmap_.height / 2) : part;
+  return !first.empty() && load_offline_level(first);
+}
+
+void Program::cross_gmap_edge() {
+  int gx = 0, gy = 0;
+  if (!have_gmap_ || !gmap_.find(level_name_, gx, gy)) return;
+  // The gmap is one board in global tiles (local + 64 * cell): a step to
+  // x 64 is x 0 of the next part, a step below 0 is x 63.5 of the one
+  // before (the 2.22 lab crossing, Graal_analysis
+  // client-internals/feature-specs/06-gmap-overworld.md). With no part
+  // beyond, the board's edge holds, as on a single level.
+  const double side = Files::kBoardSide, edge = side - 2.0;
+  auto wrap = [&](double& v, int& cell, bool horizontal) {
+    int d = v < 0 ? -1 : v >= side ? 1 : 0;
+    const std::string next = d ? (horizontal ? gmap_.at(gx + d, gy) : gmap_.at(gx, gy + d)) : std::string();
+    if (d && !next.empty() && load_offline_level(next)) {
+      v -= d * side;
+      cell += d;
+      return;
+    }
+    const bool open_after = !(horizontal ? gmap_.at(gx + 1, gy) : gmap_.at(gx, gy + 1)).empty();
+    v = std::max(0.0, std::min(v, open_after ? side - 0.5 : edge));
+  };
+  wrap(me_.x, gx, true);
+  wrap(me_.y, gy, false);
 }
 
 bool Program::start() {
@@ -257,8 +467,8 @@ void Program::on_message(int id, std::string_view body) {
 }
 
 bool Program::tick() {
-  session_.tick();
-  world_.lobby = session_.lobby_mode();
+  if (!offline_) session_.tick();
+  world_.lobby = !offline_ && session_.lobby_mode();
   if (window_.title() != window_title()) window_.set_title(window_title());
 
   for (Draw::Key k = window_.poll_key(); k != Draw::Key::NoKey; k = window_.poll_key()) {
@@ -273,6 +483,7 @@ bool Program::tick() {
     unsigned keys = (window_.held(Draw::Key::Up) ? 1u : 0u) | (window_.held(Draw::Key::Left) ? 2u : 0u) |
                     (window_.held(Draw::Key::Down) ? 4u : 0u) | (window_.held(Draw::Key::Right) ? 8u : 0u);
     std::string action = walker_.tick(p, keys, world_.level, tile_types_);
+    if (offline_) cross_gmap_edge();
     if (!action.empty() && props_sent_) session_.connection().send(38, action);
     if (props_sent_) {
       std::string moved = mover_.diff(p);
