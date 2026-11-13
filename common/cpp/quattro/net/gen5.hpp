@@ -50,10 +50,10 @@ class Cipher {
   }
   // XORs `body` in place for compression byte `type`. Odd types are left.
   void apply(std::string& body, uint8_t type);
-  // 5.12 steps len / 4 rounded down for zlib and bzip2 bodies (still at
-  // most 4 groups) and rounds up only for raw ones (Graal_analysis
-  // protocol/v5v6-lab-play.md, "5.12's cipher step count"). Every other
-  // build rounds up in both cases.
+  // 5.12 (and the Windows 4.04r2 engine) steps len / 4 rounded down for
+  // zlib and bzip2 bodies (still at most 4 groups) and rounds up only for
+  // raw ones (Graal_analysis protocol/v5v6-lab-play.md, "5.12's cipher step
+  // count"). Every other build rounds up in both cases.
   void set_packed_round_down(bool on) { round_down_ = on; }
   uint8_t key() const { return key_; }
   uint32_t iterator() const { return it_; }
