@@ -65,6 +65,10 @@ Session2D::~Session2D() = default;
 
 bool Session2D::start() { return program_->start(); }
 
+bool Session2D::startOffline(const std::string& file, double x, double y) {
+  return program_->start_offline(file, x, y);
+}
+
 void Session2D::tick() {
   program_->tick();
   // Each login (the first server, then each warp) goes to the launcher's

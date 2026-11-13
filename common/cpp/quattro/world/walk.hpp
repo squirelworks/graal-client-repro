@@ -55,6 +55,9 @@ class Walker {
   // this tick, or empty.
   std::string tick(Player& p, unsigned keys, const Files::Level& level, const TileTypes& types);
   bool pushing() const { return blocked_ticks_ >= kPushAfter; }
+  // Keep the player on the board (0 to 62). Off for a gmap, whose parts
+  // join at the edges (the program wraps the position).
+  bool clamp = true;
 
   static constexpr int kPushAfter = 18;       // 0.9 s
   static constexpr int kFirstPushed = 11;     // about 0.55 s after push starts

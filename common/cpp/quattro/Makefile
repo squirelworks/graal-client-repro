@@ -16,7 +16,7 @@ NET = net/gtypes.cpp net/gen5.cpp net/profile.cpp net/socket.cpp net/connection.
 CACHE = cache/des.cpp cache/grescr.cpp
 # The software canvas and PNG reader are shared with the Torque GUI layer.
 TGUI = ../../torque/gui/image.cpp ../../torque/gui/canvas.cpp ../../torque/gui/gft.cpp ../../torque/gui/bitmap_array.cpp
-FILES = files/level.cpp files/gani.cpp
+FILES = files/level.cpp files/gani.cpp files/gmap.cpp
 DRAW = draw/world.cpp draw/assets.cpp draw/body_colors.cpp draw/hud.cpp draw/ui_font.cpp draw/ui_font_data.cpp $(TGUI)
 GS2 = ../gs2/loader.cpp ../gs2/machine.cpp ../gs2/var.cpp ../gs2/startscripts.cpp ../gs2/engine_commands.cpp ../gs2/delivery.cpp ../gs2/gui.cpp ../gs2/gui_draw.cpp ../gs2/emitter.cpp
 SHELL_SRC = shell/program.cpp shell/scripts.cpp shell/gui_host.cpp world/player.cpp world/walk.cpp world/actions.cpp $(GS2) $(CACHE)

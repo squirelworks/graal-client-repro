@@ -162,7 +162,21 @@ void Engine::startOffline() {
   offlineRequested_ = true;
   runStartScript("StartScript_GraalGui", true);
   setContentFrom("GUIContainer");
-  if (offline_) offline_(*this);
+  if (offline_) {
+    offline_(*this);
+    return;
+  }
+  // The offline tutorial (torque/4208-engine.md: startOfflineMode loads
+  // offlinetutorial.gmap; the 4.04r2 install keeps it in levels/tutorial).
+  // The 2.x Training starts in its centre part, b-2; the spot is the
+  // rebuild's reading.
+  Session2D::Login l;
+  l.name = "Offline";
+  l.nickname = account_.nickname;
+  l.installDir = installDir();
+  l.build = build_;
+  session_ = std::make_unique<Session2D>(l);
+  if (!session_->startOffline("offlinetutorial.gmap", 30, 30)) log("GraalEngine: no offline tutorial in the install");
 }
 
 void Engine::connect(const std::string& rawName, const std::string& host, int port) {

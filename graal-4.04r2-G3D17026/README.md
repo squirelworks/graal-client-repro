@@ -112,8 +112,9 @@ screen's playfield, walking with the arrows and the chat bar.
   lamps, the monster and the smoke (`GuiShowImgCtrl`), from the install's
   ganis and pictures. The smoke is blended by alpha whatever its mode
 - [ ] The engine's menus as the default in place of the Pascal start
-  screen: offline mode's level and the weapon and item keys are not
-  there yet.
+  screen: the weapon and item keys are not there yet. Offline mode's
+  level is (the tutorial map, walked across its parts); its NPCs do not
+  run yet.
 
 - [ ] The server list and account screens as the real client shows them
   (scripted GUI from the Login server).

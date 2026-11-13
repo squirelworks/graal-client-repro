@@ -42,12 +42,20 @@ struct Sign {
   std::string encoded;  // the sign alphabet bytes, not decoded here
 };
 
+// A level NPC: GCHAR x, GCHAR y, then `image#script`; the script's lines
+// are joined with 0xA7, turned back into '\n' here (formats/level-binary.md).
+struct Npc {
+  int x = 0, y = 0;
+  std::string image, script;
+};
+
 struct Level {
   std::string magic;
   std::vector<Board> layers;  // layer 0 is the ground
   std::vector<Link> links;
   std::vector<Chest> chests;
   std::vector<Sign> signs;
+  std::vector<Npc> npcs;  // from the file; online the server sends them
 
   uint16_t tile(int x, int y, size_t layer = 0) const {
     if (layer >= layers.size() || x < 0 || y < 0 || x >= kBoardSide || y >= kBoardSide) return 0;

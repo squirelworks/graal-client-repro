@@ -37,6 +37,9 @@ class Session2D {
 
   // Connects to the first server and logs in. False when the socket failed.
   bool start();
+  // Offline mode: no connection; the level or gmap from the install
+  // (Quattro::Shell::Program::start_offline). False when it is not there.
+  bool startOffline(const std::string& file, double x, double y);
   // One frame: network, walking, the world drawn into the frame.
   void tick();
   // A key binding with no script function, on press and release. True when

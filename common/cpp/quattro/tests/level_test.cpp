@@ -3,6 +3,7 @@
 #include "../draw/hud.hpp"
 #include "../draw/world.hpp"
 #include "../files/gani.hpp"
+#include "../files/gmap.hpp"
 #include "../files/level.hpp"
 #include "check.hpp"
 
@@ -23,7 +24,7 @@ std::string gc(int v) { return std::string(1, static_cast<char>(v + 32)); }
 std::string sections() {
   return "next.nw 0 10 1 20 playerx 30\n#\n" +
          std::string("\x05\x06\x01" "a\\b\\c\n", 9) + std::string("\xFF\xFF\xFF\n", 4) +
-         gc(3) + gc(4) + "npc.png#script\n#\n" +
+         gc(3) + gc(4) + "npc.png#a;\xA7" "b;\n#\n" +
          gc(10) + gc(12) + gc(2) + gc(0) + "\n#\n" +
          gc(1) + gc(2) + "ABC\n\nHEIGHTS\n";
 }
@@ -46,6 +47,9 @@ void test_grv103() {
   if (!lv.chests.empty()) CHECK(lv.chests[0].x == 10 && lv.chests[0].y == 12 && lv.chests[0].item == 2);
   CHECK(lv.signs.size() == 1);
   if (!lv.signs.empty()) CHECK(lv.signs[0].x == 1 && lv.signs[0].encoded == "ABC");
+  CHECK(lv.npcs.size() == 1);
+  if (!lv.npcs.empty())
+    CHECK(lv.npcs[0].x == 3 && lv.npcs[0].y == 4 && lv.npcs[0].image == "npc.png" && lv.npcs[0].script == "a;\nb;");
 }
 
 // Codes written by hand: a double run and a single run.
@@ -340,6 +344,33 @@ void test_hud() {
   CHECK(d.surface().at(40, 29).r == 7);             // glove power 2
 }
 
+// GRMAP001: the LEVELNAMES grid, row-major and lowercased, and the short
+// form rebuilt from GENERATED (the 4.04r2 offline tutorial's).
+void test_gmap() {
+  Files::Gmap g;
+  std::string err;
+  CHECK(Files::read_gmap("GRMAP001\r\nWIDTH 2\r\nHEIGHT 2\r\nLEVELNAMES\r\n\"A.nw\",\"b.nw\",\r\n\"\",\"d.nw\"\r\n"
+                         "LEVELNAMESEND\r\nMAPIMG x.png\r\n",
+                         g, err));
+  CHECK(g.width == 2 && g.height == 2);
+  CHECK(g.at(0, 0) == "a.nw" && g.at(1, 0) == "b.nw" && g.at(0, 1).empty() && g.at(1, 1) == "d.nw");
+  CHECK(g.at(2, 0).empty() && g.at(-1, 0).empty());
+  int x = 0, y = 0;
+  CHECK(g.find("D.NW", x, y) && x == 1 && y == 1);
+  CHECK(!g.find("", x, y));
+
+  CHECK(Files::read_gmap("GRMAP001\nWIDTH 3\nHEIGHT 3\nGENERATED offlinetutorial_c-3.graal\nGENSEED 0\n"
+                         "HEIGHTMAP\n-5,-5,-8,-5\nHEIGHTMAPEND\n",
+                         g, err));
+  CHECK(g.names.size() == 9);
+  CHECK(g.at(0, 0) == "offlinetutorial_a-1.graal" && g.at(1, 1) == "offlinetutorial_b-2.graal" &&
+        g.at(2, 0) == "offlinetutorial_c-1.graal" && g.at(0, 2) == "offlinetutorial_a-3.graal");
+
+  CHECK(!Files::read_gmap("GLEVNW01\n", g, err));
+  CHECK(!Files::read_gmap("GRMAP001\nWIDTH 2\n", g, err));
+  CHECK(!Files::read_gmap("GRMAP001\nWIDTH 2\nHEIGHT 2\nGENERATED 1\n", g, err));  // the generator's flag
+}
+
 int main() {
   test_grv103();
   test_runs();
@@ -347,6 +378,7 @@ int main() {
   test_bad_levels();
   test_board_packet();
   test_sheet_pos();
+  test_gmap();
   test_world_passes();
   test_gani();
   test_actor_drawing();

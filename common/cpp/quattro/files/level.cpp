@@ -149,8 +149,19 @@ bool read_level(std::string_view data, Level& out, std::string& error) {
     pos = e == std::string_view::npos ? data.size() : e + 1;
     if (end) break;
   }
-  // NPCs, to '#' (GR-V1.00 on). Not kept: the server sends the NPCs.
+  // NPCs, to '#' (GR-V1.00 on).
   while (line(data, pos, l) && l != "#") {
+    if (l.size() < 2) continue;
+    Npc n;
+    n.x = gc(l[0]);
+    n.y = gc(l[1]);
+    std::string rest(l.substr(2));
+    const auto hash = rest.find('#');
+    n.image = rest.substr(0, hash);
+    if (hash != std::string::npos) n.script = rest.substr(hash + 1);
+    for (char& c : n.script)
+      if (static_cast<unsigned char>(c) == 0xA7) c = '\n';
+    out.npcs.push_back(std::move(n));
   }
   // Chests, to '#' (GR-V1.01 on).
   if (out.magic != "GR-V1.00") {

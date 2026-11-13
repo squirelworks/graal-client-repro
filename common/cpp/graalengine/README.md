@@ -146,6 +146,29 @@ With the player's own 4.04r2 `GraalEngine.dll` (`GRAAL404_ENGINE`) the
 world shows in `GraalControl` and the right arrow walks through the real
 MoveMap2D binding.
 
+## Offline mode (C2)
+
+`startOfflineMode` with no offline starter set runs the same Quattro
+program with no connection: `offlinetutorial.gmap` (the name the engine
+file carries; the 4.04r2 install keeps it in `levels/tutorial`) is found
+under `levels`, and the player starts in its centre part,
+`offlinetutorial_b-2.graal` (also a string in the engine file; the 2.x
+Training starts there too). The spot, (30, 30), is the rebuild's reading.
+The window title says `Offline`. The parts join at their edges as one
+board, as the 2.22 lab crossing showed (Graal_analysis
+client-internals/feature-specs/06-gmap-overworld.md), and the moves walk
+across them.
+
+The tutorial's level NPC sets the scene in its `playerenters` block: the
+look (`setplayerprop`), the tile sheet (`addtiledef picso.png`), and the
+4.x gani names (`replaceani idle,human2_idle` ...). There is no GS1 engine
+yet, so the program reads those lines wherever they stand, as the Pascal
+4.04r2 rebuild reads `addtiledef` (rebuild reading); the NPCs do not run.
+
+Checked in `make test` with a stand-in tutorial, and with the player's own
+4.04r2 install: the tutorial's centre part in its own tiles with the 4.x
+character, and walking right into `offlinetutorial_c-2.graal`.
+
 ## Which build (rebuild only)
 
 `graalengine_setBuild(label)`, called before `graal_engineInitialize`,
@@ -224,8 +247,9 @@ monster by the title (StartAni6).
 - [x] ~~Login, level, walk and chat~~ on the Quattro session (above)
 - [x] ~~`GuiShowImgCtrl` animations~~ (above); particle blend modes other
   than alpha need a launcher slot
-- [ ] Offline mode's level, the other GraalGui keys (`doA`, `doS`, `doD`,
-  the map and item menus)
+- [x] ~~Offline mode's level~~ (above; its NPCs run with the GS1 engine)
+- [ ] The other GraalGui keys (`doA`, `doS`, `doD`, the map and item
+  menus)
 - [x] ~~The 3D connect~~: 3D mode and the link on port + 1 through the 3D
   library (`../graal3dengine`); the launcher loading that library is still open
 - [ ] `Adventure_saveGraalOptions`, `Adventure_installGraal` and the
