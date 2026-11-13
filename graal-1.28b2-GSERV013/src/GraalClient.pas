@@ -21,7 +21,7 @@ unit GraalClient;
 interface
 
 uses
-  GSocket;
+  GSocket, GSecLogin;
 
 type
   TMessageEvent = procedure(Id: Integer; const Data: string) of object;
@@ -45,6 +45,9 @@ type
     procedure DeliverMessage(const Msg: string);
     { Logs Why, drops the link and the receive buffers. }
     procedure Fail(const Why: string);
+    { Seihai secure login: True when the frame was taken (S1 or its
+      refusal) and must not be split into messages. }
+    function TakeFrame(const Body: string): Boolean; virtual;
   public
     LastError: string;
     constructor Create;
@@ -73,7 +76,19 @@ type
   end;
 
   TAdventureClient = class(TGraalClient)
+  protected
+    { Seihai secure login (GSecLogin), not in the original }
+    FSec: TSecSession;
+    function TakeFrame(const Body: string): Boolean; override;
+    procedure SecNote(const Line: string);
   public
+    destructor Destroy; override;
+    function Connect(const Host: string; Port: Word): Boolean; override;
+    function Sec: TSecSession;
+    { Call each tick while Sec.Awaiting: drops a link silent for 5 s. }
+    procedure CheckSecure;
+    { C1 in a plain zlib frame of its own (gen 2: the type byte, no key) }
+    procedure StartSecure(const Account, Password: string);
     { Sends the login line. Language is not sent by a gen-2 build. }
     procedure SendLogin(const Account, Password, Language: string);
     procedure SendToAll(const Text: string);
@@ -204,11 +219,21 @@ begin
     end;
     Inc(P, Len + 2);
     Inc(FFramesIn);
+    if TakeFrame(Body) then
+    begin
+      if FInRaw = '' then Exit;
+      Continue;
+    end;
     FInPlain := FInPlain + Body;
     SplitMessages;
     if FInRaw = '' then Exit; { Fail cleared the buffers }
   end;
   if P > 1 then Delete(FInRaw, 1, P - 1);
+end;
+
+function TGraalClient.TakeFrame(const Body: string): Boolean;
+begin
+  Result := False;
 end;
 
 procedure TGraalClient.Fail(const Why: string);
@@ -278,6 +303,65 @@ end;
 
 { TAdventureClient }
 
+destructor TAdventureClient.Destroy;
+begin
+  FSec.Free;
+  inherited Destroy;
+end;
+
+function TAdventureClient.Connect(const Host: string; Port: Word): Boolean;
+begin
+  Sec.Reset(Host + ':' + IntToStr(Port));
+  Result := inherited Connect(Host, Port);
+end;
+
+function TAdventureClient.Sec: TSecSession;
+begin
+  if FSec = nil then
+  begin
+    FSec := TSecSession.Create;
+    FSec.OnNote := SecNote;
+  end;
+  Result := FSec;
+end;
+
+procedure TAdventureClient.SecNote(const Line: string);
+begin
+  Log(Line);
+end;
+
+procedure TAdventureClient.CheckSecure;
+begin
+  if Sec.Check(Connected) then Disconnect;
+end;
+
+procedure TAdventureClient.StartSecure(const Account, Password: string);
+var
+  C1: string;
+begin
+  if not Sec.Start(GChar(ClientType), ClientVersionToken, '',
+    GString(Account) + GString(Password), C1) then Exit;
+  FOut := C1 + #10;
+  Flush;
+end;
+
+function TAdventureClient.TakeFrame(const Body: string): Boolean;
+var
+  C2: string;
+begin
+  Result := (FSec <> nil) and FSec.Awaiting;
+  if not Result then Exit;
+  { S1, or the refusal, in a plain zlib frame }
+  if FSec.Answer(Body, C2) then
+  begin
+    { C2 stands in for the classic login line, alone in its frame }
+    FOut := C2 + #10;
+    Flush;
+  end
+  else
+    Disconnect;
+end;
+
 function LoginLine(const Account, Password: string): string;
 begin
   Result := GChar(ClientType) + ClientVersionToken + GString(Account) +
@@ -286,6 +370,13 @@ end;
 
 procedure TAdventureClient.SendLogin(const Account, Password, Language: string);
 begin
+  { Seihai secure login (not in the original): C1 now, C2 once S1 has
+    checked out }
+  if Sec.Want then
+  begin
+    StartSecure(Account, Password);
+    Exit;
+  end;
   { the type byte doubles as "id 0" of the first message }
   SendPacket(ClientType, ClientVersionToken + GString(Account) + GString(Password));
 end;

@@ -207,6 +207,10 @@ type
 
   TAdventure = class
   private
+    { the secure login's fallback reconnect (GSecLogin) }
+    FSecHost: string;
+    FSecPort: Word;
+    FSecAccount, FSecPassword: string;
     FModeUntil: Integer;   { frame the sword swing or lift ends }
     FSignWasDown: Boolean; { a game key was down on the tick before }
     FListWasDown: Boolean;
@@ -277,6 +281,8 @@ type
     procedure CrossEdges;
     procedure ReceiveFile(const Data: string);
     procedure ServerWarp(const Data: string);
+    { the secure login's wait, fallback or stop (GSecLogin) }
+    procedure CheckSecureLogin;
   public
     Level: TCachedLevel;   { the level the player is in }
     Gmap: TGmap;           { the active gmap, nil off a gmap or before it loads }
@@ -569,7 +575,7 @@ function SpriteWalkStep(Sprite: Integer): Integer;
 implementation
 
 uses
-  SysUtils, GPaths, GNumText, Math, GFont, GSound, GPeRes, Sound217, Map217, NpcBridge217, GHudFont;
+  SysUtils, GSecLogin, GPaths, GNumText, Math, GFont, GSound, GPeRes, Sound217, Map217, NpcBridge217, GHudFont;
 
 procedure MakeIndexSheet(Sheet: TGSurface);
 var
@@ -1437,6 +1443,13 @@ begin
   FLargeData := '';
   Npcs.Clear;
   Npcs.HasNpcServer := False;
+  FSecHost := Host;
+  FSecPort := Port;
+  FSecAccount := Account;
+  FSecPassword := Password;
+  FClient.Sec.Mode := ConfiguredSecMode;
+  FClient.Sec.ServerKey := ConfiguredServerKey;
+  FClient.Sec.ForceClassic := False;
   Result := FClient.Connect(Host, Port);
   if not Result then
   begin
@@ -1447,6 +1460,33 @@ begin
     ClientVersionToken]));
   FClient.SendLogin(Account, Password, 'English');
   FClient.Flush;
+end;
+
+procedure TAdventure.CheckSecureLogin;
+begin
+  FClient.CheckSecure;
+  if not (FClient.Sec.State in [ssRefused, ssNoAnswer, ssFailed]) then Exit;
+  if (FClient.Sec.State <> ssFailed) and MayFallBack(FClient.Sec.Mode, FClient.Sec.Server) then
+  begin
+    { auto: this server does not speak SEI00001 (graal-client-repro #148);
+      log in the original way and skip the probe there next time }
+    Log('secure login: ' + FClient.Sec.Why + '; logging in the original way');
+    RememberRefused(FClient.Sec.Server);
+    FClient.Disconnect;
+    FClient.Sec.ForceClassic := True;
+    if FClient.Connect(FSecHost, FSecPort) then
+    begin
+      FClient.SendLogin(FSecAccount, FSecPassword, 'English');
+      FClient.Flush;
+    end
+    else
+      Log('connect failed: ' + FClient.LastError);
+    Exit;
+  end;
+  DisconnectReason := 'secure login: ' + FClient.Sec.Why;
+  Log(DisconnectReason);
+  FClient.Disconnect;
+  FClient.Sec.Finish;
 end;
 
 { ---- walking (client-internals/decomp-findings-2026-10-25-m/01-walking-rule.md;
@@ -3915,9 +3955,11 @@ begin
   if FClient.Connected then
   begin
     FClient.Poll;
-    if not FClient.Connected then
+    if not FClient.Connected and (FClient.Sec.State <> ssAwaitS1) then
       Log('link closed: ' + FClient.LastError);
   end;
+  if FClient.Sec.State in [ssAwaitS1, ssRefused, ssNoAnswer, ssFailed] then
+    CheckSecureLogin;
   { the first frame after the login burst }
   if LoggedIn and not FPropsSent and FClient.Connected then SendLoginFrame;
   { a new level: its entry point is where a death sends the player back }

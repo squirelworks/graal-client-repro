@@ -138,9 +138,14 @@ task lists mechanically on 2026-11-05 and some are older than the code).
     against seihai-gserver and seihai-listserver
   - [x] 3.04, 3.153, 4.04r2, 4.20r6, 4.20r8, 5.00r7, 5.12, 6.01r1,
     6.03r7 (platform fields inside C2), game and list links
-  - [ ] 5.31r4 (its own late-5.x link code)
-  - [ ] Gen 3 (list link waits on #148 open question 2)
-  - [ ] Gen 2
+  - [ ] 5.31r4: its folder is a scaffold that speaks to no server yet, so
+    the login goes in when its link does
+  - [x] Gen 3: 1.41r1, 2.0 to 2.17.1, X, nm24, nm26 and the nwb builds,
+    game link
+  - [ ] Gen 3 and gen 2 list link: it sends id 0 `newmain` with no key or
+    token, so the spec's list C1 does not fit it (#148 open question 2)
+  - [x] Gen 2: 1.21 to 1.39 and 1.3 test, game link (C1 carries the type
+    byte only)
   - [ ] seihai-gserver-v2 side (its own repo)
 - [ ] #149 mixed-build stress in one level on seihai-gserver
 - [ ] #178 implementation roadmap: v0 to v2 and vx, verified completion
