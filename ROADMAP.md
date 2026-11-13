@@ -92,7 +92,7 @@ needs a folder named by the folder naming rule.
 - [x] GraalX (`GNW23021`, a 2.01 build with the `.nw` reader; #175): `graal-x-GNW23021`
 - [x] 5.12 Windows (`G3D14097`, Delphi launcher + engine): `graal-5.12-G3D14097`
 - [x] 6.00 beta 1 Windows (`G3D03048`): `graal-6.00b1-G3D03048`
-- [ ] 6.00 beta 2 Windows (`G3D15010`)
+- [x] 6.00 beta 2 Windows (`G3D15010`, on the wire; same token as 5.24r3/r4): `graal-6.00b2-G3D15010`, from the 6.00 beta 1 rebuild
 - [x] 5.24r3 and 5.24r4 Windows (`G3D15010`): `graal-5.24r4-G3D15010`
 - [x] 6.00r2 and 6.00r4 Windows (`G3D26090`): `graal-6.00r4-G3D26090`
 - [x] 6.03r7 Windows (`G3D0311C`): `graal-6.03r7win-G3D0311C`
