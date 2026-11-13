@@ -129,8 +129,10 @@ README, "Seihai secure login". CI logs in once more with
 
 - [ ] The server list and account screens as the real client shows them
   (scripted GUI from the Login server).
-- [ ] Update packages (`GRPKG001`): `basepackage.gupd` is asked for, not
-  saved, and C→S 47 for a cached copy is not sent.
+- [ ] Update packages (`GRPKG001`) in the Pascal start screen:
+  `basepackage.gupd` is asked for, not saved, and C→S 47 for a cached copy
+  is not sent. The engine library's session does all three (`--engine`);
+  the package's `FILE` list is not acted on in either.
 - [ ] The ids handled beyond 3.153 are accepted and ignored except 178, 182
   and 183: 105/106 (update packages), 170 (ghost mode), 190, 191 (projectile),
   193 to 195.

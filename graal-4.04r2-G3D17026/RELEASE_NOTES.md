@@ -24,6 +24,7 @@ program works too (`graal-assets/4.04r2/`, then `graal-assets/common/`).
 ## What's new in v0.0.5
 
 - [x] **Seihai secure login (optional, off by default).** With `--secure-login auto` (or `required`, or `secure_login.txt` in the settings folder), the account and password go sealed to a Seihai game server or list server (`SEI00001`), after the server's key is checked and pinned. Servers that do not know it get the original login under `auto`. Off, the login is byte for byte the original's. This is not in the original 4.04r2.
+- [x] **Update packages, as the real 4.04r2 asks for them.** With `--engine`, each login asks for `basepackage.gupd` and keeps the server's copy in `updatepackages/` (and the game server's own folder). On the next run a kept copy is checked by its checksum instead of being fetched again. The Login server is also asked for `bigmap.txt` once per run.
 
 ## What's new in v0.0.4.2
 

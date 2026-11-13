@@ -148,6 +148,14 @@ were not measured.
 - Walls come from `arrays.dat` in `--assets` or an asset root (array 0 passable, array 1 liquids). With no `arrays.dat` every tile is passable; where 6.x reads its own table was not seen in the lab. The 0.0625 snap after a step is left out.
 - GUI text uses the built-in Liberation Sans 16 px faces (the same tables as `common/GUiFont.pas`) in place of the player's TrueType faces; GUI bitmaps are read as PNG from `--assets` and its `gui`, `images` and `levels` folders. The playfield follows the player over the whole window and is clipped to the `GuiGraalCtrl`.
 - The initial props send nickname "unknown", as the lab's 6.03r7 did with no nickname set.
+- Update packages (the `4.04r2 Windows` row, `update_packages`): after each
+  login `basepackage.gupd` twice, as 23, or as 47 with the CRC-32 of a copy
+  saved before this run; `bigmap.txt` once per run on the Login session;
+  the served package kept in `updatepackages/` and, on a game server, in
+  `updatepackages/<name, space as %032>/` (Graal_analysis
+  client-internals/live-behaviour-404.md). Other characters in a server
+  name are escaped the same way (rebuild reading); the `FILE` list inside
+  the package is not acted on.
 - `Program::list_update` / `list_delete` keep the player list a 5.x launcher shows: every player the server names with 8, on any level, until a `DISCONNECT` (51) prop; leaving the level (50) keeps the row. Rows go out only when the nick, head, account, level, community name or first attribute changes. All rows are dropped at a warp (178) and when the link drops. `BuildProfile::last_prop` lets 5.12 read props 81 and 82 (community name); other rows stop at 80 as 2.22 does.
 - Offline (`Program::start_offline`, the engine library's offline mode): a
   level or a gmap from `--assets`; a gmap's parts join at their edges as one
