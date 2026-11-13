@@ -19,13 +19,16 @@ interface
 
 uses
   GCompat,
-  GSurface, GStartScreen, GraalClient, ListServer231, Adventure;
+  GSurface, GStartScreen, GraalClient, ListServer231, Adventure, GSecLogin;
 
 type
   TListFetch231 = class(TListFetch)
   public
     Client: TListServerClient;
     StartMs: Int64;
+    { kept for the secure login's fallback to the original request }
+    UsedHost, FAccount, FPassword: string;
+    UsedPort: Integer;
     Fallbacks: array of string;
     { The arrays2.dat fallbacks, tried when the first host does not connect. }
     procedure SetFallbacks(const H: TListHosts);
@@ -72,6 +75,8 @@ begin
   Failed := False;
   StartMs := NowMs;
   Client := TListServerClient.Create;
+  Client.SecMode := ConfiguredSecMode;
+  Client.ServerKey := ConfiguredServerKey;
   Used := Host;
   Status := Format('asking %s:%d for the server list...', [Host, Port]);
   if not Client.Connect(Host, Port) then
@@ -91,6 +96,10 @@ begin
     end;
     Status := Format('asking %s:%d for the server list...', [Used, Port]);
   end;
+  UsedHost := Used;
+  UsedPort := Port;
+  FAccount := Account;
+  FPassword := Password;
   Client.SendRequest(Account, Password);
 end;
 
@@ -98,6 +107,26 @@ procedure TListFetch231.Poll;
 begin
   if (Client = nil) or Done or Failed then Exit;
   Client.Poll;
+  Client.CheckSecure;
+  if Client.SecState in [ssRefused, ssNoAnswer, ssFailed] then
+  begin
+    if (Client.SecState <> ssFailed) and MayFallBack(Client.SecMode, Client.Server) then
+    begin
+      { auto: this list server does not speak SEI00001; ask the original way }
+      RememberRefused(Client.Server);
+      Client.Disconnect;
+      Client.ForceClassic := True;
+      if Client.Connect(UsedHost, UsedPort) then
+      begin
+        StartMs := NowMs;
+        Client.SendRequest(FAccount, FPassword);
+        Exit;
+      end;
+    end;
+    Status := 'listserver: secure login: ' + Client.SecWhy;
+    Failed := True;
+    Exit;
+  end;
   SiteUrl := Client.SiteUrl;
   UpgradeUrl := Client.UpgradeUrl;
   if Client.Status <> '' then

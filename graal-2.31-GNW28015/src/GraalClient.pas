@@ -27,9 +27,12 @@ unit GraalClient;
 interface
 
 uses
-  GSocket;
+  GSocket, GSecLogin;
 
 type
+  { Where the Seihai secure login (SEI00001, GSecLogin) stands. }
+  TSecState = (ssNone, ssAwaitS1, ssDone, ssRefused, ssNoAnswer, ssFailed);
+
   TMessageEvent = procedure(Id: Integer; const Data: string) of object;
   TLogEvent = procedure(const Line: string) of object;
 
@@ -98,15 +101,50 @@ type
     FKey: Byte;
     FLoginFrame: Boolean; { the next flush is the fixed login frame }
     FOutCodec, FInCodec: TGen5;
+    FServer: string; { host:port, the name pins go by }
+    FSecState: TSecState;
+    FSecWhy: string;
+    FSecStartMs: Int64;
+    FHandshake: TSecHandshake;
+    FSecTail: string;
+    FLanguage: string;
     function EncodeFrame(const Plain: string): string; override;
     function DecodeFrame(const Body: string; out Plain: string): Boolean; override;
     procedure ResetCodec;
+    { Queues one whole line (its first byte is the id) for the next flush. }
+    procedure SendLine(const Line: string);
+    { Sends C1 in the plain login frame and waits for S1. }
+    function StartSecure(const Prefix, Inner, Suffix, Tail: string): Boolean;
+    { What the classic login queues after its own frame; sent after C2. }
+    procedure SendAfterLogin; virtual;
+    procedure SecNote(const Line: string);
+    procedure HandleServerHello(const Line: string);
   public
+    { Secure login settings (off by default: the original login). }
+    SecMode: TSecMode;
+    { --server-key: the only key trusted, the pin file left alone }
+    ServerKey: string;
+    { The next login is the original one (auto's fallback). }
+    ForceClassic: Boolean;
+    { Whether this connection's login goes through SEI00001. }
+    function WantSecure: Boolean;
+    { Call each tick: a missing S1 after SeiWaitMs, or a close while
+      waiting, ends the handshake (SecState says how). }
+    procedure CheckSecure;
+    { Forgets a finished or failed handshake (after it was reported). }
+    procedure EndSecure;
+    property SecState: TSecState read FSecState;
+    { the server's refusal text, or why the handshake stopped }
+    property SecWhy: string read FSecWhy;
+    property Server: string read FServer;
     destructor Destroy; override;
     function Connect(const Host: string; Port: Word): Boolean; override;
     { The login line in its own frame, then PLI_LANGUAGE and the tamper
       check, as 2.22 sends them. }
     procedure SendLogin(const Account, Password, Language: string);
+    { The classic login line's tail: account and password (the secure
+      login seals exactly this). }
+    function LoginTail(const Account, Password: string): string;
     { Sets up the codec state without a socket (tests, the fuzzer). }
     procedure StartOffline(AKey: Byte);
     procedure SendToAll(const Text: string);
@@ -121,7 +159,7 @@ function PackBody(const Plain: string; out CType: Integer): string;
 implementation
 
 uses
-  SysUtils, GTypes, GZlib, GBzip2, Protocol231;
+  SysUtils, GTypes, GZlib, GBzip2, GSecCrypto, Protocol231;
 
 { TGen5 }
 
@@ -397,6 +435,7 @@ end;
 
 destructor TAdventureClient.Destroy;
 begin
+  FHandshake.Free;
   FOutCodec.Free;
   FInCodec.Free;
   inherited Destroy;
@@ -425,7 +464,106 @@ function TAdventureClient.Connect(const Host: string; Port: Word): Boolean;
 begin
   FKey := Random(256) and $7F;
   ResetCodec;
+  FServer := Host + ':' + IntToStr(Port);
+  FSecState := ssNone;
+  FSecWhy := '';
+  FSecTail := '';
   Result := inherited Connect(Host, Port);
+end;
+
+function TAdventureClient.WantSecure: Boolean;
+begin
+  Result := not ForceClassic and ShouldProbe(SecMode, FServer);
+end;
+
+procedure TAdventureClient.SendLine(const Line: string);
+begin
+  if Line <> '' then SendPacket(Ord(Line[1]) - $20, Copy(Line, 2, MaxInt));
+end;
+
+function TAdventureClient.StartSecure(const Prefix, Inner, Suffix, Tail: string): Boolean;
+begin
+  Result := False;
+  if FHandshake = nil then FHandshake := TSecHandshake.Create;
+  if (Length(Tail) > SeiMaxTail) or not FHandshake.Start(Prefix, Inner, Suffix) then
+  begin
+    FSecState := ssFailed;
+    if FHandshake.Error <> '' then FSecWhy := FHandshake.Error
+    else FSecWhy := 'the login is too long to seal';
+    Exit;
+  end;
+  FSecTail := Tail;
+  FSecState := ssAwaitS1;
+  FSecStartMs := GetTickCount64;
+  FOut := '';
+  FLoginFrame := True;
+  SendLine(FHandshake.Hello);
+  Flush;
+  Log('secure login: SEI00001 hello sent (inner ' + Inner + ')');
+  Result := True;
+end;
+
+procedure TAdventureClient.SendAfterLogin;
+begin
+  SendPacket(PLI_LANGUAGE, FLanguage);
+  SendPacket(PLI_TAMPERCHECK, TamperCheckBytes);
+end;
+
+procedure TAdventureClient.SecNote(const Line: string);
+begin
+  Log(Line);
+end;
+
+procedure TAdventureClient.HandleServerHello(const Line: string);
+var
+  Why, C2: string;
+begin
+  if not AcceptServer(FHandshake, Line, FServer, ServerKey, SecNote, Why) then
+  begin
+    FSecState := ssFailed;
+    FSecWhy := Why;
+    FSecTail := '';
+    Disconnect;
+    Exit;
+  end;
+  C2 := FHandshake.Seal(FSecTail);
+  FSecTail := '';
+  FSecState := ssDone;
+  Log('secure login: server key ' + KeyFingerprint(FHandshake.ServerKey) + ' verified; login sealed');
+  { C2 stands in for the classic login line, in its plain frame }
+  FOut := '';
+  FLoginFrame := True;
+  SendLine(C2);
+  Flush;
+  SendAfterLogin;
+  Flush;
+end;
+
+procedure TAdventureClient.CheckSecure;
+begin
+  if FSecState <> ssAwaitS1 then Exit;
+  if not Connected then
+  begin
+    FSecState := ssRefused;
+    if FSecWhy = '' then FSecWhy := 'the server closed the link';
+  end
+  else if GetTickCount64 - FSecStartMs > SeiWaitMs then
+  begin
+    FSecState := ssNoAnswer;
+    FSecWhy := 'the server did not answer the secure login within 5 s (it may not support SEI00001)';
+    Disconnect;
+  end;
+end;
+
+procedure TAdventureClient.EndSecure;
+begin
+  FSecState := ssNone;
+  FSecTail := '';
+end;
+
+function TAdventureClient.LoginTail(const Account, Password: string): string;
+begin
+  Result := GString(Account) + GString(Password);
 end;
 
 function TAdventureClient.EncodeFrame(const Plain: string): string;
@@ -451,6 +589,23 @@ var
 begin
   Plain := '';
   Result := False;
+  if FSecState = ssAwaitS1 then
+  begin
+    { S1, or the refusal, comes in a plain zlib frame }
+    Result := ZDecompress(Body, B);
+    if not Result then Exit;
+    if (B <> '') and (Pos(#10, B) > 0) then SetLength(B, Pos(#10, B) - 1);
+    if IsServerHello(B) then
+      HandleServerHello(B)
+    else
+    begin
+      FSecState := ssRefused;
+      FSecWhy := Copy(B, 2, MaxInt);
+      Log('secure login refused: ' + FSecWhy);
+      Disconnect;
+    end;
+    Exit;
+  end;
   if (Body = '') or (FInCodec = nil) then Exit;
   CType := Ord(Body[1]);
   B := Copy(Body, 2, MaxInt);
@@ -464,13 +619,20 @@ end;
 
 procedure TAdventureClient.SendLogin(const Account, Password, Language: string);
 begin
+  FLanguage := Language;
+  { Seihai secure login (not in the original): C1 now, C2 and the rest
+    once S1 has checked out }
+  if WantSecure then
+  begin
+    StartSecure(GChar(ClientType) + GChar(FKey), ClientVersionToken, '',
+      LoginTail(Account, Password));
+    Exit;
+  end;
   { GCHAR type, GCHAR key, token, GSTRING account, GSTRING password; the
     line ends at the password (client-versions.md) }
-  SendPacket(ClientType, GChar(FKey) + ClientVersionToken + GString(Account) +
-    GString(Password));
+  SendPacket(ClientType, GChar(FKey) + ClientVersionToken + LoginTail(Account, Password));
   Flush;
-  SendPacket(PLI_LANGUAGE, Language);
-  SendPacket(PLI_TAMPERCHECK, TamperCheckBytes);
+  SendAfterLogin;
 end;
 
 procedure TAdventureClient.SendToAll(const Text: string);

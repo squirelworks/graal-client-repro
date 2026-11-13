@@ -58,6 +58,8 @@ uses
   GTypes in '../../common/GTypes.pas',
   GZlib in '../../common/GZlib.pas',
   GSocket in '../../common/GSocket.pas',
+  GSecCrypto in '../../common/GSecCrypto.pas',
+  GSecLogin in '../../common/GSecLogin.pas',
   GLevel in '../../common/GLevel.pas',
   GSurface in '../../common/GSurface.pas',
   GArrays in '../../common/GArrays.pas',
@@ -135,6 +137,7 @@ begin
   WriteLn('Graal ', ClientBuildLabel, ' (', ClientVersionToken, ') rebuild');
   WriteLn('  (no arguments: the start screen, Training or the server list)');
   WriteLn('  --server HOST:PORT --account NAME [--password-env VAR]');
+  WriteLn('          [--secure-login off|auto|required] [--server-key KEY]');
   WriteLn('  --level FILE [--x X --y Y] [--cell CX,CY]');
   WriteLn('  common: [--data DIR] [--window | --headless] [--frames N] [--seconds N]');
   WriteLn('          [--keys SCRIPT] [--walk script|idle|random] [--walk-ms N] [--seed N]');
@@ -326,6 +329,7 @@ var
   WasHeld: array[0..4] of Boolean;
   Chars: string;
   StartUs, GateUs, NowUs, T0, NextStatsUs: Int64;
+  SecMode: TSecMode;
 
 begin
   Result := 64;
@@ -400,6 +404,13 @@ begin
       end;
       if GuiWin <> nil then Pw := GuiPw
       else Pw := SysUtils.GetEnvironmentVariable(Arg('--password-env', 'GRAAL_PW'));
+      { Seihai secure login (not in the original; off unless asked for) }
+      if HasArg('--secure-login') or HasArg('--server-key') then
+      begin
+        if not ParseSecMode(Arg('--secure-login', 'required'), SecMode) then
+          SecMode := smRequired;
+        SetSecure(SecMode, Arg('--server-key', ''));
+      end;
       if G.ConnectServer(Host, Port, Account, Pw) then
       begin
         if NoDelay and not G.Client.Socket.SetNoDelay(True) then

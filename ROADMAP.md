@@ -132,6 +132,14 @@ task lists mechanically on 2026-11-05 and some are older than the code).
 - [ ] #150 Seihai mode: extras only when the server is Seihai
 - [ ] #148 encrypted login channel for the server-capable rebuilds, original
   login kept as the fallback (#153 closed as its duplicate)
+  - [x] `common/GSecCrypto.pas` and `common/GSecLogin.pas` (pure Pascal,
+    RFC vectors), pins, `off`/`auto`/`required` (off by default)
+  - [x] Gen 5 Delphi: 2.22, 2.3, 2.31, game and list links, loopback
+    against seihai-gserver and seihai-listserver
+  - [ ] 3.x to 6.x (platform fields inside C2)
+  - [ ] Gen 3 (list link waits on #148 open question 2)
+  - [ ] Gen 2
+  - [ ] seihai-gserver-v2 side (its own repo)
 - [ ] #149 mixed-build stress in one level on seihai-gserver
 - [ ] #178 implementation roadmap: v0 to v2 and vx, verified completion
 
