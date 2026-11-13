@@ -16,6 +16,10 @@ carries simple art and rooms of its own, so it runs as it is. With a copy
 of the demo that you own, `import_assets.py` makes a second ROM that shows
 the demo's own graphics, rooms and texts.
 
+## What's new in v0.0.4.2
+
+- Rebuilt and released together with every other client; no changes to this client since v0.0.4.
+
 ## What's new in v0.0.4
 
 - Rebuilt from the latest code; the changes for this client are listed here as they land.

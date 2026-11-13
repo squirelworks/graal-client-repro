@@ -21,7 +21,7 @@ original. Put it at the top of a NewWorld install you own (or keep a
 `graal-assets/` folder next to it, or point it at one with `--data DIR`) and
 the install's files come first.
 
-## What's new in v0.0.5
+## What's new in v0.0.4.2
 
 - [x] **Minimap only on the map.** The minimap is drawn only on a level of its grid, as the real client does: a server's level off the map (or a house or cave) shows none. Before, it was drawn on every level.
 - [x] **F1 Help window.** F1 opens "Help" from the build's own form (TOptions): the "Game windows" group and Close. It is a real dialog on Windows and drawn elsewhere. Edit level opens the editor; the other buttons close it and do nothing yet.

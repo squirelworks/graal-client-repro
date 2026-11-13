@@ -9,7 +9,7 @@ Pascal. It shares the 6.1.1.3 folder's framer and connector units.
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").
 
-## What's new in v0.0.5
+## What's new in v0.0.4.2
 
 - Connector login, the only login 6.11 has. It does `GET /conf.gs` with
   `User-Agent: Graal/6.111` and retries twice on a second connector, then

@@ -11,7 +11,7 @@ exits. It does not play the game.
 > affiliated with, endorsed by, or connected to Graal Online, Cyberjoueurs,
 > or Stéphane Portha ("unixmad").
 
-## What's new in v0.0.5
+## What's new in v0.0.4.2
 
 - First scaffold of this folder. File versions 5.303 and 5.314, one
   executable, `quattro_lib`, no Torque link, and no stored token. The

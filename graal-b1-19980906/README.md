@@ -67,7 +67,7 @@ Start opens the game in a window shaped as the `TAdventure` form
 (`res/TADVENTURE.dfm`). Under Wine, real and rebuilt dialogs were
 screenshotted side by side and match pixel for pixel.
 
-## Exact-build walking geometry (v0.0.5)
+## Exact-build walking geometry (v0.0.4.2)
 
 - [x] Use this executable's half-tile step, six ordered probes and
   eighth-tile corner nudges, rather than later builds' constants.

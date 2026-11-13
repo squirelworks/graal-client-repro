@@ -26,12 +26,18 @@ type
     Client: TListServerClient;
     StartMs: Int64;
     Fallbacks: array of string;
-    { The license.graal fallbacks, tried when the first host does not connect. }
+    { The next fallback to try, and what the request sends. }
+    NextFallback, ListPort: Integer;
+    ListAccount, ListPassword: string;
+    { The license.graal fallbacks, tried in turn when a host does not
+      connect, or connects and closes or stays silent before any reply. }
     procedure SetFallbacks(const H: TListHosts);
     procedure Start(const Host: string; Port: Integer;
       const Account, Password: string); override;
     procedure Poll; override;
     destructor Destroy; override;
+  private
+    function TryNextHost: Boolean;
   end;
 
   { Draws G's player, idle and facing down, for the start screen. }
@@ -84,36 +90,46 @@ end;
 
 procedure TListFetch3153.Start(const Host: string; Port: Integer;
   const Account, Password: string);
-var
-  I: Integer;
-  Used: string;
 begin
   FreeAndNil(Client);
   SetLength(Servers, 0);
   Done := False;
   Failed := False;
+  ListPort := Port;
+  ListAccount := Account;
+  ListPassword := Password;
+  NextFallback := 0;
   StartMs := NowMs;
   Client := TListServerClient.Create;
-  Used := Host;
   Status := Format('asking %s:%d for the server list...', [Host, Port]);
-  if not Client.Connect(Host, Port) then
+  if Client.Connect(Host, Port) then
+    Client.SendRequest(Account, Password)
+  else if not TryNextHost then
   begin
-    Used := '';
-    for I := 0 to High(Fallbacks) do
-      if Client.Connect(Fallbacks[I], Port) then
-      begin
-        Used := Fallbacks[I];
-        Break;
-      end;
-    if Used = '' then
+    Status := Format('no listserver at %s:%d (%s)', [Host, Port, Client.LastError]);
+    Failed := True;
+  end;
+end;
+
+{ Connects to the next fallback host that takes the connection and sends
+  the request there. False when none is left. }
+function TListFetch3153.TryNextHost: Boolean;
+begin
+  Result := False;
+  while NextFallback <= High(Fallbacks) do
+  begin
+    Inc(NextFallback);
+    FreeAndNil(Client);
+    Client := TListServerClient.Create;
+    if Client.Connect(Fallbacks[NextFallback - 1], ListPort) then
     begin
-      Status := Format('no listserver at %s:%d (%s)', [Host, Port, Client.LastError]);
-      Failed := True;
+      Status := Format('asking %s:%d for the server list...', [Fallbacks[NextFallback - 1], ListPort]);
+      StartMs := NowMs;
+      Client.SendRequest(ListAccount, ListPassword);
+      Result := True;
       Exit;
     end;
-    Status := Format('asking %s:%d for the server list...', [Used, Port]);
   end;
-  Client.SendRequest(Account, Password);
 end;
 
 procedure TListFetch3153.Poll;
@@ -140,13 +156,15 @@ begin
   if not Client.Connected then
   begin
     Status := 'the listserver closed the link: ' + Client.LastError;
+    if (Client.Status = '') and TryNextHost then Exit;
     Failed := True;
   end
   else if NowMs - StartMs > 8000 then
   begin
     Status := 'the listserver did not answer';
-    Failed := True;
     Client.Disconnect;
+    if (Client.Status = '') and TryNextHost then Exit;
+    Failed := True;
   end;
 end;
 

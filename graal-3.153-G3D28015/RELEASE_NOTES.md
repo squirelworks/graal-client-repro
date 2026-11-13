@@ -22,7 +22,7 @@ point it at one with `--data DIR`) and the install's tiles, ganis, heads and
 bodies take their place. The shared `graal-assets/` folder next to the
 program works too (`graal-assets/3.153/`, then `graal-assets/common/`).
 
-## What's new in v0.0.5
+## What's new in v0.0.4.2
 
 - [x] **On Windows and macOS too.** The Windows zip holds `graal304-torque.exe` and `Game3153Lib.dll`, and the macOS zips `graal304-torque.app`, so the Torque program runs the 3.153 install there as on Linux.
 - [x] **First boot on the Torque engine.** The 3.153 install's own menus now run on the rebuilt Torque engine (`common/torque/guigraal`, `graal304-torque` on Linux), using the PPC script floats, the Mac script folders and 3.153's four extra menu methods. The game library `Game3153Lib` sends 3.153's login.

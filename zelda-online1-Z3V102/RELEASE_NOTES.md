@@ -12,6 +12,10 @@ The zip holds no original code, graphics or levels. The game carries simple
 stand-in graphics and two small levels of its own, so it runs with nothing
 next to it.
 
+## What's new in v0.0.4.2
+
+- Reads the shared asset root: in a folder holding `_clients/`, it takes `_clients/<label>/` first and then only the root files its `files.txt` names, never a file from another version's install (#192).
+
 ## What's new in v0.0.4
 
 - Rebuilt from the latest code; the changes for this client are listed here as they land.

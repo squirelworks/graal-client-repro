@@ -288,6 +288,20 @@ void Renderer::draw_control(Canvas& canvas, SimObject* control, const Rect& rect
         // A text list is as tall as its rows (its scroll parent clips it).
         r.height = std::max(r.height, int(child->rows.size()) * row_height(child));
       }
+      if (lowered(child->class_name) == "guiconsole") {
+        // The console grows to its lines, as wide as the longest, and its
+        // scroll parent shows the newest (the end): the .gui extent is only
+        // a minimum (stock Torque resizes it as lines come in).
+        const Profile cp = profile_of(child);
+        if (const GftFont* f = font(cp.font_type, cp.font_size)) {
+          int w = 0;
+          for (const std::string& line : engine_.console_buffer) w = std::max(w, f->text_width(line) + 4);
+          const int h = int(engine_.console_buffer.size()) * std::max(1, int(f->height));
+          r.width = std::max({r.width, w, rect.width - r.x});
+          r.height = std::max({r.height, h, rect.height - r.y});
+          r.y = std::min(r.y, rect.height - r.height);
+        }
+      }
       const Point min = parse_point(field_or(child, "minExtent", "8 8"));
       r.width = std::max(r.width, min.x);
       r.height = std::max(r.height, min.y);
@@ -342,7 +356,7 @@ void Renderer::draw_self(Canvas& canvas, SimObject* control, const Rect& rect) {
     draw_text_line(canvas, p, rect, control->field("text"), p.font_color);
   } else if (cls == "guibuttonctrl") {
     draw_button(canvas, control, p, rect);
-  } else if (cls == "guitexteditctrl") {
+  } else if (cls == "guitexteditctrl" || cls == "guiconsoleeditctrl") {
     draw_text_edit(canvas, control, p, rect);
   } else if (cls == "guipopupmenuctrl") {
     draw_popup(canvas, control, p, rect);

@@ -10,6 +10,7 @@
 // here; drawing, awake order and input are later stages.
 
 #include <algorithm>
+#include <cstdlib>
 
 #include "engine.hpp"
 
@@ -17,6 +18,9 @@ namespace Torque {
 namespace {
 
 bool is_control(const Engine& e, const SimObject* o) { return is_control_class(e, o, "guicontrol"); }
+
+// A script boolean: "true" or a nonzero number.
+bool truthy(const std::string& s) { return lower(s) == "true" || std::atof(s.c_str()) != 0; }
 
 } // namespace
 
@@ -85,6 +89,67 @@ void register_classes_304(Engine& e) {
   });
   e.add_function("GuiControl", "isAwake", 2, 2, "ctrl.isAwake()", [](Engine&, SimObject* o, Args&) {
     return std::string(o && o->awake ? "1" : "0");
+  });
+
+  // Visibility, the active state and geometry live in the control's fields
+  // ("visible", "active", "position", "extent"), which the renderer and the
+  // mouse read. Stock Torque 1.x names (rebuild policy for what the 3.04
+  // scripts ask: the Options tabs, messageBox.cs's sizing).
+  e.add_function("GuiControl", "setVisible", 3, 3, "ctrl.setVisible(bool)", [](Engine&, SimObject* o, Args& a) {
+    if (o) o->set_field("visible", truthy(a[2]) ? "1" : "0");
+    return std::string();
+  });
+  e.add_function("GuiControl", "isVisible", 2, 2, "ctrl.isVisible()", [](Engine&, SimObject* o, Args&) {
+    return std::string(o && o->field("visible") != "0" ? "1" : "0");
+  });
+  e.add_function("GuiControl", "setActive", 3, 3, "ctrl.setActive(bool)", [](Engine&, SimObject* o, Args& a) {
+    if (o) o->set_field("active", truthy(a[2]) ? "1" : "0");
+    return std::string();
+  });
+  e.add_function("GuiControl", "isActive", 2, 2, "ctrl.isActive()", [](Engine&, SimObject* o, Args&) {
+    return std::string(o && o->field("active") != "0" ? "1" : "0");
+  });
+  e.add_function("GuiControl", "getPosition", 2, 2, "ctrl.getPosition()", [](Engine&, SimObject* o, Args&) {
+    const std::string v = o ? o->field("position") : std::string();
+    return v.empty() ? std::string("0 0") : v;
+  });
+  e.add_function("GuiControl", "getExtent", 2, 2, "ctrl.getExtent()", [](Engine&, SimObject* o, Args&) {
+    const std::string v = o ? o->field("extent") : std::string();
+    return v.empty() ? std::string("64 64") : v;
+  });
+  e.add_function("GuiControl", "resize", 6, 6, "ctrl.resize(x, y, w, h)", [](Engine&, SimObject* o, Args& a) {
+    if (!o) return std::string();
+    auto num = [](const std::string& t) { return std::to_string(std::atoi(t.c_str())); };
+    o->set_field("position", num(a[2]) + " " + num(a[3]));
+    o->set_field("extent", num(a[4]) + " " + num(a[5]));
+    return std::string();
+  });
+  // A button pressed from script: what a click does (gui/mouse.cpp), the
+  // control's command and its onAction, unless it is inactive.
+  for (const char* button : {"GuiButtonCtrl", "GuiCheckBoxCtrl", "GuiRadioCtrl"})
+    e.add_function(button, "performClick", 2, 2, "button.performClick()", [](Engine& en, SimObject* o, Args&) {
+      if (!o || o->field("active") == "0") return std::string();
+      if (!is_control_class(en, o, "GuiButtonCtrl"))
+        o->set_field("value", truthy(o->field("value")) ? "0" : "1");
+      const std::uint32_t id = o->id;
+      const std::string cmd = o->field("command");
+      if (!cmd.empty()) en.evaluate(cmd);
+      if (SimObject* still = en.object(id)) en.call_method(still, "onAction", {});
+      return std::string();
+    });
+
+  // Display settings for the Options dialog. The window is a fixed-size
+  // canvas, so there is one device and the sizes the 3.04 lists offer;
+  // choosing one is stored in the prefs and does not resize the window
+  // (rebuild policy).
+  e.add_function("", "getDisplayDeviceList", 1, 1, "getDisplayDeviceList()", [](Engine&, SimObject*, Args&) {
+    return std::string("OpenGL");
+  });
+  e.add_function("", "getResolutionList", 2, 3, "getResolutionList(device)", [](Engine&, SimObject*, Args&) {
+    return std::string("640 480 32\t800 600 32\t1024 768 32");
+  });
+  e.add_function("", "getDesktopResolution", 1, 1, "getDesktopResolution()", [](Engine&, SimObject*, Args&) {
+    return std::string("1024 768 32");
   });
 
   // Text and value live in the control's fields, where the .gui put them.

@@ -22,7 +22,7 @@ bodies take their place. The shared `graal-assets/` folder next to the
 program works too (`graal-assets/4.20r6/`, then `graal-assets/4.20r8/`,
 then `graal-assets/common/`).
 
-## What's new in v0.0.5
+## What's new in v0.0.4.2
 
 - [x] **Pictures by kind.** The picture cache keeps each name once per kind (head, body, sword, shield, hat, weapon), because each kind searches its own folders. A picture first asked for without its kind got the built-in stand-in and kept it, so an install's own picture could stay hidden behind the stand-in (in 1.33, `levels/weapons/wbomb1.gif` beside the D button).
 

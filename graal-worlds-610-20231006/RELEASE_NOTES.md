@@ -10,7 +10,7 @@ the game.
 > affiliated with, endorsed by, or connected to Graal Online, Cyberjoueurs,
 > or Stéphane Portha ("unixmad").
 
-## What's new in v0.0.5
+## What's new in v0.0.4.2
 
 - First scaffold of this folder. No token is stored in this build, so
   none is written; the folder is named for the build and its date.

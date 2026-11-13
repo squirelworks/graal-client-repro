@@ -5,6 +5,10 @@ The listserver speaks the 3.04 list step: a plain zlib frame with id 7
 back: id 0 with the server list (one Classic, one Gold server) and id 2
 status. The gserver only records what the client sends in its first frame.
 Writes what it saw to the JSON file given, then exits.
+
+With a third argument "fallback", a silent listserver on 127.0.0.2 (same
+port) takes the connection and never answers; listserver.txt names it,
+and the client must move on to the license.graal host, 127.0.0.1.
 """
 import json, socket, struct, sys, threading, zlib
 
@@ -73,7 +77,20 @@ def gserver():
     seen['game_first_frame'] = raw.decode('latin1')
     conn.close()
 
-open(ready_path, 'w').write('127.0.0.1\n%d\n' % lport)
+fallback = len(sys.argv) > 3 and sys.argv[3] == 'fallback'
+held = []
+if fallback:
+    silent = socket.socket()
+    silent.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    silent.bind(('127.0.0.2', lport)); silent.listen(4); silent.settimeout(20)
+    def hold():
+        try:
+            conn, _ = silent.accept()
+            held.append(conn)
+            seen['silent_host_asked'] = True
+        except OSError: pass
+    threading.Thread(target=hold, daemon=True).start()
+open(ready_path, 'w').write('%s\n%d\n' % ('127.0.0.2' if fallback else '127.0.0.1', lport))
 t1 = threading.Thread(target=listserver); t2 = threading.Thread(target=gserver)
 t1.start(); t2.start(); t1.join(); t2.join()
 json.dump(seen, open(out_path, 'w'))
