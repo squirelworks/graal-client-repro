@@ -2,6 +2,7 @@
 // the weapon state, and walking into a chest opens it.
 //
 // Behaviour, from the 6.03r7 item-keys lab (Linux client, 2026-11-13):
+// - Every carry sprite prop sent is also kept in the player's carry_sprite.
 // - S: gani `sword` with the facing (props 10 and 17) at once, `idle`
 //   5 ticks (0.25 s) later; holding S swings once. A bush (arrays.dat
 //   list 9) at the blade's tip is cut in the same tick: 1 BOARDMODIFY with
@@ -18,10 +19,9 @@
 // - Walking into a closed chest opens it: 20 OPENCHEST x, y, once.
 //
 // The probe point and the 2 x 2 match follow the 2.22 Pascal rebuild's
-// Adventure.pas (ProbePoint, MatchObject). Rebuild choices: the flight and
-// break of a thrown object and the leaves of a cut bush are not drawn; the
-// stone's carry sprite was not seen (glove 1 cannot lift it), so lifting
-// it sends no second carry sprite.
+// Adventure.pas (ProbePoint, MatchObject). What is drawn for them is in
+// effects.hpp. Rebuild choice: the stone's carry sprite was not seen
+// (glove 1 cannot lift it), so lifting it sends no second carry sprite.
 #pragma once
 
 #include "../files/level.hpp"
@@ -29,6 +29,7 @@
 #include "walk.hpp"
 
 #include <array>
+#include <cstdint>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -41,11 +42,15 @@ inline int object_tile(const Object& o, int col, int row) { return o[static_cast
 
 struct ObjectTables {
   std::vector<Object> cut, cut_left, lift, lift_left;
+  std::vector<uint32_t> sprites;  // list 24: packed sprites.png rects
   bool loaded = false;
 };
 
+// Sprite `i` of list 24 on sprites.png; false when there is none.
+bool sprite_rect(const ObjectTables& t, int i, int& x, int& y, int& w, int& h);
+
 // The object lists of arrays.dat (9 cut, 10 what a cut leaves, 11 lift,
-// 12 what a lift leaves). False when the file does not parse.
+// 12 what a lift leaves) and its sprite list (24). False when the file does not parse.
 bool read_object_tables(std::string_view arrays_dat, ObjectTables& out);
 
 // The point the blade or the hands reach, in tiles, for the facing.
@@ -79,6 +84,10 @@ class ItemKeys {
 
   bool busy() const { return mode_ == Mode::Sword || mode_ == Mode::Lift; }
   bool carrying() const { return mode_ == Mode::Carry || mode_ == Mode::Lift; }
+  bool lifting() const { return mode_ == Mode::Lift; }
+  // The carry sprite of what is lifted or carried (from the press on), or -1.
+  int carry_sprite() const { return carrying() && carry_kind_ >= 0 && carry_kind_ < 3 ? kLiftSprites[carry_kind_] : -1; }
+  static constexpr int kLiftSprites[3] = {1, 7, 5};  // bush, sign, pot
 
   static constexpr int kSwordTicks = 5, kCarrySpriteAfter = 4, kCarryStillAfter = 6;
 

@@ -1,5 +1,6 @@
 // The player prop stream and the props the client sends.
 #include "../world/actions.hpp"
+#include "../world/effects.hpp"
 #include "../world/player.hpp"
 #include "../world/walk.hpp"
 #include "check.hpp"
@@ -62,6 +63,18 @@ void test_other_props() {
   Net::Reader u(unk);
   Player w;
   CHECK(apply_props(u, w, false) == 0);
+  // 82 (community name) only where the build reads it; 51 marks a
+  // disconnect apart from leaving the level (50).
+  std::string cn = gchar(kCommunityName) + gstring("guest");
+  Net::Reader c1(cn), c2(cn);
+  Player a, b;
+  CHECK(apply_props(c1, a, true) == 0 && a.community.empty());
+  CHECK(apply_props(c2, b, true, 82) == 1 && b.community == "guest");
+  std::string leave = gchar(kJoinLeaveLevel) + gchar(0);
+  Net::Reader lv(leave);
+  Player l;
+  apply_props(lv, l, true);
+  CHECK(l.gone && !l.disconnected && q.disconnected);
 }
 
 void test_sending() {
@@ -248,11 +261,13 @@ void test_item_keys() {
   std::vector<std::string> seen;
   for (int t = 1; t <= ItemKeys::kCarryStillAfter; ++t)
     for (const auto& pk : k.tick(p, 0, 0, l, tables, types)) seen.push_back(std::to_string(t) + ":" + pk.body);
-  CHECK(seen.size() == 2 && seen[0] == "4:" + gchar(kCarrySprite) + gchar(1));
+  CHECK(seen.size() == 2 && seen[0] == "4:" + gchar(kCarrySprite) + gchar(1) && p.carry_sprite == 1);
+  CHECK(k.carry_sprite() == 1 && carried_sprite(p.carry_sprite) == 261);
   CHECK(seen[1] == "6:" + gchar(kGani) + gstring("carrystill") && !k.busy() && k.carrying());
   // A again: thrown.
   out = k.tick(p, kKeyA, 0, l, tables, types);
   CHECK(out.size() == 2 && out[0].id == 11 && out[0].body.empty() && gani_of(out) == "idle" && !k.carrying());
+  CHECK(p.carry_sprite == -1 && k.carry_sprite() == -1);
 
   // A against a wall: grab; with the arrow away held, pull.
   set_tile(l, 34, 32, 5);
@@ -279,6 +294,94 @@ void test_item_keys() {
   CHECK(k.touch_chests(q, 1, c).empty() && k.touch_chests(q, 0, c).empty());
 }
 
+void test_effects() {
+  // The sprite list: 261 is the bush's (0, 338) 32 x 32 cell.
+  std::string d = items_dat();
+  std::vector<uint32_t> sprites(262, 0);
+  sprites[261] = (0u << 23) | ((338u / 2) << 12) | ((32u / 2) << 6) | (32u / 2);
+  for (int i = 13; i < 24; ++i) d += flat({});
+  d += flat(sprites);
+  ObjectTables tables;
+  CHECK(read_object_tables(d, tables) && tables.sprites.size() == 262);
+  int x, y, w, h;
+  CHECK(sprite_rect(tables, 261, x, y, w, h) && x == 0 && y == 338 && w == 32 && h == 32);
+  CHECK(!sprite_rect(tables, 260, x, y, w, h) && !sprite_rect(tables, 400, x, y, w, h));
+
+  // A bush thrown right from (480, 480): from (488, 458), 16 px a tick,
+  // 24 px lower after 8 ticks, its shadow on the ground at y 514.
+  Effects e;
+  e.throw_object(1, 480, 480, 3);
+  auto ps = e.pieces();
+  CHECK(ps.size() == 2 && ps[0].sprite == 0 && ps[0].x == 490 && ps[0].y == 514);
+  CHECK(ps[1].sprite == 261 && ps[1].x == 488 && ps[1].y == 458);
+  for (int t = 1; t < Effects::kThrowTicks; ++t) CHECK(e.tick().empty());
+  ps = e.pieces();
+  CHECK(ps.size() == 2 && ps[1].x == 488 + 7 * 16 && ps[1].y == 458 + 21 && ps[0].y == 514);
+  // It lands 128 px on and breaks into 4 leaves; nothing is sent.
+  CHECK(e.tick().empty());
+  ps = e.pieces();
+  CHECK(ps.size() == 4 && ps[0].sprite == 25 && ps[0].x == 616 && ps[0].y == 482 && ps[3].x == 632 && ps[3].y == 498);
+  for (int t = 0; t < Effects::kBreakTicks; ++t) e.tick();
+  CHECK(e.empty());
+
+  // A pot breaks into shards, 97 on the right and 99 on the left; a stone
+  // into nothing.
+  e.throw_object(5, 0, 0, 2);
+  for (int t = 0; t < Effects::kThrowTicks; ++t) e.tick();
+  ps = e.pieces();
+  CHECK(ps.size() == 4 && ps[0].sprite == 99 && ps[1].sprite == 97);
+  e.clear();
+  e.throw_object(3, 0, 0, 2);
+  for (int t = 0; t < Effects::kThrowTicks; ++t) e.tick();
+  CHECK(e.empty());
+
+  // A cut bush: 4 leaves on its tiles, drifting down.
+  e.cut_bush(34, 32);
+  ps = e.pieces();
+  CHECK(ps.size() == 4 && ps[0].x == 544 && ps[0].y == 512 && ps[3].x == 560 && ps[3].y == 528);
+  e.tick();
+  ps = e.pieces();
+  CHECK(ps[0].x == 543 && ps[0].y == 514 && ps[1].x == 561);
+  for (int t = 1; t < Effects::kLeafTicks; ++t) e.tick();
+  CHECK(e.empty());
+
+  // A chest at (30, 30) with a green gralat: the gralat one tile up, then
+  // 13 ITEMDEL (60, 58) at 1.2 s.
+  e.chest_item(0, 30, 30);
+  ps = e.pieces();
+  CHECK(ps.size() == 1 && ps[0].sprite == 136 && ps[0].x == 488 && ps[0].y == 462);
+  for (int t = 1; t < Effects::kChestItemTicks; ++t) CHECK(e.tick().empty());
+  auto out = e.tick();
+  CHECK(out.size() == 1 && out[0].id == 13 && out[0].body == gchar(60) + gchar(58) && e.empty());
+  e.chest_item(99, 30, 30);
+  CHECK(e.empty());
+
+  // The carry sprite prop: -1 is 255 on the wire.
+  Player p;
+  std::string five = gchar(kCarrySprite) + gchar(5);  // the Reader keeps a view
+  Net::Reader r(five);
+  apply_props(r, p, false);
+  CHECK(p.carry_sprite == 5);
+  std::string none = gchar(kCarrySprite) + gchar(static_cast<unsigned>(-1));
+  Net::Reader r2(none);
+  apply_props(r2, p, false);
+  CHECK(p.carry_sprite == -1);
+}
+
+void test_carry_walk() {
+  Files::Level l = open_level();
+  TileTypes types;
+  Player p;
+  p.x = 30;
+  p.y = 30;
+  p.gani = "carrystill";
+  Walker w;
+  w.tick(p, 8, l, types, true);
+  CHECK(p.gani == "carry" && p.x > 30);
+  w.tick(p, 0, l, types, true);
+  CHECK(p.gani == "carrystill");
+}
+
 }  // namespace
 
 int main() {
@@ -290,5 +393,7 @@ int main() {
   test_walls();
   test_push();
   test_item_keys();
+  test_effects();
+  test_carry_walk();
   TEST_MAIN_END();
 }

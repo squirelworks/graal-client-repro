@@ -183,7 +183,16 @@ stderr when `GRAALENGINE_LOG` is set, and the playfield is drawn with
 
 Each login (the first server, then every warp) is passed to the
 launcher's `OnServerLogin` with the server's name; the 5.x launcher titles
-its window with it.
+its window with it. On a 4.x row the call comes as the login is sent. On a
+5.x row it comes once the server accepts the login, followed by
+`OnServerListerConnect`, as the lab's 5.12 engine did under hooks.
+
+A 5.x row also reports what the 5.12 engine reported to its launcher:
+`ExternalPlayerlistUpdate(id, nick, head, props, flags)` for every player
+the server names (`Program::list_update`; the own row has flag `0x4000`
+and no nick, others `0x2000`), `ExternalPlayerlistDelete(id)` when one
+leaves, `SetGraalStatusIcons` with the status names (short at start, long
+once logged in) and `OpenMessageBox("Warning", ..., 1)` when the link drops.
 
 The session's files: the install (the launcher's folder), then
 `graal-assets/<build>/` and `graal-assets/common/` next to it, as the

@@ -15,10 +15,15 @@ uses
   SysUtils, Classes,
   GSurface in '../../common/GSurface.pas',
   GEngineHost in '../../common/GEngineHost.pas',
-  Protocol512 in '../src/Protocol512.pas';
+  Protocol512 in '../src/Protocol512.pas',
+  GUiFont in '../../common/GUiFont.pas',
+  PlayerList512 in '../src/PlayerList512.pas';
 
 type
   TTextFn = procedure(S: PAnsiChar); cdecl;
+  TListUpdateFn = procedure(Id: LongInt; Nick, Head, Props: PAnsiChar; Flags: LongInt); cdecl;
+  TListDeleteFn = procedure(Id: LongInt); cdecl;
+  TMessageBoxFn = procedure(Title, Text: PAnsiChar; Kind: LongInt); cdecl;
 
 var
   Failed: Integer = 0;
@@ -41,6 +46,31 @@ begin
   for I := 0 to H.Events.Count - 1 do
     if Pos(S, H.Events[I]) = 1 then Exit(True);
   Result := False;
+end;
+
+{ Draws the list with one other player and looks for ink on that row
+  (under Normal, the fourth group) and none on an empty group's row. }
+procedure TestDrawList(H: TEngineHost);
+var
+  S: TGSurface;
+  X, Y, Ink, RowY: Integer;
+begin
+  S := TGSurface.Create(1, 1);
+  try
+    TListUpdateFn(HostSlotFn('ExternalPlayerlistUpdate'))(7, 'lab205', '', 'account=pc:1,level=b.nw,communityname=,attr[1]=', $2000);
+    DrawPlayerList(S, H, nil);
+    Check((S.Width = PlayerListW) and (S.Height = PlayerListH), 'the Players window is drawn at its size');
+    { groups from y 32, 20 px apart: Staff, Buddies, Guild, Normal, then the row }
+    RowY := 32 + 4 * 20;
+    Ink := 0;
+    for Y := RowY + 2 to RowY + 17 do
+      for X := 40 to 120 do
+        if S.GetPixel(X, Y) and $FFFFFF < $808080 then Inc(Ink);
+    Check(Ink > 20, Format('the other player''s nick is drawn under Normal (%d dark pixels)', [Ink]));
+    TListDeleteFn(HostSlotFn('ExternalPlayerlistDelete'))(7);
+  finally
+    S.Free;
+  end;
 end;
 
 procedure TestEngine;
@@ -72,6 +102,23 @@ begin
     H.LoadGui;
     TTextFn(HostSlotFn('OnServerLogin'))('Lab Server');
     Check(H.ServerName = 'Lab Server', 'OnServerLogin gives the launcher the server''s name for its title');
+    { The player list, as the lab's 5.12 engine reported it. }
+    TTextFn(HostSlotFn('SetGraalStatusIcons'))('Online,Away,DND,Eating,Hiding,No PMs,RPing,Sparring,PKing');
+    Check((H.Statuses.Count = 9) and (H.Statuses[5] = 'No PMs'), 'SetGraalStatusIcons fills the Status names');
+    TListUpdateFn(HostSlotFn('ExternalPlayerlistUpdate'))(1, '', '', 'account=guest,level=a.nw,communityname=,attr[1]=', $4000);
+    TListUpdateFn(HostSlotFn('ExternalPlayerlistUpdate'))(4, 'lab205', 'head0.png', 'account=pc:1,level=b.nw,communityname=guest,attr[1]=', $2000);
+    TListUpdateFn(HostSlotFn('ExternalPlayerlistUpdate'))(4, 'lab205', 'head25.png', 'account=pc:1,level=b.nw,communityname=guest,attr[1]=', $2000);
+    Check((H.OnlineCount = 2) and (H.Players[1].Head = 'head25.png'), 'ExternalPlayerlistUpdate adds a row, then updates it in place');
+    TListDeleteFn(HostSlotFn('ExternalPlayerlistDelete'))(4);
+    Check((H.OnlineCount = 1) and (H.PlayerIndex(1) = 0) and (H.PlayerIndex(4) = -1), 'ExternalPlayerlistDelete removes the row by id');
+    { The Players window and tray tip, as the lab's 5.12 showed them. }
+    Check(PlayerListTitle(H.OnlineCount) = 'Players: 1 online', 'the window title counts the player''s own row');
+    Check(TrayTip('Lab Server', 2) = 'Lab Server: 2 online', 'the tray tip names the server and the count');
+    Check((PlayerGroup($4000) = -1) and (PlayerGroup($2000) = 3) and (PlayerGroup($2001) = 0),
+      'own row unlisted, players under Normal, flag $0001 under Staff');
+    TestDrawList(H);
+    TMessageBoxFn(HostSlotFn('OpenMessageBox'))('Warning', 'You have been disconnected from the game server.', 1);
+    Check((H.MessageCount = 1) and (H.MessageTitle = 'Warning'), 'OpenMessageBox keeps the warning for the launcher');
     H.ClipW := 1;
     H.Render;
     Check((H.ClipX = 0) and (H.ClipY = 0) and (H.ClipW = 640) and (H.ClipH = 480),

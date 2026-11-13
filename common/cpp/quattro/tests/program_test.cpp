@@ -61,9 +61,18 @@ void test_program() {
   opt.password = "pw";
   Draw::HeadlessWindow win;
   Shell::Program p(*prof, opt, win);
+  std::vector<std::string> list;  // the player-list rows the launcher would hear
+  int logins = 0;
+  p.list_update = [&](const Shell::Program::ListRow& r) {
+    list.push_back("+" + std::to_string(r.id) + "|" + r.nick + "|" + r.head + "|" + r.props + "|" + std::to_string(r.flags));
+  };
+  p.list_delete = [&](int id) { list.push_back("-" + std::to_string(id)); };
+  p.logged_in = [&] { ++logins; };
   CHECK(p.start());
   CHECK(login.conn.accept_from(login.listener));
   CHECK(win.title() == "Login");
+  CHECK((list == std::vector<std::string>{"-1"}));  // its own row, deleted before the first connect
+  CHECK(logins == 0);
 
   CHECK(run(p, &login, nullptr, [&] { return login.saw(37, "English"); }));
   login.send(send_level("onlinestartlocal.nw", 7));
@@ -72,11 +81,12 @@ void test_program() {
   CHECK(p.world().lobby);
   p.tick();
   CHECK(p.last_passes() == Draw::pass_order());
-  // Lobby: black where the tiles are, the chest drawn at (31,31).
+  // Lobby: black where the tiles are; 6.03r7 draws no chest of its own,
+  // so (31,31) stays black too.
   CHECK((win.last().at(1, 1) == Draw::Color{0, 0, 0, 255}));
   Draw::View v = Draw::follow(p.world(), 640, 480);
   int cx = static_cast<int>((31 - v.left) * 16) + 4, cy = static_cast<int>((31 - v.top) * 16) + 4;
-  CHECK((win.last().at(cx, cy) == Draw::Color{150, 90, 30, 255}));
+  CHECK((win.last().at(cx, cy) == Draw::Color{0, 0, 0, 255}));
 
   login.send(gchar(178) + "0,Lab Server,127.0.0.1," + std::to_string(game.port()) + "\n");
   std::thread acc([&] { game.conn.accept_from(game.listener); });
@@ -112,6 +122,7 @@ void test_program() {
   for (auto& [id, b] : game.got)
     if (id == 2) sent = b;
   CHECK(sent == World::initial_props(p.me(), "linux"));
+  CHECK(logins == 1);  // the login counts once the server sends the player's props
 
   // Another player on the level, then gone.
   game.send(gchar(8) + Net::gshort(7) + gchar(World::kX) + gchar(48) + gchar(World::kY) + gchar(46) + "\n");
@@ -119,6 +130,34 @@ void test_program() {
   CHECK(p.world().others.size() == 1 && p.world().others[0].x == 24);
   game.send(gchar(8) + Net::gshort(7) + gchar(World::kConnected) + "\n");
   CHECK(run(p, nullptr, &game, [&] { return p.others().empty(); }));
+
+  // The player list: a player on another level is listed with the fields
+  // the lab's 5.12 sent its launcher; moving sends nothing new, a new
+  // head does; leaving the level keeps the row, leaving the server
+  // deletes it.
+  list.clear();
+  game.send(gchar(8) + Net::gshort(4) + gchar(World::kNickname) + Net::gstring("lab205") + gchar(World::kHeadGif) +
+            gchar(0) + gchar(World::kCurLevel) + Net::gstring("other.nw") + gchar(World::kAccountName) +
+            Net::gstring("pc:9284355") + "\n");
+  CHECK(run(p, nullptr, &game, [&] { return !list.empty(); }));
+  CHECK(list.size() == 1 &&
+        list[0] == "+4|lab205|head0.png|account=pc:9284355,level=other.nw,communityname=,attr[1]=|8192");
+  game.send(gchar(8) + Net::gshort(4) + gchar(World::kX) + gchar(40) + "\n" + gchar(8) + Net::gshort(4) +
+            gchar(World::kHeadGif) + gchar(25) + "\n" + gchar(8) + Net::gshort(4) + gchar(World::kJoinLeaveLevel) +
+            gchar(0) + "\n");
+  CHECK(run(p, nullptr, &game, [&] { return list.size() >= 2; }));
+  for (int i = 0; i < 10; ++i) {
+    p.tick();
+    game.pump();
+  }
+  CHECK(list.size() == 2 && list[1].rfind("+4|lab205|head25.png|", 0) == 0);
+  CHECK(p.player_list().count(4) == 1);
+  game.send(gchar(8) + Net::gshort(4) + gchar(World::kConnected) + "\n");
+  CHECK(run(p, nullptr, &game, [&] { return p.player_list().count(4) == 0; }));
+  CHECK(list.back() == "-4");
+  // The client's own row: no nick, flag 0x4000.
+  CHECK(p.player_list().size() == 1 && p.player_list().begin()->second.flags == Shell::Program::kListSelf &&
+        p.player_list().begin()->second.nick.empty());
 }
 
 // The engine builds' downloads: missing images are asked for with 23, a
@@ -205,6 +244,12 @@ void test_downloads() {
   CHECK(!fs::exists(install / "levels/images/downloads/evil.png"));
   CHECK(p.asked().count("con.png") == 0 && p.asked().count("a:b.png") == 0);
   CHECK(!game.saw(23, "con.png") && !game.saw(23, "a:b.png"));
+
+  // 5.12 reads the community name (prop 82) for its player list.
+  game.send(gchar(8) + Net::gshort(12) + gchar(World::kAccountName) + Net::gstring("pc:1") +
+            gchar(World::kCommunityName) + Net::gstring("guest") + "\n");
+  CHECK(run(p, nullptr, &game, [&] { return p.player_list().count(12) == 1; }));
+  CHECK(p.player_list().count(12) && p.player_list().at(12).props == "account=pc:1,level=,communityname=guest,attr[1]=");
 
   // A large file over the cap is dropped, and so is every later chunk of it:
   // none is saved as if it were the whole file.
@@ -335,9 +380,81 @@ void test_offline() {
 }
 
 
+// 4.04r2 after each login: basepackage.gupd twice (23, or 47 with the
+// CRC-32 of a copy cached before the run), bigmap.txt on Login once; the
+// served package kept in updatepackages/ and the game server's folder.
+void test_update_packages() {
+  const Net::BuildProfile* prof = Net::find_profile("4.04r2");
+  CHECK(prof && prof->update_packages);
+  if (!prof) return;
+  CHECK(Shell::Program::package_dir("Login") == "updatepackages");
+  CHECK(Shell::Program::package_dir("Lab Server") == "updatepackages/Lab%032Server");
+  namespace fs = std::filesystem;
+  const fs::path root = fs::temp_directory_path() / ("quattro-gupd-" + std::to_string(std::rand()));
+  fs::create_directories(root);
+  auto count = [](const FakeServer& s, int id, const std::string& body) {
+    int n = 0;
+    for (const auto& [i, b] : s.got) n += (i == id && b == body);
+    return n;
+  };
+  const std::string pkg = "GRPKG001\n";
+  // A file with a newline in it goes raw (100 with the length, then 102).
+  auto file_msg = [&](const std::string& name, const std::string& data) {
+    std::string raw = gchar(102) + Net::gint5(0) + gchar(static_cast<unsigned>(name.size())) + name + data + "\n";
+    return gchar(100) + Net::gint3(static_cast<uint32_t>(raw.size())) + "\n" + raw;
+  };
+  {
+    FakeServer login, game;
+    CHECK(login.start() && game.start());
+    Shell::Options opt;
+    opt.host = "127.0.0.1";
+    opt.port = login.port();
+    opt.assets = root.string();
+    opt.download_files = true;
+    Draw::HeadlessWindow win;
+    Shell::Program p(*prof, opt, win);
+    CHECK(p.start());
+    CHECK(login.conn.accept_from(login.listener));
+    CHECK(run(p, &login, nullptr, [&] { return count(login, 23, "bigmap.txt") == 1; }));
+    CHECK(count(login, 23, "basepackage.gupd") == 2);
+    login.send(file_msg("basepackage.gupd", pkg));
+    CHECK(run(p, &login, nullptr, [&] { return fs::exists(root / "updatepackages/basepackage.gupd"); }));
+
+    login.send(gchar(178) + "0,Lab Server,127.0.0.1," + std::to_string(game.port()) + "\n");
+    std::thread acc([&] { game.conn.accept_from(game.listener); });
+    CHECK(run(p, &login, nullptr, [&] { return p.session().logins() == 2; }));
+    acc.join();
+    // Within the run the cached copy is not checked: 23 again, no bigmap.
+    CHECK(run(p, nullptr, &game, [&] { return count(game, 23, "basepackage.gupd") == 2; }));
+    game.send(file_msg("basepackage.gupd", pkg));
+    CHECK(run(p, nullptr, &game, [&] { return fs::exists(root / "updatepackages/Lab%032Server/basepackage.gupd"); }));
+    p.tick();
+    CHECK(count(game, 23, "bigmap.txt") == 0);
+  }
+  {
+    // The next run: the cached Login copy goes as 47, "!MCt'" being the
+    // CRC-32 0x15a8ea07 of "GRPKG001\n" (the live run's bytes).
+    FakeServer login;
+    CHECK(login.start());
+    Shell::Options opt;
+    opt.host = "127.0.0.1";
+    opt.port = login.port();
+    opt.assets = root.string();
+    opt.download_files = true;
+    Draw::HeadlessWindow win;
+    Shell::Program p(*prof, opt, win);
+    CHECK(p.start());
+    CHECK(login.conn.accept_from(login.listener));
+    CHECK(run(p, &login, nullptr, [&] { return count(login, 47, "!MCt'basepackage.gupd") == 2; }));
+    CHECK(count(login, 23, "basepackage.gupd") == 0);
+  }
+  fs::remove_all(root);
+}
+
 int main() {
   test_program();
   test_offline();
+  test_update_packages();
   test_downloads();
   TEST_MAIN_END();
 }

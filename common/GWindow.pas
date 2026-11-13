@@ -91,6 +91,7 @@ type
     FRightX, FRightY: Integer;
     FWheel: Integer;
     FChars: string;
+    FHidden: Boolean;
 {$IFDEF MSWINDOWS}
     FFull, FModeChanged: Boolean;
     FSaveStyle, FSaveEx: LongInt;
@@ -173,6 +174,10 @@ type
     { A new title, the window left as it is (2.0x's server list drops
       " (loading...)" once the servers are in). }
     procedure SetTitle(const Title: string);
+    { Shows or hides the window (the 5.x launcher's tray menu toggles its
+      windows so); Shown says which. Nothing happens without a back end. }
+    procedure SetShown(Show: Boolean);
+    function Shown: Boolean;
     property Width: Integer read FWidth;
     property Height: Integer read FHeight;
     { True once for each press since the last call (for one-shot keys). }
@@ -271,6 +276,24 @@ begin
 {$IFNDEF MSWINDOWS}{$IFNDEF GW_NONE}
   if FDisplay <> nil then XStoreName(FDisplay, FWin, PChar(Title));
 {$ENDIF}{$ENDIF}
+end;
+
+procedure TGWindow.SetShown(Show: Boolean);
+begin
+  FHidden := not Show;
+{$IFDEF MSWINDOWS}
+  if Show then ShowWindow(FWnd, SW_SHOW) else ShowWindow(FWnd, SW_HIDE);
+{$ENDIF}
+{$IFNDEF MSWINDOWS}{$IFNDEF GW_NONE}
+  if FDisplay = nil then Exit;
+  if Show then XMapWindow(FDisplay, FWin) else XUnmapWindow(FDisplay, FWin);
+  XFlush(FDisplay);
+{$ENDIF}{$ENDIF}
+end;
+
+function TGWindow.Shown: Boolean;
+begin
+  Result := not FHidden;
 end;
 
 function TGWindow.TakeFullscreenToggle: Boolean;

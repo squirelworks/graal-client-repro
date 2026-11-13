@@ -14,11 +14,13 @@
 #include "../files/gmap.hpp"
 #include "../net/connection.hpp"
 #include "../world/actions.hpp"
+#include "../world/effects.hpp"
 #include "../world/player.hpp"
 #include "../world/walk.hpp"
 #include "gui_host.hpp"
 #include "scripts.hpp"
 
+#include <filesystem>
 #include <map>
 #include <set>
 #include <vector>
@@ -87,13 +89,39 @@ class Program {
   void set_tile_types(const World::TileTypes& t) { tile_types_ = t; }
   const World::TileTypes& tile_types() const { return tile_types_; }
   void set_object_tables(const World::ObjectTables& t) { object_tables_ = t; }
+  const World::Effects& effects() const { return effects_; }
   Draw::Assets& assets() { return *assets_; }
   const std::string& level_name() const { return level_name_; }
   // Files asked for with C->S 23, lower case.
   const std::set<std::string>& asked() const { return asked_; }
+  // Where this server's basepackage.gupd is kept under the assets folder
+  // ("updatepackages/basepackage.gupd" for the Login server).
+  static std::string package_dir(const std::string& server);
   // Pass names of the last frame, in the order they ran.
   const std::vector<std::string>& last_passes() const { return passes_; }
   std::function<void(const std::string&)> log;
+
+  // The player list a 5.x engine reports to its launcher (the lab's 5.12,
+  // 2026-11-13): one row per player the server names, across levels,
+  // sent again whenever a shown field changes, and deleted when the
+  // player leaves. The client's own row has flag kListSelf.
+  struct ListRow {
+    int id = 0;
+    std::string nick, head, props;  // props: "account=..,level=..,communityname=..,attr[1]=.."
+    int flags = 0;
+    bool operator==(const ListRow& o) const {
+      return id == o.id && nick == o.nick && head == o.head && props == o.props && flags == o.flags;
+    }
+  };
+  static constexpr int kListSelf = 0x4000, kListServer = 0x2000;
+  std::function<void(const ListRow&)> list_update;
+  std::function<void(int id)> list_delete;
+  // The server accepted a login (its first PLO_PLAYERPROPS after each
+  // connect): the 5.12 launcher hears OnServerLogin only then.
+  std::function<void()> logged_in;
+  // The link to a server dropped (not a warp the program followed).
+  std::function<void(const std::string& why)> disconnected;
+  const std::map<int, ListRow>& player_list() const { return listed_; }
 
  private:
   void on_message(int id, std::string_view body);
@@ -104,13 +132,20 @@ class Program {
   void cross_gmap_edge();
   std::string window_title() const;
   Draw::Actor actor_for(int id, const World::Player& p);
+  // A list 24 sprite's rect on sprites.png; width 0 when there is none.
+  Draw::Rect sprite_cell(int sprite) const;
   void draw_hud();
   std::vector<std::string> roots() const;
   bool load_tile_sheet();
   void want_file(const std::string& name);
+  void ask_update_packages();
+  std::string package_path(const std::string& server) const;
   void ask_for_missing();
   void save_download(const std::string& name, const std::string& data);
   bool wanted(const std::string& name) const;  // asked for, and a safe name
+  void list_player(int id, const World::Player& p, int flags);
+  void unlist(int id);
+  void unlist_all();
 
   const Net::BuildProfile& profile_;
   Options opt_;
@@ -119,6 +154,9 @@ class Program {
   Draw::WorldState world_;
   World::Player me_;
   std::map<int, World::Player> others_;
+  std::map<int, World::Player> everyone_;  // every player the server named, across levels
+  std::map<int, ListRow> listed_;          // what the launcher was last told
+  int self_list_id_ = 1;
   World::MoveSender mover_;
   World::Walker walker_;
   World::TileTypes tile_types_;
@@ -126,6 +164,7 @@ class Program {
   World::ItemKeys item_keys_;
   unsigned action_held_ = 0;  // bindings held by action(), one bit per binding
   unsigned action_moves_ = 0, action_items_ = 0;  // what they hold: walk keys, World::ItemKey bits
+  World::Effects effects_;
   bool props_sent_ = false;
   ScriptHost scripts_;
   std::unique_ptr<GuiHost> gui_;
@@ -141,6 +180,8 @@ class Program {
   std::vector<std::string> passes_;
   bool quit_ = false;
   bool offline_ = false;
+  int logins_seen_ = 0;
+  std::filesystem::file_time_type run_start_;  // a cached package older than this counts
   Files::Gmap gmap_;
   bool have_gmap_ = false;
   std::string offline_dir_;  // the offline file's folder, searched first

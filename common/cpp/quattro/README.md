@@ -51,7 +51,7 @@ this program. This directory does.
 | `files/` | levels and packages | **done**: `GR-V1.00`–`1.05` (1.05 board layers), the 101 board packet, links, chests, signs; `GANI0001` sprite-mode ganis (sprites, steps, WAIT, SINGLEDIRECTION, ATTACHSPRITE/2, defaults). Packages and movie-mode ganis next |
 | `draw/` | the draw passes and the window | **done**: the world passes in the original's order on a software canvas (shared with `common/torque/gui`), the lobby rule, an Xlib window and a headless window; players drawn from their gani with head, body, sword, shield and hats from the player's folder (`draw/assets`), the body in the player's five colours; the 6.x HUD (`draw/hud`: tabs, sword and glove, AP and MP bars, counters, hearts) |
 | `shell/` | the program loop, `StartScript_*`, `GuiGraalCtrl` | **started**: the 50 ms loop, level name/board/links/chests from the session, window title per server, and the script host on `gs2::Machine` (140, 197 with the `GRESCR01` cache, 33/34, 190), and the GUI host: `StartScript_*` read from the player's own program file (`--program`), `MainMenuGui2D` as the content, the world drawn in its `GuiGraalCtrl`, mouse and keys from the window. The show-image emitters run each tick and draw through the painter (add, transparent, subtract, day-night). Next: the engine actions and `GuiShowImgCtrl` animations |
-| `world/` | `TServerPlayer` and the props | **done**: the prop stream of 9 and 8 (the 2.22 table plus X2/Y2/Z2), the initial props after login, and the X2/Y2 movement diff each tick; walking against `arrays.dat` walls and chests with the six-point box, the corner nudge, and `push` with 38 `pushed,0`; the item keys (`world/actions`): S swings and cuts bushes (1 BOARDMODIFY), A lifts, throws (11) or grabs and pulls, D toggles the status bit, walking into a chest opens it (20); the server's 7 BOARDMODIFY is applied |
+| `world/` | `TServerPlayer` and the props | **done**: the prop stream of 9 and 8 (the 2.22 table plus X2/Y2/Z2), the initial props after login, and the X2/Y2 movement diff each tick; walking against `arrays.dat` walls and chests with the six-point box, the corner nudge, and `push` with 38 `pushed,0`; the item keys (`world/actions`): S swings and cuts bushes (1 BOARDMODIFY), A lifts, throws (11) or grabs and pulls, D toggles the status bit, walking into a chest opens it (20); the server's 7 BOARDMODIFY is applied; Q and Tab toggle the status bit like D. The item drawing (`world/effects`, from the 6.03r7 item-drawing lab): the carried object over the head (bobbing with it, rising while lifted), `carry`/`carrystill`, a thrown object's 128 px flight with its shadow and its break into leaves, shards or sign pieces, a cut bush's leaves, and the item over an opened chest with its 13 ITEMDEL after 1.2 s |
 | `gui/` | the GS2 controls | in `common/cpp/gs2` (`gui.hpp`, B4): one control tree for 4.x to 6.x; Quattro paints it on its canvas (`shell/gui_host`) |
 
 The split with Track B: `common/cpp/gs2/` owns the bytecode loader, the
@@ -114,20 +114,23 @@ were not measured.
 
 ## Rebuild choices (not the original's)
 
-- Item keys: the flight and break of a thrown object, a cut bush's
-  leaves, the item over an opened chest and the carried object are not
-  drawn; walking while carrying plays `walk` (the lab did not walk with a
-  load); the stone's carry sprite was not seen, so lifting it sends only
-  the first carry sprite. Q, Tab and Esc are not item keys on the window
-  yet (Esc still quits with no GUI); the lab saw them toggle the same
-  status bit as D. Through `Program::action` (the engine library's
+- Item keys: the stone's carry sprite was not seen, so lifting it sends
+  only the first carry sprite, and a thrown stone breaks into nothing.
+  The item-drawing lab's frames were 120-450 ms apart on a loaded VM, so
+  how long the pieces of a broken object and a cut bush's leaves last,
+  how fast they spread and how often the leaf image flips are estimates
+  (`world/effects.hpp`, marked APPROX); the sign's two piece images are
+  put left and right by guess. Only the green gralat was seen over a
+  chest; other items use the Pascal clients' item sprite table. Carrying
+  never pushes. Esc still quits with no GUI (the lab saw Esc toggle the
+  status bit like D, Q and Tab). Through `Program::action` (the engine library's
   bindings), `doQ` does D and `doS2` (Space) does S.
 - Stand-ins until the real art is drawn: tiles with no `pics1.png` are flat
-  colours from their id; chests are boxes, and so is a player when no
+  colours from their id; chests are boxes (6.03r7 draws none, as the
+  real client does), and so is a player when no
   gani (not even `idle`) is in `--assets`. Body colours take the
   palette entries and the 20 colours of the Pascal clients; that 6.x uses
-  the same entries was not seen in a lab. `PARAMn` sprites (the carried object) are
-  not drawn yet. A gani steps once per 50 ms tick and starts over when the
+  the same entries was not seen in a lab. `PARAMn` sprites are not drawn yet. A gani steps once per 50 ms tick and starts over when the
   player's gani changes.
 - Upper board layers treat tile 0 as empty; each layer's bit stream starts
   on a new byte. The 5.x note gives the layer count and boards, not these.
@@ -145,6 +148,15 @@ were not measured.
 - Walls come from `arrays.dat` in `--assets` or an asset root (array 0 passable, array 1 liquids). With no `arrays.dat` every tile is passable; where 6.x reads its own table was not seen in the lab. The 0.0625 snap after a step is left out.
 - GUI text uses the built-in Liberation Sans 16 px faces (the same tables as `common/GUiFont.pas`) in place of the player's TrueType faces; GUI bitmaps are read as PNG from `--assets` and its `gui`, `images` and `levels` folders. The playfield follows the player over the whole window and is clipped to the `GuiGraalCtrl`.
 - The initial props send nickname "unknown", as the lab's 6.03r7 did with no nickname set.
+- Update packages (the `4.04r2 Windows` row, `update_packages`): after each
+  login `basepackage.gupd` twice, as 23, or as 47 with the CRC-32 of a copy
+  saved before this run; `bigmap.txt` once per run on the Login session;
+  the served package kept in `updatepackages/` and, on a game server, in
+  `updatepackages/<name, space as %032>/` (Graal_analysis
+  client-internals/live-behaviour-404.md). Other characters in a server
+  name are escaped the same way (rebuild reading); the `FILE` list inside
+  the package is not acted on.
+- `Program::list_update` / `list_delete` keep the player list a 5.x launcher shows: every player the server names with 8, on any level, until a `DISCONNECT` (51) prop; leaving the level (50) keeps the row. Rows go out only when the nick, head, account, level, community name or first attribute changes. All rows are dropped at a warp (178) and when the link drops. `BuildProfile::last_prop` lets 5.12 read props 81 and 82 (community name); other rows stop at 80 as 2.22 does.
 - Offline (`Program::start_offline`, the engine library's offline mode): a
   level or a gmap from `--assets`; a gmap's parts join at their edges as one
   board in global tiles (the 2.22 lab crossing), and a part's name is

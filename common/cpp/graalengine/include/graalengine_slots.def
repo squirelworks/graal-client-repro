@@ -139,7 +139,9 @@ GE_SLOT(SetGraalFullscreen, void, , (int32_t on), (on), GE_B5)
 GE_SLOT(ShowGraalWindow, void, , (int32_t show), (show), GE_B5)
 GE_SLOT(MakeGraalScreenshot, void, , (const char *file), (file), GE_B4)
 GE_SLOT(GetGraalScreenCapture, int32_t, 0, (uint32_t *out, int32_t max), (out, max), GE_B5)
-GE_SLOT(SetGraalStatusIcons, void, , (int32_t icons), (icons), GE_B45)
+/* The status names as one comma list (the lab's 5.12: "Online,Away,DND" at
+   start, the longer list once logged in). */
+GE_SLOT(SetGraalStatusIcons, void, , (const char *icons), (icons), GE_B45)
 GE_SLOT(GetGraalActionKeyText, const char *, "", (int32_t action), (action), GE_B45)
 GE_SLOT(GetVirtualKeyCode, int32_t, 0, (const char *keyname), (keyname), GE_B45)
 GE_SLOT(SwitchToSetupMode, void, , (int32_t on), (on), GE_B45)
@@ -160,13 +162,18 @@ GE_SLOT(OpenExternalLogWindow, void, , (void), (), GE_B4)
 
 /* ---- External windows ------------------------------------------------ */
 GE_SLOT(OpenExternalPlayerlist, void, , (void), (), GE_B45)
-GE_SLOT(ExternalPlayerlistUpdate, void, , (const char *row), (row), GE_B45)
-GE_SLOT(ExternalPlayerlistDelete, void, , (const char *row), (row), GE_B45)
+/* One player-list row (the lab's 5.12, 2026-11-13): the player's id, nick,
+   head image, "account=..,level=..,communityname=..,attr[1]=.." and flags
+   (0x4000 the client itself, 0x2000 a player on this server). Sent again
+   whenever one of those changes; Delete takes the id. */
+GE_SLOT(ExternalPlayerlistUpdate, void, , (int32_t id, const char *nick, const char *head, const char *props, int32_t flags), (id, nick, head, props, flags), GE_B45)
+GE_SLOT(ExternalPlayerlistDelete, void, , (int32_t id), (id), GE_B45)
 GE_SLOT(OpenExternalPM, void, , (const char *account, const char *text), (account, text), GE_B4)
 GE_SLOT(OpenExternalHistory, void, , (const char *account), (account), GE_B4)
 GE_SLOT(OpenExternalProfile, void, , (const char *account), (account), GE_B45)
 GE_SLOT(OpenExternalOptions, void, , (void), (), GE_B45)
-GE_SLOT(OpenMessageBox, void, , (const char *title, const char *text), (title, text), GE_B45)
+/* kind: 1 for the lab's 5.12 "You have been disconnected" warning. */
+GE_SLOT(OpenMessageBox, void, , (const char *title, const char *text, int32_t kind), (title, text, kind), GE_B45)
 
 /* ---- Microphone ------------------------------------------------------ */
 GE_SLOT(GetMicroInfoRequired, int32_t, 0, (void), (), GE_B45)

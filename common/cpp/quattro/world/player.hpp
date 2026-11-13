@@ -31,12 +31,13 @@ enum Prop : int {
   kGattrib1 = 37, kGattrib5 = 41, kAttachNpc = 42, kGmapX = 43, kGmapY = 44, kZ = 45,
   kGattrib6 = 46, kGattrib9 = 49, kJoinLeaveLevel = 50, kConnected = 51, kLanguage = 52,
   kStatusMsg = 53, kGattrib10 = 54, kGattrib30 = 74, kOsType = 75, kCodePage = 76,
-  kX2 = 78, kY2 = 79, kZ2 = 80,
+  kX2 = 78, kY2 = 79, kZ2 = 80, kListCategory = 81, kCommunityName = 82,
 };
 
 struct Player {
   int id = -1;
   std::string nickname, account, level, gani, head, body, chat, language, os_type;
+  std::string community;  // the 5.x community name (the account's chosen alias)
   int max_power = 0, power = 0, rupees = 0, arrows = 0, bombs = 0;
   int sword_power = 0, shield_power = 0, glove_power = 0, bomb_power = 0;
   int ap = 50, mp = 0;  // alignment points 0..100, magic points
@@ -46,14 +47,18 @@ struct Player {
   int z = 0;
   int sprite = 2, dir = 2, status = 0, gmap_x = 0, gmap_y = 0;
   int code_page = 0;
+  int carry_sprite = -1;  // what is carried over the head, -1 none
   std::array<std::string, 31> attr;  // gattrib 1..30
-  bool gone = false;
+  bool gone = false;          // left this level, or the server
+  bool disconnected = false;  // left the server (DISCONNECT)
 };
 
 // Applies a prop stream. Stops at an id the parser does not accept or does
 // not know the size of (the rest of the stream cannot be read). Returns
 // the number of props applied.
-int apply_props(Net::Reader& r, Player& p, bool other);
+// `last_prop`: the highest id the build reads (81 and 82 only for a build
+// that sets it so).
+int apply_props(Net::Reader& r, Player& p, bool other, int last_prop = 80);
 
 // X2/Y2/Z2 encoding: pixels (1/16 tile) times two, the low bit a sign.
 unsigned to_pixels2(double tiles);

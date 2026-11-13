@@ -694,12 +694,13 @@ begin
       R.Nickname := LR.Nickname;
       if R.Nickname = '' then R.Nickname := 'unknown';
       { 1.41r1: Start in One Player Online opens the server list (the real
-        one is its own form, TServerListFrame; here the rebuild's list
-        page), which holds the account and password; Back returns to the
-        start dialog }
+        one is its own form, TServerListFrame, captioned "Graalonline.com
+        Server List" in the unpatched exe; here the rebuild's list page),
+        which holds the account and password; Back returns to the start
+        dialog }
       if LR.Mode = 1 then
       begin
-        Win.Reshape('Graal.in Server List', ScreenW, ScreenH, True);
+        Win.Reshape('Graalonline.com Server List', ScreenW, ScreenH, True);
         G := TAdventure.Create;
         Fetch := TListFetch141.Create;
         Who := TCharacter141.Create;

@@ -4,10 +4,14 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <sstream>
+
+#include <zlib.h>
 
 namespace Quattro::Shell {
 
@@ -67,7 +71,8 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
       opt_(std::move(opt)),
       window_(window),
       session_(profile, {}),
-      canvas_(opt_.width, opt_.height) {
+      canvas_(opt_.width, opt_.height),
+      run_start_(std::filesystem::file_time_type::clock::now()) {
   Net::Session::Events ev;
   ev.connecting = [this](const std::string& name, const std::string& addr) {
     if (log) log("connecting to " + name + " (" + addr + ")");
@@ -77,10 +82,13 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
   };
   ev.disconnected = [this](const std::string& why) {
     if (log) log("disconnected: " + why);
+    unlist_all();
+    if (disconnected) disconnected(why);
   };
   ev.message = [this](int id, std::string_view body) { on_message(id, body); };
   session_.set_events(std::move(ev));
   world_.lobby_tiles = profile_.login_draws_tiles;
+  world_.chest_boxes = profile_.draws_chests;
   me_.nickname = opt_.nickname.empty() ? "unknown" : opt_.nickname;  // the lab's 6.03r7 sent "unknown" with no nickname set
   me_.language = opt_.language;
   scripts_.set_send([this](int id, std::string_view body) { return session_.connection().send(id, body); });
@@ -174,6 +182,57 @@ void Program::ask_for_missing() {
   for (const auto& [pid, o] : others_) images(o);
 }
 
+namespace {
+
+bool is_login_name(const std::string& name) { return lower_name(name).rfind("login", 0) == 0; }
+
+}  // namespace
+
+std::string Program::package_dir(const std::string& server) {
+  // The Login copy sits in updatepackages/; a game server's in a folder
+  // named for it, a space as %032 (Lab%032Server, the 4.04r2 live run).
+  // Other characters outside letters, digits, '-', '_' and '.' are written
+  // the same way (rebuild reading).
+  if (server.empty() || is_login_name(server)) return "updatepackages";
+  std::string out = "updatepackages/";
+  for (unsigned char c : server) {
+    if (std::isalnum(c) || c == '-' || c == '_' || (c == '.' && out.back() != '.')) {
+      out += static_cast<char>(c);
+    } else {
+      char buf[8];
+      std::snprintf(buf, sizeof buf, "%%%03u", static_cast<unsigned>(c));
+      out += buf;
+    }
+  }
+  return out;
+}
+
+std::string Program::package_path(const std::string& server) const {
+  return opt_.assets + "/" + package_dir(server) + "/basepackage.gupd";
+}
+
+void Program::ask_update_packages() {
+  // basepackage.gupd twice: 47 with the CRC-32 of a copy cached before
+  // this run, else 23 (a copy saved during the run is not checked).
+  std::string body = "basepackage.gupd";
+  int id = 23;
+  if (!opt_.assets.empty()) {
+    std::error_code ec;
+    const std::string path = package_path(session_.server_name());
+    auto when = std::filesystem::last_write_time(path, ec);
+    std::string data;
+    if (!ec && when < run_start_ && read_file(path, data)) {
+      const auto crc = crc32(0L, reinterpret_cast<const Bytef*>(data.data()), static_cast<uInt>(data.size()));
+      id = 47;
+      body = Net::gint5(static_cast<uint64_t>(crc)) + body;
+    }
+  }
+  asked_.insert("basepackage.gupd");
+  for (int i = 0; i < 2; ++i) session_.connection().send(id, body);
+  // bigmap.txt once per run, on the Login session only.
+  if (is_login_name(session_.server_name())) want_file("bigmap.txt");
+}
+
 bool Program::wanted(const std::string& name) const {
   return opt_.download_files && safe_file_name(name) && asked_.count(lower_name(name)) != 0 &&
          refused_.count(lower_name(name)) == 0;
@@ -186,6 +245,19 @@ void Program::save_download(const std::string& name, const std::string& data) {
   if (data.size() > opt_.max_download) {
     if (log) log(name + " is too large to keep");
     refused_.insert(lower_name(name));
+    return;
+  }
+  if (lower_name(name) == "basepackage.gupd") {
+    // Kept in updatepackages/, and on a game server in its own folder too.
+    std::vector<std::string> dirs{package_dir("")};
+    if (!is_login_name(session_.server_name())) dirs.push_back(package_dir(session_.server_name()));
+    for (const auto& d : dirs) {
+      std::error_code ec;
+      std::filesystem::create_directories(opt_.assets + "/" + d, ec);
+      std::ofstream(opt_.assets + "/" + d + "/basepackage.gupd", std::ios::binary)
+          .write(data.data(), static_cast<std::streamsize>(data.size()));
+    }
+    if (log) log("got basepackage.gupd (" + std::to_string(data.size()) + " bytes)");
     return;
   }
   std::string dir = opt_.assets + "/levels/images/downloads";
@@ -234,6 +306,7 @@ Draw::Actor Program::actor_for(int id, const World::Player& p) {
   a.shield = p.shield_image;
   for (size_t i = 1; i < a.attr.size(); ++i) a.attr[i] = p.attr[i];
   for (size_t i = 0; i < a.colors.size(); ++i) a.colors[i] = p.colors[i];
+  a.carry = sprite_cell(World::carried_sprite(p.carry_sprite));
   // A gani plays from the tick it was set.
   auto& start = gani_start_[id];
   if (start.first != a.gani) start = {a.gani, frame_};
@@ -267,6 +340,12 @@ bool Program::action(std::string_view command, bool down) {
     }
   }
   return known;
+}
+
+Draw::Rect Program::sprite_cell(int sprite) const {
+  int x, y, w, h;
+  if (!World::sprite_rect(object_tables_, sprite, x, y, w, h)) return {0, 0, 0, 0};
+  return {x, y, w, h};
 }
 
 void Program::say(const std::string& text) {
@@ -470,7 +549,44 @@ void Program::cross_gmap_edge() {
   wrap(me_.y, gy, false);
 }
 
+void Program::list_player(int id, const World::Player& p, int flags) {
+  ListRow row;
+  row.id = id;
+  row.nick = (flags & kListSelf) ? std::string() : p.nickname;  // the lab's 5.12 sent its own row with no nick
+  row.head = p.head;
+  std::string account = p.account, level = p.level;
+  if (flags & kListSelf) {  // what the client knows of itself when the server has not said
+    if (account.empty()) account = opt_.account;
+    if (level.empty()) level = level_name_;
+  }
+  row.props = "account=" + account + ",level=" + level + ",communityname=" + p.community + ",attr[1]=" + p.attr[1];
+  row.flags = flags;
+  auto it = listed_.find(id);
+  if (it != listed_.end() && it->second == row) return;
+  listed_[id] = row;
+  if (list_update) list_update(row);
+}
+
+void Program::unlist(int id) {
+  listed_.erase(id);
+  if (list_delete) list_delete(id);
+}
+
+void Program::unlist_all() {
+  // Others first, then the client's own row, which the lab's 5.12 deleted
+  // on every disconnect.
+  std::vector<int> ids;
+  for (const auto& [id, row] : listed_)
+    if (!(row.flags & kListSelf)) ids.push_back(id);
+  for (int id : ids) unlist(id);
+  listed_.erase(self_list_id_);
+  if (list_delete) list_delete(self_list_id_);
+  everyone_.clear();
+}
+
 bool Program::start() {
+  // The lab's 5.12 deleted its own row before the first connect.
+  if (list_delete) list_delete(self_list_id_);
   bool ok = session_.start(opt_.host, opt_.port, opt_.account, opt_.password, opt_.language, opt_.server_name);
   window_.set_title(window_title());
   return ok;
@@ -509,6 +625,7 @@ void Program::on_message(int id, std::string_view body) {
       world_.level = Files::Level{};
       world_.have_level = false;
       item_keys_.new_level();
+      effects_.clear();
       load_local_level(level_name_);
       break;
     case 7: {  // PLO_BOARDMODIFY: x, y, w, h, then the tiles row by row
@@ -560,13 +677,19 @@ void Program::on_message(int id, std::string_view body) {
       break;
     }
     case 9: {  // PLO_PLAYERPROPS
-      World::apply_props(r, me_, false);
+      World::apply_props(r, me_, false, profile_.last_prop);
       if (!props_sent_) {
         // Logged in: the client's own props, then only what moves.
         session_.connection().send(2, World::initial_props(me_, profile_.platform));
         mover_.reset(me_);
         props_sent_ = true;
+        if (logged_in) logged_in();
       }
+      if (me_.id > 0 && me_.id != self_list_id_) {
+        listed_.erase(self_list_id_);
+        self_list_id_ = me_.id;
+      }
+      list_player(self_list_id_, me_, kListSelf);
       break;
     }
     case 8: {  // PLO_OTHERPLPROPS: GSHORT id, then props
@@ -574,10 +697,22 @@ void Program::on_message(int id, std::string_view body) {
       int pid = static_cast<int>(r.gshort());
       World::Player& o = others_[pid];
       o.id = pid;
-      World::apply_props(r, o, true);
+      World::apply_props(r, o, true, profile_.last_prop);
       if (o.gone) {
         others_.erase(pid);
         gani_start_.erase(pid);
+      }
+      // The player list keeps everyone the server names, on any level,
+      // until the player leaves the server.
+      Net::Reader all(body.substr(2));
+      World::Player& e = everyone_[pid];
+      e.id = pid;
+      World::apply_props(all, e, true, profile_.last_prop);
+      if (e.disconnected) {
+        everyone_.erase(pid);
+        if (listed_.count(pid)) unlist(pid);
+      } else {
+        list_player(pid, e, kListServer);
       }
       break;
     }
@@ -632,6 +767,7 @@ void Program::on_message(int id, std::string_view body) {
     case 178:  // the session follows the warp; the title follows the name
       props_sent_ = false;
       others_.clear();
+      unlist_all();  // the next server names its own players
       break;
     default:
       break;
@@ -640,6 +776,10 @@ void Program::on_message(int id, std::string_view body) {
 
 bool Program::tick() {
   if (!offline_) session_.tick();
+  if (!offline_ && session_.logins() != logins_seen_) {
+    logins_seen_ = session_.logins();
+    if (logins_seen_ > 0 && profile_.update_packages && opt_.download_files) ask_update_packages();
+  }
   world_.lobby = !offline_ && session_.lobby_mode();
   if (window_.title() != window_title()) window_.set_title(window_title());
 
@@ -656,29 +796,64 @@ bool Program::tick() {
                     (window_.held(Draw::Key::Down) ? 4u : 0u) | (window_.held(Draw::Key::Right) ? 8u : 0u) |
                     action_moves_;
     unsigned items = (window_.held(Draw::Key::A) ? World::kKeyA : 0u) |
-                     (window_.held(Draw::Key::S) ? World::kKeyS : 0u) | (window_.held(Draw::Key::D) ? World::kKeyD : 0u) |
+                     (window_.held(Draw::Key::S) ? World::kKeyS : 0u) |
+                     // D, Q and Tab toggle the same status bit (item-keys lab)
+                     (window_.held(Draw::Key::D) || window_.held(Draw::Key::Q) || window_.held(Draw::Key::Tab)
+                          ? World::kKeyD
+                          : 0u) |
                      action_items_;
     // The item keys first (sword, lift, throw, grab); a swing or a lift
     // holds the walk.
+    int carried = p.carry_sprite;
     auto sent = item_keys_.tick(p, items, keys, world_.level, object_tables_, tile_types_);
+    for (const auto& pk : sent) {
+      // What the keys did, for the effects: a throw, or a bush cut.
+      if (pk.id == 11)
+        effects_.throw_object(carried, static_cast<int>(std::lround(p.x * Draw::kTile)),
+                              static_cast<int>(std::lround(p.y * Draw::kTile)), p.dir);
+      if (pk.id == 1 && p.gani == "sword" && pk.body.size() >= 2) {
+        Net::Reader br(pk.body);
+        int bx = static_cast<int>(br.gchar()), by = static_cast<int>(br.gchar());
+        effects_.cut_bush(bx, by);
+      }
+    }
     if (props_sent_) {
       for (const auto& pk : sent) session_.connection().send(pk.id, pk.body);
       if (!sent.empty()) mover_.gani_sent(p);
     }
-    std::string action = walker_.tick(p, item_keys_.busy() ? 0u : keys, world_.level, tile_types_);
+    std::string action =
+        walker_.tick(p, item_keys_.busy() ? 0u : keys, world_.level, tile_types_, item_keys_.carrying());
     if (offline_) cross_gmap_edge();
-    if (props_sent_)
-      for (const auto& pk : item_keys_.touch_chests(p, item_keys_.busy() ? 0u : keys, world_.level))
-        session_.connection().send(pk.id, pk.body);
+    for (const auto& pk : item_keys_.touch_chests(p, item_keys_.busy() ? 0u : keys, world_.level)) {
+      Net::Reader cr(pk.body);
+      int cx = static_cast<int>(cr.gchar()), cy = static_cast<int>(cr.gchar());
+      for (const auto& ch : world_.level.chests)
+        if (ch.x == cx && ch.y == cy) effects_.chest_item(ch.item, cx, cy);
+      if (props_sent_) session_.connection().send(pk.id, pk.body);
+    }
     if (!action.empty() && props_sent_) session_.connection().send(38, action);
     if (props_sent_) {
       std::string moved = mover_.diff(p);
       if (!moved.empty()) session_.connection().send(2, moved);
     }
   }
+  // The thrown objects, pieces, leaves and chest items; a chest item's
+  // time out sends its ITEMDEL.
+  for (const auto& pk : effects_.tick())
+    if (props_sent_) session_.connection().send(pk.id, pk.body);
   if (opt_.download_files && props_sent_ && frame_ % 10 == 0) ask_for_missing();
   ++frame_;
   world_.player = actor_for(-1, me_);
+  // Our own load shows from the press on, before its carry sprite is sent.
+  if (item_keys_.carrying()) {
+    world_.player.carry = sprite_cell(World::carried_sprite(item_keys_.carry_sprite()));
+    world_.player.lift_tick = item_keys_.lifting() ? world_.player.ani_tick : -1;
+  }
+  world_.effects.clear();
+  for (const auto& pc : effects_.pieces()) {
+    Draw::Rect r = sprite_cell(pc.sprite);
+    if (r.width > 0) world_.effects.push_back({r, pc.x, pc.y});
+  }
   world_.others.clear();
   for (const auto& [pid, o] : others_) {
     if (!o.level.empty() && !me_.level.empty() && o.level != me_.level) continue;

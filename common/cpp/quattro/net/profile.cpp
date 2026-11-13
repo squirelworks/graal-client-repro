@@ -45,6 +45,7 @@ std::vector<BuildProfile> make() {
   r603.pli = pli_603();
   r603.answers_ping = true;
   r603.hud_6x = true;  // the 6.03r7 HUD lab (draw/hud.hpp)
+  r603.draws_chests = false;  // item-keys lab: only grass shows, the chest still blocks
   r603.title_is_server = true;  // the 6.03r7 frames lab: "HUD Lab 603"
   rows.push_back(r603);
 
@@ -73,12 +74,17 @@ std::vector<BuildProfile> make() {
                   {84, 84},   {100, 102}, {104, 106}, {131, 134}, {150, 151}, {153, 156},
                   {165, 166}, {168, 176}, {178, 187}, {189, 191}, {193, 195}});
   r404.pli = ids({{0, 6},   {18, 19}, {23, 24}, {28, 28}, {30, 31}, {34, 35},
-                  {37, 38}, {44, 44}, {46, 46}, {157, 157}});
+                  {37, 38}, {44, 44}, {46, 47}, {157, 157}});
   r404.answers_ping = false;
   // The stock 4.04r2 GraalEngine.dll steps the cipher as 5.12 does:
   // len >> 2 for zlib and bzip2 bodies (at most 4), (len + 3) >> 2 for raw
   // ones (at most 12), both ways (read for seihai-core #41).
   r404.packed_round_down = true;
+  // Graal_analysis client-internals/live-behaviour-404.md (live runs
+  // 2026-10-31): after the login 23 basepackage.gupd twice and 23
+  // bigmap.txt (Login only, once per run); a copy cached before the run
+  // goes as 47 (VERIFYWANTSEND) with its CRC-32.
+  r404.update_packages = true;
   rows.push_back(r404);
 
   // 5.00r7 and 5.12 (Windows, the GraalEngine.dll session, used by
@@ -92,6 +98,7 @@ std::vector<BuildProfile> make() {
   r500.token = "G3D22067";
   r500.machine_fields = 3;  // win,<md5>,"",<md5> in the lab; "" each here
   r500.packed_round_down = false;  // 5.00r7 rounds up both ways
+  r500.update_packages = false;    // the same rule in the lab; not wired for 5.x here yet
   // In Login mode the level, chests and image NPCs are drawn; characters
   // and the HUD are not (protocol/v5v6-lab-play.md, "The Login server mode").
   r500.login_draws_tiles = true;
@@ -119,6 +126,7 @@ std::vector<BuildProfile> make() {
   r512.os_version = "6.2 9200 ";
   r512.packed_round_down = true;
   r512.compress_always = true;
+  r512.last_prop = 82;  // its player list showed each player's community name
   rows.push_back(r512);
 
   return rows;

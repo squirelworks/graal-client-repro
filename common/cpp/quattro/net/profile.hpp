@@ -28,6 +28,10 @@ struct BuildProfile {
   bool login_draws_tiles = false; // tiles drawn in that mode
   bool hud_6x = false;            // the built-in 6.x HUD (draw/hud.hpp)
   bool title_is_server = false;   // window title: the server name alone
+  // After each login: basepackage.gupd (23, or 47 with a cached copy's
+  // CRC-32), and bigmap.txt on the Login session once per run.
+  bool update_packages = false;
+  bool draws_chests = true;       // a chest is drawn (6.03r7: never, only its tiles)
   unsigned login_port = 14900;    // compiled-in login server port
   // A last login field after the machine fields, sent quoted ("" for none):
   // 5.12's Windows version (protocol/v5v6-windows-unpacked.md).
@@ -37,6 +41,9 @@ struct BuildProfile {
   // FrameEncoder::set_compress_always).
   bool packed_round_down = false;
   bool compress_always = false;
+  // The highest player prop id the build reads (2.22's parsers stop past
+  // 80; the lab's 5.12 listed players' community names, prop 82).
+  int last_prop = 80;
 };
 
 // Every row this program can run as.
