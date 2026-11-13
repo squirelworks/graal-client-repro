@@ -159,13 +159,18 @@ end;
 {$IFOPT R+}{$DEFINE RANGE_WAS_ON}{$R-}{$ENDIF}
 procedure TGen5.Apply(var Body: string; CType: Integer);
 var
-  Groups, G, J, P: Integer;
+  Groups, Present, G, J, P: Integer;
   K: Cardinal;
 begin
   if (CType and 1) <> 0 then Exit; { odd codes are not XORed }
   if CType = CompressNone then Groups := XorGroupsRaw
   else Groups := XorGroupsPacked;
-  if (Length(Body) + 3) div 4 < Groups then Groups := (Length(Body) + 3) div 4;
+  { 4.04r2 steps a packed body Length div 4 times, rounded down, and a raw
+    one rounded up, as 5.12 (read in the engine library 2026-11-13;
+    seihai-core 0.1.0 gen5_round_down) }
+  if CType = CompressNone then Present := (Length(Body) + 3) div 4
+  else Present := Length(Body) div 4;
+  if Present < Groups then Groups := Present;
   UniqueString(Body);
   for G := 0 to Groups - 1 do
   begin
