@@ -91,6 +91,9 @@ needs a folder named by the folder naming rule.
 
 - [x] GraalX (`GNW23021`, a 2.01 build with the `.nw` reader; #175): `graal-x-GNW23021`
 - [x] 5.12 Windows (`G3D14097`, Delphi launcher + engine): `graal-5.12-G3D14097`
+- [x] 3.0beta, 3.01 and 3.151 Linux (`G3D16053`, `G3D27063`, `G3D27015`, tokens read from each `graalexe`): `graal-3.0beta-G3D16053`, `graal-3.01-G3D27063`, `graal-3.151-G3D27015`, each with its own game library on `graal304-torque`; 3.0beta and 3.01 log in as client type 4 on the gen-4 link
+- [x] 4.03r1 Linux (`G3D11125`), 4.03r3 Windows (`G3D09125`), 4.11 Windows (`G3D26076`) and 4.20 Linux (`G3D22126`, r6 and r8): `graal-4.03r1-G3D11125`, `graal-4.03r3-G3D09125`, `graal-4.11-G3D26076`, `graal-4.20linux-G3D22126`, from the 4.20r8 rebuild
+- [ ] 4.04r2 Linux (`G3D19026`), 4.10r2 and 4.11 Linux (`G3D28076`), and the Mac 4.04r2 (`G3D18026`), 4.10r2 (`G3D27076`) and 5.12 (`G3D15097`)
 - [ ] 6.00 beta 1 Windows (`G3D03048`)
 - [ ] 6.00 beta 2 Windows (`G3D15010`)
 - [ ] 5.24r3 and 5.24r4 Windows (`G3D15010`)
