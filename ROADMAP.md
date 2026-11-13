@@ -98,6 +98,12 @@ needs a folder named by the folder naming rule.
 - [x] 6.03r7 Windows (`G3D0311C`): `graal-6.03r7win-G3D0311C`
 - [ ] Android vx: seven APK builds, Classic 1.7 and 1.8 among them (#177)
 - [x] The 39ster client, a Windows C++/SDL/OpenGL host (#176): `graal-39ster-1.00`, an offline build with no token, so the folder carries its version alone
+- [x] 4.04r2 Mac (`G3D18026`, on the wire) and 4.04r2 Linux (`G3D19026`, on the wire): `graal-4.04r2mac-G3D18026`, `graal-4.04r2linux-G3D19026`, from the 4.11 Mac rebuild
+- [x] 4.10r2 and 4.11 Linux (`G3D28076`, read from both binaries): `graal-4.11linux-G3D28076`, from the 4.11 Mac rebuild. The Mac 4.10r2 sends `G3D27076`, already `graal-4.11mac-G3D27076`
+- [x] 5.12 Mac (`G3D15097`, on the wire): `graal-5.12mac-G3D15097`, from the Windows 5.12 rebuild
+- [x] 6.004 Mac (`G3D27090`) and 6.015 Mac (`G3D3107A`), tokens read from each binary: `graal-6.004mac-G3D27090`, `graal-6.015mac-G3D3107A`
+- [x] The later Graal3D beta (`GR3DV003`, read from the binary; Genesis3D): `graal-3d-20010523`
+- [x] Inferred stand-ins, no binary held: 4.02.11 (`G3D28095`, public list only) as `graal-4.02.11-G3D28095`, and gs2lib's Graal Worlds token (`G3D2204D`) as `graal-worlds2013-G3D2204D`
 
 5.30r3 shares the `graal-5.31r4-G3D26090` folder. 2.1.x, 2.2x before 2.22, 2.3
 and 6.036 have tokens or version strings only, no exe, so they wait for
