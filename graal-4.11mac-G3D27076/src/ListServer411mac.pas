@@ -1,6 +1,6 @@
-unit ListServer420r6;
+unit ListServer411mac;
 
-{ Where 4.20r6 starts, and the listserver step the rebuild asks first
+{ Where 4.11 Mac starts, and the listserver step the rebuild asks first
   (graal_analysis protocol/v4x-clients.md, "Login server and
   license.graal").
 
@@ -16,7 +16,7 @@ unit ListServer420r6;
   listserver step of the 3.x clients, and offers the licence file's Login
   hosts only as extra rows after that list: id 7 V2ENCRYPTKEYCL = GCHAR key + token + 'newmain' and id 1
   SERVERLIST (account, password) together in one plain zlib frame; the
-  replies are gen 5, keyed with that key. The token sent is 4.20r6's own.
+  replies are gen 5, keyed with that key. The token sent is 4.11 Mac's own.
   The reply ids are 0 (the list), 2 (status), 4 (error, the connection
   closes); 3 and 5 are read as 2.22 reads them. The id 0 layout is the
   2.05 one, read by GStartScreen.ParseServerList. }
@@ -24,7 +24,7 @@ unit ListServer420r6;
 interface
 
 uses
-  SysUtils, Classes, GTypes, Protocol420r6, GraalClient, GStartScreen;
+  SysUtils, Classes, GTypes, Protocol411mac, GraalClient, GStartScreen;
 
 const
   ListToken = ClientVersionToken;

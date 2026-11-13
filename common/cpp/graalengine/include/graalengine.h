@@ -110,7 +110,7 @@ enum {
 
 /* Builds a slot can belong to (the Builds column of the slot list). */
 enum {
-  GRAAL_BUILD_4208 = 1, /* the 4.x launcher: 4.04r2, 4.20r6, 4.20r8 */
+  GRAAL_BUILD_4208 = 1, /* the 4.x launcher: 4.04r2, 4.11 Mac, 4.20r8 */
   GRAAL_BUILD_5007 = 2, /* the 5.0 launcher: 5.00r7, 5.12 */
   GRAAL_BUILD_3D = 4    /* filled by the 3D library, not by a launcher */
 };

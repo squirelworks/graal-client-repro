@@ -7,7 +7,8 @@
 // millisecond count. The library glue (exports.cpp) puts a UDP socket and
 // the engine on either side.
 //
-// Protocols 24 (5.00r7, 5.12) and 21 (4.20r6) share their packet shapes and
+// Protocols 24 (5.00r7, 5.12) and 21 (read on the 2006-09-19 Mac build,
+// recorded as 4.20r6 but in fact 4.11 Mac; assumed for 4.20) share their packet shapes and
 // run the whole start: handshake, packet numbering and acks, guaranteed
 // events, the tagged mission commands, ghosts, the control object and the
 // login steps 2 to 6. Protocol 19 (4.04r2) is stock TGE past the handshake

@@ -1,14 +1,14 @@
-{ Tests for the 4.20r6 rebuild. No framework: each check prints a line and
+{ Tests for the 4.11 Mac rebuild. No framework: each check prints a line and
   the run exits 1 if any failed.
 
-  4.20r6 speaks the gen-5 wire, so the codec checks run against frames of
-  a real 2.22 session (Capture420r6.inc, the 2.22 capture); the login, walk
-  and after-login checks follow the lab runs of the real 4.04r2 and 4.20r6
+  4.11 Mac speaks the gen-5 wire, so the codec checks run against frames of
+  a real 2.22 session (Capture411mac.inc, the 2.22 capture); the login, walk
+  and after-login checks follow the lab runs of the real 4.04r2 and 4.11 Mac
   (graal_analysis client-internals/live-behaviour-404.md and
   version-profiles/4.04-4.20.toml).
-  Optional: GRAAL420R6_DATA = a 4.20r6 install, so the fuzzer also draws the
+  Optional: GRAAL411MAC_DATA = a 4.11 Mac install, so the fuzzer also draws the
   fuzzed players with real heads, bodies and ganis. }
-program Test420r6;
+program Test411mac;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
 {$IFDEF MSWINDOWS}{$APPTYPE CONSOLE}{$ENDIF}
@@ -23,15 +23,15 @@ uses
   GSurface in '../../common/GSurface.pas',
   GArrays in '../../common/GArrays.pas',
   GAni in '../../common/GAni.pas',
-  Protocol420r6 in '../src/Protocol420r6.pas',
+  Protocol411mac in '../src/Protocol411mac.pas',
   GraalClient in '../src/GraalClient.pas',
   Adventure in '../src/Adventure.pas',
   GBuiltin in '../../common/GBuiltin.pas',
   GStartScreen in '../../common/GStartScreen.pas',
-  ListServer420r6 in '../src/ListServer420r6.pas',
-  StartScreen420r6 in '../src/StartScreen420r6.pas';
+  ListServer411mac in '../src/ListServer411mac.pas',
+  StartScreen411mac in '../src/StartScreen411mac.pas';
 
-{$I Capture420r6.inc}
+{$I Capture411mac.inc}
 
 type
   { reaches the codec hooks }
@@ -307,7 +307,7 @@ begin
 end;
 
 { The stand-in listserver step (no licence file): id 7 with the key,
-  4.20r6's token and newmain and id 1 in one plain zlib frame; the list,
+  4.11 Mac's token and newmain and id 1 in one plain zlib frame; the list,
   status and urls back in gen 5. }
 procedure TestListServer;
 var
@@ -435,7 +435,7 @@ begin
       (G.Player.HeadImage = 'head0.png') and (G.Player.AniName = 'idle'),
       'burst: own props in their 2.1 forms (sword, shield, GANI, head)');
     Check((G.Ignored[190] = 0) and (G.Ignored[82] = 0) and (G.Ignored[194] = 0),
-      'burst: 82, 190 and 194 are among the 99 ids 4.20r6 handles');
+      'burst: 82, 190 and 194 are among the 99 ids 4.11 Mac handles');
     G.Player.Nickname := 'stubstub';
     G.Player.Status := 20;
     G.Tick;
@@ -1033,10 +1033,10 @@ end;
   added after it as extra rows, never in its place. }
 procedure TestStartRows;
 var
-  F: TListFetch420r6;
+  F: TListFetch411mac;
   I: Integer;
 begin
-  F := TListFetch420r6.Create;
+  F := TListFetch411mac.Create;
   try
     F.LoginHosts := ParseLicense('login.example'#13#10'14900'#13#10'a'#13#10'b'#13#10'c'#13#10 +
       'fb.example'#13#10);
@@ -1083,8 +1083,8 @@ begin
   try
     G.Arrays.LoadFromString(MakeArrays([0]));
     G.UseWallClock := False;
-    if GetEnvironmentVariable('GRAAL420R6_DATA') <> '' then
-      G.UseInstall(GetEnvironmentVariable('GRAAL420R6_DATA'));
+    if GetEnvironmentVariable('GRAAL411MAC_DATA') <> '' then
+      G.UseInstall(GetEnvironmentVariable('GRAAL411MAC_DATA'));
     G.Client.StartOffline(9);
     G.Client.Sink := True;
     for I := 1 to 20000 do
