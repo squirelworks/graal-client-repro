@@ -448,8 +448,37 @@ static void testEmitter() {
   CHECK(e.addModifier(Emitter::List::Local, "range", 0, 1, "alpha", "replace", 1, 0));
 }
 
+// A show-image's `actor`: what the 4.04r2 main menu sets inside
+// with (StartAni1) lands on the control's actor object.
+static void testShowImgActor() {
+  gs2::Machine m;
+  Screen s(m);
+  s.install();
+  Asm a;
+  a.function("onCreated", {});
+  auto img = beginNew(a, "GuiShowImgCtrl", "Walker");
+  a.var("actor").op(Asm::TOOBJECT).var("head").op(Asm::MEMBER).str("khead0.png").op(Asm::ASSIGN);
+  a.var("actor").op(Asm::TOOBJECT).var("attr").op(Asm::MEMBER).op(Asm::TOOBJECT).num(5).str("klegs13.png")
+      .op(132);  // arrayset
+  endNew(a, img);
+  a.num(0).op(Asm::RET);
+  auto script = m.newVar("StartScript_Walker");
+  CHECK(m.setScript(script, a.bytes()));
+  m.runScripts();
+  for (const auto& e : m.errors()) std::fprintf(stderr, "  %s\n", e.c_str());
+  auto c = s.find("Walker");
+  CHECK(c && c->actor);
+  if (!c || !c->actor) return;
+  CHECK(c->actor->child("head") && c->actor->child("head")->string() == "khead0.png");
+  auto attr = c->actor->child("attr");
+  CHECK(attr && attr->elements().size() == 31 && attr->elements()[5]->string() == "klegs13.png");
+  // Nothing landed on a global of the same name.
+  CHECK(!m.universe()->child("head"));
+}
+
 int main() {
   testEmitter();
+  testShowImgActor();
   testObjectsAndCommands();
   testScriptCommands();
   testDrawing();

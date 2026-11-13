@@ -41,7 +41,7 @@ struct Actor {
   int dir = 2;       // 0 up, 1 left, 2 down, 3 right
   int ani_tick = 0;  // 50 ms ticks since this gani started
   std::string head, body, sword, shield;
-  std::array<std::string, 6> attr;  // 1..5
+  std::array<std::string, 31> attr;  // 1..30
   std::array<int, 5> colors{};      // skin, coat, sleeves, shoes, belt
 };
 
@@ -75,6 +75,11 @@ class WorldRenderer {
   void set_assets(Assets* a) { assets_ = a; }
   bool has_tile_sheet() const { return !sheet_.empty(); }
 
+  // One actor's gani step with its top left at (px, py); a `box` of that
+  // colour when there are no ganis. Public for the engine library's
+  // show-images (GuiShowImgCtrl with an `ani`).
+  void draw_actor(Canvas& c, const Actor& a, int px, int py, Color box) const;
+
   // Runs every pass. `trace`, when set, gets each pass name as it runs.
   void draw(Canvas& c, const WorldState& w, const View& v,
             const std::function<void(const std::string&)>& trace = {}) const;
@@ -83,7 +88,6 @@ class WorldRenderer {
   void draw_tiles(Canvas& c, const WorldState& w, const View& v) const;
   void draw_objects(Canvas& c, const WorldState& w, const View& v) const;
   void draw_player(Canvas& c, const WorldState& w, const View& v) const;
-  void draw_actor(Canvas& c, const Actor& a, int px, int py, Color box) const;
   Image sheet_;
   Assets* assets_ = nullptr;
 };

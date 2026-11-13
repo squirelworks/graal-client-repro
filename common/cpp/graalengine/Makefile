@@ -20,10 +20,10 @@ QUATTRO = $(Q)/net/gtypes.cpp $(Q)/net/gen5.cpp $(Q)/net/profile.cpp $(Q)/net/so
           $(Q)/draw/world.cpp $(Q)/draw/assets.cpp $(Q)/draw/body_colors.cpp $(Q)/draw/hud.cpp $(Q)/world/player.cpp $(Q)/world/walk.cpp $(Q)/shell/program.cpp \
           $(Q)/shell/scripts.cpp $(Q)/shell/gui_host.cpp $(Q)/draw/ui_font.cpp $(Q)/draw/ui_font_data.cpp \
           ../../torque/gui/canvas.cpp ../../torque/gui/gft.cpp
-SOURCES = src/exports.cpp src/engine.cpp src/canvas.cpp src/scripts.cpp src/gui_host.cpp src/session.cpp \
+SOURCES = src/exports.cpp src/engine.cpp src/canvas.cpp src/scripts.cpp src/gui_host.cpp src/session.cpp src/showimg.cpp \
           $(GS2) $(TQGUI) $(QUATTRO)
 # Third-party, built on its own without -Werror.
-HEADERS = include/graalengine.h include/graalengine_slots.def src/host.hpp src/canvas.hpp src/engine.hpp src/gui_host.hpp \
+HEADERS = include/graalengine.h include/graalengine_slots.def src/host.hpp src/canvas.hpp src/engine.hpp src/gui_host.hpp src/showimg.hpp \
           src/session.hpp $(wildcard $(Q)/*/*.hpp)
 
 ifeq ($(OS),Windows_NT)
