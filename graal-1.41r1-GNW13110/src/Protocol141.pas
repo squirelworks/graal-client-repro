@@ -10,7 +10,9 @@ unit Protocol141;
 interface
 
 const
-  { the listserver used when listserver.txt names none }
+  { the listserver used when listserver.txt names none. The unpatched
+    1.41r1 exe asks www.graalonline.com on 14910, which is gone; the
+    rebuild asks the public listserver's legacy port instead }
   DefaultListHost = 'listserver.graal.in';
   DefaultListPort = 14923;
 
