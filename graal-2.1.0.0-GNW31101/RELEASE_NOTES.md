@@ -20,7 +20,7 @@ window and server list forms and art, its Training levels, its icon and its
 empty folder. Put it at the top of a Graal install you own and the
 install's files come first.
 
-## What's new in v0.0.1
+## What's new in v0.0.5
 
 - [x] **Its own token.** Logs in with `GNW31101`, so a server treats it as
   2.1, not 2.05.
