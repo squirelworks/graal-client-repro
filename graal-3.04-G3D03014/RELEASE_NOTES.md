@@ -22,7 +22,7 @@ point it at one with `--data DIR`) and the install's tiles, ganis, heads and
 bodies take their place. The shared `graal-assets/` folder next to the
 program works too (`graal-assets/3.04/`, then `graal-assets/common/`).
 
-## What's new in v0.0.5
+## What's new in v0.0.4.2
 
 - [x] **A Mac app.** The macOS zips carry `graal304-torque.app` with the game library inside: put it in the 3.04 folder and open it. A start-up problem (wrong folder, missing library) now shows a message box on Windows and macOS instead of failing silently.
 - [x] **The Torque program on Windows and macOS.** `graal304-torque` now opens a native window on Windows (Win32) and macOS (Cocoa) as well as Linux (X11): the same menus, server list, game and walking. The Windows zip ships `graal304-torque.exe` and `Game304Lib.dll`; the macOS zips ship `graal304-torque.app` with the library inside.

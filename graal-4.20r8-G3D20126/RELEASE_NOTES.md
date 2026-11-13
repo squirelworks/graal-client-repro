@@ -21,7 +21,7 @@ point it at one with `--data DIR`) and the install's tiles, ganis, heads and
 bodies take their place. The shared `graal-assets/` folder next to the
 program works too (`graal-assets/4.20r8/`, then `graal-assets/common/`).
 
-## What's new in v0.0.5
+## What's new in v0.0.4.2
 
 - The C++ host now shares first-frame framing and loopback transport with
   the other existing host. Version-specific wire fields stay in its adapter;

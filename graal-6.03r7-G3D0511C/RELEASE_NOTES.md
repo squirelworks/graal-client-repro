@@ -21,7 +21,7 @@ heads and bodies take their place. The shared `graal-assets/` folder next
 to the program works too (`graal-assets/6.03r7/`, then
 `graal-assets/common/`).
 
-## What's new in v0.0.5
+## What's new in v0.0.4.2
 
 - Preserves #164's removal of the checklist-only unit and test. The
   Linux token stays `G3D0511C`; no Torque engine is linked.

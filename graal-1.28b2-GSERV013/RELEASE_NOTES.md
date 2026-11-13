@@ -15,7 +15,7 @@ Apart from the start dialog and the icon, which are taken from the real
 Graal.exe and compiled in, the zips hold no original Graal code, graphics,
 sounds or levels. The client carries simple graphics of its own.
 
-## What's new in v0.0.5
+## What's new in v0.0.4.2
 
 - [x] **Minimap only on the map.** The minimap is drawn only on a level of its grid, as the real client does: a server's level off the map (or a house or cave) shows none. Before, it was drawn on every level.
 - [x] **Asleep at the start.** One Player starts asleep in the left bed, only the head showing, as the real client does; the first key wakes the player, who gets up without acting on that press.

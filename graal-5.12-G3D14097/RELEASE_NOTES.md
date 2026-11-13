@@ -23,7 +23,7 @@ heads and bodies take their place. The shared `graal-assets/` folder next
 to the program works too (`graal-assets/5.12/`, then
 `graal-assets/common/`).
 
-## What's new in v0.0.5
+## What's new in v0.0.4.2
 
 - [x] **New client.** 5.12 has a folder of its own, started from 5.00r7 with 5.12's wire rules: the token `G3D14097`, the quoted Windows version as a fifth login field, every short body zlib-compressed, and 5.12's cipher step for compressed frames.
 - [x] **The engine launcher.** `Graal512 --engine` runs over the rebuilt engine library as the 5.0 launcher: the install's own 5.12 start menus, and Start logs in through the engine's session (the Login server, the hand-on, the level, walking with the arrows and the chat bar).
