@@ -27,7 +27,7 @@ unit Npc222;
 interface
 
 uses
-  Classes, SysUtils, GNumText, Math, GTypes, GLevel, GSurface, GGs1, GClamp;
+  Classes, SysUtils, GNumText, Math, GTypes, GLevel, GSurface, GGs1, GClamp, GCompat;
 
 const
   NPCPROP_IMAGE = 0; NPCPROP_SCRIPT = 1; NPCPROP_X = 2; NPCPROP_Y = 3;

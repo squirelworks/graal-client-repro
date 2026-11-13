@@ -18,7 +18,7 @@ unit EditorObjSets;
 interface
 
 uses
-  EditorDoc;
+  EditorDoc, GCompat;
 
 type
   TStamp = record

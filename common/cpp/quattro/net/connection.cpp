@@ -156,7 +156,7 @@ bool parse_server_warp(std::string_view body, ServerWarp& out) {
 }
 
 Session::Session(const BuildProfile& profile, Events events)
-    : profile_(profile), ev_(std::move(events)), conn_(profile) {
+    : ev_(std::move(events)), conn_(profile) {
   next_key = [] {
     static std::mt19937 rng{std::random_device{}()};
     return static_cast<uint8_t>(rng() & 0x7F);

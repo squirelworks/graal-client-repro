@@ -13,8 +13,8 @@ ENGINE_HEADERS = $(ENGINE_DIR)/engine.hpp $(ENGINE_DIR)/internal.hpp ../console/
 COMPILER = ../console/compiler/parser.cpp ../console/compiler/codegen.cpp
 COMPILER_HEADERS = ../console/compiler/ast.hpp ../console/compiler/parser.hpp ../console/compiler/compile.hpp \
                    ../console/compiler/opcodes.hpp
-RENDER = render.cpp jpeg.cpp system_font.cpp
-RENDER_HEADERS = render.hpp jpeg.hpp system_font.hpp
+RENDER = render.cpp jpeg.cpp system_font.cpp mouse.cpp
+RENDER_HEADERS = render.hpp jpeg.hpp system_font.hpp mouse.hpp
 # stb_image and stb_truetype (third-party, public domain) as system headers,
 # so their own warnings do not trip -Werror
 STB_FLAGS = -isystem ../../cpp/third_party/stb

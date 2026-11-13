@@ -16,7 +16,7 @@ interface
 
 uses
   Classes, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GAssetDirs, ClientNwb1pre, ProtocolNwb1pre,
-  NpcNwb1pre, BaddyNwb1pre;
+  NpcNwb1pre, BaddyNwb1pre, GCompat;
 
 const
   { The game view. 2.05's window size is not yet read from the binary;

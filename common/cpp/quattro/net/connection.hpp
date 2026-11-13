@@ -122,7 +122,6 @@ class Session {
  private:
   bool open(const std::string& name, const std::string& host, uint16_t port);
 
-  const BuildProfile& profile_;
   Events ev_;
   Connection conn_;
   std::string server_name_;

@@ -172,6 +172,12 @@ void register_classes_304(Engine& e) {
     return o ? o->field("value") : std::string();
   });
 
+  // An ML text control lays its text out when it draws (gui/render.cpp), so
+  // a reflow has nothing to do; messageBox.cs calls it before sizing.
+  e.add_function("GuiMLTextCtrl", "forceReflow", 2, 2, "ml.forceReflow()", [](Engine&, SimObject*, Args&) {
+    return std::string();
+  });
+
   // Pop-up menu entries. setSelected calls the script's onSelect(id, text):
   // the stage 0 open order shows the language file exec'd a second time from
   // LanguageBox::onSelect after mainMenuGui::onWake selects English.

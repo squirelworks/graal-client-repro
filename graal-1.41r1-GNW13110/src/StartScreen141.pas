@@ -13,7 +13,7 @@ unit StartScreen141;
 interface
 
 uses
-  GSurface, StartWindow141, GraalClient, Adventure;
+  GSurface, StartWindow141, GraalClient, Adventure, GCompat;
 
 type
   TListFetch141 = class(TListFetch)
