@@ -57,6 +57,7 @@ jobs:
         run: |
           sh common/torque/guigraal/tests/online.sh
           GAME_LIB=libGame3153Lib.so GAME_TOKEN=G3D28015 sh common/torque/guigraal/tests/online.sh
+          LIST_FALLBACK=1 sh common/torque/guigraal/tests/online.sh
       - name: The windowed program on Xvfb
         run: xvfb-run -a sh common/torque/guigraal/tests/window.sh
 

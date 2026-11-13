@@ -402,6 +402,35 @@ void test_canvas_seam() {
   r.engine.call_method(box, "setSelected", {"1"});
   same(r.lines.back(), std::string("selected 1 English"), "onSelect callback");
   same(box->field("text"), std::string("English"), "selected text");
+  // Visibility, the active state, geometry and performClick.
+  auto* tab = r.engine.create_object("GuiControl", "Tab");
+  r.engine.call_method(tab, "setVisible", {"false"});
+  same(tab->field("visible"), std::string("0"), "setVisible(false)");
+  same(r.engine.call_method(tab, "isVisible", {}), std::string("0"), "isVisible");
+  r.engine.call_method(tab, "setVisible", {"1"});
+  same(r.engine.call_method(tab, "isVisible", {}), std::string("1"), "setVisible(1)");
+  same(r.engine.call_method(tab, "getExtent", {}), std::string("64 64"), "default extent");
+  r.engine.call_method(tab, "resize", {"10", "20", "300", "120"});
+  same(r.engine.call_method(tab, "getPosition", {}), std::string("10 20"), "resize position");
+  same(r.engine.call_method(tab, "getExtent", {}), std::string("300 120"), "resize extent");
+  auto* ok = r.engine.create_object("GuiButtonCtrl", "OkButton");
+  r.engine.add_function("OkButton", "onAction", 2, 2, "", [&](Engine& en, Torque::SimObject*, Torque::Args&) {
+    en.print("pressed");
+    return std::string();
+  });
+  r.engine.call_method(ok, "performClick", {});
+  same(r.lines.back(), std::string("pressed"), "performClick calls onAction");
+  r.engine.call_method(ok, "setActive", {"0"});
+  same(r.engine.call_method(ok, "isActive", {}), std::string("0"), "setActive(0)");
+  const std::size_t before = r.lines.size();
+  r.engine.call_method(ok, "performClick", {});
+  check(r.lines.size() == before, "an inactive button ignores performClick");
+  auto* check_box = r.engine.create_object("GuiCheckBoxCtrl", "Fullscreen");
+  r.engine.call_method(check_box, "performClick", {});
+  same(check_box->field("value"), std::string("1"), "performClick toggles a check box");
+  same(r.engine.call_function("getDisplayDeviceList", {}), std::string("OpenGL"), "display devices");
+  same(r.engine.call_function("getResolutionList", {"OpenGL"}), std::string("640 480 32\t800 600 32\t1024 768 32"),
+       "resolutions");
 }
 
 } // namespace
