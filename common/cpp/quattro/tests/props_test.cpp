@@ -63,6 +63,18 @@ void test_other_props() {
   Net::Reader u(unk);
   Player w;
   CHECK(apply_props(u, w, false) == 0);
+  // 82 (community name) only where the build reads it; 51 marks a
+  // disconnect apart from leaving the level (50).
+  std::string cn = gchar(kCommunityName) + gstring("guest");
+  Net::Reader c1(cn), c2(cn);
+  Player a, b;
+  CHECK(apply_props(c1, a, true) == 0 && a.community.empty());
+  CHECK(apply_props(c2, b, true, 82) == 1 && b.community == "guest");
+  std::string leave = gchar(kJoinLeaveLevel) + gchar(0);
+  Net::Reader lv(leave);
+  Player l;
+  apply_props(lv, l, true);
+  CHECK(l.gone && !l.disconnected && q.disconnected);
 }
 
 void test_sending() {

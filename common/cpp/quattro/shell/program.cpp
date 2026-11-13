@@ -78,6 +78,8 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
   };
   ev.disconnected = [this](const std::string& why) {
     if (log) log("disconnected: " + why);
+    unlist_all();
+    if (disconnected) disconnected(why);
   };
   ev.message = [this](int id, std::string_view body) { on_message(id, body); };
   session_.set_events(std::move(ev));
@@ -479,7 +481,44 @@ void Program::cross_gmap_edge() {
   wrap(me_.y, gy, false);
 }
 
+void Program::list_player(int id, const World::Player& p, int flags) {
+  ListRow row;
+  row.id = id;
+  row.nick = (flags & kListSelf) ? std::string() : p.nickname;  // the lab's 5.12 sent its own row with no nick
+  row.head = p.head;
+  std::string account = p.account, level = p.level;
+  if (flags & kListSelf) {  // what the client knows of itself when the server has not said
+    if (account.empty()) account = opt_.account;
+    if (level.empty()) level = level_name_;
+  }
+  row.props = "account=" + account + ",level=" + level + ",communityname=" + p.community + ",attr[1]=" + p.attr[1];
+  row.flags = flags;
+  auto it = listed_.find(id);
+  if (it != listed_.end() && it->second == row) return;
+  listed_[id] = row;
+  if (list_update) list_update(row);
+}
+
+void Program::unlist(int id) {
+  listed_.erase(id);
+  if (list_delete) list_delete(id);
+}
+
+void Program::unlist_all() {
+  // Others first, then the client's own row, which the lab's 5.12 deleted
+  // on every disconnect.
+  std::vector<int> ids;
+  for (const auto& [id, row] : listed_)
+    if (!(row.flags & kListSelf)) ids.push_back(id);
+  for (int id : ids) unlist(id);
+  listed_.erase(self_list_id_);
+  if (list_delete) list_delete(self_list_id_);
+  everyone_.clear();
+}
+
 bool Program::start() {
+  // The lab's 5.12 deleted its own row before the first connect.
+  if (list_delete) list_delete(self_list_id_);
   bool ok = session_.start(opt_.host, opt_.port, opt_.account, opt_.password, opt_.language, opt_.server_name);
   window_.set_title(window_title());
   return ok;
@@ -570,13 +609,19 @@ void Program::on_message(int id, std::string_view body) {
       break;
     }
     case 9: {  // PLO_PLAYERPROPS
-      World::apply_props(r, me_, false);
+      World::apply_props(r, me_, false, profile_.last_prop);
       if (!props_sent_) {
         // Logged in: the client's own props, then only what moves.
         session_.connection().send(2, World::initial_props(me_, profile_.platform));
         mover_.reset(me_);
         props_sent_ = true;
+        if (logged_in) logged_in();
       }
+      if (me_.id > 0 && me_.id != self_list_id_) {
+        listed_.erase(self_list_id_);
+        self_list_id_ = me_.id;
+      }
+      list_player(self_list_id_, me_, kListSelf);
       break;
     }
     case 8: {  // PLO_OTHERPLPROPS: GSHORT id, then props
@@ -584,10 +629,22 @@ void Program::on_message(int id, std::string_view body) {
       int pid = static_cast<int>(r.gshort());
       World::Player& o = others_[pid];
       o.id = pid;
-      World::apply_props(r, o, true);
+      World::apply_props(r, o, true, profile_.last_prop);
       if (o.gone) {
         others_.erase(pid);
         gani_start_.erase(pid);
+      }
+      // The player list keeps everyone the server names, on any level,
+      // until the player leaves the server.
+      Net::Reader all(body.substr(2));
+      World::Player& e = everyone_[pid];
+      e.id = pid;
+      World::apply_props(all, e, true, profile_.last_prop);
+      if (e.disconnected) {
+        everyone_.erase(pid);
+        if (listed_.count(pid)) unlist(pid);
+      } else {
+        list_player(pid, e, kListServer);
       }
       break;
     }
@@ -642,6 +699,7 @@ void Program::on_message(int id, std::string_view body) {
     case 178:  // the session follows the warp; the title follows the name
       props_sent_ = false;
       others_.clear();
+      unlist_all();  // the next server names its own players
       break;
     default:
       break;

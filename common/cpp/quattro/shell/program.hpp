@@ -97,6 +97,28 @@ class Program {
   const std::vector<std::string>& last_passes() const { return passes_; }
   std::function<void(const std::string&)> log;
 
+  // The player list a 5.x engine reports to its launcher (the lab's 5.12,
+  // 2026-11-13): one row per player the server names, across levels,
+  // sent again whenever a shown field changes, and deleted when the
+  // player leaves. The client's own row has flag kListSelf.
+  struct ListRow {
+    int id = 0;
+    std::string nick, head, props;  // props: "account=..,level=..,communityname=..,attr[1]=.."
+    int flags = 0;
+    bool operator==(const ListRow& o) const {
+      return id == o.id && nick == o.nick && head == o.head && props == o.props && flags == o.flags;
+    }
+  };
+  static constexpr int kListSelf = 0x4000, kListServer = 0x2000;
+  std::function<void(const ListRow&)> list_update;
+  std::function<void(int id)> list_delete;
+  // The server accepted a login (its first PLO_PLAYERPROPS after each
+  // connect): the 5.12 launcher hears OnServerLogin only then.
+  std::function<void()> logged_in;
+  // The link to a server dropped (not a warp the program followed).
+  std::function<void(const std::string& why)> disconnected;
+  const std::map<int, ListRow>& player_list() const { return listed_; }
+
  private:
   void on_message(int id, std::string_view body);
   void load_local_level(const std::string& name);
@@ -115,6 +137,9 @@ class Program {
   void ask_for_missing();
   void save_download(const std::string& name, const std::string& data);
   bool wanted(const std::string& name) const;  // asked for, and a safe name
+  void list_player(int id, const World::Player& p, int flags);
+  void unlist(int id);
+  void unlist_all();
 
   const Net::BuildProfile& profile_;
   Options opt_;
@@ -123,6 +148,9 @@ class Program {
   Draw::WorldState world_;
   World::Player me_;
   std::map<int, World::Player> others_;
+  std::map<int, World::Player> everyone_;  // every player the server named, across levels
+  std::map<int, ListRow> listed_;          // what the launcher was last told
+  int self_list_id_ = 1;
   World::MoveSender mover_;
   World::Walker walker_;
   World::TileTypes tile_types_;

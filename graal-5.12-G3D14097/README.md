@@ -134,11 +134,41 @@ checked against a 5.12 install:
   game window is 800 x 600 inside the frame (the lab's 5.12 screenshot),
   titled "G r a a l" until the engine logs in, then with the server's name
   spaced out ("L a b   S e r v e r"), which the engine hands the launcher
-  through `OnServerLogin`. The launcher's form (`TGraalWindow`) holds no
+  through `OnServerLogin` once the server accepts the login. The launcher's form (`TGraalWindow`) holds no
   start art: everything in it is the engine's.
-- [ ] The rest of the 5.12 launcher: its tray menu (Show Game, Show Player
-  List, Quit), the "Players: N online" window (`TPlayerList`), the options,
-  profile, controls and message forms. The stand-in start screen still
+- [x] ~~What the engine tells the launcher about players~~: the calls the
+  lab's 5.12 engine made under hooks. `ExternalPlayerlistUpdate(id, nick,
+  head, props, flags)` for each player the server names, on any level, again
+  whenever one of those fields changes. `props` is
+  `account=..,level=..,communityname=..,attr[1]=..`. The flags are `0x4000`
+  for the client's own row (no nick) and `0x2000` for a player on this
+  server. `ExternalPlayerlistDelete(id)` comes when the player leaves the
+  server; the own row is deleted before the first connect and at each
+  warp. `SetGraalStatusIcons` gets "Online,Away,DND" at start and the
+  longer list once logged in. `OnServerLogin` then `OnServerListerConnect`
+  come when the login is accepted. `OpenMessageBox("Warning", "You have been
+  disconnected from the game server.", 1)` comes when the link drops (the
+  real one also showed it at each warp from the lobby; the rebuild does
+  not). The `0x0001` (Staff) flag the real engine set on the NPC-Server is
+  not sent: when to set it is not known. Whether chat makes a call was not
+  seen.
+- [x] ~~The Players window and the tray menu~~ with `--engine --window`:
+  a second window titled "Players: N online" (N counts the player's own
+  row, as the lab's 5.12 did), listing each player's head and nick under
+  the fixed groups Staff, Buddies, Guild, Normal, Ignore and Offline, with
+  three tabs along the top and the Status list, Profile and Options along
+  the bottom (`src/PlayerList512.pas`). On Windows the program's icon sits in
+  the tray, its tip "<server>: N online", its right-click menu Show Game,
+  Show Player List (both checked while shown), a separator and Quit
+  (`src/Tray512.pas`). Closing the Players window hides it. The rebuild
+  draws the window in a plain look of its own, not the original form.
+  Players go under Normal (Staff for flag `0x0001`). Buddies, Guild, Ignore
+  and Offline stay empty, and the tabs, Status list and buttons do nothing
+  yet. Other systems have no tray. `--players-log` prints the list at the
+  end of a run and `--players-dump FILE.bmp` saves the window.
+- [ ] The rest of the 5.12 launcher: the "PlayerList Options" form, the
+  options, profile, controls and message forms, and what the Players
+  window's tabs, Status list and buttons do. The stand-in start screen still
   uses 5.00r7's look.
 - [ ] The Login server's scripted GUI (server list, accounts) and GS2 in
   general: 140 and 197 (class and weapon scripts, the `GRESCR01` cache),
