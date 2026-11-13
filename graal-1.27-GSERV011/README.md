@@ -97,7 +97,5 @@ build/graal-1.27-GSERV011/Graal127 --level levels/start1.graal --window
 - [ ] The prop encodings checked one by one against 1.27 (its `save[0]`-`save[9]` NPC variables should be new NPC props; graal_analysis
   has the 1.21 and 1.28 beta 2 ranges only).
 - [ ] The `nodecompressionerror=` option.
-- [ ] `serveraddr=` as the real client writes it, in quotes: the rebuild
-  shows the quotes (a shared fix for every 1.x build, `common/`).
 - [ ] Server messages 35 to 38 (new by 1.25, still unnamed). UDP stays out: it came with 1.28 beta 2.
 - [ ] Local 2 to 4 player modes, UDP peer data, and this version's options.
