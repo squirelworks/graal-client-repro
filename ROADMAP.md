@@ -94,7 +94,7 @@ needs a folder named by the folder naming rule.
 - [ ] 6.00 beta 1 Windows (`G3D03048`)
 - [ ] 6.00 beta 2 Windows (`G3D15010`)
 - [ ] 5.24r3 and 5.24r4 Windows (`G3D15010`)
-- [ ] 6.00r2 and 6.00r4 Windows (`G3D26090`)
+- [x] 6.00r2 and 6.00r4 Windows (`G3D26090`): `graal-6.00r4-G3D26090`
 - [x] 6.03r7 Windows (`G3D0311C`; the folder here is the Linux build): `graal-6.03r7win-G3D0311C`
 - [ ] Android vx: seven APK builds, Classic 1.7 and 1.8 among them (#177)
 - [x] The 39ster client, a Windows C++/SDL/OpenGL host (#176): `graal-39ster-1.00`, an offline build with no token, so the folder carries its version alone
