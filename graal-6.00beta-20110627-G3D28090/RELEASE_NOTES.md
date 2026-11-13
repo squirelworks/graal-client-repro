@@ -23,6 +23,7 @@ to the program works too.
 ## What's new in v0.0.5
 
 - [x] **New client.** 6.x beta (2011-06-27) has a folder of its own, started from `graal-6.01r1-G3D0108A` with its own token `G3D28090`.
+- [x] **Machine fields in the original's shape.** The login line now sends `linux`, two fixed made-up MD5 hashes (of SquirrelNIC and SquirrelFS strings), the empty field and a SquirrelOS kernel string (`2.6.38-1-squirrelos  #1-SquirrelOS SMP Mon Jun 27 12:00:00 UTC 2011`), the shape the real client sends. Nothing is read from your machine.
 
 ## Downloads
 
@@ -46,7 +47,7 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 - The start screen: nick name, Training, Start. Start fetches the server
   list from `listserver.txt` next to the program, or else
   `listserver.graal.in` on port 14922. Then account, password and Connect.
-- Login with `G3D28090`, the platform `linux` and four empty machine
+- Login with `G3D28090`, the platform `linux` and made-up machine
   fields; the language in its own frame; no tamper check.
 - The Login server: a server reached by its address alone is called
   Login, and there neither the tiles nor any characters are drawn, until

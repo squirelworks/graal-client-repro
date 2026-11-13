@@ -24,6 +24,7 @@ program works too (`graal-assets/4.04r2/`, then `graal-assets/common/`).
 ## What's new in v0.0.5
 
 - [x] **Update packages, as the real 4.04r2 asks for them.** With `--engine`, each login asks for `basepackage.gupd` and keeps the server's copy in `updatepackages/` (and the game server's own folder). On the next run a kept copy is checked by its checksum instead of being fetched again. The Login server is also asked for `bigmap.txt` once per run.
+- [x] **Machine fields in the original's shape.** The login line's three machine fields are no longer empty. They carry fixed made-up MD5 hashes (of SquirrelOS, SquirrelNIC and SquirrelBIOS strings), the shape the real client sends. Nothing is read from your machine.
 
 ## What's new in v0.0.4.2
 

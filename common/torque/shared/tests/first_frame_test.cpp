@@ -17,7 +17,7 @@ int main() {
     auto build = [&](int key, const std::string &account, const std::string &password) {
       return buildLoginFrame(key, account, password, frame, error);
     };
-    const std::string expected = "%!G3D20126#lab#labwin,\"\",\"\",\"\"\n";
+    const std::string expected = "%!G3D20126#lab#labwin,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400\n";
 #endif
     check(build(1, "lab", "lab"), "build fixture");
     check(frame.plain == expected, "profile bytes changed");

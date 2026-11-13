@@ -25,11 +25,13 @@ const
   { After the password, the login line ends with an unprefixed comma list:
     the platform, then three machine fields (MD5 hex of the Windows product
     id, the adapter MAC and the C: volume serial on the original). The
-    rebuild reads no machine values: each field goes as "" (two quote
-    marks), the value the real 5.00r7 sent for its MAC field in the lab. }
+    rebuild reads no machine values. It sends fixed made-up ones of the
+    same shape: the MD5 hex of "SquirrelOS product id
+    SQRL7-ACORN-OAK42-NUTS1", of "SquirrelNIC MAC AC:04:2D:5E:ED:01" and of
+    "SquirrelBIOS C: volume serial ACE5-5EED". The real 5.00r7 sent "" for
+    its MAC field in the lab, which had no network card. }
   LoginPlatform = 'win';
-  LoginMachineFields = 3;
-  EmptyMachineField = '""';
+  LoginMachineFields = ',c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400';
   { The name 5.00r7 gives the first server it reaches. While the current
     server's name starts with "login" (any case) it draws no characters
     and no HUD (lab-v5-2026-10-30.md, "Login mode"). }

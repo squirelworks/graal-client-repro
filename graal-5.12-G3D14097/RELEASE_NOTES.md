@@ -27,6 +27,7 @@ to the program works too (`graal-assets/5.12/`, then
 
 - [x] **The engine tells the launcher who is online.** As the real 5.12 engine does (lab run under hooks), the engine's session sends the launcher a row for each player the server names, on any level (id, nick, head, account, level, community name, first attribute, and flags for the player's own row and players on this server), updates it when one of those changes and deletes it when the player leaves. It also sends the status names ("Online, Away, DND", then the longer list once logged in), and a "You have been disconnected" warning when the link drops. The launcher keeps the list for its Players window. The window title now changes when the server accepts the login, not when the login is sent.
 - [x] **The Players window and the tray icon.** With `--engine --window` a second window, "Players: N online", lists who is on the server by head and nick under 5.12's groups (Staff, Buddies, Guild, Normal, Ignore, Offline). On Windows the program's icon sits in the tray with "<server>: N online" as its tip and the original's menu: Show Game, Show Player List, Quit. The list's tabs, Status list and buttons are drawn but do nothing yet.
+- [x] **Machine fields in the original's shape.** The login line now sends `win`, three fixed made-up MD5 hashes (of SquirrelOS, SquirrelNIC and SquirrelBIOS strings) and the quoted Windows version `"6.2 9200 "`, the shape the real client sends. Nothing is read from your machine.
 
 ## What's new in v0.0.4.2
 
@@ -58,7 +59,7 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 - The start screen: nick name, Training, Start. Start fetches the server
   list from `listserver.txt` next to the program, or else
   `listserver.graal.in` on port 14922. Then account, password and Connect.
-- Login with `G3D14097`, the platform `win`, three empty machine fields
+- Login with `G3D14097`, the platform `win`, three made-up machine fields
   and the quoted Windows version; the language in its own frame; no tamper
   check. Every frame zlib-compressed, with 5.12's cipher step.
 - The Login server: a server reached by its address alone is called

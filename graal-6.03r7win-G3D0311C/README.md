@@ -81,7 +81,7 @@ From the program's folder (or `--data`), then `graal-assets/6.03r7 Windows/`, th
 
 ## Not yet, or not known
 
-- [ ] The four Windows machine fields are sent as `""`; the original sends the MD5 of the product id, the adapter MAC and the `C:\` volume serial, then the quoted Windows version.
+- [x] ~~The four Windows machine fields are sent as `""`~~: they now carry made-up MD5 hashes of SquirrelOS, SquirrelNIC and SquirrelBIOS strings, then the quoted Windows version, the shape the original sends.
 - [ ] The chat font (Tempus Sans ITC 24) and the 6.03r7 bomb drawing seen in the lab.
 - [ ] No side-by-side run against the real client; that is 0.0.2 work.
 - [ ] Everything still missing from `graal-6.03r7-G3D0511C`:

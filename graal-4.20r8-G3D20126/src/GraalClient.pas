@@ -484,10 +484,12 @@ begin
   { GCHAR type, GCHAR key, token, GSTRING account, GSTRING password, then
     the comma list. The real client fills the three machine fields with
     hashes of the Windows product id, the network card's MAC and the C:
-    volume serial. The rebuild sends them empty, so it never hands a
-    server an id of the player's machine. }
+    volume serial. The rebuild reads no machine values. It sends fixed
+    made-up ones of the same shape: the MD5 hex of "SquirrelOS product id
+    SQRL7-ACORN-OAK42-NUTS1", of "SquirrelNIC MAC AC:04:2D:5E:ED:01" and of
+    "SquirrelBIOS C: volume serial ACE5-5EED". }
   SendPacket(ClientType, GChar(FKey) + ClientVersionToken + GString(Account) +
-    GString(Password) + LoginPlatform + ',"","",""');
+    GString(Password) + LoginPlatform + ',c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400');
   Flush;
   SendPacket(PLI_LANGUAGE, Language);
   { no cached copy of the update package: asked by name (third lab run) }

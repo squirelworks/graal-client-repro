@@ -86,11 +86,11 @@ From the program's folder (or `--data`), then `graal-assets/5.24r4/`, then
 - [ ] The bundled files: the original serves 65 files from its MoleBox wrapper; the rebuild reads an install or `graal-assets/`.
 - [ ] The chat font (Arial, from its config) and the large flame cross it draws for a bomb.
 - [ ] Long frames and the 0x1000 flush are 6.x's; not traced in 5.24.
-- [ ] The four Windows machine fields are sent as `""`; the original sends the MD5 of the product id, the adapter MAC and the `C:\` volume serial, then the quoted Windows version.
+- [x] ~~The four Windows machine fields are sent as `""`~~: they now carry made-up MD5 hashes of SquirrelOS, SquirrelNIC and SquirrelBIOS strings, then the quoted Windows version, the shape the original sends.
 - [ ] No side-by-side run against the real client; that is 0.0.2 work.
 - [ ] Everything still missing from `graal-6.0.1.5-G3D3007A`:
 
-- [ ] The four Windows machine fields are sent as `""`; the original sends the MD5 of the product id, the adapter MAC and the `C:\` volume serial, then the quoted Windows version.
+- [x] ~~The four Windows machine fields are sent as `""`~~: they now carry made-up MD5 hashes of SquirrelOS, SquirrelNIC and SquirrelBIOS strings, then the quoted Windows version, the shape the original sends.
 
 - [ ] The Login server's scripted GUI and GS2: 140 and 197 (scripts and the
   `GRESCR01` cache), 195 (gani scripts) and 190 are accepted and ignored.

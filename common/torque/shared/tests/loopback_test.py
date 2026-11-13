@@ -8,7 +8,7 @@ import zlib
 host = str(pathlib.Path(sys.argv[1]).resolve())
 repo = pathlib.Path(__file__).resolve().parents[4]
 expected = (b'%!G3D03014#lab#lab\nEEnglish\nB     bigmap.txt\nB     minimap.txt\n'
-            if sys.argv[2] == '304' else b'%!G3D20126#lab#labwin,"","",""\n')
+            if sys.argv[2] == '304' else b'%!G3D20126#lab#labwin,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400\n')
 for destination in ('127.0.0.1', 'localhost'):
     received, failures = [], []
     with socket.socket() as listener:

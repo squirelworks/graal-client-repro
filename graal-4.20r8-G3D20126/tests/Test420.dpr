@@ -270,7 +270,7 @@ end;
 
 { The login line alone in the fixed plain zlib frame: 5, key, token,
   account, password, then the comma list (platform and three machine
-  fields, sent empty); then 37 and 23 basepackage.gupd in gen 5, and no
+  fields, made up); then 37 and 23 basepackage.gupd in gen 5, and no
   tamper check. }
 procedure TestLogin;
 var
@@ -292,8 +292,8 @@ begin
     Len := (Ord(Wire[1]) shl 8) or Ord(Wire[2]);
     Check(ZDecompress(Copy(Wire, 3, Len), Plain) and
       (Plain = '%' + Chr(CaptureKey + 32) + 'G3D20126' + GString('acc') + GString('pw') +
-        'win,"","",""'#10),
-      'login: 5 (key, G3D20126, account, password, win and three empty machine fields) alone in the plain zlib frame');
+        'win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400'#10),
+      'login: 5 (key, G3D20126, account, password, win and three made-up machine fields) alone in the plain zlib frame');
     Check(ServerReadAll(Codec, Copy(Wire, Len + 3, MaxInt), Msgs) and (Msgs.Count >= 2) and
       (Msgs[0] = GChar(PLI_LANGUAGE) + 'English') and
       (Msgs[1] = GChar(PLI_WANTFILE) + 'basepackage.gupd'),

@@ -29,11 +29,13 @@ const
     builds: the MD5 hex of the product id, of the adapter MAC and of the
     C:\ volume serial, then the quoted Windows version;
     v5v6-windows-unpacked.md, "Login message"). The rebuild reads no machine
-    values: each field goes as "" (two quote marks), the value the real
-    Windows 5.00 rev 7 sent for its MAC field in the lab. }
+    values. It sends fixed made-up ones of the same shape: the MD5 hex of
+    "SquirrelOS product id SQRL7-ACORN-OAK42-NUTS1", of "SquirrelNIC MAC
+    AC:04:2D:5E:ED:01" and of "SquirrelBIOS C: volume serial ACE5-5EED",
+    then the version Windows 8 and later report to a program with no
+    manifest, which the lab's 5.12 sent. }
   LoginPlatform = 'win';
-  LoginMachineFields = 4;
-  EmptyMachineField = '""';
+  LoginMachineFields = ',c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400,"6.2 9200 "';
   { The name 6.0.3.4 gives the first server it reaches. While the current
     server's name starts with "login" (any case) it draws no characters
     and no HUD; 6.0.3.4 draws no tiles there either, only chests and image

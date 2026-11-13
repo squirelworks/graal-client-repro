@@ -82,11 +82,11 @@ From the program's folder (or `--data`), then `graal-assets/6.00r4/`, then
 
 - [ ] The beta expiry: the original logs "This is a beta release of Graal..." and exits unless the clock is set back to its build month. The rebuild has no expiry.
 - [ ] 175 and 184 are accepted and ignored.
-- [ ] The four Windows machine fields are sent as `""`; the original sends the MD5 of the product id, the adapter MAC and the `C:\` volume serial, then the quoted Windows version.
+- [x] ~~The four Windows machine fields are sent as `""`~~: they now carry made-up MD5 hashes of SquirrelOS, SquirrelNIC and SquirrelBIOS strings, then the quoted Windows version, the shape the original sends.
 - [ ] No side-by-side run against the real client; that is 0.0.2 work.
 - [ ] Everything still missing from `graal-6.0.1.5-G3D3007A`:
 
-- [ ] The four Windows machine fields are sent as `""`; the original sends the MD5 of the product id, the adapter MAC and the `C:\` volume serial, then the quoted Windows version.
+- [x] ~~The four Windows machine fields are sent as `""`~~: they now carry made-up MD5 hashes of SquirrelOS, SquirrelNIC and SquirrelBIOS strings, then the quoted Windows version, the shape the original sends.
 
 - [ ] The Login server's scripted GUI and GS2: 140 and 197 (scripts and the
   `GRESCR01` cache), 195 (gani scripts) and 190 are accepted and ignored.

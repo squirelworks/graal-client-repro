@@ -25,6 +25,7 @@ then `graal-assets/common/`).
 ## What's new in v0.0.5
 
 - [x] **Renamed from 4.20r6 to 4.11 Mac.** This client was released before as "4.20r6" (`graal-4.20r6-G3D27076`), because the archive copy of the Mac binary it was built from was labelled 4.20r6. That binary (built 2006-09-19, token `G3D27076`) is the Mac download graalonline.com served while 4.11 was current. The real Mac 4.20r6 is a later binary with the token `G3D21126`, and it gets its own folder. The program is now `Graal411mac`. It sends the same token as before.
+- [x] **Machine fields in the original's shape.** The login line now sends `mac`, two fixed made-up MD5 hashes (of SquirrelBook and SquirrelFS strings) and the empty field, the shape the real client sends. Nothing is read from your machine.
 
 ## What's new in v0.0.4.2
 

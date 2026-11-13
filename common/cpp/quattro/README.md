@@ -169,7 +169,8 @@ were not measured.
 
 - Receive limits: 16 MiB per frame and 4 MiB of unfinished message. The
   original's were not read.
-- The machine fields of the login line are sent as `""`; the original
-  sends hashes of the machine.
+- The machine fields of the login line are made up: fixed MD5 hex of
+  Squirrel-themed strings and a SquirrelOS kernel string, the shape the
+  original sends (it hashes the machine). No machine is read.
 - The PLI 50 size counts the id byte, the body and the newline; the note
   gives the cap, not what is counted.

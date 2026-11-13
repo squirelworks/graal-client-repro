@@ -22,6 +22,10 @@ heads and bodies take their place. The shared `graal-assets/` folder next
 to the program works too (`graal-assets/5.00r7/`, then
 `graal-assets/common/`).
 
+## What's new in v0.0.5
+
+- [x] **Machine fields in the original's shape.** The login line's three machine fields are no longer empty. They carry fixed made-up MD5 hashes (of SquirrelOS, SquirrelNIC and SquirrelBIOS strings), the shape the real client sends. Nothing is read from your machine.
+
 ## What's new in v0.0.4.2
 
 - [x] **Pictures by kind.** The picture cache keeps each name once per kind (head, body, sword, shield, hat, weapon), because each kind searches its own folders. A picture first asked for without its kind got the built-in stand-in and kept it, so an install's own picture could stay hidden behind the stand-in (in 1.33, `levels/weapons/wbomb1.gif` beside the D button).
@@ -58,7 +62,7 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 - The start screen: nick name, Training, Start. Start fetches the server
   list from `listserver.txt` next to the program, or else
   `listserver.graal.in` on port 14922. Then account, password and Connect.
-- Login with `G3D22067`, the platform `win` and three empty machine
+- Login with `G3D22067`, the platform `win` and made-up machine
   fields; the language in its own frame; no tamper check.
 - The Login server: a server reached by its address alone is called
   Login, and there the level is drawn but no characters, until the server
