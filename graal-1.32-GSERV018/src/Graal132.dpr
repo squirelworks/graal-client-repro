@@ -279,6 +279,14 @@ end;
 { One game: from the command line, or as the start screen chose it (then
   GuiWin is the window to play in, and nothing goes to stdout). Returns
   the exit code. }
+{ F1's Current level field: the level's full path, as the real 1.x shows
+  it (polishing run 2026-11-12); the bare name when it has no folder }
+function HelpLevelPath(G: TAdventure): string;
+begin
+  if G.LevelDir <> '' then Result := ExpandFileName(G.LevelDir + G.Level.Name)
+  else Result := G.Level.Name;
+end;
+
 function RunGame(GuiWin: TGWindow; const GuiPw, GuiNick: string): Integer;
 var
   OptForm: string;
@@ -445,7 +453,7 @@ begin
           begin
             OptForm := ResOptions;
             if (OptForm <> '') and
-              (RunOptionsWindow(OptForm, 'Graal', G.Level.Name) = oaEditLevel) then
+              (RunOptionsWindow(OptForm, 'Graal', HelpLevelPath(G)) = oaEditLevel) then
               EditorKey(Win, G, Online);
             if Win.Closed then Break;
           end;

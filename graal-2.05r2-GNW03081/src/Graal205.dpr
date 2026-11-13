@@ -753,7 +753,12 @@ begin
           { Alt+Enter: the screen mode of graalconfig.txt fullscreenmode }
           GuiFullW := Art.FullScreenW;
           GuiFullH := Art.FullScreenH;
-          Win.Reshape(Art.MainCaption, ScreenW, ScreenH);
+          { online, the 2.05 family names the server in the title:
+            "Graal: <server>" (polishing run 2026-11-12) }
+          if (R.Choice = scOnline) and (R.ServerName <> '') then
+            Win.Reshape(Art.MainCaption + ': ' + R.ServerName, ScreenW, ScreenH)
+          else
+            Win.Reshape(Art.MainCaption, ScreenW, ScreenH);
         end;
         if RunGame(Win, R.Password, R.Nickname) <> 0 then
           Msg := LastGameError

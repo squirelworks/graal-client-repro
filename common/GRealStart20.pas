@@ -700,7 +700,13 @@ begin
     Exit;
   end;
   if N.Str('PasswordChar') <> '' then T := StringOfChar('*', Length(Text)) else T := Text;
-  while (T <> '') and (UiTextWidth(T, Bold(N)) > Right - X - 6) do Delete(T, 1, 1);
+  { an edit with the caret shows the end of its text; any other box
+    (the server list's read-only Name, Version, ...) shows the start and
+    clips on the right }
+  if Focused then
+    while (T <> '') and (UiTextWidth(T, Bold(N)) > Right - X - 6) do Delete(T, 1, 1)
+  else
+    while (T <> '') and (UiTextWidth(T, Bold(N)) > Right - X - 6) do Delete(T, Length(T), 1);
   TW := UiTextWidth(T, Bold(N));
   if Focused and Combo and (N.Str('Style') = 'csDropDownList') then
   begin
@@ -1273,6 +1279,14 @@ begin
               Fetch.Start(ListHost, ListPort, '', '');
               FetchStart := NowMs;
               ExtraSent := False;
+              { nothing saved: the account and password boxes keep the
+                form's own text (guest, the password masked), as the real
+                2.0x list shows them }
+              if (R.Account = '') and (AccBox <> nil) then
+              begin
+                R.Account := AccBox.Str('Text');
+                if R.Password = '' then R.Password := PassBox.Str('Text');
+              end;
               Page := pgFetch;
               { the list's caption says it loads until the servers are in }
               Shape(Art.List, Title2 + ' (loading...)');
@@ -1324,8 +1338,9 @@ begin
               begin
                 Page := pgList;
                 Win.SetTitle(Title2);
+                { no row is picked until the player picks one (the real
+                  2.0x list, polishing run 2026-11-12) }
                 Sel := -1;
-                if Length(Fetch.Servers) > 0 then Sel := 0;
               end
               else if Fetch.Failed and (Chars <> '') then
               begin
@@ -1386,15 +1401,18 @@ begin
             begin
               N := Art.List.Child(I);
               if not N.Bool('Visible', True) then Continue;
+              { the captions as the language file names them
+                (ServerList-Label1 ..., ServerList-Button1), else the
+                form's own }
               if N.ClassName_ = 'TLabel' then
               begin
-                T := N.Str('Caption');
+                T := Art.Text('ServerList-' + N.Name, N.Str('Caption'));
                 DrawLabel(S, N, T);
               end
               else if N.ClassName_ = 'TPanel' then DrawPanel(S, N)
               else if N.ClassName_ = 'TPaintButton' then
-                PicButton(S, GlyphOf(N), N.Int('Left'), N.Int('Top'), N.Str('Caption'),
-                  Pressed(10 + I))
+                PicButton(S, GlyphOf(N), N.Int('Left'), N.Int('Top'),
+                  Art.Text('ServerList-' + N.Name, N.Str('Caption')), Pressed(10 + I))
               else if N = AccBox then DrawBox(S, N, R.Account, Focus = 2)
               else if N = PassBox then DrawBox(S, N, R.Password, Focus = 3)
               else if SameText(N.Name, 'Edit1') then DrawBox(S, N, ListName(Srv.Name), False)

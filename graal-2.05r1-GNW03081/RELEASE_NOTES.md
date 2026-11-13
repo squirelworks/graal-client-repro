@@ -18,6 +18,11 @@ keep a `graal-assets/` folder next to it, or point it at one with
 `--data DIR`) and the install's tiles, ganis, heads, bodies and levels take
 their place.
 
+## What's new in v0.0.5
+
+- [x] **Server list as the language file words it.** The list window's labels and Connect button take their `ServerList-*` captions from the install's language file (the form's own text when a key is missing), no row is picked until the player picks one, the Account and Password boxes keep the form's `guest` (the password masked) when nothing was saved, and the read-only Name, Language, Version and Homepage boxes show the start of their text instead of clipping it on the left (#302, from the 2026-11-12 polishing run).
+- [x] **Server name in the title.** Online, the game window is titled "Graal: <server>", as the real 2.05 family titles it after login (#302). Offline it stays "Graal".
+
 ## What's new in v0.0.4.2
 
 - [x] **Minimap only on the map.** The minimap is drawn only on a level of its grid, as the real client does: a server's level off the map (or a house or cave) shows none. Before, it was drawn on every level.
