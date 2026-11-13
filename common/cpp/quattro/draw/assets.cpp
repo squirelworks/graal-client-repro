@@ -21,7 +21,8 @@ std::vector<std::string> asset_dirs(const std::string& root) {
   std::vector<std::string> out;
   if (root.empty()) return out;
   for (const char* sub : {"", "/levels", "/levels/ganis", "/levels/heads", "/levels/bodies", "/levels/swords",
-                          "/levels/shields", "/levels/hats", "/levels/images", "/ganis", "/heads", "/bodies",
+                          "/levels/shields", "/levels/hats", "/levels/images", "/levels/tiles",
+                          "/levels/images/downloads", "/ganis", "/heads", "/bodies",
                           "/swords", "/shields", "/hats", "/images"})
     out.push_back(root + sub);
   return out;
@@ -62,6 +63,19 @@ const Files::Gani* Assets::gani(const std::string& name) {
     if (!Files::read_gani(std::string_view(reinterpret_cast<const char*>(bytes.data()), bytes.size()), *g)) g.reset();
   }
   return (ganis_[key] = std::move(g)).get();
+}
+
+void Assets::forget(const std::string& name) {
+  std::string key = lower(name);
+  images_.erase(key);
+  palettes_.erase(key);
+  std::string g = key;
+  if (g.size() > 5 && g.compare(g.size() - 5, 5, ".gani") == 0) g.resize(g.size() - 5);
+  ganis_.erase(g);
+  for (auto it = bodies_.begin(); it != bodies_.end();) {
+    if (it->first.compare(0, key.size() + 1, key + ",") == 0) it = bodies_.erase(it);
+    else ++it;
+  }
 }
 
 void Assets::put_gani(const std::string& name, Files::Gani g) {

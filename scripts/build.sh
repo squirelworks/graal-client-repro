@@ -72,26 +72,62 @@ for B in $BUILDS; do
         make -C "$G" lib build/graal304-torque CXX="${CXX:-g++}" FPC="$FPC"
         cp "$G/build/graal304-torque" "$G/build/lib/lib$GAMEBASE.so" "$OUT/"
         ;;
-      Darwin/darwin)
-        echo "== common/torque/guigraal (graal304-torque, Cocoa, lib$GAMEBASE.dylib)"
-        make -C "$G" lib build/graal304-torque CXX="${CXX:-c++}" FPC="$FPC"
-        cp "$G/build/graal304-torque" "$G/build/lib/lib$GAMEBASE.dylib" "$OUT/"
+      Darwin/darwin|Linux/darwin)
+        # macOS: graal304-torque.app with the game library inside. On Linux
+        # (release-all's macOS job) the C++ side is cross-built with the
+        # <cpu>-darwin-clang++ wrapper scripts/release/darwin-cross.sh makes.
+        if [ "$(uname -s)" = Darwin ]; then DCXX=${CXX:-c++}
+        else DCXX="$("$FPC" -iTP 2>/dev/null)-darwin-clang++"; fi
+        if command -v "$DCXX" >/dev/null 2>&1; then
+          echo "== common/torque/guigraal (graal304-torque.app, lib$GAMEBASE.dylib)"
+          rm -rf "$G/build/graal304-torque" "$G/build/lib"
+          make -C "$G" lib app PLATFORM=macos CXX="$DCXX" FPC="$FPC" APP_LIB="lib$GAMEBASE.dylib"
+          rm -rf "$OUT/graal304-torque.app"
+          cp -R "$G/build/graal304-torque.app" "$OUT/"
+        else
+          echo "::warning::no $DCXX; graal304-torque.app not built"
+        fi
         ;;
       MINGW*/win32|MSYS*/win32|CYGWIN*/win32|MINGW*/win64|MSYS*/win64|CYGWIN*/win64)
         # A 32-bit Free Pascal (i386-win32, the release's) needs a 32-bit
         # MinGW g++: GRAAL_WIN32_CXX, else MSYS2's mingw32 one if installed.
+        if [ "$TARGET_OS" = win32 ] && [ -z "${GRAAL_WIN32_CXX:-}" ] &&
+           [ -x /c/msys64/mingw32/bin/g++ ] && [ -x /c/msys64/usr/bin/make ]; then
+          # The runner's MSYS2 mingw32 toolchain, run in its own MINGW32
+          # shell: with Free Pascal's bin folder first in PATH, plain make is
+          # Free Pascal's cmd.exe make, which cannot run the recipes.
+          echo "== common/torque/guigraal (graal304-torque.exe, $GAMEBASE.dll, win32, MSYS2)"
+          # Windows-form paths (D:/a/...), which both MSYS runtimes read; the
+          # login shell starts in its home, so it changes folder itself.
+          FPCBIN=$(cygpath -m "$(command -v "$FPC")")
+          GW=$(cygpath -m "$G")
+          # The login shell drops the caller's environment, so FPCFLAGS goes
+          # on the make command line (with forward slashes).
+          GFLAGS=$(printf '%s' "${FPCFLAGS:-}" | tr '\\' /)
+          MSYSTEM=MINGW32 /c/msys64/usr/bin/bash.exe -lc \
+            "cd '$GW' && make lib build/graal304-torque.exe PLATFORM=windows FPC='$FPCBIN' FPCFLAGS='$GFLAGS'"
+          # FPC's folder, first in PATH, has its own cp.exe, which cannot read
+          # MSYS paths.
+          /usr/bin/cp "$G/build/graal304-torque.exe" "$G/build/lib/$GAMEBASE.dll" "$OUT/"
+          continue_torque=
+        else
+          continue_torque=1
+        fi
         if [ "$TARGET_OS" = win32 ]; then
           WCXX=${GRAAL_WIN32_CXX:-}
-          if [ -z "$WCXX" ] && [ -x /c/msys64/mingw32/bin/g++ ]; then WCXX=/c/msys64/mingw32/bin/g++; fi
         else
           WCXX=${CXX:-g++}
         fi
-        if [ -n "$WCXX" ] && command -v "$WCXX" >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
+        if [ -z "$continue_torque" ]; then
+          :
+        elif [ -n "$WCXX" ] && command -v "$WCXX" >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
           echo "== common/torque/guigraal (graal304-torque.exe, $GAMEBASE.dll, $TARGET_OS)"
           # the compiler's own folder first, for its windres and helpers
           PATH="$(dirname "$(command -v "$WCXX")"):$PATH" \
             make -C "$G" lib build/graal304-torque.exe PLATFORM=windows CXX="$WCXX" FPC="$FPC"
-          cp "$G/build/graal304-torque.exe" "$G/build/lib/$GAMEBASE.dll" "$OUT/"
+          # FPC's folder, first in PATH, has its own cp.exe, which cannot read
+          # MSYS paths.
+          /usr/bin/cp "$G/build/graal304-torque.exe" "$G/build/lib/$GAMEBASE.dll" "$OUT/"
         else
           echo "::warning::no MinGW g++ for $TARGET_OS (set GRAAL_WIN32_CXX); graal304-torque.exe not built"
         fi

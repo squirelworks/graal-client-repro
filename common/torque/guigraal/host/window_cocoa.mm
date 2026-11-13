@@ -261,6 +261,19 @@ class CocoaWindow : public Window {
   int last_x_ = -100, last_y_ = -100;
 };
 
+void show_error(const std::string& title, const std::string& text) {
+  @autoreleasepool {
+    [NSApplication sharedApplication];
+    [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+    [NSApp activateIgnoringOtherApps:YES];
+    NSAlert* alert = [[NSAlert alloc] init];
+    alert.alertStyle = NSAlertStyleCritical;
+    alert.messageText = [NSString stringWithUTF8String:title.c_str()];
+    alert.informativeText = [NSString stringWithUTF8String:text.c_str()];
+    [alert runModal];
+  }
+}
+
 std::unique_ptr<Window> Window::open(const std::string& title, int width, int height, std::string& error) {
   auto w = std::make_unique<CocoaWindow>();
   if (!w->init(title, width, height, error)) return nullptr;

@@ -69,7 +69,10 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
   };
   world_.player.x = 30;
   world_.player.y = 30;
-  assets_ = std::make_unique<Draw::Assets>(Draw::asset_dirs(opt_.assets));
+  std::vector<std::string> asset_folders;
+  for (const auto& root : roots())
+    for (auto& d : Draw::asset_dirs(root)) asset_folders.push_back(std::move(d));
+  assets_ = std::make_unique<Draw::Assets>(std::move(asset_folders));
   renderer_.set_assets(assets_.get());
   hud_ = std::make_unique<Draw::Hud>(assets_.get());
   gui_ = std::make_unique<GuiHost>(scripts_.machine());
@@ -93,23 +96,84 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
     if (log) log(n ? "start scripts: " + std::to_string(n) : err);
   }
 
-  if (!opt_.assets.empty()) {
-    std::vector<std::uint8_t> bytes;
-    std::string err;
-    Draw::Image sheet;
-    for (const char* rel : {"/pics1.png", "/levels/pics1.png", "/levels/tiles/pics1.png"}) {
-      if (Torque::Gui::read_file(opt_.assets + rel, bytes, err) && Torque::Gui::decode_png(bytes, sheet, err)) {
-        sheets_[""] = sheet;
+  load_tile_sheet();
+  std::string table, err;
+  for (const auto& root : roots()) {
+    if (!read_file(root + "/arrays.dat", table)) continue;
+    if (!World::read_arrays_dat(table, tile_types_, err) && log) log(err);
+    World::read_object_tables(table, object_tables_);
+    break;
+  }
+}
+
+std::vector<std::string> Program::roots() const {
+  std::vector<std::string> out;
+  if (!opt_.assets.empty()) out.push_back(opt_.assets);
+  for (const auto& r : opt_.asset_roots)
+    if (!r.empty()) out.push_back(r);
+  return out;
+}
+
+bool Program::load_tile_sheet() {
+  std::vector<std::uint8_t> bytes;
+  std::string err;
+  Draw::Image sheet;
+  // 4.x and 5.x installs keep the sheet in levels/tiles/ (docs/assets.md);
+  // a downloaded one lands in levels/images/downloads/.
+  for (const auto& root : roots())
+    for (const char* rel : {"/pics1.png", "/levels/pics1.png", "/levels/tiles/pics1.png",
+                            "/levels/images/downloads/pics1.png"}) {
+      if (Torque::Gui::read_file(root + rel, bytes, err) && Torque::Gui::decode_png(bytes, sheet, err)) {
+        sheets_[""] = sheet;  // the default when no addtiledef matches
         renderer_.set_tile_sheet(std::move(sheet));
-        break;
+        return true;
       }
     }
-    std::string table;
-    if (read_file(opt_.assets + "/arrays.dat", table)) {
-      if (!World::read_arrays_dat(table, tile_types_, err) && log) log(err);
-      World::read_object_tables(table, object_tables_);
-    }
+  return false;
+}
+
+void Program::want_file(const std::string& name) {
+  if (name.empty() || name.find_first_of("/\\") != std::string::npos || name.find("..") != std::string::npos) return;
+  std::string key = name;
+  for (char& c : key) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  if (!asked_.insert(key).second) return;
+  session_.connection().send(23, name);  // PLI_WANTFILE
+  if (log) log("asking for " + name);
+}
+
+void Program::ask_for_missing() {
+  // The real 5.x clients ask with 23 for a file they do not have (the
+  // lab's 5.12 asked for its fonts, steps2.wav and push.gani so,
+  // graal-decompile lab-v5v6 proxy logs); the tile sheet is asked for the
+  // same way when no folder has it (a rebuild choice: the logs do not show
+  // how a fresh 5.12 install gets pics1.png).
+  if (!renderer_.has_tile_sheet()) want_file("pics1.png");
+  auto images = [this](const World::Player& p) {
+    for (const std::string* n : {&p.head, &p.body, &p.sword_image, &p.shield_image})
+      if (!n->empty() && n->find('.') != std::string::npos && !assets_->image(*n)) want_file(*n);
+  };
+  images(me_);
+  for (const auto& [pid, o] : others_) images(o);
+}
+
+void Program::save_download(const std::string& name, const std::string& data) {
+  if (name.empty() || name.find_first_of("/\\") != std::string::npos || name.find("..") != std::string::npos) return;
+  if (opt_.assets.empty()) return;
+  std::string dir = opt_.assets + "/levels/images/downloads";
+  std::error_code ec;
+  std::filesystem::create_directories(dir, ec);
+  std::ofstream out(dir + "/" + name, std::ios::binary);
+  if (!out) {
+    if (log) log("could not save " + name);
+    return;
   }
+  out.write(data.data(), static_cast<std::streamsize>(data.size()));
+  out.close();
+  assets_->forget(name);
+  std::string key = name;
+  for (char& c : key) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  if (key == "pics1.png") load_tile_sheet();
+  if (log) log("got " + name + " (" + std::to_string(data.size()) + " bytes)");
 }
 
 void Program::draw_hud() {
@@ -473,6 +537,29 @@ void Program::on_message(int id, std::string_view body) {
       mover_.reset(me_);
       break;
     }
+    case 102: {  // PLO_FILE: GINT5 mod time, GCHAR name length, name, data
+      r.gint5();
+      size_t n = r.gchar();
+      std::string rest = r.rest();
+      if (!r.ok() || rest.size() < n) break;
+      std::string name = rest.substr(0, n), data = rest.substr(n);
+      if (auto it = large_.find(name); it != large_.end()) it->second += data;
+      else save_download(name, data);
+      break;
+    }
+    case 68:  // PLO_LARGEFILESTART: name; 102 chunks follow until 69
+      large_[std::string(body)].clear();
+      break;
+    case 69:  // PLO_LARGEFILEEND: name
+      if (auto it = large_.find(std::string(body)); it != large_.end()) {
+        std::string data = std::move(it->second);
+        large_.erase(it);
+        save_download(std::string(body), data);
+      }
+      break;
+    case 30:  // PLO_FILESENDFAILED: name (it stays asked, so it is not asked again)
+      if (log) log("the server has no " + std::string(body));
+      break;
     case 178:  // the session follows the warp; the title follows the name
       props_sent_ = false;
       others_.clear();
@@ -518,6 +605,7 @@ bool Program::tick() {
       if (!moved.empty()) session_.connection().send(2, moved);
     }
   }
+  if (opt_.download_files && props_sent_ && frame_ % 10 == 0) ask_for_missing();
   ++frame_;
   world_.player = actor_for(-1, me_);
   world_.others.clear();

@@ -99,6 +99,20 @@ build/frame-test$(EXE): $(CONTROL) $(GUI) $(ENGINE) $(COMPILER) $(HEADERS) $(GUI
 
 program: build/graal304-torque$(EXE)
 
+# macOS: the program as an app bundle with the game library inside it
+# (make lib all app; APP_LIB picks the library, 3.153's for its zip). Put
+# graal304-torque.app beside main.cs; it finds the install from there.
+APP = build/graal304-torque.app
+APP_LIB ?= libGame304Lib.dylib
+APP_VERSION ?= $(or $(patsubst v%,%,$(VERSION)),0.0.0)
+.PHONY: app
+app: build/graal304-torque host/Info.plist
+	rm -rf $(APP)
+	mkdir -p $(APP)/Contents/MacOS $(APP)/Contents/Resources
+	cp build/graal304-torque $(LIB_DIR)/$(APP_LIB) $(APP)/Contents/MacOS/
+	sed -e 's/@VERSION@/$(APP_VERSION)/g' host/Info.plist > $(APP)/Contents/Info.plist
+	printf 'APPL????' > $(APP)/Contents/PkgInfo
+
 lib: | build
 	mkdir -p $(LIB_DIR)
 	set -f; cd $(GAME_SRC) && $(FPC) -Mdelphi -Sh -vew -O2 $(LIB_FPCFLAGS) -Fu../../common -Fu. \

@@ -61,6 +61,7 @@ class Session2D {
   std::vector<uint32_t> pixels_;
   graal_texture frame_{};
   std::vector<std::string> log_;
+  int loginsSeen_ = 0;
 };
 
 }  // namespace graalengine
