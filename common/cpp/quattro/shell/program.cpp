@@ -5,10 +5,13 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <sstream>
+
+#include <zlib.h>
 
 namespace Quattro::Shell {
 
@@ -68,7 +71,8 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
       opt_(std::move(opt)),
       window_(window),
       session_(profile, {}),
-      canvas_(opt_.width, opt_.height) {
+      canvas_(opt_.width, opt_.height),
+      run_start_(std::filesystem::file_time_type::clock::now()) {
   Net::Session::Events ev;
   ev.connecting = [this](const std::string& name, const std::string& addr) {
     if (log) log("connecting to " + name + " (" + addr + ")");
@@ -178,6 +182,57 @@ void Program::ask_for_missing() {
   for (const auto& [pid, o] : others_) images(o);
 }
 
+namespace {
+
+bool is_login_name(const std::string& name) { return lower_name(name).rfind("login", 0) == 0; }
+
+}  // namespace
+
+std::string Program::package_dir(const std::string& server) {
+  // The Login copy sits in updatepackages/; a game server's in a folder
+  // named for it, a space as %032 (Lab%032Server, the 4.04r2 live run).
+  // Other characters outside letters, digits, '-', '_' and '.' are written
+  // the same way (rebuild reading).
+  if (server.empty() || is_login_name(server)) return "updatepackages";
+  std::string out = "updatepackages/";
+  for (unsigned char c : server) {
+    if (std::isalnum(c) || c == '-' || c == '_' || (c == '.' && out.back() != '.')) {
+      out += static_cast<char>(c);
+    } else {
+      char buf[8];
+      std::snprintf(buf, sizeof buf, "%%%03u", static_cast<unsigned>(c));
+      out += buf;
+    }
+  }
+  return out;
+}
+
+std::string Program::package_path(const std::string& server) const {
+  return opt_.assets + "/" + package_dir(server) + "/basepackage.gupd";
+}
+
+void Program::ask_update_packages() {
+  // basepackage.gupd twice: 47 with the CRC-32 of a copy cached before
+  // this run, else 23 (a copy saved during the run is not checked).
+  std::string body = "basepackage.gupd";
+  int id = 23;
+  if (!opt_.assets.empty()) {
+    std::error_code ec;
+    const std::string path = package_path(session_.server_name());
+    auto when = std::filesystem::last_write_time(path, ec);
+    std::string data;
+    if (!ec && when < run_start_ && read_file(path, data)) {
+      const auto crc = crc32(0L, reinterpret_cast<const Bytef*>(data.data()), static_cast<uInt>(data.size()));
+      id = 47;
+      body = Net::gint5(static_cast<uint64_t>(crc)) + body;
+    }
+  }
+  asked_.insert("basepackage.gupd");
+  for (int i = 0; i < 2; ++i) session_.connection().send(id, body);
+  // bigmap.txt once per run, on the Login session only.
+  if (is_login_name(session_.server_name())) want_file("bigmap.txt");
+}
+
 bool Program::wanted(const std::string& name) const {
   return opt_.download_files && safe_file_name(name) && asked_.count(lower_name(name)) != 0 &&
          refused_.count(lower_name(name)) == 0;
@@ -190,6 +245,19 @@ void Program::save_download(const std::string& name, const std::string& data) {
   if (data.size() > opt_.max_download) {
     if (log) log(name + " is too large to keep");
     refused_.insert(lower_name(name));
+    return;
+  }
+  if (lower_name(name) == "basepackage.gupd") {
+    // Kept in updatepackages/, and on a game server in its own folder too.
+    std::vector<std::string> dirs{package_dir("")};
+    if (!is_login_name(session_.server_name())) dirs.push_back(package_dir(session_.server_name()));
+    for (const auto& d : dirs) {
+      std::error_code ec;
+      std::filesystem::create_directories(opt_.assets + "/" + d, ec);
+      std::ofstream(opt_.assets + "/" + d + "/basepackage.gupd", std::ios::binary)
+          .write(data.data(), static_cast<std::streamsize>(data.size()));
+    }
+    if (log) log("got basepackage.gupd (" + std::to_string(data.size()) + " bytes)");
     return;
   }
   std::string dir = opt_.assets + "/levels/images/downloads";
@@ -708,6 +776,10 @@ void Program::on_message(int id, std::string_view body) {
 
 bool Program::tick() {
   if (!offline_) session_.tick();
+  if (!offline_ && session_.logins() != logins_seen_) {
+    logins_seen_ = session_.logins();
+    if (logins_seen_ > 0 && profile_.update_packages && opt_.download_files) ask_update_packages();
+  }
   world_.lobby = !offline_ && session_.lobby_mode();
   if (window_.title() != window_title()) window_.set_title(window_title());
 

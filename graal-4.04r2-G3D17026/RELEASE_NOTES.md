@@ -21,6 +21,10 @@ point it at one with `--data DIR`) and the install's tiles, ganis, heads and
 bodies take their place. The shared `graal-assets/` folder next to the
 program works too (`graal-assets/4.04r2/`, then `graal-assets/common/`).
 
+## What's new in v0.0.5
+
+- [x] **Update packages, as the real 4.04r2 asks for them.** With `--engine`, each login asks for `basepackage.gupd` and keeps the server's copy in `updatepackages/` (and the game server's own folder). On the next run a kept copy is checked by its checksum instead of being fetched again. The Login server is also asked for `bigmap.txt` once per run.
+
 ## What's new in v0.0.4.2
 
 - **The frame cipher steps compressed bodies rounded down** (`len div 4`, at most 4), as the stock 4.04r2 engine and 5.12 do; raw bodies still step `(len + 3) div 4`. seihai-gserver now does the same for this version, and the rebuild had dropped with "bad frame from the server" right after entering a level.

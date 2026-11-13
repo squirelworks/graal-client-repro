@@ -730,6 +730,9 @@ void testLoopbackSession(const char* build, const char* labEnv, const std::strin
   CHECK(pump(&login, [&] { return login.saw(37, "English"); }));
   const std::string line = Quattro::Net::find_profile(build)->token + gstring("guest") + gstring("pw") + loginTail;
   CHECK(login.login_line == line);
+  // 4.04r2 asks for its update package and bigmap.txt after the login.
+  if (e.build() == "4.04r2")
+    CHECK(pump(&login, [&] { return login.saw(23, "basepackage.gupd") && login.saw(23, "bigmap.txt"); }));
 
   login.send(gchar(178) + "0,Lab Server,127.0.0.1," + std::to_string(game.port()) + "\n");
   std::thread acc([&] { game.conn.accept_from(game.listener); });

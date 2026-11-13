@@ -20,6 +20,7 @@
 #include "gui_host.hpp"
 #include "scripts.hpp"
 
+#include <filesystem>
 #include <map>
 #include <set>
 #include <vector>
@@ -93,6 +94,9 @@ class Program {
   const std::string& level_name() const { return level_name_; }
   // Files asked for with C->S 23, lower case.
   const std::set<std::string>& asked() const { return asked_; }
+  // Where this server's basepackage.gupd is kept under the assets folder
+  // ("updatepackages/basepackage.gupd" for the Login server).
+  static std::string package_dir(const std::string& server);
   // Pass names of the last frame, in the order they ran.
   const std::vector<std::string>& last_passes() const { return passes_; }
   std::function<void(const std::string&)> log;
@@ -134,6 +138,8 @@ class Program {
   std::vector<std::string> roots() const;
   bool load_tile_sheet();
   void want_file(const std::string& name);
+  void ask_update_packages();
+  std::string package_path(const std::string& server) const;
   void ask_for_missing();
   void save_download(const std::string& name, const std::string& data);
   bool wanted(const std::string& name) const;  // asked for, and a safe name
@@ -174,6 +180,8 @@ class Program {
   std::vector<std::string> passes_;
   bool quit_ = false;
   bool offline_ = false;
+  int logins_seen_ = 0;
+  std::filesystem::file_time_type run_start_;  // a cached package older than this counts
   Files::Gmap gmap_;
   bool have_gmap_ = false;
   std::string offline_dir_;  // the offline file's folder, searched first
