@@ -118,8 +118,10 @@ were not measured.
   leaves, the item over an opened chest and the carried object are not
   drawn; walking while carrying plays `walk` (the lab did not walk with a
   load); the stone's carry sprite was not seen, so lifting it sends only
-  the first carry sprite. Q, Tab and Esc are not item keys yet (Esc still
-  quits with no GUI); the lab saw them toggle the same status bit as D.
+  the first carry sprite. Q, Tab and Esc are not item keys on the window
+  yet (Esc still quits with no GUI); the lab saw them toggle the same
+  status bit as D. Through `Program::action` (the engine library's
+  bindings), `doQ` does D and `doS2` (Space) does S.
 - Stand-ins until the real art is drawn: tiles with no `pics1.png` are flat
   colours from their id; chests are boxes, and so is a player when no
   gani (not even `idle`) is in `--assets`. Body colours take the
