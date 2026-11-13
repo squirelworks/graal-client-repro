@@ -335,9 +335,81 @@ void test_offline() {
 }
 
 
+// 4.04r2 after each login: basepackage.gupd twice (23, or 47 with the
+// CRC-32 of a copy cached before the run), bigmap.txt on Login once; the
+// served package kept in updatepackages/ and the game server's folder.
+void test_update_packages() {
+  const Net::BuildProfile* prof = Net::find_profile("4.04r2");
+  CHECK(prof && prof->update_packages);
+  if (!prof) return;
+  CHECK(Shell::Program::package_dir("Login") == "updatepackages");
+  CHECK(Shell::Program::package_dir("Lab Server") == "updatepackages/Lab%032Server");
+  namespace fs = std::filesystem;
+  const fs::path root = fs::temp_directory_path() / ("quattro-gupd-" + std::to_string(std::rand()));
+  fs::create_directories(root);
+  auto count = [](const FakeServer& s, int id, const std::string& body) {
+    int n = 0;
+    for (const auto& [i, b] : s.got) n += (i == id && b == body);
+    return n;
+  };
+  const std::string pkg = "GRPKG001\n";
+  // A file with a newline in it goes raw (100 with the length, then 102).
+  auto file_msg = [&](const std::string& name, const std::string& data) {
+    std::string raw = gchar(102) + Net::gint5(0) + gchar(static_cast<unsigned>(name.size())) + name + data + "\n";
+    return gchar(100) + Net::gint3(static_cast<uint32_t>(raw.size())) + "\n" + raw;
+  };
+  {
+    FakeServer login, game;
+    CHECK(login.start() && game.start());
+    Shell::Options opt;
+    opt.host = "127.0.0.1";
+    opt.port = login.port();
+    opt.assets = root.string();
+    opt.download_files = true;
+    Draw::HeadlessWindow win;
+    Shell::Program p(*prof, opt, win);
+    CHECK(p.start());
+    CHECK(login.conn.accept_from(login.listener));
+    CHECK(run(p, &login, nullptr, [&] { return count(login, 23, "bigmap.txt") == 1; }));
+    CHECK(count(login, 23, "basepackage.gupd") == 2);
+    login.send(file_msg("basepackage.gupd", pkg));
+    CHECK(run(p, &login, nullptr, [&] { return fs::exists(root / "updatepackages/basepackage.gupd"); }));
+
+    login.send(gchar(178) + "0,Lab Server,127.0.0.1," + std::to_string(game.port()) + "\n");
+    std::thread acc([&] { game.conn.accept_from(game.listener); });
+    CHECK(run(p, &login, nullptr, [&] { return p.session().logins() == 2; }));
+    acc.join();
+    // Within the run the cached copy is not checked: 23 again, no bigmap.
+    CHECK(run(p, nullptr, &game, [&] { return count(game, 23, "basepackage.gupd") == 2; }));
+    game.send(file_msg("basepackage.gupd", pkg));
+    CHECK(run(p, nullptr, &game, [&] { return fs::exists(root / "updatepackages/Lab%032Server/basepackage.gupd"); }));
+    p.tick();
+    CHECK(count(game, 23, "bigmap.txt") == 0);
+  }
+  {
+    // The next run: the cached Login copy goes as 47, "!MCt'" being the
+    // CRC-32 0x15a8ea07 of "GRPKG001\n" (the live run's bytes).
+    FakeServer login;
+    CHECK(login.start());
+    Shell::Options opt;
+    opt.host = "127.0.0.1";
+    opt.port = login.port();
+    opt.assets = root.string();
+    opt.download_files = true;
+    Draw::HeadlessWindow win;
+    Shell::Program p(*prof, opt, win);
+    CHECK(p.start());
+    CHECK(login.conn.accept_from(login.listener));
+    CHECK(run(p, &login, nullptr, [&] { return count(login, 47, "!MCt'basepackage.gupd") == 2; }));
+    CHECK(count(login, 23, "basepackage.gupd") == 0);
+  }
+  fs::remove_all(root);
+}
+
 int main() {
   test_program();
   test_offline();
+  test_update_packages();
   test_downloads();
   TEST_MAIN_END();
 }

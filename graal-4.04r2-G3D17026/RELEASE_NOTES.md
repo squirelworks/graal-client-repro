@@ -23,6 +23,7 @@ program works too (`graal-assets/4.04r2/`, then `graal-assets/common/`).
 
 ## What's new in v0.0.4.2
 
+- [x] **Update packages, as the real 4.04r2 asks for them.** With `--engine`, each login asks for `basepackage.gupd` and keeps the server's copy in `updatepackages/` (and the game server's own folder). On the next run a kept copy is checked by its checksum instead of being fetched again. The Login server is also asked for `bigmap.txt` once per run.
 - **The frame cipher steps compressed bodies rounded down** (`len div 4`, at most 4), as the stock 4.04r2 engine and 5.12 do; raw bodies still step `(len + 3) div 4`. seihai-gserver now does the same for this version, and the rebuild had dropped with "bad frame from the server" right after entering a level.
 - [x] **The A, S and D keys in the engine's game screen.** With `--engine`, the menus' own key bindings now reach the game: S (or Space) swings the sword, A lifts, throws and grabs, and D (or Q) toggles the weapon state, online and offline.
 - [x] **Offline Test plays the tutorial.** With `--engine`, Offline Test now opens the install's offline tutorial (`levels/tutorial`) in its centre part, with its own tiles and the 4.x character its level sets up, and you can walk across all nine parts of the map with the arrow keys.
