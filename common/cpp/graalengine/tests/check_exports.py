@@ -15,7 +15,8 @@ ENTRY = [
     "connectToGraalServer", "openGraalServerList", "enableScriptedControls",
     "prepareGraalShutdown", "shutdownGraalEngine", "graalengine_abi",
     "graalengine_slotCount", "graalengine_slotName", "graalengine_slotBuilds",
-    "graalengine_setBuild",
+    "graalengine_setBuild", "graalengine_build", "graalengine_graal3DLoginStep", "graalengine_logLine",
+    "isGraal3DMode", "getGraalLoginInfo", "setGraal3DConnectionError",
 ]
 
 

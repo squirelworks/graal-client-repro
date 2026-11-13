@@ -78,6 +78,20 @@ class Engine {
     std::map<std::string, std::vector<std::string>> fields;  // the update* calls, by name
   };
   const Account& account() const { return account_; }
+  // The login the session sends: the account from the menus, or on the 5.x
+  // builds the built-in guest when none was given.
+  Account loginAccount() const;
+
+  // The 3D path (Track C4). A `3 ` server connected while the 3D library
+  // has filled ConnectTo3DServer: 3D mode, the Torque link to port + 1,
+  // and the TCP session as for a 2D server.
+  bool graal3DMode() const { return mode3d_; }
+  // The 3D link failed: log, leave 3D mode, drop the TCP session.
+  void graal3DConnectionError(const std::string& reason);
+  // onGraal3DLoginStep(step) on the universe; step 6 makes the 3D GUI the
+  // content.
+  void graal3DLoginStep(int step);
+  int graal3DStep() const { return step3d_; }
 
   // What runs on startOfflineMode and connectToGraalServer. Until the
   // session code is linked in these only record the request.
@@ -149,6 +163,8 @@ class Engine {
   std::function<void()> timer_;
   Target target_;
   bool offlineRequested_ = false;
+  bool mode3d_ = false;
+  int step3d_ = 0;
   bool scriptedControls_ = true;
   int initCount_ = 0;
   gs2::Profile profile_ = gs2::Profile::Engine42;

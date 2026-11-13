@@ -215,7 +215,13 @@ monster by the title (StartAni6).
   (`src/host.hpp`). Without a builder the B4 screen above is used.
 - Other session code can still take over through `Engine::setConnector`,
   `setOfflineStarter` and `setTimer`.
-- The 3D library fills the `GRAAL_BUILD_3D` slots (Track C4).
+- The 3D library ([`../graal3dengine`](../graal3dengine), Track C4) fills
+  the `GRAAL_BUILD_3D` slots. With `ConnectTo3DServer` filled, a `3 `
+  server sets 3D mode, opens the Torque link on port + 1 and logs in on
+  TCP as for 2D; the library calls back through `getGraalLoginInfo`,
+  `setGraal3DConnectionError`, `graalengine_build`,
+  `graalengine_graal3DLoginStep` (the `onGraal3DLoginStep` event, and the
+  3D GUI as content at step 6) and `graalengine_logLine`.
 
 ## Not yet
 
@@ -233,7 +239,9 @@ monster by the title (StartAni6).
   than alpha need a launcher slot
 - [x] ~~Offline mode's level~~ (above; its NPCs run with the GS1 engine)
 - [ ] The other GraalGui keys (`doA`, `doS`, `doD`, the map and item
-  menus) and the 3D connect
+  menus)
+- [x] ~~The 3D connect~~: 3D mode and the link on port + 1 through the 3D
+  library (`../graal3dengine`); the launcher loading that library is still open
 - [ ] `Adventure_saveGraalOptions`, `Adventure_installGraal` and the
   `Adventure_selectFile*` calls (refused with the engines' "not found"
   error until they are written); the setup test (always passes here)
