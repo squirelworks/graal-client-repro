@@ -56,9 +56,11 @@ The Linux zip also holds `graal304-torque` and `libGame304Lib.so`; the
 Windows zip holds `graal304-torque.exe` and `Game304Lib.dll`. Copy both
 into the root of a 3.04 install (beside `main.cs`) and start
 `graal304-torque`. The macOS zips hold `graal304-torque.app`, with the
-game library inside it: put the app in the root of the install and open
-it (the first time, Control-click it and choose Open, as it is not
-signed). It runs the install's own scripts on the rebuilt
+game library inside it: drag the app with the Finder into the root of
+the install and open it. It is not signed, so the first time macOS
+blocks it: choose System Settings > Privacy & Security > Open Anyway
+(macOS 15 has no Control-click Open), or run
+`xattr -dr com.apple.quarantine graal304-torque.app`. It runs the install's own scripts on the rebuilt
 Torque engine (`common/torque/guigraal`): the install's main menu, server
 list, options and F2 console, with the game below drawn inside the
 `Adventure` control. It also starts from the install folder as the current

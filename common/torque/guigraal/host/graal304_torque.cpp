@@ -180,6 +180,15 @@ int main(int argc, char** argv) {
     const std::size_t slash = app.find_last_of('/');
     beside = slash == std::string::npos ? std::string(".") : app.substr(0, slash);
   }
+  const bool in_bundle = beside != here;
+  // A quarantined app opened where it was unzipped runs from a read-only
+  // copy (App Translocation), away from the install beside it.
+  if (in_bundle && root.empty() && here.find("/AppTranslocation/") != std::string::npos && !has_main(".")) {
+    fail("macOS is running graal304-torque.app from a temporary copy, so it cannot see your Graal folder.\n"
+         "Quit, then drag graal304-torque.app with the Finder into your Graal 3.04 or 3.153 folder\n"
+         "(beside main.cs), or run: xattr -dr com.apple.quarantine graal304-torque.app");
+    return 1;
+  }
   if (root.empty()) {
     if (has_main(here)) root = here;
     else if (has_main(beside)) root = beside;
@@ -187,8 +196,10 @@ int main(int argc, char** argv) {
     else root = beside;
   }
   if (!has_main(root)) {
-    fail("no main.cs in " + root + ".\n"
-         "Copy graal304-torque and the game library into your Graal 3.04 or 3.153 folder (beside main.cs),\n"
+    fail("no main.cs in " + root + ".\n" +
+         std::string(in_bundle ? "Put graal304-torque.app into your Graal 3.04 or 3.153 folder (beside main.cs),\n"
+                               : "Copy graal304-torque and the game library into your Graal 3.04 or 3.153 folder "
+                                 "(beside main.cs),\n") +
          "run it from that folder, or pass --root with that folder.");
     return 1;
   }

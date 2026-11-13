@@ -51,8 +51,10 @@ inside the `Adventure` control. The install ships no font caches, so the
 fonts are made from the system's Arial, or Liberation Sans or DejaVu Sans
 where there is no Arial. It also starts with `--root DIR`. Prefs go to
 `~/.graal304-torque` (`%APPDATA%\graal304-torque` on Windows). On Linux it
-needs an X11 display. On macOS, Control-click the app and choose Open the
-first time, as it is not signed.
+needs an X11 display. On macOS, drag the app with the Finder into the
+install. It is not signed, so the first time choose System Settings >
+Privacy & Security > Open Anyway, or run
+`xattr -dr com.apple.quarantine graal304-torque.app`.
 
 ### The Pascal program
 
