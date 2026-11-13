@@ -47,7 +47,7 @@ type
   TBetaStartInfo = record
     FormData: string;       { the TCONNECTFRAME form stream }
     AppTitle: string;       { the hidden TApplication window's title }
-    Names: array of string; { character list, in the build's order }
+    Names: TBetaNames;      { character list, in the build's order }
     Heads: TGSurface;       { the install's heads.gif, or nil }
     Nick: string;           { pre-filled nick name, '' for none }
     { the dialog window as the build creates it: owned by the application
@@ -404,6 +404,9 @@ begin
     if F.Ctl('Edit4') <> nil then
     begin
       S := ConfigValue(Cfg, 'serveraddr', '');
+      { the real client writes it in quotes: serveraddr="host" }
+      if (Length(S) >= 2) and (S[1] = '"') and (S[Length(S)] = '"') then
+        S := Copy(S, 2, Length(S) - 2);
       if S = '' then S := 'listserver.graal.in';
       F.SetText('ComboBox5', S);
       F.SetText('Edit2', ConfigValue(Cfg, 'serverport', F.GetText('Edit2')));
@@ -497,7 +500,8 @@ begin
       for I := 1 to 4 do
         SetConfigValue(Cfg, 'head' + IntToStr(I), F.GetText('ComboBox' + IntToStr(I)));
       SetConfigValue(Cfg, 'editnickname', Choice.Nick);
-      if Choice.HostEdited then SetConfigValue(Cfg, 'serveraddr', Choice.Host);
+      { in quotes, as the real client writes it }
+      if Choice.HostEdited then SetConfigValue(Cfg, 'serveraddr', '"' + Choice.Host + '"');
       SetConfigValue(Cfg, 'serverport', IntToStr(Choice.Port));
       SetConfigValue(Cfg, 'accountname', Choice.Account);
       SetConfigValue(Cfg, 'password', Choice.Password);

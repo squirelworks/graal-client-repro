@@ -13,6 +13,18 @@ namespace Torque::Gui {
 
 namespace {
 
+// Console output keeps the tabs scripts print (column lists); the fonts
+// have no tab glyph, so each goes to the next multiple of four spaces
+// (rebuild policy).
+std::string expand_tabs(const std::string& s) {
+  std::string out;
+  for (char c : s) {
+    if (c == '\t') out.append(4 - out.size() % 4, ' ');
+    else out += c;
+  }
+  return out;
+}
+
 bool is_jpeg(const std::string& data) {
   return data.size() > 3 && static_cast<unsigned char>(data[0]) == 0xFF &&
          static_cast<unsigned char>(data[1]) == 0xD8 && static_cast<unsigned char>(data[2]) == 0xFF;
@@ -252,6 +264,44 @@ void Renderer::render(Canvas& canvas, SimObject* content, const std::vector<SimO
   if (content) draw_control(canvas, content, screen);
   for (SimObject* d : dialogs)
     if (d) draw_control(canvas, d, screen);
+  draw_popup_list(canvas);
+}
+
+// The open pop-up's entries below it (above it when they do not fit), in
+// the profile's font and colours, the selected one highlighted. Row height
+// and frame are rebuild policy (stock Torque draws a text list in a scroll
+// control here).
+void Renderer::draw_popup_list(Canvas& canvas) {
+  popup_list = {};
+  SimObject* menu = open_popup ? engine_.object(open_popup) : nullptr;
+  if (!menu || menu->rows.empty()) { open_popup = 0; return; }
+  Rect box;
+  bool placed = false;
+  for (const Placed& pl : layout_)
+    if (pl.id == menu->id) { box = pl.rect; placed = true; }
+  if (!placed) { open_popup = 0; return; }
+  const Profile p = profile_of(menu);
+  const GftFont* f = font(p.font_type, p.font_size);
+  if (!f) return;
+  popup_row_height = int(f->height) + 4;
+  const int h = popup_row_height * int(menu->rows.size()) + 2;
+  int y = box.y + box.height;
+  if (y + h > canvas.height() && box.y - h >= 0) y = box.y - h;
+  popup_list = {box.x, y, box.width, h};
+  const Color back = p.opaque ? p.fill_color : Color{255, 255, 255, 255};
+  canvas.fill_rect(popup_list, back);
+  canvas.frame_rect(popup_list, p.border ? p.border_color : Color{0, 0, 0, 255});
+  const std::string selected = menu->field("selected");
+  canvas.push_clip(popup_list);
+  for (std::size_t i = 0; i < menu->rows.size(); ++i) {
+    const Rect row{popup_list.x + 1, popup_list.y + 1 + int(i) * popup_row_height, popup_list.width - 2,
+                   popup_row_height};
+    const bool sel = menu->rows[i].second == selected;
+    if (sel) canvas.fill_rect(row, p.fill_color_hl);
+    canvas.draw_text(*f, row.x + 2 + p.text_offset.x, row.y + text_line_top(row.height, int(f->height)),
+                     menu->rows[i].first, sel ? p.font_color_sel : p.font_color);
+  }
+  canvas.pop_clip();
 }
 
 void Renderer::draw_control(Canvas& canvas, SimObject* control, const Rect& rect) {
@@ -295,7 +345,7 @@ void Renderer::draw_control(Canvas& canvas, SimObject* control, const Rect& rect
         const Profile cp = profile_of(child);
         if (const GftFont* f = font(cp.font_type, cp.font_size)) {
           int w = 0;
-          for (const std::string& line : engine_.console_buffer) w = std::max(w, f->text_width(line) + 4);
+          for (const std::string& line : engine_.console_buffer) w = std::max(w, f->text_width(expand_tabs(line)) + 4);
           const int h = int(engine_.console_buffer.size()) * std::max(1, int(f->height));
           r.width = std::max({r.width, w, rect.width - r.x});
           r.height = std::max({r.height, h, rect.height - r.y});
@@ -379,7 +429,7 @@ void Renderer::draw_self(Canvas& canvas, SimObject* control, const Rect& rect) {
       const std::size_t first = lines.size() > fit ? lines.size() - fit : 0;
       int y = rect.y + rect.height - int(lines.size() - first) * lh;
       for (std::size_t i = first; i < lines.size(); ++i, y += lh)
-        canvas.draw_text(*f, rect.x + 2, y, lines[i], p.font_color);
+        canvas.draw_text(*f, rect.x + 2, y, expand_tabs(lines[i]), p.font_color);
     }
   }
 }
@@ -432,29 +482,69 @@ void Renderer::draw_text_list(Canvas& canvas, SimObject* control, const Profile&
 void Renderer::draw_ml_text(Canvas& canvas, SimObject* control, const Profile& p, const Rect& rect) {
   const GftFont* f = font(p.font_type, p.font_size);
   if (!f) return;
+  // Torque markup: <just:left|center|right>, <color:RRGGBB[AA]>, <br> and
+  // new lines are read; any other <tag> is left out rather than drawn
+  // (fonts, bitmaps, links and tabs are not drawn yet).
   const std::string text = control->field("text");
+  struct Word { std::string text; Color color; };
+  std::vector<Word> line;
+  Justify just = p.justify;
+  Color color = p.font_color;
   int y = rect.y;
-  std::string line;
+  const int space = f->text_width(" ");
+  auto line_width = [&](const std::vector<Word>& words) {
+    int w = 0;
+    for (std::size_t i = 0; i < words.size(); ++i) w += f->text_width(words[i].text) + (i ? space : 0);
+    return w;
+  };
   auto flush = [&] {
-    canvas.draw_text(*f, rect.x, y, line, p.font_color);
+    const int w = line_width(line);
+    int x = rect.x;
+    if (just == Justify::center) x += (rect.width - w) / 2;
+    else if (just == Justify::right) x += rect.width - w;
+    for (const Word& word : line) {
+      canvas.draw_text(*f, x, y, word.text, word.color);
+      x += f->text_width(word.text) + space;
+    }
     y += int(f->height);
     line.clear();
   };
-  std::size_t i = 0;
-  while (i <= text.size()) {
-    std::size_t end = text.find_first_of(" \n", i);
-    if (end == std::string::npos) end = text.size();
-    const std::string word = text.substr(i, end - i);
-    const std::string trial = line.empty() ? word : line + " " + word;
-    if (!line.empty() && f->text_width(trial) > rect.width) {
+  auto add_word = [&](const std::string& w) {
+    if (w.empty()) return;
+    line.push_back({w, color});
+    if (line.size() > 1 && line_width(line) > rect.width) {
+      Word last = line.back();
+      line.pop_back();
       flush();
-      line = word;
-    } else {
-      line = trial;
+      line.push_back(last);
     }
-    if (end < text.size() && text[end] == '\n') flush();
-    i = end + 1;
+  };
+  std::string word;
+  for (std::size_t i = 0; i < text.size(); ++i) {
+    const char c = text[i];
+    if (c == '<') {
+      const std::size_t close = text.find('>', i);
+      if (close != std::string::npos) {
+        const std::string tag = lower(text.substr(i + 1, close - i - 1));
+        i = close;
+        if (tag == "br" || tag == "br/") { add_word(word); word.clear(); flush(); }
+        else if (tag.rfind("just:", 0) == 0) {
+          const std::string j = tag.substr(5);
+          just = j == "center" ? Justify::center : j == "right" ? Justify::right : Justify::left;
+        } else if (tag.rfind("color:", 0) == 0 && tag.size() >= 12) {
+          auto hex = [&](std::size_t at) { return std::uint8_t(std::stoi(tag.substr(at, 2), nullptr, 16)); };
+          try {
+            color = Color{hex(6), hex(8), hex(10), tag.size() >= 14 ? hex(12) : std::uint8_t(255)};
+          } catch (...) {}
+        }
+        continue;
+      }
+    }
+    if (c == ' ' || c == '\t') { add_word(word); word.clear(); continue; }
+    if (c == '\n') { add_word(word); word.clear(); flush(); continue; }
+    word += c;
   }
+  add_word(word);
   if (!line.empty()) flush();
 }
 

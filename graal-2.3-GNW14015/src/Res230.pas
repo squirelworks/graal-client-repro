@@ -15,7 +15,7 @@ function ResFile(const Name: string; out Data: string): Boolean;
 implementation
 
 uses
-  SysUtils;
+  SysUtils, GCompat;
 
 const
   R0: array[0..2925] of Byte = (

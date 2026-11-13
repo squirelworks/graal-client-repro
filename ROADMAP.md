@@ -94,11 +94,11 @@ needs a folder named by the folder naming rule.
 - [x] 3.0beta, 3.01 and 3.151 Linux (`G3D16053`, `G3D27063`, `G3D27015`, tokens read from each `graalexe`): `graal-3.0beta-G3D16053`, `graal-3.01-G3D27063`, `graal-3.151-G3D27015`, each with its own game library on `graal304-torque`; 3.0beta and 3.01 log in as client type 4 on the gen-4 link
 - [x] 4.03r1 Linux (`G3D11125`), 4.03r3 Windows (`G3D09125`), 4.11 Windows (`G3D26076`) and 4.20 Linux (`G3D22126`, r6 and r8): `graal-4.03r1-G3D11125`, `graal-4.03r3-G3D09125`, `graal-4.11-G3D26076`, `graal-4.20linux-G3D22126`, from the 4.20r8 rebuild
 - [ ] 4.04r2 Linux (`G3D19026`), 4.10r2 and 4.11 Linux (`G3D28076`), and the Mac 4.04r2 (`G3D18026`), 4.10r2 (`G3D27076`) and 5.12 (`G3D15097`)
-- [ ] 6.00 beta 1 Windows (`G3D03048`)
+- [x] 6.00 beta 1 Windows (`G3D03048`): `graal-6.00b1-G3D03048`
 - [ ] 6.00 beta 2 Windows (`G3D15010`)
-- [ ] 5.24r3 and 5.24r4 Windows (`G3D15010`)
-- [ ] 6.00r2 and 6.00r4 Windows (`G3D26090`)
-- [ ] 6.03r7 Windows (`G3D0311C`; the folder here is the Linux build)
+- [x] 5.24r3 and 5.24r4 Windows (`G3D15010`): `graal-5.24r4-G3D15010`
+- [x] 6.00r2 and 6.00r4 Windows (`G3D26090`): `graal-6.00r4-G3D26090`
+- [x] 6.03r7 Windows (`G3D0311C`): `graal-6.03r7win-G3D0311C`
 - [ ] Android vx: seven APK builds, Classic 1.7 and 1.8 among them (#177)
 - [x] The 39ster client, a Windows C++/SDL/OpenGL host (#176): `graal-39ster-1.00`, an offline build with no token, so the folder carries its version alone
 

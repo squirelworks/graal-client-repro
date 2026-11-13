@@ -1275,6 +1275,32 @@ begin
   end;
 end;
 
+{ graalconfig.txt as the real client writes it: the address in quotes }
+procedure TestQuotedServerAddr;
+var
+  Dir, Host: string;
+  Port: Integer;
+  L: TStringList;
+begin
+  Dir := IncludeTrailingPathDelimiter(GetTempDir(False)) + 'g121cfg' + IntToStr(Random(1000000)) + PathDelim;
+  ForceDirectories(Dir);
+  L := TStringList.Create;
+  try
+    L.Add('gamemode=One Player Online');
+    L.Add('serveraddr="lab.example"');
+    L.Add('serverport=14804');
+    L.SaveToFile(Dir + 'graalconfig.txt');
+  finally
+    L.Free;
+  end;
+  Host := 'default';
+  Port := 1;
+  ServerOverride(Dir, Host, Port);
+  Check((Host = 'lab.example') and (Port = 14804), 'graalconfig.txt: a quoted serveraddr loses its quotes');
+  DeleteFile(Dir + 'graalconfig.txt');
+  RemoveDir(Dir);
+end;
+
 procedure TestServerList;
 var
   L: TListServers;
@@ -1426,6 +1452,7 @@ begin
   TestReceiveLimits;
   TestTutorials;
   TestServerList;
+  TestQuotedServerAddr;
   TestAssetDirs;
   TestBuiltins;
   TestStatus;

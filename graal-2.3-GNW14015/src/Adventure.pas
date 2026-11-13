@@ -20,7 +20,7 @@ interface
 
 uses
   Classes, GSplit, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GAssetDirs, GraalClient, Protocol230,
-  Npc230, Baddy230, Terrain230, GTrueType;
+  Npc230, Baddy230, Terrain230, GTrueType, GCompat;
 
 const
   { The game window: TAdventure's client area is 640 x 480 (2.31's form is

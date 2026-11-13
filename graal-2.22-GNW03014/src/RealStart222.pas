@@ -26,7 +26,7 @@ unit RealStart222;
 interface
 
 uses
-  Classes, GSplit, GSurface, GWindow, GStartScreen;
+  Classes, GSplit, GSurface, GWindow, GStartScreen, GCompat;
 
 type
   TRealStartArt = class
@@ -138,7 +138,7 @@ begin
   Result := Default;
   I := Lang.IndexOfName(Key);
   if I < 0 then Exit;
-  if Trim(Lang.ValueFromIndex[I]) <> '' then Result := Trim(Lang.ValueFromIndex[I]);
+  if Trim(ValueAtIndex(Lang, I)) <> '' then Result := Trim(ValueAtIndex(Lang, I));
 end;
 
 function ServerTab(const Name: string): TListTab;

@@ -42,7 +42,7 @@ program Graal137;
 { A windowed program on Windows, like 2.05: started with no arguments it
   opens the start screen. With arguments it attaches to the console it was
   started from (OpenConsoleIO) and runs as before. }
-{$IFDEF MSWINDOWS}{$IFDEF FPC}{$APPTYPE GUI}{$ELSE}{$APPTYPE CONSOLE}{$ENDIF}{$ENDIF}
+{$IFDEF MSWINDOWS}{$APPTYPE GUI}{$ENDIF}
 { Windows: version info and manifest (src/Graal137.rc), and the DEP and ASLR
   flags ($0100 NX_COMPAT, $0040 DYNAMIC_BASE; the relocations come from -WR
   in the Windows build flags). }
@@ -50,49 +50,49 @@ program Graal137;
 
 uses
   SysUtils, Classes,
-  GClamp in '../../common/GClamp.pas',
-  GCompat in '../../common/GCompat.pas',
-  GPaths in '../../common/GPaths.pas',
-  GSplit in '../../common/GSplit.pas',
-  GNumText in '../../common/GNumText.pas',
-  GTypes in '../../common/GTypes.pas',
-  GZlib in '../../common/GZlib.pas',
-  GSocket in '../../common/GSocket.pas',
-  GLevel in '../../common/GLevel.pas',
-  GSurface in '../../common/GSurface.pas',
-  GArrays in '../../common/GArrays.pas',
-  GBuiltin in '../../common/GBuiltin.pas',
-  GAssetDirs in '../../common/GAssetDirs.pas',
-  GAni in '../../common/GAni.pas',
-  GFont in '../../common/GFont.pas',
-  GWindow in '../../common/GWindow.pas',
-  GDfmObj in '../../common/GDfmObj.pas',
-  GVclForm in '../../common/GVclForm.pas',
-  GOptionsWindow in '../../common/GOptionsWindow.pas',
+  GClamp in '..\..\common\GClamp.pas',
+  GCompat in '..\..\common\GCompat.pas',
+  GPaths in '..\..\common\GPaths.pas',
+  GSplit in '..\..\common\GSplit.pas',
+  GNumText in '..\..\common\GNumText.pas',
+  GTypes in '..\..\common\GTypes.pas',
+  GZlib in '..\..\common\GZlib.pas',
+  GSocket in '..\..\common\GSocket.pas',
+  GLevel in '..\..\common\GLevel.pas',
+  GSurface in '..\..\common\GSurface.pas',
+  GArrays in '..\..\common\GArrays.pas',
+  GBuiltin in '..\..\common\GBuiltin.pas',
+  GAssetDirs in '..\..\common\GAssetDirs.pas',
+  GAni in '..\..\common\GAni.pas',
+  GFont in '..\..\common\GFont.pas',
+  GWindow in '..\..\common\GWindow.pas',
+  GDfmObj in '..\..\common\GDfmObj.pas',
+  GVclForm in '..\..\common\GVclForm.pas',
+  GOptionsWindow in '..\..\common\GOptionsWindow.pas',
   Protocol137 in 'Protocol137.pas',
   GraalClient in 'GraalClient.pas',
-  GGs1 in '../../common/GGs1.pas',
+  GGs1 in '..\..\common\GGs1.pas',
   Npc137 in 'Npc137.pas',
   Baddy137 in 'Baddy137.pas',
   NpcBridge137 in 'NpcBridge137.pas',
   Adventure in 'Adventure.pas',
-  GSound in '../../common/GSound.pas',
+  GSound in '..\..\common\GSound.pas',
   Sound137 in 'Sound137.pas',
   Map137 in 'Map137.pas',
-  GStartScreen in '../../common/GStartScreen.pas',
+  GStartScreen in '..\..\common\GStartScreen.pas',
   StartScreen137 in 'StartScreen137.pas',
-  GDfm1x in '../../common/GDfm1x.pas',
-  GUiFont in '../../common/GUiFont.pas',
-  GLaunch1x in '../../common/GLaunch1x.pas',
+  GDfm1x in '..\..\common\GDfm1x.pas',
+  GUiFont in '..\..\common\GUiFont.pas',
+  GLaunch1x in '..\..\common\GLaunch1x.pas',
   Res137 in 'Res137.pas',
   RunMode in 'RunMode.pas',
-  GLevelWrite in '../../common/GLevelWrite.pas',
-  EditorDoc in 'editor/EditorDoc.pas',
-  EditorUI in 'editor/EditorUI.pas',
-  EditorDialogs in 'editor/EditorDialogs.pas',
-  EditorObjSets in 'editor/EditorObjSets.pas',
-  EditorView in 'editor/EditorView.pas',
-  EditorMain in 'editor/EditorMain.pas';
+  GLevelWrite in '..\..\common\GLevelWrite.pas',
+  EditorDoc in 'editor\EditorDoc.pas',
+  EditorUI in 'editor\EditorUI.pas',
+  EditorDialogs in 'editor\EditorDialogs.pas',
+  EditorObjSets in 'editor\EditorObjSets.pas',
+  EditorView in 'editor\EditorView.pas',
+  EditorMain in 'editor\EditorMain.pas';
 
 var
   { Set while the start screen runs a game: the arguments it chose, read
@@ -374,7 +374,7 @@ begin
         Port := 14802;
       end;
       if GuiWin <> nil then Pw := GuiPw
-      else Pw := SysUtils.GetEnvironmentVariable(Arg('--password-env', 'GRAAL_PW'));
+      else Pw := EnvVar(Arg('--password-env', 'GRAAL_PW'));
       if G.ConnectServer(Host, Port, Account, Pw) then
       begin
         if NoDelay and not G.Client.Socket.SetNoDelay(True) then
