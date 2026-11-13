@@ -7,6 +7,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 BUILD="$HERE/../build"
 LIB="$BUILD/lib/libGame304Lib.so"
 [ -f "$LIB" ] || LIB="$BUILD/lib/Game304Lib.dll"
+[ -f "$LIB" ] || LIB="$BUILD/lib/libGame304Lib.dylib"
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/install/levels/tutorial" "$WORK/prefs"

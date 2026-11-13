@@ -59,6 +59,14 @@ jobs:
       - name: Install Free Pascal (Windows)
         if: runner.os == 'Windows'
         run: choco install freepascal -y --no-progress
+      # The 3.04 Torque program (graal304-torque.exe) loads the 32-bit game
+      # library, so it is built with the runner's MSYS2 mingw32 g++
+      # (scripts/build.sh). Without it the zip ships Graal304.exe alone.
+      - name: 32-bit MinGW for the 3.04 Torque program (Windows)
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        shell: pwsh
+        run: C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm --needed mingw-w64-i686-gcc mingw-w64-i686-zlib"
       - name: Install Free Pascal (macOS)
         if: runner.os == 'macOS'
         run: brew install fpc

@@ -53,18 +53,51 @@ for B in $BUILDS; do
       esac
     fi
   fi
-  # The 3.04 and 3.153 player program on Linux: graal304-torque (the Torque
-  # engine in an X11 window) and the build's game library, which it loads
-  # from its own folder. 3.153 runs the same program on its own install.
+  # The 3.04 and 3.153 player program: graal304-torque (the Torque engine in
+  # a window: X11, Win32 or Cocoa) and the build's game library, which it
+  # loads from its own folder. 3.153 runs the same program on its own
+  # install. The program and the library must target the same system and
+  # CPU, so each is built only where the compiler pair matches.
   case "$B" in
-    graal-3.04-G3D03014) GAMELIB=libGame304Lib.so ;;
-    graal-3.153-G3D28015) GAMELIB=libGame3153Lib.so ;;
-    *) GAMELIB= ;;
+    graal-3.04-G3D03014) GAMEBASE=Game304Lib ;;
+    graal-3.153-G3D28015) GAMEBASE=Game3153Lib ;;
+    *) GAMEBASE= ;;
   esac
-  if [ -n "$GAMELIB" ] && [ "$(uname -s)" = Linux ] && [ -f "$ROOT/common/torque/guigraal/Makefile" ]; then
-    echo "== common/torque/guigraal (graal304-torque, $GAMELIB)"
-    make -C "$ROOT/common/torque/guigraal" lib build/graal304-torque CXX="${CXX:-g++}" FPC="$FPC"
-    cp "$ROOT/common/torque/guigraal/build/graal304-torque" "$ROOT/common/torque/guigraal/build/lib/$GAMELIB" "$OUT/"
+  if [ -n "$GAMEBASE" ] && [ -f "$ROOT/common/torque/guigraal/Makefile" ]; then
+    G="$ROOT/common/torque/guigraal"
+    TARGET_OS=$("$FPC" -iTO 2>/dev/null || true)
+    case "$(uname -s)/$TARGET_OS" in
+      Linux/linux)
+        echo "== common/torque/guigraal (graal304-torque, lib$GAMEBASE.so)"
+        make -C "$G" lib build/graal304-torque CXX="${CXX:-g++}" FPC="$FPC"
+        cp "$G/build/graal304-torque" "$G/build/lib/lib$GAMEBASE.so" "$OUT/"
+        ;;
+      Darwin/darwin)
+        echo "== common/torque/guigraal (graal304-torque, Cocoa, lib$GAMEBASE.dylib)"
+        make -C "$G" lib build/graal304-torque CXX="${CXX:-c++}" FPC="$FPC"
+        cp "$G/build/graal304-torque" "$G/build/lib/lib$GAMEBASE.dylib" "$OUT/"
+        ;;
+      MINGW*/win32|MSYS*/win32|CYGWIN*/win32|MINGW*/win64|MSYS*/win64|CYGWIN*/win64)
+        # A 32-bit Free Pascal (i386-win32, the release's) needs a 32-bit
+        # MinGW g++: GRAAL_WIN32_CXX, else MSYS2's mingw32 one if installed.
+        if [ "$TARGET_OS" = win32 ]; then
+          WCXX=${GRAAL_WIN32_CXX:-}
+          if [ -z "$WCXX" ] && [ -x /c/msys64/mingw32/bin/g++ ]; then WCXX=/c/msys64/mingw32/bin/g++; fi
+        else
+          WCXX=${CXX:-g++}
+        fi
+        if [ -n "$WCXX" ] && command -v "$WCXX" >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
+          echo "== common/torque/guigraal (graal304-torque.exe, $GAMEBASE.dll, $TARGET_OS)"
+          # the compiler's own folder first, for its windres and helpers
+          PATH="$(dirname "$(command -v "$WCXX")"):$PATH" \
+            make -C "$G" lib build/graal304-torque.exe PLATFORM=windows CXX="$WCXX" FPC="$FPC"
+          cp "$G/build/graal304-torque.exe" "$G/build/lib/$GAMEBASE.dll" "$OUT/"
+        else
+          echo "::warning::no MinGW g++ for $TARGET_OS (set GRAAL_WIN32_CXX); graal304-torque.exe not built"
+        fi
+        ;;
+      *) echo "graal304-torque: not built for $(uname -s) with a $TARGET_OS Free Pascal" ;;
+    esac
   fi
   # 4.2.0.8's residual engine host is common/torque/host4208.
   # The Delphi shell is Shell420.dpr, compiled above. The Pascal units
