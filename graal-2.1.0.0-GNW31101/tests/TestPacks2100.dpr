@@ -36,7 +36,7 @@ const
   BigLen = 2056;
   BigCrc = $FF9993E9;
 
-  { setup.ini as archived from the 2001 site (2001-10-26 capture) }
+  { setup.ini as the 2001 site served it (October 2001) }
   SetupIni =
     'setup-timestamp: 981332506'#10 +
     'setup-version: 1.01'#10 +

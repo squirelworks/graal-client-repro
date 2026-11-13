@@ -122,7 +122,7 @@ GetPacks2100 --site FOLDER|http://HOST[:PORT]/PATH [--root DIR] [--developer] [-
 It reads `setup.ini` from the site, fetches each component that is missing
 or newer (a folder, or HTTP/1.0 GET as the original), unpacks it with its own
 gunzip and tar reader, refuses paths that leave the install folder, and
-writes `setup/installed.db`. On the five archived packages it rebuilds the
+writes `setup/installed.db`. On copies of the five official packages it rebuilds the
 2.1.0.0 install byte for byte (392 files), with Free Pascal and with
 Delphi 7, and a second run fetches nothing. It is not named "setup": Windows
 treats such a name as an installer and asks for administrator rights.

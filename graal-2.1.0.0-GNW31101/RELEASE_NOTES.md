@@ -34,7 +34,7 @@ install's files come first.
 - [x] **The updater.** `GetPacks2100` reads the 2001 updater's `setup.ini`,
   fetches its `.pack` packages from a folder or over HTTP, unpacks them and
   keeps `setup/installed.db`, as the original setup program did. It rebuilds
-  the 2.1.0.0 install byte for byte from the archived packages.
+  the 2.1.0.0 install byte for byte from copies of the official packages.
 - [x] **Builds with Delphi 7** as well as Free Pascal.
 
 ## Not yet
