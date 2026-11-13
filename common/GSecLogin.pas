@@ -40,6 +40,8 @@ const
 type
   TSecMode = (smOff, smAuto, smRequired);
   TPinResult = (prUnknown, prMatches, prMismatch);
+  { Where one connection's secure login stands. }
+  TSecState = (ssNone, ssAwaitS1, ssDone, ssRefused, ssNoAnswer, ssFailed);
 
   { One handshake, C1 to C2. }
   TSecHandshake = class
@@ -117,6 +119,47 @@ type
   TNoteProc = procedure(const Line: string) of object;
 function AcceptServer(H: TSecHandshake; const S1, Server, GivenKey: string;
   Note: TNoteProc; out Why: string): Boolean;
+
+type
+  { One link's secure login, from the choice to probe to C2. The client
+    sends the lines it hands out in its plain login frame and decodes
+    frames as plain zlib while Awaiting. }
+  TSecSession = class
+  private
+    FHandshake: TSecHandshake;
+    FTail: string;
+    FStartMs: Int64;
+    FServer: string;
+  public
+    Mode: TSecMode;
+    { --server-key: the only key trusted, the pin file left alone }
+    ServerKey: string;
+    { the next login is the original one (auto's fallback) }
+    ForceClassic: Boolean;
+    State: TSecState;
+    { the server's refusal text, or why the handshake stopped }
+    Why: string;
+    OnNote: TNoteProc;
+    destructor Destroy; override;
+    { A new connection to Server (host:port, the name pins go by). }
+    procedure Reset(const AServer: string);
+    { Whether this login goes through SEI00001. }
+    function Want: Boolean;
+    { C1 for the plain login frame; False (State ssFailed) if it cannot
+      start. Tail is what the classic line has after the token. }
+    function Start(const Prefix, Inner, Suffix, Tail: string; out C1: string): Boolean;
+    function Awaiting: Boolean;
+    { The first line of the first plain frame after C1. True with C2 to send
+      in the plain login frame; False when the server refused (ssRefused)
+      or the check failed (ssFailed): drop the link. }
+    function Answer(const Plain: string; out C2: string): Boolean;
+    { Each tick: a close while waiting is a refusal, 5 s of silence is no
+      answer. True when the link should be dropped. }
+    function Check(Connected: Boolean): Boolean;
+    { Forgets a finished or failed handshake (after it was reported). }
+    procedure Finish;
+    property Server: string read FServer;
+  end;
 
 implementation
 
@@ -509,6 +552,106 @@ begin
         ' is not the pinned key ' + KeyFingerprint(Pinned) + ' in ' + PinFile +
         '; not sending the password';
   end;
+end;
+
+{ TSecSession }
+
+destructor TSecSession.Destroy;
+begin
+  FHandshake.Free;
+  inherited Destroy;
+end;
+
+procedure TSecSession.Reset(const AServer: string);
+begin
+  FServer := AServer;
+  State := ssNone;
+  Why := '';
+  FTail := '';
+end;
+
+function TSecSession.Want: Boolean;
+begin
+  Result := not ForceClassic and ShouldProbe(Mode, FServer);
+end;
+
+function TSecSession.Start(const Prefix, Inner, Suffix, Tail: string; out C1: string): Boolean;
+begin
+  Result := False;
+  C1 := '';
+  if FHandshake = nil then FHandshake := TSecHandshake.Create;
+  if (Length(Tail) > SeiMaxTail) or not FHandshake.Start(Prefix, Inner, Suffix) then
+  begin
+    State := ssFailed;
+    if FHandshake.Error <> '' then Why := FHandshake.Error
+    else Why := 'the login is too long to seal';
+    Exit;
+  end;
+  FTail := Tail;
+  State := ssAwaitS1;
+  FStartMs := GetTickCount64;
+  C1 := FHandshake.Hello;
+  if Assigned(OnNote) then OnNote('secure login: SEI00001 hello sent (inner ' + Inner + ')');
+  Result := True;
+end;
+
+function TSecSession.Awaiting: Boolean;
+begin
+  Result := State = ssAwaitS1;
+end;
+
+function TSecSession.Answer(const Plain: string; out C2: string): Boolean;
+var
+  L, W: string;
+begin
+  Result := False;
+  C2 := '';
+  L := Plain;
+  if Pos(#10, L) > 0 then SetLength(L, Pos(#10, L) - 1);
+  if not IsServerHello(L) then
+  begin
+    State := ssRefused;
+    Why := Copy(L, 2, MaxInt);
+    if Assigned(OnNote) then OnNote('secure login refused: ' + Why);
+    FTail := '';
+    Exit;
+  end;
+  if not AcceptServer(FHandshake, L, FServer, ServerKey, OnNote, W) then
+  begin
+    State := ssFailed;
+    Why := W;
+    FTail := '';
+    Exit;
+  end;
+  C2 := FHandshake.Seal(FTail);
+  FTail := '';
+  State := ssDone;
+  if Assigned(OnNote) then
+    OnNote('secure login: server key ' + KeyFingerprint(FHandshake.ServerKey) + ' verified; login sealed');
+  Result := True;
+end;
+
+function TSecSession.Check(Connected: Boolean): Boolean;
+begin
+  Result := False;
+  if State <> ssAwaitS1 then Exit;
+  if not Connected then
+  begin
+    State := ssRefused;
+    if Why = '' then Why := 'the server closed the link';
+  end
+  else if GetTickCount64 - FStartMs > SeiWaitMs then
+  begin
+    State := ssNoAnswer;
+    Why := 'the server did not answer the secure login within 5 s (it may not support SEI00001)';
+    Result := True;
+  end;
+end;
+
+procedure TSecSession.Finish;
+begin
+  State := ssNone;
+  FTail := '';
 end;
 
 end.

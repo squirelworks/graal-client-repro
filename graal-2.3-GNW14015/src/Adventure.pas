@@ -1264,9 +1264,9 @@ begin
   LoginMs := -1;
   SetLength(Weapons, 0);
   Selected := -1;
-  FClient.SecMode := ConfiguredSecMode;
-  FClient.ServerKey := ConfiguredServerKey;
-  FClient.ForceClassic := False;
+  FClient.Sec.Mode := ConfiguredSecMode;
+  FClient.Sec.ServerKey := ConfiguredServerKey;
+  FClient.Sec.ForceClassic := False;
   Result := FClient.Connect(Host, Port);
   if not Result then
   begin
@@ -1282,15 +1282,15 @@ end;
 procedure TAdventure.CheckSecureLogin;
 begin
   FClient.CheckSecure;
-  if not (FClient.SecState in [ssRefused, ssNoAnswer, ssFailed]) then Exit;
-  if (FClient.SecState <> ssFailed) and MayFallBack(FClient.SecMode, FClient.Server) then
+  if not (FClient.Sec.State in [ssRefused, ssNoAnswer, ssFailed]) then Exit;
+  if (FClient.Sec.State <> ssFailed) and MayFallBack(FClient.Sec.Mode, FClient.Sec.Server) then
   begin
     { auto: this server does not speak SEI00001 (graal-client-repro #148);
       log in the original way and skip the probe there next time }
-    Log('secure login: ' + FClient.SecWhy + '; logging in the original way');
-    RememberRefused(FClient.Server);
+    Log('secure login: ' + FClient.Sec.Why + '; logging in the original way');
+    RememberRefused(FClient.Sec.Server);
     FClient.Disconnect;
-    FClient.ForceClassic := True;
+    FClient.Sec.ForceClassic := True;
     if FClient.Connect(FHost, FPort) then
     begin
       FClient.SendLogin(FAccount, FPassword, 'English');
@@ -1300,10 +1300,10 @@ begin
       Log('connect failed: ' + FClient.LastError);
     Exit;
   end;
-  DisconnectReason := 'secure login: ' + FClient.SecWhy;
+  DisconnectReason := 'secure login: ' + FClient.Sec.Why;
   Log(DisconnectReason);
   FClient.Disconnect;
-  FClient.EndSecure;
+  FClient.Sec.Finish;
 end;
 
 { ---- walking (client-internals/decomp-findings-2026-10-25-m/01-walking-rule.md;
@@ -3523,10 +3523,10 @@ begin
   if FClient.Connected then
   begin
     FClient.Poll;
-    if not FClient.Connected and (FClient.SecState <> ssAwaitS1) then
+    if not FClient.Connected and (FClient.Sec.State <> ssAwaitS1) then
       Log('link closed: ' + FClient.LastError);
   end;
-  if FClient.SecState in [ssAwaitS1, ssRefused, ssNoAnswer, ssFailed] then
+  if FClient.Sec.State in [ssAwaitS1, ssRefused, ssNoAnswer, ssFailed] then
     CheckSecureLogin;
   { the first frame after the login burst }
   if LoggedIn and not FPropsSent and FClient.Connected then SendLoginFrame;

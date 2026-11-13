@@ -142,8 +142,8 @@ begin
   try
     C.StartOffline(64);
     C.Sink := True;
-    C.SecMode := smRequired;
-    C.ServerKey := B64Encode(Ed25519PublicKey(UnHex(ServerSeed)));
+    C.Sec.Mode := smRequired;
+    C.Sec.ServerKey := B64Encode(Ed25519PublicKey(UnHex(ServerSeed)));
     C.SendLogin('loop1', 'labpw123', 'English');
     F := SplitFrames(C.Sent);
     Check(F.Count = 1, 'secure: one frame before S1 (C1 alone)');
@@ -151,12 +151,12 @@ begin
     Check(Copy(Line, 1, 18) = Chr($20 + ClientType) + Chr($20 + 64) + 'SEI00001' + ClientVersionToken,
       'C1: type 5, key, SEI00001, GNW28015');
     Check((Pos('labpw123', Line) = 0) and (Pos('loop1', Line) = 0), 'C1 has no account or password');
-    Check(C.SecState = ssAwaitS1, 'waiting for S1');
+    Check(C.Sec.State = ssAwaitS1, 'waiting for S1');
     SetLength(Line, Length(Line) - 1);
     S1 := ServerHello(Line, 2);
     C.Sent := '';
     C.FeedRaw(Frame(ZCompress(S1 + #10)));
-    Check(C.SecState = ssDone, 'S1 checked out: ' + C.SecWhy);
+    Check(C.Sec.State = ssDone, 'S1 checked out: ' + C.Sec.Why);
     F.Free;
     F := SplitFrames(C.Sent);
     Check(F.Count = 2, 'then C2 and the language frame');
@@ -174,10 +174,10 @@ begin
   try
     C.StartOffline(64);
     C.Sink := True;
-    C.SecMode := smRequired;
+    C.Sec.Mode := smRequired;
     C.SendLogin('loop1', 'labpw123', 'English');
     C.FeedRaw(Frame(ZCompress(Chr($20 + 16) + 'Secure login is turned off on this server.'#10)));
-    Check((C.SecState = ssRefused) and (C.SecWhy = 'Secure login is turned off on this server.'),
+    Check((C.Sec.State = ssRefused) and (C.Sec.Why = 'Secure login is turned off on this server.'),
       'a refusal ends the handshake with its text');
   finally
     C.Free;
@@ -188,7 +188,7 @@ begin
   try
     C.StartOffline(64);
     C.Sink := True;
-    C.SecMode := smOff;
+    C.Sec.Mode := smOff;
     C.SendLogin('loop1', 'labpw123', 'English');
     C.Flush;
     F := SplitFrames(C.Sent);
@@ -211,8 +211,8 @@ begin
   try
     C.StartOffline(33);
     C.Sink := True;
-    C.SecMode := smRequired;
-    C.ServerKey := B64Encode(Ed25519PublicKey(UnHex(ServerSeed)));
+    C.Sec.Mode := smRequired;
+    C.Sec.ServerKey := B64Encode(Ed25519PublicKey(UnHex(ServerSeed)));
     C.SendRequest('loop1', 'labpw123');
     F := SplitFrames(C.Sent);
     Check((F.Count = 1) and ZDecompress(F[0], Line), 'list: C1 alone, plain zlib');
@@ -223,7 +223,7 @@ begin
     C.FeedRaw(Frame(ZCompress(ServerHello(Line, 2) + #10)));
     F.Free;
     F := SplitFrames(C.Sent);
-    Check((C.SecState = ssDone) and (F.Count = 1), 'list: S1 checks out, C2 alone');
+    Check((C.Sec.State = ssDone) and (F.Count = 1), 'list: S1 checks out, C2 alone');
     Check(ZDecompress(F[0], Line), 'list C2 in a plain zlib frame');
     SetLength(Line, Length(Line) - 1);
     Check(ServerOpen(Line, Tail) and (Tail = GString('loop1') + GString('labpw123')), 'list C2 seals id 1''s payload');

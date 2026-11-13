@@ -136,7 +136,9 @@ task lists mechanically on 2026-11-05 and some are older than the code).
     RFC vectors), pins, `off`/`auto`/`required` (off by default)
   - [x] Gen 5 Delphi: 2.22, 2.3, 2.31, game and list links, loopback
     against seihai-gserver and seihai-listserver
-  - [ ] 3.x to 6.x (platform fields inside C2)
+  - [x] 3.04, 3.153, 4.04r2, 4.20r6, 4.20r8, 5.00r7, 5.12, 6.01r1,
+    6.03r7 (platform fields inside C2), game and list links
+  - [ ] 5.31r4 (its own late-5.x link code)
   - [ ] Gen 3 (list link waits on #148 open question 2)
   - [ ] Gen 2
   - [ ] seihai-gserver-v2 side (its own repo)

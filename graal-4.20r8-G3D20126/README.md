@@ -88,6 +88,16 @@ scripts/build.sh graal-4.20r8-G3D20126
 build/graal-4.20r8-G3D20126/Shell420 --port 14900
 ```
 
+## Seihai secure login (not in the original)
+
+Off by default, so the login is byte for byte the original's. With
+`--secure-login auto` or `required` (or one word in `secure_login.txt` in
+the shared settings folder), the account, the password and the platform fields after it go sealed to
+a Seihai game server or list server (version token `SEI00001`,
+graal-client-repro #148). Same code and settings as 2.31: see the 2.31
+README, "Seihai secure login". CI logs in once more with
+`--secure-login required` (`scripts/loopback.sh`).
+
 ## Not yet, or not known
 
 - [ ] Board layers other than 0 (no `GR-V1.05` file format yet either).

@@ -23,6 +23,7 @@ program works too (`graal-assets/4.20r8/`, then `graal-assets/common/`).
 
 ## What's new in v0.0.4.2
 
+- [x] **Seihai secure login (optional, off by default).** With `--secure-login auto` (or `required`, or `secure_login.txt` in the settings folder), the account and password go sealed to a Seihai game server or list server (`SEI00001`), after the server's key is checked and pinned. Servers that do not know it get the original login under `auto`. Off, the login is byte for byte the original's. This is not in the original 4.20r8.
 - The C++ host now shares first-frame framing and loopback transport with
   the other existing host. Version-specific wire fields stay in its adapter;
   independent codec and TCP delivery tests do not establish historical login.

@@ -74,8 +74,8 @@ begin
   Failed := False;
   StartMs := NowMs;
   Client := TListServerClient.Create;
-  Client.SecMode := ConfiguredSecMode;
-  Client.ServerKey := ConfiguredServerKey;
+  Client.Sec.Mode := ConfiguredSecMode;
+  Client.Sec.ServerKey := ConfiguredServerKey;
   Used := Host;
   Status := Format('asking %s:%d for the server list...', [Host, Port]);
   if not Client.Connect(Host, Port) then
@@ -107,14 +107,14 @@ begin
   if (Client = nil) or Done or Failed then Exit;
   Client.Poll;
   Client.CheckSecure;
-  if Client.SecState in [ssRefused, ssNoAnswer, ssFailed] then
+  if Client.Sec.State in [ssRefused, ssNoAnswer, ssFailed] then
   begin
-    if (Client.SecState <> ssFailed) and MayFallBack(Client.SecMode, Client.Server) then
+    if (Client.Sec.State <> ssFailed) and MayFallBack(Client.Sec.Mode, Client.Sec.Server) then
     begin
       { auto: this list server does not speak SEI00001; ask the original way }
-      RememberRefused(Client.Server);
+      RememberRefused(Client.Sec.Server);
       Client.Disconnect;
-      Client.ForceClassic := True;
+      Client.Sec.ForceClassic := True;
       if Client.Connect(UsedHost, UsedPort) then
       begin
         StartMs := NowMs;
@@ -122,7 +122,7 @@ begin
         Exit;
       end;
     end;
-    Status := 'listserver: secure login: ' + Client.SecWhy;
+    Status := 'listserver: secure login: ' + Client.Sec.Why;
     Failed := True;
     Exit;
   end;
