@@ -6,6 +6,7 @@
 #include "../canvas.hpp"
 #include "../profile.hpp"
 #include "../jpeg.hpp"
+#include "../mouse.hpp"
 #include "../render.hpp"
 #include "../system_font.hpp"
 #include "../../console/engine/engine.hpp"
@@ -380,6 +381,40 @@ void test_renderer() {
   Canvas wide(50, 30, {0, 0, 0, 255});
   renderer.render(wide, content);
   require(same(wide.surface().at(30, 16), 255, 255, 0), "horizSizing left follows the canvas width");
+
+  // A pop-up opens on a click, its list draws over everything below it (or
+  // above when it does not fit), and a click on a row picks that entry.
+  SimObject* popup = e.find_object("PopUp");
+  e.call_method(popup, "add", {"A", "7"});
+  e.call_method(popup, "add", {"AA", "8"});
+  Canvas tall(40, 60, {0, 0, 0, 255});
+  renderer.render(tall, content);
+  mouse_click(e, renderer, 30, 24, false);
+  require(renderer.open_popup == popup->id, "a click opens the pop-up");
+  renderer.render(tall, content);
+  const Rect list = renderer.popup_list;
+  require(list.y == 29 && list.height == 2 * renderer.popup_row_height + 2, "the list draws below the pop-up");
+  mouse_click(e, renderer, list.x + 3, list.y + 1 + renderer.popup_row_height + 1, false);
+  require(renderer.open_popup == 0 && popup->field("selected") == "8" && popup->field("text") == "AA",
+          "a click on the second row selects it and closes the list");
+  mouse_click(e, renderer, 30, 24, false);
+  renderer.render(tall, content);
+  mouse_click(e, renderer, 1, 1, false);
+  require(renderer.open_popup == 0 && popup->field("selected") == "8", "a click outside closes it unchanged");
+
+  // ML text: tags are read or dropped, never drawn. "<just:right>A" puts the
+  // glyph at the right edge; "<font:x>" draws nothing.
+  SimObject* ml = make(e, "GuiMLTextCtrl", "Ml", gui,
+                       {{"profile", "LabelProfile"}, {"position", "0 40"}, {"extent", "40 20"},
+                        {"text", "<font:Arial:14><just:right>A"}}, content);
+  renderer.render(tall, content);
+  const Image& t = tall.surface();
+  int lit_left = 0, lit_right = 0;
+  for (int y = 40; y < 60; ++y)
+    for (int x = 0; x < 40; ++x)
+      if (same(t.at(x, y), 255, 255, 0)) (x < 30 ? lit_left : lit_right)++;
+  require(lit_left == 0 && lit_right > 0, "ML text: tags are not drawn and <just:right> aligns right");
+  (void)ml;
 }
 
 }  // namespace
