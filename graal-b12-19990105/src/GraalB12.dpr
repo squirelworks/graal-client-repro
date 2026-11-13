@@ -41,31 +41,31 @@ program GraalB12;
 
 uses
   SysUtils, Classes,
-  GCompat in '../../common/GCompat.pas',
-  GPaths in '../../common/GPaths.pas',
-  GSplit in '../../common/GSplit.pas',
-  GNumText in '../../common/GNumText.pas',
-  GTypes in '../../common/GTypes.pas',
-  GSocket in '../../common/GSocket.pas',
-  GLevel in '../../common/GLevel.pas',
-  GSurface in '../../common/GSurface.pas',
-  GBetaHud in '../../common/GBetaHud.pas',
-  GArrays in '../../common/GArrays.pas',
-  GBuiltin in '../../common/GBuiltin.pas',
-  GAssetDirs in '../../common/GAssetDirs.pas',
-  GAni in '../../common/GAni.pas',
-  GFont in '../../common/GFont.pas',
-  GWindow in '../../common/GWindow.pas',
-  GRelay in '../../common/GRelay.pas',
+  GCompat in '..\..\common\GCompat.pas',
+  GPaths in '..\..\common\GPaths.pas',
+  GSplit in '..\..\common\GSplit.pas',
+  GNumText in '..\..\common\GNumText.pas',
+  GTypes in '..\..\common\GTypes.pas',
+  GSocket in '..\..\common\GSocket.pas',
+  GLevel in '..\..\common\GLevel.pas',
+  GSurface in '..\..\common\GSurface.pas',
+  GBetaHud in '..\..\common\GBetaHud.pas',
+  GArrays in '..\..\common\GArrays.pas',
+  GBuiltin in '..\..\common\GBuiltin.pas',
+  GAssetDirs in '..\..\common\GAssetDirs.pas',
+  GAni in '..\..\common\GAni.pas',
+  GFont in '..\..\common\GFont.pas',
+  GWindow in '..\..\common\GWindow.pas',
+  GRelay in '..\..\common\GRelay.pas',
   ProtocolB12 in 'ProtocolB12.pas',
   Adventure in 'Adventure.pas',
-  GStartScreen in '../../common/GStartScreen.pas',
+  GStartScreen in '..\..\common\GStartScreen.pas',
   StartScreenB12 in 'StartScreenB12.pas',
   RunMode in 'RunMode.pas',
-  GDfmObj in '../../common/GDfmObj.pas',
-  GVclForm in '../../common/GVclForm.pas',
-  GOptionsWindow in '../../common/GOptionsWindow.pas',
-  GBetaStart in '../../common/GBetaStart.pas',
+  GDfmObj in '..\..\common\GDfmObj.pas',
+  GVclForm in '..\..\common\GVclForm.pas',
+  GOptionsWindow in '..\..\common\GOptionsWindow.pas',
+  GBetaStart in '..\..\common\GBetaStart.pas',
   RealResB12 in 'RealResB12.pas'
 {$IFDEF MSWINDOWS}, Windows{$ENDIF};
 
@@ -530,7 +530,13 @@ var
   Win: TGWindow;
 begin
   Result := 0;
+{$IFDEF FPC}
   Info := Default(TBetaStartInfo);
+{$ELSE}
+  { Delphi 4 to 7 have no Default(): clear the record by hand }
+  Finalize(Info);
+  FillChar(Info, SizeOf(Info), 0);
+{$ENDIF}
   Dir := ExtractFilePath(ParamStr(0));
   if not RealResource('TCONNECTFRAME', Info.FormData) then
   begin

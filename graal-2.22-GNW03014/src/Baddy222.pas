@@ -244,7 +244,7 @@ constructor TBaddyManager.Create(AWorld: TBaddyWorld);
 begin
   World := AWorld;
   Baddies := TList.Create;
-  FRand := Cardinal(GetTickCount64 and $FFFFFFFF);
+  FRand := Cardinal({$IFDEF FPC}GetTickCount64 and $FFFFFFFF{$ELSE}GetTickCount{$ENDIF});
 end;
 
 destructor TBaddyManager.Destroy;
