@@ -18,6 +18,10 @@ own, so it runs as it is. Put it at the top of a 1.1.9 install you own (or
 keep a `graal-assets/` folder next to it, or point it at one with
 `--data DIR`) and the install's tiles and levels take their place.
 
+## What's new in v0.0.5
+
+- [x] **F1 shows the level's full path.** The F1 window's Current level field holds the level file's full path, as the real 1.x shows it, not the bare file name (#302).
+
 ## What's new in v0.0.4.2
 
 - [x] **Minimap only on the map.** The minimap is drawn only on a level of its grid, as the real client does: a server's level off the map (or a house or cave) shows none. Before, it was drawn on every level.

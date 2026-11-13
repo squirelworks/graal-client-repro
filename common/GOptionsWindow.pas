@@ -38,7 +38,7 @@ interface
 
 uses
   GCompat,
-  SysUtils, GSurface, GDfmObj, GVclForm, GWindow;
+  SysUtils, Classes, GSurface, GDfmObj, GVclForm, GWindow;
 
 type
   TOptionsAction = (oaNone, oaLoadGame, oaSaveGame, oaEditLevel, oaLoadLevel,
@@ -53,13 +53,21 @@ function OptionsActionOf(const Handler: string): TOptionsAction;
   current level field until a button or Esc closes it. The result is the
   button's action; oaNone for Close, the close box, or a form that
   cannot be read. Hide names controls (comma-separated) the build hides
-  at run time. }
+  at run time. Texts, when given, is the install's language file: the
+  window's title and its captions are worded from its Options= and
+  Options-<control> keys, as 2.1 test 2 and 3 word them ("Help",
+  "&Playerlist (F7)"; lab, 2026-11-13). }
 function RunOptionsWindow(const FormData, AppTitle, LevelName: string;
-  const Hide: string = ''): TOptionsAction;
+  const Hide: string = ''; Texts: TStrings = nil): TOptionsAction;
 
 { The same form drawn into Dest as the window shows it (for tests). }
 function RenderOptionsWindow(const FormData, LevelName: string; Dest: TGSurface;
-  const Hide: string = ''): Boolean;
+  const Hide: string = ''; Texts: TStrings = nil): Boolean;
+
+{ The language key for a control of the form ('' the form itself):
+  Options, Options-<Name>; Button1 is Options-MoreButton and Button2
+  Options-ControlsButton. }
+function OptionsTextKey(const Name: string): string;
 
 implementation
 
@@ -101,10 +109,20 @@ begin
   Form.Close(1);
 end;
 
-function MakeForm(const FormData, LevelName, Hide: string; out Dfm: TDfmObj): TVclForm;
+function OptionsTextKey(const Name: string): string;
+begin
+  if Name = '' then Result := 'Options'
+  else if SameText(Name, 'Button1') then Result := 'Options-MoreButton'
+  else if SameText(Name, 'Button2') then Result := 'Options-ControlsButton'
+  else Result := 'Options-' + Name;
+end;
+
+function MakeForm(const FormData, LevelName, Hide: string; Texts: TStrings;
+  out Dfm: TDfmObj): TVclForm;
 var
-  Rest, Name: string;
-  P: Integer;
+  Rest, Name, V: string;
+  P, I: Integer;
+  C: TVclCtl;
 begin
   Result := nil;
   Dfm := nil;
@@ -119,6 +137,18 @@ begin
     end;
   end;
   Result := TVclForm.Create(Dfm, 'Graal');
+  if Texts <> nil then
+  begin
+    V := Trim(Texts.Values[OptionsTextKey('')]);
+    if V <> '' then Result.SetCaption(V);
+    for I := 0 to Result.CtlCount - 1 do
+    begin
+      C := Result.CtlAt(I);
+      if (C.Obj = nil) or (C.Kind in [vkForm, vkEdit, vkCombo]) or (C.Name = '') then Continue;
+      V := Texts.Values[OptionsTextKey(C.Name)];
+      if Trim(V) <> '' then Result.SetText(C.Name, V);
+    end;
+  end;
   if Result.Ctl('LevelEdit') <> nil then Result.SetText('LevelEdit', LevelName);
   Rest := Hide;
   while Rest <> '' do
@@ -132,12 +162,12 @@ begin
 end;
 
 function RenderOptionsWindow(const FormData, LevelName: string; Dest: TGSurface;
-  const Hide: string): Boolean;
+  const Hide: string; Texts: TStrings): Boolean;
 var
   Dfm: TDfmObj;
   F: TVclForm;
 begin
-  F := MakeForm(FormData, LevelName, Hide, Dfm);
+  F := MakeForm(FormData, LevelName, Hide, Texts, Dfm);
   Result := F <> nil;
   try
     if Result then F.Render(Dest);
@@ -222,14 +252,14 @@ begin
 end;
 
 function RunOptionsWindow(const FormData, AppTitle, LevelName: string;
-  const Hide: string): TOptionsAction;
+  const Hide: string; Texts: TStrings): TOptionsAction;
 var
   Dfm: TDfmObj;
   F: TVclForm;
   D: TOptionsDialog;
 begin
   Result := oaNone;
-  F := MakeForm(FormData, LevelName, Hide, Dfm);
+  F := MakeForm(FormData, LevelName, Hide, Texts, Dfm);
   if F = nil then Exit;
   D := TOptionsDialog.Create;
   try

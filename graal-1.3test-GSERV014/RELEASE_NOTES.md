@@ -15,6 +15,10 @@ Apart from the start dialog and the icon, which are taken from the real
 Graal13.exe and compiled in, the zips hold no original Graal code, graphics,
 sounds or levels. The client carries simple graphics of its own.
 
+## What's new in v0.0.5
+
+- [x] **F1 shows the level's full path.** The F1 window's Current level field holds the level file's full path, as the real 1.x shows it, not the bare file name (#302).
+
 ## What's new in v0.0.4.2
 
 - [x] **F1 Options window.** F1 opens "Options" from the build's own form (TOptions, now pulled into `res/Options.dfm` and compiled in), with the current level's file name filled in. Edit level opens the editor. The other buttons close it and do nothing yet. Linux and macOS draw the form in a window of their own.

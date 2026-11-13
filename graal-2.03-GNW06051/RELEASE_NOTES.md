@@ -18,6 +18,11 @@ keep a `graal-assets/` folder next to it, or point it at one with
 `--data DIR`) and the install's tiles, ganis, heads, bodies and levels take
 their place.
 
+## What's new in v0.0.5
+
+- [x] **Esc asks before quitting.** In offline play, Esc opens the real client's question, "Warning" / "Do you really want to quit Graal?" with OK and Cancel (worded from the language file's `MainWindow-Error0` and `Reconnect-Error5`); OK ends the program and Cancel goes back to the game. Before, Esc dropped straight back to the start window. On Windows it is a real message box. Online, Esc still leaves the game; the real "Continue / End" scroll is not built yet (#302, lab on Windows XP, 2026-11-13).
+- [x] **Server list as the language file words it.** The list window's labels and Connect button take their `ServerList-*` captions from the install's language file (the form's own text when a key is missing), and the read-only Name, Language, Version and Homepage boxes show the start of their text instead of clipping it on the left (#302, from the 2026-11-12 polishing run).
+
 ## What's new in v0.0.4.2
 
 - [x] **Minimap only on the map.** The minimap is drawn only on a level of its grid, as the real client does: a server's level off the map (or a house or cave) shows none. Before, it was drawn on every level.

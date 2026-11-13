@@ -22,6 +22,7 @@ place.
 ## What's new in v0.0.5
 
 - [x] **Checked against the unpatched original.** The copy this rebuild was first made from had been patched for graal.in. Of the two other 1.41r1 copies held, the one in `Graal v1.41r1.rar` is the unpatched original (listserver `www.graalonline.com`, port 14910). The token, the cipher, the forms and the icon are the same bytes in all copies, so they stay. The server list window is titled "Graalonline.com Server List" again, as in the original. The default listserver stays `listserver.graal.in` on 14923, because the original's is gone.
+- [x] **F1 shows the level's full path.** The F1 window's Current level field holds the level file's full path, as the real 1.x shows it, not the bare file name (#302).
 
 ## What's new in v0.0.4.2
 
