@@ -42,7 +42,7 @@ program Graal139r1;
 { A windowed program on Windows, like 2.05: started with no arguments it
   opens the start screen. With arguments it attaches to the console it was
   started from (OpenConsoleIO) and runs as before. }
-{$IFDEF MSWINDOWS}{$IFDEF FPC}{$APPTYPE GUI}{$ELSE}{$APPTYPE CONSOLE}{$ENDIF}{$ENDIF}
+{$IFDEF MSWINDOWS}{$APPTYPE GUI}{$ENDIF}
 { Windows: version info and manifest (src/Graal139r1.rc), and the DEP and ASLR
   flags ($0100 NX_COMPAT, $0040 DYNAMIC_BASE; the relocations come from -WR
   in the Windows build flags). }
@@ -374,7 +374,7 @@ begin
         Port := 14802;
       end;
       if GuiWin <> nil then Pw := GuiPw
-      else Pw := SysUtils.GetEnvironmentVariable(Arg('--password-env', 'GRAAL_PW'));
+      else Pw := EnvVar(Arg('--password-env', 'GRAAL_PW'));
       if G.ConnectServer(Host, Port, Account, Pw) then
       begin
         if NoDelay and not G.Client.Socket.SetNoDelay(True) then

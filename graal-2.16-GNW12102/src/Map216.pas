@@ -39,7 +39,7 @@ unit Map216;
 interface
 
 uses
-  Classes, GSurface, Adventure;
+  Classes, GSurface, Adventure, GCompat;
 
 const
   BigMapCell = 56;        { px a level on the big map }
