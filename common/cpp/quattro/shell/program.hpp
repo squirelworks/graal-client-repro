@@ -46,7 +46,9 @@ struct Options {
   // Asks the server for images the folders lack (C->S 23) and keeps what
   // it sends in <assets>/levels/images/downloads/. Off: nothing is asked.
   bool download_files = false;
-  size_t max_download = 8u << 20;  // a larger download is dropped and not asked for again
+  // The most a download may hold (a tile sheet is about 200 KB); a larger
+  // one is dropped and not asked for again.
+  size_t max_download = 8u << 20;
   std::string program;  // the player's own 6.x program file, for its StartScript_* shell
   int width = 640;     // window size: see README, "Window size"
   int height = 480;
@@ -93,7 +95,6 @@ class Program {
   void ask_for_missing();
   void save_download(const std::string& name, const std::string& data);
   bool wanted(const std::string& name) const;  // asked for, and a safe name
-  // The most a download may hold (a tile sheet is about 200 KB).
 
   const Net::BuildProfile& profile_;
   Options opt_;
