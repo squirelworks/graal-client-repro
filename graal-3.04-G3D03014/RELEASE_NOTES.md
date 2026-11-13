@@ -22,9 +22,12 @@ point it at one with `--data DIR`) and the install's tiles, ganis, heads and
 bodies take their place. The shared `graal-assets/` folder next to the
 program works too (`graal-assets/3.04/`, then `graal-assets/common/`).
 
-## What's new in v0.0.4.2
+## What's new in v0.0.5
 
 - [x] **Seihai secure login (optional, off by default).** With `--secure-login auto` (or `required`, or `secure_login.txt` in the settings folder), the account and password go sealed to a Seihai game server or list server (`SEI00001`), after the server's key is checked and pinned. Servers that do not know it get the original login under `auto`. Off, the login is byte for byte the original's. This is not in the original 3.04.
+
+## What's new in v0.0.4.2
+
 - [x] **A Mac app.** The macOS zips carry `graal304-torque.app` with the game library inside: put it in the 3.04 folder and open it. A start-up problem (wrong folder, missing library) now shows a message box on Windows and macOS instead of failing silently.
 - [x] **The Torque program on Windows and macOS.** `graal304-torque` now opens a native window on Windows (Win32) and macOS (Cocoa) as well as Linux (X11): the same menus, server list, game and walking. The Windows zip ships `graal304-torque.exe` and `Game304Lib.dll`; the macOS zips ship `graal304-torque.app` with the library inside.
 - [x] **The game as a Torque control.** The 2D game now also builds as a library (`src/Game304Lib.lpr`) that the Torque console engine hosts as `GuiGraalCtrl` (`common/torque/guigraal`): the install's own main menu, server list and key scripts reach it through the control's 31 methods. Not in the release zip yet; `tq-play` runs it.

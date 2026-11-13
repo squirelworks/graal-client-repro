@@ -23,9 +23,12 @@ heads and bodies take their place. The shared `graal-assets/` folder next
 to the program works too (`graal-assets/5.12/`, then
 `graal-assets/common/`).
 
-## What's new in v0.0.4.2
+## What's new in v0.0.5
 
 - [x] **Seihai secure login (optional, off by default).** With `--secure-login auto` (or `required`, or `secure_login.txt` in the settings folder), the account and password go sealed to a Seihai game server or list server (`SEI00001`), after the server's key is checked and pinned. Servers that do not know it get the original login under `auto`. Off, the login is byte for byte the original's. This is not in the original 5.12.
+
+## What's new in v0.0.4.2
+
 - [x] **New client.** 5.12 has a folder of its own, started from 5.00r7 with 5.12's wire rules: the token `G3D14097`, the quoted Windows version as a fifth login field, every short body zlib-compressed, and 5.12's cipher step for compressed frames.
 - [x] **The engine launcher.** `Graal512 --engine` runs over the rebuilt engine library as the 5.0 launcher: the install's own 5.12 start menus, and Start logs in through the engine's session (the Login server, the hand-on, the level, walking with the arrows and the chat bar).
 - [x] **3D servers start their 3D link.** Picking a server whose name starts with `3 ` loads the rebuilt 3D library (`libgraal3dengine.so` / `Graal3DEngineRepro.dll`) beside the engine, connects again, and runs the Torque link on port + 1 each frame, as the original launcher does: handshake, mission start and login step 6 against a protocol-24 server. Nothing of the 3D world is drawn yet.

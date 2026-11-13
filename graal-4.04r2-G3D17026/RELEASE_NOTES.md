@@ -21,6 +21,10 @@ point it at one with `--data DIR`) and the install's tiles, ganis, heads and
 bodies take their place. The shared `graal-assets/` folder next to the
 program works too (`graal-assets/4.04r2/`, then `graal-assets/common/`).
 
+## What's new in v0.0.5
+
+- [x] **Seihai secure login (optional, off by default).** With `--secure-login auto` (or `required`, or `secure_login.txt` in the settings folder), the account and password go sealed to a Seihai game server or list server (`SEI00001`), after the server's key is checked and pinned. Servers that do not know it get the original login under `auto`. Off, the login is byte for byte the original's. This is not in the original 4.04r2.
+
 ## What's new in v0.0.4.2
 
 - [x] **Offline Test plays the tutorial.** With `--engine`, Offline Test now opens the install's offline tutorial (`levels/tutorial`) in its centre part, with its own tiles and the 4.x character its level sets up, and you can walk across all nine parts of the map with the arrow keys.

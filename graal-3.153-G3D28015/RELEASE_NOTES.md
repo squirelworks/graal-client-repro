@@ -22,9 +22,12 @@ point it at one with `--data DIR`) and the install's tiles, ganis, heads and
 bodies take their place. The shared `graal-assets/` folder next to the
 program works too (`graal-assets/3.153/`, then `graal-assets/common/`).
 
-## What's new in v0.0.4.2
+## What's new in v0.0.5
 
 - [x] **Seihai secure login (optional, off by default).** With `--secure-login auto` (or `required`, or `secure_login.txt` in the settings folder), the account and password go sealed to a Seihai game server or list server (`SEI00001`), after the server's key is checked and pinned. Servers that do not know it get the original login under `auto`. Off, the login is byte for byte the original's. This is not in the original 3.153.
+
+## What's new in v0.0.4.2
+
 - [x] **On Windows and macOS too.** The Windows zip holds `graal304-torque.exe` and `Game3153Lib.dll`, and the macOS zips `graal304-torque.app`, so the Torque program runs the 3.153 install there as on Linux.
 - [x] **First boot on the Torque engine.** The 3.153 install's own menus now run on the rebuilt Torque engine (`common/torque/guigraal`, `graal304-torque` on Linux), using the PPC script floats, the Mac script folders and 3.153's four extra menu methods. The game library `Game3153Lib` sends 3.153's login.
 - [x] **The Torque program ships.** The Linux zip holds `graal304-torque` and `libGame3153Lib.so`: copy both into a 3.153 install and start `graal304-torque` (README, "On the Torque engine"). Nothing from a 3.04 install is needed any more.
