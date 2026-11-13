@@ -91,13 +91,28 @@ for B in $BUILDS; do
       MINGW*/win32|MSYS*/win32|CYGWIN*/win32|MINGW*/win64|MSYS*/win64|CYGWIN*/win64)
         # A 32-bit Free Pascal (i386-win32, the release's) needs a 32-bit
         # MinGW g++: GRAAL_WIN32_CXX, else MSYS2's mingw32 one if installed.
+        if [ "$TARGET_OS" = win32 ] && [ -z "${GRAAL_WIN32_CXX:-}" ] &&
+           [ -x /c/msys64/mingw32/bin/g++ ] && [ -x /c/msys64/usr/bin/make ]; then
+          # The runner's MSYS2 mingw32 toolchain, run in its own MINGW32
+          # shell: with Free Pascal's bin folder first in PATH, plain make is
+          # Free Pascal's cmd.exe make, which cannot run the recipes.
+          echo "== common/torque/guigraal (graal304-torque.exe, $GAMEBASE.dll, win32, MSYS2)"
+          FPCBIN=$(command -v "$FPC")
+          (cd "$G" && MSYSTEM=MINGW32 CHERE_INVOKING=1 FPCFLAGS="${FPCFLAGS:-}" \
+            /c/msys64/usr/bin/bash.exe -lc "make lib build/graal304-torque.exe PLATFORM=windows FPC='$FPCBIN'")
+          cp "$G/build/graal304-torque.exe" "$G/build/lib/$GAMEBASE.dll" "$OUT/"
+          continue_torque=
+        else
+          continue_torque=1
+        fi
         if [ "$TARGET_OS" = win32 ]; then
           WCXX=${GRAAL_WIN32_CXX:-}
-          if [ -z "$WCXX" ] && [ -x /c/msys64/mingw32/bin/g++ ]; then WCXX=/c/msys64/mingw32/bin/g++; fi
         else
           WCXX=${CXX:-g++}
         fi
-        if [ -n "$WCXX" ] && command -v "$WCXX" >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
+        if [ -z "$continue_torque" ]; then
+          :
+        elif [ -n "$WCXX" ] && command -v "$WCXX" >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
           echo "== common/torque/guigraal (graal304-torque.exe, $GAMEBASE.dll, $TARGET_OS)"
           # the compiler's own folder first, for its windres and helpers
           PATH="$(dirname "$(command -v "$WCXX")"):$PATH" \

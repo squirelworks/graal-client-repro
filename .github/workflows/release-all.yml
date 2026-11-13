@@ -175,7 +175,7 @@ jobs:
         if: runner.os == 'Windows'
         continue-on-error: true
         shell: pwsh
-        run: C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm --needed mingw-w64-i686-gcc mingw-w64-i686-zlib"
+        run: C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm --needed make mingw-w64-i686-gcc mingw-w64-i686-zlib"
       - name: Stamp the version into the Windows resources
         if: runner.os == 'Windows'
         shell: bash
