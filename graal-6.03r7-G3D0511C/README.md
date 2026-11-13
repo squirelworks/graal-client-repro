@@ -43,7 +43,7 @@ the inode of `/etc`, an empty field, and the kernel release and version.
 The rebuild reads none of them. It sends fixed made-up values of the same
 shape: MD5 hex of SquirrelNIC and SquirrelFS strings, the empty field, and
 the SquirrelOS kernel string
-`2.6.38-1-squirrelos #1-SquirrelOS SMP Mon Jun 27 12:00:00 UTC 2011`.
+`2.6.38-1-squirrelos  #1-SquirrelOS SMP Mon Jun 27 12:00:00 UTC 2011`.
 
 ## Units
 

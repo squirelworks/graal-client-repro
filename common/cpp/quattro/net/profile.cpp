@@ -7,7 +7,7 @@
 namespace Quattro::Net {
 
 const char kFakeWinFields[] = ",c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400";
-const char kFakeLinuxFields[] = ",c3adb4be4be05a76d9ffdc3e88ba180b,b94291e395c1ae186c7ee9b2d6c685be,\"\",\"2.6.38-1-squirrelos #1-SquirrelOS SMP Mon Jun 27 12:00:00 UTC 2011\"";
+const char kFakeLinuxFields[] = ",c3adb4be4be05a76d9ffdc3e88ba180b,b94291e395c1ae186c7ee9b2d6c685be,\"\",\"2.6.38-1-squirrelos  #1-SquirrelOS SMP Mon Jun 27 12:00:00 UTC 2011\"";
 
 namespace {
 

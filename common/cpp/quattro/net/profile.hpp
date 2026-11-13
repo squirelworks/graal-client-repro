@@ -55,7 +55,7 @@ struct BuildProfile {
 // MAC AC:04:2D:5E:ED:01" and of "SquirrelBIOS C: volume serial ACE5-5EED".
 // Linux: the MD5 hex of "SquirrelNIC eth0 MAC AC:04:2D:5E:ED:02" and of
 // "SquirrelFS /etc inode 424242", an empty field, and a SquirrelOS kernel
-// release and version in the layout of a 2011 Ubuntu kernel.
+// release, two spaces and version (the original's uname layout).
 extern const char kFakeWinFields[];
 extern const char kFakeLinuxFields[];
 

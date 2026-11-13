@@ -30,10 +30,10 @@ const
     version on the original; v6x-clients.md). The rebuild reads no machine
     values. It sends fixed made-up ones of the same shape: the MD5 hex of
     "SquirrelNIC eth0 MAC AC:04:2D:5E:ED:02" and of "SquirrelFS /etc inode
-    424242", the empty field, and a SquirrelOS kernel release and version
-    in the layout of a 2011 Ubuntu kernel. }
+    424242", the empty field, and a SquirrelOS kernel release, two spaces and
+    version, the layout the original writes (release, "  ", version). }
   LoginPlatform = 'linux';
-  LoginMachineFields = ',c3adb4be4be05a76d9ffdc3e88ba180b,b94291e395c1ae186c7ee9b2d6c685be,"","2.6.38-1-squirrelos #1-SquirrelOS SMP Mon Jun 27 12:00:00 UTC 2011"';
+  LoginMachineFields = ',c3adb4be4be05a76d9ffdc3e88ba180b,b94291e395c1ae186c7ee9b2d6c685be,"","2.6.38-1-squirrelos  #1-SquirrelOS SMP Mon Jun 27 12:00:00 UTC 2011"';
   { The name 6.03r7 gives the first server it reaches. While the current
     server's name starts with "login" (any case) it draws no characters
     and no HUD; 6.03r7 draws no tiles there either, only chests and image

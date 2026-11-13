@@ -58,7 +58,7 @@ void test_session() {
   CHECK(run_until(s, &login, nullptr, [&] { return login.saw(37, "English"); }));
   CHECK(login.key == 0x11);
   // key, token, account, password, then "linux" and the four made-up machine fields.
-  std::string want = "G3D0511C" + gstring("guest") + gstring("pw") + "linux,c3adb4be4be05a76d9ffdc3e88ba180b,b94291e395c1ae186c7ee9b2d6c685be,\"\",\"2.6.38-1-squirrelos #1-SquirrelOS SMP Mon Jun 27 12:00:00 UTC 2011\"";
+  std::string want = "G3D0511C" + gstring("guest") + gstring("pw") + "linux,c3adb4be4be05a76d9ffdc3e88ba180b,b94291e395c1ae186c7ee9b2d6c685be,\"\",\"2.6.38-1-squirrelos  #1-SquirrelOS SMP Mon Jun 27 12:00:00 UTC 2011\"";
   CHECK(login.login_line == want);
   // No tamper check follows the language packet.
   for (auto& [id, b] : login.got) CHECK(id != 39);

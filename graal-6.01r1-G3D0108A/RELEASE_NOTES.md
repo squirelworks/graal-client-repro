@@ -23,7 +23,7 @@ to the program works too (`graal-assets/6.01r1/`, then
 
 ## What's new in v0.0.5
 
-- [x] **Machine fields in the original's shape.** The login line now sends `linux`, two fixed made-up MD5 hashes (of SquirrelNIC and SquirrelFS strings), the empty field and a SquirrelOS kernel string (`2.6.38-1-squirrelos #1-SquirrelOS SMP Mon Jun 27 12:00:00 UTC 2011`), the shape the real client sends. Nothing is read from your machine.
+- [x] **Machine fields in the original's shape.** The login line now sends `linux`, two fixed made-up MD5 hashes (of SquirrelNIC and SquirrelFS strings), the empty field and a SquirrelOS kernel string (`2.6.38-1-squirrelos  #1-SquirrelOS SMP Mon Jun 27 12:00:00 UTC 2011`), the shape the real client sends. Nothing is read from your machine.
 
 ## What's new in v0.0.4.2
 
