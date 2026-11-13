@@ -163,7 +163,7 @@ void WorldRenderer::draw_actor(Canvas& c, const Actor& a, int px, int py, Color 
   if (a.carry.width > 0) {
     const Image* sprites = assets_->image("sprites.png");
     int dy = head_y - 22;
-    if (a.lift_tick >= 0 && a.lift_tick < Actor::kLiftTicks) dy = 8 + (-22 - 8) * a.lift_tick / Actor::kLiftTicks;
+    if (a.lift_tick >= 0 && a.lift_tick < Actor::kLiftTicks) dy = Actor::kLiftY[a.lift_tick];
     if (sprites) c.blit(*sprites, a.carry, px + 8, py + dy);
   }
 }
