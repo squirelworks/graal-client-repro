@@ -208,6 +208,8 @@ void test_profiles() {
   CHECK(!r512->pli.test(39) && r512->pli.test(5) && r512->pli == r500->pli);
   CHECK(r512->packed_round_down && r512->compress_always && !r500->packed_round_down);
   CHECK(r512->has_os_version && !r500->has_os_version);
+  const BuildProfile* r404 = find_profile("4.04r2");
+  CHECK(r404 && r404->packed_round_down && !r404->compress_always);
 }
 
 // 5.12 steps packed bodies len / 4 rounded down; raw ones still round up

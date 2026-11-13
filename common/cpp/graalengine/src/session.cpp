@@ -4,30 +4,24 @@
 #include "host.hpp"
 #include "../../quattro/shell/program.hpp"
 
-#include <set>
 
 namespace graalengine {
 
 namespace QD = Quattro::Draw;
 
-// The program's window: the frame it presents is kept for the playfield,
-// and the held arrows come from the engine's key bindings.
+// The program's window: the frame it presents is kept for the playfield.
+// The keys come from the engine's bindings (Program::action), not from here.
 class EngineWindow : public QD::Window {
  public:
   void set_title(const std::string& t) override { title_ = t; }
   void present(const Torque::Gui::Image& frame) override { last = frame; }
   QD::Key poll_key() override { return QD::Key::NoKey; }
-  bool held(QD::Key k) const override { return held_.count(k) != 0; }
+  bool held(QD::Key) const override { return false; }
   const std::string& title() const override { return title_; }
-  void hold(QD::Key k, bool down) {
-    if (down) held_.insert(k);
-    else held_.erase(k);
-  }
   Torque::Gui::Image last;
 
  private:
   std::string title_;
-  std::set<QD::Key> held_;
 };
 
 Session2D::Session2D(Login login) : login_(std::move(login)), window_(std::make_unique<EngineWindow>()) {
@@ -91,16 +85,7 @@ void Session2D::tick() {
   frame_.pixels = pixels_.data();
 }
 
-bool Session2D::action(const std::string& cmd, bool down) {
-  QD::Key k = QD::Key::NoKey;
-  if (cmd == "moveUp2D") k = QD::Key::Up;
-  else if (cmd == "moveDown2D") k = QD::Key::Down;
-  else if (cmd == "moveLeft2D") k = QD::Key::Left;
-  else if (cmd == "moveRight2D") k = QD::Key::Right;
-  if (k == QD::Key::NoKey) return false;
-  window_->hold(k, down);
-  return true;
-}
+bool Session2D::action(const std::string& cmd, bool down) { return program_->action(cmd, down); }
 
 void Session2D::say(const std::string& text) { program_->say(text); }
 

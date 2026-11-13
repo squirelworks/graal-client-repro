@@ -137,6 +137,7 @@ passes. The engine adds what the menus give it:
 | `Adventure_setAccountName`, `setPassWord`, `setNickName` | the login and the nickname prop |
 | GraalGui's `GraalControl` (`GuiGraalCtrl`) | where the world frame is drawn (`DrawGraphics`, or stretched to the control) |
 | the MoveMap2D bindings `moveUp2D`, `moveDown2D`, `moveLeft2D`, `moveRight2D` | the held arrows |
+| the bindings `doA`, `doS` and `doS2` (Space), `doD`, `doQ` | the item keys A, S, D (`Program::action`): lift, throw and grab; the sword; the weapon state. With no weapon list yet, Q does what D does, as the 6.03r7 lab saw with no weapon |
 | the chat bar's `Adventure_setChat` | the player's chat (prop 12) |
 | `enableGraalScriptedControls` | the scripts' `scriptedcontrols`, which GraalControl reads on wake to push MoveMap2D (on until the launcher says otherwise) |
 
@@ -248,8 +249,8 @@ monster by the title (StartAni6).
 - [x] ~~`GuiShowImgCtrl` animations~~ (above); particle blend modes other
   than alpha need a launcher slot
 - [x] ~~Offline mode's level~~ (above; its NPCs run with the GS1 engine)
-- [ ] The other GraalGui keys (`doA`, `doS`, `doD`, the map and item
-  menus)
+- [x] ~~The item keys~~ (`doA`, `doS`, `doS2`, `doD`, `doQ`; above)
+- [ ] The map (`doM`) and the weapon and item menus
 - [x] ~~The 3D connect~~: 3D mode and the link on port + 1 through the 3D
   library (`../graal3dengine`); the launcher loading that library is still open
 - [ ] `Adventure_saveGraalOptions`, `Adventure_installGraal` and the
