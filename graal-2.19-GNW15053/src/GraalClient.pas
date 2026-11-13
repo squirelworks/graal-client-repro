@@ -1,6 +1,9 @@
 { GraalClient: TGraalClient and TAdventureClient, the gen-4 game link of
-  2.19 to 2.21. INFERRED: no binary of these builds is held. The link is
-  graal_analysis protocol/codec-and-framing.md's gen 4 (client type 4):
+  2.19 to 2.21. INVENTED, not observed: no binary of these builds is held
+  and no type-4 login was ever captured, so this link is made up to work
+  (Squirrel, 2026-11-13), following graal_analysis
+  protocol/codec-and-framing.md's server-source gen 4 (client type 4).
+  seihai-gserver serves the same invention:
     - login: type 4, the key, the token, account, password, in one frame of
       u16be + zlib with no XOR, as 2.22 sends its type-5 login;
     - every later frame, both ways: u16be + bzip2 body, its first 4 dword
