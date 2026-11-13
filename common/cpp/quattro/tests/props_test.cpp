@@ -308,41 +308,56 @@ void test_effects() {
   CHECK(!sprite_rect(tables, 260, x, y, w, h) && !sprite_rect(tables, 400, x, y, w, h));
 
   // A bush thrown right from (480, 480): from (488, 458), 16 px a tick,
-  // 24 px lower after 8 ticks, its shadow on the ground at y 514.
+  // 1 px and then 3 px a tick lower; its shadow centred on the ground at
+  // y 514.
   Effects e;
   e.throw_object(1, 480, 480, 3);
   auto ps = e.pieces();
-  CHECK(ps.size() == 2 && ps[0].sprite == 0 && ps[0].x == 490 && ps[0].y == 514);
+  CHECK(ps.size() == 2 && ps[0].sprite == 0 && ps[0].x == 492 && ps[0].y == 514);
   CHECK(ps[1].sprite == 261 && ps[1].x == 488 && ps[1].y == 458);
-  for (int t = 1; t < Effects::kThrowTicks; ++t) CHECK(e.tick().empty());
-  ps = e.pieces();
-  CHECK(ps.size() == 2 && ps[1].x == 488 + 7 * 16 && ps[1].y == 458 + 21 && ps[0].y == 514);
-  // It lands 128 px on and breaks into 4 leaves; nothing is sent.
   CHECK(e.tick().empty());
   ps = e.pieces();
-  CHECK(ps.size() == 4 && ps[0].sprite == 25 && ps[0].x == 616 && ps[0].y == 482 && ps[3].x == 632 && ps[3].y == 498);
-  for (int t = 0; t < Effects::kBreakTicks; ++t) e.tick();
+  CHECK(ps.size() == 2 && ps[1].x == 504 && ps[1].y == 459);
+  for (int t = 2; t <= Effects::kThrowTicks; ++t) CHECK(e.tick().empty());
+  ps = e.pieces();
+  CHECK(ps.size() == 2 && ps[1].x == 488 + 128 && ps[1].y == 458 + 23 && ps[0].x == 620 && ps[0].y == 514);
+  // On the 9th tick it breaks into 4 leaves a step on; nothing is sent.
+  CHECK(e.tick().empty());
+  ps = e.pieces();
+  CHECK(ps.size() == 4 && ps[0].sprite == 25 && ps[0].x == 630 && ps[0].y == 490 && ps[3].x == 650 && ps[3].y == 510);
+  CHECK(ps[1].sprite == 25 && ps[2].sprite == 26);  // out of phase
+  for (int t = 0; t < Effects::kLeafTicks; ++t) e.tick();
   CHECK(e.empty());
 
-  // A pot breaks into shards, 97 on the right and 99 on the left; a stone
-  // into nothing.
+  // A pot breaks into shards, 97 on the right and 99 on the left, which
+  // swap images every tick and spread 4 px a tick; a stone into nothing.
   e.throw_object(5, 0, 0, 2);
-  for (int t = 0; t < Effects::kThrowTicks; ++t) e.tick();
+  for (int t = 0; t <= Effects::kThrowTicks; ++t) e.tick();
   ps = e.pieces();
   CHECK(ps.size() == 4 && ps[0].sprite == 99 && ps[1].sprite == 97);
-  e.clear();
-  e.throw_object(3, 0, 0, 2);
-  for (int t = 0; t < Effects::kThrowTicks; ++t) e.tick();
-  CHECK(e.empty());
-
-  // A cut bush: 4 leaves on its tiles, drifting down.
-  e.cut_bush(34, 32);
-  ps = e.pieces();
-  CHECK(ps.size() == 4 && ps[0].x == 544 && ps[0].y == 512 && ps[3].x == 560 && ps[3].y == 528);
+  int x0 = ps[0].x;
   e.tick();
   ps = e.pieces();
-  CHECK(ps[0].x == 543 && ps[0].y == 514 && ps[1].x == 561);
-  for (int t = 1; t < Effects::kLeafTicks; ++t) e.tick();
+  CHECK(ps.size() == 4 && ps[0].sprite == 98 && ps[1].sprite == 96 && ps[0].x == x0 - 4);
+  for (int t = 1; t < Effects::kBreakTicks; ++t) e.tick();
+  CHECK(e.empty());
+  e.throw_object(3, 0, 0, 2);
+  for (int t = 0; t <= Effects::kThrowTicks; ++t) e.tick();
+  CHECK(e.empty());
+
+  // A cut bush: 4 leaves on its tiles from the 4th tick, for 6 ticks.
+  e.cut_bush(34, 32);
+  for (int t = 0; t < Effects::kCutLeafDelay; ++t) {
+    CHECK(e.pieces().empty() && !e.empty());
+    e.tick();
+  }
+  ps = e.pieces();
+  CHECK(ps.size() == 4 && ps[0].x == 542 && ps[0].y == 508 && ps[1].x == 562 && ps[1].y == 512);
+  CHECK(ps[2].x == 542 && ps[2].y == 528 && ps[3].x == 562 && ps[3].y == 528);
+  for (int t = 0; t < 3; ++t) e.tick();
+  ps = e.pieces();
+  CHECK(ps[3].x == 564 && ps[3].y == 532);  // right leaves fall from the 3rd tick
+  for (int t = 3; t < Effects::kLeafTicks; ++t) e.tick();
   CHECK(e.empty());
 
   // A chest at (30, 30) with a green gralat: the gralat one tile up, then
