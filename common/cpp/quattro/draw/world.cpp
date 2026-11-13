@@ -16,9 +16,16 @@ const std::vector<std::string>& pass_order() {
 View follow(const WorldState& w, int canvas_w, int canvas_h) {
   const double vw = static_cast<double>(canvas_w) / kTile;
   const double vh = static_cast<double>(canvas_h) / kTile;
+  // Clamped to the level while the view fits in it; a view wider (or
+  // taller) than the level keeps the player centred, as the real 6.03r7
+  // does at 1280 x 1024 (frames lab, 2026-11-13).
+  auto axis = [](double centre, double span) {
+    double v = centre - span / 2;
+    return span > Files::kBoardSide ? v : std::clamp(v, 0.0, Files::kBoardSide - span);
+  };
   View v;
-  v.left = std::clamp(w.player.x + 1.5 - vw / 2, 0.0, std::max(0.0, Files::kBoardSide - vw));
-  v.top = std::clamp(w.player.y + 1.5 - vh / 2, 0.0, std::max(0.0, Files::kBoardSide - vh));
+  v.left = axis(w.player.x + 1.5, vw);
+  v.top = axis(w.player.y + 1.5, vh);
   return v;
 }
 
