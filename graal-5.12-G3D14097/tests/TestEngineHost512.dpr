@@ -31,6 +31,15 @@ begin
   end;
 end;
 
+function HasEvent(H: TEngineHost; const S: string): Boolean;
+var
+  I: Integer;
+begin
+  for I := 0 to H.Events.Count - 1 do
+    if Pos(S, H.Events[I]) = 1 then Exit(True);
+  Result := False;
+end;
+
 procedure TestEngine;
 var
   H: TEngineHost;
@@ -65,8 +74,25 @@ begin
     H.Key($26, 0, 0, True);
     H.Mouse(10, 10, EngineMouseDown, 0, 1, 0, 0);
     H.Render;
+    { A 3D server (Track C4): StartGraal3D, then on the next frame the 3D
+      library is loaded beside the engine and the server connected again.
+      Nothing listens on loopback port 1 (TCP) or 2 (the Torque link); the
+      link itself is tested in common/cpp/graal3dengine. }
+    H.Connect('3 Lab', '127.0.0.1', 1);
+    Check(HasEvent(H, 'StartGraal3D'), 'a "3 " server asks the launcher for 3D');
+    H.Render;
+    if FileExists(ExtractFilePath(ParamStr(0)) + Graal3DLibName) then
+    begin
+      Check(H.Loaded3D and HasEvent(H, 'Graal3D loaded'), 'the launcher loads ' + Graal3DLibName);
+      Check(H.Graal3DLoginStep = 0, 'no mission start without a 3D server');
+      H.Render;
+    end
+    else
+      Check(not H.Loaded3D and (H.Log.IndexOf('You need to download Graal3D for playing this server!') >= 0),
+        'without the 3D library the launcher says so');
     H.Unload;
     Check(not H.Loaded, 'unloads');
+    Check(not H.Loaded3D, 'unloads the 3D library too');
   finally
     H.Free;
   end;
