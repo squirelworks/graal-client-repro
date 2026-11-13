@@ -49,6 +49,12 @@ const
     '0', '15', ' 15', '15 ', '-7', '+7', '$ff', '0x1F', '-2147483648',
     '2147483647', '1.5', '', 'abc', '07', '1e3', '--1');
 
+{ A finite number written past Double's range: the 1e309 cases. }
+function PastDouble(const S: string): Boolean;
+begin
+  Result := (S = '1e309') or (S = '-1e309');
+end;
+
 procedure TestFloats;
 var
   FS: TFormatSettings;
@@ -61,6 +67,13 @@ begin
   FS.DecimalSeparator := '.';
   for I := 0 to High(FloatCases) do
   begin
+    { Where Extended is Double (aarch64, as on Apple silicon), Free Pascal's
+      TryStrToFloat and StrToFloatDef read a finite value past Double's
+      range as infinity; with an 80-bit Extended they reject it. The helper
+      rejects it everywhere (TestRangeEdge), so the RTL is no reference for
+      those cases there. }
+    if (SizeOf(Extended) = SizeOf(Double)) and PastDouble(FloatCases[I]) then
+      Continue;
     V := -1;
     W := -1;
     A := TryStrToFloat(FloatCases[I], V, FS);

@@ -3,11 +3,18 @@
 set -eu
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 FAIL=0
+FAILED=""
 . "$ROOT/scripts/v7.sh"
 # blocks the run, unless FOLDER is a v7 client (scripts/v7.sh)
 fail() {
   if [ "${V7_STRICT:-}" != 1 ] && is_v7 "$1"; then v7_warn "$1" "$2"
-  else FAIL=1
+  else
+    FAIL=1
+    FAILED="$FAILED
+  $1: $2"
+    # GitHub shows annotations on the run page, so a failure in a log of
+    # tens of thousands of lines can still be found.
+    if [ -n "${GITHUB_ACTIONS:-}" ]; then echo "::error::$1: $2"; fi
   fi
 }
 for T in "$ROOT"/build/*/Test*; do
@@ -27,7 +34,14 @@ for T in "$ROOT"/build/*/Test*; do
   case $(uname -s) in
     MINGW*|MSYS*|CYGWIN*) LOG=$(cygpath -w "$HEAPLOG") ;;
   esac
-  HEAPTRC="log=$LOG" "$T" || fail "$TB" "$(basename "$T") failed"
+  # The program's own FAIL lines go into the summary at the end too.
+  if HEAPTRC="log=$LOG" "$T" > "$T.out" 2>&1; then
+    cat "$T.out"
+  else
+    cat "$T.out"
+    fail "$TB" "$(basename "$T") failed
+$(grep '^FAIL' "$T.out" | sed 's/^/    /')"
+  fi
   if [ -f "$HEAPLOG" ]; then
     cat "$HEAPLOG" >&2
   fi
@@ -47,5 +61,8 @@ WORLD="$ROOT/graal-worlds-614-20240421/worlds/local-yard.txt"
 if [ -x "$PLAYER" ]; then
   echo "== $PLAYER --self-check"
   "$PLAYER" --self-check --world "$WORLD" || fail graal-worlds-614-20240421 "worlds-player --self-check failed"
+fi
+if [ "$FAIL" -ne 0 ]; then
+  echo "== failed:$FAILED"
 fi
 exit $FAIL
