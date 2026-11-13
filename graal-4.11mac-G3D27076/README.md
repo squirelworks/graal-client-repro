@@ -15,8 +15,8 @@ This folder was first named 4.20r6, because the archive copy it was built
 from (`Clients-MacOS/v4/Graal v4.20r6[Mac OS X]`) carries that label. The
 label is wrong:
 
-- The same binary is the `Graal4.dmg.bz2` that graalonline.com served on
-  2006-11-03 (Wayback capture), when 4.11 was the current version.
+- The same binary is the `Graal4.dmg.bz2` that graalonline.com offered in
+  November 2006, when 4.11 was the current version.
 - The binary was built on 2006-09-19, three days after the Linux 4.11
   (2006-09-16), and its token `G3D27076` dates it 27 July 2006, in the
   4.1x era. Linux 4.10r2 and 4.11 share one token (`G3D28076`) in the same
