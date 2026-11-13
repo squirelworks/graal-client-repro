@@ -88,12 +88,8 @@ From the program's folder (or `--data`), then `graal-assets/6.00b1/`, then
 - [ ] No side-by-side run against the real client; that is 0.0.2 work.
 - [ ] Everything still missing from `graal-6.0.1.5-G3D3007A`:
 
-- [ ] Nothing past the token has been read from 6.0.1.5 itself: its protector hides the code. The ids handled, the Login mode and the framing are 6.01r1's.
 - [ ] The four Windows machine fields are sent as `""`; the original sends the MD5 of the product id, the adapter MAC and the `C:\` volume serial, then the quoted Windows version.
-- [ ] 6.0.0.7 is not checked separately; it is taken to behave as 6.0.1.5.
 
-- [ ] Whether 6.01r1 draws tiles in Login mode: not recorded; 6.03r7's "no" is
-  used.
 - [ ] The Login server's scripted GUI and GS2: 140 and 197 (scripts and the
   `GRESCR01` cache), 195 (gani scripts) and 190 are accepted and ignored.
 - [ ] 109 (probably a file redirect) and 198 are accepted and ignored.
