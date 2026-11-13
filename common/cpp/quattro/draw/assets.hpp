@@ -29,6 +29,9 @@ class Assets {
   const Torque::Gui::Image* body(const std::string& name, const std::array<int, 5>& colors);
   // A gani by name, with or without ".gani".
   const Files::Gani* gani(const std::string& name);
+  // Drops what is kept for a file name (and its recoloured bodies), so the
+  // next lookup reads the folders again (a file that was just downloaded).
+  void forget(const std::string& name);
   // Puts a gani or image in place without a file (tests).
   void put_gani(const std::string& name, Files::Gani g);
   void put_image(const std::string& name, Torque::Gui::Image img, std::vector<Torque::Gui::Color> palette = {});

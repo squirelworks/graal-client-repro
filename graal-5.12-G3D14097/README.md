@@ -128,14 +128,32 @@ checked against a 5.12 install:
 
 - [x] ~~The Login server's start menus~~: with `--engine`, the install's
   own menus run and Start logs in through the engine's session
-- [ ] The resources of the real 5.12 launcher (icon, start art, forms):
-  not extracted yet, so the stand-in uses 5.00r7's look and the default
-  icon.
+- [x] ~~The real 5.12 launcher's window~~ with `--engine`: the
+  program carries 5.12's own icon (`MAINICON`, taken from the launcher as
+  unpacked from its installer; it is the same picture as 4.04r2's), the
+  game window is 800 x 600 inside the frame (the lab's 5.12 screenshot),
+  titled "G r a a l" until the engine logs in, then with the server's name
+  spaced out ("L a b   S e r v e r"), which the engine hands the launcher
+  through `OnServerLogin`. The launcher's form (`TGraalWindow`) holds no
+  start art: everything in it is the engine's.
+- [ ] The rest of the 5.12 launcher: its tray menu (Show Game, Show Player
+  List, Quit), the "Players: N online" window (`TPlayerList`), the options,
+  profile, controls and message forms. The stand-in start screen still
+  uses 5.00r7's look.
 - [ ] The Login server's scripted GUI (server list, accounts) and GS2 in
   general: 140 and 197 (class and weapon scripts, the `GRESCR01` cache),
   195 (gani scripts) and 190 (`onServerListerConnect`) are accepted and
   ignored by the stand-in.
 - [ ] `GR-V1.05` levels (tile layers) and `GRPKG001` update packages.
+- [x] ~~Tile and player art and walls in the engine launcher~~: the
+  session reads `graal-assets/5.12/` and `graal-assets/common/` as well as
+  the install (the tile sheet also in `levels/tiles/`), and asks the server
+  with 23 for a tile sheet or player image it lacks, keeping it in
+  `levels/images/downloads/` (the lab's 5.12 asked so for its fonts and
+  sounds). 5.12 has its tile types built in and ships no `arrays.dat`; as
+  for 3.04, put 2.22's `arrays.dat` in `graal-assets/5.12/` for walls.
+  Asking for `pics1.png` this way is a rebuild choice: the logs do not show
+  how a fresh 5.12 install gets its sheet.
 - [ ] The base-file requests after the language (`basepackage.gupd` by 23,
   then 34 for `guigames_arcmessage2.png`), and fetching `sword.wav` and
   `lift.wav` from the server, as the lab saw 5.12 do.
