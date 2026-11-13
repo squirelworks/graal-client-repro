@@ -26,6 +26,8 @@ class Frame304 {
   void step();
   void draw();
   const Gui::Image& image() const { return canvas_.surface(); }
+  // A new canvas size; the next draw fills it.
+  void resize(int width, int height);
   Gui::Renderer& renderer() { return renderer_; }
   // What each routed event did, for the trace.
   std::vector<std::string> log;

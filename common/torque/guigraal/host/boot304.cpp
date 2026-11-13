@@ -1,5 +1,6 @@
 #include "boot304.hpp"
 
+#include <cstdlib>
 #include <fstream>
 
 #include "../../console/compiler/compile.hpp"
@@ -27,9 +28,26 @@ void register_host_stubs(Engine& e) {
   });
   for (const char* name : {"videoSetGammaCorrection", "setOpenGLTextureCompressionHint", "setOpenGLAnisotropy",
                            "setOpenGLMipReduction", "setOpenGLInteriorMipReduction", "setOpenGLSkyMipReduction",
-                           "setScreenMode", "setDisplayDevice", "toggleFullScreen",
+                           "setDisplayDevice", "toggleFullScreen",
                            "lockMouse", "gotoWebPage", "cursorOff", "cursorOn", "enableWinConsole"})
     stub(e, "", name, 1, 0);
+  // setScreenMode(width, height, bpp, fullScreen): the Options dialog's
+  // Apply. The engine keeps the mode in $pref::Video::resolution, which
+  // the prefs export saves and the window follows (graal304_torque.cpp).
+  // A bpp that is not a number ("Default") is stored as 32, so the
+  // non-numeric depth rule of canvas_size_304 stays for the shipped prefs
+  // only (rebuild policy). There is no full screen.
+  e.add_function("", "setScreenMode", 3, 5, "setScreenMode(width, height, bpp, fullScreen)",
+                 [](Engine& en, SimObject*, Args& a) {
+                   const int w = std::atoi(a[1].c_str()), h = std::atoi(a[2].c_str());
+                   if (w < 320 || h < 240 || w > 4096 || h > 4096) return std::string("0");
+                   int bpp = a.size() > 3 ? std::atoi(a[3].c_str()) : 0;
+                   if (bpp <= 0) bpp = 32;
+                   en.set_global("$pref::Video::resolution",
+                                 Value::of_string(std::to_string(w) + " " + std::to_string(h) + " " + std::to_string(bpp)));
+                   en.trace.push_back("setScreenMode " + std::to_string(w) + " x " + std::to_string(h));
+                   return std::string("1");
+                 });
   stub(e, "", "isDeviceFullScreenOnly", 2, 2, "0");
   for (const char* name : {"repaint", "setCursor", "cursorOn", "cursorOff"})
     stub(e, "GuiCanvas", name, 2, 0);

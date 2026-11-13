@@ -177,6 +177,9 @@ Rebuild policy, not read from the original:
   (`../gui/mouse.cpp`, drawn over everything by `../gui/render.cpp`); ML
   text reads `<just:...>`, `<color:...>` and `<br>` and drops other tags
   instead of drawing them; `forceReflow`; tabs in console lines.
+- [x] `setScreenMode` (Options, Apply) stores `$pref::Video::resolution`
+  (a non-numeric depth is kept as 32) and the window and canvas follow it
+  (`Window::resize` on X11, Win32 and Cocoa). No full screen.
 - [ ] An app icon: no original icon to take it from yet (the Windows exe
   has the default icon for the same reason). The app is not signed beyond
   the linker's ad-hoc signature, so macOS asks once before opening it.

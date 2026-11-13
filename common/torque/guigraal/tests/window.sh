@@ -33,4 +33,11 @@ grep -q '^canvas content AdventureGui' "$WORK/trace.txt" || fail "AdventureGui w
 grep -Eq '^player offlinetutorial_b-2.graal (39|40|41)\.[0-9]+ 30\.00 3, state 8' "$WORK/trace.txt" ||
   fail "the player did not walk about 10 tiles"
 [ "$(wc -c < "$WORK/frame.bmp")" -eq 1440054 ] || fail "the window image is not 800 x 600"
+# setScreenMode (the Options dialog's Apply) stores the pref, and the
+# window and the canvas follow it.
+printf '0 Adventure.startOfflineMode();\n500 setScreenMode(640, 480, Default, false);\n' > "$WORK/mode.txt"
+"$BUILD/graal304-torque" --root "$WORK/install" --prefs "$WORK/prefs" --game "$LIB" \
+  --steps "$WORK/mode.txt" --seconds 2 --trace "$WORK/mode-trace.txt" --shot "$WORK/mode.bmp" > /dev/null
+grep -q '^window 640 x 480' "$WORK/mode-trace.txt" || fail "setScreenMode did not resize the window"
+[ "$(wc -c < "$WORK/mode.bmp")" -eq 921654 ] || fail "the window image is not 640 x 480 after setScreenMode"
 echo "window: passed"

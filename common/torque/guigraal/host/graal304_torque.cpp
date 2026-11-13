@@ -248,6 +248,16 @@ int main(int argc, char** argv) {
       ++next_step;
     }
     frame.step();
+    // setScreenMode (Options, Apply) changed the resolution pref.
+    int want_w = width, want_h = height;
+    canvas_size_304(engine, want_w, want_h);
+    if (want_w != width || want_h != height) {
+      width = want_w;
+      height = want_h;
+      window->resize(width, height);
+      frame.resize(width, height);
+      engine.trace.push_back("window " + std::to_string(width) + " x " + std::to_string(height));
+    }
     window->present(frame.image());
     std::this_thread::sleep_until(start + std::chrono::milliseconds(50));
   }

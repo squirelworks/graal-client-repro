@@ -64,6 +64,11 @@ void Frame304::draw() {
     engine_.trace.push_back("gui: " + renderer_.notes[notes_seen_]);
 }
 
+void Frame304::resize(int width, int height) {
+  canvas_ = Gui::Canvas(width, height);
+  draw();
+}
+
 void Frame304::step() {
   engine_.advance(50);
   graal_.tick(true);

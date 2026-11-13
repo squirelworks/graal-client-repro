@@ -50,6 +50,9 @@ class Window {
   // Everything that happened since the last call.
   virtual std::vector<WindowEvent> pump() = 0;
   virtual void present(const Gui::Image& image) = 0;
+  // A new canvas size (setScreenMode): the client area becomes w x h and
+  // stays fixed there.
+  virtual void resize(int width, int height) = 0;
 };
 
 } // namespace Torque
