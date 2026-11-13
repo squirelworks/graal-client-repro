@@ -208,6 +208,9 @@ guessed.
   (118, 120), multi-dimensional arrays and the array methods (133 to
   142), `foreach` (163)
 - [ ] The built-in command table and its signature letters (B2)
+- [ ] A show-image's `actor` (head, body, `attr[n]`): here a plain object
+  that takes every property, with `attr` an array of 31. That is a reading
+  until Graal_analysis gives the actor's field list
 - [x] Classes (`addClassScript`, packets 133 and 134) and `join`/`leave`:
   a joined class's functions and events are found after the object's own,
   and an object whose only code is a class gets `created`

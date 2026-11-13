@@ -18,6 +18,7 @@ namespace graalengine {
 class TextureCache;
 class SlotPainter;
 class Session2D;
+class ShowImgPainter;
 
 class Engine {
  public:
@@ -131,6 +132,9 @@ class Engine {
   // The 2D session connectToGraalServer started when no connector was set
   // (src/session.hpp); null before that.
   Session2D* session() { return session_.get(); }
+  // The show-images' ganis and particles (src/showimg.hpp); null before
+  // the GS2 screen is made.
+  ShowImgPainter* showImg() { return showImg_.get(); }
   int initializeCount() const { return initCount_; }
 
   // Writes one line through the LogGraalMessage slot.
@@ -177,6 +181,7 @@ class Engine {
   std::shared_ptr<Control> screenControl_;
   std::function<void(const std::string&, bool)> action_;
   std::unique_ptr<Session2D> session_;
+  std::unique_ptr<ShowImgPainter> showImg_;
 };
 
 // The library's one engine.

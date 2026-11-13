@@ -164,6 +164,24 @@ player's own 5.12 `GraalEngine.dll`, the 5.12 run also checks the real
 GraalGui's playfield and the arrow key, as `GRAAL404_ENGINE` does for
 4.04r2.
 
+## The show-images (C2)
+
+A `GuiShowImgCtrl` is drawn by the engine (`src/showimg.cpp`). One with
+an `ani` plays that gani (the first comma field) with the control's
+`actor` (head, body, `attr[n]`, as the script sets them), facing `dir`,
+its top left at `offsetx`, `offsety`, one step every 50 ms frame. The
+Quattro program's actor pass draws it into a picture the size of the
+control, from the install's `levels/ganis`, `heads`, `bodies` and the
+rest, and `DrawGraphics` puts it on screen. Each frame also runs the
+screen's emitters, and each particle is turned, scaled and tinted here
+into a picture of its own (the launcher keeps the 2D matrix slot but
+does not apply it). It is blended by its alpha whatever its mode,
+because the launcher has no additive or subtractive draw.
+
+On the player's own 4.04r2 menu: the character walking bottom left
+(StartAni1), the lamp post (StartAni2), the smoke (StartAni4) and the
+monster by the title (StartAni6).
+
 ## Where the rest plugs in
 
 - The GS2 controls (Track B4) register their object factory and GUI
@@ -194,7 +212,8 @@ GraalGui's playfield and the arrow key, as `GRAAL404_ENGINE` does for
 - [x] ~~Text at the script's font and size~~ (the 4.04r2 launcher reads
   Arial with GTrueType; Liberation Sans on Linux)
 - [x] ~~Login, level, walk and chat~~ on the Quattro session (above)
-- [ ] `GuiShowImgCtrl` animations (B5)
+- [x] ~~`GuiShowImgCtrl` animations~~ (above); particle blend modes other
+  than alpha need a launcher slot
 - [ ] Offline mode's level, the other GraalGui keys (`doA`, `doS`, `doD`,
   the map and item menus)
 - [x] ~~The 3D connect~~: 3D mode and the link on port + 1 through the 3D
