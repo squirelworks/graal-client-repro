@@ -39,8 +39,8 @@ for T in "$ROOT"/build/*/Test*; do
     cat "$T.out"
   else
     cat "$T.out"
-    fail "$TB" "$(basename "$T") failed$(grep '^FAIL' "$T.out" | sed 's/^/\
-    /')"
+    fail "$TB" "$(basename "$T") failed
+$(grep '^FAIL' "$T.out" | sed 's/^/    /')"
   fi
   if [ -f "$HEAPLOG" ]; then
     cat "$HEAPLOG" >&2
