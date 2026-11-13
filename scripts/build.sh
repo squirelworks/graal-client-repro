@@ -101,8 +101,11 @@ for B in $BUILDS; do
           # login shell starts in its home, so it changes folder itself.
           FPCBIN=$(cygpath -m "$(command -v "$FPC")")
           GW=$(cygpath -m "$G")
-          MSYSTEM=MINGW32 FPCFLAGS="${FPCFLAGS:-}" /c/msys64/usr/bin/bash.exe -lc \
-            "cd '$GW' && make lib build/graal304-torque.exe PLATFORM=windows FPC='$FPCBIN'"
+          # The login shell drops the caller's environment, so FPCFLAGS goes
+          # on the make command line (with forward slashes).
+          FLAGS=$(printf '%s' "${FPCFLAGS:-}" | tr '\\' /)
+          MSYSTEM=MINGW32 /c/msys64/usr/bin/bash.exe -lc \
+            "cd '$GW' && make lib build/graal304-torque.exe PLATFORM=windows FPC='$FPCBIN' FPCFLAGS='$FLAGS'"
           cp "$G/build/graal304-torque.exe" "$G/build/lib/$GAMEBASE.dll" "$OUT/"
           continue_torque=
         else
