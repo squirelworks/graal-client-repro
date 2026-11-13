@@ -292,8 +292,8 @@ begin
     Len := (Ord(Wire[1]) shl 8) or Ord(Wire[2]);
     Check(ZDecompress(Copy(Wire, 3, Len), Plain) and
       (Plain = '%' + Chr(CaptureKey + 32) + ClientVersionToken + GString('acc') + GString('pw') +
-        'linux,"","",""'#10),
-      'login: 5 (key, G3D22126, account, password, linux and three empty machine fields) alone in the plain zlib frame');
+        'linux,c3adb4be4be05a76d9ffdc3e88ba180b,b94291e395c1ae186c7ee9b2d6c685be,"","2.6.38-1-squirrelos  #1-SquirrelOS SMP Mon Jun 27 12:00:00 UTC 2011"'#10),
+      'login: 5 (key, G3D22126, account, password, linux and four made-up machine fields) alone in the plain zlib frame');
     Check(ServerReadAll(Codec, Copy(Wire, Len + 3, MaxInt), Msgs) and (Msgs.Count >= 2) and
       (Msgs[0] = GChar(PLI_LANGUAGE) + 'English') and
       (Msgs[1] = GChar(PLI_WANTFILE) + 'basepackage.gupd'),

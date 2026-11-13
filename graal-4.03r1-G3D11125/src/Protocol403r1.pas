@@ -30,8 +30,9 @@ const
     the platform and three machine fields. }
   LoginPlatform = 'linux';
   { The Linux 4.x login line has not been read; the platform name is the
-    Linux 6.x clients' (manual/02-protocol/03-login.md), and the three
-    machine fields are sent empty, as on Windows and Mac. }
+    Linux 6.x clients' (manual/02-protocol/03-login.md), and the machine
+    fields take the Linux 4.04r2 rebuild's shape: two made-up hashes and an
+    empty field (GraalClient.SendLogin). }
   { Login type 5, gen-5 cipher on the server, as 2.22. }
   ClientType = 5;
   { The first server: a game server named Login (license.graal). }
