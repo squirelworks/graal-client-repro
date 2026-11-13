@@ -28,6 +28,7 @@ jobs:
           make -C common/torque/host304 test
           make -C common/torque/host4208 test
           make -C common/cpp/graalengine test
+          make -C common/cpp/graal3dengine test
   windows:
     runs-on: windows-latest
     timeout-minutes: 15
@@ -49,3 +50,4 @@ jobs:
           make -C common/torque/host304 test
           make -C common/torque/host4208 test
           make -C common/cpp/graalengine test
+          make -C common/cpp/graal3dengine test

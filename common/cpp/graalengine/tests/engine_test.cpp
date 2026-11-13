@@ -723,6 +723,77 @@ void testLoopbackSession(const char* build, const char* labEnv, const std::strin
 
 }  // namespace
 
+// The engine's half of the 3D bridge (Track C4): a `3 ` server with the 3D
+// library's ConnectTo3DServer slot filled goes to 3D mode and dials port
+// + 1; without it the launcher is asked to load the library.
+std::string connected3d;
+void GE_CALL rec3DConnect(const char* host, int32_t port) {
+  connected3d = std::string(host) + ":" + std::to_string(port);
+}
+int removed3d = 0;
+void GE_CALL rec3DRemove() { ++removed3d; }
+
+void testGraal3DBridge() {
+  reset();
+  installRecorder();
+  CHECK(graalengine_setBuild("5.12") == 1);
+  CHECK(std::string(graalengine_build()) == "5.12");
+  CHECK(graal_engineInitialize("/nowhere/Graal.exe") == 1);
+  loadGraalGui();
+  auto& e = graalengine::engine();
+  std::string seen;
+  e.setConnector([&](graalengine::Engine&, const std::string& name, const std::string&, int port, bool is3d) {
+    seen = name + ":" + std::to_string(port) + (is3d ? " 3d" : "");
+  });
+
+  // No 3D library: StartGraal3D, no 3D mode.
+  calls.clear();
+  connectToGraalServer("3 Lab", "127.0.0.1", 14900);
+  CHECK((calls == std::vector<std::string>{"start3d"}));
+  CHECK(isGraal3DMode() == 0);
+
+  // With it: the link on port + 1, 3D mode, the TCP side as for 2D.
+  graal_setConnectTo3DServer(rec3DConnect);
+  graal_setRemoveGraal3DConnection(rec3DRemove);
+  calls.clear();
+  connectToGraalServer("3 Lab", "127.0.0.1", 14900);
+  CHECK(connected3d == "127.0.0.1:14901");
+  CHECK(isGraal3DMode() == 1);
+  CHECK(seen == "Lab:14900 3d");
+  CHECK(calls.empty());
+
+  // 5.x logs in as the built-in guest when no account was given.
+  char account[16], nickname[16], password[4];
+  getGraalLoginInfo(account, sizeof account, nickname, sizeof nickname, password, sizeof password);
+  CHECK(std::string(account) == "guest");
+  CHECK(std::string(nickname).empty());
+  CHECK(std::string(password) == "7Y3");  // cut to the buffer
+
+  // Login steps reach the engine; step 6 asks for GUIContainer (5.x).
+  graalengine_graal3DLoginStep(2);
+  CHECK(e.graal3DStep() == 2);
+  calls.clear();
+  graalengine_graal3DLoginStep(6);
+  CHECK(e.graal3DStep() == 6);
+  bool named = false;
+  for (const auto& c : calls) named |= c.find("GUIContainer") != std::string::npos;
+  CHECK(named);
+
+  // Shutdown removes the 3D connection; an error leaves 3D mode.
+  prepareGraalShutdown();
+  CHECK(removed3d == 1);
+  CHECK(isGraal3DMode() == 0);
+  connectToGraalServer("3 Lab", "127.0.0.1", 14900);
+  CHECK(isGraal3DMode() == 1);
+  calls.clear();
+  setGraal3DConnectionError("The 3D server connection has timed out");
+  CHECK(isGraal3DMode() == 0);
+  CHECK((calls == std::vector<std::string>{"log GraalEngine: The 3D server connection has timed out"}));
+  graalengine_logLine("a line");
+  CHECK(calls.back() == "log a line");
+  reset();
+}
+
 int main() {
   testSlotList();
   testEmptyTable();
@@ -737,6 +808,7 @@ int main() {
   testLabMenu512();
   testLoopbackSession("4.04r2", "GRAAL404_ENGINE", "win,\"\",\"\",\"\"");
   testLoopbackSession("5.12", "GRAAL512_ENGINE", "win,\"\",\"\",\"\",\"6.2 9200 \"");
+  testGraal3DBridge();
   CHECK(graalengine_setBuild("9.99") == 0);
   if (failures) {
     std::fprintf(stderr, "%d check(s) failed\n", failures);

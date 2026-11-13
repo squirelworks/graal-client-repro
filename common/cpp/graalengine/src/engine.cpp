@@ -174,7 +174,18 @@ void Engine::connect(const std::string& rawName, const std::string& host, int po
   target_ = {name, host, port, is3d};
   if (is3d) {
     runStartScript("StartScript_GraalGui3D", true);
-    host::StartGraal3D();
+    if (!host::hasConnectTo3DServer()) {
+      // No 3D library yet: the launcher loads it and connects again
+      // with the same three values (graal3d/torque-engine-4x.md).
+      host::StartGraal3D();
+      if (connect_) connect_(*this, name, host, port, is3d);
+      return;
+    }
+    // With the 3D library: 3D mode, the Torque link on port + 1, then the
+    // TCP login exactly as for a 2D server.
+    mode3d_ = true;
+    step3d_ = 0;
+    host::ConnectTo3DServer(host.c_str(), port + 1);
   } else {
     runStartScript("StartScript_GraalGui", true);
     setContentFrom("GUIContainer");
@@ -183,19 +194,13 @@ void Engine::connect(const std::string& rawName, const std::string& host, int po
     connect_(*this, name, host, port, is3d);
     return;
   }
-  if (is3d) return;  // the 3D library's session (Track C4)
+  const Account login = loginAccount();
   Session2D::Login l;
   l.name = name;
   l.host = host;
   l.port = port;
-  l.account = account_.account;
-  l.password = account_.password;
-  // With no account given, the 5.x Windows builds log in as the built-in
-  // guest (protocol/v5v6-windows-unpacked.md, "Login message").
-  if (l.account.empty() && profile_ != gs2::Profile::Engine42) {
-    l.account = "guest";
-    l.password = "7Y3bdzjf";
-  }
+  l.account = login.account;
+  l.password = login.password;
   l.nickname = account_.nickname;
   l.installDir = installDir();
   l.build = build_;
@@ -209,7 +214,35 @@ void Engine::openServerList() {
   connect("Login", license_[0], std::atoi(license_[1].c_str()));
 }
 
-void Engine::prepareShutdown() { offline_ = nullptr; }
+void Engine::prepareShutdown() {
+  offline_ = nullptr;
+  if (mode3d_) host::RemoveGraal3DConnection();
+  mode3d_ = false;
+}
+
+Engine::Account Engine::loginAccount() const {
+  Account a = account_;
+  // With no account given, the 5.x Windows builds log in as the built-in
+  // guest (protocol/v5v6-windows-unpacked.md, "Login message").
+  if (a.account.empty() && profile_ != gs2::Profile::Engine42) {
+    a.account = "guest";
+    a.password = "7Y3bdzjf";
+  }
+  return a;
+}
+
+void Engine::graal3DConnectionError(const std::string& reason) {
+  log("GraalEngine: " + reason);
+  mode3d_ = false;
+  // The two links live and die together (torque/udp-session.md §1).
+  session_.reset();
+}
+
+void Engine::graal3DLoginStep(int step) {
+  step3d_ = step;
+  if (machine_) machine_->queueEvent(machine_->universe(), "onGraal3DLoginStep", {gs2::Value::number(step)});
+  if (step == 6) setContentFrom(profile_ == gs2::Profile::Engine42 ? "GUIContainer3D" : "GUIContainer");
+}
 
 void Engine::installScreen() {
   textures_ = std::make_unique<TextureCache>(installDir());

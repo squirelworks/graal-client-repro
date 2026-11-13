@@ -134,6 +134,22 @@ for B in $BUILDS; do
       for L in GraalEngineRepro.dll libgraalengine.so libgraalengine.dylib; do
         if [ -f "$ROOT/common/cpp/graalengine/build/$L" ]; then cp "$ROOT/common/cpp/graalengine/build/$L" "$OUT/"; fi
       done
+      # The 3D library (common/cpp/graal3dengine) sits beside it, as
+      # Graal3DEngine.dll does; the launcher loads it for `3 ` servers.
+      if [ -f "$ROOT/common/cpp/graal3dengine/Makefile" ]; then
+        echo "== common/cpp/graal3dengine"
+        case "$(uname -s)" in
+          MINGW*|MSYS*|CYGWIN*)
+            make -C "$ROOT/common/cpp/graal3dengine" clean all CXX="$CXXBIN" \
+              CXXFLAGS="-std=c++17 -Wall -Wextra -Werror -O2 -m32" ||
+              echo "::warning::no 32-bit C++ target; 4.x 3D library not built"
+            ;;
+          *) make -C "$ROOT/common/cpp/graal3dengine" clean all CXX="$CXXBIN" ;;
+        esac
+        for L in Graal3DEngineRepro.dll libgraal3dengine.so libgraal3dengine.dylib; do
+          if [ -f "$ROOT/common/cpp/graal3dengine/build/$L" ]; then cp "$ROOT/common/cpp/graal3dengine/build/$L" "$OUT/"; fi
+        done
+      fi
     else
       case "$(uname -s)" in
         Linux) echo "g++ and make are required for the 4.x engine library"; exit 1 ;;

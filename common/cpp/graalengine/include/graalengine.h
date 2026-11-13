@@ -154,6 +154,23 @@ GE_API void GE_CALL enableScriptedControls(int32_t enable);
 GE_API void GE_CALL prepareGraalShutdown(void);
 GE_API void GE_CALL shutdownGraalEngine(void);
 
+/* ---- The engine's half of the 3D bridge: the 3D library calls these
+ * (graal3d/torque-engine-4x.md, torque/4208-g3d.md). ---- */
+
+/* Non-zero once a `3 ` server was connected with the 3D library loaded. */
+GE_API int32_t GE_CALL isGraal3DMode(void);
+
+/* The login the session uses: account, nickname and password, each copied
+ * NUL-terminated and cut to its buffer size (the original returns the same
+ * three values; no session key). On 5.x an empty account is the built-in
+ * guest. */
+GE_API void GE_CALL getGraalLoginInfo(char *account, int32_t account_size, char *nickname,
+                                      int32_t nickname_size, char *password, int32_t password_size);
+
+/* The 3D link failed or timed out: the engine logs the reason, leaves 3D
+ * mode and drops the TCP session too. */
+GE_API void GE_CALL setGraal3DConnectionError(const char *reason);
+
 /* ---- Rebuild only: not in the original. ---- */
 
 /* Interface version of this header. Bumped when a slot's arguments
@@ -167,6 +184,21 @@ GE_API int32_t GE_CALL graalengine_abi(void);
  * profile. 4.04r2 when never called. Returns 0 for a build the library
  * has no row for (the build is then left as it was). */
 GE_API int32_t GE_CALL graalengine_setBuild(const char *label);
+
+/* The build set with graalengine_setBuild (the 3D library picks its
+ * protocol from it: 19 for 4.04r2, 21 for 4.20, 24 for 5.x). */
+GE_API const char *GE_CALL graalengine_build(void);
+
+/* The 3D library's login step (2 to 6). The engine raises
+ * `onGraal3DLoginStep(step)` on the universe; at step 6 the 3D GUI becomes
+ * the content: `GUIContainer3D` on 4.x (torque/4208-g3d.md),
+ * `GUIContainer` on 5.x (torque/5007-g3d.md). In the original the 3D
+ * library does both itself on the engine's objects. */
+GE_API void GE_CALL graalengine_graal3DLoginStep(int32_t step);
+
+/* One line to the engine's log: the LogGraalMessage slot, or stderr with
+ * GRAALENGINE_LOG set when the launcher has no log slot (5.0). */
+GE_API void GE_CALL graalengine_logLine(const char *line);
 
 /* The slot list, for a launcher to check its own list against the
  * library's: the count, then each name (without `graal_set`) and its
