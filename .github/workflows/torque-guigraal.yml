@@ -10,6 +10,9 @@ on:
       - 'common/cpp/third_party/stb/**'
       - 'graal-3.04-G3D03014/src/**'
       - 'graal-3.153-G3D28015/src/**'
+      - 'graal-3.0beta-G3D16053/src/**'
+      - 'graal-3.01-G3D27063/src/**'
+      - 'graal-3.151-G3D27015/src/**'
       - 'common/*.pas'
       - '.github/workflows/torque-guigraal.yml'
   push:
@@ -22,6 +25,9 @@ on:
       - 'common/cpp/third_party/stb/**'
       - 'graal-3.04-G3D03014/src/**'
       - 'graal-3.153-G3D28015/src/**'
+      - 'graal-3.0beta-G3D16053/src/**'
+      - 'graal-3.01-G3D27063/src/**'
+      - 'graal-3.151-G3D27015/src/**'
       - 'common/*.pas'
       - '.github/workflows/torque-guigraal.yml'
   workflow_dispatch:
@@ -57,6 +63,9 @@ jobs:
         run: |
           sh common/torque/guigraal/tests/online.sh
           GAME_LIB=libGame3153Lib.so GAME_TOKEN=G3D28015 sh common/torque/guigraal/tests/online.sh
+          GAME_LIB=libGame30bLib.so GAME_TOKEN=G3D16053 sh common/torque/guigraal/tests/online.sh
+          GAME_LIB=libGame301Lib.so GAME_TOKEN=G3D27063 sh common/torque/guigraal/tests/online.sh
+          GAME_LIB=libGame3151Lib.so GAME_TOKEN=G3D27015 sh common/torque/guigraal/tests/online.sh
           LIST_FALLBACK=1 sh common/torque/guigraal/tests/online.sh
       - name: The windowed program on Xvfb
         run: xvfb-run -a sh common/torque/guigraal/tests/window.sh

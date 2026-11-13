@@ -53,7 +53,8 @@ for B in $BUILDS; do
       esac
     fi
   fi
-  # The 3.04 and 3.153 player program: graal304-torque (the Torque engine in
+  # The 3.x player program (3.04, 3.153, and 3.0beta, 3.01 and 3.151 on the
+  # same program): graal304-torque (the Torque engine in
   # a window: X11, Win32 or Cocoa) and the build's game library, which it
   # loads from its own folder. 3.153 runs the same program on its own
   # install. The program and the library must target the same system and
@@ -61,6 +62,9 @@ for B in $BUILDS; do
   case "$B" in
     graal-3.04-G3D03014) GAMEBASE=Game304Lib ;;
     graal-3.153-G3D28015) GAMEBASE=Game3153Lib ;;
+    graal-3.0beta-G3D16053) GAMEBASE=Game30bLib ;;
+    graal-3.01-G3D27063) GAMEBASE=Game301Lib ;;
+    graal-3.151-G3D27015) GAMEBASE=Game3151Lib ;;
     *) GAMEBASE= ;;
   esac
   if [ -n "$GAMEBASE" ] && [ -f "$ROOT/common/torque/guigraal/Makefile" ]; then
