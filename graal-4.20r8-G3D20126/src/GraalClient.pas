@@ -24,7 +24,8 @@
       byte, the body. The client picks 2 (raw) under 0x30 bytes unless zlib
       is shorter, 4 (zlib) from 0x30, 6 (bz2) from 0x1000. Even codes are
       XORed: one LCG step per 4-byte group present, at most 12 groups raw or
-      4 compressed; a short last group still steps. Each direction has its
+      4 compressed; a short last group steps only in a raw body (the 4.x
+      engines round compressed ones down). Each direction has its
       own iterator, seeded 0x04A80B38, with the same key.
   Receive: u16be -> undo XOR -> inflate / bunzip -> split on #10, with the
   PLO_RAWDATA escape, as in 2.05. }
@@ -148,9 +149,20 @@ var
   K: Cardinal;
 begin
   if (CType and 1) <> 0 then Exit; { odd codes are not XORed }
-  if CType = CompressNone then Groups := XorGroupsRaw
-  else Groups := XorGroupsPacked;
-  if (Length(Body) + 3) div 4 < Groups then Groups := (Length(Body) + 3) div 4;
+  { Raw bodies step once per group present, a short last one too;
+    compressed ones only per whole group (len shr 2, at most 4), as the
+    4.x engines do (read in the 4.20r6 and 4.20r8 binaries; seihai-core
+    gen5_round_down) }
+  if CType = CompressNone then
+  begin
+    Groups := XorGroupsRaw;
+    if (Length(Body) + 3) div 4 < Groups then Groups := (Length(Body) + 3) div 4;
+  end
+  else
+  begin
+    Groups := XorGroupsPacked;
+    if Length(Body) div 4 < Groups then Groups := Length(Body) div 4;
+  end;
   UniqueString(Body);
   for G := 0 to Groups - 1 do
   begin

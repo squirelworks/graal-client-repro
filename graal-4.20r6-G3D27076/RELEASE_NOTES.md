@@ -22,6 +22,10 @@ bodies take their place. The shared `graal-assets/` folder next to the
 program works too (`graal-assets/4.20r6/`, then `graal-assets/4.20r8/`,
 then `graal-assets/common/`).
 
+## What's new in v0.0.5
+
+- [x] **Compressed frames step the cipher rounded down.** A zlib or bzip2 body steps the frame cipher once per whole 4-byte group (at most 4), as the 4.x engines do; a raw body still steps a short last group. seihai-gserver follows the real rule (seihai-core `gen5_round_down`), and the rebuild dropped with "bad frame from the server" after `SETACTIVELEVEL` until now (the same fix as 4.04r2's in #315).
+
 ## What's new in v0.0.4.2
 
 - [x] **Pictures by kind.** The picture cache keeps each name once per kind (head, body, sword, shield, hat, weapon), because each kind searches its own folders. A picture first asked for without its kind got the built-in stand-in and kept it, so an install's own picture could stay hidden behind the stand-in (in 1.33, `levels/weapons/wbomb1.gif` beside the D button).
