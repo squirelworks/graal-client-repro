@@ -103,10 +103,12 @@ for B in $BUILDS; do
           GW=$(cygpath -m "$G")
           # The login shell drops the caller's environment, so FPCFLAGS goes
           # on the make command line (with forward slashes).
-          FLAGS=$(printf '%s' "${FPCFLAGS:-}" | tr '\\' /)
+          GFLAGS=$(printf '%s' "${FPCFLAGS:-}" | tr '\\' /)
           MSYSTEM=MINGW32 /c/msys64/usr/bin/bash.exe -lc \
-            "cd '$GW' && make lib build/graal304-torque.exe PLATFORM=windows FPC='$FPCBIN' FPCFLAGS='$FLAGS'"
-          cp "$G/build/graal304-torque.exe" "$G/build/lib/$GAMEBASE.dll" "$OUT/"
+            "cd '$GW' && make lib build/graal304-torque.exe PLATFORM=windows FPC='$FPCBIN' FPCFLAGS='$GFLAGS'"
+          # FPC's folder, first in PATH, has its own cp.exe, which cannot read
+          # MSYS paths.
+          /usr/bin/cp "$G/build/graal304-torque.exe" "$G/build/lib/$GAMEBASE.dll" "$OUT/"
           continue_torque=
         else
           continue_torque=1
@@ -123,7 +125,9 @@ for B in $BUILDS; do
           # the compiler's own folder first, for its windres and helpers
           PATH="$(dirname "$(command -v "$WCXX")"):$PATH" \
             make -C "$G" lib build/graal304-torque.exe PLATFORM=windows CXX="$WCXX" FPC="$FPC"
-          cp "$G/build/graal304-torque.exe" "$G/build/lib/$GAMEBASE.dll" "$OUT/"
+          # FPC's folder, first in PATH, has its own cp.exe, which cannot read
+          # MSYS paths.
+          /usr/bin/cp "$G/build/graal304-torque.exe" "$G/build/lib/$GAMEBASE.dll" "$OUT/"
         else
           echo "::warning::no MinGW g++ for $TARGET_OS (set GRAAL_WIN32_CXX); graal304-torque.exe not built"
         fi
