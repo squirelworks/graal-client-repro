@@ -23,7 +23,7 @@ unit EditorMain;
 interface
 
 uses
-  GWindow, Adventure;
+  GWindow, Adventure, GCompat;
 
 const
   EditorOnlineRefused = 'You cannot open the editor in the online mode.';

@@ -74,6 +74,8 @@ function IsInfinite(const AValue: Double): Boolean;
 const
   PathDelim = '\';
 function IncludeTrailingPathDelimiter(const S: string): string;
+{ SysUtils', from Delphi 6: 'True'/'False', or '-1'/'0' }
+function BoolToStr(B: Boolean; UseBoolStrs: Boolean = False): string;
 {$ENDIF}
 
 {$IFNDEF FPC}{$IFDEF MSWINDOWS}
@@ -204,12 +206,21 @@ begin
 end;
 
 {$IFDEF GC_D5DOWN}
-{$IFDEF GC_D5DOWN}
 function IncludeTrailingPathDelimiter(const S: string): string;
 begin
   Result := S;
   if (Result = '') or (Result[Length(Result)] <> PathDelim) then
     Result := Result + PathDelim;
+end;
+
+function BoolToStr(B: Boolean; UseBoolStrs: Boolean): string;
+begin
+  if UseBoolStrs then
+  begin
+    if B then Result := 'True' else Result := 'False';
+  end
+  else if B then Result := '-1'
+  else Result := '0';
 end;
 {$ENDIF}
 
@@ -226,6 +237,7 @@ begin
 end;
 {$ENDIF}{$ENDIF}
 
+{$IFDEF GC_D5DOWN}
 initialization
   AssignFile(ErrOutput, '');
   if IsConsole then

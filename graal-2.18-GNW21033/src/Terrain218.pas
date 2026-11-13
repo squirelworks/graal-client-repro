@@ -210,11 +210,11 @@ function Noise(X, Y: Integer): Double;
 var
   H: Cardinal;
 begin
-  {$PUSH}{$Q-}{$R-}
+  {$IFDEF FPC}{$PUSH}{$ENDIF}{$Q-}{$R-}
   H := Cardinal(X) * 374761393 + Cardinal(Y) * 668265263;
   H := (H xor (H shr 13)) * 1274126177;
   H := H xor (H shr 16);
-  {$POP}
+  {$IFDEF FPC}{$POP}{$ENDIF}
   Result := (H and $FFFF) / 65535 - 0.5;
 end;
 
