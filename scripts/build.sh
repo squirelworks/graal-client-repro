@@ -97,9 +97,12 @@ for B in $BUILDS; do
           # shell: with Free Pascal's bin folder first in PATH, plain make is
           # Free Pascal's cmd.exe make, which cannot run the recipes.
           echo "== common/torque/guigraal (graal304-torque.exe, $GAMEBASE.dll, win32, MSYS2)"
-          FPCBIN=$(command -v "$FPC")
-          (cd "$G" && MSYSTEM=MINGW32 CHERE_INVOKING=1 FPCFLAGS="${FPCFLAGS:-}" \
-            /c/msys64/usr/bin/bash.exe -lc "make lib build/graal304-torque.exe PLATFORM=windows FPC='$FPCBIN'")
+          # Windows-form paths (D:/a/...), which both MSYS runtimes read; the
+          # login shell starts in its home, so it changes folder itself.
+          FPCBIN=$(cygpath -m "$(command -v "$FPC")")
+          GW=$(cygpath -m "$G")
+          MSYSTEM=MINGW32 FPCFLAGS="${FPCFLAGS:-}" /c/msys64/usr/bin/bash.exe -lc \
+            "cd '$GW' && make lib build/graal304-torque.exe PLATFORM=windows FPC='$FPCBIN'"
           cp "$G/build/graal304-torque.exe" "$G/build/lib/$GAMEBASE.dll" "$OUT/"
           continue_torque=
         else
