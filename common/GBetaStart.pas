@@ -404,6 +404,9 @@ begin
     if F.Ctl('Edit4') <> nil then
     begin
       S := ConfigValue(Cfg, 'serveraddr', '');
+      { the real client writes it in quotes: serveraddr="host" }
+      if (Length(S) >= 2) and (S[1] = '"') and (S[Length(S)] = '"') then
+        S := Copy(S, 2, Length(S) - 2);
       if S = '' then S := 'listserver.graal.in';
       F.SetText('ComboBox5', S);
       F.SetText('Edit2', ConfigValue(Cfg, 'serverport', F.GetText('Edit2')));
@@ -497,7 +500,8 @@ begin
       for I := 1 to 4 do
         SetConfigValue(Cfg, 'head' + IntToStr(I), F.GetText('ComboBox' + IntToStr(I)));
       SetConfigValue(Cfg, 'editnickname', Choice.Nick);
-      if Choice.HostEdited then SetConfigValue(Cfg, 'serveraddr', Choice.Host);
+      { in quotes, as the real client writes it }
+      if Choice.HostEdited then SetConfigValue(Cfg, 'serveraddr', '"' + Choice.Host + '"');
       SetConfigValue(Cfg, 'serverport', IntToStr(Choice.Port));
       SetConfigValue(Cfg, 'accountname', Choice.Account);
       SetConfigValue(Cfg, 'password', Choice.Password);
