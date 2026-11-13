@@ -17,6 +17,9 @@ uses
   GEngineHost in '../../common/GEngineHost.pas',
   Protocol512 in '../src/Protocol512.pas';
 
+type
+  TTextFn = procedure(S: PAnsiChar); cdecl;
+
 var
   Failed: Integer = 0;
 
@@ -58,6 +61,8 @@ begin
     Check(H.Initialize(ExtractFilePath(ParamStr(0)) + 'Graal.exe'), 'graal_engineInitialize returns success');
     Check(H.Log.Count = 0, 'the 5.0 launcher has no LogGraalMessage, so nothing comes back through it');
     H.LoadGui;
+    TTextFn(HostSlotFn('OnServerLogin'))('Lab Server');
+    Check(H.ServerName = 'Lab Server', 'OnServerLogin gives the launcher the server''s name for its title');
     H.ClipW := 1;
     H.Render;
     Check((H.ClipX = 0) and (H.ClipY = 0) and (H.ClipW = 640) and (H.ClipH = 480),

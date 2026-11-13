@@ -612,6 +612,21 @@ begin
   Result := StringOfChar(' ', I) + 'G r a a l' + StringOfChar(' ', 8 - I);
 end;
 
+{ A server's name as the 5.12 window shows it once logged in there: each
+  character followed by a space ("L a b   S e r v e r", the 5.12 lab run
+  of 2026-10-30 after the warp to "Lab Server"). }
+function SpacedTitle(const Name: string): string;
+var
+  I: Integer;
+begin
+  Result := '';
+  for I := 1 to Length(Name) do
+  begin
+    if I > 1 then Result := Result + ' ';
+    Result := Result + Name[I];
+  end;
+end;
+
 { Graal512 --engine: the launcher over the rebuilt engine library
   (common/cpp/graalengine, plan Track C3). The real 5.12 is the 5.0
   launcher over GraalEngine.dll: the launcher owns the window, registers
@@ -626,12 +641,16 @@ end;
   --connect NAME@HOST:PORT. }
 function RunEngine: Integer;
 const
+  { The 5.12 game window: 800 x 600 inside the frame (measured on the lab's
+    5.12 screenshot, 2026-10-30), where the stand-in keeps 640 x 480. }
+  EngineW = 800;
+  EngineH = 600;
   ArrowVK: array[0..3] of Integer = ($26, $25, $28, $27);
   ArrowKey: array[0..3] of TGKey = (gkUp, gkLeft, gkDown, gkRight);
 var
   Host: TEngineHost;
   Win: TGWindow;
-  Lib, Dump, Target, Chars: string;
+  Lib, Dump, Target, Chars, Titled: string;
   Frames, I, K, X, Y, At, Colon, LogSeen: Integer;
   Was: array[0..4] of Boolean;
   NextUs: Int64;
@@ -643,7 +662,7 @@ begin
   else if HasArg('--window') then Frames := 0
   else Frames := 1;
   Win := nil;
-  Host := TEngineHost.Create(ScreenW, ScreenH);
+  Host := TEngineHost.Create(EngineW, EngineH);
   try
     if not Host.Load(Lib) then
     begin
@@ -678,9 +697,10 @@ begin
       Host.OpenServerList;
     if HasArg('--window') then
     begin
-      Win := TGWindow.Create(PaddedTitle, ScreenW, ScreenH);
+      Win := TGWindow.Create(PaddedTitle, EngineW, EngineH);
       if not Win.Ok then FreeAndNil(Win);
     end;
+    Titled := '';
     FillChar(Was, SizeOf(Was), 0);
     LogSeen := 0;
     I := 0;
@@ -718,6 +738,13 @@ begin
       end;
       Host.Screen.Fill($FF000000);
       Host.Render;
+      if Host.ServerName <> Titled then
+      begin
+        { each login (OnServerLogin) retitles the window with the server }
+        Titled := Host.ServerName;
+        if Win <> nil then Win.SetTitle(SpacedTitle(Titled));
+        WriteLn('logged in to ', Titled);
+      end;
       if Win <> nil then Win.Present(Host.Screen);
       while LogSeen < Host.Log.Count do
       begin

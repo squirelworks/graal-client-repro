@@ -67,6 +67,14 @@ bool Session2D::start() { return program_->start(); }
 
 void Session2D::tick() {
   program_->tick();
+  // Each login (the first server, then each warp) goes to the launcher's
+  // OnServerLogin with the server's name; the 5.x launcher titles its game
+  // window with it (the lab's 5.12 window read "L a b   S e r v e r" after
+  // the warp, version-profiles/lab-v5-2026-10-30.md).
+  if (const int n = program_->session().logins(); n != loginsSeen_) {
+    loginsSeen_ = n;
+    host::OnServerLogin(program_->session().server_name().c_str());
+  }
   const auto& img = window_->last;
   if (img.empty()) return;
   pixels_.resize(img.pixels.size());

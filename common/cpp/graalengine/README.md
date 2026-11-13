@@ -157,6 +157,10 @@ has no `LogGraalMessage`, so with no log slot the engine's lines go to
 stderr when `GRAALENGINE_LOG` is set, and the playfield is drawn with
 `DrawGraphics` (no stretched draw on 5.0).
 
+Each login (the first server, then every warp) is passed to the
+launcher's `OnServerLogin` with the server's name; the 5.x launcher titles
+its window with it.
+
 The session's files: the install (the launcher's folder), then
 `graal-assets/<build>/` and `graal-assets/common/` next to it, as the
 Pascal launchers search (`common/GAssetDirs.pas`). A tile sheet or player
