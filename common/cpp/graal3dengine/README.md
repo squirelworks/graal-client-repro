@@ -83,8 +83,9 @@ every Graal build uses the same table. The rest is this rebuild's own.
 
 ## Not yet
 
-- [ ] The launcher (`common/GEngineHost.pas`) loading this library on
-  `StartGraal3D`, connecting again and calling `runGraal3DEngine` each frame
+- [x] ~~The launcher (`common/GEngineHost.pas`) loading this library on
+  `StartGraal3D`, connecting again and calling `runGraal3DEngine` each
+  frame~~ (the 5.12 launcher test checks it)
 - [ ] A lab run with the rebuilt 5.12 against the Seihai gserver's 3D mode
 - [ ] Drawing: the Torque world (terrain, interiors, DTS and `.3ds`
   shapes, sky, sun) in `GraalControl3D`, and the draw slots the original
