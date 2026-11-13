@@ -1,7 +1,7 @@
 # Graal 1.39 revision 1 (`GNW07080`)
 
-The Graal 1.39 rev 1 client, rebuilt. Original: `Graal.exe` from the
-"Graal v1.39 - Dup" archive, 1,450,496 bytes, file date 2000-08-13,
+The Graal 1.39 rev 1 client, rebuilt. Original: `Graal.exe` from a
+1.39 rev 1 install, 1,450,496 bytes, file date 2000-08-13,
 FileVersion 1.3.9.1, SHA-256 `01bf1b1f…`. Its install's own readme is titled
 "Graal V1.39 revision 1 Release Notes", and its `newfeatures139.txt` opens
 with "v1.39rev1": the kills, deaths and online time of the current world in

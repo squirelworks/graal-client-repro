@@ -17,7 +17,7 @@ Apart from the start dialog, the forms and the icon, which are taken from
 the real Graal.exe and compiled in, the zips hold no original Graal code,
 graphics, sounds or levels. The client carries simple graphics of its own.
 
-## What's new in v0.0.1
+## What's new in v0.0.5
 
 - [x] **Its own forms and icon**, compiled in from the 1.39 rev 1 exe, and
   its install's character list.
