@@ -23,6 +23,11 @@ heads and bodies take their place. The shared `graal-assets/` folder next
 to the program works too (`graal-assets/5.12/`, then
 `graal-assets/common/`).
 
+## What's new in v0.0.5
+
+- [x] **The engine tells the launcher who is online.** As the real 5.12 engine does (lab run under hooks), the engine's session sends the launcher a row for each player the server names, on any level (id, nick, head, account, level, community name, first attribute, and flags for the player's own row and players on this server), updates it when one of those changes and deletes it when the player leaves. It also sends the status names ("Online, Away, DND", then the longer list once logged in), and a "You have been disconnected" warning when the link drops. The launcher keeps the list for its Players window. The window title now changes when the server accepts the login, not when the login is sent.
+- [x] **The Players window and the tray icon.** With `--engine --window` a second window, "Players: N online", lists who is on the server by head and nick under 5.12's groups (Staff, Buddies, Guild, Normal, Ignore, Offline). On Windows the program's icon sits in the tray with "<server>: N online" as its tip and the original's menu: Show Game, Show Player List, Quit. The list's tabs, Status list and buttons are drawn but do nothing yet.
+
 ## What's new in v0.0.4.2
 
 - [x] **New client.** 5.12 has a folder of its own, started from 5.00r7 with 5.12's wire rules: the token `G3D14097`, the quoted Windows version as a fifth login field, every short body zlib-compressed, and 5.12's cipher step for compressed frames.
@@ -30,8 +35,6 @@ to the program works too (`graal-assets/5.12/`, then
 - [x] **3D servers start their 3D link.** Picking a server whose name starts with `3 ` loads the rebuilt 3D library (`libgraal3dengine.so` / `Graal3DEngineRepro.dll`) beside the engine, connects again, and runs the Torque link on port + 1 each frame, as the original launcher does: handshake, mission start and login step 6 against a protocol-24 server. Nothing of the 3D world is drawn yet.
 - [x] **Art and walls in the engine launcher.** The engine's session reads the tile sheet (also from `levels/tiles/`), heads, bodies and `arrays.dat` from `graal-assets/5.12/` and `graal-assets/common/` next to the program as well as from the install, and asks the server (23) for a tile sheet or player image it lacks, keeping what comes in `levels/images/downloads/`, as a 5.12 install does.
 - [x] **The launcher's window.** With `--engine` the game window is 5.12's 800 x 600, titled with the server's name spaced out once logged in ("L a b   S e r v e r"), and the program carries the original 5.12 icon.
-- [x] **The engine tells the launcher who is online.** As the real 5.12 engine does (lab run under hooks), the engine's session sends the launcher a row for each player the server names, on any level (id, nick, head, account, level, community name, first attribute, and flags for the player's own row and players on this server), updates it when one of those changes and deletes it when the player leaves. It also sends the status names ("Online, Away, DND", then the longer list once logged in), and a "You have been disconnected" warning when the link drops. The launcher keeps the list for its Players window. The window title now changes when the server accepts the login, not when the login is sent.
-- [x] **The Players window and the tray icon.** With `--engine --window` a second window, "Players: N online", lists who is on the server by head and nick under 5.12's groups (Staff, Buddies, Guild, Normal, Ignore, Offline). On Windows the program's icon sits in the tray with "<server>: N online" as its tip and the original's menu: Show Game, Show Player List, Quit. The list's tabs, Status list and buttons are drawn but do nothing yet.
 
 ## Downloads
 
