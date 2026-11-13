@@ -14,7 +14,9 @@
   - the tray icon's tip reads "<server>: N online".
 
   The rebuild draws the list and the bottom bar in its own plain look (the
-  original form is not carried). Rows with flag $0001 go under Staff (the
+  original form is not carried): centred group names with an open toggle,
+  text tabs where the original has icons, and a Status box with a drop-down
+  arrow. Rows with flag $0001 go under Staff (the
   real engine set it on the NPC-Server), other players under Normal; the
   own row is counted but not shown. Buddies, Guild, Ignore and Offline stay
   empty: the launcher-side lists that fill them are not rebuilt. The tabs,
@@ -84,11 +86,21 @@ begin
   Dest.FillRect(X + 1, Y + 1, W - 2, H - 2, Fill);
 end;
 
+{ A small down-pointing triangle (the group toggles and the drop-down
+  arrow), W pixels wide at the top. }
+procedure DownArrow(Dest: TGSurface; X, Y, W: Integer; Color: Cardinal);
+var
+  R: Integer;
+begin
+  for R := 0 to W div 2 do
+    Dest.FillRect(X + R, Y + R, W - 2 * R, 1, Color);
+end;
+
 procedure DrawPlayerList(Dest: TGSurface; Host: TEngineHost; Heads: THeadLookup);
 const
   Tabs: array[0..2] of string = ('Players', 'Guilds', 'Servers');
 var
-  G, I, Y, TabW: Integer;
+  G, I, X, Y, TabW: Integer;
   Head: TGSurface;
   Status: string;
 begin
@@ -108,7 +120,10 @@ begin
   for G := 0 to High(PlayerGroups) do
   begin
     if Y + RowH > PlayerListH - BarH then Break;
-    UiDrawText(Dest, 6, Y, PlayerGroups[G], Grey, ufBold);
+    { the group's name centred, with its open toggle (▽) before it }
+    X := (PlayerListW - UiTextWidth(PlayerGroups[G], ufBold)) div 2;
+    DownArrow(Dest, X - 14, Y + 6, 9, Grey);
+    UiDrawText(Dest, X, Y, PlayerGroups[G], Grey, ufBold);
     Inc(Y, RowH);
     for I := 0 to High(Host.Players) do
     begin
@@ -129,6 +144,9 @@ begin
   if Host.Statuses.Count > 0 then Status := Host.Statuses[0];
   Box(Dest, 6, Y, PlayerListW - 12, 20, $FFFFFFFF);
   UiDrawText(Dest, 10, Y + 2, Status, Ink, ufRegular);
+  { the drop-down button at the right of the Status list }
+  Box(Dest, PlayerListW - 6 - 18, Y + 1, 17, 18, Face);
+  DownArrow(Dest, PlayerListW - 6 - 18 + 4, Y + 8, 9, Ink);
   Inc(Y, 24);
   Box(Dest, 6, Y, (PlayerListW - 18) div 2, 22, Face);
   UiDrawText(Dest, 6 + ((PlayerListW - 18) div 2 - UiTextWidth('Profile', ufRegular)) div 2, Y + 3, 'Profile', Ink, ufRegular);
