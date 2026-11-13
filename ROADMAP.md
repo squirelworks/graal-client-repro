@@ -93,7 +93,7 @@ needs a folder named by the folder naming rule.
 - [x] 5.12 Windows (`G3D14097`, Delphi launcher + engine): `graal-5.12-G3D14097`
 - [ ] 6.00 beta 1 Windows (`G3D03048`)
 - [ ] 6.00 beta 2 Windows (`G3D15010`)
-- [ ] 5.24r3 and 5.24r4 Windows (`G3D15010`)
+- [x] 5.24r3 and 5.24r4 Windows (`G3D15010`): `graal-5.24r4-G3D15010`
 - [ ] 6.00r2 and 6.00r4 Windows (`G3D26090`)
 - [ ] 6.03r7 Windows (`G3D0311C`; the folder here is the Linux build)
 - [ ] Android vx: seven APK builds, Classic 1.7 and 1.8 among them (#177)
