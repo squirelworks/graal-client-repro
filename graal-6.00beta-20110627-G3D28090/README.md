@@ -1,8 +1,8 @@
 # Graal 6.x beta of 2011-06-27 for Linux (`G3D28090`)
 
 The Linux 6.x beta of 27 June 2011, rebuilt. The originals are
-`Graal_linux32.zip` and `Graal_linux64.zip` from graalonline.com's
-`downloads/beta/` folder, archived in July 2011: each holds one program
+`Graal_linux32.zip` and `Graal_linux64.zip` from the official
+beta downloads of June 2011: each holds one program
 named `Graal` (x86: 6,238,344 bytes, SHA-256
 `72643e8c2ef6f104e909d01ea8007923161aabdfb579450a4b9e1ac9d95fe879`; x64:
 6,516,336 bytes, SHA-256
