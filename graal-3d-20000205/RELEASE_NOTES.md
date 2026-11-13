@@ -17,7 +17,8 @@ Graal3D files next to it for the real ones.
 
 ## What's new in v0.0.4.2
 
-- [x] **The sky.** The level's cloud ceiling is drawn to the horizon, as the real client draws it, instead of a black sky.
+- [x] **The sky.** The level's cloud ceiling is drawn instead of a black sky.
+- [x] **Back plane 5000.** Nothing beyond 5000 along the view is drawn, the value the real client sets on its viewport (it was 100000). The ceiling now stops where the real one's plane cuts it; a live check that no later call moves the plane is still open.
 - [x] **Logo and nickname banner.** The view carries the real client's black strip across the top with your nickname in large white letters, and the install's `logo.bmp` at its top left.
 
 ## What's new in v0.0.4
