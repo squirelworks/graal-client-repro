@@ -19,7 +19,7 @@ Graal.exe and compiled in, these zips hold no original Graal code, graphics,
 sounds or levels. Put it at the top of a 1.40 install you own and the
 install's tiles, heads, bodies and levels take their place.
 
-## What's new in v0.0.1
+## What's new in v0.0.5
 
 - [x] **Its own token, `GNW23090`**, on no public version list, with the
   gen-3 key byte as the real 1.40 rev 1 sends it.
