@@ -107,6 +107,27 @@ class X11Window : public Window {
     return image_ != nullptr;
   }
 
+  void resize(int w, int h) override {
+    if (w == width_ && h == height_) return;
+    XSizeHints* hints = XAllocSizeHints();
+    hints->flags = PMinSize | PMaxSize;
+    hints->min_width = hints->max_width = w;
+    hints->min_height = hints->max_height = h;
+    XSetWMNormalHints(display_, window_, hints);
+    XFree(hints);
+    XResizeWindow(display_, window_, unsigned(w), unsigned(h));
+    if (image_) {
+      image_->data = nullptr;
+      XDestroyImage(image_);
+    }
+    const int screen = DefaultScreen(display_);
+    width_ = w;
+    height_ = h;
+    pixels_.assign(std::size_t(w) * h, 0);
+    image_ = XCreateImage(display_, DefaultVisual(display_, screen), unsigned(DefaultDepth(display_, screen)), ZPixmap,
+                          0, reinterpret_cast<char*>(pixels_.data()), unsigned(w), unsigned(h), 32, 0);
+  }
+
   std::vector<WindowEvent> pump() override {
     std::vector<WindowEvent> out;
     while (XPending(display_)) {
@@ -154,7 +175,7 @@ class X11Window : public Window {
         const Gui::Color& c = img.at(x, y);
         pixels_[std::size_t(y) * width_ + x] = (std::uint32_t(c.r) << 16) | (std::uint32_t(c.g) << 8) | c.b;
       }
-    XPutImage(display_, window_, gc_, image_, 0, 0, 0, 0, unsigned(width_), unsigned(height_));
+    if (image_) XPutImage(display_, window_, gc_, image_, 0, 0, 0, 0, unsigned(width_), unsigned(height_));
     XFlush(display_);
   }
 

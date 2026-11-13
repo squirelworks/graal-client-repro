@@ -24,7 +24,7 @@ program works too (`graal-assets/3.04/`, then `graal-assets/common/`).
 
 ## What's new in v0.0.5
 
-- [x] **The Torque program's Options and message boxes.** In `graal304-torque` the Options tabs switch, the Display Driver and Resolution lists fill, and the drop-down lists (Resolution, Display Driver, Language) open and change the setting. Message boxes show their text without markup tags. The F2 console shows full lines, the newest at the bottom, with its input line.
+- [x] **The Torque program's Options and message boxes.** In `graal304-torque` the Options tabs switch, the Display Driver and Resolution lists fill, and the drop-down lists (Resolution, Display Driver, Language) open and change the setting; a resolution applied in Options resizes the window and is kept for the next start. Message boxes show their text without markup tags. The F2 console shows full lines, the newest at the bottom, with its input line.
 - [x] **The server list tries the next list server.** When a list server takes the connection but never answers, or closes it, the client now moves on to the `license/license.graal` hosts after 8 seconds instead of going back to the menu.
 
 ## What's new in v0.0.4.2

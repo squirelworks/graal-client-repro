@@ -124,6 +124,17 @@ class Win32Window : public Window {
     ReleaseDC(hwnd_, dc);
   }
 
+  void resize(int w, int h) override {
+    if (w == width_ && h == height_) return;
+    const DWORD style = DWORD(GetWindowLongPtrA(hwnd_, GWL_STYLE));
+    RECT r = {0, 0, w, h};
+    AdjustWindowRect(&r, style, FALSE);
+    width_ = w;
+    height_ = h;
+    pixels_.assign(std::size_t(w) * h, 0);
+    SetWindowPos(hwnd_, nullptr, 0, 0, r.right - r.left, r.bottom - r.top, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+  }
+
  private:
   void blit(HDC dc) {
     BITMAPINFO bi = {};

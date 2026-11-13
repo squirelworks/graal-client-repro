@@ -185,6 +185,17 @@ class CocoaWindow : public Window {
     }
   }
 
+  void resize(int w, int h) override {
+    if (w == width_ && h == height_) return;
+    width_ = w;
+    height_ = h;
+    pixels_.assign(std::size_t(w) * h, 0);
+    @autoreleasepool {
+      [window_ setContentSize:NSMakeSize(w, h)];
+      [view_ setFrame:NSMakeRect(0, 0, w, h)];
+    }
+  }
+
   void push_close() {
     WindowEvent we;
     we.kind = WindowEvent::Kind::close;
