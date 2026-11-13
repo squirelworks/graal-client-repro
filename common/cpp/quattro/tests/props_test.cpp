@@ -346,10 +346,12 @@ void test_effects() {
 
   // The carry sprite prop: -1 is 255 on the wire.
   Player p;
-  Net::Reader r(gchar(kCarrySprite) + gchar(5));
+  std::string five = gchar(kCarrySprite) + gchar(5);  // the Reader keeps a view
+  Net::Reader r(five);
   apply_props(r, p, false);
   CHECK(p.carry_sprite == 5);
-  Net::Reader r2(gchar(kCarrySprite) + gchar(static_cast<unsigned>(-1)));
+  std::string none = gchar(kCarrySprite) + gchar(static_cast<unsigned>(-1));
+  Net::Reader r2(none);
   apply_props(r2, p, false);
   CHECK(p.carry_sprite == -1);
 }
