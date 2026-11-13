@@ -4,8 +4,7 @@ The Mac OS X 4.20r6 client, rebuilt for Linux and Windows. The original is
 one PowerPC program (`Graal.app`, `CFBundleVersion` 0.6.1d1, binary built
 2006-12-21, the same day as the Linux 4.206; Mach-O SHA-256
 `bbda8689311bbc07aa589c1d6013a4c935646fd84362c964f5b8bb2e7cc4a3eb`),
-taken from Batch-1 `Graal-4.20r6-macppc-Graal4.dmg.bz2` (Wayback capture
-of graalonline.com, 2007-03-15). It logs in like the other 4.x clients:
+the official `Graal4.dmg.bz2` download of early 2007. It logs in like the other 4.x clients:
 no listserver, a game server named `Login` first, and id 178 hands it on
 to a game server.
 
