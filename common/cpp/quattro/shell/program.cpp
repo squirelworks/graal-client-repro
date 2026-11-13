@@ -162,15 +162,17 @@ void Program::ask_for_missing() {
 }
 
 bool Program::wanted(const std::string& name) const {
-  return opt_.download_files && safe_file_name(name) && asked_.count(lower_name(name)) != 0;
+  return opt_.download_files && safe_file_name(name) && asked_.count(lower_name(name)) != 0 &&
+         refused_.count(lower_name(name)) == 0;
 }
 
 void Program::save_download(const std::string& name, const std::string& data) {
   // Only a file this program asked for is kept; anything else the server
   // sends is dropped.
   if (!wanted(name) || opt_.assets.empty()) return;
-  if (data.size() > kMaxDownload) {
+  if (data.size() > opt_.max_download) {
     if (log) log(name + " is too large to keep");
+    refused_.insert(lower_name(name));
     return;
   }
   std::string dir = opt_.assets + "/levels/images/downloads";
@@ -366,8 +368,11 @@ void Program::on_message(int id, std::string_view body) {
       if (!r.ok() || rest.size() < n) break;
       std::string name = rest.substr(0, n), data = rest.substr(n);
       if (auto it = large_.find(name); it != large_.end()) {
-        if (it->second.size() + data.size() > kMaxDownload) {
+        if (it->second.size() + data.size() > opt_.max_download) {
+          // Later chunks of this file are dropped too: the name is refused,
+          // so they are not saved as if each were a whole file.
           if (log) log(name + " is too large to keep");
+          refused_.insert(lower_name(name));
           large_.erase(it);
         } else {
           it->second += data;

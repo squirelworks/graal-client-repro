@@ -157,6 +157,7 @@ void test_downloads() {
   opt.assets = install.string();
   opt.asset_roots = {extra.string()};
   opt.download_files = true;
+  opt.max_download = 1u << 20;
   Draw::HeadlessWindow win;
   Shell::Program p(*prof, opt, win);
   CHECK(p.start());
@@ -202,6 +203,21 @@ void test_downloads() {
   CHECK(!fs::exists(install / "levels/images/downloads/evil.png"));
   CHECK(p.asked().count("con.png") == 0 && p.asked().count("a:b.png") == 0);
   CHECK(!game.saw(23, "con.png") && !game.saw(23, "a:b.png"));
+
+  // A large file over the cap is dropped, and so is every later chunk of it:
+  // none is saved as if it were the whole file.
+  game.send(gchar(8) + Net::gshort(11) + gchar(World::kBodyImg) + Net::gstring("huge.png") + "\n");
+  CHECK(run(p, nullptr, &game, [&] { return game.saw(23, "huge.png"); }));
+  std::string big = gchar(102) + Net::gint5(0) + gchar(8) + "huge.png" + std::string((1u << 20) + 1, 'x') + "\n";
+  std::string tail = gchar(102) + Net::gint5(0) + gchar(8) + "huge.png" + "tail" + "\n";
+  game.send(gchar(68) + "huge.png\n" + gchar(100) + Net::gint3(static_cast<uint32_t>(big.size())) + "\n" + big +
+            gchar(100) + Net::gint3(static_cast<uint32_t>(tail.size())) + "\n" + tail + gchar(69) + "huge.png\n" +
+            gchar(100) + Net::gint3(static_cast<uint32_t>(tail.size())) + "\n" + tail);
+  for (int i = 0; i < 30; ++i) {
+    p.tick();
+    game.pump();
+  }
+  CHECK(!fs::exists(install / "levels/images/downloads/huge.png"));
 
   // A file the server does not have is not asked for again.
   game.send(gchar(30) + "body7.png\n");

@@ -130,7 +130,8 @@ The Windows 6.x window and frame were not measured.
   with C->S 23, and what comes back (102, or 68 / 102 / 69 for a large file;
   30 when the server has none) is kept in `<assets>/levels/images/downloads/`
   and drawn from at once. Asking for `pics1.png` so is a rebuild choice.
-  Only a file the program asked for is kept, up to 8 MiB; a name with a
+  Only a file the program asked for is kept, up to 8 MiB (a larger one is
+  dropped with all its chunks and not asked for again); a name with a
   folder, drive or stream part (`/`, `\`, `:`, `..`), a control character or a
   Windows device name (`con.png`, `com1.png` ...) is never asked for or saved.
 - Walls come from `arrays.dat` in `--assets` or an asset root (array 0 passable, array 1 liquids). With no `arrays.dat` every tile is passable; where 6.x reads its own table was not seen in the lab. The 0.0625 snap after a step is left out.
