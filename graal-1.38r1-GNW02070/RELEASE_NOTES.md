@@ -13,7 +13,7 @@ rebuild sends the same login bytes.
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").
 
-## What's new in v0.0.1
+## What's new in v0.0.5
 
 - [x] **Its own token, `GNW02070`** (gs2lib's 1.381), from the real exe.
 - [x] **Its own forms and icon**, compiled in from the 1.38 rev 1 exe.

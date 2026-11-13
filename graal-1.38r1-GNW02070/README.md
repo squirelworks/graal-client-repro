@@ -2,8 +2,8 @@
 
 The Graal 1.38 rev 1 client, rebuilt. Original: `Graal.exe`, 1,428,480
 bytes, file date 2000-07-03, FileVersion 1.3.8.0, ProductVersion 1.38,
-SHA-256 `36abc58a…`, recovered from a Wayback capture of the official
-`graal138.zip` (2000-08-16, cut at 1 MB; the exe is complete). gs2lib lists
+SHA-256 `36abc58a…`, from a copy of the official `graal138.zip` of
+August 2000 (cut at 1 MB; the exe is complete). gs2lib lists
 its token as 1.381 (`CLVER_1_381`). gcr's `graal-1.38-GNW22060` is the
 earlier 1.38 (2000-06-23).
 
@@ -34,8 +34,8 @@ the connect dialog with one address, `PLI_ITEMTAKE`, board before name.
 ## Checked against the real client (lab, 2026-11-13)
 
 In the Windows 10 lab VM, with no network, the real 1.38 rev 1 (on the
-reconstructed install: this capture's exe and arrays.dat, the rest from
-the NekoRoy 1.38 archive) was started in "One Player Online" against a
+reconstructed install: this copy's exe and arrays.dat, the rest from
+a 1.38 install) was started in "One Player Online" against a
 capture server. Its first frame inflates to id 0, `GNW02070`, the account
 and the password. The rebuild, built with Free Pascal and with Delphi 7,
 sent the same bytes. The start dialogs match.
