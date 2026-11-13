@@ -46,7 +46,8 @@ default server and the `guest` account, against a capture server on 14804.
 Its first frame inflates to id 0, `GSERV009`, `guest`, `guest`. The rebuild,
 built with Free Pascal and with Delphi 7, sent the same bytes. The rebuild's
 start dialog matches the real one (same form, pictures, mode list and the
-default character), except as listed under "Not yet".
+default character). In One Player mode both keep the Nick Name row, as
+1.28 beta 2 does; the 1.21 rebuild hides the panel there.
 
 ## Start dialog (0.0.3)
 
@@ -88,8 +89,6 @@ build/graal-1.25-GSERV009/Graal125 --level levels/start1.graal --window
 
 - [ ] The id sets 1.25 sends and handles: the rebuild still accepts every
   2.05 server id and its GS1 engine knows the 2.05 commands.
-- [ ] In One Player mode the real 1.25 dialog shows the Nick Name row; the
-  rebuild (as its 1.21 base) shows no panel there.
 - [ ] The prop encodings checked one by one against 1.25 (graal_analysis
   has the 1.21 and 1.28 beta 2 ranges only).
 - [ ] Server messages 35 to 38 (new by 1.25, still unnamed).

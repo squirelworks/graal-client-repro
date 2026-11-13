@@ -22,6 +22,8 @@ graphics, sounds or levels. The client carries simple graphics of its own.
 - [x] **Its own token.** Logs in with `GSERV009`, as 1.25 did.
 - [x] **Its own start dialog and forms.** 1.25's TConnectFrame, game window,
   F1 window and icon, compiled in from its exe, and its character list.
+- [x] **One Player keeps the Nick Name row**, as the real 1.25 does (seen in
+  the lab), where the 1.21 rebuild hides the panel.
 - [x] **Builds with Delphi 7** as well as Free Pascal.
 - Everything else is as in the 1.21 rebuild, v0.0.4.2: the real start dialog
   and frame, the modes, the character list, online defaults, the game window,
@@ -30,6 +32,5 @@ graphics, sounds or levels. The client carries simple graphics of its own.
 ## Not yet
 
 - [ ] The server ids and GS1 commands limited to 1.25's sets.
-- [ ] The Nick Name row in One Player mode.
 - [ ] The prop encodings checked against 1.25; server messages 35 to 38.
 - [ ] Local 2 to 4 player modes and this version's options.

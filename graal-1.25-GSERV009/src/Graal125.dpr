@@ -637,7 +637,9 @@ begin
     LaunchChars := ParseCharacters(InstallText(InstallPath(Dir, 'headsconfig.txt'), ResCharacters));
     Icons := THeadIcons.Create(Dir);
     Langs := InstallLanguages(Dir);
-    LaunchCfg.Style := ls11;
+    { the 1.28 beta 2 dialog: One Player keeps the nick name row and the
+      credits picture (the real 1.25 in the lab, 2026-11-13) }
+    LaunchCfg.Style := ls128;
     LaunchCfg.ServerEnabled := True;
     LaunchCfg.DefServer := ListHost;
     LaunchCfg.DefPort := ListPort;
@@ -758,7 +760,7 @@ begin
   Info.ItemFill := $C6C6C6;
   { the entries' head and name sit one pixel further left than before }
   Info.ItemShift := -1;
-  Info.NickRowAlone := False;
+  Info.NickRowAlone := True;
   if ReadHeadsConfig(InstallPath(Dir, 'headsconfig.txt'), HNames, HFiles) then
   begin
     { copied one by one: Delphi keeps Names' own array type apart from
