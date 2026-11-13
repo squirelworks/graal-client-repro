@@ -22,6 +22,7 @@ to the program works too.
 
 ## What's new in v0.0.5
 
+- [x] **Seihai secure login (optional, off by default).** With `--secure-login auto` (or `required`, or `secure_login.txt` in the settings folder), the account and password go sealed to a Seihai game server or list server (`SEI00001`), after the server's key is checked and pinned. Servers that do not know it get the original login under `auto`. Off, the login is byte for byte the original's. This is not in the original 6.0.1.5.
 - [x] **New client.** 6.0.1.5 has a folder of its own, started from `graal-6.01r1-G3D0108A` with its own token `G3D3007A` and the Windows login tail (`win` and four machine fields) and `win` as its system name.
 
 ## Downloads
