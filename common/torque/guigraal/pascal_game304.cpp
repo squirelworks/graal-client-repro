@@ -21,6 +21,7 @@ struct Api {
   G304_FN(g304_set_nickname) G304_FN(g304_list_open) G304_FN(g304_list_poll)
   G304_FN(g304_list_status) G304_FN(g304_list_count) G304_FN(g304_list_field)
   G304_FN(g304_connect) G304_FN(g304_offline) G304_FN(g304_offline_path) G304_FN(g304_key)
+  G304_FN(g304_action)
   G304_FN(g304_say) G304_FN(g304_toall) G304_FN(g304_tick) G304_FN(g304_state)
   G304_FN(g304_frame) G304_FN(g304_player)
 #undef G304_FN
@@ -76,6 +77,10 @@ class PascalGame304 : public Game304 {
   }
   std::string offline_path() override { FenvGuard g; return text(api_.g304_offline_path(h_)); }
   void key(int dir, bool down) override { FenvGuard g; api_.g304_key(h_, dir, down ? 1 : 0); }
+  void action(int which, bool down) override {
+    FenvGuard g;
+    api_.g304_action(h_, which, down ? 1 : 0);
+  }
   void say(const std::string& t) override { FenvGuard g; api_.g304_say(h_, t.c_str()); }
   void to_all(const std::string& t) override { FenvGuard g; api_.g304_toall(h_, t.c_str()); }
   bool tick(bool draw) override { FenvGuard g; return api_.g304_tick(h_, draw ? 1 : 0) != 0; }
@@ -135,6 +140,7 @@ std::unique_ptr<Game304> load_pascal_game304(const std::string& lib_path, const 
   G304_LOAD(g304_set_nickname) G304_LOAD(g304_list_open) G304_LOAD(g304_list_poll)
   G304_LOAD(g304_list_status) G304_LOAD(g304_list_count) G304_LOAD(g304_list_field)
   G304_LOAD(g304_connect) G304_LOAD(g304_offline) G304_LOAD(g304_offline_path) G304_LOAD(g304_key)
+  G304_LOAD(g304_action)
   G304_LOAD(g304_say) G304_LOAD(g304_toall) G304_LOAD(g304_tick) G304_LOAD(g304_state)
   G304_LOAD(g304_frame) G304_LOAD(g304_player)
 #undef G304_LOAD

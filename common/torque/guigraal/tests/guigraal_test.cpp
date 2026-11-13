@@ -67,6 +67,9 @@ struct FakeGame : Game304 {
   }
   std::string offline_path() override { return "/install/levels/tutorial/offlinetutorial.gmap"; }
   void key(int dir, bool down) override { calls.push_back("key " + std::to_string(dir) + " " + (down ? "1" : "0")); }
+  void action(int which, bool down) override {
+    calls.push_back("action " + std::to_string(which) + " " + (down ? "1" : "0"));
+  }
   void say(const std::string& t) override { calls.push_back("say " + t); }
   void to_all(const std::string& t) override { calls.push_back("toall " + t); }
   bool tick(bool) override {
@@ -196,10 +199,15 @@ void test_moves_and_chat() {
   check_eq(r.game->last(), "say ", "showap sends an empty chat");
   r.eval("Adventure.setChat(\"hello there\");");
   check_eq(r.game->last(), "say hello there", "other lines are the player's chat");
+  r.game->calls.clear();
+  r.eval("Adventure.doA(1); Adventure.doS(1); Adventure.doS(0); Adventure.doD(1); Adventure.doQ(1);");
+  check(r.game->has("action 0 1") && r.game->has("action 1 1") && r.game->has("action 1 0") &&
+            r.game->has("action 2 1") && r.game->has("action 3 1"),
+        "doA, doS, doD and doQ reach the player as game keys 0 to 3");
   r.engine.trace.clear();
-  r.eval("Adventure.doA(1);");
-  check(!r.engine.trace.empty() && r.engine.trace.back().find("doA(1)") != std::string::npos,
-        "doA is traced as not yet in the game");
+  r.eval("Adventure.doM(1);");
+  check(!r.engine.trace.empty() && r.engine.trace.back().find("doM(1)") != std::string::npos,
+        "doM is traced as not yet in the game");
 }
 
 void test_server_list_and_connect() {

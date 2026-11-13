@@ -49,6 +49,11 @@ type
     Hosts: TListHosts;
     LogProc: TLogProc;
     LogCtx: Pointer;
+    { the game keys A, S, D, Q as last seen: a press counts on the change
+      from up to down only, so a held key or the keyboard's repeat does
+      not swing again (player-mannerisms-live.md: every swing needs a new
+      press) }
+    GameKeyDown: array[0..3] of Boolean;
     constructor Create(const ADir: string);
     destructor Destroy; override;
     procedure Line(const S: string);
@@ -320,6 +325,25 @@ begin
   if (S(H).G <> nil) and (Dir >= 0) and (Dir <= 3) then S(H).G.Keys[Dir] := Down <> 0;
 end;
 
+{ The game keys, from GuiGraalCtrl's doA, doS, doD and doQ: 0 A (action:
+  lift, throw, open), 1 S (sword, spin, throw), 2 D (the selected weapon),
+  3 Q (the item list). }
+procedure g304_action(H: Pointer; Which, Down: Integer); cdecl;
+var
+  Press: Boolean;
+begin
+  if (Which < 0) or (Which > 3) then Exit;
+  Press := (Down <> 0) and not S(H).GameKeyDown[Which];
+  S(H).GameKeyDown[Which] := Down <> 0;
+  if not Press or (S(H).G = nil) then Exit;
+  case Which of
+    0: S(H).G.ActionKey := True;
+    1: S(H).G.AttackKey := True;
+    2: S(H).G.ItemKey := True;
+    3: S(H).G.ItemListKey := True;
+  end;
+end;
+
 procedure g304_say(H: Pointer; Text: PAnsiChar); cdecl;
 begin
   try
@@ -414,6 +438,7 @@ exports
   g304_create, g304_free, g304_set_log, g304_error, g304_set_nickname,
   g304_list_open, g304_list_poll, g304_list_status, g304_list_count,
   g304_list_field, g304_connect, g304_offline, g304_offline_path, g304_key,
+  g304_action,
   g304_say, g304_toall, g304_tick, g304_state, g304_frame, g304_player;
 
 begin

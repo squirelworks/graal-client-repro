@@ -3,3 +3,5 @@
 100   moveRight(1);
 1100  moveRight(0);
 1200  Adventure.setChat("smoke test");
+1300  Adventure.doS(1);
+1350  Adventure.doS(0);

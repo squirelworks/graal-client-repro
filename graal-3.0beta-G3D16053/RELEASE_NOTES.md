@@ -20,6 +20,7 @@ bodies take their place.
 
 ## What's new in v0.0.5
 
+- [x] **The player's actions.** S swings the sword and cuts the bush at its tip, and a second S during the swing spins when the account has the spin attack (STATUS 0x40): 13 ticks of `spin`, then idle. A lifts a bush, sign, pot or stone (as the glove allows), carries it, and A or S throws it; A also opens a chest. D uses the selected weapon: the bomb (`BOMBADD`, 60-tick fuse, a blast that hurts and breaks bushes and pots) or the bow and the fireball shots (`ARROWADD`). Q opens the item list, where the arrow keys pick the weapon. Floor items from the server are drawn, taken by walking over them (`ITEMTAKE`) and time out (`ITEMDEL`); others' bombs, shots, explosions and sword hits hurt with knockback, and death respawns at the level's entry. In `graal304-torque` the install's own key binds reach these through `doA`, `doS`, `doD` and `doQ`. Carried over from the 2.22 rebuild, which 3.x plays as.
 - [x] **New client.** A folder for the Linux 3.0beta binary, whose token (`G3D16053`) the token survey read from the shipped `graalexe`. It is the 3.04 rebuild with 3.0beta's token and the gen-4 game link of a client type 4, and it runs on the rebuilt Torque engine with its own game library (`Game30bLib`).
 
 ## Downloads
