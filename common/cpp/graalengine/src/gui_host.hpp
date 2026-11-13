@@ -60,6 +60,12 @@ class SlotPainter : public gs2::gui::Painter {
   // The engine-drawn controls (GuiGraalCtrl, GuiShowImgCtrl): the session's
   // playfield draws here.
   std::function<void(const gs2::gui::Control&, const gs2::gui::Rect&)> onEngineControl;
+  // The show-images' particles.
+  void sprite(const std::string& file, double x, double y, double rotation, double sx, double sy, const double* rgba,
+              int mode) override {
+    if (onSprite) onSprite(file, x, y, rotation, sx, sy, rgba, mode);
+  }
+  std::function<void(const std::string&, double, double, double, double, double, const double*, int)> onSprite;
 
  private:
   TextureCache& cache_;

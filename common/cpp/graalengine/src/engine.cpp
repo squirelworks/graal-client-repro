@@ -3,6 +3,7 @@
 #include "gui_host.hpp"
 #include "host.hpp"
 #include "session.hpp"
+#include "showimg.hpp"
 #include "../../quattro/net/profile.hpp"
 
 #include <algorithm>
@@ -94,6 +95,9 @@ std::function<void()> frameTimer(Engine& e, std::function<void()> session) {
     if (auto* m = e.machine()) m->runScripts();
     if (session) session();
     else if (auto* s = e.session()) s->tick();
+    // The show-images: ganis step on, emitters run one frame.
+    if (auto* si = e.showImg()) si->tick();
+    if (auto* sc = e.screen()) sc->advance(0.05);
   };
 }
 }  // namespace
@@ -222,10 +226,17 @@ void Engine::installScreen() {
     else if (down) log("GraalEngine: engine action " + cmd);
   };
   // GraalGui's playfield (GuiGraalCtrl) shows the session's world.
+  showImg_ = std::make_unique<ShowImgPainter>(installDir());
+  painter_->onSprite = [this](const std::string& file, double x, double y, double rot, double sx, double sy,
+                              const double* rgba, int mode) { showImg_->sprite(file, x, y, rot, sx, sy, rgba, mode); };
   painter_->onEngineControl = [this](const gs2::gui::Control& c, const gs2::gui::Rect& r) {
-    if (!session_ || !session_->haveFrame()) return;
     std::string t = c.type();
     for (auto& ch : t) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    if (t == "guishowimgctrl") {
+      showImg_->drawControl(c, r);
+      return;
+    }
+    if (!session_ || !session_->haveFrame()) return;
     if (t != "guigraalctrl") return;
     const graal_texture& f = session_->frame();
     if (f.width == r.w && f.height == r.h)
@@ -250,6 +261,7 @@ void Engine::installScreen() {
 void Engine::shutdown() {
   session_.reset();
   canvas_.reset();
+  showImg_.reset();
   screenControl_.reset();
   screen_.reset();
   painter_.reset();

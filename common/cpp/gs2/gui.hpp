@@ -84,6 +84,9 @@ class Control : public Var {
 
   // GuiShowImgCtrl: its particle emitter, the script's `emitter`.
   std::shared_ptr<Emitter> emitter;
+  // GuiShowImgCtrl: the character its `ani` is drawn with, the script's
+  // `actor` (head, body, attr[1..30]).
+  VarPtr actor;
 
  private:
   friend class Screen;

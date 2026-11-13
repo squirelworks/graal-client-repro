@@ -108,9 +108,12 @@ screen's playfield, walking with the arrows and the chat bar.
 - [x] ~~Menu text in the launcher's one font~~: it is Arial at the
   script's size (Windows' own Arial; Liberation Sans on Linux)
 - [x] ~~Login, level, walk and chat in the engine library~~
+- [x] ~~The menus' animated pictures~~: the walking character, the
+  lamps, the monster and the smoke (`GuiShowImgCtrl`), from the install's
+  ganis and pictures. The smoke is blended by alpha whatever its mode
 - [ ] The engine's menus as the default in place of the Pascal start
-  screen: the animated pictures (`GuiShowImgCtrl`), offline mode's level
-  and the weapon and item keys are not there yet.
+  screen: offline mode's level and the weapon and item keys are not
+  there yet.
 
 - [ ] The server list and account screens as the real client shows them
   (scripted GUI from the Login server).

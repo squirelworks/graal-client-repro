@@ -23,6 +23,7 @@ program works too (`graal-assets/4.04r2/`, then `graal-assets/common/`).
 
 ## What's new in v0.0.5
 
+- [x] **The main menu moves.** With `--engine`, the menu's animated pictures play as in the original: the character walking in the bottom corner, the lamp post, the monster by the title and the chimney smoke, drawn from the install's own ganis and pictures.
 - [x] **Playing from the engine's menus.** With `--engine`, Start now logs in from the engine library: the Login server, the hand-on to the game server, the level in the game screen's playfield, walking with the arrow keys through the menus' own key bindings, and chat from the chat bar.
 - [x] **Menu text in Arial.** The engine's menus are drawn in the font and size their scripts name: Windows' own Arial, or Liberation Sans (same widths) on Linux, in place of the launcher's one 16-pixel font. A face with no font file keeps that font.
 - [x] **The start menus are drawn.** With `--engine`, the main menu from the install's own engine file now shows in the window, drawn through the launcher with the install's own GUI pictures, and it takes clicks and typing: the nickname box, the account fields, and Offline Test. The animated pictures are not drawn yet.

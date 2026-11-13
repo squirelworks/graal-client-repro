@@ -180,6 +180,12 @@ ControlPtr Screen::make(const std::string& type, const std::string& name) {
   if (lower(type) == "guishowimgctrl") {
     c->emitter = std::make_shared<Emitter>(m_);
     c->childOrCreate("emitter")->setObject(c->emitter);
+    // The character a show-image plays its `ani` with: `actor.head`,
+    // `actor.body`, `actor.attr[n]` (the 4.04r2 main menu's StartAni1).
+    c->actor = std::make_shared<Var>("actor");
+    c->actor->setAcceptsAllProperties(true);
+    c->actor->childOrCreate("attr")->setArray(31);
+    c->childOrCreate("actor")->setObject(c->actor);
   }
   all_.push_back(c);
   if (!name.empty()) byName_[lower(name)] = c;
