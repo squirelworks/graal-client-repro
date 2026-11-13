@@ -104,7 +104,13 @@ window shows more of the level and nothing scales: tiles stay 16 pixels,
 the HUD's left part keeps its x from the left edge and the hearts theirs
 from the right. The HUD draws from the player's own `state.png` (and
 `sprites.png` and `swordN.png`); with no `state.png` there is no HUD.
-The Windows 6.x window and frame were not measured.
+The 6.03r7 window title is the server name alone ("Lab Server"), and the
+view centres on the player's middle (x + 1.5, y + 1.5), as the 2026-11-13
+frames lab showed against the real Linux client; the HUD, tiles and
+camera match it pixel for pixel there, at 640 x 480 to 1280 x 1024. The
+view is clamped to the level while it fits; a view wider than the level
+(1280) keeps the player centred with black either side. The Windows 6.x window and frame
+were not measured.
 
 ## Rebuild choices (not the original's)
 

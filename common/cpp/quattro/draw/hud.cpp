@@ -18,10 +18,10 @@ constexpr Rect kMpFrame{0, 49, 130, 22}, kMpFill{0, 71, 100, 10};
 constexpr Rect kApFrame{0, 97, 130, 22}, kApFill{0, 119, 100, 10};
 constexpr int kDigitsY = 81, kDigitH = 16, kDigitCell = 14, kDigitAdvance = 12;
 // The counter icons, drawn at their sheet position plus (194, -3).
-constexpr Rect kGralat{80, 32, 16, 16}, kBomb{136, 32, 16, 16}, kArrow{184, 32, 16, 16};
-constexpr int kIconDx = 194, kIconDy = -3, kNumberY = 48;
+constexpr Rect kGralat{80, 33, 16, 16}, kBomb{136, 34, 16, 15}, kArrow{185, 33, 15, 16};
+constexpr int kIconDx = 194, kIconDy = -3, kNumberY = 48;  // 274,30  330,31  379,30
 // A number's first digit is at centre - 6 * digits.
-constexpr int kGralatC = 280, kBombC = 332, kArrowC = 380;
+constexpr int kGralatC = 280, kBombC = 338, kArrowC = 386;
 // The S slot: swordN.png from (94, 36), 28 x 28, at (105, 31). The A slot:
 // the glove's 28 x 32 cell in sprites.png at (40, 29), from power 2.
 constexpr Rect kSwordSrc{94, 36, 28, 28};
