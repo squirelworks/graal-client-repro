@@ -13,8 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macOS is built and tested on the lab Sequoia VM, not on GitHub runners
-        # (AGENTS.md, "macOS builds").
+        # macOS runs in macos.yml (AGENTS.md, "macOS builds").
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
