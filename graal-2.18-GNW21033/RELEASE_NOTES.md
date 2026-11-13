@@ -8,7 +8,7 @@ for testing servers with the 2.18 login.
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").
 
-## What's new in v0.0.1
+## What's new in v0.0.5
 
 - [x] **The 2.18 token, `GNW21033`**.
 - Everything else is as in the 2.17.1 rebuild.
