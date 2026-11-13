@@ -28,7 +28,7 @@ implementation
 
 uses
   GPaths,
-  SysUtils, GPeRes, GAssetDirs;
+  SysUtils, GPeRes, GAssetDirs, GCompat;
 
 var
   List: TStringList;

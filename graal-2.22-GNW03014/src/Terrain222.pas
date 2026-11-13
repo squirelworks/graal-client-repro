@@ -665,6 +665,15 @@ begin
 end;
 
 { (A * N) div 16, rounded down as an arithmetic shift }
+{$IFNDEF FPC}
+{ Free Pascal's SarInt64: an arithmetic shift right (sign kept) }
+function SarInt64(A: Int64; N: Integer): Int64;
+begin
+  if A >= 0 then Result := A shr N
+  else Result := not ((not A) shr N);
+end;
+{$ENDIF}
+
 function Step16(A: Int64; N: Integer): Int64; {$IFDEF FPC}inline;{$ENDIF}
 begin
   Result := SarInt64(A * N, 4);
