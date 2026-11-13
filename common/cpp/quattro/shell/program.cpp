@@ -20,6 +20,31 @@ bool read_file(const std::string& path, std::string& out) {
   return true;
 }
 
+std::string lower_name(std::string s) {
+  for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  return s;
+}
+
+// A file name the program may ask for and save in the downloads folder:
+// a plain name of at most 128 characters, with no folder, drive or stream
+// part (no '/', '\\', ':', ".."), no control characters, and not a Windows
+// device name (con, nul, com1 ... with any extension).
+bool safe_file_name(const std::string& name) {
+  if (name.empty() || name.size() > 128 || name.find("..") != std::string::npos) return false;
+  for (unsigned char c : name)
+    if (c < 32 || c == '/' || c == '\\' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' ||
+        c == '>' || c == '|')
+      return false;
+  std::string base = lower_name(name.substr(0, name.find('.')));
+  while (!base.empty() && base.back() == ' ') base.pop_back();
+  for (const char* dev : {"con", "prn", "aux", "nul"})
+    if (base == dev) return false;
+  if (base.size() == 4 && (base.compare(0, 3, "com") == 0 || base.compare(0, 3, "lpt") == 0) && base[3] >= '0' &&
+      base[3] <= '9')
+    return false;
+  return true;
+}
+
 // The build's label without the platform ("6.03r7").
 std::string short_label(const std::string& label) { return label.substr(0, label.find(' ')); }
 
@@ -115,10 +140,8 @@ bool Program::load_tile_sheet() {
 }
 
 void Program::want_file(const std::string& name) {
-  if (name.empty() || name.find_first_of("/\\") != std::string::npos || name.find("..") != std::string::npos) return;
-  std::string key = name;
-  for (char& c : key) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-  if (!asked_.insert(key).second) return;
+  if (!safe_file_name(name)) return;
+  if (!asked_.insert(lower_name(name)).second) return;
   session_.connection().send(23, name);  // PLI_WANTFILE
   if (log) log("asking for " + name);
 }
@@ -138,9 +161,18 @@ void Program::ask_for_missing() {
   for (const auto& [pid, o] : others_) images(o);
 }
 
+bool Program::wanted(const std::string& name) const {
+  return opt_.download_files && safe_file_name(name) && asked_.count(lower_name(name)) != 0;
+}
+
 void Program::save_download(const std::string& name, const std::string& data) {
-  if (name.empty() || name.find_first_of("/\\") != std::string::npos || name.find("..") != std::string::npos) return;
-  if (opt_.assets.empty()) return;
+  // Only a file this program asked for is kept; anything else the server
+  // sends is dropped.
+  if (!wanted(name) || opt_.assets.empty()) return;
+  if (data.size() > kMaxDownload) {
+    if (log) log(name + " is too large to keep");
+    return;
+  }
   std::string dir = opt_.assets + "/levels/images/downloads";
   std::error_code ec;
   std::filesystem::create_directories(dir, ec);
@@ -152,9 +184,7 @@ void Program::save_download(const std::string& name, const std::string& data) {
   out.write(data.data(), static_cast<std::streamsize>(data.size()));
   out.close();
   assets_->forget(name);
-  std::string key = name;
-  for (char& c : key) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-  if (key == "pics1.png") load_tile_sheet();
+  if (lower_name(name) == "pics1.png") load_tile_sheet();
   if (log) log("got " + name + " (" + std::to_string(data.size()) + " bytes)");
 }
 
@@ -335,12 +365,20 @@ void Program::on_message(int id, std::string_view body) {
       std::string rest = r.rest();
       if (!r.ok() || rest.size() < n) break;
       std::string name = rest.substr(0, n), data = rest.substr(n);
-      if (auto it = large_.find(name); it != large_.end()) it->second += data;
-      else save_download(name, data);
+      if (auto it = large_.find(name); it != large_.end()) {
+        if (it->second.size() + data.size() > kMaxDownload) {
+          if (log) log(name + " is too large to keep");
+          large_.erase(it);
+        } else {
+          it->second += data;
+        }
+      } else {
+        save_download(name, data);
+      }
       break;
     }
     case 68:  // PLO_LARGEFILESTART: name; 102 chunks follow until 69
-      large_[std::string(body)].clear();
+      if (wanted(std::string(body))) large_[std::string(body)].clear();
       break;
     case 69:  // PLO_LARGEFILEEND: name
       if (auto it = large_.find(std::string(body)); it != large_.end()) {

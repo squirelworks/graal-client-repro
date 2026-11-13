@@ -91,6 +91,9 @@ class Program {
   void want_file(const std::string& name);
   void ask_for_missing();
   void save_download(const std::string& name, const std::string& data);
+  bool wanted(const std::string& name) const;  // asked for, and a safe name
+  // The most a download may hold (a tile sheet is about 200 KB).
+  static constexpr size_t kMaxDownload = 8u << 20;
 
   const Net::BuildProfile& profile_;
   Options opt_;
