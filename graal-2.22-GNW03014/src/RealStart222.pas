@@ -26,7 +26,7 @@ unit RealStart222;
 interface
 
 uses
-  Classes, GSplit, GSurface, GWindow, GStartScreen;
+  Classes, GSplit, GSurface, GWindow, GStartScreen, GCompat;
 
 type
   TRealStartArt = class

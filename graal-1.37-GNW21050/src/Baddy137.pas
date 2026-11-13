@@ -39,7 +39,7 @@ unit Baddy137;
 interface
 
 uses
-  Classes, SysUtils, Math, GClamp, GTypes, GLevel, GSurface, GArrays;
+  {$IFNDEF FPC}Windows, {$ENDIF}Classes, SysUtils, Math, GClamp, GTypes, GLevel, GSurface, GArrays, GCompat;
 
 const
   BdWalk = 0;

@@ -32,7 +32,7 @@ unit Dialogs230;
 interface
 
 uses
-  Classes, GSplit, GSurface, GWindow;
+  Classes, GSplit, GSurface, GWindow, GCompat;
 
 type
   { graalconfig.txt: name=value lines, kept in their order }

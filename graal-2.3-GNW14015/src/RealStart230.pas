@@ -37,7 +37,7 @@ unit RealStart230;
 interface
 
 uses
-  Classes, GSplit, GSurface, GWindow, GStartScreen, Dialogs230;
+  Classes, GSplit, GSurface, GWindow, GStartScreen, Dialogs230, GCompat;
 
 type
   TRealStartArt = class
