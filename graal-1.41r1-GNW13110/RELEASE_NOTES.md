@@ -19,6 +19,10 @@ keep a `graal-assets/` folder next to it, or point it at one with
 `--data DIR`) and the install's tiles, heads, bodies and levels take their
 place.
 
+## What's new in v0.0.5
+
+- [x] **Checked against the unpatched original.** The copy this rebuild was first made from had been patched for graal.in. Of the two other 1.41r1 copies held, the one in `Graal v1.41r1.rar` is the unpatched original (listserver `www.graalonline.com`, port 14910). The token, the cipher, the forms and the icon are the same bytes in all copies, so they stay. The server list window is titled "Graalonline.com Server List" again, as in the original. The default listserver stays `listserver.graal.in` on 14923, because the original's is gone.
+
 ## What's new in v0.0.4.2
 
 - [x] **F1 Help window.** F1 opens "Help" from the build's own form (TOptions): the save games and level editing groups with the current level, Debugger, Playerlist, Serverlist, General options, Controls and Close. It is a real dialog on Windows and drawn elsewhere. Edit level opens the editor; the other buttons close it and do nothing yet.

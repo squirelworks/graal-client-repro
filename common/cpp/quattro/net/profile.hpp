@@ -31,6 +31,7 @@ struct BuildProfile {
   // After each login: basepackage.gupd (23, or 47 with a cached copy's
   // CRC-32), and bigmap.txt on the Login session once per run.
   bool update_packages = false;
+  bool draws_chests = true;       // a chest is drawn (6.03r7: never, only its tiles)
   unsigned login_port = 14900;    // compiled-in login server port
   // A last login field after the machine fields, sent quoted ("" for none):
   // 5.12's Windows version (protocol/v5v6-windows-unpacked.md).
