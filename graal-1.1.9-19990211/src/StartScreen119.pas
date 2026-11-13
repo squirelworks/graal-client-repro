@@ -17,7 +17,7 @@ unit StartScreen119;
 interface
 
 uses
-  GSurface, GWindow, GStartScreen, Adventure;
+  GSurface, GWindow, GStartScreen, Adventure, GCompat;
 
 type
   { Draws G's player, idle and facing down, for the start screen. }

@@ -12,7 +12,7 @@ unit StartScreenNwb2;
 interface
 
 uses
-  GSurface, GStartScreen, ClientNwb2, Adventure;
+  GSurface, GStartScreen, ClientNwb2, Adventure, GCompat;
 
 type
   TListFetchNwb2 = class(TListFetch)

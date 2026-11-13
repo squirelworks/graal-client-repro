@@ -8,6 +8,7 @@
 unit GResFiles;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
+{$I GVer.inc}
 
 interface
 
@@ -27,7 +28,7 @@ implementation
 
 uses
   GPaths,
-  SysUtils, GPeRes, GAssetDirs;
+  SysUtils, GPeRes, GAssetDirs, GCompat;
 
 var
   List: TStringList;
@@ -56,7 +57,10 @@ begin
       List.Text := D;
       for I := List.Count - 1 downto 0 do
         if Trim(List[I]) = '' then List.Delete(I);
+{$IFNDEF GC_D5DOWN}
+      { Delphi 4 and 5 lists always ignore case }
       List.CaseSensitive := False;
+{$ENDIF}
       List.Sorted := True;
       { a folder per set of files, so a newer build never reads an older
         one's copies }

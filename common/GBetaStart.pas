@@ -47,7 +47,7 @@ type
   TBetaStartInfo = record
     FormData: string;       { the TCONNECTFRAME form stream }
     AppTitle: string;       { the hidden TApplication window's title }
-    Names: array of string; { character list, in the build's order }
+    Names: TBetaNames;      { character list, in the build's order }
     Heads: TGSurface;       { the install's heads.gif, or nil }
     Nick: string;           { pre-filled nick name, '' for none }
     { the dialog window as the build creates it: owned by the application

@@ -138,7 +138,7 @@ uses
 {$IFDEF MSWINDOWS}
   Windows,
 {$ENDIF}
-  SysUtils, Math, GPeRes, GUiFont, GResFiles;
+  SysUtils, Math, GPeRes, GUiFont, GResFiles, GCompat;
 
 function ConfigHead(const F: string): string; forward;
 function LanguageName(const FileName: string): string; forward;
@@ -399,7 +399,7 @@ begin
   Result := Default;
   I := Lang.IndexOfName(Key);
   if I < 0 then Exit;
-  if Trim(Lang.ValueFromIndex[I]) <> '' then Result := Trim(Lang.ValueFromIndex[I]);
+  if Trim(ValueAtIndex(Lang, I)) <> '' then Result := Trim(ValueAtIndex(Lang, I));
 end;
 
 function TRealStart.Glyph(const Form, Name: string): TGSurface;
@@ -537,7 +537,7 @@ begin
   Result := False;
   HeadFile := '';
   if (RS = nil) or (Index < 0) or (Index >= RS.Heads.Count) then Exit;
-  V := RS.Heads.ValueFromIndex[Index];
+  V := ValueAtIndex(RS.Heads, Index);
   L := TStringList.Create;
   try
     L.CommaText := V;
@@ -935,7 +935,7 @@ begin
   if N.ClassName_ = 'TLabel' then
   begin
     I := St.Memo.IndexOfName(N.Name);
-    if I >= 0 then T := St.Memo.ValueFromIndex[I] else T := NoAmp(Caption(N));
+    if I >= 0 then T := ValueAtIndex(St.Memo, I) else T := NoAmp(Caption(N));
     if T = '' then Exit;
     if not N.Bool('Transparent', False) and N.Has('Color') then
       Surf.FillRect(B.X, B.Y, B.W, B.H, DfmColor(N.Str('Color', ''), 0));
@@ -1052,7 +1052,7 @@ begin
     begin
       L := TStringList.Create;
       try
-        WrapLines(St.Memo.ValueFromIndex[I], B.W - 8, ufRegular, L);
+        WrapLines(ValueAtIndex(St.Memo, I), B.W - 8, ufRegular, L);
         for I := 0 to L.Count - 1 do
           if 3 + (I + 1) * UiLineH <= B.H then
             UiDrawText(Surf, B.X + 4, B.Y + 3 + I * UiLineH, L[I], C, ufRegular);

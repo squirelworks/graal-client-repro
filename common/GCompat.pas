@@ -69,7 +69,18 @@ procedure Sleep(Milliseconds: Cardinal); stdcall;
 { Math's, from Delphi 6 }
 function IsNan(const AValue: Double): Boolean;
 function IsInfinite(const AValue: Double): Boolean;
+
+{ SysUtils', from Delphi 6 }
+const
+  PathDelim = '\';
+function IncludeTrailingPathDelimiter(const S: string): string;
 {$ENDIF}
+
+{$IFNDEF FPC}{$IFDEF MSWINDOWS}
+{ Free Pascal's SysUtils.GetTempDir: the user's temporary folder, ending in
+  a backslash (Global is ignored, as Free Pascal does on Windows) }
+function GetTempDir(Global: Boolean): string;
+{$ENDIF}{$ENDIF}
 
 {$IFDEF GC_D6DOWN}
 type
@@ -193,6 +204,28 @@ begin
 end;
 
 {$IFDEF GC_D5DOWN}
+{$IFDEF GC_D5DOWN}
+function IncludeTrailingPathDelimiter(const S: string): string;
+begin
+  Result := S;
+  if (Result = '') or (Result[Length(Result)] <> PathDelim) then
+    Result := Result + PathDelim;
+end;
+{$ENDIF}
+
+{$IFNDEF FPC}{$IFDEF MSWINDOWS}
+function GetTempDir(Global: Boolean): string;
+var
+  Buf: array[0..MAX_PATH] of Char;
+  N: DWORD;
+begin
+  N := GetTempPath(MAX_PATH, Buf);
+  SetString(Result, Buf, N);
+  if (Result <> '') and (Result[Length(Result)] <> '\') then
+    Result := Result + '\';
+end;
+{$ENDIF}{$ENDIF}
+
 initialization
   AssignFile(ErrOutput, '');
   if IsConsole then
