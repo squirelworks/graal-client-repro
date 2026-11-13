@@ -27,6 +27,7 @@ to the program works too (`graal-assets/5.12/`, then
 
 - [x] **New client.** 5.12 has a folder of its own, started from 5.00r7 with 5.12's wire rules: the token `G3D14097`, the quoted Windows version as a fifth login field, every short body zlib-compressed, and 5.12's cipher step for compressed frames.
 - [x] **The engine launcher.** `Graal512 --engine` runs over the rebuilt engine library as the 5.0 launcher: the install's own 5.12 start menus, and Start logs in through the engine's session (the Login server, the hand-on, the level, walking with the arrows and the chat bar).
+- [x] **Art and walls in the engine launcher.** The engine's session reads the tile sheet (also from `levels/tiles/`), heads, bodies and `arrays.dat` from `graal-assets/5.12/` and `graal-assets/common/` next to the program as well as from the install, and asks the server (23) for a tile sheet or player image it lacks, keeping what comes in `levels/images/downloads/`, as a 5.12 install does.
 
 ## Downloads
 

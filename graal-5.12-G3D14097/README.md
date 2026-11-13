@@ -136,6 +136,15 @@ checked against a 5.12 install:
   195 (gani scripts) and 190 (`onServerListerConnect`) are accepted and
   ignored by the stand-in.
 - [ ] `GR-V1.05` levels (tile layers) and `GRPKG001` update packages.
+- [x] ~~Tile and player art and walls in the engine launcher~~: the
+  session reads `graal-assets/5.12/` and `graal-assets/common/` as well as
+  the install (the tile sheet also in `levels/tiles/`), and asks the server
+  with 23 for a tile sheet or player image it lacks, keeping it in
+  `levels/images/downloads/` (the lab's 5.12 asked so for its fonts and
+  sounds). 5.12 has its tile types built in and ships no `arrays.dat`; as
+  for 3.04, put 2.22's `arrays.dat` in `graal-assets/5.12/` for walls.
+  Asking for `pics1.png` this way is a rebuild choice: the logs do not show
+  how a fresh 5.12 install gets its sheet.
 - [ ] The base-file requests after the language (`basepackage.gupd` by 23,
   then 34 for `guigames_arcmessage2.png`), and fetching `sword.wav` and
   `lift.wav` from the server, as the lab saw 5.12 do.

@@ -117,7 +117,14 @@ The Windows 6.x window and frame were not measured.
   player's gani changes.
 - Upper board layers treat tile 0 as empty; each layer's bit stream starts
   on a new byte. The 5.x note gives the layer count and boards, not these.
-- Walls come from `arrays.dat` in `--assets` (array 0 passable, array 1 liquids). With no `arrays.dat` every tile is passable; where 6.x reads its own table was not seen in the lab. The 0.0625 snap after a step is left out.
+- `Options::asset_roots` are searched after `--assets`, laid out the same
+  way (the tile sheet also in `levels/tiles/` and `levels/images/downloads/`).
+  With `Options::download_files` (the engine library turns it on; `quattro-play`
+  leaves it off) a tile sheet or player image no folder has is asked for once
+  with C->S 23, and what comes back (102, or 68 / 102 / 69 for a large file;
+  30 when the server has none) is kept in `<assets>/levels/images/downloads/`
+  and drawn from at once. Asking for `pics1.png` so is a rebuild choice.
+- Walls come from `arrays.dat` in `--assets` or an asset root (array 0 passable, array 1 liquids). With no `arrays.dat` every tile is passable; where 6.x reads its own table was not seen in the lab. The 0.0625 snap after a step is left out.
 - GUI text uses the built-in Liberation Sans 16 px faces (the same tables as `common/GUiFont.pas`) in place of the player's TrueType faces; GUI bitmaps are read as PNG from `--assets` and its `gui`, `images` and `levels` folders. The playfield follows the player over the whole window and is clipped to the `GuiGraalCtrl`.
 - The initial props send nickname "unknown", as the lab's 6.03r7 did with no nickname set.
 

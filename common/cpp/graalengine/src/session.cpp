@@ -42,6 +42,15 @@ Session2D::Session2D(Login login) : login_(std::move(login)), window_(std::make_
   opt.nickname = login_.nickname;
   opt.server_name = login_.name.empty() ? std::string("Login") : login_.name;
   opt.assets = login_.installDir;
+  // As the launchers' own files (GAssetDirs): the install first, then
+  // graal-assets/<version>/ and graal-assets/common/ next to it.
+  {
+    std::string label = login_.build.substr(0, login_.build.find(' '));
+    opt.asset_roots = {login_.installDir + "/graal-assets/" + label, login_.installDir + "/graal-assets/common"};
+  }
+  // A real install starts with few images and fetches the rest from the
+  // server (C->S 23), as the lab's 5.12 did.
+  opt.download_files = true;
   opt.width = host::GetScreenWidth() > 0 ? host::GetScreenWidth() : 640;
   opt.height = host::GetScreenHeight() > 0 ? host::GetScreenHeight() : 480;
   program_ = std::make_unique<Quattro::Shell::Program>(*profile, opt, *window_);

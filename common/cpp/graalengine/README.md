@@ -157,6 +157,12 @@ has no `LogGraalMessage`, so with no log slot the engine's lines go to
 stderr when `GRAALENGINE_LOG` is set, and the playfield is drawn with
 `DrawGraphics` (no stretched draw on 5.0).
 
+The session's files: the install (the launcher's folder), then
+`graal-assets/<build>/` and `graal-assets/common/` next to it, as the
+Pascal launchers search (`common/GAssetDirs.pas`). A tile sheet or player
+image none of them has is asked for from the server with 23 and kept in the
+install's `levels/images/downloads/`, as a 5.x install keeps `sprites.png`.
+
 `make test` runs the loopback session for 4.04r2 and for 5.12 (5.12's
 login line with its fifth field, every frame zlib with its cipher step,
 the hand-on, level, walk and chat). With `GRAAL512_ENGINE` set to the
