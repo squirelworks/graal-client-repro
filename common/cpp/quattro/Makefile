@@ -19,7 +19,7 @@ TGUI = ../../torque/gui/image.cpp ../../torque/gui/canvas.cpp ../../torque/gui/g
 FILES = files/level.cpp files/gani.cpp files/gmap.cpp
 DRAW = draw/world.cpp draw/assets.cpp draw/body_colors.cpp draw/hud.cpp draw/ui_font.cpp draw/ui_font_data.cpp $(TGUI)
 GS2 = ../gs2/loader.cpp ../gs2/machine.cpp ../gs2/var.cpp ../gs2/startscripts.cpp ../gs2/engine_commands.cpp ../gs2/delivery.cpp ../gs2/gui.cpp ../gs2/gui_draw.cpp ../gs2/emitter.cpp
-SHELL_SRC = shell/program.cpp shell/scripts.cpp shell/gui_host.cpp world/player.cpp world/walk.cpp $(GS2) $(CACHE)
+SHELL_SRC = shell/program.cpp shell/scripts.cpp shell/gui_host.cpp world/player.cpp world/walk.cpp world/actions.cpp $(GS2) $(CACHE)
 HDRS = $(wildcard net/*.hpp cache/*.hpp files/*.hpp draw/*.hpp shell/*.hpp world/*.hpp tests/*.hpp ../../torque/gui/*.hpp ../gs2/*.hpp)
 
 .PHONY: all test clean
@@ -43,8 +43,8 @@ build/level-test: $(FILES) $(DRAW) $(HDRS) tests/level_test.cpp | build
 build/program-test: $(NET) $(FILES) $(DRAW) $(SHELL_SRC) $(HDRS) draw/window_x11.cpp tests/program_test.cpp | build
 	$(CXX) $(CXXFLAGS) $(NET) $(FILES) $(DRAW) $(SHELL_SRC) draw/window_x11.cpp tests/program_test.cpp -o $@ $(LIBS) -pthread
 
-build/props-test: $(NET) world/player.cpp world/walk.cpp $(FILES) $(HDRS) tests/props_test.cpp | build
-	$(CXX) $(CXXFLAGS) $(NET) world/player.cpp world/walk.cpp $(FILES) tests/props_test.cpp -o $@ $(LIBS)
+build/props-test: $(NET) world/player.cpp world/walk.cpp world/actions.cpp $(FILES) $(HDRS) tests/props_test.cpp | build
+	$(CXX) $(CXXFLAGS) $(NET) world/player.cpp world/walk.cpp world/actions.cpp $(FILES) tests/props_test.cpp -o $@ $(LIBS)
 
 build/scripts-test: $(NET) $(SHELL_SRC) $(HDRS) tests/scripts_test.cpp | build
 	$(CXX) $(CXXFLAGS) $(NET) shell/scripts.cpp $(GS2) $(CACHE) tests/scripts_test.cpp -o $@ $(LIBS)

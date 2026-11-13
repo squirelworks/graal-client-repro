@@ -74,6 +74,11 @@ class MoveSender {
     gani_ = p.gani;
   }
   std::string diff(const Player& p);
+  // The gani and facing were sent another way (the item keys).
+  void gani_sent(const Player& p) {
+    dir_ = p.dir;
+    gani_ = p.gani;
+  }
 
  private:
   double x_ = 0, y_ = 0;

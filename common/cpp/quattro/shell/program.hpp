@@ -13,6 +13,7 @@
 #include "../draw/world.hpp"
 #include "../files/gmap.hpp"
 #include "../net/connection.hpp"
+#include "../world/actions.hpp"
 #include "../world/player.hpp"
 #include "../world/walk.hpp"
 #include "gui_host.hpp"
@@ -69,6 +70,7 @@ class Program {
   GuiHost& gui() { return *gui_; }
   // Replaces the wall table (tests; arrays.dat from --assets otherwise).
   void set_tile_types(const World::TileTypes& t) { tile_types_ = t; }
+  void set_object_tables(const World::ObjectTables& t) { object_tables_ = t; }
   Draw::Assets& assets() { return *assets_; }
   const std::string& level_name() const { return level_name_; }
   // Pass names of the last frame, in the order they ran.
@@ -96,6 +98,8 @@ class Program {
   World::MoveSender mover_;
   World::Walker walker_;
   World::TileTypes tile_types_;
+  World::ObjectTables object_tables_;
+  World::ItemKeys item_keys_;
   bool props_sent_ = false;
   ScriptHost scripts_;
   std::unique_ptr<GuiHost> gui_;
