@@ -4,8 +4,8 @@
   Graal 2.1.0.0 was not shipped as an installer. The download was a small
   setup program (a web installer made from the Cygwin setup of 2001) that
   read a package list, setup.ini, from a mirror and fetched the packages it
-  names (graal_analysis notes on the Batch-1 web finds; the originals are
-  Wayback captures of 2001-05-22, 2001-10-26 and 2001-11-16):
+  names (graal_analysis notes; the originals are copies of the official
+  downloads of May to November 2001):
 
   - mirrors.lst: one mirror a line, "URL;host;country;".
   - setup.ini: "setup-timestamp:" and "setup-version:" lines, then one
