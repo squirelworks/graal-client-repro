@@ -479,6 +479,7 @@ begin
           { the game keys act on the press, not while held }
           G.ActionKey := Win.Held[gkAction] and not WasHeld[0];
           G.AttackKey := Win.Held[gkAttack] and not WasHeld[1];
+          G.AttackHeld := Win.Held[gkAttack];
           G.ItemKey := Win.Held[gkItem] and not WasHeld[2];
           G.MapKey := Win.Held[gkMap] and not WasHeld[3];
           WasHeld[0] := Win.Held[gkAction];

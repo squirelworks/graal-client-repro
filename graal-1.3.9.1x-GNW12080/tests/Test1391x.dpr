@@ -1370,6 +1370,94 @@ begin
   end;
 end;
 
+procedure TestSpinAndLay;
+var
+  G: TAdventure;
+  I, X, Y: Integer;
+  Found: Boolean;
+begin
+  G := TAdventure.Create;
+  try
+    G.Headless := True;
+    G.LoadLevelFile('start.nw');
+    { find a spot whose point in front (facing down) is free }
+    G.Player.Dir := DirDown;
+    Found := False;
+    for Y := 2 to 50 do
+      for X := 2 to 50 do
+        if not Found and not G.PointBlocked(X + 1.5, Y + 4) then
+        begin
+          G.Player.X := X;
+          G.Player.Y := Y;
+          Found := True;
+        end;
+    Check(Found, 'lay: a free spot on the built-in level');
+    { the spin attack: S again during the swing, with the spin status }
+    G.Player.SwordPower := 1;
+    G.Player.SwordImage := 'sword1.gif';
+    G.Player.Status := G.Player.Status and not SpinStatus;
+    G.Mode := ModeFree;
+    G.Attack;
+    G.Attack;
+    Check(G.Mode = ModeSword, 'spin: without the spin status S again does not spin');
+    G.Mode := ModeFree;
+    G.GiveItem(24);
+    Check((G.Player.Status and SpinStatus) <> 0, 'spin: the spin attack item gives the spin');
+    G.Attack;
+    G.Attack;
+    Check(G.Mode = ModeSpin, 'spin: S again during the swing starts the spin');
+    G.Attack;
+    Check(G.Mode = ModeSpin, 'spin: S during the spin is ignored');
+    for I := 1 to 30 do G.Tick;
+    Check(G.Mode = ModeFree, 'spin: the spin ends in idle');
+    { laying: S held + A picks, A again with S held walks the lay order }
+    G.Player.Status := G.Player.Status and not SpinStatus;
+    G.Player.SwordPower := 0;
+    G.Player.ShieldPower := 0;
+    G.Player.GlovePower := 1;
+    G.Player.Bombs := 0;
+    G.Player.Arrows := 0;
+    G.Player.Power := 2;
+    G.Player.Rupees := 40;
+    SetLength(G.Items, 0);
+    G.AttackHeld := True;
+    G.Action;
+    Check((G.Mode = ModeLay) and (G.LayPick = 0), 'lay: S held + A picks the green rupee first');
+    G.Action;
+    Check(G.LayPick = 1, 'lay: A with S held picks the next item');
+    G.Action;
+    Check(G.LayPick = 2, 'lay: then the red rupee');
+    G.Action;
+    Check(G.LayPick = 0, 'lay: the list wraps round past what the player lacks');
+    G.Action;
+    G.AttackHeld := False;
+    G.Action;
+    Check((G.Mode = ModeFree) and (G.Player.Rupees = 35) and (Length(G.Items) = 1) and
+      (G.Items[0].Item = 1) and (Abs(G.Items[0].X - (G.Player.X + 0.5)) < 1E-9) and
+      (Abs(G.Items[0].Y - (G.Player.Y + 3)) < 1E-9),
+      'lay: A alone lays the blue rupee two tiles ahead and takes 5 rupees');
+    { an arrow leaves laying without laying }
+    G.AttackHeld := True;
+    G.Action;
+    G.AttackHeld := False;
+    Check(G.Mode = ModeLay, 'lay: picking again');
+    G.Keys[DirUp] := True;
+    G.Tick;
+    Check((G.Mode = ModeFree) and (Length(G.Items) = 1) and (G.Player.Rupees = 35),
+      'lay: an arrow leaves without laying');
+    { a sword is laid only at its stock power; the spin can be laid too }
+    G.Player.SwordPower := 2;
+    G.Player.Rupees := 0;
+    G.Player.Status := G.Player.Status or SpinStatus;
+    Check(G.NextLayItem(-1) = 13, 'lay: the battleaxe at sword power 2');
+    Check(G.NextLayItem(13) = 24, 'lay: then the spin attack');
+    G.Player.SwordImage := 'mysword.png';
+    Check(G.NextLayItem(-1) = 24, 'lay: a custom sword picture is not laid');
+  finally
+    G.Free;
+  end;
+end;
+
 begin
   TestOptionsForm;
   TestGTypes;
@@ -1393,6 +1481,7 @@ begin
   TestBuiltins;
   TestStatus;
   TestActions;
+  TestSpinAndLay;
   RunNpcTests(Check, NpcSkipped);
   Inc(Skipped, NpcSkipped);
   RunBaddyTests(Check);
