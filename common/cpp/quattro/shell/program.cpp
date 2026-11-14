@@ -372,13 +372,14 @@ bool Program::load_offline_level(const std::string& name) {
   std::string data, err;
   std::vector<std::string> dirs;
   if (!offline_dir_.empty()) dirs.push_back(offline_dir_ + "/");
-  if (!opt_.assets.empty()) dirs.insert(dirs.end(), {opt_.assets + "/levels/", opt_.assets + "/"});
+  for (const auto& root : roots()) dirs.insert(dirs.end(), {root + "/levels/", root + "/"});
   std::string path;
-  for (const std::string& dir : dirs)
-    if (read_file(dir + name, data)) {
-      path = dir + name;
-      break;
-    }
+  // A whole path (the 6.x start screen hands over the one it found).
+  if (std::filesystem::path(name).is_absolute() && read_file(name, data)) path = name;
+  for (const std::string& dir : dirs) {
+    if (!path.empty()) break;
+    if (read_file(dir + name, data)) path = dir + name;
+  }
   if (path.empty() && !opt_.assets.empty()) {
     path = find_below(opt_.assets + "/levels", name);
     if (path.empty() || !read_file(path, data)) {
@@ -395,7 +396,12 @@ bool Program::load_offline_level(const std::string& name) {
   world_.level = std::move(lv);
   world_.have_level = true;
   level_name_ = name;
-  me_.level = name;
+  if (path == name) {  // a whole path: its folder holds the linked levels
+    std::filesystem::path fp(name);
+    if (offline_dir_.empty()) offline_dir_ = fp.parent_path().string();
+    level_name_ = fp.filename().string();
+  }
+  me_.level = level_name_;
   read_level_script();
   pick_tile_sheet();
   return true;

@@ -47,6 +47,14 @@ As in 6.03r7, with the suffix `601`: `Protocol601`, `GraalClient`,
 
 ## Running it
 
+On Linux the game itself runs in `quattro-play`, the rebuilt Quattro
+program (`common/cpp/quattro`), which `scripts/build.sh` puts next to
+`Graal601`: the start screen picks the server or Training and hands the game
+over (`common/GQuattroPlay.pas`), then comes back when it ends. Set
+`GRAAL_PASCAL_GAME=1` to play in this folder's own Pascal game instead,
+as Windows and a machine with no X display always do. The command-line
+modes below are the Pascal game's.
+
 Put `Graal601` in the root of a 6.01r1 install and start it with no
 arguments for the start screen. It finds the install's files from there,
 or from `graal-assets/6.01r1/` and `graal-assets/common/` next to it.

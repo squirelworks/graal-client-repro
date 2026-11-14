@@ -101,7 +101,7 @@ void test_grv105_layers() {
 void test_bad_levels() {
   Files::Level lv;
   std::string err;
-  CHECK(!Files::read_level("GLEVNW01", lv, err));
+  CHECK(!Files::read_level("GLEVNW99", lv, err));  // an unknown magic (GLEVNW01 is read since the 6.x hand-off)
   CHECK(!Files::read_level("GR-V1.03\x01\x02", lv, err));
   CHECK(!Files::read_level("GR-V", lv, err));
 }
@@ -397,7 +397,21 @@ void test_gmap() {
   CHECK(!Files::read_gmap("GRMAP001\nWIDTH 2\nHEIGHT 2\nGENERATED 1\n", g, err));  // the generator's flag
 }
 
+void test_nw() {
+  // A GLEVNW01 level: two tiles of a board row, a link, a chest by name, an NPC.
+  std::string nw = "GLEVNW01\nBOARD 3 5 2 0 AAAB\nLINK next.nw 0 0 2 64 60 playery\n"
+                   "SIGN 1 1\nhello\nSIGNEND\nCHEST 10 11 bomb 2\nNPC tree.png 7.5 8\nsetimg tree.png;\nNPCEND\n";
+  Files::Level l;
+  std::string err;
+  CHECK(Files::read_level(nw, l, err));
+  CHECK(l.magic == "GLEVNW01" && l.tile(3, 5) == 0 && l.tile(4, 5) == 1);
+  CHECK(l.links.size() == 1 && l.links[0].dest == "next.nw" && l.links[0].h == 64 && l.links[0].newy == "playery");
+  CHECK(l.chests.size() == 1 && l.chests[0].item == 8 && l.chests[0].sign == 2);
+  CHECK(l.npcs.size() == 1 && l.npcs[0].image == "tree.png" && l.npcs[0].x == 7 && l.npcs[0].script == "setimg tree.png;\n");
+}
+
 int main() {
+  test_nw();
   test_grv103();
   test_runs();
   test_grv105_layers();

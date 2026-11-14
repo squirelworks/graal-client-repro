@@ -23,6 +23,7 @@ to the program works too (`graal-assets/6.03r7/`, then
 
 ## What's new in v0.0.5
 
+- [x] **The game runs in the Quattro program on Linux.** The real 6.03r7 is one C++ program (`quattro_lib`); its rebuild, `quattro-play` from `common/cpp/quattro`, now ships next to `Graal603`. The start screen still picks the server (or Training) and then hands the game to it: GS2 weapons and their scripts, the weapon list, D to use the selected weapon, bombs, arrows and explosions, being hurt (knockback, dying, coming back), and the Q item list. The password goes to it in the environment, never on the command line. On Windows, with no X display, or with `GRAAL_PASCAL_GAME=1`, the start screen plays in its own Pascal game as before.
 - [x] **Machine fields in the original's shape.** The login line now sends `linux`, two fixed made-up MD5 hashes (of SquirrelNIC and SquirrelFS strings), the empty field and a SquirrelOS kernel string (`2.6.38-1-squirrelos  #1-SquirrelOS SMP Mon Jun 27 12:00:00 UTC 2011`), the shape the real client sends. Nothing is read from your machine.
 
 ## What's new in v0.0.4.2
