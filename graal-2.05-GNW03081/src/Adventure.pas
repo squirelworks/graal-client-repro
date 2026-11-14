@@ -1385,9 +1385,11 @@ var
   PX, PY: Double;
   I: Integer;
 begin
-  { the point in front must be free (water is not told apart here) }
+  { Default tileset: array 1 is liquid, including lava. }
   ProbePoint(PX, PY);
   if PointBlocked(PX, PY) then Exit;
+  if Arrays.Loaded and (Arrays.Lists[1] <> nil) and
+    Arrays.Lists[1].Contains(Level.Tile(TileOf(PX), TileOf(PY))) then Exit;
   I := NextLayItem(-1);
   if I < 0 then Exit;
   LayPick := I;

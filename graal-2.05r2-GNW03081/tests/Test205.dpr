@@ -1684,6 +1684,47 @@ begin
   end;
 end;
 
+procedure TestLayWater;
+var
+  G: TAdventure;
+  Data: string;
+  I: Integer;
+begin
+  G := TAdventure.Create;
+  try
+    G.Headless := True;
+    { Generated arrays: dry tile 0, liquid tile 1, all other lists empty. }
+    Data := BE(1) + BE(0) + BE(1) + BE(1);
+    for I := 2 to 24 do Data := Data + BE(0);
+    Check(G.Arrays.LoadFromString(Data), 'lay water: synthetic lists load');
+    G.Player.X := 10;
+    G.Player.Y := 10;
+    G.Player.Dir := DirDown;
+    G.Player.Rupees := 1;
+    G.Level.Tiles[11 + 14 * 64] := 0;
+    G.StartLaying;
+    Check(G.Mode = ModeLay, 'lay water: dry free probe permits laying');
+    G.Mode := ModeFree;
+    G.Level.Tiles[11 + 14 * 64] := 1;
+    Check(G.Arrays.TilePassable(1) and not G.PointBlocked(11.5, 14),
+      'lay water: liquid is walk-passable, not an existing wall rejection');
+    G.StartLaying;
+    Check(G.Mode = ModeFree, 'lay water: passable liquid rejects laying');
+    G.Level.Tiles[11 + 14 * 64] := 2;
+    Check(G.PointBlocked(11.5, 14), 'lay water: wall still blocks');
+    G.StartLaying;
+    Check(G.Mode = ModeFree, 'lay water: wall still rejects laying');
+    G.Level.Tiles[11 + 14 * 64] := 0;
+    SetLength(G.Level.Chests, 1);
+    G.Level.Chests[0].X := 11;
+    G.Level.Chests[0].Y := 14;
+    Check(G.PointBlocked(11.5, 14), 'lay water: chest blocks dry probe');
+    G.StartLaying;
+    Check(G.Mode = ModeFree, 'lay water: chest rejection precedes liquid check');
+  finally
+    G.Free;
+  end;
+end;
 procedure TestGaniProp;
 var
   G: TAdventure;
@@ -1744,6 +1785,7 @@ begin
   TestStatus;
   TestActions;
   TestSpinAndLay;
+  TestLayWater;
   TestGaniProp;
   RunNpcTests(Check, NpcSkipped);
   Inc(Skipped, NpcSkipped);
