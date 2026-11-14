@@ -78,7 +78,7 @@ jobs:
       - name: Every client has its Windows resources
         run: python3 scripts/win/make_winres.py --check
       - name: Build (Delphi mode)
-        run: scripts/build.sh $BUILDS
+        run: BUILD_JOBS=$(nproc) scripts/build.sh $BUILDS
       - name: Unit tests
         run: scripts/test.sh
       # A tar keeps the execute bits that loopback needs; artifacts drop them.
@@ -149,7 +149,9 @@ jobs:
           # -WR: relocations, so the exe can carry the ASLR flag
           export FPCFLAGS='-O2 -WR -FuC:\tools\freepascal\units\i386-win32\*'
           ls /c/tools/freepascal/units/i386-win32 | head -5
-          scripts/build.sh $BUILDS
+          # folders and test programs run one per CPU (scripts/build.sh,
+          # scripts/test.sh)
+          BUILD_JOBS=$(nproc) scripts/build.sh $BUILDS
           scripts/test.sh
       - name: Check the clients carry version info and a manifest
         shell: pwsh
