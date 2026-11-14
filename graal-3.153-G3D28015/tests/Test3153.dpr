@@ -689,6 +689,75 @@ begin
   end;
 end;
 
+{ One incoming Z2, through Receive, then the walk update that sends it
+  back. Raw is abs(v * 16) shl 1, with the sign in the low bit. }
+procedure CheckZ2Height(G: TAdventure; Codec: TGen5; Msgs: TStringList;
+  Raw: Integer; Want: Double; const Name: string);
+var
+  I: Integer;
+  P: TServerPlayer;
+  Gani: string;
+  HasX2, HasY2, HasZ2, HasOld, Saw: Boolean;
+  PX, PY, PZ: Double;
+begin
+  G.Client.Sent := '';
+  G.Receive(PLO_PLAYERPROPS, GChar(PLPROP_Z2) + GShort(Raw));
+  Check(Abs(G.Player.Z - Want) < 0.001, 'Z2 receive: self keeps ' + Name);
+  G.Receive(PLO_OTHERPLPROPS, GShort(11) + GChar(PLPROP_Z2) + GShort(Raw));
+  P := G.FindOther(11, False);
+  Check((P <> nil) and (Abs(P.Z - Want) < 0.001),
+    'Z2 receive: another player keeps ' + Name);
+  { The 100 ms gate sends on even frames. }
+  G.Tick;
+  if G.Frame mod 2 <> 0 then G.Tick;
+  Check(ServerReadAll(Codec, G.Client.Sent, Msgs),
+    'Z2 receive: the ' + Name + ' update decodes');
+  Saw := False;
+  for I := 0 to Msgs.Count - 1 do
+    if MsgId(Msgs[I]) = PLI_PLAYERPROPS then
+    begin
+      ReadMoveProps(Msgs[I], Gani, HasX2, HasY2, HasZ2, HasOld, PX, PY, PZ);
+      Check(not HasOld, 'Z2 receive: ' + Name + ' sends no half-tile X or Y');
+      if HasZ2 then
+      begin
+        Saw := True;
+        Check(Abs(PZ - Want) < 0.001, 'Z2 receive: ' + Name + ' goes back out as Z2');
+      end;
+    end;
+  Check(Saw, 'Z2 receive: ' + Name + ' was sent');
+  Check(Abs(G.Player.Z - Want) < 0.001,
+    'Z2 receive: ' + Name + ' is still the stored height after the send');
+end;
+
+{ ±1/16 and ±1.5. Round() to a whole tile would store 0 and ±2. }
+procedure TestPreciseHeight;
+var
+  G: TAdventure;
+  Codec: TGen5;
+  Msgs: TStringList;
+begin
+  G := LoggedInGame(Codec);
+  Msgs := TStringList.Create;
+  try
+    G.Tick; { login frame snapshots the starting height }
+    Drain(G, Codec);
+    { A whole-tile height first, so the samples below are a change.
+      Drain keeps the codec on the frames the client just sent. }
+    G.Receive(PLO_PLAYERPROPS, GChar(PLPROP_Z2) + GShort(128));
+    G.Tick;
+    if G.Frame mod 2 <> 0 then G.Tick;
+    Drain(G, Codec);
+    CheckZ2Height(G, Codec, Msgs, 2, 1.0 / 16, '+1/16');
+    CheckZ2Height(G, Codec, Msgs, 3, -1.0 / 16, '-1/16');
+    CheckZ2Height(G, Codec, Msgs, 48, 1.5, '+1.5');
+    CheckZ2Height(G, Codec, Msgs, 49, -1.5, '-1.5');
+  finally
+    Msgs.Free;
+    Codec.Free;
+    G.Free;
+  end;
+end;
+
 procedure WriteText(const FileName, Text: string);
 var
   F: TFileStream;
@@ -1556,6 +1625,7 @@ begin
   TestLoginBurst;
   TestWalkProps;
   TestProps;
+  TestPreciseHeight;
   TestWalking;
   TestLinks;
   TestGmap;

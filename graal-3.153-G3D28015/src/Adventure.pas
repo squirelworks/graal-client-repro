@@ -99,7 +99,8 @@ type
     Chat, Language, OsType: string;
     Attr: array[1..5] of string;
     X, Y: Double;       { tiles, top-left of the 3x3-tile sprite box }
-    Z, GmapX, GmapY: Integer;
+    Z: Double;          { height in tiles, in the same 1/16 steps as X2/Y2 }
+    GmapX, GmapY: Integer;
     Sprite, Status, MaxPower, Power, Rupees, Arrows, Bombs: Integer;
     SwordPower, ShieldPower, GlovePower, BombPower, CodePage: Integer;
     Colors: array[0..4] of Integer;
@@ -195,8 +196,7 @@ type
     FEntryLevel: string;
     FClient: TAdventureClient;
     FLog: TStrings;
-    FSentX, FSentY: Double;
-    FSentZ: Integer;
+    FSentX, FSentY, FSentZ: Double;
     FSentDir, FSentGmapX, FSentGmapY: Integer;
     FSentGani: string;
     FPropsSent: Boolean;
@@ -944,7 +944,7 @@ begin
       PLPROP_Y: Y := R.ReadGChar / 2;
       PLPROP_X2: X := Precise(R.ReadGShort);
       PLPROP_Y2: Y := Precise(R.ReadGShort);
-      PLPROP_Z2: Z := Round(Precise(R.ReadGShort));
+      PLPROP_Z2: Z := Precise(R.ReadGShort);
       PLPROP_SPRITE:
         begin
           Sprite := R.ReadGChar;

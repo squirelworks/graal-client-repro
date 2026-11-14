@@ -88,7 +88,8 @@ README, "Seihai secure login". CI logs in once more with
   scripts), 187 and 189 (precise movement).
 - [x] Walking sends X2 and Y2 (props 78 and 79), and Z2 (80) when the
   height changes. Half-tile X and Y (15 and 16) are not sent. Incoming
-  X2, Y2 and Z2 are applied, for the player and for other players. The
+  X2, Y2 and Z2 are applied, for the player and for other players, and
+  Z2 keeps the signed 1/16-tile height (1/16 and 1.5 stay). The
   Mac lab walk used 78 and 79
   (`version-profiles/lab-mac-tiger-2026-10-31.md`).
 - [ ] What 3.153 sends beyond 3.04, still not sent: 46 ENTERLEVEL, 50, the
