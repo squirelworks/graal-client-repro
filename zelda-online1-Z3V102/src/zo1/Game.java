@@ -62,7 +62,7 @@ public class Game {
   }
 
   /**
-   * The start: level1.zelda at (23, 37), measured in the original (Mirae
+   * The start: level1.zelda at (23, 37), measured in the original (isolated
    * lab, 2026-11-13: the view origin at (64, 192) and the body's left edge
    * at 184).
    */

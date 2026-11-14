@@ -9,7 +9,7 @@ import java.awt.image.BufferedImage;
 /**
  * Draws one frame: the applet's 512x418 box, 16 pixels per board tile. The
  * board fills the top 512x384; the chat field is the 30 rows from y 386
- * (Mirae lab, 2026-11-13).
+ * (isolated lab, 2026-11-13).
  * An 8-pixel tile sheet is drawn at double size. The view follows the
  * player and stops at the board edges. Players are the rebuild's own
  * stand-in figure; level NPCs show their image (the script is ignored, as
@@ -163,7 +163,7 @@ public class Renderer {
 
   /**
    * The title screen: black, the logo in a 307x117 box at (100, 130) and
-   * "Press any key to start!" in white from x 151, baseline 319 (Mirae lab,
+   * "Press any key to start!" in white from x 151, baseline 319 (isolated lab,
    * 2026-11-13). The logo is the original's picture, which is not here: a
    * plain outline and the name stand in for it.
    */

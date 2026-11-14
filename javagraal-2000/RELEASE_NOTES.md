@@ -14,8 +14,8 @@ next to it.
 
 ## What's new in v0.0.5
 
-- A title screen, as the original's: "Press any key to start!" on black (the logo is a stand-in). A letter, digit, Space or arrow starts the game.
-- The game starts where the original does on `level13.graal`, with the same view, and the chat line is a field under the 512x384 board.
+- [x] A title screen, as the original's: "Press any key to start!" on black (the logo is a stand-in). A letter, digit, Space or arrow starts the game.
+- [x] The game starts where the original does on `level13.graal`, with the same view, and the chat line is a field under the 512x384 board.
 
 ## What's new in v0.0.4.2
 

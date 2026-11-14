@@ -79,7 +79,7 @@ copy: the four top files plus the levels and the GIFs and sounds in
 
 ## What works (0.0.1)
 
-- The title screen as measured (Mirae lab, 2026-11-13): black, the logo
+- The title screen as measured (isolated lab, 2026-11-13): black, the logo
   box at (100, 130), "Press any key to start!" from x 151. Letters,
   digits, Space and the arrows leave it; Enter, Esc, Tab, Shift, F1 and
   clicks do not, and the key that leaves it does nothing in the game.

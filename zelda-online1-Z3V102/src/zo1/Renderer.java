@@ -48,7 +48,7 @@ public class Renderer {
   }
 
   /**
-   * The HUD, unscaled, where the original puts it (Mirae lab, 2026-11-13):
+   * The HUD, unscaled, where the original puts it (isolated lab, 2026-11-13):
    * its picture at (20, 12), the 8x8 magic fill at (24, 47), the counters
    * "000 / 00 / 05" from x 65, 97 and 121 on rows 24-29, and the hearts
    * at x 162, 170 and 178. The picture is the original's and is not here:
@@ -89,7 +89,7 @@ public class Renderer {
   /**
    * The title screen at the window's scale (512x448): black, the logo
    * drawn at scale 2 from (100, 76), and "Press any key to start!" from
-   * x 121 on rows 370-382 (Mirae lab, 2026-11-13). The logo is the
+   * x 121 on rows 370-382 (isolated lab, 2026-11-13). The logo is the
    * original's picture and is not here: an outline and the name stand in.
    */
   public BufferedImage title() {

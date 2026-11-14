@@ -71,7 +71,7 @@ public class Game {
 
   /**
    * The start: level13.graal at (20.5, 38), measured in the original
-   * (Mirae lab, 2026-11-13: the view origin at world pixel (88, 432) and
+   * (isolated lab, 2026-11-13: the view origin at world pixel (88, 432) and
    * the body's left edge at 328).
    */
   public boolean start(String name) {

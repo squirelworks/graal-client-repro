@@ -84,7 +84,7 @@ takes only `pics1.gif`, `arrays.dat` and the levels.
 
 ## What works (0.0.1)
 
-- The title screen and HUD as measured (Mirae lab, 2026-11-13): "Press any
+- The title screen and HUD as measured (isolated lab, 2026-11-13): "Press any
   key to start!" from x 121 on rows 370-382 of the 512x448 box, the logo
   from (100, 76). Any key leaves it, a click does not. The HUD, unscaled:
   picture at (20, 12), magic fill 8x8 at (24, 47), counters "000 / 00 /

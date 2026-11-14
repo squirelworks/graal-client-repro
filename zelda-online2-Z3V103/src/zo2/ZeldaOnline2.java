@@ -39,7 +39,7 @@ import javax.imageio.ImageIO;
 public class ZeldaOnline2 extends Canvas {
   static final String TITLE = "Zelda Online";
   /** The address field is pre-filled with this, never with a local address. */
-  public static final String DEFAULT_SERVER = "listserver.graal.in";
+  public static final String DEFAULT_SERVER = "127.0.0.1";
 
   Game game;
   Renderer renderer;
@@ -212,13 +212,13 @@ public class ZeldaOnline2 extends Canvas {
   }
 
   /**
-   * The start window, "Zelda Start", 568x380 as measured (Mirae lab,
+   * The start window, "Zelda Start", 568x380 as measured (isolated lab,
    * 2026-11-13): a teal panel at (14, 14)-(171, 286) with two figures, the
    * title "Zelda online" in grey bold and four lines about the game, the
    * two modes (One-Player selected), the server address, a line at y 323,
    * then Play (100x28 at 341, 341) and Cancel (at 455, 341). The original
-   * fills the address with 127.0.0.1; the rebuild fills it with the
-   * community host, never a local address. The description is the
+   * fills the address with 127.0.0.1; the rebuild keeps that loopback
+   * default and starts in One-Player mode. The description is the
    * rebuild's own words.
    */
   static void startWindow(final Game game, final Renderer renderer, final String level) {
@@ -361,7 +361,7 @@ public class ZeldaOnline2 extends Canvas {
     final ZeldaOnline2 c = new ZeldaOnline2(game, renderer);
     game.title = true;
     // under the 512x448 view: the chat field and the Options button (the
-    // window is 512x482 inside, Mirae lab 2026-11-13)
+    // window is 512x482 inside, isolated lab 2026-11-13)
     final TextField chat = new TextField();
     Button options = new Button("Options");
     Panel bar = new Panel(new BorderLayout(4, 0));

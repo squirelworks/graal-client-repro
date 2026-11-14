@@ -193,7 +193,7 @@ The notes leave these open; each is marked "this build" in the code.
 - [ ] The server drop-down list of the start window.
 - [x] The cloud sky, the `logo.bmp` picture and the nickname banner of the
   real client's view (2026-11-12 polishing run, Windows 10).
-- [ ] The follow camera. Measured on the real client (Mirae lab,
+- [ ] The follow camera. Measured on the real client (isolated lab,
   2026-11-13, Windows 10 with the native `d3drm.dll`): the very close
   camera of the first frames is an error state. It happens when the
   server sends a level the client cannot load, and an access violation
@@ -221,7 +221,7 @@ The notes leave these open; each is marked "this build" in the code.
   little. This is still to be compared with the rebuild's jump table.
 - [ ] The real client's arrow keys do not walk (only the keypad does, in
   the lab run); the rebuild keeps them walking as a choice.
-- [x] A live check, with the native `d3drm.dll`, of the back plane (Mirae
+- [x] A live check, with the native `d3drm.dll`, of the back plane (isolated
   lab, 2026-11-13). Placed 3000 and 5500 units from the level's
   structures, the client draws the floor and the structures. At 6500 and
   9000 it draws only clouds and blue, though at 6500 the floor's edge is

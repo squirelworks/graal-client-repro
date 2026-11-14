@@ -53,8 +53,8 @@ java -jar build/zelda-online2-Z3V103/GServ.jar # the lobby, port 14801
 java -jar build/zelda-online2-Z3V103/ZeldaOnline2.jar
 ```
 
-The address field is pre-filled with `listserver.graal.in`; type
-`127.0.0.1` for a GServ on the same machine. Arrow keys walk, Enter opens
+The address field is pre-filled with `127.0.0.1` for a GServ on the same
+machine. One-Player mode is selected by default. Arrow keys walk, Enter opens
 the chat line (multiplayer), Space or A reads a sign.
 
 Flags: `--one-player`, `--server HOST[:PORT]`, `--nick NAME`, `--data DIR`,
@@ -80,13 +80,13 @@ zip from your own copy: `pics1.gif`, `arrays.dat` and the levels only.
 
 ## What works (0.0.1)
 
-- The "Zelda Start" window laid out as measured (Mirae lab, 2026-11-13):
+- The "Zelda Start" window laid out as measured (isolated lab, 2026-11-13):
   568x380, the teal panel at (14, 14)-(171, 286) with two figures, the
   grey bold title and four lines (the rebuild's own words), One-Player
   mode (124k) selected over Multiplayer mode (133k), the server address, a
   line at y 323, Play (100x28 at 341, 341) and Cancel (at 455, 341). The
-  original fills the address with 127.0.0.1; the rebuild fills it with the
-  community host.
+  original fills the address with 127.0.0.1; the rebuild keeps the same
+  loopback address.
 - The game window, 512x482 inside: the 512x448 view, then a chat field
   and an Options button. It opens on Zelda Online 1's title screen (any
   key starts) and shows Zelda Online 1's HUD, with stand-ins for the

@@ -14,9 +14,9 @@ next to it.
 
 ## What's new in v0.0.5
 
-- A title screen, as the original's: "Press any key to start!" (the logo is a stand-in). Any key starts the game.
-- The HUD in the original's places: the magic bar, rupees, bombs and arrows (000 / 00 / 05) and three hearts, drawn with stand-ins.
-- The game starts where the original does on `level1.zelda`.
+- [x] A title screen, as the original's: "Press any key to start!" (the logo is a stand-in). Any key starts the game.
+- [x] The HUD in the original's places: the magic bar, rupees, bombs and arrows (000 / 00 / 05) and three hearts, drawn with stand-ins.
+- [x] The game starts where the original does on `level1.zelda`.
 
 ## What's new in v0.0.4.2
 
