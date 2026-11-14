@@ -20,6 +20,8 @@ their place.
 
 ## What's new in v0.0.5
 
+- [x] Suppress other-player sword judging while an online level-link request is pending; resume after the server warp reply.
+
 - [x] Reject laying over default-tileset liquid (arrays.dat list 1, including lava). Alternate tileset and NPC-shape water classification remain unresolved.
 
 - [x] Repeated named animation props restart another player's swing; direction-only updates keep its clock.

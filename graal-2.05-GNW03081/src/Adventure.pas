@@ -1894,7 +1894,7 @@ var
   P: TServerPlayer;
   DX, DY, Ahead, Side: Double;
 begin
-  if not Hurtable or (AP = 100) or (Mode = ModeDead) then Exit;
+  if FWarpPending or not Hurtable or (AP = 100) or (Mode = ModeDead) then Exit;
   Sec := Round(Frac(Now) * 86400);
   for I := 0 to FOthers.Count - 1 do
   begin
