@@ -110,7 +110,8 @@ the buttons call:
 | Method | Here | Source |
 |---|---|---|
 | `moveUp/Left/Down/Right(val)` | the key state to the local player | 304-adventure.md, observed |
-| `doA/S/D/Q/P/M`, `doMicro` | traced; the 2D game has no sword, grab, items, map or voice yet | stage 5 |
+| `doA/S/D/Q(val)` | the key state to the local player as a game key (`g304_action`): A action (lift, throw, open), S sword (a second press in the swing spins with STATUS 0x40), D the selected weapon, Q the item list; a press counts on up to down only | 304-adventure.md (the methods pass their argument to the player); the game is 2.22's |
+| `doP/M`, `doMicro` | traced; the 2D game has no pause, map or voice yet | stage 5 |
 | `setChat(text)` | `toall:` stripped and sent to all; `showname` not sent; `showap` sends an empty chat; anything else is the player's chat (prop 12); then `ChatBar.setText("")` | 304-adventure.md, observed |
 | `setPassWord(pw)` | kept for the listserver and the login | observed name; storage is policy |
 | `openServerList()` | `Canvas.setContent(ServerListGui)`, asks the listserver with `$pref::Graal::accountname` and the password | 304-net.md |
@@ -155,8 +156,12 @@ Rebuild policy, not read from the original:
   (`scripts/build.sh`, `graal-3.153-G3D28015/release-files`).
 - [ ] The chat-focus key toggle on `ChatBar` and the hardcoded key codes the
   control reads itself (input stage, see `../console/engine` stage 3).
-- [ ] Sword, grab, items, map, voice, PMs, the player list and profiles, sound
-  (stage 5, 2D parity).
+- [x] Sword and spin, lift and throw, chests, bombs, the bow, the item list
+  and floor items, through `doA`, `doS`, `doD`, `doQ` (stage 5, 2D parity).
+- [x] Hiding (D with a bush or stone), laying items (S held + A) and S
+  held + D for the next weapon: `doS` passes S's held state too.
+- [ ] Grab and pull, map, voice, PMs, the
+  player list and profiles, sound (stage 5, 2D parity).
 - [x] Walking on the offline tutorial (3.04's `picso.png` row rule). Online
   levels need 2.22's `arrays.dat` beside the install (see the 3.04 README).
 - [x] Windows and macOS: Win32 and Cocoa windows, the library as

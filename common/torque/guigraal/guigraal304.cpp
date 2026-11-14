@@ -155,7 +155,15 @@ void GuiGraal304::register_methods() {
       game_->key(dir, on(a[2]));
       return std::string();
     });
-  for (const char* name : {"doA", "doS", "doD", "doQ", "doP", "doM", "doMicro"})
+  // The game keys pass their state to the local player the same way: A
+  // action, S sword, D weapon, Q the item list.
+  const char* game_keys[4] = {"doA", "doS", "doD", "doQ"};
+  for (int which = 0; which < 4; ++which)
+    add(game_keys[which], 3, [this, which](Args& a) {
+      game_->action(which, on(a[2]));
+      return std::string();
+    });
+  for (const char* name : {"doP", "doM", "doMicro"})
     add(name, 3, [this](Args& a) {
       trace_not_yet(a);
       return std::string();
