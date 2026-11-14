@@ -169,11 +169,11 @@ std::vector<Packet> ItemKeys::tick(Player& p, unsigned keys, unsigned arrows, Fi
     p.gani = "idle";
     out.push_back({2, prop_gani(p.gani)});
   } else if (mode_ == Mode::Lift) {
-    if (ticks_ == kCarrySpriteAfter && carry_kind_ >= 0 && carry_kind_ < 3) {
+    if (ticks_ == sprite_after_ && carry_kind_ >= 0 && carry_kind_ < 3) {
       p.carry_sprite = ItemKeys::kLiftSprites[carry_kind_];
       out.push_back({2, prop_carry(p.carry_sprite)});
     }
-    if (ticks_ >= kCarryStillAfter) {
+    if (ticks_ >= still_after_) {
       mode_ = Mode::Carry;
       p.gani = "carrystill";
       out.push_back({2, prop_gani(p.gani)});

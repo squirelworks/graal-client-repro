@@ -72,6 +72,8 @@ enum ItemKey : unsigned { kKeyA = 1, kKeyS = 2, kKeyD = 4 };
 
 class ItemKeys {
  public:
+  explicit ItemKeys(int sprite_after = 4, int still_after = 6)
+      : sprite_after_(sprite_after), still_after_(still_after) {}
   // One 50 ms tick. `keys`: the held ItemKey bits; `arrows`: the held walk
   // keys (bit 0 up, 1 left, 2 down, 3 right). Changes the player and the
   // board, and returns what to send (props as id 2, the rest as is). Call
@@ -95,6 +97,7 @@ class ItemKeys {
  private:
   enum class Mode { Free, Sword, Lift, Carry };
   Mode mode_ = Mode::Free;
+  int sprite_after_, still_after_;
   int ticks_ = 0;       // since the mode started
   int carry_kind_ = -1;
   unsigned last_keys_ = 0;

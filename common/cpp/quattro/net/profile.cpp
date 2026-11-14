@@ -50,10 +50,15 @@ std::vector<BuildProfile> make() {
   r603.hud_6x = true;  // the 6.03r7 HUD lab (draw/hud.hpp)
   r603.draws_chests = false;  // item-keys lab: only grass shows, the chest still blocks
   r603.title_is_server = true;  // the 6.03r7 frames lab: "HUD Lab 603"
+  // items-603r7-black-box.md: idle-VM wire timings at 50 ms per tick.
+  r603.carry_sprite_after = 6;
+  r603.carry_still_after = 8;
   rows.push_back(r603);
 
   // 6.01r1: the 6.03r7 receive set without 111, the send set without 160.
   BuildProfile r601 = r603;
+  r601.carry_sprite_after = 4; // no transfer of the 6.03r7-only measurement
+  r601.carry_still_after = 6;
   r601.label = "6.01r1 Linux";
   r601.token = "G3D0108A";
   r601.plo.reset(111);
