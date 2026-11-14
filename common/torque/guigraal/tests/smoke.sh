@@ -30,4 +30,6 @@ grep -q '^canvas content AdventureGui$' "$WORK/trace.txt" || fail "AdventureGui 
 # 20 frames at 0.5 tiles from x = 30
 grep -q '^player offlinetutorial_b-2.graal 40.00 30.00 3, state 8$' "$WORK/trace.txt" || fail "the player did not walk 10 tiles"
 [ "$(wc -c < "$WORK/frame.bmp")" -eq 1440054 ] || fail "the frame is not 800 x 600"
+# the game keys reach the game, not the not-yet trace
+! grep -q 'doS(.*not in the rebuilt' "$WORK/trace.txt" || fail "doS did not reach the game"
 echo "smoke: passed"

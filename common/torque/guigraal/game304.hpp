@@ -40,6 +40,9 @@ class Game304 {
   virtual std::string offline_path() = 0;   // the install's offline start, or ""
 
   virtual void key(int dir, bool down) = 0;   // 0 up, 1 left, 2 down, 3 right
+  // The game keys of doA, doS, doD, doQ: 0 A (lift, throw, open), 1 S
+  // (sword, spin, throw), 2 D (the selected weapon), 3 Q (the item list).
+  virtual void action(int which, bool down) = 0;
   virtual void say(const std::string& text) = 0;
   virtual void to_all(const std::string& text) = 0;
 
