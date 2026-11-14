@@ -22,6 +22,8 @@ public class TestZO2 {
 
   public static void main(String[] args) throws Exception {
     board();
+    titleAndHud();
+    focusReleasesInput();
     signs();
     arrays();
     standInLevels();
@@ -111,10 +113,46 @@ public class TestZO2 {
     check(StandIn.level("nosuch.zelda") == null, "unknown stand-in");
   }
 
+  static void titleAndHud() {
+    Game g = standIn();
+    g.title = true;
+    hold(g, Game.RIGHT, 5);
+    check(g.ticks == 0, "the title screen holds the board");
+    Renderer r = new Renderer(g.assets.tileSheet());
+    java.awt.image.BufferedImage t = r.title();
+    check(t.getWidth() == 512 && t.getHeight() == 448, "title at the window's 512x448");
+    g.title = false;
+    r.draw(g);
+    check((r.frame().getRGB(27, 50) & 0xFFFFFF) == 0x28B43C, "HUD: the magic fill at (24, 47), as Zelda Online 1");
+  }
+
   static Game standIn() {
     Game g = new Game(new Assets(null, null));
     g.start(null);
     return g;
+  }
+
+  static void focusReleasesInput() {
+    Game g = standIn();
+    ZeldaOnline2 view = new ZeldaOnline2(g, new Renderer(g.assets.tileSheet()));
+    long now = System.currentTimeMillis();
+    view.key(new java.awt.event.KeyEvent(view, java.awt.event.KeyEvent.KEY_PRESSED,
+        now, 0, java.awt.event.KeyEvent.VK_RIGHT, java.awt.event.KeyEvent.CHAR_UNDEFINED), true);
+    view.key(new java.awt.event.KeyEvent(view, java.awt.event.KeyEvent.KEY_PRESSED,
+        now, 0, java.awt.event.KeyEvent.VK_A, 'a'), true);
+    check(g.keys != 0 && g.action, "game holds direction and action before focus leaves");
+    for (java.awt.event.FocusListener listener : view.getFocusListeners())
+      listener.focusLost(new java.awt.event.FocusEvent(view, java.awt.event.FocusEvent.FOCUS_LOST));
+    check(g.keys == 0 && !g.action, "chat/options focus loss releases direction and action");
+    double x = g.x, y = g.y;
+    g.tick();
+    check(g.x == x && g.y == y, "no stuck walking after focus leaves");
+    g.net = new Net(null, g);
+    g.keys = 1 << Game.RIGHT;
+    g.action = true;
+    view.key(new java.awt.event.KeyEvent(view, java.awt.event.KeyEvent.KEY_PRESSED,
+        now, 0, java.awt.event.KeyEvent.VK_ENTER, '\n'), true);
+    check(g.keys == 0 && !g.action && g.typing != null, "keyboard chat also releases all held input");
   }
 
   static void hold(Game g, int dir, int ticks) {
@@ -243,6 +281,15 @@ public class TestZO2 {
       Net.Peer pa = (Net.Peer) nb.peers.get(na.myId);
       check(pa != null && pa.nick.equals("alice"), "b sees a");
       check(na.leader() && !nb.leader(), "earliest login time leads");
+      // In-game Options changes must reach a player already in the party.
+      b.nickname = "renamed";
+      b.colours[1] = 9; // mutate in place, as Options does
+      for (int i = 0; i < 20; i++) {
+        b.tick(); nb.tick(); a.tick(); na.tick(); Thread.sleep(15);
+      }
+      check(pb != null && pb.nick.equals("renamed"), "changed nickname reaches an existing peer");
+      check(pb != null && pb.colours.length == 4 && pb.colours[1] == 9,
+          "changed colours reach an existing peer without reconnecting");
       // b chats, then walks out of the level: a drops b
       b.chat = "hi";
       for (int i = 0; i < 6; i++) { b.tick(); nb.tick(); a.tick(); na.tick(); Thread.sleep(15); }

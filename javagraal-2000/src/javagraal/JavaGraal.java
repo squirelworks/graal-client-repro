@@ -15,9 +15,9 @@ import javax.imageio.ImageIO;
 
 /**
  * Java Graal (July 2000), rebuilt. The original is a Java 1.1 applet,
- * 512x418, served from Cyberjoueur's site. It starts on level13.graal and
- * connects to the host it was loaded from on port 14802, with no start
- * window. This runs it in a window of the same size; the host it would have
+ * 512x418, served from Cyberjoueur's site. It opens on a title screen
+ * ("Press any key to start!"), starts on level13.graal and connects to the
+ * host it was loaded from on port 14802, with no start window. This runs it in a window of the same size; the host it would have
  * been loaded from is --host (default listserver.graal.in). If the relay
  * cannot be reached it plays alone.
  *
@@ -36,6 +36,7 @@ public class JavaGraal extends Canvas {
   Game game;
   Renderer renderer;
   StringBuffer typing;
+  int swallow = -1; // the key that left the title, until it is let go
 
   JavaGraal(Game game, Renderer renderer) {
     this.game = game;
@@ -55,9 +56,30 @@ public class JavaGraal extends Canvas {
     if (typing.length() < 60) typing.append(c);
   }
 
+  /**
+   * The keys that leave the title screen, as in the original: letters,
+   * digits, Space and the arrows (not Enter, Esc, Tab, Shift, F1 or a
+   * click). The key that leaves it does nothing in the game.
+   */
+  static boolean leavesTitle(KeyEvent e) {
+    int code = e.getKeyCode();
+    return (code >= KeyEvent.VK_A && code <= KeyEvent.VK_Z)
+        || (code >= KeyEvent.VK_0 && code <= KeyEvent.VK_9)
+        || code == KeyEvent.VK_SPACE || code == KeyEvent.VK_UP || code == KeyEvent.VK_DOWN
+        || code == KeyEvent.VK_LEFT || code == KeyEvent.VK_RIGHT;
+  }
+
   void key(KeyEvent e, boolean down) {
     int code = e.getKeyCode();
     synchronized (game) {
+      if (game.title) {
+        if (down && leavesTitle(e)) { game.title = false; swallow = code; }
+        return;
+      }
+      if (code == swallow) {
+        if (!down) swallow = -1;
+        return;
+      }
       if (typing != null) {
         if (!down) return;
         if (code == KeyEvent.VK_ENTER) { game.chat = typing.toString(); typing = null; }
@@ -106,7 +128,7 @@ public class JavaGraal extends Canvas {
 
   static void usage() {
     System.out.println("JavaGraal [--host HOST[:PORT] | --offline] [--nick NAME] [--data DIR]");
-    System.out.println("          [--level NAME] [--keys KEYS] [--dump FILE.png] [--headless]");
+    System.out.println("          [--level NAME] [--keys KEYS] [--dump FILE.png] [--headless] [--title]");
   }
 
   /** Connects to the relay; null (and a status) when it fails. */
@@ -135,7 +157,7 @@ public class JavaGraal extends Canvas {
   public static void main(String[] args) throws Exception {
     File data = null;
     String level = null, keys = null, dump = null, host = null, nick = null;
-    boolean headless = false, offline = false;
+    boolean headless = false, offline = false, titleArg = false;
     for (int i = 0; i < args.length; i++) {
       String a = args[i];
       if (a.equals("--data") && i + 1 < args.length) data = new File(args[++i]);
@@ -146,6 +168,7 @@ public class JavaGraal extends Canvas {
       else if (a.equals("--nick") && i + 1 < args.length) nick = args[++i];
       else if (a.equals("--offline")) offline = true;
       else if (a.equals("--headless")) headless = true;
+      else if (a.equals("--title")) titleArg = true;
       else if (a.equals("--help") || a.equals("-h")) { usage(); return; }
       else { usage(); System.exit(2); }
     }
@@ -155,6 +178,9 @@ public class JavaGraal extends Canvas {
     Renderer renderer = new Renderer(assets.tileSheet(), assets);
     if (!game.start(level)) { System.err.println(game.status); System.exit(1); }
     boolean scripted = keys != null || dump != null || headless || GraphicsEnvironment.isHeadless();
+    // the window opens on the title screen; a scripted run skips it unless
+    // --title asks for it (then its first key leaves it)
+    game.title = !scripted || titleArg;
     // scripted runs stay offline unless a host is named
     if (!offline && (host != null || !scripted)) {
       if (connect(game, host != null ? host : DEFAULT_HOST) == null) System.err.println(game.status);
@@ -166,6 +192,7 @@ public class JavaGraal extends Canvas {
   static void runScripted(Game game, Renderer renderer, String keys, String dump) throws Exception {
     for (int i = 0; i < keys.length(); i++) {
       char c = keys.charAt(i);
+      if (game.title) { game.title = false; continue; }
       game.keys = c == 'u' ? 1 << Game.UP : c == 'l' ? 1 << Game.LEFT : c == 'd' ? 1 << Game.DOWN : c == 'r' ? 1 << Game.RIGHT : 0;
       game.action = c == 'a';
       game.tick();

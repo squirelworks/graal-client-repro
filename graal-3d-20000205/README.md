@@ -191,12 +191,39 @@ The notes leave these open; each is marked "this build" in the code.
 - [ ] The server drop-down list of the start window.
 - [x] The cloud sky, the `logo.bmp` picture and the nickname banner of the
   real client's view (2026-11-12 polishing run, Windows 10).
-- [ ] The follow camera: on the real client's first frames the camera is
-  much closer than the 220 behind and 80 above of the notes (the head
-  fills the top of the view); the notes' figures are kept until the real
-  camera is measured after walking.
-- [ ] A live check, with the native `d3drm.dll`, that no later call moves
-  the back plane from 5000. The polishing run saw the real cloud ceiling
-  reach further than the plane allows.
+- [ ] The follow camera. Measured on the real client (isolated lab,
+  2026-11-13, Windows 10 with the native `d3drm.dll`): the very close
+  camera of the first frames is an error state. It happens when the
+  server sends a level the client cannot load, and an access violation
+  then repeats every tick. With a level name the server does not have,
+  the client draws its own scene and the framing holds from the first
+  frame: the player centred and seen from behind, about 36% of the view's
+  height, feet about 74% of the way down, the camera above the head
+  looking slightly down. Walking forward with keypad 8 for 2 s, the camera
+  falls back and drops toward the horizon (on the client, the top of the
+  grass went from y 101 to 142 and the head from 165 to 183, feet on the
+  same row). After the key is let go it eases back over about a second.
+  The rebuild still uses the notes' 220 behind and 80 above.
+- [ ] Turning. On the real client keypad 4 and 6 turn the player in place,
+  at about 65 degrees a second, legs moving. The camera trails about a
+  quarter turn behind, pulls back and drops a little, and swings back
+  behind him over about 3 s after the key is let go. The rebuild steps
+  sideways, as the notes read it; this needs reconciling with
+  graal_analysis `graal3d/client-behaviour.md` before it changes.
+- [ ] Keypad 0 on the real client switches to a first-person view at the
+  player's next move (the player is not drawn and the view turns from
+  where he stands). Pressing 0 again brings back the camera behind him.
+  The rebuild turns the follow on and off instead.
+- [ ] Keypad 5 jumps about the player's own height, shadow left on the
+  ground, and lands within about a second, with the camera rising a
+  little. This is still to be compared with the rebuild's jump table.
+- [ ] The real client's arrow keys do not walk (only the keypad does, in
+  the lab run); the rebuild keeps them walking as a choice.
+- [x] A live check, with the native `d3drm.dll`, of the back plane (isolated
+  lab, 2026-11-13). Placed 3000 and 5500 units from the level's
+  structures, the client draws the floor and the structures. At 6500 and
+  9000 it draws only clouds and blue, though at 6500 the floor's edge is
+  4500 away. So drawing stops at about 5000 from the camera: 5000 holds.
+  The clouds are a backdrop and always show.
 - [ ] Admin login (id 1) and its account and player lists: no admin client
   shipped for Graal3D.

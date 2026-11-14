@@ -84,6 +84,13 @@ takes only `pics1.gif`, `arrays.dat` and the levels.
 
 ## What works (0.0.1)
 
+- The title screen and HUD as measured (isolated lab, 2026-11-13): "Press any
+  key to start!" from x 121 on rows 370-382 of the 512x448 box, the logo
+  from (100, 76). Any key leaves it, a click does not. The HUD, unscaled:
+  picture at (20, 12), magic fill 8x8 at (24, 47), counters "000 / 00 /
+  05" from x 65, 97 and 121 on rows 24-29, hearts at x 162, 170 and 178.
+  `--title` shows the title in a scripted run.
+- The start at (23, 37) on `level1.zelda`, view origin (64, 192).
 - The window, 512x448, the board drawn from `pics1.gif` or the stand-ins.
 - Levels: `Z3-V1.02` and `Z3-V1.03`, links (keep-coordinate arrivals
   included), baddy records, signs. All 51 `Z3-V1.03` levels of the Zelda
@@ -100,5 +107,9 @@ takes only `pics1.gif`, `arrays.dat` and the levels.
 - [ ] Chests and the story flags.
 - [ ] The password save.
 - [ ] Sound.
-- [ ] The original start position on `level1.zelda` (not known yet; the
-  rebuild starts near the middle).
+- [ ] The title logo and the HUD picture: the originals' pictures are not
+  here, so plain stand-ins are drawn in their places.
+- [ ] The HUD counting anything (nothing changed it in the lab run).
+- [ ] The soldier on `level1.zelda`: it starts at about (18, 48) and moves
+  in straight runs with pauses (down, up, a pause, right about 90 pixels,
+  a pause, then down); the rebuild does not move baddies yet.

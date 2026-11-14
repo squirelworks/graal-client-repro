@@ -13,6 +13,15 @@ The zip holds no original code, graphics or levels. The game carries simple
 stand-in graphics and two small levels of its own, so it runs with nothing
 next to it.
 
+## What's new in v0.0.5
+
+- [x] Nickname and colour changes made in Options are sent to existing peers by the regular network tick, without reconnecting.
+- [x] The server field starts at loopback (127.0.0.1) with One-Player mode selected. Multiplayer needs a server you choose.
+
+- [x] The start window is laid out as the original's "Zelda Start": the two modes, the server address, Play and Cancel. Nickname, colours and showing your own name moved to an Options button under the game, as in the original.
+- [x] The game opens on a title screen ("Press any key to start!") and shows the original's HUD places (magic, rupees, bombs, arrows, three hearts), drawn with stand-ins.
+- [x] Chat is typed in a field under the game. Moving focus to chat or Options releases held movement and action keys.
+
 ## What's new in v0.0.4.2
 
 - Reads the shared asset root: in a folder holding `_clients/`, it takes `_clients/<label>/` first and then only the root files its `files.txt` names, never a file from another version's install (#192).
