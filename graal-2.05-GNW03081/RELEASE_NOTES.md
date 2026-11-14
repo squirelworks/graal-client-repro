@@ -20,6 +20,8 @@ their place.
 
 ## What's new in v0.0.5
 
+- [x] Reject laying over default-tileset liquid (arrays.dat list 1, including lava). Alternate tileset and NPC-shape water classification remain unresolved.
+
 - [x] Repeated named animation props restart another player's swing; direction-only updates keep its clock.
 
 - [x] **The animation goes on the wire by name.** As the real 2.05 rev 2 does (lab, 2026-11-14), the player's animation is sent as prop 10, `c(len)` + the gani name (`sword`, `spin`, `walk`, `idle`), followed by X, Y and SPRITE holding only the direction. Before, the rebuild sent a sprite number for each swing and walk frame. Each swing sends its name again, and the idle a swing or spin ends in is not sent. Prop 10 from the server is read the same way, so another player's swing plays its own gani. Before, prop 10 was read as a bow picture, which garbled the props after it (#302).
