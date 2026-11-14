@@ -1780,12 +1780,12 @@ end;
   under 2 tiles to the side, AP not 100, once a second per attacker. }
 procedure TAdventure.CheckSwordHits;
 var
-  I, S, Sec: Integer;
+  I, S: Integer;
   P: TServerPlayer;
   DX, DY, Ahead, Side: Double;
 begin
-  if not Hurtable or (AP = 100) or (Mode = ModeDead) then Exit;
-  Sec := Round(Frac(Now) * 86400);
+  { no AP 100 immunity before 1.34 }
+  if not Hurtable or (Mode = ModeDead) then Exit;
   for I := 0 to FOthers.Count - 1 do
   begin
     P := Others[I];
@@ -1800,10 +1800,11 @@ begin
     else
       begin Ahead := DX; Side := DY; end;
     end;
-    if (Ahead < 0) or (Ahead > 4) or (Abs(Side) >= 2) then Continue;
-    if P.HitSecond = Sec then Continue;
-    P.HitSecond := Sec;
-    HurtPlayer(Max(-20, Min(20, P.SwordPower)) / 2, DX, DY);
+    if (Ahead < 0) or (Ahead > 4) or (Abs(Side) > 2) then Continue;
+    { no once-a-second stamp before 2.01 }
+    { the power is kept raw in 6 bits before 2.03: no plus or minus
+      20 limit, and a negative power wraps and never heals }
+    HurtPlayer((P.SwordPower and 63) / 2, DX, DY);
     Exit;
   end;
 end;

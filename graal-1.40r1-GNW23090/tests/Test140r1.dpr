@@ -1494,6 +1494,37 @@ begin
   end;
 end;
 
+procedure TestRolledDrops;
+var
+  G: TAdventure;
+  I, Bombs, Darts: Integer;
+begin
+  G := TAdventure.Create;
+  try
+    G.Headless := True;
+    SetLength(G.Items, 0);
+    G.LiftDrop(2, 10, 12);
+    Check((Length(G.Items) = 1) and (G.Items[0].Item = 5) and (G.Items[0].X = 10) and
+      (G.Items[0].Y = 12), 'drops: a lifted pot leaves a heart at its corner');
+    G.LiftDrop(3, 10, 12);
+    Check(Length(G.Items) = 1, 'drops: a lifted stone leaves nothing');
+    SetLength(G.Items, 0);
+    RandSeed := 1;
+    for I := 1 to 1000 do G.RollDrop(5, 5);
+    Bombs := 0;
+    Darts := 0;
+    for I := 0 to High(G.Items) do
+    begin
+      if G.Items[I].Item = 3 then Inc(Bombs);
+      if G.Items[I].Item = 4 then Inc(Darts);
+    end;
+    Check((Length(G.Items) > 320) and (Length(G.Items) < 420) and (Bombs > 20) and (Darts = 0),
+      Format('drops: a bush leaves an item about 37 times in 100, never darts (%d)', [Length(G.Items)]));
+  finally
+    G.Free;
+  end;
+end;
+
 begin
   TestOptionsForm;
   TestGTypes;
@@ -1519,6 +1550,7 @@ begin
   TestStatus;
   TestActions;
   TestSpinAndLay;
+  TestRolledDrops;
   RunNpcTests(Check, NpcSkipped);
   Inc(Skipped, NpcSkipped);
   RunBaddyTests(Check);

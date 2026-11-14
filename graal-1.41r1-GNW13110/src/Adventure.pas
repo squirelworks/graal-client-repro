@@ -286,6 +286,10 @@ type
       the change when a tile differs. }
     procedure PutObject(X, Y, List, I: Integer; Send: Boolean);
     { The S key: throws what is carried, or swings the sword and cuts. }
+    { an item the client rolled itself (1.x): a bush, a pot or a baddy }
+    procedure PutRolled(Item: Integer; X, Y: Double);
+    procedure RollDrop(X, Y: Integer);
+    procedure LiftDrop(Kind, X, Y: Integer);
     procedure Attack;
     { S again during a swing, with the spin status: the spin attack }
     procedure StartSpin;
@@ -1301,6 +1305,40 @@ begin
     Round(Player.Y * TileSize) - SH div 2 - CamY);
 end;
 
+{ ---- what the client drops itself in 1.x (graal_analysis
+  client-internals/item-drops.md; read in 1.21 to 1.41) ---- }
+
+procedure TAdventure.PutRolled(Item: Integer; X, Y: Double);
+begin
+  AddItem(X, Y, Item, ItemLife);
+  { 1.38 to 1.41 tell the server (the 1.39 capture: C>S 1, then 12) }
+  if FClient.Connected then
+    FClient.SendPacket(12, GChar(Round(X * 2)) + GChar(Round(Y * 2)) + GChar(Item));
+end;
+
+{ One Random(100) per cut or lifted bush: 0 to 24 a green rupee, 25 and 26
+  a blue one, 27 to 31 a heart, 32 to 36 bombs, else nothing. }
+procedure TAdventure.RollDrop(X, Y: Integer);
+var
+  R: Integer;
+begin
+  R := Random(100);
+  if R < 25 then PutRolled(0, X, Y)
+  else if R < 27 then PutRolled(1, X, Y)
+  else if R < 32 then PutRolled(5, X, Y)
+  else if R < 37 then PutRolled(3, X, Y);
+end;
+
+{ A lifted bush rolls; a lifted pot always leaves a heart; a sign or a
+  stone leaves nothing. }
+procedure TAdventure.LiftDrop(Kind, X, Y: Integer);
+begin
+  case Kind of
+    0: RollDrop(X, Y);
+    2: PutRolled(5, X, Y);
+  end;
+end;
+
 procedure TAdventure.Attack;
 var
   A: TGraalAni;
@@ -1329,7 +1367,11 @@ begin
   { a bush or tall grass at the tip is cut at the start of the swing }
   ProbePoint(PX, PY);
   E := MatchObject(9, MaxInt, PX, PY, OX, OY);
-  if E >= 0 then PutObject(OX, OY, 10, E, True);
+  if E >= 0 then
+  begin
+    PutObject(OX, OY, 10, E, True);
+    RollDrop(OX, OY);
+  end;
   { NPCs and baddies hit by the blade: a 2 x 2 box centred on the tip }
   if Assigned(OnSwordHit) then OnSwordHit(PX - 1, PY - 1, 2, 2, Player.SwordPower);
 end;
@@ -1366,6 +1408,7 @@ begin
   begin
     PutObject(OX, OY, 12, E, True);
     CarryKind := E;
+    LiftDrop(E, OX, OY);
     Mode := ModeLift;
     Player.SetAni('lift', Frame);
     A := Assets.Ani('lift');
@@ -1629,12 +1672,11 @@ end;
   under 2 tiles to the side, AP not 100, once a second per attacker. }
 procedure TAdventure.CheckSwordHits;
 var
-  I, S, Sec: Integer;
+  I, S: Integer;
   P: TServerPlayer;
   DX, DY, Ahead, Side: Double;
 begin
   if not Hurtable or (AP = 100) or (Mode = ModeDead) then Exit;
-  Sec := Round(Frac(Now) * 86400);
   for I := 0 to FOthers.Count - 1 do
   begin
     P := Others[I];
@@ -1649,10 +1691,11 @@ begin
     else
       begin Ahead := DX; Side := DY; end;
     end;
-    if (Ahead < 0) or (Ahead > 4) or (Abs(Side) >= 2) then Continue;
-    if P.HitSecond = Sec then Continue;
-    P.HitSecond := Sec;
-    HurtPlayer(Max(-20, Min(20, P.SwordPower)) / 2, DX, DY);
+    if (Ahead < 0) or (Ahead > 4) or (Abs(Side) > 2) then Continue;
+    { no once-a-second stamp before 2.01 }
+    { the power is kept raw in 6 bits before 2.03: no plus or minus
+      20 limit, and a negative power wraps and never heals }
+    HurtPlayer((P.SwordPower and 63) / 2, DX, DY);
     Exit;
   end;
 end;

@@ -1666,7 +1666,7 @@ begin
     else
       begin Ahead := DX; Side := DY; end;
     end;
-    if (Ahead < 0) or (Ahead > 4) or (Abs(Side) >= 2) then Continue;
+    if (Ahead < 0) or (Ahead > 4) or (Abs(Side) > 2) then Continue;
     if P.HitSecond = Sec then Continue;
     P.HitSecond := Sec;
     HurtPlayer(Max(-20, Min(20, P.SwordPower)) / 2, DX, DY);
