@@ -23,6 +23,7 @@ program works too (`graal-assets/4.04r2/`, then `graal-assets/common/`).
 
 ## What's new in v0.0.5
 
+- [x] **The player's actions in the game view.** S swings the sword, and S again during the swing spins when the server's status allows it (0x40). A lifts a bush, pot or stone ahead and throws it (A or S again), opens a chest, and with S held picks an item to drop: A with S held again picks the next one, A alone lays it, and an arrow, D or S leaves. D fires the selected weapon; the built-in Bomb and Bow put bombs and shoot arrows. Q opens the weapon list, where the arrows pick the weapon D fires. Online these go out as the 2.x clients send them (the sword gani, CARRYSPRITE, THROWCARRIED, BOMBADD, ARROWADD, ITEMADD with the new counts), and other players' bombs, explosions, arrows, dropped items and carried objects show; their swings, bombs and arrows can hurt. The rules are the 2.x ones (2.05 and 2.22): the real 4.04r2 has not been checked for them in the lab yet.
 - [x] **Update packages, as the real 4.04r2 asks for them.** With `--engine`, each login asks for `basepackage.gupd` and keeps the server's copy in `updatepackages/` (and the game server's own folder). On the next run a kept copy is checked by its checksum instead of being fetched again. The Login server is also asked for `bigmap.txt` once per run.
 - [x] **Machine fields in the original's shape.** The login line's three machine fields are no longer empty. They carry fixed made-up MD5 hashes (of SquirrelOS, SquirrelNIC and SquirrelBIOS strings), the shape the real client sends. Nothing is read from your machine.
 
@@ -110,7 +111,8 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
   Alt+Enter gives fullscreen.
 - [ ] The start screen's words are drawn in Liberation Sans, not the
   engine's Arial.
-- [ ] NPCs, baddies, items and weapons; the GS1 and GS2 script engines;
+- [ ] A server weapon's script: D on it gets no `weaponfired` until there is a client script engine.
+- [ ] NPCs, baddies and items from the server; the GS1 and GS2 script engines;
   chat; update packages; the 3D mode. See the build's README for the full
   list.
 
