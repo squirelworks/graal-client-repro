@@ -214,6 +214,11 @@ const
   PLPROP_GATTRIB30 = 74;
   PLPROP_OSTYPE = 75;
   PLPROP_TEXTCODEPAGE = 76;
+  { Precise position. 3.153 walks with these, never the half-tile X/Y
+    (version-profiles/3.04-3.153.toml, lab-mac-tiger-2026-10-31.md). }
+  PLPROP_X2 = 78;
+  PLPROP_Y2 = 79;
+  PLPROP_Z2 = 80;
 
   { What 3.153 says about itself in its first props: OSTYPE is 'mac' on
     the original (3.04-3.153.md); the code page is 3.04's lab value,
