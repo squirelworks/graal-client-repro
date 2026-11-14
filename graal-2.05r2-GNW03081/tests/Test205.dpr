@@ -1684,6 +1684,28 @@ begin
   end;
 end;
 
+procedure TestGaniProp;
+var
+  G: TAdventure;
+  P: TServerPlayer;
+begin
+  G := TAdventure.Create;
+  try
+    G.Headless := True;
+    { 2.05 names another player's animation in prop 10 as c(len) + name
+      (lab 2026-11-14); the props after it still parse }
+    G.Receive(PLO_OTHERPLPROPS, GShort(5) + GChar(PLPROP_BOWGIF) + GChar(5) + 'sword' +
+      GChar(PLPROP_X) + GChar(61) + GChar(PLPROP_SPRITE) + GChar(2));
+    P := G.FindOther(5, False);
+    Check((P <> nil) and (P.AniName = 'sword') and (P.FixedStep = -1) and (P.Dir = 2) and
+      (Abs(P.X - 30.5) < 1E-9), 'gani prop: prop 10 names the animation, then X and the direction');
+    G.Receive(PLO_OTHERPLPROPS, GShort(5) + GChar(PLPROP_SPRITE) + GChar(1));
+    Check((P.AniName = 'sword') and (P.Dir = 1), 'gani prop: a later SPRITE turns the player only');
+  finally
+    G.Free;
+  end;
+end;
+
 begin
   TestConfirmLayout;
   TestGTypes;
@@ -1712,6 +1734,7 @@ begin
   TestStatus;
   TestActions;
   TestSpinAndLay;
+  TestGaniProp;
   RunNpcTests(Check, NpcSkipped);
   Inc(Skipped, NpcSkipped);
   RunBaddyTests(Check);

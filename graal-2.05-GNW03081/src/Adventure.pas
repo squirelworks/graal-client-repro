@@ -84,6 +84,9 @@ type
     { -1: the animation runs with time. Otherwise the step to draw, for
       other players, whose pose comes from their sprite prop. }
     FixedStep: Integer;
+    { the stream names this player's animation (prop 10), so the sprite
+      prop gives only the direction; AniFresh: it changed in this stream }
+    GaniSent, AniFresh: Boolean;
     Gone: Boolean;      { PCONNECTED or a level leave seen }
     HitSecond: Integer; { second of the day this player's swing last hit us }
     BodyCache: TGSurface; { the body recoloured for this player }
@@ -171,6 +174,10 @@ type
     FLog: TStrings;
     FSentX, FSentY: Double;
     FSentSprite: Integer;
+    { the animation 2.05 names on the wire (prop 10): FWireGani, as last
+      sent, and a key's new start that is sent even when unchanged }
+    FWireGani, FSentGani, FLastAni: string;
+    FWireForce: Boolean;
     FPropsSent: Boolean;
     FOthers: TList;
     FLevelDir: string;     { folder of the level file played offline }
@@ -784,6 +791,7 @@ end;
 function TServerPlayer.ApplyProps(R: TGReader; Other: Boolean): string;
 var
   P, V, I: Integer;
+  G: string;
 begin
   Result := '';
   while not R.Eof do
@@ -827,11 +835,19 @@ begin
           else
             ShieldPower := V;
         end;
-      PLPROP_BOWGIF: { pre-2.1: c(10 + len) + image, or c(bow power) }
+      PLPROP_BOWGIF:
+        { 2.05 sends and gets its animation here as c(len) + the gani name,
+          `*%sword` (lab 2026-11-14, real 2.05 rev 2 both ways) }
         begin
           V := R.ReadGChar;
-          if V > 10 then
-            BowImage := R.ReadChars(V - 10);
+          G := R.ReadChars(V);
+          if Other and (G <> '') then
+          begin
+            if (G <> AniName) or (FixedStep >= 0) then AniFresh := True;
+            AniName := G;
+            FixedStep := -1;
+            GaniSent := True;
+          end;
         end;
       PLPROP_HEADGIF:
         begin
@@ -850,7 +866,7 @@ begin
         begin
           Sprite := R.ReadGChar;
           Dir := Sprite mod 4;
-          if Other then PoseFromSprite;
+          if Other and not GaniSent then PoseFromSprite;
         end;
       PLPROP_STATUS: Status := R.ReadGChar;
       PLPROP_CARRYSPRITE, PLPROP_HORSEBUSHES, PLPROP_EFFECTCOLORS,
@@ -1254,6 +1270,9 @@ begin
   Mode := ModeSpin;
   Player.AniName := '';
   Player.SetAni('spin', Frame);
+  FWireGani := 'spin';
+  FLastAni := 'spin';
+  FWireForce := True;
   A := Assets.Ani('spin');
   if A <> nil then FModeUntil := Frame + A.TotalTicks else FModeUntil := Frame + 13;
   { what the spin hits was not checked on the real client: the blade's
@@ -1333,6 +1352,9 @@ begin
   LayPick := I;
   Mode := ModeLay;
   Player.SetAni('idle', Frame);
+  FWireGani := 'idle';
+  FLastAni := 'idle';
+  FWireForce := True;
   PlaySoundAt('item2.wav', Player.X + 1.5, Player.Y + 2);
 end;
 
@@ -1450,6 +1472,9 @@ begin
   Mode := ModeSword;
   Player.AniName := '';
   Player.SetAni('sword', Frame);
+  FWireGani := 'sword';
+  FLastAni := 'sword';
+  FWireForce := True;
   A := Assets.Ani('sword');
   if A <> nil then FModeUntil := Frame + A.TotalTicks else FModeUntil := Frame + 5;
   { a bush or tall grass at the tip is cut at the start of the swing }
@@ -2855,27 +2880,36 @@ begin
     GChar(PLPROP_ADDITFLAGS) + GChar(0));
   FSentX := Player.X;
   FSentY := Player.Y;
-  FSentSprite := OwnSprite;
+  FSentSprite := Player.Dir;
+  { 2.05 names no animation at login }
+  FWireGani := Player.AniName;
+  FLastAni := Player.AniName;
+  FSentGani := FWireGani;
+  FWireForce := False;
   FPropsSent := True;
 end;
 
 procedure TAdventure.SendMovedProps;
 var
   S: string;
-  Spr: Integer;
 begin
-  { a diff of the changed props, sent at most every other tick (100 ms) }
+  { a diff of the changed props, sent at most every other tick (100 ms), in
+    the order the real 2.05 sends them: the animation by name (10), X, Y,
+    then the direction alone as SPRITE (lab 2026-11-14: `*$walk0]1"`) }
   if not FPropsSent or (Frame mod 2 <> 0) then Exit;
   S := '';
+  if FWireForce or (FWireGani <> FSentGani) then
+    S := S + GChar(PLPROP_BOWGIF) + GChar(Length(FWireGani)) + FWireGani;
   if Player.X <> FSentX then S := S + GChar(PLPROP_X) + GChar(Round(Player.X * 2));
   if Player.Y <> FSentY then S := S + GChar(PLPROP_Y) + GChar(Round(Player.Y * 2));
-  Spr := OwnSprite;
-  if Spr <> FSentSprite then S := S + GChar(PLPROP_SPRITE) + GChar(Spr);
+  if Player.Dir <> FSentSprite then S := S + GChar(PLPROP_SPRITE) + GChar(Player.Dir);
   if S = '' then Exit;
   FClient.SendPacket(PLI_PLAYERPROPS, S);
   FSentX := Player.X;
   FSentY := Player.Y;
-  FSentSprite := Spr;
+  FSentSprite := Player.Dir;
+  FSentGani := FWireGani;
+  FWireForce := False;
 end;
 
 { ---- messages from the server ---- }
@@ -2922,6 +2956,11 @@ begin
           V := R.ReadGShort;
           OP := FindOther(V, True);
           OP.ApplyProps(R, True);
+          if OP.AniFresh then
+          begin
+            OP.AniStart := Frame;
+            OP.AniFresh := False;
+          end;
           if OP.Gone then RemoveOther(V);
         end;
       PLO_PLAYERWARP: { c x*2, c y*2, level }
@@ -3314,6 +3353,14 @@ begin
     { walking up into a chest opens it (the tutorial's glove chest, side by
       side with the real 2.05) }
     else if (Player.Dir and 3) = DirUp then OpenChestAt(Player.X + 1.5, AY);
+  end;
+  { the animation on the wire follows the player's, except that 2.05 does
+    not send the idle a swing or spin ends in (lab 2026-11-14) }
+  if Player.AniName <> FLastAni then
+  begin
+    if not ((Player.AniName = 'idle') and ((FLastAni = 'sword') or (FLastAni = 'spin'))) then
+      FWireGani := Player.AniName;
+    FLastAni := Player.AniName;
   end;
   SendMovedProps;
   FClient.Flush;
