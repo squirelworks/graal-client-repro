@@ -848,7 +848,7 @@ bool Program::tick() {
       item_list_open_ = false;  // Esc closes the item list
       continue;
     }
-    if (k == Draw::Key::Close || (k == Draw::Key::Escape && !gui_->has_content())) quit_ = true;
+    if (k == Draw::Key::Close || (k == Draw::Key::Escape && !gui_->has_content() && !(profile_.escape_menu && !weapons_.any_shown()))) quit_ = true;
   }
   // Input the GUI does not take goes to the weapon scripts (onKeyPressed,
   // onMouseDown, keydown2) and the say2 box.
@@ -858,6 +858,14 @@ bool Program::tick() {
     if (gui_->has_content() && gui_->input(e)) continue;
     if (item_list_open_) {
       item_list_input(e);
+      continue;
+    }
+    if (profile_.escape_menu && !gui_->has_content() && !weapons_.any_shown() &&
+        e.type == Draw::InputEvent::KeyDown && ScriptHost::keycode(e.key, e.ch) == 27) {
+      if (keys_down_.insert(27).second) {
+        me_.status ^= 1;
+        send_packets({{2, Net::gchar(World::kStatus) + Net::gchar(me_.status)}});
+      }
       continue;
     }
     if (!world_.lobby) script_input(e);

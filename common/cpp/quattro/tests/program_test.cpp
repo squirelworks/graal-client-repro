@@ -541,6 +541,66 @@ void test_weapons() {
 // plays a gani, holds the player, tells the server, writes player.chat,
 // shows an image and a sign; the events onPlayerChats, onKeyPressed,
 // onActionClientSide and onPlayerEnters reach it.
+void test_escape_menu() {
+  class InputWindow : public Draw::HeadlessWindow {
+   public:
+    Draw::Key pending = Draw::Key::NoKey;
+    Draw::Key poll_key() override {
+      const auto k = pending;
+      pending = Draw::Key::NoKey;
+      return k;
+    }
+  };
+  for (const char* build : {"6.03r7", "6.01r1"}) {
+    const auto* profile = Net::find_profile(build);
+    CHECK(profile);
+    if (!profile) continue;
+    FakeServer game;
+    CHECK(game.start());
+    Shell::Options opt;
+    opt.host = "127.0.0.1";
+    opt.port = game.port();
+    opt.server_name = "Lab Server";
+    InputWindow win;
+    Shell::Program p(*profile, opt, win);
+    CHECK(p.start());
+    CHECK(game.conn.accept_from(game.listener));
+    CHECK(run(p, nullptr, &game, [&] { return game.saw(37, "English"); }));
+    game.send(send_level("probe.nw", 7) + gchar(9) + gchar(World::kStatus) + gchar(0) + "\n");
+    CHECK(run(p, nullptr, &game, [&] { return p.world().have_level; }));
+    Draw::InputEvent esc;
+    esc.key = "escape";
+    win.pending = Draw::Key::Escape;
+    win.push_input(esc);
+    if (!profile->escape_menu) {
+      CHECK(!p.tick()); // legacy Escape still quits
+      continue;
+    }
+    CHECK(p.tick() && p.me().status == 1);
+    CHECK(run(p, nullptr, &game, [&] { return game.saw(2, gchar(World::kStatus) + gchar(1)); }));
+    win.push_input(esc); // repeated keydown without release is not a second press
+    CHECK(p.tick() && p.me().status == 1);
+    esc.type = Draw::InputEvent::KeyUp;
+    win.push_input(esc);
+    CHECK(p.tick() && p.me().status == 1);
+    esc.type = Draw::InputEvent::KeyDown;
+    win.pending = Draw::Key::Escape;
+    win.push_input(esc);
+    CHECK(p.tick() && p.me().status == 0);
+    CHECK(run(p, nullptr, &game, [&] { return game.saw(2, gchar(World::kStatus) + gchar(0)); }));
+    esc.type = Draw::InputEvent::KeyUp;
+    win.push_input(esc);
+    p.tick();
+    auto control = std::make_shared<gs2::gui::Control>("ProbeGui", "GuiControl");
+    p.gui().screen().setContent(control);
+    esc.type = Draw::InputEvent::KeyDown;
+    win.pending = Draw::Key::Escape;
+    win.push_input(esc);
+    CHECK(p.tick() && p.me().status == 0); // GUI content owns the key
+    win.pending = Draw::Key::Close;
+    CHECK(!p.tick()); // explicit window Close still quits
+  }
+}
 void test_weapon_scripts() {
   const Net::BuildProfile* prof = Net::find_profile("6.03r7");
   CHECK(prof);
@@ -762,5 +822,6 @@ int main() {
   test_downloads();
   test_weapons();
   test_weapon_scripts();
+  test_escape_menu();
   TEST_MAIN_END();
 }

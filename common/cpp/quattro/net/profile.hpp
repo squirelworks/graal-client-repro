@@ -36,6 +36,7 @@ struct BuildProfile {
   // CRC-32), and bigmap.txt on the Login session once per run.
   bool update_packages = false;
   int carry_sprite_after = 4, carry_still_after = 6; // legacy rebuild timing unless measured
+  bool escape_menu = false; // measured only for Linux 6.03r7 without a scripted GUI
   bool draws_chests = true;       // a chest is drawn (6.03r7: never, only its tiles)
   unsigned login_port = 14900;    // compiled-in login server port
   // A last login field after the machine fields, sent quoted ("" for none):
