@@ -24,8 +24,8 @@ View follow(const WorldState& w, int canvas_w, int canvas_h) {
     return span > Files::kBoardSide ? v : std::clamp(v, 0.0, Files::kBoardSide - span);
   };
   View v;
-  v.left = axis(w.player.x + 1.5, vw);
-  v.top = axis(w.player.y + 1.5, vh);
+  v.left = w.focus ? axis(w.focus_x, vw) : axis(w.player.x + 1.5, vw);
+  v.top = w.focus ? axis(w.focus_y, vh) : axis(w.player.y + 1.5, vh);
   return v;
 }
 
@@ -101,7 +101,7 @@ void WorldRenderer::draw_objects(Canvas& c, const WorldState& w, const View& v) 
 void WorldRenderer::draw_player(Canvas& c, const WorldState& w, const View& v) const {
   int px = static_cast<int>(std::lround((w.player.x - v.left) * kTile));
   int py = static_cast<int>(std::lround((w.player.y - v.top) * kTile));
-  draw_actor(c, w.player, px, py, {230, 60, 60, 255});
+  if (!w.player_hidden) draw_actor(c, w.player, px, py, {230, 60, 60, 255});
   if (!assets_) return;
   for (const auto& e : w.effects) {
     const Image* sheet = assets_->image(e.image.empty() ? "sprites.png" : e.image);

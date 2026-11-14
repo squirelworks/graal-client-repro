@@ -77,6 +77,7 @@ type
     function Image(const Name: string): TGSurface; override;
     function Arrays: TGArrays; override;
     procedure DrawVerse(Screen: TGSurface; CX, Y: Integer; const Text: string); override;
+    procedure DropItem(Item: Integer; X, Y: Double); override;
     procedure AllDied; override;
   end;
 
@@ -542,6 +543,11 @@ end;
 procedure TAdventureBaddyWorld.DrawVerse(Screen: TGSurface; CX, Y: Integer; const Text: string);
 begin
   DrawText(Screen, CX - TextWidth(Text, 1) div 2, Y, Text, $FFFFFFFF, 1);
+end;
+
+procedure TAdventureBaddyWorld.DropItem(Item: Integer; X, Y: Double);
+begin
+  FAdv.PutRolled(Item, X, Y);
 end;
 
 procedure TAdventureBaddyWorld.AllDied;

@@ -70,6 +70,10 @@ struct WorldState {
   bool lobby_tiles = false;  // the build draws tiles in the lobby
   bool chest_boxes = true;   // stand-in boxes for chests (6.03r7 draws none)
   std::vector<EffectSprite> effects;  // over the players
+  bool player_hidden = false;          // hideplayer
+  // setfocus(x, y): the view centres there instead of on the player.
+  bool focus = false;
+  double focus_x = 0, focus_y = 0;
 };
 
 struct View {

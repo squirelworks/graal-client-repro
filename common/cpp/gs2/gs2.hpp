@@ -184,6 +184,13 @@ class Machine {
   void scheduleEvent(const VarPtr& var, double delay, const std::string& name, std::vector<Value> args = {});
   void cancelEvents(const VarPtr& var, const std::string& name);
 
+  // `destroy`: the object's script, classes, queued and scheduled events and
+  // sleeping runs go, and the machine forgets it made the object. `onDestroy`
+  // runs first, so the program can take the object off the screen or out of
+  // its own lists.
+  void destroy(const VarPtr& var);
+  std::function<void(const VarPtr&)> onDestroy;
+
   // catchevent: when `event` is queued on the variable named `objectName`
   // (`universe`, or a child of it), `function` is queued on `catcher`.
   void catchEvent(const std::string& objectName, const std::string& event, const VarPtr& catcher,
@@ -269,6 +276,7 @@ class Machine {
   Exec* running_ = nullptr;
   std::uint64_t executed_ = 0;
   std::uint32_t rng_ = 1;
+  int waiters_ = 0;  // scripts in waitfor (a hint: queueEvent looks for them only when above 0)
 };
 
 }  // namespace gs2

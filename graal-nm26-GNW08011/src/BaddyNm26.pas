@@ -1094,7 +1094,10 @@ begin
   for I := Baddies.Count - 1 downto 0 do
   begin
     B := Baddy(I);
-    if not Active(B) then Continue;
+    { 1.21 to 2.00: the sword reaches a swamp soldier from counter 17,
+      when it surfaces }
+    if not (Active(B) or ((B.Mode = BdRise) and (B.Lost < 1) and (B.Counter >= 17))) then
+      Continue;
     BX := B.X + 1;
     BY := B.Y + 1;
     ADX := Abs(PX - BX);

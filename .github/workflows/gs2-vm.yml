@@ -30,9 +30,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Install zlib
-        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev
+        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev valgrind
       - name: Build and test the GS2 machine
         run: make -C common/cpp/gs2 test
+      - name: Check script lifecycle memory
+        run: valgrind --error-exitcode=1 --leak-check=full --errors-for-leak-kinds=definite,indirect common/cpp/gs2/build/gs2-test
       - name: Check with address and undefined behavior sanitizers
         run: |
           make -C common/cpp/gs2 clean

@@ -1,8 +1,10 @@
 #include "scripts.hpp"
 
 #include "../net/gtypes.hpp"
+#include "../../gs2/engine_commands.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <vector>
 #include <cctype>
 #include <filesystem>
@@ -120,6 +122,66 @@ int to_int(const std::string& s) {
 
 }  // namespace
 
+std::string to_csv(const std::vector<std::string>& fields) {
+  std::string out;
+  for (size_t i = 0; i < fields.size(); ++i) {
+    if (i) out += ',';
+    const std::string& f = fields[i];
+    bool quote = false;
+    for (unsigned char c : f)
+      if (c == ',' || c == '"' || c == '\\' || c > 126) quote = true;
+    if (!quote) {
+      out += f;
+      continue;
+    }
+    out += '"';
+    for (char c : f) {
+      if (c == '"' || c == '\\') out += c;
+      out += c;
+    }
+    out += '"';
+  }
+  return out;
+}
+
+std::vector<std::string> from_csv(std::string_view text) {
+  std::vector<std::string> fields;
+  if (text.empty()) return fields;
+  size_t i = 0;
+  while (i <= text.size()) {
+    std::string f;
+    if (i < text.size() && text[i] == '"') {
+      ++i;
+      while (i < text.size()) {
+        char c = text[i];
+        if ((c == '"' || c == '\\') && i + 1 < text.size() && text[i + 1] == c) {
+          f += c;
+          i += 2;
+        } else if (c == '"') {
+          ++i;
+          break;
+        } else {
+          f += c;
+          ++i;
+        }
+      }
+      // Anything up to the comma after a closing quote is kept.
+      size_t e = text.find(',', i);
+      if (e == std::string_view::npos) e = text.size();
+      f.append(text.substr(i, e - i));
+      i = e;
+    } else {
+      size_t e = text.find(',', i);
+      if (e == std::string_view::npos) e = text.size();
+      f.assign(text.substr(i, e - i));
+      i = e;
+    }
+    fields.push_back(std::move(f));
+    ++i;
+  }
+  return fields;
+}
+
 bool parse_script_packet(std::string_view payload, ScriptDescriptor& d, std::string& body) {
   Net::Reader r(payload);
   unsigned h = r.gshort();
@@ -164,10 +226,61 @@ ScriptHost::ScriptHost() : machine_(gs2::Profile::Engine600) {
   player_ = std::make_shared<gs2::Var>("player");
   player_->setAcceptsAllProperties(true);
   machine_.setPlayer(player_);
-  machine_.addCommand("echo", "s", [this](gs2::Machine& m, gs2::Var&, std::vector<gs2::Value>& args) {
-    note("echo: " + m.toString(args[0]));
+  // setTimer, catchevent, join, scheduleevent, cancelevents, trigger,
+  // destroy, md5, echo and the file-name helpers (common/cpp/gs2).
+  gs2::EngineHost h;
+  h.log = [this](const std::string& s) { note("echo: " + s); };
+  gs2::addEngineCommands(machine_, std::move(h));
+  // findweapon(name): the weapon's object, so a call on it runs that
+  // script's function (set B's main use: another weapon's public function).
+  machine_.addCommand("findweapon", "s", [this](gs2::Machine& m, gs2::Var&, std::vector<gs2::Value>& a) {
+    gs2::VarPtr w = weapon(m.toString(a[0]));
+    return w ? gs2::Value::object(w) : gs2::Value::number(0);
+  });
+  // triggerserver(kind, weapon, params...): "serverside,<weapon>,<params>".
+  machine_.addCommand("triggerserver", "ss", [this](gs2::Machine& m, gs2::Var&, std::vector<gs2::Value>& a) {
+    std::vector<std::string> f{"serverside"};
+    for (size_t i = 1; i < a.size(); ++i) f.push_back(m.toString(a[i]));
+    if (send_) send_(38, trigger_body(0, 0, to_csv(f)));
     return gs2::Value::number(0);
   });
+  // triggeraction(x, y, action, params...).
+  machine_.addCommand("triggeraction", "nns", [this](gs2::Machine& m, gs2::Var&, std::vector<gs2::Value>& a) {
+    std::vector<std::string> f;
+    for (size_t i = 2; i < a.size(); ++i) f.push_back(m.toString(a[i]));
+    if (send_) send_(38, trigger_body(m.toNumber(a[0]), m.toNumber(a[1]), to_csv(f)));
+    return gs2::Value::number(0);
+  });
+}
+
+std::string ScriptHost::trigger_body(double x, double y, const std::string& csv) {
+  auto half = [](double v) { return static_cast<unsigned>(std::clamp(static_cast<long>(std::lround(v * 2)), 0L, 223L)); };
+  return Net::gint3(0) + Net::gchar(half(x)) + Net::gchar(half(y)) + csv;
+}
+
+void ScriptHost::queue_all(const std::string& event, std::vector<gs2::Value> args) {
+  for (auto& [n, w] : weapons_)
+    if (machine_.hasScript(w)) machine_.queueEvent(w, event, args);
+}
+
+std::string ScriptHost::weapon_name(const gs2::Var* v) const {
+  for (const auto& [n, w] : weapons_)
+    if (w.get() == v) return w->name();
+  return {};
+}
+
+void ScriptHost::remove_weapon(const std::string& name) {
+  auto it = weapons_.find(lower(name));
+  if (it == weapons_.end()) return;
+  gs2::VarPtr w = it->second;
+  weapons_.erase(it);
+  if (machine_.hasScript(w)) machine_.setScript(w, std::shared_ptr<const gs2::Script>());
+}
+
+std::vector<gs2::VarPtr> ScriptHost::weapon_objects() const {
+  std::vector<gs2::VarPtr> out;
+  for (const auto& [n, w] : weapons_) out.push_back(w);
+  return out;
 }
 
 void ScriptHost::note(const std::string& s) {
@@ -244,9 +357,36 @@ bool ScriptHost::on_message(int id, std::string_view body) {
       return true;
     }
     case 34: {  // weapon delete
-      std::string name(body);
-      weapons_.erase(lower(name));
+      remove_weapon(std::string(body));
       return true;
+    }
+    case 48: {  // PLO_TRIGGERACTION: GSHORT player, GINT3 NPC, GCHAR x, GCHAR y, "action,params"
+      Net::Reader r(body);
+      r.gshort();
+      r.gint3();
+      r.gchar();
+      r.gchar();
+      if (!r.ok()) return false;
+      std::vector<std::string> f = from_csv(r.rest());
+      if (f.empty()) return false;
+      std::string action = lower(f[0]);
+      while (!action.empty() && action.back() == ' ') action.pop_back();
+      if (action == "clientside") {
+        if (f.size() < 2) return true;
+        gs2::VarPtr w = weapon(f[1]);
+        if (!w || !machine_.hasScript(w)) {
+          note("clientside action for " + f[1] + ", which has no script");
+          return true;
+        }
+        std::vector<gs2::Value> params;
+        for (size_t i = 2; i < f.size(); ++i) params.push_back(gs2::Value::string(f[i]));
+        machine_.queueEvent(w, "ActionClientSide", std::move(params));
+        return true;
+      }
+      std::vector<gs2::Value> params;
+      for (size_t i = 1; i < f.size(); ++i) params.push_back(gs2::Value::string(f[i]));
+      queue_all("Action" + action, std::move(params));
+      return false;  // the program may want it too
     }
     case 140: {
       ScriptDescriptor d;
