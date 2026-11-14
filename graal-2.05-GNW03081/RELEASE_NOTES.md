@@ -20,6 +20,8 @@ their place.
 
 ## What's new in v0.0.5
 
+- [x] Suppress other-player sword judging during an online level transition, including acknowledgement and rejected boards; resume after a valid board or a failed request.
+
 - [x] Reject laying over default-tileset liquid (arrays.dat list 1, including lava). Alternate tileset and NPC-shape water classification remain unresolved.
 
 - [x] Repeated named animation props restart another player's swing; direction-only updates keep its clock.

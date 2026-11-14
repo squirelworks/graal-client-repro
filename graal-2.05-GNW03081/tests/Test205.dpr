@@ -12,6 +12,7 @@ program Test205;
 
 uses
   SysUtils, Classes,
+  {$IFDEF FPC}{$IFDEF WINDOWS}WinSock2,{$ENDIF} sockets,{$ENDIF}
   GClamp in '../../common/GClamp.pas',
   GCompat in '../../common/GCompat.pas',
   GPaths in '../../common/GPaths.pas',
@@ -1423,6 +1424,100 @@ begin
     G.Free;
   end;
 end;
+{$IFDEF FPC}
+procedure TestSwordPendingWarp;
+var
+  G: TAdventure;
+  P: TServerPlayer;
+  Listener: LongInt;
+  Addr: TInetSockAddr;
+  AddrLen: TSockLen;
+  I: Integer;
+  {$IFDEF WINDOWS}WSA: TWSAData;{$ENDIF}
+begin
+  {$IFDEF WINDOWS}WSAStartup($0202, WSA);{$ENDIF}
+  Listener := fpSocket(AF_INET, SOCK_STREAM, 0);
+  Check(Listener >= 0, 'warp sword: loopback listener created');
+  if Listener < 0 then Exit;
+  G := TAdventure.Create;
+  try
+    FillChar(Addr, SizeOf(Addr), 0);
+    Addr.sin_family := AF_INET;
+    Addr.sin_addr := StrToNetAddr('127.0.0.1');
+    Check(fpBind(Listener, @Addr, SizeOf(Addr)) = 0, 'warp sword: bind ephemeral loopback');
+    Check(fpListen(Listener, 1) = 0, 'warp sword: listen');
+    AddrLen := SizeOf(Addr);
+    Check(fpGetSockName(Listener, @Addr, @AddrLen) = 0, 'warp sword: read assigned port');
+    G.Headless := True;
+    Check(G.LoadLevelFile('start.nw'), 'warp sword: load board');
+    Check(G.ConnectServer('127.0.0.1', ntohs(Addr.sin_port), 'test', ''), 'warp sword: connect');
+    G.Player.X := 30;
+    G.Player.Y := 30;
+    G.Player.Power := 6;
+    G.AP := 50;
+    P := G.FindOther(7, True);
+    P.X := 28;
+    P.Y := 30;
+    P.Dir := DirRight;
+    P.SwordPower := 2;
+    P.Sprite := 6 * 4 + DirRight;
+    P.HitSecond := -1;
+    G.Tick;
+    Check(G.Player.Power = 4, 'warp sword: normal swing hits');
+    P.Sprite := 0;
+    for I := 1 to 40 do G.Tick;
+    G.Player.X := 30;
+    G.Player.Y := 30;
+    SetLength(G.Level.Links, 1);
+    G.Level.Links[0].Dest := 'pending.nw';
+    G.Level.Links[0].NewX := '30';
+    G.Level.Links[0].NewY := '30';
+    Check(G.FollowLink(0), 'warp sword: request actual online link');
+    P.Sprite := 6 * 4 + DirRight;
+    P.HitSecond := -1;
+    G.Tick;
+    Check(G.Player.Power = 4, 'warp sword: pending link suppresses swing');
+    G.Receive(PLO_PLAYERWARP, GChar(60) + GChar(60) + 'pending.nw');
+    G.Tick;
+    Check(G.Player.Power = 4, 'warp sword: acknowledgement alone still suppresses swing');
+    G.Receive(PLO_LEVELNAME, 'pending.nw');
+    { LEVELNAME removes old peers: recreate through the actual prop receiver. }
+    G.Receive(PLO_OTHERPLPROPS, GShort(7) + GChar(PLPROP_X) + GChar(56) +
+      GChar(PLPROP_Y) + GChar(60) + GChar(PLPROP_SWORDPOWER) + GChar(2) +
+      GChar(PLPROP_SPRITE) + GChar(6 * 4 + DirRight));
+    P := G.FindOther(7, False);
+    P.HitSecond := -1;
+    G.Tick;
+    Check(G.Player.Power = 4, 'warp sword: level name without board still suppresses swing');
+    G.Receive(PLO_BOARDPACKET, StringOfChar(#0, BoardSize * 2 - 1));
+    G.Tick;
+    Check(not G.BoardLoaded and (G.Player.Power = 4), 'warp sword: incomplete board does not resume hits');
+    G.Receive(PLO_BOARDPACKET, StringOfChar(#0, BoardSize * 2));
+    G.Tick;
+    Check(G.BoardLoaded and (G.Player.Power = 2), 'warp sword: valid board permits swing again');
+    P.Sprite := 0;
+    for I := 1 to 40 do G.Tick;
+    G.Player.X := 30;
+    G.Player.Y := 30;
+    SetLength(G.Level.Links, 1);
+    G.Level.Links[0].Dest := 'failed.nw';
+    G.Level.Links[0].NewX := '30';
+    G.Level.Links[0].NewY := '30';
+    Check(G.FollowLink(0), 'warp sword: request another online link');
+    P.Sprite := 6 * 4 + DirRight;
+    P.HitSecond := -1;
+    G.Tick;
+    Check(G.Player.Power = 2, 'warp sword: second pending request suppresses swing');
+    G.Receive(PLO_WARPFAILED, 'failed.nw');
+    G.Tick;
+    Check(G.Player.Power = 0, 'warp sword: failed request restores old-level sword judging');
+  finally
+    G.Free;
+    CloseSocket(Listener);
+    {$IFDEF WINDOWS}WSACleanup;{$ENDIF}
+  end;
+end;
+{$ENDIF}
 procedure TestGaniProp;
 var
   G: TAdventure;
@@ -1479,6 +1574,7 @@ begin
   TestActions;
   TestSpinAndLay;
   TestLayWater;
+  {$IFDEF FPC}TestSwordPendingWarp;{$ENDIF}
   TestGaniProp;
   RunNpcTests(Check, NpcSkipped);
   Inc(Skipped, NpcSkipped);
