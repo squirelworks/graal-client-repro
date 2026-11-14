@@ -75,6 +75,49 @@ Graal231 --help
 The listserver default is `listserver.graal.in` on 14922; `listserver.txt`
 next to the program, or the install's `arrays2.dat`, wins over it.
 
+## Seihai secure login (not in the original)
+
+The original sends the account and the password in the clear. This build
+can send them sealed instead, with the Seihai secure login (version token
+`SEI00001`, Seihai `documentation/secure-login.md`; graal-client-repro
+#148): a key exchange first, the server's signed key checked and pinned,
+then the account and password in ChaCha20-Poly1305. The game after the
+login is 2.31's own gen-5 stream, unchanged. It works on the game server
+and on the list server (`common/GSecLogin.pas`, `common/GSecCrypto.pas`;
+no extra library ships).
+
+It is **off by default**, so the program logs in byte for byte as the
+original does. To turn it on:
+
+```
+GRAAL_PW=... Graal231 --server HOST:PORT --account NAME --secure-login auto
+```
+
+or put one word, `off`, `auto` or `required`, in `secure_login.txt` in the
+settings folder (or set `GRAAL_SECURE_LOGIN`); that covers the start
+screen and the server list too.
+
+- `auto`: try the secure login. A server that refuses it, closes, or does
+  not answer within 5 s gets the original login on a new connection, and
+  is not asked again (`refused_servers.txt`). Once a server's key is
+  pinned, it never gets the password in the clear again: if it stops
+  answering, the login stops and says so.
+- `required`: never send the password in the clear.
+- `--server-key KEY`: trust that key only (the pin file is left alone).
+
+If the pin store cannot be read, or a new server key cannot be saved and
+read back from it, the
+login stops before sending C2. No password is sent and no successful pin
+message is shown.
+
+The settings folder is shared by every rebuild of the player:
+`%APPDATA%\graal-delphi` on Windows, `~/.config/graal-delphi` elsewhere
+(`GRAAL_SECURE_DIR` moves it). `known_servers.txt` there holds one
+`host:port key` line per server, trusted on first use as with SSH; a server
+whose key changed is refused, naming both fingerprints, until its line is
+removed by hand. Real Graal servers do not know the token; with `auto`
+they see one extra short connection the first time.
+
 ## Checks
 
 - `tests/Test231.dpr`: the 2.22 suite adapted to 2.31 (login line with
@@ -84,7 +127,21 @@ next to the program, or the install's `arrays2.dat`, wins over it.
   189 known). Wire checks still use frames of a real 2.22 session
   (`Capture222.inc`), since 2.31's send path is the same code.
 - `tests/TestSoundMap231.dpr`, `TestNpc231.pas`, `TestBaddy231.pas`.
-- CI logs two of these into seihai-gserver (`scripts/loopback.sh`).
+- `tests/TestSecLogin231.dpr`: the secure login. Every primitive against
+  its RFC vectors (SHA-256/512, HMAC, HKDF, X25519, strict Ed25519,
+  ChaCha20-Poly1305, base64), the handshake against a server side written
+  from the spec (a changed S1 or inner token fails, C2 opens to the classic
+  tail), the pins, the modes, and the game and list wire.
+- CI logs two of these into seihai-gserver (`scripts/loopback.sh`), then
+  one more with `--secure-login required`.
+- Loopback run, 2026-11-13, against seihai-gserver and seihai-listserver
+  built from main: secure logins on both links, the pin trusted then
+  matched, a changed pin and a wrong `--server-key` stop before the
+  password is sent, a wrong password gets the server's usual refusal, a
+  server with the secure login off gets the original login under `auto`
+  (and none under `required`), a silent server falls back after 5 s, and
+  through a byte-logging relay neither the account nor the password
+  appears on the wire, where the original login shows both.
 
 ## Not yet, or not known (0.0.2)
 

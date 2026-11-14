@@ -23,6 +23,8 @@ to the program works too (`graal-assets/6.01r1/`, then
 
 ## What's new in v0.0.5
 
+- [x] **Seihai secure login (optional, off by default).** With `--secure-login auto` (or `required`, or `secure_login.txt` in the settings folder), the account and password go sealed to a Seihai game server or list server (`SEI00001`), after the server's key is checked and pinned. Servers that do not know it get the original login under `auto`. Off, the login is byte for byte the original's. This is not in the original 6.01r1.
+- [x] **The game runs in the Quattro program on Linux.** The real 6.01r1 is one C++ program (`quattro_lib`); its rebuild, `quattro-play` from `common/cpp/quattro`, now ships next to `Graal601`. The start screen still picks the server (or Training) and then hands the game to it: GS2 weapons and their scripts, the weapon list, D to use the selected weapon, bombs, arrows and explosions, being hurt (knockback, dying, coming back), and the Q item list. The password goes to it in the environment, never on the command line. On Windows, with no X display, or with `GRAAL_PASCAL_GAME=1`, the start screen plays in its own Pascal game as before. Online games also use the Pascal game when secure login is enabled, because Quattro does not implement SEI00001 yet.
 - [x] **Machine fields in the original's shape.** The login line now sends `linux`, two fixed made-up MD5 hashes (of SquirrelNIC and SquirrelFS strings), the empty field and a SquirrelOS kernel string (`2.6.38-1-squirrelos  #1-SquirrelOS SMP Mon Jun 27 12:00:00 UTC 2011`), the shape the real client sends. Nothing is read from your machine.
 
 ## What's new in v0.0.4.2

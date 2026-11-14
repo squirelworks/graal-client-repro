@@ -95,6 +95,13 @@ class ScriptHost {
   static std::string trigger_body(double x, double y, const std::string& csv);
   // Raises onWeaponFired on the named weapon; false when it has no script.
   bool fire(const std::string& name);
+  // A key went down (Torque key name, typed character): onKeyPressed
+  // (keycode, key text) on every weapon with a script.
+  void key_pressed(const std::string& key, int ch);
+  // The keycode a GS2 script sees for a key name: the Windows virtual-key
+  // code (letters and digits as upper-case ASCII, arrows 37 to 40). A
+  // reading; the 6.x key table is not copied out in the notes.
+  static int keycode(const std::string& key, int ch);
   // Queues an event on every weapon that has a script (onPlayerChats,
   // onKeyPressed, onPlayerEnters, ...).
   void queue_all(const std::string& event, std::vector<gs2::Value> args = {});

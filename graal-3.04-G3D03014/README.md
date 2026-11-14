@@ -99,6 +99,16 @@ Graal304 --server HOST:PORT --account NAME --headless --seconds 600 \
   --walk random --link-every 5 --stats-every 10   # stress run
 ```
 
+## Seihai secure login (not in the original)
+
+Off by default, so the login is byte for byte the original's. With
+`--secure-login auto` or `required` (or one word in `secure_login.txt` in
+the shared settings folder), the account, the password go sealed to
+a Seihai game server or list server (version token `SEI00001`,
+graal-client-repro #148). Same code and settings as 2.31: see the 2.31
+README, "Seihai secure login". CI logs in once more with
+`--secure-login required` (`scripts/loopback.sh`).
+
 ## Not yet, or not known
 
 - [ ] The server name prefixes `P `, `3 `, `H `, `U ` pick the list tab in 3.04
@@ -109,8 +119,23 @@ Graal304 --server HOST:PORT --account NAME --headless --seconds 600 \
   5.1 s message), so `UDPPORT` is sent as 0.
 - [ ] `GSERVL01` text levels and `GR-V1.04` heights; the licence file's RSA
   signature; the `GWEBL001` level cache.
-- [ ] Everything still missing from the 2.22 rebuild: NPCs, baddies, items,
-  weapons, GS1, chat bubbles, Options.
+- [x] The player's actions, carried over from the 2.22 rebuild: sword and
+  bush cut, the spin on a second S with STATUS 0x40, lift, carry and throw,
+  chests, bombs and the bow and fire shots from D, the Q item list, floor
+  items, hurt, knockback, death and respawn. `graal304-torque` reaches them
+  through `doA`, `doS`, `doD` and `doQ` (`g304_action`).
+- [x] Hiding under a carried bush or stone (D), laying items (S held + A,
+  `PLI_ITEMADD`) and S held + D for the next weapon
+  (`client-internals/laying-items-and-hiding.md`).
+- [ ] What the spin cuts or hits offline (not read). Server weapons fired
+  with D, sound and the status bar; the water test before
+  laying, the bush's break effect.
+- [x] NPCs, baddies and GS1 from the 2.22 rebuild (`Npc304`, `Baddy304`,
+  `NpcBridge304`): scripts, touch and push, sword/bomb/arrow events, signs,
+  `replaceani`, baddies. NPC sounds are logged only; no name font, heights
+  or attached ganis.
+- [ ] Everything else still missing from the 2.22 rebuild: chat bubbles,
+  Options.
 - [ ] Which offline tutorial level the Tutorial button opens, and where: the
   rebuild opens `levels/tutorial/offlinetutorial_b-2.graal` at (30, 30),
   else its starter level.

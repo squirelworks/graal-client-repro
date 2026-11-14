@@ -390,6 +390,16 @@ void Machine::destroy(const VarPtr& var) {
   if (!var) return;
   if (onDestroy) onDestroy(var);
   if (Space* sp = space(var, false)) {
+    // A currently executing handler is not in sleeping yet. Stop it too,
+    // before it can suspend and resurrect a destroyed object's script.
+    if (running_ && (running_->sp == sp ||
+        std::any_of(running_->frames.begin(), running_->frames.end(),
+                    [&](const Frame& fr) { return fr.thiso == var; }))) {
+      running_->stopped = true;
+      running_->suspended = false;
+      if (running_->waiting && waiters_ > 0) --waiters_;
+      running_->waiting = false;
+    }
     sp->script.reset();
     sp->joined.clear();
     sp->actions.clear();
@@ -1520,7 +1530,9 @@ Value Machine::execute(Exec& ex) {
       case 38: {  // new[n]: an array of n zeros
         if (!pop(a)) break;
         auto arr = std::make_shared<Var>();
-        arr->setArray(static_cast<std::size_t>(std::clamp(floorInt(num(a)), 0L, 10000L)));
+        const double size = num(a);
+        if (!std::isfinite(size)) { fail("Invalid array dimension"); break; }
+        arr->setArray(static_cast<std::size_t>(std::clamp(size, 0.0, 10000.0)));
         for (auto& e : arr->elements()) e->setNumber(0);
         push(Value::object(arr));
         break;
@@ -1529,17 +1541,35 @@ Value Machine::execute(Exec& ex) {
         if (!pop(a)) break;
         if (ex.stack.empty()) { fail("Stack underflow"); break; }
         auto arr = obj(ex.stack.back());
-        const auto n = static_cast<std::size_t>(std::clamp(floorInt(num(a)), 0L, 10000L));
-        std::function<void(Var&)> fill = [&](Var& l) {
-          for (auto& e : l.elements()) {
-            if (e->kind() == Var::Kind::Array) fill(*e);
+        const double size = num(a);
+        if (!std::isfinite(size)) { fail("Invalid array dimension"); break; }
+        const auto n = static_cast<std::size_t>(std::clamp(size, 0.0, 10000.0));
+        if (!arr || arr->kind() != Var::Kind::Array) break;
+        // Preflight the whole expansion before allocating or changing any leaf.
+        // Per-dimension limits alone permit new[10000][10000].
+        std::vector<std::pair<Var*, unsigned>> pending{{arr.get(), 0}};
+        std::vector<Var*> leaves;
+        std::size_t cells = 0;
+        bool over = false;
+        while (!pending.empty() && !over) {
+          auto [node, depth] = pending.back();
+          pending.pop_back();
+          if (depth >= 32 || node->elements().size() > 10000 - cells) { over = true; break; }
+          cells += node->elements().size();
+          for (auto& e : node->elements()) {
+            if (e->kind() == Var::Kind::Array) pending.emplace_back(e.get(), depth + 1);
             else {
-              e->setArray(n);
-              for (auto& z : e->elements()) z->setNumber(0);
+              if (n > 10000 - cells) { over = true; break; }
+              cells += n;
+              leaves.push_back(e.get());
             }
           }
-        };
-        if (arr && arr->kind() == Var::Kind::Array) fill(*arr);
+        }
+        if (over) { fail("Nested array allocation limit (10000 cells, 32 levels)"); break; }
+        for (Var* leaf : leaves) {
+          leaf->setArray(n);
+          for (auto& z : leaf->elements()) z->setNumber(0);
+        }
         break;
       }
       case 39: {  // setarray(list, n): pads with zeros or cuts to n (0 to 10000)

@@ -24,6 +24,8 @@ int g304_connect(void* h, const char* host, int port, const char* account, const
 int g304_offline(void* h, const char* level, double x, double y);
 const char* g304_offline_path(void* h);
 void g304_key(void* h, int dir, int down);
+/* game keys: 0 A, 1 S, 2 D, 3 Q; a press counts on up to down only */
+void g304_action(void* h, int which, int down);
 void g304_say(void* h, const char* text);
 void g304_toall(void* h, const char* text);
 int g304_tick(void* h, int draw);

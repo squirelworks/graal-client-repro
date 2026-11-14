@@ -17,10 +17,14 @@ fail() {
     if [ -n "${GITHUB_ACTIONS:-}" ]; then echo "::error::$1: $2"; fi
   fi
 }
-for T in "$ROOT"/build/*/Test*; do
-  [ -x "$T" ] || continue
-  TB=$(basename "$(dirname "$T")")
-  echo "== $T"
+# One test program: its output in T.out, the heap report in T.heap and its
+# exit code in T.rc. Each runs with a temp folder of its own, because the
+# programs of sibling builds write the same file names there (test119.nw)
+# and run side by side below.
+if [ "${1:-}" = --one ]; then
+  T=$2
+  HEAPLOG="$T.heap"
+  rm -f "$HEAPLOG" "$T.rc"
   # The tests are built with the heap tracer. It writes its report from a
   # unit finalization, which runs after the runtime has already flushed
   # stderr. Redirected stderr is a 256-byte buffer, so the tail of the
@@ -28,19 +32,40 @@ for T in "$ROOT"/build/*/Test*; do
   # often the byte that falls on that boundary, and a clean run is then
   # reported as a leak. heaptrc closes a log= file itself, which flushes
   # the whole report. A Windows compiler does not open an MSYS path.
-  HEAPLOG="$T.heap"
-  rm -f "$HEAPLOG"
   LOG=$HEAPLOG
+  TMPD=$(mktemp -d)
+  WTMP=$TMPD
   case $(uname -s) in
-    MINGW*|MSYS*|CYGWIN*) LOG=$(cygpath -w "$HEAPLOG") ;;
+    MINGW*|MSYS*|CYGWIN*) LOG=$(cygpath -w "$HEAPLOG"); WTMP=$(cygpath -w "$TMPD") ;;
   esac
+  RC=0
+  TMPDIR=$TMPD TEMP=$WTMP TMP=$WTMP HEAPTRC="log=$LOG" "$T" > "$T.out" 2>&1 || RC=$?
+  rm -rf "$TMPD"
+  echo "$RC" > "$T.rc"
+  exit 0
+fi
+# The test programs, run TEST_JOBS at a time (default: one per CPU), then
+# reported in order.
+TESTS=""
+for T in "$ROOT"/build/*/Test*; do
+  case $T in *.out|*.heap|*.rc) continue ;; esac
+  [ -x "$T" ] || continue
+  TESTS="$TESTS $T"
+done
+JOBS=${TEST_JOBS:-$(nproc 2>/dev/null || echo 2)}
+if [ -n "$TESTS" ]; then
+  echo "== running$(echo $TESTS | wc -w) test programs, $JOBS at a time"
+  printf '%s\n' $TESTS | xargs -P "$JOBS" -I{} sh "$ROOT/scripts/test.sh" --one {}
+fi
+for T in $TESTS; do
+  TB=$(basename "$(dirname "$T")")
+  HEAPLOG="$T.heap"
+  echo "== $T"
+  cat "$T.out" 2>/dev/null || true
   # The program's own FAIL lines go into the summary at the end too.
-  if HEAPTRC="log=$LOG" "$T" > "$T.out" 2>&1; then
-    cat "$T.out"
-  else
-    cat "$T.out"
+  if [ "$(cat "$T.rc" 2>/dev/null || echo missing)" != 0 ]; then
     fail "$TB" "$(basename "$T") failed
-$(grep '^FAIL' "$T.out" | sed 's/^/    /')"
+$(grep '^FAIL' "$T.out" 2>/dev/null | sed 's/^/    /')"
   fi
   if [ -f "$HEAPLOG" ]; then
     cat "$HEAPLOG" >&2

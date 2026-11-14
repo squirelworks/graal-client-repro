@@ -99,7 +99,8 @@ window unit.
   started inside at −5).
 - **Camera.** About 220 behind and 80 above, the quadratic follow, pitch
   0.15 rad, the library's field 0.5 (640 pixels per unit at distance 1 on
-  the 640×456 view).
+  the 640×456 view), front plane 1 and back plane 5000, the value the real
+  client sets on its viewport (graal_analysis `graal3d/camera.md`).
 - **Chat.** Enter opens the chat line, Enter sends it; the log at the bottom
   left, "nickname: text", 10 seconds a line; lines over 200 end in `...`.
 - **Config.** `graal3dconfig.txt` next to the program is read, and written
@@ -160,9 +161,6 @@ The notes leave these open; each is marked "this build" in the code.
   (Graal3D is from before the server list; never a loopback address). The
   original's own default was the loopback address, and its shipped config
   named a server that is gone.
-- The far clipping plane is 100000 (the original was not read for it):
-  the real client draws the level's cloud ceiling, which reaches 40000
-  out, to the horizon.
 - The nickname banner's font: Arial Bold (`arialbd.ttf` from the install
   or Windows' Fonts folder), else Liberation Sans Bold, else the built-in
   pixel font.
@@ -197,5 +195,8 @@ The notes leave these open; each is marked "this build" in the code.
   much closer than the 220 behind and 80 above of the notes (the head
   fills the top of the view); the notes' figures are kept until the real
   camera is measured after walking.
+- [ ] A live check, with the native `d3drm.dll`, that no later call moves
+  the back plane from 5000. The polishing run saw the real cloud ceiling
+  reach further than the plane allows.
 - [ ] Admin login (id 1) and its account and player lists: no admin client
   shipped for Graal3D.

@@ -45,9 +45,4 @@ class ShowImages {
   std::map<std::pair<const gs2::Var*, int>, gs2::VarPtr> imgs_;
 };
 
-// Windows virtual-key codes, which onKeyPressed, keydown2 and getkeycode
-// use, for the window's key names ("a", "enter", "left", "f1"); 0 for one
-// with none.
-int virtual_key(const std::string& name, int ch);
-
 }  // namespace Quattro::Shell

@@ -23,6 +23,8 @@ program works too (`graal-assets/4.20r8/`, then `graal-assets/common/`).
 
 ## What's new in v0.0.5
 
+- [x] **Seihai secure login (optional, off by default).** With `--secure-login auto` (or `required`, or `secure_login.txt` in the settings folder), the account and password go sealed to a Seihai game server or list server (`SEI00001`), after the server's key is checked and pinned. Servers that do not know it get the original login under `auto`. Off, the login is byte for byte the original's. This is not in the original 4.20r8.
+- [x] **The player's actions in the game view.** S swings the sword, and S again during the swing spins when the server's status allows it (0x40). A lifts a bush, pot or stone ahead and throws it (A or S again), opens a chest, and with S held picks an item to drop: A with S held again picks the next one, A alone lays it, and an arrow, D or S leaves. D fires the selected weapon; the built-in Bomb and Bow put bombs and shoot arrows. Q opens the weapon list, where the arrows pick the weapon D fires. Online these go out as the 2.x clients send them (the sword gani, CARRYSPRITE, THROWCARRIED, BOMBADD, ARROWADD, ITEMADD with the new counts), and other players' bombs, explosions, arrows, dropped items and carried objects show; their swings, bombs and arrows can hurt. The rules are the 2.x ones (2.05 and 2.22): the real 4.20r8 has not been checked for them in the lab yet.
 - [x] **Machine fields in the original's shape.** The login line's three machine fields are no longer empty. They carry fixed made-up MD5 hashes (of SquirrelOS, SquirrelNIC and SquirrelBIOS strings), the shape the real client sends. Nothing is read from your machine.
 
 ## What's new in v0.0.4.2
@@ -90,7 +92,7 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 
 ## Not yet
 
-NPCs, baddies, items and weapons; the GS1 and GS2 script engines; chat;
+NPCs, baddies and items from the server; a server weapon's script (D on it gets no `weaponfired` yet); the GS1 and GS2 script engines; chat;
 the server list as the original shows it; update packages; the 3D mode;
 saved passwords; Options. See the build's README for the full list.
 

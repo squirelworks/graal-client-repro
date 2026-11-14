@@ -265,4 +265,49 @@ std::vector<Packet> Combat::tick(Files::Level& level, const ObjectTables& tables
   return out;
 }
 
+std::vector<Combat::Hit> Combat::hits_on(const Player& me, const ObjectTables& tables, std::vector<Packet>& out) {
+  std::vector<Hit> hits;
+  const double cx = me.x + 1.5, cy = me.y + 2;
+  static constexpr int kDx[5] = {0, 0, -1, 0, 1}, kDy[5] = {0, -1, 0, 1, 0};
+  for (const auto& b : blasts_)
+    for (int d = 0; d < 5; ++d)
+      for (int k = (d == 0 ? 0 : 1); k <= (d == 0 ? 0 : b.reach); ++k) {
+        double px = b.x + kDx[d] * 2 * k + 1, py = b.y + kDy[d] * 2 * k + 1;
+        if (std::fabs(px - cx) < 1 && std::fabs(py - cy) < 1) hits.push_back({b.power == 3 ? 1.0 : 0.5, double(kDx[d]), double(kDy[d])});
+      }
+  static constexpr int kSx[4] = {0, -1, 0, 1}, kSy[4] = {-1, 0, 1, 0};
+  for (size_t i = 0; i < shots_.size();) {
+    Shot& s = shots_[i];
+    double w = 0.5, h = 0.5;
+    int sx = 0, sy = 0, sw = 0, sh = 0;
+    if (sprite_rect(tables, s.sprite, sx, sy, sw, sh)) {
+      w = sw / 16.0;
+      h = sh / 16.0;
+    }
+    bool over = s.x + w > me.x + 0.5 && s.x < me.x + 2.5 && s.y + h > me.y + 1 && s.y < me.y + 3;
+    if (s.mine || !over) {
+      ++i;
+      continue;
+    }
+    const bool still = me.gani.empty() || me.gani == "idle" || me.gani == "walk";
+    if ((me.dir & 3) == (s.dir ^ 2) && me.shield_power > 0 && s.kind <= 1 && still) {
+      if (me.shield_power >= 2) {
+        s.dir ^= 2;
+        if (s.sprite >= kArrowSprite && s.sprite < kArrowSprite + 4) s.sprite = kArrowSprite + s.dir;
+        s.mine = true;
+        out.push_back({9, Net::gchar(static_cast<unsigned>(half(s.x))) + Net::gchar(static_cast<unsigned>(half(s.y))) +
+                              Net::gchar(static_cast<unsigned>(s.dir + 4 + 8)) + Net::gchar(static_cast<unsigned>(s.sprite)) +
+                              Net::gchar(static_cast<unsigned>(s.kind + 1))});
+        ++i;
+      } else {
+        shots_.erase(shots_.begin() + static_cast<std::ptrdiff_t>(i));
+      }
+      continue;
+    }
+    hits.push_back({(s.kind == 1 || s.kind == 3) ? 1.0 : 0.5, double(kSx[s.dir]), double(kSy[s.dir])});
+    shots_.erase(shots_.begin() + static_cast<std::ptrdiff_t>(i));
+  }
+  return hits;
+}
+
 }  // namespace Quattro::World

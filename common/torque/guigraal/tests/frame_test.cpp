@@ -35,6 +35,7 @@ struct TinyGame : Game304 {
   bool offline(const std::string&, double, double) override { return true; }
   std::string offline_path() override { return "level.nw"; }
   void key(int dir, bool down) override { keys += std::to_string(dir) + (down ? "+" : "-"); }
+  void action(int, bool) override {}
   void say(const std::string&) override {}
   void to_all(const std::string&) override {}
   bool tick(bool) override { return true; }

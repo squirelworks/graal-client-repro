@@ -909,7 +909,46 @@ static void testEventCommands() {
   CHECK(destroyed == keeper && !m.hasScript(keeper));
 }
 
+static void testDestroyedContinuations() {
+  for (bool public_call : {false, true})
+    for (bool resume_first : {false, true})
+      for (bool wait : {false, true}) {
+        gs2::Machine m;
+        gs2::addEngineCommands(m, {});
+        Asm a;
+        a.function(public_call ? "public.stop" : "onCreated", {});
+        if (resume_first) a.num(0.05).op(Asm::SLEEP);
+        a.op(Asm::MARKER).callName("destroy").op(Asm::POP);
+        if (wait) a.str("bell").str("ring").num(0.05).op(11).op(Asm::POP);
+        else a.num(0.05).op(Asm::SLEEP);
+        setGlobal(a, "resurrected", 1);
+        a.num(0).op(Asm::RET);
+        auto obj = run(m, a);
+        if (public_call) m.callFunction(obj, "stop");
+        for (int i = 0; i < 6; ++i) m.runScripts();
+        CHECK(!m.hasScript(obj));
+        CHECK(global(m, "resurrected") == -9999);
+        CHECK(m.errors().empty());
+      }
+  gs2::Machine m;
+  Asm big;
+  big.function("onCreated", {});
+  big.var("large").num(10000).op(38).num(10000).op(142).op(Asm::ASSIGN);
+  big.num(0).op(Asm::RET);
+  run(m, big);
+  CHECK(hasError(m, "Nested array allocation limit"));
+  gs2::Machine deep;
+  Asm nest;
+  nest.function("onCreated", {});
+  nest.num(1).op(38);
+  for (int i = 0; i < 34; ++i) nest.num(1).op(142);
+  nest.op(Asm::POP).num(0).op(Asm::RET);
+  run(deep, nest);
+  CHECK(hasError(deep, "Nested array allocation limit"));
+}
+
 int main() {
+  testDestroyedContinuations();
   testListOpcodes();
   testEventCommands();
   testIndexofAndFormat();

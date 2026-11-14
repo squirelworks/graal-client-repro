@@ -242,9 +242,30 @@ void test_triggers_and_findweapon() {
 
 }  // namespace
 
+void test_keys() {
+  using H = Shell::ScriptHost;
+  CHECK(H::keycode("q", 'q') == 81 && H::keycode("5", '5') == 53 && H::keycode("left", 0) == 37);
+  CHECK(H::keycode("enter", 13) == 13 && H::keycode("f1", 0) == 112 && H::keycode("delete", 0) == 46);
+  // onKeyPressed(keycode, text) reaches a weapon's script.
+  Asm a;
+  a.function("onKeyPressed", {"code", "text"});
+  a.op(Asm::MARKER).var("text").callName("echo").op(Asm::POP);
+  a.num(0).op(Asm::RET);
+  H host;
+  Shell::ScriptDescriptor d;
+  d.type = "weapon";
+  d.name = "Keys";
+  CHECK(host.on_message(140, Shell::make_script_packet(d, a.bytes())));
+  host.tick();
+  host.key_pressed("q", 'q');
+  host.tick();
+  CHECK(logged(host, "echo: q"));
+}
+
 int main() {
   test_descriptors();
   test_delivery_and_cache();
+  test_keys();
   test_triggers_and_findweapon();
   TEST_MAIN_END();
 }

@@ -36,12 +36,29 @@ std::string child_str(const gs2::VarPtr& v, const char* key) {
   return c ? c->string() : std::string();
 }
 
-unsigned byte_of(double v) { return static_cast<unsigned>(std::clamp(static_cast<long>(std::lround(v)), 0L, 223L)); }
+unsigned byte_of(double v) { return static_cast<unsigned>(std::lround(std::isfinite(v) ? std::clamp(v, 0.0, 223.0) : 0)); }
 
 Torque::Gui::Color colour_of(const gs2::VarPtr& img) {
-  auto c = [](double v) { return static_cast<std::uint8_t>(std::clamp(v, 0.0, 1.0) * 255 + 0.5); };
+  auto c = [](double v) { return static_cast<std::uint8_t>(std::isfinite(v) ? std::clamp(v, 0.0, 1.0) * 255 + 0.5 : 0); };
   return {c(child_num(img, "red", 1)), c(child_num(img, "green", 1)), c(child_num(img, "blue", 1)),
           c(child_num(img, "alpha", 1))};
+}
+
+bool board_rect(double x, double y, double w, double h) {
+  return std::isfinite(x) && std::isfinite(y) && std::isfinite(w) && std::isfinite(h) &&
+         x >= -Files::kBoardSide && x <= 2 * Files::kBoardSide &&
+         y >= -Files::kBoardSide && y <= 2 * Files::kBoardSide &&
+         w >= 0 && w <= Files::kBoardSide && h >= 0 && h <= Files::kBoardSide;
+}
+
+int script_int(double v) {
+  return static_cast<int>(std::isfinite(v) ? std::clamp(v, -1000000.0, 1000000.0) : 0);
+}
+
+bool pixel_int(double v, int& out) {
+  if (!std::isfinite(v) || std::fabs(v) > 1000000) return false;
+  out = static_cast<int>(std::lround(v));
+  return true;
 }
 
 }  // namespace
@@ -96,28 +113,6 @@ std::vector<gs2::VarPtr> ShowImages::in_order() const {
   return out;
 }
 
-int virtual_key(const std::string& name, int ch) {
-  const std::string n = low(name);
-  if (n.size() == 1) {
-    const char c = n[0];
-    if (c >= 'a' && c <= 'z') return c - 'a' + 'A';
-    if (c >= '0' && c <= '9') return c;
-  }
-  static const std::map<std::string, int> named = {
-      {"space", 32},  {"enter", 13},  {"return", 13}, {"escape", 27}, {"tab", 9},     {"backspace", 8},
-      {"left", 37},   {"up", 38},     {"right", 39},  {"down", 40},   {"shift", 16},  {"ctrl", 17},
-      {"alt", 18},    {"delete", 46}, {"insert", 45}, {"home", 36},   {"end", 35},    {"pageup", 33},
-      {"pagedown", 34}};
-  if (auto it = named.find(n); it != named.end()) return it->second;
-  if (n.size() >= 2 && n[0] == 'f' && std::all_of(n.begin() + 1, n.end(), [](char c) { return c >= '0' && c <= '9'; })) {
-    int f = std::atoi(n.c_str() + 1);
-    if (f >= 1 && f <= 12) return 111 + f;
-  }
-  if (ch >= 'a' && ch <= 'z') return ch - 'a' + 'A';
-  if (ch >= 32 && ch < 127) return ch;
-  return 0;
-}
-
 // --------------------------------------------------------------- commands
 
 void Program::register_script_commands() {
@@ -129,7 +124,7 @@ void Program::register_script_commands() {
     return t ? t.get() : &self;
   };
   auto img = [this, owner](gs2::Machine& mm, gs2::Var& self, const gs2::Value& index) {
-    return show_images_.find(owner(self), static_cast<int>(mm.toNumber(index)), true);
+    return show_images_.find(owner(self), script_int(mm.toNumber(index)), true);
   };
 
   // Step 2: the gani and the hold. setani(gani, params) and replaceani(old,
@@ -233,11 +228,11 @@ void Program::register_script_commands() {
     return gs2::Value::object(img(mm, self, a[0]));
   });
   m.addCommand("hideimg", "n", [this, owner, zero](gs2::Machine& mm, gs2::Var& self, Args& a) {
-    show_images_.hide(owner(self), static_cast<int>(mm.toNumber(a[0])));
+    show_images_.hide(owner(self), script_int(mm.toNumber(a[0])));
     return zero;
   });
   m.addCommand("hideimgs", "nn", [this, owner, zero](gs2::Machine& mm, gs2::Var& self, Args& a) {
-    show_images_.hide_range(owner(self), static_cast<int>(mm.toNumber(a[0])), static_cast<int>(mm.toNumber(a[1])));
+    show_images_.hide_range(owner(self), script_int(mm.toNumber(a[0])), script_int(mm.toNumber(a[1])));
     return zero;
   });
   m.addCommand("changeimgcolors", "nnnnn", [img, zero](gs2::Machine& mm, gs2::Var& self, Args& a) {
@@ -272,11 +267,13 @@ void Program::register_script_commands() {
 
   // Step 6: the board tests, keys, sound, focus and the rest.
   m.addCommand("onwall", "nn", [this](gs2::Machine& mm, gs2::Var&, Args& a) {
+    if (!board_rect(mm.toNumber(a[0]), mm.toNumber(a[1]), 0, 0)) return gs2::Value::number(0);
     return gs2::Value::number(World::point_blocked(world_.level, tile_types_, mm.toNumber(a[0]), mm.toNumber(a[1])) ? 1 : 0);
   });
   m.addCommand("onwall2", "nnnn", [this](gs2::Machine& mm, gs2::Var&, Args& a) {
     // Any point of the rectangle, tested every half tile and at its edges.
     const double x = mm.toNumber(a[0]), y = mm.toNumber(a[1]), w = mm.toNumber(a[2]), h = mm.toNumber(a[3]);
+    if (!board_rect(x, y, w, h)) return gs2::Value::number(0);
     for (double dy = 0;; dy = std::min(dy + 0.5, h)) {
       for (double dx = 0;; dx = std::min(dx + 0.5, w)) {
         if (World::point_blocked(world_.level, tile_types_, x + dx, y + dy)) return gs2::Value::number(1);
@@ -287,6 +284,8 @@ void Program::register_script_commands() {
     return gs2::Value::number(0);
   });
   auto water_at = [this](double x, double y) {
+    if (!std::isfinite(x) || !std::isfinite(y) || x < 0 || y < 0 ||
+        x >= Files::kBoardSide || y >= Files::kBoardSide) return false;
     const int tx = static_cast<int>(std::floor(x)), ty = static_cast<int>(std::floor(y));
     if (!tile_types_.loaded || world_.level.layers.empty() || tx < 0 || ty < 0 || tx >= Files::kBoardSide ||
         ty >= Files::kBoardSide)
@@ -298,6 +297,7 @@ void Program::register_script_commands() {
   });
   m.addCommand("onwater2", "nnnn", [water_at](gs2::Machine& mm, gs2::Var&, Args& a) {
     const double x = mm.toNumber(a[0]), y = mm.toNumber(a[1]), w = mm.toNumber(a[2]), h = mm.toNumber(a[3]);
+    if (!board_rect(x, y, w, h)) return gs2::Value::number(0);
     for (double dy = 0;; dy = std::min(dy + 0.5, h)) {
       for (double dx = 0;; dx = std::min(dx + 0.5, w)) {
         if (water_at(x + dx, y + dy)) return gs2::Value::number(1);
@@ -317,15 +317,15 @@ void Program::register_script_commands() {
   // tab, Q, P" (the 1.41 commands.rtf). keydown2(code, ignorecase) and
   // getkeycode(name) use virtual-key codes.
   m.addCommand("keydown", "n", [this](gs2::Machine& mm, gs2::Var&, Args& a) {
-    return gs2::Value::number(held_index(static_cast<int>(mm.toNumber(a[0]))) ? 1 : 0);
+    return gs2::Value::number(held_index(script_int(mm.toNumber(a[0]))) ? 1 : 0);
   });
   m.addCommand("keydown2", "n", [this](gs2::Machine& mm, gs2::Var&, Args& a) {
-    return gs2::Value::number(keys_down_.count(static_cast<int>(mm.toNumber(a[0]))) ? 1 : 0);
+    return gs2::Value::number(keys_down_.count(script_int(mm.toNumber(a[0]))) ? 1 : 0);
   });
   for (const char* name : {"getkeycode", "keycode"})
     m.addCommand(name, "s", [](gs2::Machine& mm, gs2::Var&, Args& a) {
       const std::string k = mm.toString(a[0]);
-      return gs2::Value::number(virtual_key(k, k.size() == 1 ? static_cast<unsigned char>(k[0]) : 0));
+      return gs2::Value::number(ScriptHost::keycode(k, k.size() == 1 ? static_cast<unsigned char>(k[0]) : 0));
     });
   m.addCommand("seticonsize", "", [zero](gs2::Machine&, gs2::Var&, Args&) { return zero; });
   m.addCommand("hideplayer", "f", [this, zero](gs2::Machine& mm, gs2::Var&, Args& a) {
@@ -410,19 +410,18 @@ bool Program::held_index(int i) const {
 
 void Program::script_input(const Draw::InputEvent& e) {
   if (e.type == Draw::InputEvent::KeyUp) {
-    keys_down_.erase(virtual_key(e.key, e.ch));
+    keys_down_.erase(ScriptHost::keycode(e.key, e.ch));
     return;
   }
   if (e.type == Draw::InputEvent::KeyDown) {
-    const int code = virtual_key(e.key, e.ch);
+    const int code = ScriptHost::keycode(e.key, e.ch);
     // The sign box closes on a key (A, S, D, Enter or Space) and takes it.
     if (!sign_text_.empty() && (code == 'A' || code == 'S' || code == 'D' || code == 13 || code == 32)) {
       sign_text_.clear();
       return;
     }
     if (code) keys_down_.insert(code);
-    std::string ch = e.ch >= 32 && e.ch < 256 ? std::string(1, static_cast<char>(e.ch)) : std::string();
-    scripts_.queue_all("KeyPressed", {gs2::Value::number(code), gs2::Value::string(ch), gs2::Value::number(0)});
+    scripts_.key_pressed(e.key, e.ch);
     return;
   }
   // A press on the play area: mousex/mousey in level tiles, mousescreenx/y
@@ -456,24 +455,30 @@ void Program::draw_show_images(bool screen_layer) {
   Draw::View view = Draw::follow(world_, canvas_.width(), canvas_.height());
   for (const auto& im : show_images_.in_order()) {
     const double layer = child_num(im, "layer", 1);
+    if (!std::isfinite(layer)) continue;
     if ((layer >= 4) != screen_layer) continue;
     const std::string type = child_str(im, "type");
     auto to_px = [&](double x, double y) {
-      if (screen_layer) return std::make_pair(static_cast<int>(std::lround(x)), static_cast<int>(std::lround(y)));
-      return std::make_pair(static_cast<int>(std::lround((x - view.left) * Draw::kTile)),
-                            static_cast<int>(std::lround((y - view.top) * Draw::kTile)));
+      if (screen_layer) return std::make_pair(x, y);
+      return std::make_pair((x - view.left) * Draw::kTile, (y - view.top) * Draw::kTile);
     };
-    auto [px, py] = to_px(child_num(im, "x", 0), child_num(im, "y", 0));
+    auto pos = to_px(child_num(im, "x", 0), child_num(im, "y", 0));
+    int px, py;
+    if (!pixel_int(pos.first, px) || !pixel_int(pos.second, py)) continue;
     const Torque::Gui::Color col = colour_of(im);
     if (type == "image") {
       const Torque::Gui::Image* pic = assets_->image(child_str(im, "image"));
       if (!pic) continue;
       Draw::Rect src{0, 0, pic->width, pic->height};
-      if (child_num(im, "partw", 0) > 0 && child_num(im, "parth", 0) > 0)
-        src = {static_cast<int>(child_num(im, "partx", 0)), static_cast<int>(child_num(im, "party", 0)),
-               static_cast<int>(child_num(im, "partw", 0)), static_cast<int>(child_num(im, "parth", 0))};
+      if (child_num(im, "partw", 0) > 0 && child_num(im, "parth", 0) > 0) {
+        if (!pixel_int(child_num(im, "partx", 0), src.x) || !pixel_int(child_num(im, "party", 0), src.y) ||
+            !pixel_int(child_num(im, "partw", 0), src.width) || !pixel_int(child_num(im, "parth", 0), src.height)) continue;
+      }
+      if (src.x < 0 || src.y < 0 || src.width <= 0 || src.height <= 0 ||
+          src.x + src.width > pic->width || src.y + src.height > pic->height) continue;
       const double zoom = child_num(im, "zoom", 1);
-      const int dw = static_cast<int>(std::lround(src.width * zoom)), dh = static_cast<int>(std::lround(src.height * zoom));
+      int dw, dh;
+      if (!pixel_int(src.width * zoom, dw) || !pixel_int(src.height * zoom, dh)) continue;
       if (dw <= 0 || dh <= 0) continue;
       if (col == Torque::Gui::Color{255, 255, 255, 255}) {
         if (dw == src.width && dh == src.height) canvas_.blit(*pic, src, px, py);
@@ -481,9 +486,10 @@ void Program::draw_show_images(bool screen_layer) {
         continue;
       }
       // Tinted or see-through: each pixel times the colours.
-      for (int y = 0; y < dh; ++y)
-        for (int x = 0; x < dw; ++x) {
-          const int sx = src.x + x * src.width / dw, sy = src.y + y * src.height / dh;
+      for (int y = std::max(0, -py); y < std::min(dh, canvas_.height() - py); ++y)
+        for (int x = std::max(0, -px); x < std::min(dw, canvas_.width() - px); ++x) {
+          const int sx = src.x + static_cast<int>(static_cast<long long>(x) * src.width / dw);
+          const int sy = src.y + static_cast<int>(static_cast<long long>(y) * src.height / dh);
           if (sx < 0 || sy < 0 || sx >= pic->width || sy >= pic->height) continue;
           Torque::Gui::Color c = pic->at(sx, sy);
           c.r = static_cast<std::uint8_t>(c.r * col.r / 255);
@@ -497,16 +503,20 @@ void Program::draw_show_images(bool screen_layer) {
       Draw::ui_draw_text(canvas_, px, py, child_str(im, "text"), col, style.find('b') != std::string::npos);
     } else if (type == "poly") {
       gs2::VarPtr pts = im->child("polygon");
-      if (!pts || pts->elements().size() < 6) continue;
+      if (!pts || pts->elements().size() < 6 || pts->elements().size() > 2048) continue;
       std::vector<std::pair<double, double>> p;
       for (size_t i = 0; i + 1 < pts->elements().size(); i += 2) {
         auto q = to_px(pts->elements()[i]->number(), pts->elements()[i + 1]->number());
-        p.emplace_back(q.first, q.second);
+        int x, y;
+        if (!pixel_int(q.first, x) || !pixel_int(q.second, y)) { p.clear(); break; }
+        p.emplace_back(x, y);
       }
+      if (p.empty()) continue;
       // Even-odd scanline fill.
       double top = p[0].second, bottom = p[0].second;
       for (const auto& q : p) top = std::min(top, q.second), bottom = std::max(bottom, q.second);
-      for (int y = static_cast<int>(std::floor(top)); y <= static_cast<int>(std::ceil(bottom)); ++y) {
+      for (int y = std::max(0, static_cast<int>(std::floor(top)));
+           y <= std::min(canvas_.height() - 1, static_cast<int>(std::ceil(bottom))); ++y) {
         std::vector<double> xs;
         const double sy = y + 0.5;
         for (size_t i = 0; i < p.size(); ++i) {
@@ -516,16 +526,27 @@ void Program::draw_show_images(bool screen_layer) {
         }
         std::sort(xs.begin(), xs.end());
         for (size_t i = 0; i + 1 < xs.size(); i += 2)
-          for (int x = static_cast<int>(std::ceil(xs[i] - 0.5)); x < static_cast<int>(std::ceil(xs[i + 1] - 0.5)); ++x)
+          for (int x = std::max(0, static_cast<int>(std::ceil(xs[i] - 0.5)));
+               x < std::min(canvas_.width(), static_cast<int>(std::ceil(xs[i + 1] - 0.5))); ++x)
             canvas_.blend_pixel(x, y, col);
       }
     } else if (type == "ani") {
       Draw::Actor a;
       a.gani = child_str(im, "ani");
-      a.dir = static_cast<int>(child_num(im, "dir", 2)) & 3;
-      auto& start = gani_start_[-1000 - static_cast<int>(child_num(im, "index", 0))];
-      if (start.first != a.gani) start = {a.gani, frame_};
-      a.ani_tick = frame_ - start.second;
+      int dir;
+      if (!pixel_int(child_num(im, "dir", 2), dir)) continue;
+      a.dir = dir & 3;
+      // The clock belongs to this image object, never an actor/index slot.
+      auto name = im->childOrCreate("_repro_ani");
+      auto start = im->childOrCreate("_repro_start");
+      int started;
+      const double stamp = start->number();
+      if (name->string() != a.gani || !std::isfinite(stamp) || stamp < 0 || stamp > frame_) {
+        name->setString(a.gani);
+        start->setNumber(frame_);
+        started = frame_;
+      } else started = static_cast<int>(stamp);
+      a.ani_tick = frame_ - started;
       renderer_.draw_actor(canvas_, a, px, py, {200, 200, 60, 255});
     }
   }

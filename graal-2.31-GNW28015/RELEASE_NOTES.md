@@ -18,6 +18,12 @@ program carries small default graphics and a starter level of its own, so
 it runs as it is. Put it in the folder of a 2.31 install you own, next to
 its files, or keep those files in a `graal-assets/` folder beside it.
 
+## What's new in v0.0.5
+
+- [x] **Secure-login pins must be saved.** The shared login code stops before sending the sealed credentials when a new server key cannot be written, closed and read back from the pin file. It reports the save error instead of claiming the key was pinned. An unreadable or non-file pin store also prevents `auto` from falling back to clear-text login, even after a cached refusal.
+
+- [x] **Seihai secure login (optional, off by default).** With `--secure-login auto` (or `required`, or `secure_login.txt` in the settings folder), the account and password go sealed to a Seihai game server or list server (`SEI00001`), after the server's key is checked and pinned. Servers that do not know it get the original login under `auto`. Off, the login is byte for byte the original's. This is not in the original 2.31.
+
 ## What's new in v0.0.4.2
 
 - [x] **Minimap only on the map.** The minimap is drawn only on a level of its grid, as the real client does: a server's level off the map (or a house or cave) shows none. Before, it was drawn on every level.

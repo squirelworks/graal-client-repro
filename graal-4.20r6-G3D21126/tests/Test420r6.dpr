@@ -1068,6 +1068,8 @@ begin
     'start: the default listserver is listserver.graal.in:14922');
 end;
 
+{$I Actions.inc}
+
 procedure TestFuzz;
 var
   G: TAdventure;
@@ -1281,6 +1283,8 @@ begin
   TestShowImg;
   TestLoginServer;
   TestBoardModify;
+  TestActionsOffline;
+  TestActionsOnline;
   TestFuzz;
   TestReceiveLimits;
   WriteLn(Format('%d passed, %d failed, %d skipped', [Passed, Failed, Skipped]));

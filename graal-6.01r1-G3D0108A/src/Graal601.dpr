@@ -55,12 +55,15 @@ uses
   GTypes in '../../common/GTypes.pas',
   GZlib in '../../common/GZlib.pas',
   GSocket in '../../common/GSocket.pas',
+  GSecCrypto in '../../common/GSecCrypto.pas',
+  GSecLogin in '../../common/GSecLogin.pas',
   GLevel in '../../common/GLevel.pas',
   GSurface in '../../common/GSurface.pas',
   GArrays in '../../common/GArrays.pas',
   GBzip2 in '../../common/GBzip2.pas',
   GBuiltin in '../../common/GBuiltin.pas',
   GAssetDirs in '../../common/GAssetDirs.pas',
+  GQuattroPlay in '../../common/GQuattroPlay.pas',
   GAni in '../../common/GAni.pas',
   GFont in '../../common/GFont.pas',
   GWindow in '../../common/GWindow.pas',
@@ -117,6 +120,7 @@ begin
   WriteLn('Graal ', ClientBuildLabel, ' (', ClientVersionToken, ') rebuild');
   WriteLn('  (no arguments: the start screen, Training or the server list)');
   WriteLn('  --server HOST:PORT --account NAME [--password-env VAR] [--server-name NAME]');
+  WriteLn('          [--secure-login off|auto|required] [--server-key KEY]');
   WriteLn('  --level FILE [--x X --y Y]');
   WriteLn('  common: [--data DIR] [--window | --headless] [--frames N] [--seconds N]');
   WriteLn('          [--keys SCRIPT] [--walk script|idle|random] [--walk-ms N] [--seed N]');
@@ -253,6 +257,7 @@ var
   Port, Frames, I, C, D, Seconds, StatsEvery, ExitCode_: Integer;
   OK, Online, UseWindow, NoDelay, Dropped, Crashed: Boolean;
   StartUs, GateUs, NowUs, T0, NextStatsUs: Int64;
+  SecMode: TSecMode;
 
 begin
   Result := 64;
@@ -326,6 +331,13 @@ begin
       end;
       if GuiWin <> nil then Pw := GuiPw
       else Pw := SysUtils.GetEnvironmentVariable(Arg('--password-env', 'GRAAL_PW'));
+      { Seihai secure login (not in the original; off unless asked for) }
+      if HasArg('--secure-login') or HasArg('--server-key') then
+      begin
+        if not ParseSecMode(Arg('--secure-login', 'required'), SecMode) then
+          SecMode := smRequired;
+        SetSecure(SecMode, Arg('--server-key', ''));
+      end;
       if G.ConnectServer(Host, Port, Account, Pw) then
       begin
         if NoDelay and not G.Client.Socket.SetNoDelay(True) then
@@ -510,6 +522,10 @@ var
   Who: TCharacter601;
   PickedName: string;
   I: Integer;
+  Quattro: string;
+  Roots: array of string;
+  QArgs: TQuattroArgs;
+  Code: Integer;
 begin
   Result := 0;
   Dir := ExtractFilePath(ParamStr(0));
@@ -586,7 +602,24 @@ begin
           GuiArgs.Add(PickedName);
         end;
         LastGameError := '';
-        if RunGame(Win, R.Password, R.Nickname) <> 0 then
+        Quattro := QuattroProgram(Dir, R.Choice = scOnline);
+        if Quattro <> '' then
+        begin
+          { the game runs in the Quattro program (common/GQuattroPlay.pas) }
+          SetLength(Roots, AssetRootCount);
+          for I := 0 to AssetRootCount - 1 do Roots[I] := AssetRoot(I);
+          if R.Choice = scTraining then
+            QArgs := QuattroArgs(Dir, Roots, Lvl, X, Y, '', '', '', '')
+          else
+            QArgs := QuattroArgs(Dir, Roots, '', '', '', R.Host + ':' + IntToStr(R.Port), R.Account,
+              PickedName, R.Nickname);
+          Code := RunQuattro(Quattro, ClientBuildLabel, QArgs, R.Password);
+          if Code <> 0 then
+            Msg := 'the game ended with code ' + IntToStr(Code)
+          else
+            Msg := '';
+        end
+        else if RunGame(Win, R.Password, R.Nickname) <> 0 then
           Msg := LastGameError
         else
           Msg := '';
