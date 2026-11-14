@@ -33,6 +33,10 @@ Files are looked for in the program's own folder first, then in
 `graal-assets/2.22` and `graal-assets/common` beside it, then in the
 `--data` folder. Nothing above the program's folder is read.
 
+## What's new in v0.0.5
+
+- [x] **Seihai secure login (optional, off by default).** With `--secure-login auto` (or `required`, or `secure_login.txt` in the settings folder), the account and password go sealed to a Seihai game server or list server (`SEI00001`), after the server's key is checked and pinned. Servers that do not know it get the original login under `auto`. Off, the login is byte for byte the original's. This is not in the original 2.22.
+
 ## What's new in v0.0.4.2
 
 - [x] **Minimap only on the map.** The minimap is drawn only on a level of its grid, as the real client does: a server's level off the map (or a house or cave) shows none. Before, it was drawn on every level.

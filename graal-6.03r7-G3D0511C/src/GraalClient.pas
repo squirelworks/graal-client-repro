@@ -36,7 +36,7 @@ unit GraalClient;
 interface
 
 uses
-  GSocket;
+  GSocket, GSecLogin;
 
 type
   TMessageEvent = procedure(Id: Integer; const Data: string) of object;
@@ -107,11 +107,26 @@ type
     FKey: Byte;
     FLoginFrame: Boolean; { the next flush is the fixed login frame }
     FOutCodec, FInCodec: TGen5;
+    { Seihai secure login (GSecLogin), not in the original }
+    FSec: TSecSession;
+    FLanguage: string;
+    { Queues one whole line (its first byte is the id) for the next flush. }
+    procedure SendLine(const Line: string);
+    { C1 in the plain login frame; S1 is then awaited. }
+    procedure StartSecure(const Prefix, Inner, Suffix, Tail: string);
+    { What the classic login sends after its line; sent after C2. }
+    procedure SendAfterLogin; virtual;
+    procedure AfterSealedLogin;
+    procedure SecNote(const Line: string);
     function EncodeFrame(const Plain: string): string; override;
     function DecodeFrame(const Body: string; out Plain: string): Boolean; override;
     procedure ResetCodec;
   public
     destructor Destroy; override;
+    { the secure login's settings and state (off by default) }
+    function Sec: TSecSession;
+    { Call each tick while Sec.Awaiting: drops a link silent for 5 s. }
+    procedure CheckSecure;
     function Connect(const Host: string; Port: Word): Boolean; override;
     { The login as 6.03r7 sends it: the login line alone in the fixed
       plain zlib frame (flushed here), then 37 with the language, queued
@@ -423,6 +438,7 @@ end;
 
 destructor TAdventureClient.Destroy;
 begin
+  FSec.Free;
   FOutCodec.Free;
   FInCodec.Free;
   inherited Destroy;
@@ -449,9 +465,53 @@ end;
 
 function TAdventureClient.Connect(const Host: string; Port: Word): Boolean;
 begin
+  Sec.Reset(Host + ':' + IntToStr(Port));
   FKey := Random(256) and $7F;
   ResetCodec;
   Result := inherited Connect(Host, Port);
+end;
+
+function TAdventureClient.Sec: TSecSession;
+begin
+  if FSec = nil then
+  begin
+    FSec := TSecSession.Create;
+    FSec.OnNote := SecNote;
+  end;
+  Result := FSec;
+end;
+
+procedure TAdventureClient.SecNote(const Line: string);
+begin
+  Log(Line);
+end;
+
+procedure TAdventureClient.SendLine(const Line: string);
+begin
+  if Line <> '' then SendPacket(Ord(Line[1]) - $20, Copy(Line, 2, MaxInt));
+end;
+
+procedure TAdventureClient.StartSecure(const Prefix, Inner, Suffix, Tail: string);
+var
+  C1: string;
+begin
+  if not Sec.Start(Prefix, Inner, Suffix, Tail, C1) then Exit;
+  FOut := '';
+  FLoginFrame := True;
+  SendLine(C1);
+  Flush;
+end;
+
+procedure TAdventureClient.AfterSealedLogin;
+begin
+  Flush;
+  SendAfterLogin;
+  Flush;
+end;
+
+procedure TAdventureClient.CheckSecure;
+begin
+  if Sec.Check(Connected) then Disconnect;
 end;
 
 function TAdventureClient.EncodeFrame(const Plain: string): string;
@@ -474,7 +534,26 @@ function TAdventureClient.DecodeFrame(const Body: string; out Plain: string): Bo
 var
   CType: Integer;
   B: string;
+  C2: string;
 begin
+  if (FSec <> nil) and FSec.Awaiting then
+  begin
+    { S1, or the refusal, comes in a plain zlib frame }
+    Plain := '';
+    Result := ZDecompress(Body, B);
+    if not Result then Exit;
+    if FSec.Answer(B, C2) then
+    begin
+      { C2 stands in for the classic login line, in its plain frame }
+      FOut := '';
+      FLoginFrame := True;
+      SendLine(C2);
+      AfterSealedLogin;
+    end
+    else
+      Disconnect;
+    Exit;
+  end;
   Plain := '';
   Result := False;
   if (Body = '') or (FInCodec = nil) then Exit;
@@ -490,14 +569,27 @@ end;
 
 procedure TAdventureClient.SendLogin(const Account, Password, Language: string);
 begin
+  FLanguage := Language;
+  { Seihai secure login (not in the original): C1 now, C2 and the rest
+    once S1 has checked out }
+  if Sec.Want then
+  begin
+    StartSecure(GChar(ClientType) + GChar(FKey), ClientVersionToken, '',
+      GString(Account) + GString(Password) + LoginTail);
+    Exit;
+  end;
   { GCHAR type, GCHAR key, token, GSTRING account, GSTRING password, then
     the comma list, on one line (v6x-clients.md, "Login message"). A password of
     0xE0 bytes or more goes as 0xFF and its first 0xDF bytes, which is
     what GString's cut at 223 bytes gives. }
-  SendPacket(ClientType, GChar(FKey) + ClientVersionToken + GString(Account) +
-    GString(Password) + LoginTail);
+  SendPacket(ClientType, GChar(FKey) + ClientVersionToken + GString(Account) + GString(Password) + LoginTail);
   Flush;
-  SendPacket(PLI_LANGUAGE, Language);
+  SendAfterLogin;
+end;
+
+procedure TAdventureClient.SendAfterLogin;
+begin
+  SendPacket(PLI_LANGUAGE, FLanguage);
 end;
 
 function FrameLength(Len: Integer): string;

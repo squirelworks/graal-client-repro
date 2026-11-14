@@ -18,8 +18,9 @@ type
   TQuattroArgs = array of string;
 
 { The quattro-play beside the program in Dir, when the game should go to
-  it; '' otherwise. }
-function QuattroProgram(const Dir: string): string;
+  it; '' otherwise. Online secure logins stay in Pascal until Quattro
+  implements SEI00001. Training is allowed regardless of the setting. }
+function QuattroProgram(const Dir: string; Online: Boolean = False): string;
 
 { Runs it and waits. Build is the profile label ('6.03r7'); Args are the
   game's arguments; a Password is handed over in the environment
@@ -37,14 +38,15 @@ function QuattroArgs(const Dir: string; const Roots: array of string; const Leve
 implementation
 
 uses
-  SysUtils{$IFDEF LINUX}, Classes, Process{$ENDIF};
+  SysUtils, GSecLogin{$IFDEF LINUX}, Classes, Process{$ENDIF};
 
 const
   PasswordVar = 'GRAAL_QUATTRO_PW';
 
-function QuattroProgram(const Dir: string): string;
+function QuattroProgram(const Dir: string; Online: Boolean): string;
 begin
   Result := '';
+  if Online and (ConfiguredSecMode <> smOff) then Exit;
 {$IFDEF LINUX}
   if GetEnvironmentVariable('GRAAL_PASCAL_GAME') = '1' then Exit;
   if GetEnvironmentVariable('DISPLAY') = '' then Exit;

@@ -90,6 +90,16 @@ From the program's folder (or `--data`), then `graal-assets/6.01r1/`, then
   (a 5.x/6.x install has no offline tutorial, so Training plays `start.nw`)
 - `listserver.txt` (optional)
 
+## Seihai secure login (not in the original)
+
+Off by default, so the login is byte for byte the original's. With
+`--secure-login auto` or `required` (or one word in `secure_login.txt` in
+the shared settings folder), the account, the password and the platform fields after it go sealed to
+a Seihai game server or list server (version token `SEI00001`,
+graal-client-repro #148). Same code and settings as 2.31: see the 2.31
+README, "Seihai secure login". CI logs in once more with
+`--secure-login required` (`scripts/loopback.sh`).
+
 ## Not yet, or not known
 
 - [ ] Whether 6.01r1 draws tiles in Login mode: not recorded; 6.03r7's "no" is

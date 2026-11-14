@@ -21,6 +21,10 @@ like the original. Put it at the top of a NewMain install you own (or keep a
 `graal-assets/` folder next to it, or point it at one with `--data DIR`) and
 the install's files come first.
 
+## What's new in v0.0.5
+
+- [x] **Seihai secure login (optional, off by default).** With `--secure-login auto` (or `required`, or `secure_login.txt` in the settings folder), the account and password go sealed to a Seihai game server (`SEI00001`), after the server's key is checked and pinned. Servers that do not know it get the original login under `auto`. Off, the login is byte for byte the original's. This is not in the original game.
+
 ## What's new in v0.0.4.2
 
 - [x] **Minimap only on the map.** The minimap is drawn only on a level of its grid, as the real client does: a server's level off the map (or a house or cave) shows none. Before, it was drawn on every level.

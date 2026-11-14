@@ -447,7 +447,7 @@ begin
     O.Draw(S, 640, '');
     Check((S.GetPixel(639, 0) = $FF000000) and (S.GetPixel(639, BannerH - 1) = $FF000000) and
       (S.GetPixel(639, BannerH) = $FFFFFFFF), 'overlay: a black strip 48 high across the view');
-    Check(R.Back >= 60000, 'render: the back plane reaches the cloud ceiling (40000 out)');
+    Check(R.Back = 5000, 'render: the back plane is the real client''s 5000');
   finally
     R.Free;
     S.Free;

@@ -99,6 +99,16 @@ Graal304 --server HOST:PORT --account NAME --headless --seconds 600 \
   --walk random --link-every 5 --stats-every 10   # stress run
 ```
 
+## Seihai secure login (not in the original)
+
+Off by default, so the login is byte for byte the original's. With
+`--secure-login auto` or `required` (or one word in `secure_login.txt` in
+the shared settings folder), the account, the password go sealed to
+a Seihai game server or list server (version token `SEI00001`,
+graal-client-repro #148). Same code and settings as 2.31: see the 2.31
+README, "Seihai secure login". CI logs in once more with
+`--secure-login required` (`scripts/loopback.sh`).
+
 ## Not yet, or not known
 
 - [ ] The server name prefixes `P `, `3 `, `H `, `U ` pick the list tab in 3.04

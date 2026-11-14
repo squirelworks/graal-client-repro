@@ -116,6 +116,17 @@ Files this build opens, for the assets zip: `pics1.png`, `arrays.dat`,
   run in the NewMain 26 install. The screenshots and login captures are in the project
   files, `graal-delphi/every-client-smoke/nm24/`.
 
+## Seihai secure login (not in the original)
+
+Off by default, so the login is byte for byte the original's. With
+`--secure-login auto` or `required` (or one word in `secure_login.txt` in
+the shared settings folder), the account and the password go sealed to a
+Seihai game server (version token `SEI00001`, graal-client-repro #148).
+C1 carries the type and key bytes of the classic login and this build's token, and
+C2 stands in for the login line. What the build sends with its login line follows C2 in the same frame, gen-3 coded from the first step. Same code and settings as 2.31: see the 2.31 README,
+"Seihai secure login". CI logs in once more with `--secure-login required`
+(`scripts/loopback.sh`).
+
 ## Not yet (0.0.2)
 
 - [ ] The file requests at login (`sword1.png`, `shield1.png`, `head0.png`,
