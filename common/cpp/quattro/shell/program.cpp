@@ -843,9 +843,11 @@ bool Program::tick() {
   world_.lobby = !offline_ && session_.lobby_mode();
   if (window_.title() != window_title()) window_.set_title(window_title());
 
+  bool escape_closed_item_list = false;
   for (Draw::Key k = window_.poll_key(); k != Draw::Key::NoKey; k = window_.poll_key()) {
     if (k == Draw::Key::Escape && item_list_open_) {
       item_list_open_ = false;  // Esc closes the item list
+      escape_closed_item_list = true;
       continue;
     }
     if (k == Draw::Key::Close || (k == Draw::Key::Escape && !gui_->has_content() && !(profile_.escape_menu && !weapons_.any_shown()))) quit_ = true;
@@ -855,6 +857,11 @@ bool Program::tick() {
   for (Draw::InputEvent e; window_.poll_input(e);) {
     // Releases update physical state even when an overlay takes the event.
     if (e.type == Draw::InputEvent::KeyUp) keys_down_.erase(ScriptHost::keycode(e.key, e.ch));
+    if (escape_closed_item_list && e.type == Draw::InputEvent::KeyDown &&
+        ScriptHost::keycode(e.key, e.ch) == 27) {
+      keys_down_.insert(27);
+      continue; // the same press also arrives in the window input queue
+    }
     if (gui_->has_content() && gui_->input(e)) continue;
     if (item_list_open_) {
       item_list_input(e);

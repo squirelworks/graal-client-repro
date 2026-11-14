@@ -591,6 +591,39 @@ void test_escape_menu() {
     esc.type = Draw::InputEvent::KeyUp;
     win.push_input(esc);
     p.tick();
+    game.send(gchar(33) + Net::gstring("Stick") + "\n");
+    CHECK(run(p, nullptr, &game, [&] { return p.weapons().any_shown(); }));
+    p.action("doQ", true);
+    p.tick();
+    p.action("doQ", false);
+    p.tick();
+    CHECK(p.item_list_open());
+    esc.type = Draw::InputEvent::KeyDown;
+    win.pending = Draw::Key::Escape;
+    win.push_input(esc);
+    CHECK(p.tick() && !p.item_list_open() && p.me().status == 0);
+    esc.type = Draw::InputEvent::KeyUp;
+    win.push_input(esc);
+    p.tick();
+    p.action("doQ", true);
+    p.tick();
+    p.action("doQ", false);
+    p.tick();
+    CHECK(p.item_list_open());
+    game.send(gchar(34) + "Stick\n");
+    // Deliver the production session message before Program's later list cleanup.
+    for (int i = 0; i < 200 && p.weapons().any_shown(); ++i) {
+      p.session().tick();
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    CHECK(!p.weapons().any_shown() && p.item_list_open());
+    esc.type = Draw::InputEvent::KeyDown;
+    win.pending = Draw::Key::Escape;
+    win.push_input(esc);
+    CHECK(p.tick() && !p.weapons().any_shown() && !p.item_list_open() && p.me().status == 0);
+    esc.type = Draw::InputEvent::KeyUp;
+    win.push_input(esc);
+    p.tick();
     auto control = std::make_shared<gs2::gui::Control>("ProbeGui", "GuiControl");
     p.gui().screen().setContent(control);
     esc.type = Draw::InputEvent::KeyDown;
