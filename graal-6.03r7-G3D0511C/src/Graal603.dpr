@@ -602,12 +602,7 @@ begin
           GuiArgs.Add(PickedName);
         end;
         LastGameError := '';
-        Quattro := QuattroProgram(Dir);
-        { Quattro does not implement SEI00001 yet. Keep online games in
-          the Pascal client whenever secure login is requested, so a
-          required or auto setting cannot silently send a clear login. }
-        if (R.Choice = scOnline) and (ConfiguredSecMode <> smOff) then
-          Quattro := '';
+        Quattro := QuattroProgram(Dir, R.Choice = scOnline);
         if Quattro <> '' then
         begin
           { the game runs in the Quattro program (common/GQuattroPlay.pas) }
