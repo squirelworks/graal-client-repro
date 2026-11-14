@@ -234,6 +234,27 @@ for B in $BUILDS; do
       esac
     fi
   fi
+  # The 6.01r1 and 6.03r7 Linux clients are one C++ program (quattro_lib).
+  # Its rebuild, common/cpp/quattro's quattro-play, sits beside the start
+  # screen, which hands the game to it (common/GQuattroPlay.pas). Linux
+  # only: it draws through Xlib, and elsewhere the start screen keeps
+  # playing in its own Pascal game.
+  if { [ "$B" = "graal-6.03r7-G3D0511C" ] || [ "$B" = "graal-6.01r1-G3D0108A" ]; } && [ -f "$ROOT/common/cpp/quattro/Makefile" ]; then
+    case "$(uname -s)" in
+      Linux)
+        # Without Xlib it would only run headless, so it is left out.
+        if [ -f /usr/include/X11/Xlib.h ]; then
+          echo "== common/cpp/quattro"
+          CXXBIN=${CXX:-g++}
+          make -C "$ROOT/common/cpp/quattro" build/quattro-play CXX="$CXXBIN"
+          cp "$ROOT/common/cpp/quattro/build/quattro-play" "$OUT/"
+        else
+          echo "quattro-play: no Xlib headers; the Pascal game plays here"
+        fi
+        ;;
+      *) echo "quattro-play: Linux only (Xlib); the Pascal game plays here" ;;
+    esac
+  fi
   # 6.114's connector is a small C++ program. The playable stand-in is
   # portable C# (mcs or dotnet). Neither is a Unity player.
   if [ -f "$B/src/worlds_host.cpp" ]; then

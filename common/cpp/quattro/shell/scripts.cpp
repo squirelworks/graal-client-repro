@@ -161,6 +161,9 @@ std::string make_load_script(const ScriptDescriptor& d) {
 }
 
 ScriptHost::ScriptHost() : machine_(gs2::Profile::Engine600) {
+  player_ = std::make_shared<gs2::Var>("player");
+  player_->setAcceptsAllProperties(true);
+  machine_.setPlayer(player_);
   machine_.addCommand("echo", "s", [this](gs2::Machine& m, gs2::Var&, std::vector<gs2::Value>& args) {
     note("echo: " + m.toString(args[0]));
     return gs2::Value::number(0);
@@ -175,6 +178,34 @@ void ScriptHost::note(const std::string& s) {
 gs2::VarPtr ScriptHost::weapon(const std::string& name) const {
   auto it = weapons_.find(lower(name));
   return it == weapons_.end() ? nullptr : it->second;
+}
+
+bool ScriptHost::fire(const std::string& name) {
+  gs2::VarPtr w = weapon(name);
+  if (!w || !machine_.hasScript(w)) return false;
+  machine_.queueEvent(w, "WeaponFired");  // runs onWeaponFired
+  return true;
+}
+
+int ScriptHost::keycode(const std::string& key, int ch) {
+  static const std::map<std::string, int> kNamed = {
+      {"backspace", 8}, {"tab", 9}, {"enter", 13}, {"return", 13}, {"shift", 16}, {"ctrl", 17}, {"alt", 18},
+      {"escape", 27}, {"space", 32}, {"pageup", 33}, {"pagedown", 34}, {"end", 35}, {"home", 36},
+      {"left", 37}, {"up", 38}, {"right", 39}, {"down", 40}, {"insert", 45}, {"delete", 46},
+  };
+  if (auto it = kNamed.find(lower(key)); it != kNamed.end()) return it->second;
+  if (key.size() == 1) return std::toupper(static_cast<unsigned char>(key[0]));
+  if (key.size() >= 2 && (key[0] == 'f' || key[0] == 'F') && std::isdigit(static_cast<unsigned char>(key[1])))
+    return 111 + std::atoi(key.c_str() + 1);  // F1 is 112
+  return ch;
+}
+
+void ScriptHost::key_pressed(const std::string& key, int ch) {
+  int code = keycode(key, ch);
+  std::string text = ch > 0 && ch < 256 ? std::string(1, static_cast<char>(ch)) : std::string();
+  for (auto& [n, w] : weapons_)
+    if (machine_.hasScript(w))
+      machine_.queueEvent(w, "KeyPressed", {gs2::Value::number(code), gs2::Value::string(text)});
 }
 
 std::string ScriptHost::cache_path(const ScriptDescriptor& d) const {

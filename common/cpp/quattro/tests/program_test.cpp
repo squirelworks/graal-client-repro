@@ -1,10 +1,12 @@
 // The program headless against two fake servers: in the Login lobby the
 // 6.03r7 row draws no tiles; after the 178 warp the title names the new
 // server and the board is drawn.
+#include "../../gs2/tests/assembler.hpp"
 #include "../shell/program.hpp"
 #include "check.hpp"
 #include "fake_server.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
@@ -451,10 +453,94 @@ void test_update_packages() {
   fs::remove_all(root);
 }
 
+// D with the weapon list: the built-in Bomb lays a bomb (4 BOMBADD and the
+// new count), a GS2 weapon gets onWeaponFired (here putbomb), Q steps the
+// selection, and 194 clears the list.
+void test_weapons() {
+  const Net::BuildProfile* prof = Net::find_profile("6.03r7");
+  CHECK(prof);
+  if (!prof) return;
+  FakeServer game;
+  CHECK(game.start());
+  Shell::Options opt;
+  opt.host = "127.0.0.1";
+  opt.port = game.port();
+  opt.server_name = "Lab Server";
+  Draw::HeadlessWindow win;
+  Shell::Program p(*prof, opt, win);
+  CHECK(p.start());
+  CHECK(game.conn.accept_from(game.listener));
+  CHECK(run(p, nullptr, &game, [&] { return game.saw(37, "English"); }));
+  // Own props: 3 bombs, at (30, 30) facing down; then the weapon list.
+  game.send(send_level("onlinestartlocal.nw", 7) + gchar(9) + gchar(World::kBombs) + gchar(3) + gchar(World::kX) +
+            gchar(60) + gchar(World::kY) + gchar(60) + gchar(World::kSprite) + gchar(2) + "\n" + gchar(194) + "\n" +
+            gchar(43) + gchar(8) + "\n");
+  CHECK(run(p, nullptr, &game, [&] { return p.weapons().selected() && p.weapons().selected()->name == "Bomb"; }));
+  CHECK(run(p, nullptr, &game, [&] { return p.me().bombs == 3; }));
+
+  p.action("doD", true);  // 1.5 tiles below the body: (30.5, 32.5)
+  CHECK(run(p, nullptr, &game, [&] { return game.saw(4, gchar(61) + gchar(65) + gchar(9) + gchar(55)); }));
+  CHECK(run(p, nullptr, &game, [&] { return game.saw(2, gchar(World::kBombs) + gchar(2)); }));
+  CHECK(p.me().bombs == 2 && p.combat().bombs().size() == 1);
+  p.action("doD", false);
+
+  // A GS2 weapon whose onWeaponFired puts a power-2 bomb at (10, 12).
+  gs2asm::Asm a;
+  a.function("onWeaponFired", {});
+  // putbomb(2, 10, 12): the arguments go on the stack last first.
+  a.op(gs2asm::Asm::MARKER).num(12).num(10).num(2).callName("putbomb").op(gs2asm::Asm::POP);
+  a.num(0).op(gs2asm::Asm::RET);
+  Shell::ScriptDescriptor d;
+  d.type = "weapon";
+  d.name = "Stick";
+  // The bytecode goes as a raw message (100 with the length, then 140).
+  std::string raw = gchar(140) + Shell::make_script_packet(d, a.bytes()) + "\n";
+  game.send(gchar(33) + Net::gstring("Stick") + "\n" + gchar(100) + Net::gint3(static_cast<uint32_t>(raw.size())) + "\n" + raw);
+  CHECK(run(p, nullptr, &game, [&] { return p.weapons().selected() && p.weapons().selected()->name == "Stick"; }));
+  CHECK(run(p, nullptr, &game, [&] { return p.scripts().machine().hasScript(p.scripts().weapon("Stick")); }));
+  p.action("doD", true);
+  CHECK(run(p, nullptr, &game, [&] { return game.saw(4, gchar(20) + gchar(24) + gchar(10) + gchar(55)); }));
+  CHECK(p.me().bombs == 2);  // a script's bomb takes none
+  p.action("doD", false);
+
+  // Q opens the item list: Bomb and Stick side by side, Stick selected.
+  p.action("doQ", true);
+  CHECK(run(p, nullptr, &game, [&] { return p.item_list_open(); }));
+  p.action("doQ", false);
+  auto cells = p.item_cells();
+  CHECK(cells.size() == 2 && cells[0].x == 48 && cells[0].y == 112 && cells[1].x == cells[0].x + cells[0].w);
+  Draw::InputEvent left;
+  left.key = "left";
+  win.push_input(left);
+  CHECK(run(p, nullptr, &game, [&] { return p.weapons().selected()->name == "Bomb"; }));
+  CHECK(std::find(p.last_passes().begin(), p.last_passes().end(), "ItemList") != p.last_passes().end());
+  Draw::InputEvent del;
+  del.key = "delete";
+  win.push_input(del);  // Delete drops Bomb and tells the server
+  CHECK(run(p, nullptr, &game, [&] { return game.saw(29, "Bomb"); }));
+  CHECK(p.weapons().list().size() == 1 && p.weapons().selected()->name == "Stick");
+  Draw::InputEvent esc;
+  esc.key = "escape";
+  win.push_input(esc);
+  CHECK(run(p, nullptr, &game, [&] { return !p.item_list_open(); }));
+
+  // Another player's HURTPLAYER: one heart off, the hurt pose, the new hearts sent.
+  game.send(gchar(9) + gchar(World::kMaxPower) + gchar(3) + gchar(World::kCurPower) + gchar(6) + "\n" + gchar(8) +
+            Net::gshort(7) + gchar(World::kX) + gchar(64) + gchar(World::kY) + gchar(60) + "\n");
+  CHECK(run(p, nullptr, &game, [&] { return p.others().count(7) == 1 && p.me().power == 6; }));
+  game.send(gchar(40) + Net::gshort(7) + gchar(0x40) + gchar(0x40) + gchar(2) + "\n");
+  CHECK(run(p, nullptr, &game, [&] { return game.saw(2, gchar(World::kCurPower) + gchar(4)); }));
+  CHECK(p.me().power == 4 && p.health().hurting());
+
+  game.send(gchar(194) + "\n");
+  CHECK(run(p, nullptr, &game, [&] { return p.weapons().list().empty() && !p.scripts().weapon("Stick"); }));
+}
+
 int main() {
   test_program();
   test_offline();
   test_update_packages();
   test_downloads();
+  test_weapons();
   TEST_MAIN_END();
 }

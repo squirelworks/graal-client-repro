@@ -65,6 +65,14 @@ raise no event and send no packet. Wire ids are unknown (`id=unknown`).
 
 ## Running it
 
+On Linux the game itself runs in `quattro-play`, the rebuilt Quattro
+program (`common/cpp/quattro`), which `scripts/build.sh` puts next to
+`Graal603`: the start screen picks the server or Training and hands the game
+over (`common/GQuattroPlay.pas`), then comes back when it ends. Set
+`GRAAL_PASCAL_GAME=1` to play in this folder's own Pascal game instead,
+as Windows and a machine with no X display always do. The command-line
+modes below are the Pascal game's.
+
 Put `Graal603` in the root of a 6.03r7 install and start it with no
 arguments for the start screen. It finds the install's files from there,
 or from `graal-assets/6.03r7/` and `graal-assets/common/` next to it.
@@ -126,7 +134,7 @@ README, "Seihai secure login". CI logs in once more with
 - [x] Provisional standalone header probe and diagnostic-only want-script
   helpers, tested independently of the client.
 - [ ] CRC/cache validation, client integration and script execution.
-- [ ] Actual Quattro controls and level view; printing class names does
-  not register controls or open a view.
+- [x] Actual Quattro controls and level view: on Linux the game runs in
+  `quattro-play` (common/cpp/quattro).
 - [ ] GS2 opcode bodies and wire ids; the 6.1.1.3 connector, UDP and
   package rows are not this folder.
