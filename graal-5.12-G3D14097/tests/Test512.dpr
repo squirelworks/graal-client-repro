@@ -968,6 +968,8 @@ begin
   end;
 end;
 
+{$I Actions.inc}
+
 procedure TestFuzz;
 var
   G: TAdventure;
@@ -1261,6 +1263,8 @@ begin
   TestShowImg;
   TestLobby;
   TestBoardModify;
+  TestActionsOffline;
+  TestActionsOnline;
   TestFuzz;
   TestReceiveLimits;
   WriteLn(Format('%d passed, %d failed, %d skipped', [Passed, Failed, Skipped]));

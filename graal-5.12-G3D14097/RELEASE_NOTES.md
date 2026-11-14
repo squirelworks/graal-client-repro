@@ -26,6 +26,7 @@ to the program works too (`graal-assets/5.12/`, then
 ## What's new in v0.0.5
 
 - [x] **Seihai secure login (optional, off by default).** With `--secure-login auto` (or `required`, or `secure_login.txt` in the settings folder), the account and password go sealed to a Seihai game server or list server (`SEI00001`), after the server's key is checked and pinned. Servers that do not know it get the original login under `auto`. Off, the login is byte for byte the original's. This is not in the original 5.12.
+- [x] **The player's actions in the game view.** S swings the sword, and S again during the swing spins when the server's status allows it (0x40). A lifts a bush, pot or stone ahead and throws it (A or S again), opens a chest, and with S held picks an item to drop: A with S held again picks the next one, A alone lays it, and an arrow, D or S leaves. D fires the selected weapon; the built-in Bomb and Bow put bombs and shoot arrows. Q opens the weapon list, where the arrows pick the weapon D fires. Online these go out as the 2.x clients send them (the sword gani, CARRYSPRITE, THROWCARRIED, BOMBADD, ARROWADD, ITEMADD with the new counts), and other players' bombs, explosions, arrows, dropped items and carried objects show; their swings, bombs and arrows can hurt. The rules are the 2.x ones (2.05 and 2.22): the real 5.12 has not been checked for them in the lab yet.
 - [x] **The engine tells the launcher who is online.** As the real 5.12 engine does (lab run under hooks), the engine's session sends the launcher a row for each player the server names, on any level (id, nick, head, account, level, community name, first attribute, and flags for the player's own row and players on this server), updates it when one of those changes and deletes it when the player leaves. It also sends the status names ("Online, Away, DND", then the longer list once logged in), and a "You have been disconnected" warning when the link drops. The launcher keeps the list for its Players window. The window title now changes when the server accepts the login, not when the login is sent.
 - [x] **The Players window and the tray icon.** With `--engine --window` a second window, "Players: N online", lists who is on the server by head and nick under 5.12's groups (Staff, Buddies, Guild, Normal, Ignore, Offline). On Windows the program's icon sits in the tray with "<server>: N online" as its tip and the original's menu: Show Game, Show Player List, Quit. The list's tabs, Status list and buttons are drawn but do nothing yet.
 - [x] **Machine fields in the original's shape.** The login line now sends `win`, three fixed made-up MD5 hashes (of SquirrelOS, SquirrelNIC and SquirrelBIOS strings) and the quoted Windows version `"6.2 9200 "`, the shape the real client sends. Nothing is read from your machine.
@@ -77,7 +78,7 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 
 ## Not yet
 
-NPCs, baddies, items and weapons; scripts (class, weapon and gani scripts
+NPCs, baddies and items from the server; a server weapon's script (D on it gets no `weaponfired` yet); scripts (class, weapon and gani scripts
 and their cache); the scripted server list and account screens; chat;
 layered levels; update packages; the 3D mode. See the build's README for
 the full list.
