@@ -20,6 +20,8 @@ their place.
 
 ## What's new in v0.0.5
 
+- [x] Match the declared rev-2 model: negative sword damage heals only at AP 40 or more, while ignored healing still enters the hurt path.
+
 - [x] Suppress other-player sword judging during an online level transition, including acknowledgement and rejected boards; resume after a valid board or a failed request.
 
 - [x] Reject laying over default-tileset liquid (arrays.dat list 1, including lava). Alternate tileset and NPC-shape water classification remain unresolved.

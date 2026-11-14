@@ -20,6 +20,8 @@ their place.
 
 ## What's new in v0.0.5
 
+- [x] Match the declared rev-2 model: negative sword damage heals only at AP 40 or more, while ignored healing still enters the hurt path.
+
 - [x] Reject laying over default-tileset liquid (arrays.dat list 1, including lava). Alternate tileset and NPC-shape water classification remain unresolved.
 
 - [x] Repeated named animation props restart another player's swing; direction-only updates keep its clock.

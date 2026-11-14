@@ -1793,8 +1793,13 @@ var
 begin
   if not Hurtable then Exit;
   { CURPOWER is in half hearts, clamped to the maximum before the hit }
-  Player.Power := Min(Player.Power, Player.MaxPower * 2) - Round(Hearts * 2);
-  if Player.Power > Player.MaxPower * 2 then Player.Power := Player.MaxPower * 2;
+  Player.Power := Min(Player.Power, Player.MaxPower * 2);
+  { Match the declared rev-2 model: ignored healing still hurts below. }
+  if (Hearts >= 0) or (AP >= 40) then
+  begin
+    Player.Power := Player.Power - Round(Hearts * 2);
+    if Player.Power > Player.MaxPower * 2 then Player.Power := Player.MaxPower * 2;
+  end;
   { hurt mode: 40 ticks; the first five push the player a tile each along
     the knockback, scaled to one tile (a zero vector pushes east) }
   L := Sqrt(KX * KX + KY * KY);
