@@ -23,6 +23,7 @@ uses
   GArrays in '../../common/GArrays.pas',
   GAni in '../../common/GAni.pas',
   GAssetDirs in '../../common/GAssetDirs.pas',
+  GQuattroPlay in '../../common/GQuattroPlay.pas',
   Protocol601 in '../src/Protocol601.pas',
   GraalClient in '../src/GraalClient.pas',
   Adventure in '../src/Adventure.pas',
@@ -1273,8 +1274,29 @@ begin
   end;
 end;
 
+{ The hand-off to the Quattro program: its arguments for a server and for
+  Training; never the password. }
+procedure TestQuattroArgs;
+var
+  A: TQuattroArgs;
+  S: string;
+  I: Integer;
+begin
+  A := QuattroArgs('/g/', ['/g/', '/g/graal-assets/x/'], '', '', '', 'h:14900', 'acct', 'Lab Server', 'Nick');
+  S := '';
+  for I := 0 to High(A) do S := S + A[I] + '|';
+  Check(S = '--connect|h:14900|--account|acct|--password-env|GRAAL_QUATTRO_PW|--server-name|Lab Server|' +
+    '--nickname|Nick|--download-files|--assets|/g|--asset-root|/g/graal-assets/x|', 'quattro args online: ' + S);
+  A := QuattroArgs('/g/', [], '/g/levels/start.nw', '30', '31', '', '', '', '');
+  S := '';
+  for I := 0 to High(A) do S := S + A[I] + '|';
+  Check(S = '--offline|/g/levels/start.nw|--x|30|--y|31|--assets|/g|', 'quattro args offline: ' + S);
+  Check(QuattroProgram('/nonexistent-folder/') = '', 'no quattro-play: the Pascal game');
+end;
+
 begin
   TestGTypes;
+  TestQuattroArgs;
   TestBzip2;
   TestGen5Capture;
   TestLogin;

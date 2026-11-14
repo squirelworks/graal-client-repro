@@ -4,6 +4,11 @@
 //   LAB_PW=... quattro-play --build 6.03r7 --connect 127.0.0.1:14900
 //       --account NAME --password-env LAB_PW [--assets DIR]
 //       [--headless --seconds 15 --shot out.png]
+//   quattro-play --build 6.03r7 --offline start.nw [--x 30 --y 30] --assets DIR
+//
+// The 6.01r1 and 6.03r7 folders ship it beside their start screen, which
+// hands the picked server (or Training) to it with --server-name,
+// --nickname and --asset-root.
 #include "../shell/program.hpp"
 
 #include <chrono>
@@ -17,14 +22,18 @@ namespace {
 int usage() {
   std::fprintf(stderr,
                "usage: quattro-play --build LABEL --connect HOST:PORT --account NAME --password-env VAR\n"
-               "                    [--assets DIR] [--program FILE] [--size WxH] [--headless] [--seconds N] [--shot FILE.png]\n");
+               "                    [--server-name NAME] [--nickname NICK]\n"
+               "       quattro-play --build LABEL --offline LEVEL [--x X --y Y]\n"
+               "  both: [--assets DIR] [--asset-root DIR]... [--download-files] [--program FILE]\n"
+               "        [--size WxH] [--headless] [--seconds N] [--shot FILE.png]\n");
   return 2;
 }
 }  // namespace
 
 int main(int argc, char** argv) {
   Shell::Options opt;
-  std::string target, pw_env, shot;
+  std::string target, pw_env, shot, offline;
+  double start_x = 30, start_y = 30;
   bool headless = false, sized = false;
   int seconds = 0;
   for (int i = 1; i < argc; ++i) {
@@ -36,6 +45,13 @@ int main(int argc, char** argv) {
     else if (a == "--password-env") pw_env = next();
     else if (a == "--assets") opt.assets = next();
     else if (a == "--program") opt.program = next();
+    else if (a == "--asset-root") opt.asset_roots.push_back(next());
+    else if (a == "--download-files") opt.download_files = true;
+    else if (a == "--server-name") opt.server_name = next();
+    else if (a == "--nickname") opt.nickname = next();
+    else if (a == "--offline") offline = next();
+    else if (a == "--x") start_x = std::atof(next().c_str());
+    else if (a == "--y") start_y = std::atof(next().c_str());
     else if (a == "--headless") headless = true;
     else if (a == "--seconds") seconds = std::atoi(next().c_str());
     else if (a == "--shot") shot = next();
@@ -52,18 +68,21 @@ int main(int argc, char** argv) {
     opt.width = 1024;
     opt.height = 768;
   }
-  size_t colon = target.rfind(':');
-  if (!prof || colon == std::string::npos || opt.account.empty() || pw_env.empty()) return usage();
-  const char* pw = std::getenv(pw_env.c_str());
-  if (!pw) {
-    std::fprintf(stderr, "%s is not set\n", pw_env.c_str());
-    return 2;
+  if (!prof) return usage();
+  if (offline.empty()) {
+    size_t colon = target.rfind(':');
+    if (colon == std::string::npos || opt.account.empty() || pw_env.empty()) return usage();
+    const char* pw = std::getenv(pw_env.c_str());
+    if (!pw) {
+      std::fprintf(stderr, "%s is not set\n", pw_env.c_str());
+      return 2;
+    }
+    opt.password = pw;
+    opt.host = target.substr(0, colon);
+    int port = std::atoi(target.c_str() + colon + 1);
+    if (port <= 0 || port > 65535) return usage();
+    opt.port = static_cast<uint16_t>(port);
   }
-  opt.password = pw;
-  opt.host = target.substr(0, colon);
-  int port = std::atoi(target.c_str() + colon + 1);
-  if (port <= 0 || port > 65535) return usage();
-  opt.port = static_cast<uint16_t>(port);
 
   std::unique_ptr<Draw::Window> window;
   Draw::HeadlessWindow* hw = nullptr;
@@ -78,7 +97,10 @@ int main(int argc, char** argv) {
 
   Shell::Program program(*prof, opt, *window);
   program.log = [](const std::string& s) { std::printf("%s\n", s.c_str()); };
-  if (!program.start()) return 1;
+  if (offline.empty() ? !program.start() : !program.start_offline(offline, start_x, start_y)) {
+    std::fprintf(stderr, "%s\n", offline.empty() ? "could not start" : ("no level " + offline).c_str());
+    return 1;
+  }
   auto end = std::chrono::steady_clock::now() + std::chrono::seconds(seconds);
   for (;;) {
     auto t0 = std::chrono::steady_clock::now();

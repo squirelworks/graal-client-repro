@@ -61,6 +61,7 @@ uses
   GBzip2 in '../../common/GBzip2.pas',
   GBuiltin in '../../common/GBuiltin.pas',
   GAssetDirs in '../../common/GAssetDirs.pas',
+  GQuattroPlay in '../../common/GQuattroPlay.pas',
   GAni in '../../common/GAni.pas',
   GFont in '../../common/GFont.pas',
   GWindow in '../../common/GWindow.pas',
@@ -510,6 +511,10 @@ var
   Who: TCharacter601;
   PickedName: string;
   I: Integer;
+  Quattro: string;
+  Roots: array of string;
+  QArgs: TQuattroArgs;
+  Code: Integer;
 begin
   Result := 0;
   Dir := ExtractFilePath(ParamStr(0));
@@ -586,7 +591,24 @@ begin
           GuiArgs.Add(PickedName);
         end;
         LastGameError := '';
-        if RunGame(Win, R.Password, R.Nickname) <> 0 then
+        Quattro := QuattroProgram(Dir);
+        if Quattro <> '' then
+        begin
+          { the game runs in the Quattro program (common/GQuattroPlay.pas) }
+          SetLength(Roots, AssetRootCount);
+          for I := 0 to AssetRootCount - 1 do Roots[I] := AssetRoot(I);
+          if R.Choice = scTraining then
+            QArgs := QuattroArgs(Dir, Roots, Lvl, X, Y, '', '', '', '')
+          else
+            QArgs := QuattroArgs(Dir, Roots, '', '', '', R.Host + ':' + IntToStr(R.Port), R.Account,
+              PickedName, R.Nickname);
+          Code := RunQuattro(Quattro, ClientBuildLabel, QArgs, R.Password);
+          if Code <> 0 then
+            Msg := 'the game ended with code ' + IntToStr(Code)
+          else
+            Msg := '';
+        end
+        else if RunGame(Win, R.Password, R.Nickname) <> 0 then
           Msg := LastGameError
         else
           Msg := '';

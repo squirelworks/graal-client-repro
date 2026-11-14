@@ -1,6 +1,10 @@
 // The player prop stream and the props the client sends.
 #include "../world/actions.hpp"
 #include "../world/effects.hpp"
+#include "../world/weapons.hpp"
+#include "../world/health.hpp"
+#include "../world/item_list.hpp"
+#include <map>
 #include "../world/player.hpp"
 #include "../world/walk.hpp"
 #include "check.hpp"
@@ -397,6 +401,193 @@ void test_carry_walk() {
   CHECK(p.gani == "carrystill");
 }
 
+
+void test_weapon_list() {
+  WeaponList w;
+  CHECK(w.selected() == nullptr && !w.any_shown());
+  CHECK(w.add("-System") && w.selected_index() == 0 && !w.any_shown());  // nothing else to pick
+  CHECK(w.add_default(8) && w.selected()->name == "Bomb" && w.selected()->image == "wbomb1.png" && w.selected()->item == 8);
+  CHECK(!w.add_default(5) && !w.add("Bomb"));  // a heart is no weapon; a name the list has is skipped
+  CHECK(w.add_default(7) && w.selected()->name == "Bow" && w.selected_index() == 2);
+  CHECK(w.add("Stick", "stick.png") && w.selected_index() == 3);
+  w.select_next();  // wraps past the hidden -System to Bomb
+  CHECK(w.selected()->name == "Bomb");
+  w.select(3);
+  w.remove("Stick");  // the index is gone: the new last entry
+  CHECK(w.selected()->name == "Bow");
+  w.select(1);
+  w.remove("-System");  // index 1 still exists
+  CHECK(w.selected_index() == 1 && w.selected()->name == "Bow");
+  CHECK(default_weapon_name(23) == "Joltbomb" && default_weapon_image(22) == "wbowi4.png");
+  w.clear();
+  CHECK(w.list().empty() && w.selected() == nullptr);
+}
+
+void test_combat() {
+  std::string d = items_dat();
+  ObjectTables tables;
+  TileTypes types;
+  std::string err;
+  CHECK(read_object_tables(d, tables) && read_arrays_dat(d, types, err));
+  Files::Level l = open_level();
+  // A bush one step past the bomb's corner, and a wall in the arrow's way.
+  set_tile(l, 34, 32, 2);
+  set_tile(l, 35, 32, 3);
+  set_tile(l, 34, 33, 18);
+  set_tile(l, 35, 33, 19);
+  set_tile(l, 36, 32, 5);
+
+  Player p;
+  p.x = 31;
+  p.y = 30;
+  p.dir = 3;
+  p.bombs = 1;
+  Combat c;
+  auto out = c.lay_bomb(p, 1);  // 1.5 tiles right of the body: (33, 31)
+  CHECK(out.size() == 1 && out[0].id == 4 && out[0].body == gchar(66) + gchar(62) + gchar(9) + gchar(55));
+  CHECK(p.bombs == 0 && c.bombs().size() == 1 && c.bombs()[0].mine);
+  CHECK(c.lay_bomb(p, 1).empty());  // none left
+  for (int t = 1; t < Combat::kFuse; ++t) CHECK(c.tick(l, tables, types).empty());
+  out = c.tick(l, tables, types);  // the fuse ends: explosion, then the bush is cut
+  CHECK(out.size() == 2 && out[0].id == 27 && out[0].body == gchar(2) + gchar(66) + gchar(62) + gchar(9));
+  CHECK(out[1].id == 1 && out[1].body == board_modify(34, 32, 2, 2, {677, 678, 693, 694}));
+  CHECK(l.tile(34, 32) == 677 && c.bombs().empty() && c.blasts().size() == 1);
+  for (int t = 0; t < Combat::kBlastTicks; ++t) c.tick(l, tables, types);
+  CHECK(c.blasts().empty());
+
+  p.arrows = 1;
+  out = c.shoot(p, 0);  // from (33.5, 31.75), right
+  CHECK(out.size() == 1 && out[0].id == 9 && out[0].body == gchar(67) + gchar(64) + gchar(11) + gchar(110) + gchar(1));
+  CHECK(p.arrows == 0 && c.shoot(p, 0).empty());
+  c.tick(l, tables, types);
+  c.tick(l, tables, types);
+  CHECK(c.shots().size() == 1 && c.shots()[0].x == 35.5);
+  c.tick(l, tables, types);  // its middle reaches the wall at (36, 32)
+  CHECK(c.shots().empty());
+
+  // Others' bombs, shots and explosions from the server.
+  CHECK(c.on_message(11, gshort(5) + gchar(20) + gchar(40) + gchar(10) + gchar(30)));
+  CHECK(c.bombs().size() == 1 && !c.bombs()[0].mine && c.bombs()[0].x == 10 && c.bombs()[0].power == 2 && c.bombs()[0].fuse == 30);
+  CHECK(c.on_message(12, gchar(20) + gchar(40)) && c.bombs().empty());
+  CHECK(c.on_message(19, gshort(5) + gchar(20) + gchar(40) + gchar(9) + gchar(108) + gchar(1)));
+  CHECK(c.shots().size() == 1 && c.shots()[0].dir == 1 && c.shots()[0].kind == 0 && !c.shots()[0].mine);
+  CHECK(c.on_message(36, gshort(5) + gchar(2) + gchar(20) + gchar(40) + gchar(11)));
+  CHECK(c.blasts().size() == 1 && c.blasts()[0].power == 3 && !c.blasts()[0].mine);
+  CHECK(!c.on_message(13, ""));
+}
+
+void test_health() {
+  Files::Level l = open_level();
+  TileTypes types = test_types();
+  Player p;
+  p.x = 30;
+  p.y = 30;
+  p.max_power = 3;
+  p.power = 6;
+  Health h;
+  // Half a heart from the west: hearts sent, 31 ticks of hurt, 5 tiles east.
+  auto out = h.hit(p, 0.5, 1, 0);
+  CHECK(out.size() == 1 && out[0].id == 2 && out[0].body == gchar(kCurPower) + gchar(5) && p.gani == "hurt");
+  CHECK(h.hit(p, 0.5, 1, 0).empty());  // no second hit while hurt
+  for (int t = 0; t < Health::kHurtTicks - 1; ++t) h.tick(p, l, types);
+  CHECK(p.x == 35 && p.y == 30 && h.hurting() && p.gani == "hurt");
+  h.tick(p, l, types);
+  CHECK(!h.hurting() && p.gani == "idle");
+  // A wall stops the knockback.
+  set_tile(l, 37, 31, 5);
+  h.hit(p, 0.5, 1, 0);
+  for (int t = 0; t < Health::kHurtTicks; ++t) h.tick(p, l, types);
+  CHECK(p.x == 35);
+  // AP 100 cannot be hurt.
+  p.ap = 100;
+  CHECK(h.hit(p, 1, 0, 1).empty());
+  p.ap = 50;
+
+  // Another player's swing: 4 tiles ahead counts, once a second.
+  std::map<int, Player> others;
+  Player a;
+  a.x = 35;
+  a.y = 26;
+  a.dir = 2;
+  a.gani = "sword";
+  a.sword_power = 2;
+  others[9] = a;
+  out = h.check_swords(p, others);
+  CHECK(out.size() == 1 && p.power == 2);
+  for (int t = 0; t < Health::kHurtTicks; ++t) h.tick(p, l, types);
+  CHECK(h.check_swords(p, others).empty());  // within a second of the last
+  for (int t = 0; t < Health::kSwingGap; ++t) h.tick(p, l, types);
+  others[9].x = p.x;
+  others[9].y = p.y - 4;
+  others[9].sword_power = 6;  // three hearts: dead, and the claim names player 9
+  out = h.check_swords(p, others);
+  CHECK(out.size() == 2 && out[0].body == gchar(kCurPower) + gchar(0) && out[1].id == 14 && out[1].body == gshort(9));
+  CHECK(h.dead() && p.gani == "dead" && h.hit(p, 1, 0, 0).empty());
+  out = h.respawn(p, 30, 31, "start.nw");  // AP 50: every heart back
+  CHECK(!h.dead() && p.power == 6 && p.x == 30 && p.y == 31 && p.gani == "idle");
+  CHECK(out.size() == 2 && out[1].id == 0 && out[1].body == gchar(60) + gchar(62) + "start.nw");
+
+  // HURTPLAYER: from a known player within 10 tiles; dx, dy as (v + 4) * 16.
+  Health h2;
+  others[9].x = 32;
+  others[9].y = 31;
+  out = h2.on_hurt_player(p, gshort(9) + gchar(0x40) + gchar(0x50) + gchar(2), others);
+  CHECK(out.size() == 1 && p.power == 4);
+  Health h3;
+  CHECK(h3.on_hurt_player(p, gshort(8) + gchar(0x40) + gchar(0x40) + gchar(2), others).empty());  // unknown
+}
+
+void test_hits() {
+  std::string d = items_dat();
+  ObjectTables tables;
+  CHECK(read_object_tables(d, tables));
+  Player me;
+  me.x = 30;
+  me.y = 30;
+  Combat c;
+  std::vector<Packet> back;
+  // A blast piece 2 tiles above a bomb at (29.5, 29): the arm's piece at
+  // (30.5, 28) is no hit, the centre (30.5, 30) is a tile off on y: none;
+  // a bomb at (30.5, 31) puts its centre at the body's centre.
+  CHECK(c.on_message(36, gshort(5) + gchar(2) + gchar(61) + gchar(62) + gchar(1)));
+  auto hits = c.hits_on(me, tables, back);
+  CHECK(hits.size() == 1 && hits[0].hearts == 0.5);
+  c.clear();
+  CHECK(c.on_message(36, gshort(5) + gchar(2) + gchar(61) + gchar(62) + gchar(3)));
+  CHECK(c.hits_on(me, tables, back)[0].hearts == 1.0);
+  c.clear();
+  // Another's arrow over the body hurts and goes; facing it with shield 2
+  // sends it back as this player's own.
+  CHECK(c.on_message(19, gshort(5) + gchar(62) + gchar(62) + gchar(1) + gchar(108) + gchar(1)));
+  hits = c.hits_on(me, tables, back);
+  CHECK(hits.size() == 1 && hits[0].kx == -1 && c.shots().empty());
+  me.dir = 3;
+  me.shield_power = 2;
+  CHECK(c.on_message(19, gshort(5) + gchar(62) + gchar(62) + gchar(1) + gchar(108) + gchar(1)));
+  CHECK(c.hits_on(me, tables, back).empty() && back.size() == 1 && back[0].id == 9);
+  CHECK(c.shots().size() == 1 && c.shots()[0].mine && c.shots()[0].dir == 3);
+}
+
+void test_item_list() {
+  WeaponList w;
+  w.add("-System");
+  w.add_default(8);  // image 30 x 20
+  w.add("LongNameWeapon");  // no image: 32 x 32
+  w.add_default(7);
+  auto img = [](const std::string& n) { return n == "wbomb1.png" ? std::pair<int, int>{30, 20} : std::pair<int, int>{0, 0}; };
+  auto text = [](const std::string& t) { return static_cast<int>(t.size()) * 8; };
+  // 640 wide: the cells run from x 48 to 592.
+  auto cells = layout_items(w, 640, 480, img, text);
+  CHECK(cells.size() == 3 && cells[0].index == 1);  // -System is not listed
+  CHECK(cells[0].x == 48 && cells[0].y == 112 && cells[0].w == 42 && cells[0].h == 20 + 16 + 15);
+  CHECK(cells[1].x == 90 && cells[1].w == 14 * 8 + 10 && cells[1].h == 32 + 16 + 15);
+  CHECK(move_in_items(cells, 3, 1) == 2 && move_in_items(cells, 2, 1) == 1 && move_in_items(cells, 1, 1) == -1);
+  CHECK(move_in_items(cells, 1, 3) == 2 && move_in_items(cells, 1, 2) == -1);
+  // A narrow window wraps: Bow goes under Bomb, and down from Bomb takes it.
+  cells = layout_items(w, 260, 480, img, text);
+  CHECK(cells.size() == 3 && cells[2].x == 48 && cells[2].y == 112 + 63);
+  CHECK(move_in_items(cells, 1, 2) == 3 && move_in_items(cells, 3, 0) == 1);
+}
 }  // namespace
 
 int main() {
@@ -410,5 +601,10 @@ int main() {
   test_item_keys();
   test_effects();
   test_carry_walk();
+  test_weapon_list();
+  test_combat();
+  test_health();
+  test_hits();
+  test_item_list();
   TEST_MAIN_END();
 }
