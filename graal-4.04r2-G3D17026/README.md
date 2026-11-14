@@ -104,6 +104,16 @@ and typing, and Offline Test reaches offline mode. Start logs in from the
 engine: the Login server, the 178 hand-on, the level drawn in the game
 screen's playfield, walking with the arrows and the chat bar.
 
+## Seihai secure login (not in the original)
+
+Off by default, so the login is byte for byte the original's. With
+`--secure-login auto` or `required` (or one word in `secure_login.txt` in
+the shared settings folder), the account, the password and the platform fields after it go sealed to
+a Seihai game server or list server (version token `SEI00001`,
+graal-client-repro #148). Same code and settings as 2.31: see the 2.31
+README, "Seihai secure login". CI logs in once more with
+`--secure-login required` (`scripts/loopback.sh`).
+
 ## Not yet, or not known
 
 - [x] ~~The 14 start menus drawn through the engine library~~

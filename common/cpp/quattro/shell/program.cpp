@@ -1,5 +1,6 @@
 #include "program.hpp"
 
+#include "../draw/ui_font.hpp"
 #include "../net/gtypes.hpp"
 
 #include <algorithm>
@@ -95,6 +96,7 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
   scripts_.on_log = [this](const std::string& s) {
     if (log) log(s);
   };
+  register_weapon_commands();
   world_.player.x = 30;
   world_.player.y = 30;
   std::vector<std::string> asset_folders;
@@ -318,7 +320,7 @@ bool Program::action(std::string_view command, bool down) {
   // The 2D bindings (Graal_analysis torque/scripting.md): the arrows, A, S
   // (Space is doS2, a second sword key) and D. Q with no weapon toggles the
   // weapon state as D does (the 6.03r7 item-keys lab, world/actions.hpp);
-  // there is no weapon list yet, so Q always does.
+  // with a weapon shown, D uses it and Q steps the selection (tick).
   static const struct {
     const char* name;
     unsigned move, item;
@@ -329,6 +331,7 @@ bool Program::action(std::string_view command, bool down) {
   };
   bool known = false;
   action_moves_ = action_items_ = 0;
+  action_d_ = action_q_ = false;
   for (unsigned i = 0; i < sizeof kBindings / sizeof kBindings[0]; ++i) {
     if (command == kBindings[i].name) {
       known = true;
@@ -337,6 +340,8 @@ bool Program::action(std::string_view command, bool down) {
     if (action_held_ & (1u << i)) {
       action_moves_ |= kBindings[i].move;
       action_items_ |= kBindings[i].item;
+      if (std::string_view(kBindings[i].name) == "doD") action_d_ = true;
+      if (std::string_view(kBindings[i].name) == "doQ") action_q_ = true;
     }
   }
   return known;
@@ -367,13 +372,14 @@ bool Program::load_offline_level(const std::string& name) {
   std::string data, err;
   std::vector<std::string> dirs;
   if (!offline_dir_.empty()) dirs.push_back(offline_dir_ + "/");
-  if (!opt_.assets.empty()) dirs.insert(dirs.end(), {opt_.assets + "/levels/", opt_.assets + "/"});
+  for (const auto& root : roots()) dirs.insert(dirs.end(), {root + "/levels/", root + "/"});
   std::string path;
-  for (const std::string& dir : dirs)
-    if (read_file(dir + name, data)) {
-      path = dir + name;
-      break;
-    }
+  // A whole path (the 6.x start screen hands over the one it found).
+  if (std::filesystem::path(name).is_absolute() && read_file(name, data)) path = name;
+  for (const std::string& dir : dirs) {
+    if (!path.empty()) break;
+    if (read_file(dir + name, data)) path = dir + name;
+  }
   if (path.empty() && !opt_.assets.empty()) {
     path = find_below(opt_.assets + "/levels", name);
     if (path.empty() || !read_file(path, data)) {
@@ -390,7 +396,12 @@ bool Program::load_offline_level(const std::string& name) {
   world_.level = std::move(lv);
   world_.have_level = true;
   level_name_ = name;
-  me_.level = name;
+  if (path == name) {  // a whole path: its folder holds the linked levels
+    std::filesystem::path fp(name);
+    if (offline_dir_.empty()) offline_dir_ = fp.parent_path().string();
+    level_name_ = fp.filename().string();
+  }
+  me_.level = level_name_;
   read_level_script();
   pick_tile_sheet();
   return true;
@@ -614,6 +625,40 @@ void Program::on_message(int id, std::string_view body) {
     cache_server_ = session_.server_host();
     scripts_.set_cache_dir(opt_.assets + "/weblevels/" + cache_server_);
   }
+  // The weapon list; the scripts also see 33, 34 and 194.
+  switch (id) {
+    case 33: {  // PLO_NPCWEAPONADD: str name, then the NPC props (0: image)
+      Net::Reader wr(body);
+      std::string name = wr.gstring(), image;
+      if (!wr.ok() || name.empty()) {
+        name = std::string(body);
+      } else if (wr.gchar() == 0 && wr.ok()) {
+        image = wr.gstring();
+        if (!wr.ok()) image.clear();
+      }
+      weapons_.add(name, image);
+      break;
+    }
+    case 34:  // PLO_NPCWEAPONDEL: the name
+      weapons_.remove(std::string(body));
+      break;
+    case 43: {  // PLO_DEFAULTWEAPON: the item index
+      Net::Reader wr(body);
+      int item = static_cast<int>(wr.gchar());
+      if (wr.ok()) weapons_.add_default(item);
+      return;
+    }
+    case 40:  // PLO_HURTPLAYER: s attacker, c dx, c dy, c power
+      send_packets(health_.on_hurt_player(me_, body, others_));
+      return;
+    case 194:  // PLO_RESETCLIENT: the weapon list follows
+      weapons_.clear();
+      scripts_.clear_weapons();
+      return;
+    default:
+      break;
+  }
+  if (combat_.on_message(id, body)) return;
   if (scripts_.on_message(id, body)) return;
   Net::Reader r(body);
   switch (id) {
@@ -626,6 +671,9 @@ void Program::on_message(int id, std::string_view body) {
       world_.have_level = false;
       item_keys_.new_level();
       effects_.clear();
+      combat_.clear();
+      entry_x_ = me_.x;  // where a dead player comes back
+      entry_y_ = me_.y;
       load_local_level(level_name_);
       break;
     case 7: {  // PLO_BOARDMODIFY: x, y, w, h, then the tiles row by row
@@ -784,10 +832,19 @@ bool Program::tick() {
   if (window_.title() != window_title()) window_.set_title(window_title());
 
   for (Draw::Key k = window_.poll_key(); k != Draw::Key::NoKey; k = window_.poll_key()) {
+    if (k == Draw::Key::Escape && item_list_open_) {
+      item_list_open_ = false;  // Esc closes the item list
+      continue;
+    }
     if (k == Draw::Key::Close || (k == Draw::Key::Escape && !gui_->has_content())) quit_ = true;
   }
   for (Draw::InputEvent e; window_.poll_input(e);) {
-    if (gui_->has_content()) gui_->input(e);
+    if (gui_->has_content())
+      gui_->input(e);
+    else if (item_list_open_)
+      item_list_input(e);
+    else if (e.type == Draw::InputEvent::KeyDown)
+      scripts_.key_pressed(e.key, e.ch);
   }
   // Walking: half a tile per held arrow per tick, against the walls.
   if (!world_.lobby) {
@@ -795,13 +852,42 @@ bool Program::tick() {
     unsigned keys = (window_.held(Draw::Key::Up) ? 1u : 0u) | (window_.held(Draw::Key::Left) ? 2u : 0u) |
                     (window_.held(Draw::Key::Down) ? 4u : 0u) | (window_.held(Draw::Key::Right) ? 8u : 0u) |
                     action_moves_;
+    // D, Q and Tab toggle the same status bit while no weapon is shown
+    // (item-keys lab). With one, D uses the selected weapon and Q or Tab
+    // opens and closes the item list.
+    const bool d_held = window_.held(Draw::Key::D) || action_d_;
+    const bool q_held = window_.held(Draw::Key::Q) || window_.held(Draw::Key::Tab) || action_q_;
+    const bool armed = weapons_.any_shown();
     unsigned items = (window_.held(Draw::Key::A) ? World::kKeyA : 0u) |
                      (window_.held(Draw::Key::S) ? World::kKeyS : 0u) |
-                     // D, Q and Tab toggle the same status bit (item-keys lab)
-                     (window_.held(Draw::Key::D) || window_.held(Draw::Key::Q) || window_.held(Draw::Key::Tab)
-                          ? World::kKeyD
-                          : 0u) |
-                     action_items_;
+                     (!armed && (d_held || q_held) ? World::kKeyD : 0u) |
+                     (action_items_ & (World::kKeyA | World::kKeyS));
+    const bool q_pressed = armed && q_held && !weapon_keys_[1];
+    const bool d_pressed = armed && d_held && !weapon_keys_[0];
+    weapon_keys_[0] = armed && d_held;
+    weapon_keys_[1] = armed && q_held;
+    if (!armed) item_list_open_ = false;
+    if (item_list_open_) {
+      // The list holds the game: the item key closes it, so do A, S, D.
+      if (q_pressed || d_pressed || (items & (World::kKeyA | World::kKeyS))) item_list_open_ = false;
+      keys = 0;
+      items = 0;
+    } else if (q_pressed) {
+      item_list_open_ = true;
+      keys = 0;
+      items = 0;
+    }
+    // Dead: nothing but an arrow key, which brings the player back where
+    // the level was entered. Hurt: the knockback holds the walk.
+    if (health_.dead()) {
+      if (keys) send_packets(health_.respawn(p, entry_x_, entry_y_, level_name_));
+      keys = 0;
+      items = 0;
+    } else if (health_.hurting()) {
+      keys = 0;
+      items &= ~World::kKeyD;
+    }
+    if (d_pressed && !item_list_open_ && !health_.dead() && !item_keys_.busy() && !item_keys_.carrying()) fire_weapon();
     // The item keys first (sword, lift, throw, grab); a swing or a lift
     // holds the walk.
     int carried = p.carry_sprite;
@@ -841,6 +927,18 @@ bool Program::tick() {
   // time out sends its ITEMDEL.
   for (const auto& pk : effects_.tick())
     if (props_sent_) session_.connection().send(pk.id, pk.body);
+  // Bombs burn, blasts age, shots fly; an own bomb's explosion and the
+  // board it changed go out.
+  if (!world_.lobby) {
+    send_packets(combat_.tick(world_.level, object_tables_, tile_types_));
+    // What hurts this player: blasts, other players' shots and swings.
+    std::vector<World::Packet> back;
+    for (const auto& h : combat_.hits_on(me_, object_tables_, back)) send_packets(health_.hit(me_, h.hearts, h.kx, h.ky));
+    send_packets(back);
+    send_packets(health_.check_swords(me_, others_));
+    health_.tick(me_, world_.level, tile_types_);
+  }
+  send_counts();
   if (opt_.download_files && props_sent_ && frame_ % 10 == 0) ask_for_missing();
   ++frame_;
   world_.player = actor_for(-1, me_);
@@ -852,15 +950,18 @@ bool Program::tick() {
   world_.effects.clear();
   for (const auto& pc : effects_.pieces()) {
     Draw::Rect r = sprite_cell(pc.sprite);
-    if (r.width > 0) world_.effects.push_back({r, pc.x, pc.y});
+    if (r.width > 0) world_.effects.push_back({r, pc.x, pc.y, {}});
   }
+  combat_effects();
   world_.others.clear();
   for (const auto& [pid, o] : others_) {
     if (!o.level.empty() && !me_.level.empty() && o.level != me_.level) continue;
     world_.others.push_back(actor_for(pid, o));
   }
 
+  sync_player_in();
   scripts_.tick();
+  sync_player_out();
   gui_->pick_content();
   gui_->screen().advance(0.05);  // the show-images' emitters, one 50 ms tick
   passes_.clear();
@@ -874,9 +975,192 @@ bool Program::tick() {
     renderer_.draw(canvas_, world_, Draw::follow(world_, canvas_.width(), canvas_.height()),
                    [this](const std::string& name) { passes_.push_back(name); });
     draw_hud();
+    draw_item_list();
   }
   window_.present(canvas_.surface());
   return !quit_;
+}
+
+// ------------------------------------------------------------- weapons
+
+void Program::send_packets(const std::vector<World::Packet>& out) {
+  if (!props_sent_) return;
+  for (const auto& pk : out) session_.connection().send(pk.id, pk.body);
+}
+
+void Program::send_counts() {
+  // Rebuild reading: the client tells the server its new counts after a
+  // bomb or an arrow (props 4 and 5), as the server keeps them.
+  if (!props_sent_) {
+    sent_arrows_ = me_.arrows;
+    sent_bombs_ = me_.bombs;
+    return;
+  }
+  std::string props;
+  if (me_.arrows != sent_arrows_ && sent_arrows_ >= 0)
+    props += Net::gchar(World::kArrows) + Net::gchar(static_cast<unsigned>(std::clamp(me_.arrows, 0, 99)));
+  if (me_.bombs != sent_bombs_ && sent_bombs_ >= 0)
+    props += Net::gchar(World::kBombs) + Net::gchar(static_cast<unsigned>(std::clamp(me_.bombs, 0, 99)));
+  sent_arrows_ = me_.arrows;
+  sent_bombs_ = me_.bombs;
+  if (!props.empty()) session_.connection().send(2, props);
+}
+
+void Program::fire_weapon() {
+  const World::Weapon* w = weapons_.selected();
+  if (!w || World::hidden_weapon(w->name)) return;
+  // A server weapon with a GS2 script: onWeaponFired.
+  if (scripts_.fire(w->name)) return;
+  switch (w->item) {
+    case 8: send_packets(combat_.lay_bomb(me_, 1)); break;
+    case 12: send_packets(combat_.lay_bomb(me_, 2)); break;
+    case 23: send_packets(combat_.lay_bomb(me_, 3)); break;
+    case 7: send_packets(combat_.shoot(me_, 0)); break;
+    case 20: send_packets(combat_.shoot(me_, 1)); break;
+    case 21: send_packets(combat_.shoot(me_, 2)); break;
+    case 22: send_packets(combat_.shoot(me_, 3)); break;
+    default: break;
+  }
+  send_counts();
+}
+
+void Program::register_weapon_commands() {
+  // The GS1 names the built-in weapons' scripts call, kept in GS2
+  // (Graal_analysis npc-library/gs1-reference-205.md): putbomb power, x, y;
+  // shootarrow dir; shootfireball, shootfireblast and shootnuke dir. That the
+  // 6.x command run has these exact names is a reading; the run is not
+  // copied out in client-internals/gs2-builtins-6113.md.
+  gs2::Machine& m = scripts_.machine();
+  m.addCommand("putbomb", "nnn", [this](gs2::Machine& mm, gs2::Var&, std::vector<gs2::Value>& a) {
+    send_packets(combat_.put_bomb(static_cast<int>(mm.toNumber(a[0])), mm.toNumber(a[1]), mm.toNumber(a[2])));
+    return gs2::Value::number(0);
+  });
+  static const char* kShots[4] = {"shootarrow", "shootfireball", "shootfireblast", "shootnuke"};
+  for (int kind = 0; kind < 4; ++kind)
+    m.addCommand(kShots[kind], "n", [this, kind](gs2::Machine& mm, gs2::Var&, std::vector<gs2::Value>& a) {
+      World::Player p = me_;
+      p.dir = static_cast<int>(mm.toNumber(a[0])) & 3;
+      p.arrows = 1;  // a script's shot takes no arrow
+      send_packets(combat_.shoot(p, kind));
+      return gs2::Value::number(0);
+    });
+}
+
+void Program::sync_player_in() {
+  gs2::VarPtr pl = scripts_.player();
+  auto num = [&](const char* k, double v) { pl->childOrCreate(k)->setNumber(v); };
+  auto str = [&](const char* k, const std::string& v) { pl->childOrCreate(k)->setString(v); };
+  num("x", me_.x);
+  num("y", me_.y);
+  num("dir", me_.dir);
+  num("bombs", me_.bombs);
+  num("darts", me_.arrows);
+  num("rupees", me_.rupees);
+  num("hearts", me_.power / 2.0);
+  num("fullhearts", me_.max_power);
+  num("id", me_.id);
+  str("account", me_.account);
+  str("nick", me_.nickname);
+  str("ani", me_.gani);
+  str("level", me_.level);
+  script_seen_ = {me_.x, me_.y, me_.dir, me_.bombs, me_.arrows};
+}
+
+void Program::sync_player_out() {
+  // What a script set on `player` goes back to the player; the walk diff
+  // and send_counts send it.
+  gs2::VarPtr pl = scripts_.player();
+  auto num = [&](const char* k) {
+    gs2::VarPtr c = pl->child(k);
+    return c ? c->number() : 0.0;
+  };
+  if (num("x") != script_seen_.x) me_.x = num("x");
+  if (num("y") != script_seen_.y) me_.y = num("y");
+  if (static_cast<int>(num("dir")) != script_seen_.dir) me_.dir = static_cast<int>(num("dir")) & 3;
+  if (static_cast<int>(num("bombs")) != script_seen_.bombs) me_.bombs = std::clamp(static_cast<int>(num("bombs")), 0, 99);
+  if (static_cast<int>(num("darts")) != script_seen_.arrows) me_.arrows = std::clamp(static_cast<int>(num("darts")), 0, 99);
+  send_counts();
+}
+
+void Program::combat_effects() {
+  // Bombs and blasts from bomb1.png, as the 2.x rebuilds draw them: a
+  // 32 x 32 bomb per power (blue, white, red), flashing in its last 15
+  // ticks; a blast's vertical and horizontal arms, fat to thin as it ages.
+  // Shots are list 24 sprites on sprites.png.
+  for (const auto& b : combat_.bombs()) {
+    if (b.fuse < 15 && (b.fuse / 2) % 2 == 1) continue;
+    world_.effects.push_back({{32 * ((b.power - 1) % 3), 0, 32, 32},
+                              static_cast<int>(std::lround(b.x * Draw::kTile)),
+                              static_cast<int>(std::lround(b.y * Draw::kTile)), "bomb1.png"});
+  }
+  for (const auto& b : combat_.blasts()) {
+    int stage = std::min(3, b.age / 3);
+    int cx = static_cast<int>(std::lround((b.x + 1) * Draw::kTile));
+    int cy = static_cast<int>(std::lround((b.y + 1) * Draw::kTile));
+    world_.effects.push_back({{32 * stage, 32, 32, 160}, cx - 16, cy - 80, "bomb1.png"});
+    world_.effects.push_back({{0, 192 + 32 * stage, 128, 32}, cx - 64, cy - 16, "bomb1.png"});
+  }
+  for (const auto& sh : combat_.shots()) {
+    Draw::Rect r = sprite_cell(sh.sprite);
+    if (r.width > 0)
+      world_.effects.push_back({r, static_cast<int>(std::lround(sh.x * Draw::kTile)),
+                                static_cast<int>(std::lround(sh.y * Draw::kTile)), {}});
+  }
+}
+
+// ----------------------------------------------------------- item list
+
+std::vector<World::ItemCell> Program::item_cells() const {
+  return World::layout_items(
+      weapons_, canvas_.width(), canvas_.height(),
+      [this](const std::string& name) -> std::pair<int, int> {
+        const Draw::Image* img = assets_ ? assets_->image(name) : nullptr;
+        return img ? std::pair<int, int>{img->width, img->height} : std::pair<int, int>{0, 0};
+      },
+      [](const std::string& text) { return Draw::ui_text_width(text, false); });
+}
+
+void Program::item_list_input(const Draw::InputEvent& e) {
+  if (e.type != Draw::InputEvent::KeyDown) return;
+  static const char* kArrows[4] = {"up", "left", "down", "right"};
+  for (int d = 0; d < 4; ++d)
+    if (e.key == kArrows[d]) {
+      int to = World::move_in_items(item_cells(), weapons_.selected_index(), d);
+      if (to >= 0) weapons_.select(to);
+      return;
+    }
+  if (e.key == "delete") {
+    const World::Weapon* w = weapons_.selected();
+    if (!w || World::hidden_weapon(w->name)) return;
+    std::string name = w->name;
+    weapons_.remove(name);
+    if (props_sent_) session_.connection().send(29, name);  // PLI_NPCWEAPONDEL
+    weapons_.select(weapons_.selected_index());
+    return;
+  }
+  if (e.key == "escape") item_list_open_ = false;
+}
+
+void Program::draw_item_list() {
+  if (!item_list_open_) return;
+  const int w = canvas_.width(), h = canvas_.height();
+  Draw::Rect win{World::kItemWindowLeft, World::kItemWindowTop, w - World::kItemWindowMargin - World::kItemWindowLeft,
+                 h - World::kItemWindowMargin - World::kItemWindowTop};
+  // The window's own colours were not read; a dark panel with a light frame.
+  canvas_.fill_rect(win, {0, 0, 64, 200});
+  canvas_.frame_rect(win, {255, 255, 255, 255});
+  for (const auto& c : item_cells()) {
+    const World::Weapon& wp = weapons_.list()[static_cast<size_t>(c.index)];
+    if (c.index == weapons_.selected_index()) canvas_.fill_rect({c.x, c.y, c.w, c.h}, {255, 212, 128, 255});
+    const Draw::Image* img = wp.image.empty() ? nullptr : assets_->image(wp.image);
+    int ix = c.x + (c.w - c.image_w) / 2, iy = c.y + 5;
+    if (img)
+      canvas_.blit(*img, ix, iy);
+    else
+      canvas_.frame_rect({ix, iy, c.image_w, c.image_h}, {160, 160, 160, 255});
+    Draw::ui_draw_text(canvas_, c.x + (c.w - c.label_w) / 2, iy + c.image_h + 5, wp.name, {255, 255, 255, 255}, false);
+  }
+  passes_.push_back("ItemList");
 }
 
 }  // namespace Quattro::Shell

@@ -52,11 +52,13 @@ struct Actor {
   static constexpr int kLiftY[kLiftTicks] = {47, 47, 47, 47, 30, 16, -16, -22};
 };
 
-// A sprite of sprites.png at world pixels (x, y): thrown objects and their
-// shadows, pieces, leaves, a chest's item.
+// A sprite of sprites.png (or another sheet) at world pixels (x, y): thrown
+// objects and their shadows, pieces, leaves, a chest's item, bombs, blasts
+// and shots.
 struct EffectSprite {
   Rect src{0, 0, 0, 0};
   int x = 0, y = 0;
+  std::string image;  // the sheet; empty is sprites.png (bombs use bomb1.png)
 };
 
 struct WorldState {

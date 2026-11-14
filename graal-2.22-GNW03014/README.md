@@ -209,6 +209,18 @@ rebuild on the same files (`--data` pointed at that folder):
   with the programs running on the player's machine. The rebuild sends
   only its own file name (`Adventure.pas`, `PLO_LISTPROCESSES`).
 
+## Seihai secure login (not in the original)
+
+Off by default, so the login is byte for byte the original's. With
+`--secure-login auto` or `required` (or one word in `secure_login.txt` in
+the shared settings folder), the account and password go sealed to a
+Seihai game server or list server (version token `SEI00001`, graal-client-repro
+#148). Same code and settings as 2.31: see the 2.31 README, "Seihai secure
+login". `tests/TestSecLogin222.dpr` checks this build's game and list wire;
+CI logs in once more with `--secure-login required` (`scripts/loopback.sh`).
+Loopback run 2026-11-13: secure logins on both links against seihai-gserver
+and seihai-listserver, and the original login after a refusal under `auto`.
+
 ## Not yet, or not known
 
 - [ ] `PLI_SHOWIMG` (24): the lab saw 2.22 send it only with another player in

@@ -18,6 +18,10 @@ program carries small default graphics and a starter level of its own, so
 it runs as it is. Put it in the folder of a 2.3 install you own, next to
 its files, or keep those files in a `graal-assets/` folder beside it.
 
+## What's new in v0.0.5
+
+- [x] **Seihai secure login (optional, off by default).** With `--secure-login auto` (or `required`, or `secure_login.txt` in the settings folder), the account and password go sealed to a Seihai game server or list server (`SEI00001`), after the server's key is checked and pinned. Servers that do not know it get the original login under `auto`. Off, the login is byte for byte the original's. This is not in the original 2.3.
+
 ## What's new in v0.0.4.2
 
 - [x] **Sword hits as this build judges them.** A sword tip exactly 2 tiles to the side now hits (every build from 1.21 to 2.31 includes the edge). Read in the binaries for seihai-core #28 (#302).

@@ -25,6 +25,10 @@ it in that install (or point it at one with `--data DIR`, or keep a
 `graal-assets/` folder inside the program's folder) and the install's files
 come first.
 
+## What's new in v0.0.5
+
+- [x] **Seihai secure login (optional, off by default).** With `--secure-login auto` (or `required`, or `secure_login.txt` in the settings folder), the account and password go sealed to a Seihai game server (`SEI00001`), after the server's key is checked and pinned. Servers that do not know it get the original login under `auto`. Off, the login is byte for byte the original's. This is not in the original game.
+
 ## What's new in v0.0.4.2
 
 - [x] **Sword hits as this build judges them.** A sword tip exactly 2 tiles to the side now hits (every build from 1.21 to 2.31 includes the edge). Read in the binaries for seihai-core #28 (#302).

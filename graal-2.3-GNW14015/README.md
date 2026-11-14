@@ -60,6 +60,18 @@ Graal230 --help
 The listserver default is `listserver.graal.in` on 14922; `listserver.txt`
 next to the program, or the install's `arrays2.dat`, wins over it.
 
+## Seihai secure login (not in the original)
+
+Off by default, so the login is byte for byte the original's. With
+`--secure-login auto` or `required` (or one word in `secure_login.txt` in
+the shared settings folder), the account and password go sealed to a
+Seihai game server or list server (version token `SEI00001`, graal-client-repro
+#148). Same code and settings as 2.31: see the 2.31 README, "Seihai secure
+login". `tests/TestSecLogin230.dpr` checks this build's game and list wire;
+CI logs in once more with `--secure-login required` (`scripts/loopback.sh`).
+Loopback run 2026-11-13: secure logins on both links against seihai-gserver
+and seihai-listserver, and the original login after a refusal under `auto`.
+
 ## Checks
 
 - `tests/Test230.dpr` (the 2.31 suite with `GNW14015`),

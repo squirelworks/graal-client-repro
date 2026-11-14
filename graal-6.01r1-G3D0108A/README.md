@@ -47,6 +47,14 @@ As in 6.03r7, with the suffix `601`: `Protocol601`, `GraalClient`,
 
 ## Running it
 
+On Linux the game itself runs in `quattro-play`, the rebuilt Quattro
+program (`common/cpp/quattro`), which `scripts/build.sh` puts next to
+`Graal601`: the start screen picks the server or Training and hands the game
+over (`common/GQuattroPlay.pas`), then comes back when it ends. Set
+`GRAAL_PASCAL_GAME=1` to play in this folder's own Pascal game instead,
+as Windows and a machine with no X display always do. The command-line
+modes below are the Pascal game's.
+
 Put `Graal601` in the root of a 6.01r1 install and start it with no
 arguments for the start screen. It finds the install's files from there,
 or from `graal-assets/6.01r1/` and `graal-assets/common/` next to it.
@@ -81,6 +89,16 @@ From the program's folder (or `--data`), then `graal-assets/6.01r1/`, then
 - `levels/offlinetutorial_b-2.nw` (or `.graal`) for Training, else `start.nw`
   (a 5.x/6.x install has no offline tutorial, so Training plays `start.nw`)
 - `listserver.txt` (optional)
+
+## Seihai secure login (not in the original)
+
+Off by default, so the login is byte for byte the original's. With
+`--secure-login auto` or `required` (or one word in `secure_login.txt` in
+the shared settings folder), the account, the password and the platform fields after it go sealed to
+a Seihai game server or list server (version token `SEI00001`,
+graal-client-repro #148). Same code and settings as 2.31: see the 2.31
+README, "Seihai secure login". CI logs in once more with
+`--secure-login required` (`scripts/loopback.sh`).
 
 ## Not yet, or not known
 

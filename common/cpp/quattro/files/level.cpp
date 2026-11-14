@@ -1,5 +1,9 @@
 #include "level.hpp"
 
+#include <cctype>
+
+#include <cstdlib>
+
 #include <sstream>
 
 namespace Quattro::Files {
@@ -99,6 +103,101 @@ void parse_link(std::string_view l, Level& lv) {
 
 }  // namespace
 
+// GLEVNW01, the text levels 2.x on read and the 6.x installs still carry
+// (start.nw, the offline tutorial). The keywords and fields as the Pascal
+// clients read them (common/GLevel.pas, LoadNW): BOARD x y w layer tiles,
+// two characters of the base64 alphabet per tile; LINK dest x y w h newx
+// newy; NPC image x y, the script to NPCEND; CHEST x y item sign. Signs
+// are text here, not the binary alphabet, and are not kept.
+static bool read_nw(std::string_view data, Level& out) {
+  static const std::string kAlpha = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  static const char* kItems[] = {"greenrupee", "bluerupee", "redrupee", "bombs", "darts", "heart", "glove1",
+                                 "bow", "bomb", "shield", "sword", "fullheart", "superbomb", "battleaxe",
+                                 "goldensword", "mirrorshield", "glove2", "lizardshield", "lizardsword",
+                                 "goldrupee", "fireball", "fireblast", "nukeshot", "joltbomb", "spinattack"};
+  out.magic = "GLEVNW01";
+  out.layers.emplace_back();
+  out.layers[0].fill(0);
+  std::vector<std::string> lines;
+  for (size_t p = 0; p <= data.size();) {
+    size_t e = data.find('\n', p);
+    if (e == std::string_view::npos) e = data.size();
+    std::string line(data.substr(p, e - p));
+    if (!line.empty() && line.back() == '\r') line.pop_back();
+    lines.push_back(std::move(line));
+    p = e + 1;
+  }
+  auto words = [](const std::string& l) {
+    std::vector<std::string> w;
+    std::string cur;
+    for (char c : l) {
+      if (c == ' ') {
+        if (!cur.empty()) w.push_back(cur);
+        cur.clear();
+      } else {
+        cur.push_back(c);
+      }
+    }
+    if (!cur.empty()) w.push_back(cur);
+    return w;
+  };
+  auto num = [](const std::string& t, int def) {
+    char* end = nullptr;
+    long v = std::strtol(t.c_str(), &end, 10);
+    return end && *end == 0 && !t.empty() ? static_cast<int>(v) : def;
+  };
+  for (size_t i = 1; i < lines.size(); ++i) {
+    auto t = words(lines[i]);
+    if (t.empty()) continue;
+    if (t[0] == "BOARD" && t.size() == 6) {
+      int x = num(t[1], -1), y = num(t[2], -1), w = num(t[3], -1);
+      if (x < 0 || y < 0 || y >= kBoardSide || w <= 0 || x + w > kBoardSide || t[5].size() < size_t(w) * 2) continue;
+      for (int j = 0; j < w; ++j) {
+        size_t a = kAlpha.find(t[5][size_t(j) * 2]), b = kAlpha.find(t[5][size_t(j) * 2 + 1]);
+        if (a != std::string::npos && b != std::string::npos)
+          out.layers[0][static_cast<size_t>(x + j + y * kBoardSide)] = static_cast<uint16_t>((a << 6) | b);
+      }
+    } else if (t[0] == "LINK" && t.size() >= 8) {
+      Link l;
+      l.dest = t[1];
+      l.x = num(t[2], 0);
+      l.y = num(t[3], 0);
+      l.w = num(t[4], 0);
+      l.h = num(t[5], 0);
+      l.newx = t[6];
+      l.newy = t[7];
+      out.links.push_back(l);
+    } else if (t[0] == "NPC" && t.size() >= 4) {
+      Npc n;
+      n.image = t[1] == "-" ? "" : t[1];
+      n.x = static_cast<int>(std::atof(t[2].c_str()));
+      n.y = static_cast<int>(std::atof(t[3].c_str()));
+      for (++i; i < lines.size() && lines[i] != "NPCEND"; ++i) n.script += lines[i] + "\n";
+      out.npcs.push_back(n);
+    } else if (t[0] == "SIGN") {
+      while (i < lines.size() && lines[i] != "SIGNEND") ++i;
+    } else if (t[0] == "BADDY") {
+      while (i < lines.size() && lines[i] != "BADDYEND") ++i;
+    } else if (t[0] == "CHEST" && t.size() >= 5) {
+      Chest c;
+      c.x = num(t[1], 0);
+      c.y = num(t[2], 0);
+      c.item = num(t[3], -1);
+      if (c.item < 0 || c.item > 24) {
+        c.item = -1;
+        std::string low = t[3];
+        for (char& ch : low) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+        for (int k = 0; k < 25; ++k)
+          if (low == kItems[k]) c.item = k;
+        if (c.item < 0) continue;
+      }
+      c.sign = num(t[4], 0);
+      out.chests.push_back(c);
+    }
+  }
+  return true;
+}
+
 bool read_level(std::string_view data, Level& out, std::string& error) {
   out = Level{};
   if (data.size() < 8) {
@@ -106,6 +205,7 @@ bool read_level(std::string_view data, Level& out, std::string& error) {
     return false;
   }
   out.magic = std::string(data.substr(0, 8));
+  if (out.magic == "GLEVNW01") return read_nw(data, out);
   int width = 0;
   bool layered = false;
   if (out.magic == "GR-V1.00" || out.magic == "GR-V1.01") width = 12;

@@ -87,6 +87,16 @@ From the program's folder (or `--data`), then `graal-assets/5.00r7/`, then
   (a 5.00r7 install has no offline tutorial, so Training plays `start.nw`)
 - `listserver.txt` (optional)
 
+## Seihai secure login (not in the original)
+
+Off by default, so the login is byte for byte the original's. With
+`--secure-login auto` or `required` (or one word in `secure_login.txt` in
+the shared settings folder), the account, the password and the platform fields after it go sealed to
+a Seihai game server or list server (version token `SEI00001`,
+graal-client-repro #148). Same code and settings as 2.31: see the 2.31
+README, "Seihai secure login". CI logs in once more with
+`--secure-login required` (`scripts/loopback.sh`).
+
 ## Not yet, or not known
 
 - [ ] The Login server's scripted GUI (server list, accounts) and GS2 in

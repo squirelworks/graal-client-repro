@@ -27,7 +27,9 @@ uses
   Adventure in '../src/Adventure.pas',
   GBuiltin in '../../common/GBuiltin.pas',
   GStartScreen in '../../common/GStartScreen.pas',
-  ListServer3153 in '../src/ListServer3153.pas';
+  ListServer3153 in '../src/ListServer3153.pas',
+  TestNpc3153 in 'TestNpc3153.pas',
+  TestBaddy3153 in 'TestBaddy3153.pas';
 
 {$I Capture3153.inc}
 
@@ -36,7 +38,7 @@ type
   TClientAccess = class(TAdventureClient);
 
 var
-  Passed, Failed, Skipped: Integer;
+  Passed, Failed, Skipped, NpcSkipped: Integer;
 
 procedure Check(Cond: Boolean; const What: string);
 begin
@@ -1086,6 +1088,288 @@ begin
   end;
 end;
 
+{ The player's actions, offline and on the wire: the sword and its cut,
+  the spin on a second press with the has-spin status, lift and throw,
+  bombs and the bow from the weapon key, the item list, floor items. }
+function ActionGame: TAdventure;
+var
+  I: Integer;
+begin
+  Result := TAdventure.Create;
+  Result.Headless := True;
+  Result.UseWallClock := False;
+  for I := 0 to BoardSize - 1 do Result.Level.Tiles[I] := 0;
+  Result.Arrays.LoadFromString(MakeArrays([0]));
+  Result.Player.X := 30;
+  Result.Player.Y := 30;
+  Result.Player.Dir := DirDown;
+  Result.Player.MaxPower := 3;
+  Result.Player.Power := 6;
+  Result.Player.SwordPower := 1;
+end;
+
+procedure TestActions;
+var
+  G: TAdventure;
+  Codec: TGen5;
+  Msgs: TStringList;
+  I, N, Ticks: Integer;
+  Bomb: string;
+begin
+  { the sword: S swings, and a second S in the swing without the spin
+    status does nothing }
+  G := ActionGame;
+  try
+    G.AttackKey := True;
+    G.Tick;
+    Check((G.Mode = ModeSword) and (G.Player.AniName = 'sword'), 'actions: S swings the sword');
+    G.AttackKey := True;
+    G.Tick;
+    Check(G.Mode = ModeSword, 'actions: a second S without the has-spin status does not spin');
+    Ticks := 0;
+    while (G.Mode <> ModeFree) and (Ticks < 40) do
+    begin
+      G.Tick;
+      Inc(Ticks);
+    end;
+    Check((G.Mode = ModeFree) and (G.Player.AniName = 'idle'), 'actions: the swing ends on idle');
+    G.Player.SwordPower := 0;
+    G.AttackKey := True;
+    G.Tick;
+    Check(G.Mode = ModeFree, 'actions: no swing with sword power 0');
+  finally
+    G.Free;
+  end;
+  { the spin: a second S during the swing, with STATUS 0x40 }
+  G := ActionGame;
+  try
+    G.Player.Status := $54;
+    G.AttackKey := True;
+    G.Tick;
+    G.Tick;
+    G.AttackKey := True;
+    G.Tick;
+    Check((G.Mode = ModeSpin) and (G.Player.AniName = 'spin'),
+      'actions: S again during the swing with has-spin spins');
+    G.AttackKey := True;
+    G.Tick;
+    Check(G.Mode = ModeSpin, 'actions: a press during the spin is ignored');
+    for I := 1 to SpinTicks - 2 do G.Tick;
+    Check(G.Mode = ModeSpin, 'actions: the spin runs 13 ticks');
+    G.Tick;
+    G.Tick;
+    Check(G.Mode = ModeFree, 'actions: then the player is free again');
+  finally
+    G.Free;
+  end;
+  { cutting a bush and lifting one need the object tables of arrays.dat }
+  G := ActionGame;
+  try
+    G.UseBuiltins;
+    if (G.Arrays.ObjectCount(9) > 0) and (G.Arrays.ObjectCount(11) > 0) then
+    begin
+      { the probe facing down: (x + 1.5, y + 4) }
+      for I := 0 to 3 do
+        G.Level.Tiles[31 + I mod 2 + (34 + I div 2) * BoardW] := G.Arrays.ObjectTile(9, 0, I mod 2, I div 2);
+      G.AttackKey := True;
+      G.Tick;
+      Check(G.Level.Tile(31, 34) = G.Arrays.ObjectTile(10, 0, 0, 0),
+        'actions: the swing cuts the bush at its tip');
+      while G.Mode <> ModeFree do G.Tick;
+      for I := 0 to 3 do
+        G.Level.Tiles[31 + I mod 2 + (34 + I div 2) * BoardW] := G.Arrays.ObjectTile(11, 0, I mod 2, I div 2);
+      G.ActionKey := True;
+      G.Tick;
+      Check((G.Mode = ModeLift) and (G.CarryKind = 0) and
+        (G.Level.Tile(31, 34) = G.Arrays.ObjectTile(12, 0, 0, 0)), 'actions: A lifts the bush');
+      Ticks := 0;
+      while (G.Mode = ModeLift) and (Ticks < 40) do
+      begin
+        G.Tick;
+        Inc(Ticks);
+      end;
+      Check((G.Mode = ModeCarry) and (G.Player.AniName = 'carrystill'), 'actions: then carries it');
+      G.AttackKey := True;
+      G.Tick;
+      Check((G.Mode = ModeFree) and (G.CarryKind = -1) and (Length(G.Thrown) = 1),
+        'actions: S with something carried throws it');
+      for I := 1 to 10 do G.Tick;
+      Check(Length(G.Thrown) = 0, 'actions: the thrown bush breaks');
+    end
+    else
+    begin
+      Inc(Skipped);
+      WriteLn('skip  actions: no object tables in the built-in arrays.dat');
+    end;
+  finally
+    G.Free;
+  end;
+  { weapons: the bomb and the bow from D, the item list from Q }
+  G := ActionGame;
+  try
+    G.Receive(PLO_DEFAULTWEAPON, GChar(8));
+    G.Receive(PLO_DEFAULTWEAPON, GChar(7));
+    Check((Length(G.Weapons) = 2) and (G.Selected = 1), 'actions: DEFAULTWEAPON adds and selects');
+    G.Player.Arrows := 2;
+    G.ItemKey := True;
+    G.Tick;
+    Check((Length(G.Shots) = 1) and (G.Player.Arrows = 1), 'actions: D with the bow shoots an arrow');
+    G.ItemListKey := True;
+    G.Tick;
+    Check(G.ItemListOpen, 'actions: Q opens the item list');
+    G.Tick;
+    G.Keys[DirLeft] := True;
+    G.Tick;
+    G.Keys[DirLeft] := False;
+    G.Tick;
+    Check(G.Selected = 0, 'actions: an arrow key in the list picks the next weapon that way');
+    G.ItemListKey := True;
+    G.Tick;
+    Check(not G.ItemListOpen, 'actions: Q again closes it');
+    G.Player.Bombs := 3;
+    G.ItemKey := True;
+    G.Tick;
+    Check((Length(G.Bombs) = 1) and (G.Player.Bombs = 2), 'actions: D with the bomb lays one');
+    for I := 1 to 60 do G.Tick;
+    Check((Length(G.Bombs) = 0) and (Length(G.Blasts) = 1), 'actions: the bomb goes off after 60 ticks');
+    Check(G.Player.Power = 5, 'actions: the blast next to the player takes half a heart');
+    G.Receive(PLO_ITEMADD, GChar(20) + GChar(20) + GChar(1));
+    G.Receive(PLO_ITEMADD, GChar(30) + GChar(30) + GChar(6));
+    Check((Length(G.Items) = 1) and (G.Items[0].Item = 1), 'actions: ITEMADD makes floor items only');
+    G.Receive(PLO_ITEMDEL, GChar(20) + GChar(20));
+    Check(Length(G.Items) = 0, 'actions: ITEMDEL takes it away');
+  finally
+    G.Free;
+  end;
+  { online: the bomb goes out as BOMBADD (power + 8, fuse 60) }
+  G := LoggedInGame(Codec);
+  Msgs := TStringList.Create;
+  try
+    G.Headless := True;
+    G.Tick;
+    Drain(G, Codec);
+    G.Receive(PLO_DEFAULTWEAPON, GChar(8));
+    G.Player.Bombs := 1;
+    G.ItemKey := True;
+    G.Tick;
+    Check(ServerReadAll(Codec, G.Client.Sent, Msgs), 'actions: the frame decodes');
+    N := 0;
+    Bomb := '';
+    for I := 0 to Msgs.Count - 1 do
+      if MsgId(Msgs[I]) = PLI_BOMBADD then
+      begin
+        Inc(N);
+        Bomb := Msgs[I];
+      end;
+    Check((N = 1) and (Length(Bomb) = 5) and (Bomb[4] = GChar(9)) and (Bomb[5] = GChar(60)),
+      'actions: online the bomb is sent as BOMBADD x, y, power + 8, fuse 60');
+  finally
+    Msgs.Free;
+    Codec.Free;
+    G.Free;
+  end;
+end;
+
+{ Hiding under a carried bush or stone, laying items (S held + A), and
+  S held + D picking the next weapon (laying-items-and-hiding.md). }
+procedure TestLayAndHide;
+var
+  G: TAdventure;
+  Codec: TGen5;
+  Msgs: TStringList;
+  I, N: Integer;
+  Y0: Double;
+  Laid: string;
+begin
+  G := ActionGame;
+  try
+    G.Mode := ModeCarry;
+    G.CarryKind := 0;
+    G.ItemKey := True;
+    G.Tick;
+    Check((G.Mode = ModeHide) and (G.Player.Status and StatusHidden <> 0) and
+      (G.Player.AniName = 'hiddenstill'), 'lay/hide: D with a bush carried hides');
+    Y0 := G.Player.Y;
+    for I := 1 to 5 do
+    begin
+      G.Keys[DirDown] := True;
+      G.Tick;
+    end;
+    G.Keys[DirDown] := False;
+    Check((Abs(G.Player.Y - Y0 - 0.5) < 0.001) and (G.Player.AniName = 'hidden'),
+      'lay/hide: hidden, the walk is a fifth of the speed');
+    G.ItemKey := True;
+    G.Tick;
+    Check((G.Mode = ModeCarry) and (G.Player.Status and StatusHidden = 0),
+      'lay/hide: D again comes out, still carrying');
+    G.CarryKind := 2;
+    G.ItemKey := True;
+    G.Tick;
+    Check(G.Mode = ModeCarry, 'lay/hide: a pot does not hide');
+    G.AttackKey := True;
+    G.Tick;
+    Check((G.Mode = ModeFree) and (G.CarryKind = -1), 'lay/hide: S throws');
+    { laying }
+    G.Player.Rupees := 10;
+    G.AttackHeld := True;
+    G.ActionKey := True;
+    G.Tick;
+    Check((G.Mode = ModeLay) and (G.LayItem = 0), 'lay/hide: S held + A with nothing in front lays, green rupee first');
+    G.ActionKey := True;
+    G.Tick;
+    Check(G.LayItem = 1, 'lay/hide: S held + A again takes the next item owned');
+    G.AttackHeld := False;
+    G.ActionKey := True;
+    G.Tick;
+    Check((G.Mode = ModeFree) and (Length(G.Items) = 1) and (G.Items[0].Item = 1) and
+      (G.Player.Rupees = 5) and (G.Items[0].Y = G.Player.Y + 3),
+      'lay/hide: A lays it two tiles ahead and takes five rupees');
+    G.AttackHeld := True;
+    G.ActionKey := True;
+    G.Tick;
+    G.Keys[DirLeft] := True;
+    G.Tick;
+    G.Keys[DirLeft] := False;
+    Check((G.Mode = ModeFree) and (Length(G.Items) = 1), 'lay/hide: another key leaves the lay mode');
+    G.AttackHeld := False;
+    { S held + D }
+    G.Receive(PLO_DEFAULTWEAPON, GChar(7));
+    I := G.Selected;
+    N := G.Player.Bombs;
+    G.AttackHeld := True;
+    G.ItemKey := True;
+    G.Tick;
+    Check((G.Selected <> I) and (G.Player.Bombs = N) and (Length(G.Shots) = 0),
+      'lay/hide: S held + D picks the next weapon, uses none');
+  finally
+    G.Free;
+  end;
+  { online: a laid floor item goes out as ITEMADD }
+  G := LoggedInGame(Codec);
+  Msgs := TStringList.Create;
+  try
+    G.Headless := True;
+    G.Tick;
+    Drain(G, Codec);
+    G.Player.Rupees := 3;
+    G.AttackHeld := True;
+    G.ActionKey := True;
+    G.Tick;
+    G.AttackHeld := False;
+    G.ActionKey := True;
+    G.Tick;
+    Check(ServerReadAll(Codec, G.Client.Sent, Msgs), 'lay/hide: the frame decodes');
+    Laid := '';
+    for I := 0 to Msgs.Count - 1 do
+      if MsgId(Msgs[I]) = PLI_ITEMADD then Laid := Msgs[I];
+    Check((Length(Laid) = 4) and (Laid[4] = GChar(0)), 'lay/hide: online the laid rupee is sent as ITEMADD');
+  finally
+    Msgs.Free;
+    Codec.Free;
+    G.Free;
+  end;
+end;
+
 procedure TestBoardModify;
 var
   G: TAdventure;
@@ -1148,8 +1432,13 @@ begin
   TestGmap;
   TestShowImg;
   TestBoardModify;
+  TestActions;
+  TestLayAndHide;
   TestFuzz;
   TestReceiveLimits;
+  RunNpcTests(Check, NpcSkipped);
+  Inc(Skipped, NpcSkipped);
+  RunBaddyTests(Check);
   WriteLn(Format('%d passed, %d failed, %d skipped', [Passed, Failed, Skipped]));
   if Failed > 0 then Halt(1);
 end.
