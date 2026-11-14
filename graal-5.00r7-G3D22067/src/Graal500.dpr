@@ -63,6 +63,7 @@ uses
   GAssetDirs in '../../common/GAssetDirs.pas',
   GAni in '../../common/GAni.pas',
   GFont in '../../common/GFont.pas',
+  GSound in '../../common/GSound.pas',
   GWindow in '../../common/GWindow.pas',
   Protocol500 in 'Protocol500.pas',
   GraalClient in 'GraalClient.pas',
@@ -124,6 +125,13 @@ begin
   WriteLn('          [--dump FRAME.bmp] [--sheet FILE]');
 end;
 
+const
+  { --keys entries for the game keys (a, s, d, q), beside the directions }
+  ScriptKeyA = 10;
+  ScriptKeyS = 11;
+  ScriptKeyD = 12;
+  ScriptKeyQ = 13;
+
 type
   TKeyScript = class
   public
@@ -158,6 +166,10 @@ begin
       else if Name = 'left' then D := DirLeft
       else if Name = 'down' then D := DirDown
       else if Name = 'right' then D := DirRight
+      else if Name = 'a' then D := ScriptKeyA
+      else if Name = 's' then D := ScriptKeyS
+      else if Name = 'd' then D := ScriptKeyD
+      else if Name = 'q' then D := ScriptKeyQ
       else D := -1;
       for J := 1 to N do
       begin
@@ -253,6 +265,7 @@ var
   Port, Frames, I, C, D, Seconds, StatsEvery, ExitCode_: Integer;
   OK, Online, UseWindow, NoDelay, Dropped, Crashed: Boolean;
   StartUs, GateUs, NowUs, T0, NextStatsUs: Int64;
+  WasHeld: array[0..3] of Boolean;
 
 begin
   Result := 64;
@@ -366,6 +379,9 @@ begin
       end;
     end;
 
+    { sound only with a window to play in }
+    if Win <> nil then SoundEnabled := True;
+    FillChar(WasHeld, SizeOf(WasHeld), 0);
     { the frame loop: a 50 ms gate; a late frame is not made up }
     StartUs := MonoUs;
     GateUs := StartUs;
@@ -381,6 +397,7 @@ begin
         if (Frames > 0) and (I >= Frames) then Break;
         if (Seconds > 0) and (MonoUs - StartUs >= Int64(Seconds) * 1000000) then Break;
         for D := 0 to 3 do G.Keys[D] := False;
+        G.AttackHeld := False;
         if Win <> nil then
         begin
           Win.Pump;
@@ -389,10 +406,27 @@ begin
           G.Keys[DirLeft] := Win.Held[gkLeft];
           G.Keys[DirDown] := Win.Held[gkDown];
           G.Keys[DirRight] := Win.Held[gkRight];
+          { A, S, D and Q go in on the press; S is also held for the
+            lay mode (A with S held) }
+          G.ActionKey := Win.Held[gkAction] and not WasHeld[0];
+          G.AttackKey := Win.Held[gkAttack] and not WasHeld[1];
+          G.ItemKey := Win.Held[gkItem] and not WasHeld[2];
+          G.ItemListKey := Win.Held[gkItemList] and not WasHeld[3];
+          G.AttackHeld := Win.Held[gkAttack];
+          WasHeld[0] := Win.Held[gkAction];
+          WasHeld[1] := Win.Held[gkAttack];
+          WasHeld[2] := Win.Held[gkItem];
+          WasHeld[3] := Win.Held[gkItemList];
         end;
         if Walker.Mode = wmScript then D := Script.DirAt(I)
         else D := Walker.DirAt(I, G.Level, G.Player.X, G.Player.Y);
-        if D >= 0 then G.Keys[D] := True;
+        case D of
+          DirUp..DirRight: G.Keys[D] := True;
+          ScriptKeyA: G.ActionKey := True;
+          ScriptKeyS: G.AttackKey := True;
+          ScriptKeyD: G.ItemKey := True;
+          ScriptKeyQ: G.ItemListKey := True;
+        end;
         T0 := MonoUs;
         G.Tick;
         Hist.Add(MonoUs - T0);
@@ -471,6 +505,7 @@ begin
     if Win <> GuiWin then Win.Free;
     Script.Free;
     Walker.Free;
+    SoundShutdown;
     Hist.Free;
     G.Free;
   end;
