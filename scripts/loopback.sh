@@ -299,6 +299,27 @@ done
 if ! grep -q "BOARDPACKET linked.nw loaded" "$WORK/link.log"; then
   echo "the link did not take loop1 to linked.nw"; exit 1
 fi
+# Seihai secure login (SEI00001, graal-client-repro #148) for the builds
+# that have it: loop2 again with the password sealed, trusting the
+# gserver's key on first use in a settings folder of its own
+if grep -qs "GSecLogin" "$ROOT/$B"/src/*.dpr; then
+  set +e
+  GRAAL_SECURE_DIR="$WORK/sec" GRAAL_PW=loopbackpw "$CLIENT" --server 127.0.0.1:$PORT \
+    --account loop2 --frames 40 --secure-login required > "$WORK/secure.json" 2> "$WORK/secure.log"
+  RC4=$?
+  set -e
+  echo "--- loop2, secure login"; cat "$WORK/secure.log" "$WORK/secure.json"
+  if ! grep -q "SEI00001 inner ${B##*-}" "$WORK/gserver.log"; then
+    echo "gserver did not log a SEI00001 login"; exit 1
+  fi
+  if ! grep -q '"kind":"summary".*"end":"clean"' "$WORK/secure.json"; then
+    echo "secure login: no clean JSON summary"; exit 1
+  fi
+  if ! grep -q "127.0.0.1:$PORT " "$WORK/sec/known_servers.txt"; then
+    echo "secure login: the server key was not pinned"; exit 1
+  fi
+  [ $RC4 -eq 0 ] || exit $RC4
+fi
 [ $RC2 -eq 0 ] || exit $RC2
 [ $RC3 -eq 0 ] || exit $RC3
 exit $RC

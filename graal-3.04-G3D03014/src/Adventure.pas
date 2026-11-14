@@ -350,6 +350,8 @@ type
     procedure NoteLevelTileDefs;
     function TileBlocks(T: Integer): Boolean;
     property TileDefs: TStringList read FTileDefs;
+    { the secure login's wait, fallback or stop (GSecLogin) }
+    procedure CheckSecureLogin;
     function ConnectServer(const Host: string; Port: Word;
       const Account, Password: string): Boolean;
     { The walking routine for one direction key (one step). }
@@ -511,7 +513,7 @@ function SpriteWalkStep(Sprite: Integer): Integer;
 implementation
 
 uses
-  SysUtils, Math, GFont, NpcBridge304;
+  GSecLogin, SysUtils, Math, GFont, NpcBridge304;
 
 procedure MakeIndexSheet(Sheet: TGSurface);
 var
@@ -1196,6 +1198,33 @@ begin
   end;
 end;
 
+procedure TAdventure.CheckSecureLogin;
+begin
+  FClient.CheckSecure;
+  if not (FClient.Sec.State in [ssRefused, ssNoAnswer, ssFailed]) then Exit;
+  if (FClient.Sec.State <> ssFailed) and MayFallBack(FClient.Sec.Mode, FClient.Sec.Server) then
+  begin
+    { auto: this server does not speak SEI00001 (graal-client-repro #148);
+      log in the original way and skip the probe there next time }
+    Log('secure login: ' + FClient.Sec.Why + '; logging in the original way');
+    RememberRefused(FClient.Sec.Server);
+    FClient.Disconnect;
+    FClient.Sec.ForceClassic := True;
+    if FClient.Connect(FHost, FPort) then
+    begin
+      FClient.SendLogin(FAccount, FPassword, 'English');
+      FClient.Flush;
+    end
+    else
+      Log('connect failed: ' + FClient.LastError);
+    Exit;
+  end;
+  DisconnectReason := 'secure login: ' + FClient.Sec.Why;
+  Log(DisconnectReason);
+  FClient.Disconnect;
+  FClient.Sec.Finish;
+end;
+
 function TAdventure.ConnectServer(const Host: string; Port: Word;
   const Account, Password: string): Boolean;
 begin
@@ -1205,6 +1234,9 @@ begin
   FPassword := Password;
   ConnectAtMs := NowMs;
   LoginMs := -1;
+  FClient.Sec.Mode := ConfiguredSecMode;
+  FClient.Sec.ServerKey := ConfiguredServerKey;
+  FClient.Sec.ForceClassic := False;
   SetLength(Weapons, 0);
   Selected := -1;
   FObjectLevel := '';
@@ -3651,9 +3683,11 @@ begin
   if FClient.Connected then
   begin
     FClient.Poll;
-    if not FClient.Connected then
+    if not FClient.Connected and not FClient.Sec.Awaiting then
       Log('link closed: ' + FClient.LastError);
   end;
+  if FClient.Sec.State in [ssAwaitS1, ssRefused, ssNoAnswer, ssFailed] then
+    CheckSecureLogin;
   { the first frame after the login burst }
   if LoggedIn and not FPropsSent and FClient.Connected then SendLoginFrame;
   { a new level: its entry point is where a death sends the player back }

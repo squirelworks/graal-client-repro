@@ -71,6 +71,16 @@ GRAAL_PW=... Graal3153 --server HOST:PORT --account NAME
 Graal3153 --level some.nw                  # offline
 ```
 
+## Seihai secure login (not in the original)
+
+Off by default, so the login is byte for byte the original's. With
+`--secure-login auto` or `required` (or one word in `secure_login.txt` in
+the shared settings folder), the account, the password go sealed to
+a Seihai game server or list server (version token `SEI00001`,
+graal-client-repro #148). Same code and settings as 2.31: see the 2.31
+README, "Seihai secure login". CI logs in once more with
+`--secure-login required` (`scripts/loopback.sh`).
+
 ## Not yet, or not known
 
 - [ ] The ids 3.153 handles beyond 3.04 are accepted and ignored: 67 (folder

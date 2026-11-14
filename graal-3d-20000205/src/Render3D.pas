@@ -9,11 +9,13 @@
     plane 1, perspective, one scale on x and y taken from the longer pixel
     side (graal_analysis graal3d/camera.md). On the 640x456 view that is
     640 pixels per unit at distance 1.
-  - Back plane: the February 2000 client was not read for it. The real
-    client draws the level's cloud ceiling (the cloudstex face, 1000 up
-    and 40000 out each way) to the horizon (2026-11-12 polishing run), so
-    the plane is beyond it: 100000 here. (5000, the figure a later
-    DelphiX sets, left the sky black.)
+  - Back plane 5000, the value the February 2000 client sets once right
+    after it creates the viewport (graal_analysis graal3d/camera.md, read
+    2026-11-13). Anything further than 5000 along the view is not drawn,
+    so the level's cloud ceiling (the cloudstex face, 1000 up and 40000
+    out each way) stops short of the horizon. The 2026-11-12 polishing run
+    saw the real client's ceiling reach further; a live run with the
+    native d3drm.dll is still to show whether a later call moves the plane.
   - A z-buffer, textures wrapped (the level's coordinates run past 1),
     nearest texel, perspective-correct.
   - Light: flat per face, an ambient part and one directional part. The
@@ -147,7 +149,7 @@ begin
   FCX := AWidth / 2;
   FCY := AHeight / 2;
   Front := 1;
-  Back := 100000;
+  Back := 5000;
   Ambient := 0.55;
   Diffuse := 0.55;
   LightDir := VNorm(V3(0.4, 1.0, -0.6));

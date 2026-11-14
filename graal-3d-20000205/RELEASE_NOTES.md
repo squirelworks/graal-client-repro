@@ -15,6 +15,10 @@ These zips hold no original Graal3D code, meshes, textures or levels. The
 client carries a simple stand-in level and player of its own; put your
 Graal3D files next to it for the real ones.
 
+## What's new in v0.0.5
+
+- [x] **Back plane 5000.** Nothing beyond 5000 along the view is drawn, the value the real client sets on its viewport (it was 100000). The cloud ceiling now stops where that plane cuts it; a live check that no later call moves the plane is still open.
+
 ## What's new in v0.0.4.2
 
 - [x] **The sky.** The level's cloud ceiling is drawn to the horizon, as the real client draws it, instead of a black sky.

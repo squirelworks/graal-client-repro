@@ -20,7 +20,7 @@ unit ListServer3153;
 interface
 
 uses
-  SysUtils, Classes, GTypes, Protocol3153, GraalClient, GStartScreen;
+  SysUtils, Classes, GTypes, Protocol3153, GraalClient, GSecLogin, GStartScreen;
 
 const
   ListToken = ListVersionToken;
@@ -48,10 +48,16 @@ type
     FGotList: Boolean;
     procedure HandleMessage(Id: Integer; const Data: string);
     procedure ReadList(const Data: string);
+  protected
+    FAccount, FPassword: string;
+    procedure SendAfterLogin; override;
   public
     constructor Create;
     { Queue and send id 7 then id 1. Call after Connect (or StartOffline). }
     procedure SendRequest(const Account, Password: string);
+    { Call after Poll: the secure login's wait, and auto's fallback to the
+      original request (a stop shows as Error). }
+    procedure CheckSecureList;
     property Servers: TListServers read FServers;
     property Status: string read FStatus;
     property SiteUrl: string read FSiteUrl;
@@ -126,10 +132,52 @@ constructor TListServerClient.Create;
 begin
   inherited Create;
   OnMessage := HandleMessage;
+  Sec.Mode := ConfiguredSecMode;
+  Sec.ServerKey := ConfiguredServerKey;
+end;
+
+procedure TListServerClient.SendAfterLogin;
+begin
+  { id 1 went in C2; the list server answers in gen 5 }
+end;
+
+procedure TListServerClient.CheckSecureList;
+var
+  H: string;
+  P: Integer;
+begin
+  CheckSecure;
+  if not (Sec.State in [ssRefused, ssNoAnswer, ssFailed]) then Exit;
+  if (Sec.State <> ssFailed) and MayFallBack(Sec.Mode, Sec.Server) then
+  begin
+    { auto: this list server does not speak SEI00001; ask the original way }
+    RememberRefused(Sec.Server);
+    H := Sec.Server;
+    P := LastDelimiter(':', H);
+    Disconnect;
+    Sec.ForceClassic := True;
+    if Connect(Copy(H, 1, P - 1), StrToIntDef(Copy(H, P + 1, MaxInt), 0)) then
+    begin
+      SendRequest(FAccount, FPassword);
+      Exit;
+    end;
+  end;
+  FError := 'secure login: ' + Sec.Why;
+  Sec.Finish;
 end;
 
 procedure TListServerClient.SendRequest(const Account, Password: string);
 begin
+  FAccount := Account;
+  FPassword := Password;
+  { Seihai secure login (not in the original): id 7 carries SEI00001 and
+    the list token, and id 1's payload goes sealed in C2 }
+  if Sec.Want then
+  begin
+    StartSecure(GChar(LS_V2ENCRYPTKEYCL) + GChar(Key), ListToken, ListVersion,
+      GString(Account) + GString(Password));
+    Exit;
+  end;
   SendPacket(LS_V2ENCRYPTKEYCL, GChar(Key) + ListToken + ListVersion);
   SendPacket(LS_SERVERLIST, GString(Account) + GString(Password));
   Flush;

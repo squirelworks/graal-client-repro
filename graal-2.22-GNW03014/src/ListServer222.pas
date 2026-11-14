@@ -49,6 +49,7 @@ type
     procedure ReadList(const Data: string);
   protected
     function DecodeFrame(const Body: string; out Plain: string): Boolean; override;
+    procedure SendAfterLogin; override;
   public
     constructor Create;
     { Queue and send id 7 then id 1. Call after Connect (or StartOffline). }
@@ -144,8 +145,21 @@ begin
   if N < Length(Plain) then SetLength(Plain, N);
 end;
 
+procedure TListServerClient.SendAfterLogin;
+begin
+  { id 1 went in C2; the list server answers in gen 5 }
+end;
+
 procedure TListServerClient.SendRequest(const Account, Password: string);
 begin
+  { Seihai secure login (not in the original): id 7 carries SEI00001 and
+    the list token, and id 1's payload goes sealed in C2 }
+  if Sec.Want then
+  begin
+    StartSecure(GChar(LS_V2ENCRYPTKEYCL) + GChar(Key), ListToken, ListVersion,
+      GString(Account) + GString(Password));
+    Exit;
+  end;
   SendPacket(LS_V2ENCRYPTKEYCL, GChar(Key) + ListToken + ListVersion);
   Flush;
   SendPacket(LS_SERVERLIST, GString(Account) + GString(Password));
