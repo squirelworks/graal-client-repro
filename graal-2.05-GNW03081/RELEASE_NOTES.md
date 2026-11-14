@@ -20,6 +20,8 @@ their place.
 
 ## What's new in v0.0.5
 
+- [x] Repeated named animation props restart another player's swing; direction-only updates keep its clock.
+
 - [x] **The animation goes on the wire by name.** As the real 2.05 rev 2 does (lab, 2026-11-14), the player's animation is sent as prop 10, `c(len)` + the gani name (`sword`, `spin`, `walk`, `idle`), followed by X, Y and SPRITE holding only the direction. Before, the rebuild sent a sprite number for each swing and walk frame. Each swing sends its name again, and the idle a swing or spin ends in is not sent. Prop 10 from the server is read the same way, so another player's swing plays its own gani. Before, prop 10 was read as a bow picture, which garbled the props after it (#302).
 - [x] **Sword hits as this build judges them.** A sword tip exactly 2 tiles to the side now hits (every build from 1.21 to 2.31 includes the edge). Read in the binaries for seihai-core #28 (#302).
 - [x] **Spin attack.** With the spin status (STATUS bit 0x40, from the server or the spin attack item), pressing S again while the swing still plays cuts it off and plays `spin` (13 ticks, then idle); S during the spin is ignored. Modelled on the live 2.05 and 2.22 runs. What the spin hits (a box round the player here) is not yet checked on the real client (#302).

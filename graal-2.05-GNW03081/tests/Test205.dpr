@@ -1397,7 +1397,17 @@ begin
     P := G.FindOther(5, False);
     Check((P <> nil) and (P.AniName = 'sword') and (P.FixedStep = -1) and (P.Dir = 2) and
       (Abs(P.X - 30.5) < 1E-9), 'gani prop: prop 10 names the animation, then X and the direction');
+    Check(P.AniStart = G.Frame, 'gani prop: first named swing starts now');
+    G.Frame := G.Frame + 6; { the nonlooping sword has finished its five ticks }
+    Check(G.Frame - P.AniStart = 6, 'gani prop: time advances past the first swing');
+    G.Receive(PLO_OTHERPLPROPS, GShort(5) + GChar(PLPROP_BOWGIF) + GChar(5) + 'sword');
+    Check((P.AniName = 'sword') and (P.FixedStep = -1) and (P.AniStart = G.Frame),
+      'gani prop: an identical named swing restarts after the first finishes');
+    G.Frame := G.Frame + 2;
     G.Receive(PLO_OTHERPLPROPS, GShort(5) + GChar(PLPROP_SPRITE) + GChar(1));
+    Check(P.AniStart = G.Frame - 2, 'gani prop: direction alone does not restart the swing');
+    G.Receive(PLO_OTHERPLPROPS, GShort(5) + GChar(PLPROP_BOWGIF) + GChar(6) + 'sword');
+    Check(P.AniStart = G.Frame - 2, 'gani prop: a truncated name does not restart the swing');
     Check((P.AniName = 'sword') and (P.Dir = 1), 'gani prop: a later SPRITE turns the player only');
   finally
     G.Free;

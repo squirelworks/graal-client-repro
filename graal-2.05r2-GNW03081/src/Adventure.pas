@@ -856,9 +856,10 @@ begin
         begin
           V := R.ReadGChar;
           G := R.ReadChars(V);
-          if Other and (G <> '') then
+          if Other and (G <> '') and (Length(G) = V) then
           begin
-            if (G <> AniName) or (FixedStep >= 0) then AniFresh := True;
+            { Each named prop starts an animation, including a repeated swing. }
+            AniFresh := True;
             AniName := G;
             FixedStep := -1;
             GaniSent := True;
