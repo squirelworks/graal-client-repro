@@ -4,9 +4,8 @@ The 3.153 client, rebuilt. The original is the Mac OS X (PowerPC, Carbon)
 build of the Torque C++ client, February 2005. On the wire it is the
 Windows 2.31 client with its own token. This folder starts from
 `graal-3.04-G3D03014` and changes what the notes read from the 3.153
-binary. 3.153 was never run in the lab, so where its behaviour is not read
-from the binary, the 3.04 lab run is taken to hold. This is the 0.0.1
-reproduction: hit or miss.
+binary and from the Mac lab run. Where a behaviour is not in either, the
+3.04 lab run is taken to hold. This is the 0.0.1 reproduction: hit or miss.
 
 ## Sources
 
@@ -18,6 +17,7 @@ from decompiled code:
 | Token, listserver, licence file, ids handled | `protocol/v3x-clients.md` |
 | Sent ids, props, features | `version-profiles/3.04-3.153.md` and `.toml` |
 | Wire behaviour taken from 3.04 | `version-profiles/lab-304-linux-2026-10-30.md` |
+| Mac lab (login props, X2/Y2 walk) | `version-profiles/lab-mac-tiger-2026-10-31.md` |
 | Everything carried over | `../graal-3.04-G3D03014/README.md`, `../graal-2.22-GNW03014/README.md` |
 
 ## What differs from the 3.04 rebuild
@@ -86,11 +86,25 @@ README, "Seihai secure login". CI logs in once more with
 - [ ] The ids 3.153 handles beyond 3.04 are accepted and ignored: 67 (folder
   log), 74 (RC chat), 82 (server text), 104, 131 to 134 (class and gani
   scripts), 187 and 189 (precise movement).
-- [ ] What 3.153 sends beyond 3.04: 46 ENTERLEVEL, 50, the RC file browser,
-  152/154 text, 155/156 uploads, 157/158 gani and script requests; the
-  precise-move props (X2, Y2, Z2).
+- [x] Walking sends X2 and Y2 (props 78 and 79), and Z2 (80) when the
+  height changes. Half-tile X and Y (15 and 16) are not sent. Incoming
+  X2, Y2 and Z2 are applied, for the player and for other players, and
+  Z2 keeps the signed 1/16-tile height (1/16 and 1.5 stay). The
+  Mac lab walk used 78 and 79
+  (`version-profiles/lab-mac-tiger-2026-10-31.md`).
+- [ ] What 3.153 sends beyond 3.04, still not sent: 46 ENTERLEVEL, 50, the
+  RC file browser, 152/154 text, 155/156 uploads, 157/158 gani and script
+  requests.
+- [ ] NPC positions still use the half-tile props. Default weapon images
+  are still the older `wbowi1.gif` and `wbomb1.gif` names; the Mac lab
+  asked for `wbomb1.png` and `wbowi1.png`.
+- [ ] Walk props still go out every 100 ms. The Mac capture's X2 spacing
+  was about 150 ms.
 - [ ] The 3D mode (Torque on UDP, the listed port + 1, `Graal3D` protocol 19).
-- [ ] 3.153's own login frame and first props are not captured; 3.04's are used.
-- [ ] The code page prop (1250) is 3.04's lab value.
+- [ ] The Mac lab captured the first props (0, 18, 31, 33, 52, 75 `mac`,
+  76 = 1250). The login frame's map-file and head requests are still the
+  3.04 run's. The two default weapon icons and the list icons named by
+  180 are still not asked for.
+- [x] The code page prop is 1250, the value in the Mac lab's first props.
 - [ ] Everything still missing from the 3.04 rebuild.
 - [ ] No side-by-side run against the real 3.153; that is 0.0.2 work.

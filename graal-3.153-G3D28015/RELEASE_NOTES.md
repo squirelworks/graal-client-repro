@@ -24,6 +24,7 @@ program works too (`graal-assets/3.153/`, then `graal-assets/common/`).
 
 ## What's new in v0.0.5
 
+- [x] **Precise movement.** Walking sends X2 and Y2 (props 78 and 79), and Z2 (80) when the height changes, as `abs(v * 16)` shifted up one bit with the sign in the low bit. The half-tile X and Y props are not sent. Incoming X2, Y2 and Z2 move the player and other players, and Z2 is stored as that same signed 1/16-tile height (a Z2 of 1/16 or 1.5 is not rounded to a whole tile). From the Mac lab run of the real 3.153 (`version-profiles/lab-mac-tiger-2026-10-31.md` in Graal_analysis). The spacing is still the 100 ms gate; that capture's steps were about 150 ms apart.
 - [x] **Seihai secure login (optional, off by default).** With `--secure-login auto` (or `required`, or `secure_login.txt` in the settings folder), the account and password go sealed to a Seihai game server or list server (`SEI00001`), after the server's key is checked and pinned. Servers that do not know it get the original login under `auto`. Off, the login is byte for byte the original's. This is not in the original 3.153.
 - [x] **The Torque program's Options and message boxes.** In `graal304-torque` the Options tabs switch, the Display Driver and Resolution lists fill, and the drop-down lists (Resolution, Display Driver, Language) open and change the setting. Message boxes show their text without markup tags. The F2 console shows full lines, the newest at the bottom, with its input line.
 - [x] **The player's actions.** S swings the sword and cuts the bush at its tip, and a second S during the swing spins when the account has the spin attack (STATUS 0x40): 13 ticks of `spin`, then idle. A lifts a bush, sign, pot or stone (as the glove allows), carries it, and A or S throws it; A also opens a chest. D uses the selected weapon: the bomb (`BOMBADD`, 60-tick fuse, a blast that hurts and breaks bushes and pots) or the bow and the fireball shots (`ARROWADD`). Q opens the item list, where the arrow keys pick the weapon. Floor items from the server are drawn, taken by walking over them (`ITEMTAKE`) and time out (`ITEMDEL`); others' bombs, shots, explosions and sword hits hurt with knockback, and death respawns at the level's entry. In `graal304-torque` the install's own key binds reach these through `doA`, `doS`, `doD` and `doQ`. Carried over from the 2.22 rebuild, which 3.x plays as.
@@ -85,7 +86,7 @@ See [Windows says "Windows protected your PC"](https://github.com/squirelworks/g
 
 Server weapons; chat; the 3D
 mode; the RC file browser and script uploads; server text, class scripts
-and gani scripts; precise movement; Options; the UDP channel between
+and gani scripts; Options; the UDP channel between
 players. See the build's README for the full list.
 
 The original runs on the Torque engine; this release is still the Delphi

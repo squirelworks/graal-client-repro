@@ -460,14 +460,77 @@ begin
   end;
 end;
 
-{ Walking sends GANI, X and Y as the real client does (b4_222: "*$walk0^",
-  then Y steps, then "*$idle"). }
+{ X2 / Y2 / Z2: abs(v * 16) shl 1, the low bit the sign (player-props.md). }
+function PreciseOf(Raw: Integer): Double;
+begin
+  Result := (Raw shr 1) / 16;
+  if Raw and 1 <> 0 then Result := -Result;
+end;
+
+{ Walk a 3.153 props body. Stops at an id this walker does not size. }
+procedure ReadMoveProps(const Msg: string; out Gani: string;
+  out HasX2, HasY2, HasZ2, HasOld: Boolean; out X, Y, Z: Double);
+var
+  R: TGReader;
+  P: Integer;
+begin
+  Gani := '';
+  HasX2 := False;
+  HasY2 := False;
+  HasZ2 := False;
+  HasOld := False;
+  X := 0;
+  Y := 0;
+  Z := 0;
+  R := TGReader.Create(Copy(Msg, 2, MaxInt));
+  try
+    while not R.Eof do
+    begin
+      P := R.ReadGChar;
+      case P of
+        PLPROP_GANI: Gani := R.ReadGString;
+        PLPROP_SPRITE, PLPROP_GMAPLEVELX, PLPROP_GMAPLEVELY: R.ReadGChar;
+        PLPROP_X, PLPROP_Y:
+          begin
+            HasOld := True;
+            R.ReadGChar;
+          end;
+        PLPROP_X2:
+          begin
+            HasX2 := True;
+            X := PreciseOf(R.ReadGShort);
+          end;
+        PLPROP_Y2:
+          begin
+            HasY2 := True;
+            Y := PreciseOf(R.ReadGShort);
+          end;
+        PLPROP_Z2:
+          begin
+            HasZ2 := True;
+            Z := PreciseOf(R.ReadGShort);
+          end;
+      else
+        Exit;
+      end;
+      if R.Overrun then Exit;
+    end;
+  finally
+    R.Free;
+  end;
+end;
+
+{ Walking sends GANI, then Y2, then idle. The Mac lab sent props 78 and
+  79 and never 15 or 16 (lab-mac-tiger-2026-10-31.md). }
 procedure TestWalkProps;
 var
   G: TAdventure;
   Codec: TGen5;
   Msgs: TStringList;
   I, NWalk, NIdle, NY: Integer;
+  Gani: string;
+  HasX2, HasY2, HasZ2, HasOld, SawX2, SawZ2: Boolean;
+  PX, PY, PZ, FirstY: Double;
 begin
   G := LoggedInGame(Codec);
   { the built-in tile types belong to the built-in sheet, not to this real
@@ -491,16 +554,54 @@ begin
     NWalk := 0;
     NIdle := 0;
     NY := 0;
+    FirstY := 0;
     for I := 0 to Msgs.Count - 1 do
       if MsgId(Msgs[I]) = PLI_PLAYERPROPS then
       begin
-        if Pos(GChar(PLPROP_GANI) + GString('walk'), Msgs[I]) = 2 then Inc(NWalk);
-        if Pos(GChar(PLPROP_GANI) + GString('idle'), Msgs[I]) = 2 then Inc(NIdle);
-        if Pos(GChar(PLPROP_Y), Msgs[I]) > 0 then Inc(NY);
+        ReadMoveProps(Msgs[I], Gani, HasX2, HasY2, HasZ2, HasOld, PX, PY, PZ);
+        if Gani = 'walk' then Inc(NWalk);
+        if Gani = 'idle' then Inc(NIdle);
+        Check(not HasOld, 'walk: no half-tile X or Y (15/16)');
+        if HasY2 then
+        begin
+          if NY = 0 then FirstY := PY;
+          Check((not HasX2) and (not HasZ2) and (Abs(PY - (FirstY + NY)) < 0.001),
+            Format('walk: Y2 step %d is one tile after the last', [NY]));
+          Inc(NY);
+        end;
       end;
     Check((NWalk = 1) and (NIdle = 1), 'walk: GANI walk once at the start, idle once at the end');
-    Check(NY = 4, Format('walk: 8 half-tile steps go out as 4 Y props (every 100 ms), got %d', [NY]));
+    Check(NY = 4, Format('walk: 8 half-tile steps go out as 4 Y2 props (every 100 ms), got %d', [NY]));
     Check(G.Player.Y = 34.5, 'walk: 8 frames down moves 4 tiles');
+    Check(Abs(G.Player.Y - (FirstY + 3)) < 0.001, 'walk: the last Y2 is that position');
+    G.Client.Sent := '';
+    G.Player.X := -2.25;
+    G.Player.Z := 3;
+    { props go out on even frames }
+    G.Tick;
+    if G.Frame mod 2 <> 0 then G.Tick;
+    Msgs.Clear;
+    Check(ServerReadAll(Codec, G.Client.Sent, Msgs), 'walk: the signed step decodes');
+    SawX2 := False;
+    SawZ2 := False;
+    for I := 0 to Msgs.Count - 1 do
+      if MsgId(Msgs[I]) = PLI_PLAYERPROPS then
+      begin
+        ReadMoveProps(Msgs[I], Gani, HasX2, HasY2, HasZ2, HasOld, PX, PY, PZ);
+        Check(not HasOld, 'walk: the signed step still omits 15 and 16');
+        if HasX2 then
+        begin
+          SawX2 := True;
+          Check(Abs(PX - (-2.25)) < 0.001,
+            'walk: a negative X goes out as X2 with the sign in the low bit');
+        end;
+        if HasZ2 then
+        begin
+          SawZ2 := True;
+          Check(Abs(PZ - 3) < 0.001, 'walk: Z 3 goes out as Z2');
+        end;
+      end;
+    Check(SawX2 and SawZ2, 'walk: the step sent X2 and Z2');
   finally
     Msgs.Free;
     Codec.Free;
@@ -555,7 +656,104 @@ begin
       R.Free;
     end;
     Check((G.Player.Y <> 25) and (G.Player.OsType = ''), 'self: the own stream takes 74 and stops at 75');
+    R := TGReader.Create(GChar(PLPROP_X2) + GShort(73) +
+      GChar(PLPROP_Y2) + GShort(336) + GChar(PLPROP_Z2) + GShort(64));
+    try
+      P := G.FindOther(8, True);
+      P.ApplyProps(R, True, 0);
+    finally
+      R.Free;
+    end;
+    Check((Abs(P.X - (-2.25)) < 0.001) and (Abs(P.Y - 10.5) < 0.001) and (P.Z = 2),
+      'others: X2, Y2 and Z2 set the position');
+    R := TGReader.Create(GChar(77) + GChar(PLPROP_X2) + GShort(73));
+    try
+      P := G.FindOther(9, True);
+      P.ApplyProps(R, True, 0);
+    finally
+      R.Free;
+    end;
+    Check(P.X = 0, 'others: prop 77 has no known size, so the X2 after it is not read');
+    R := TGReader.Create(GChar(PLPROP_X2) + GShort(73) +
+      GChar(PLPROP_Y2) + GShort(336) + GChar(PLPROP_Z2) + GShort(64) +
+      GChar(81) + GChar(PLPROP_Y) + GChar(10));
+    try
+      G.Player.ApplyProps(R, False, 0);
+    finally
+      R.Free;
+    end;
+    Check((Abs(G.Player.X - (-2.25)) < 0.001) and (Abs(G.Player.Y - 10.5) < 0.001) and
+      (G.Player.Z = 2), 'self: X2, Y2 and Z2 apply, and 81 ends the stream');
   finally
+    G.Free;
+  end;
+end;
+
+{ One incoming Z2, through Receive, then the walk update that sends it
+  back. Raw is abs(v * 16) shl 1, with the sign in the low bit. }
+procedure CheckZ2Height(G: TAdventure; Codec: TGen5; Msgs: TStringList;
+  Raw: Integer; Want: Double; const Name: string);
+var
+  I: Integer;
+  P: TServerPlayer;
+  Gani: string;
+  HasX2, HasY2, HasZ2, HasOld, Saw: Boolean;
+  PX, PY, PZ: Double;
+begin
+  G.Client.Sent := '';
+  G.Receive(PLO_PLAYERPROPS, GChar(PLPROP_Z2) + GShort(Raw));
+  Check(Abs(G.Player.Z - Want) < 0.001, 'Z2 receive: self keeps ' + Name);
+  G.Receive(PLO_OTHERPLPROPS, GShort(11) + GChar(PLPROP_Z2) + GShort(Raw));
+  P := G.FindOther(11, False);
+  Check((P <> nil) and (Abs(P.Z - Want) < 0.001),
+    'Z2 receive: another player keeps ' + Name);
+  { The 100 ms gate sends on even frames. }
+  G.Tick;
+  if G.Frame mod 2 <> 0 then G.Tick;
+  Check(ServerReadAll(Codec, G.Client.Sent, Msgs),
+    'Z2 receive: the ' + Name + ' update decodes');
+  Saw := False;
+  for I := 0 to Msgs.Count - 1 do
+    if MsgId(Msgs[I]) = PLI_PLAYERPROPS then
+    begin
+      ReadMoveProps(Msgs[I], Gani, HasX2, HasY2, HasZ2, HasOld, PX, PY, PZ);
+      Check(not HasOld, 'Z2 receive: ' + Name + ' sends no half-tile X or Y');
+      if HasZ2 then
+      begin
+        Saw := True;
+        Check(Abs(PZ - Want) < 0.001, 'Z2 receive: ' + Name + ' goes back out as Z2');
+      end;
+    end;
+  Check(Saw, 'Z2 receive: ' + Name + ' was sent');
+  Check(Abs(G.Player.Z - Want) < 0.001,
+    'Z2 receive: ' + Name + ' is still the stored height after the send');
+end;
+
+{ ±1/16 and ±1.5. Round() to a whole tile would store 0 and ±2. }
+procedure TestPreciseHeight;
+var
+  G: TAdventure;
+  Codec: TGen5;
+  Msgs: TStringList;
+begin
+  G := LoggedInGame(Codec);
+  Msgs := TStringList.Create;
+  try
+    G.Tick; { login frame snapshots the starting height }
+    Drain(G, Codec);
+    { A whole-tile height first, so the samples below are a change.
+      Drain keeps the codec on the frames the client just sent. }
+    G.Receive(PLO_PLAYERPROPS, GChar(PLPROP_Z2) + GShort(128));
+    G.Tick;
+    if G.Frame mod 2 <> 0 then G.Tick;
+    Drain(G, Codec);
+    CheckZ2Height(G, Codec, Msgs, 2, 1.0 / 16, '+1/16');
+    CheckZ2Height(G, Codec, Msgs, 3, -1.0 / 16, '-1/16');
+    CheckZ2Height(G, Codec, Msgs, 48, 1.5, '+1.5');
+    CheckZ2Height(G, Codec, Msgs, 49, -1.5, '-1.5');
+  finally
+    Msgs.Free;
+    Codec.Free;
     G.Free;
   end;
 end;
@@ -1427,6 +1625,7 @@ begin
   TestLoginBurst;
   TestWalkProps;
   TestProps;
+  TestPreciseHeight;
   TestWalking;
   TestLinks;
   TestGmap;

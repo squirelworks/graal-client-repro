@@ -1,12 +1,10 @@
-{ Adventure: TAdventure, the game state and frame loop of 3.153, carried
-  over from the 2.22 rebuild, since 3.153 speaks the 2.22 wire
-  (graal_analysis protocol/v3x-clients.md, version-profiles/3.04-3.153.md).
-  What 3.153 does differently (the 3.04 lab run stands in for it, since
-  3.153 was never run: version-profiles/lab-304-linux-2026-10-30.md): no tamper check (39)
-  anywhere, no periodic 24 over TCP (its 5.1 s message goes to other
-  players over UDP), first props 0, 18, 31, 33, 52, 75 (mac) and 76,
-  then UPDATEFILE for the player's head; and it does not handle 44, 182
-  or 183.
+{ Adventure: TAdventure, the game state and frame loop of 3.153.
+  The Mac lab (version-profiles/lab-mac-tiger-2026-10-31.md) shows the
+  first props 0, 18, 31, 33, 52, 75 (mac) and 76, and walking as X2/Y2
+  (78/79), never the half-tile X/Y. That walk is what this unit sends.
+  The login frame's file requests are still the 3.04 lab's
+  (lab-304-linux-2026-10-30.md). The Mac run also sent 24 about every
+  16 to 18 s; this unit does not. It does not handle 44, 182 or 183.
   The notes below are the 2.22 ones they came from.
 
   As in 2.05, TAdventure owns the level, the local player, the link to the
@@ -101,7 +99,8 @@ type
     Chat, Language, OsType: string;
     Attr: array[1..5] of string;
     X, Y: Double;       { tiles, top-left of the 3x3-tile sprite box }
-    Z, GmapX, GmapY: Integer;
+    Z: Double;          { height in tiles, in the same 1/16 steps as X2/Y2 }
+    GmapX, GmapY: Integer;
     Sprite, Status, MaxPower, Power, Rupees, Arrows, Bombs: Integer;
     SwordPower, ShieldPower, GlovePower, BombPower, CodePage: Integer;
     Colors: array[0..4] of Integer;
@@ -197,7 +196,7 @@ type
     FEntryLevel: string;
     FClient: TAdventureClient;
     FLog: TStrings;
-    FSentX, FSentY: Double;
+    FSentX, FSentY, FSentZ: Double;
     FSentDir, FSentGmapX, FSentGmapY: Integer;
     FSentGani: string;
     FPropsSent: Boolean;
@@ -845,6 +844,30 @@ begin
   end;
 end;
 
+{ X2 / Y2 / Z2: abs(v * 16) shl 1, the low bit the sign
+  (protocol/player-props.md). }
+function Precise(Raw: Integer): Double;
+begin
+  Result := (Raw shr 1) / 16;
+  if Raw and 1 <> 0 then Result := -Result;
+end;
+
+function PreciseRaw(V: Double): Integer;
+var
+  N: Integer;
+begin
+  if V < 0 then
+  begin
+    N := Round(-V * 16);
+    Result := (N shl 1) or 1;
+  end
+  else
+  begin
+    N := Round(V * 16);
+    Result := N shl 1;
+  end;
+end;
+
 function TServerPlayer.ApplyProps(R: TGReader; Other: Boolean; Frame: Integer): string;
 var
   P, V, I: Integer;
@@ -854,13 +877,16 @@ begin
   while not R.Eof do
   begin
     P := R.ReadGChar;
-    { the ids each 2.22 parser accepts (protocol/player-props.md) }
+    { 3.153 reads other players through 80 and its own props through 80,
+      stopping at 75-77 (3.04-3.153.toml). 77 has no known size, so it
+      falls out of the case below and ends the stream. }
     if Other then
     begin
       if (P = 1) or ((P >= 3) and (P <= 7)) or (P = 14) or (P = 22) or
-        ((P >= 25) and (P <= 29)) or (P > 76) then Exit;
+        ((P >= 25) and (P <= 29)) or (P > 80) then Exit;
     end
-    else if (P = 50) or (P = 51) or (P = 53) or (P > 74) then Exit;
+    else if (P = 50) or (P = 51) or (P = 53) or
+      ((P > 74) and (P < 78)) or (P > 80) then Exit;
     case P of
       PLPROP_NICKNAME: Nickname := R.ReadGString;
       PLPROP_MAXPOWER: MaxPower := R.ReadGChar;
@@ -916,6 +942,9 @@ begin
       PLPROP_ID: Id := R.ReadGShort;
       PLPROP_X: X := R.ReadGChar / 2;
       PLPROP_Y: Y := R.ReadGChar / 2;
+      PLPROP_X2: X := Precise(R.ReadGShort);
+      PLPROP_Y2: Y := Precise(R.ReadGShort);
+      PLPROP_Z2: Z := Precise(R.ReadGShort);
       PLPROP_SPRITE:
         begin
           Sprite := R.ReadGChar;
@@ -3143,6 +3172,7 @@ begin
   AskAdjacent;
   FSentX := Player.X;
   FSentY := Player.Y;
+  FSentZ := Player.Z;
   FSentDir := Player.Dir;
   FSentGani := OwnGani;
   FSentGmapX := Player.GmapX;
@@ -3164,21 +3194,24 @@ procedure TAdventure.SendMovedProps;
 var
   S, G: string;
 begin
-  { a diff of the changed props, in id order, at most every other tick
-    (100 ms); X and Y as c(x * 2) (run-222d, b4_222) }
+  { Changed props, in id order, at most every other tick (100 ms).
+    Position is X2/Y2/Z2 (protocol/player-props.md). The Mac lab walk
+    sent 78 and 79 and never 15 or 16 (lab-mac-tiger-2026-10-31.md). }
   if not FPropsSent or (Frame mod 2 <> 0) then Exit;
   S := '';
   G := OwnGani;
   if G <> FSentGani then S := S + GChar(PLPROP_GANI) + GString(G);
-  if Player.X <> FSentX then S := S + GChar(PLPROP_X) + GChar(Round(Player.X * 2));
-  if Player.Y <> FSentY then S := S + GChar(PLPROP_Y) + GChar(Round(Player.Y * 2));
   if Player.Dir <> FSentDir then S := S + GChar(PLPROP_SPRITE) + GChar(Player.Dir);
   if Player.GmapX <> FSentGmapX then S := S + GChar(PLPROP_GMAPLEVELX) + GChar(Player.GmapX);
   if Player.GmapY <> FSentGmapY then S := S + GChar(PLPROP_GMAPLEVELY) + GChar(Player.GmapY);
+  if Player.X <> FSentX then S := S + GChar(PLPROP_X2) + GShort(PreciseRaw(Player.X));
+  if Player.Y <> FSentY then S := S + GChar(PLPROP_Y2) + GShort(PreciseRaw(Player.Y));
+  if Player.Z <> FSentZ then S := S + GChar(PLPROP_Z2) + GShort(PreciseRaw(Player.Z));
   if S = '' then Exit;
   FClient.SendPacket(PLI_PLAYERPROPS, S);
   FSentX := Player.X;
   FSentY := Player.Y;
+  FSentZ := Player.Z;
   FSentDir := Player.Dir;
   FSentGani := G;
   FSentGmapX := Player.GmapX;
@@ -3310,6 +3343,7 @@ begin
           FWarpPending := False;
           FSentX := Player.X;
           FSentY := Player.Y;
+          FSentZ := Player.Z;
           if not EndsWith(Player.Level, '.gmap') then
           begin
             FreeAndNil(Gmap);
@@ -3328,6 +3362,7 @@ begin
           FWarpPending := False;
           FSentX := Player.X;
           FSentY := Player.Y;
+          FSentZ := Player.Z;
           if EndsWith(Player.Level, '.gmap') then
           begin
             SetGmap(Player.Level);

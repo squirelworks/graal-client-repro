@@ -1253,6 +1253,48 @@ begin
   end;
 end;
 
+procedure TestNegativeHealAP;
+var
+  G: TAdventure;
+  I, A: Integer;
+  X0: Double;
+begin
+  for A := 39 to 40 do
+  begin
+    G := TAdventure.Create;
+    try
+      G.Headless := True;
+      Check(G.LoadLevelFile('start.nw'), 'heal AP: board loads');
+      G.Player.X := 30;
+      G.Player.Y := 30;
+      G.Player.MaxPower := 3;
+      G.Player.Power := 3;
+      G.AP := A;
+      X0 := G.Player.X;
+      G.HurtPlayer(-0.5, 1, 0);
+      Check(G.Player.Power = 3 + Ord(A >= 40), 'heal AP: only AP40 gains a half-heart');
+      Check(not G.Hurtable and (G.Player.AniName = 'hurt'), 'heal AP: ignored and accepted heals both hurt');
+      G.HurtPlayer(-0.5, 1, 0);
+      Check(G.Player.Power = 3 + Ord(A >= 40), 'heal AP: hurt state rejects a second hit');
+      G.Tick;
+      Check(G.Player.X > X0, 'heal AP: both paths retain knockback');
+      for I := 1 to 39 do G.Tick;
+      Check(G.Hurtable, 'heal AP: both paths recover after forty ticks');
+      G.Player.Power := 5;
+      G.HurtPlayer(-2, 0, 1);
+      if A >= 40 then
+        Check(G.Player.Power = 6, 'heal AP: accepted heal stops at maximum')
+      else
+        Check(G.Player.Power = 5, 'heal AP: ignored heal stays unchanged');
+      for I := 1 to 40 do G.Tick;
+      G.Player.Power := 9;
+      G.HurtPlayer(1, 0, 1);
+      Check(G.Player.Power = 4, 'heal AP: positive damage still clamps before subtraction');
+    finally
+      G.Free;
+    end;
+  end;
+end;
 procedure TestCombat;
 var
   G: TAdventure;
@@ -1790,6 +1832,7 @@ begin
   RunNpcTests(Check, NpcSkipped);
   Inc(Skipped, NpcSkipped);
   RunBaddyTests(Check);
+  TestNegativeHealAP;
   TestCombat;
   TestSigns;
   TestWeapons;
