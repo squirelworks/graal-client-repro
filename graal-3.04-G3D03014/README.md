@@ -128,10 +128,14 @@ README, "Seihai secure login". CI logs in once more with
   `PLI_ITEMADD`) and S held + D for the next weapon
   (`client-internals/laying-items-and-hiding.md`).
 - [ ] What the spin cuts or hits offline (not read). Server weapons fired
-  with D, the sign panel, sound and the status bar; the water test before
+  with D, sound and the status bar; the water test before
   laying, the bush's break effect.
-- [ ] Everything else still missing from the 2.22 rebuild: NPCs, baddies,
-  GS1, chat bubbles, Options.
+- [x] NPCs, baddies and GS1 from the 2.22 rebuild (`Npc304`, `Baddy304`,
+  `NpcBridge304`): scripts, touch and push, sword/bomb/arrow events, signs,
+  `replaceani`, baddies. NPC sounds are logged only; no name font, heights
+  or attached ganis.
+- [ ] Everything else still missing from the 2.22 rebuild: chat bubbles,
+  Options.
 - [ ] Which offline tutorial level the Tutorial button opens, and where: the
   rebuild opens `levels/tutorial/offlinetutorial_b-2.graal` at (30, 30),
   else its starter level.
