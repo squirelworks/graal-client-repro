@@ -136,6 +136,10 @@ class Screen {
   bool popDialog(const Control* c);  // null pops the top dialog
   const std::vector<ControlPtr>& dialogs() const { return dialogs_; }
   bool isAwake(const Control* c) const;
+  // `destroy` on a control: off the screen (content, dialogs, key maps),
+  // out of its parent and out of the name table. False when `v` is no
+  // control of this screen.
+  bool remove(const Var* v);
 
   // Where each control is on the screen: its `position` and `extent` (or
   // `x`, `y`, `width`, `height`, which the menus also set) laid out

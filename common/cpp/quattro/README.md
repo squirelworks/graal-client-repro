@@ -50,7 +50,7 @@ this program. This directory does.
 | `tools/` | (none) | `quattro-session` logs a session; `quattro-play` runs the program in a window or headless (`--shot` writes the last frame as PNG) |
 | `files/` | levels and packages | **done**: `GR-V1.00`–`1.05` (1.05 board layers), `GLEVNW01` text levels (start.nw, the offline tutorial), the 101 board packet, links, chests, signs; `GANI0001` sprite-mode ganis (sprites, steps, WAIT, SINGLEDIRECTION, ATTACHSPRITE/2, defaults). Packages and movie-mode ganis next |
 | `draw/` | the draw passes and the window | **done**: the world passes in the original's order on a software canvas (shared with `common/torque/gui`), the lobby rule, an Xlib window and a headless window; players drawn from their gani with head, body, sword, shield and hats from the player's folder (`draw/assets`), the body in the player's five colours; the 6.x HUD (`draw/hud`: tabs, sword and glove, AP and MP bars, counters, hearts) |
-| `shell/` | the program loop, `StartScript_*`, `GuiGraalCtrl` | **started**: the 50 ms loop, level name/board/links/chests from the session, window title per server, and the script host on `gs2::Machine` (140, 197 with the `GRESCR01` cache, 33/34, 190), and the GUI host: `StartScript_*` read from the player's own program file (`--program`), `MainMenuGui2D` as the content, the world drawn in its `GuiGraalCtrl`, mouse and keys from the window. The show-image emitters run each tick and draw through the painter (add, transparent, subtract, day-night). Next: the engine actions and `GuiShowImgCtrl` animations |
+| `shell/` | the program loop, `StartScript_*`, `GuiGraalCtrl` | **started**: the 50 ms loop, level name/board/links/chests from the session, window title per server, and the script host on `gs2::Machine` (140, 197 with the `GRESCR01` cache, 33/34, 190, 48), the GS2 weapon commands and events ("GS2 weapon scripts" below), and the GUI host: `StartScript_*` read from the player's own program file (`--program`), `MainMenuGui2D` as the content, the world drawn in its `GuiGraalCtrl`, mouse and keys from the window. The show-image emitters run each tick and draw through the painter (add, transparent, subtract, day-night). Next: the engine actions and `GuiShowImgCtrl` animations |
 | `world/` | `TServerPlayer` and the props | **done**: the prop stream of 9 and 8 (the 2.22 table plus X2/Y2/Z2), the initial props after login, and the X2/Y2 movement diff each tick; walking against `arrays.dat` walls and chests with the six-point box, the corner nudge, and `push` with 38 `pushed,0`; the item keys (`world/actions`): S swings and cuts bushes (1 BOARDMODIFY), A lifts, throws (11) or grabs and pulls, D toggles the status bit, walking into a chest opens it (20); the server's 7 BOARDMODIFY is applied; Q and Tab toggle the status bit like D while no weapon is shown. The weapons (`world/weapons`): the weapon list (33, 34, 43 built-ins, 194 clears it) with the 2.05 selection rules; with a weapon shown D uses the selected one, a GS2 weapon through `onWeaponFired`, the built-in Bomb, Superbomb and Joltbomb by laying a bomb (4 BOMBADD, then 27 EXPLOSION and the blast's board changes), the Bow and the three magic shots by firing a shot (9 ARROWADD); other players' bombs, shots and explosions (11, 12, 19, 36) are drawn too; the scripts get `putbomb`, `shootarrow`, `shootfireball`, `shootfireblast`, `shootnuke`, `onKeyPressed` and a `player` object (x, y, dir, bombs, darts, rupees, hearts, ani, ...); Q opens the item list (`world/item_list`); blasts, shots, swings and 40 HURTPLAYER hurt the player, with knockback, death and coming back (`world/health`) The item drawing (`world/effects`, from the 6.03r7 item-drawing lab): the carried object over the head (bobbing with it, rising while lifted), `carry`/`carrystill`, a thrown object's 128 px flight with its shadow and its break into leaves, shards or sign pieces, a cut bush's leaves, and the item over an opened chest with its 13 ITEMDEL after 1.2 s |
 | `gui/` | the GS2 controls | in `common/cpp/gs2` (`gui.hpp`, B4): one control tree for 4.x to 6.x; Quattro paints it on its canvas (`shell/gui_host`) |
 
@@ -111,6 +111,86 @@ camera match it pixel for pixel there, at 640 x 480 to 1280 x 1024. The
 view is clamped to the level while it fits; a view wider than the level
 (1280) keeps the player centred with black either side. The Windows 6.x window and frame
 were not measured.
+
+## GS2 weapon scripts
+
+The private weapon corpus has **not been run against this branch**. The survey's
+coverage forecasts are not measured results. Synthetic scripts check the host's
+cancellation and bounded-work rules: destroyed handlers cannot resume after
+sleep/waitfor; nested arrays are limited to 10,000 cells and 32 levels; rectangle
+queries reject nonfinite/negative dimensions and dimensions larger than one
+64-tile board. Show-image coordinates and sizes must be finite and within one
+million pixels, polygon inputs have at most 1,024 vertices, and tinted/polygon
+drawing visits only the viewport. These are rebuild limits, not measured
+original-client limits. Each show-animation has its own clock, independent of
+other weapons using the same index.
+
+Server weapons are GS2 bytecode on 5.24r3 and every 6.x build. The script
+layer follows the implementation order of Graal_analysis
+`npc-library/gs2-weapon-corpus-2026-11-14.md` (steps 1 to 7). The
+machine-level part (opcodes, `scheduleevent`, `cancelevents`, `trigger`,
+`destroy`, `md5`, `waitfor`) is in `common/cpp/gs2`; the rest is
+`shell/scripts.cpp` (the trigger actions, `findweapon`, 48) and
+`shell/weapon_api.cpp` (the commands that reach the game).
+
+- **Server messages** (step 1): `triggerserver(kind, weapon, params...)`
+  sends C->S 38 `serverside,<weapon>,<params>`, `triggeraction(x, y,
+  action, params...)` sends 38 with the position in half tiles; both with
+  CSV fields quoted as Seihai's gserver reads them. Server 48
+  `clientside,<weapon>,<params>` queues that weapon's `onActionClientSide`
+  with the params after the name; any other 48 action queues
+  `onAction<action>` on every weapon.
+- **Gani and hold** (step 2): `setani(gani)`, `replaceani(old, new)`,
+  `freezeplayer(seconds)` (walk, item keys and D held), `disabledefmovement`
+  / `enabledefmovement` (walk and item keys), `disableweapons` /
+  `enableweapons` (D).
+- **Events and boxes** (step 3): `say2(text)` opens a sign box (lines split
+  at `#b`) that A, S, D, Enter or Space closes; `destroy()` on a weapon
+  takes it off the list here, on a control off the screen, on a
+  show-image hides it.
+- **Show-images** (step 5): `showimg`, `showimg2`, `showtext`, `showtext2`,
+  `showpoly`, `showani`, `showani2`, `findimg`, `hideimg`, `hideimgs`,
+  `changeimgcolors`, `changeimgvis`, `changeimgzoom`, `changeimgpart`,
+  `changeimgmode`, `getimgwidth`, `getimgheight`. Each show-image is an
+  object whose members are its fields, numbered per script object.
+- **The rest** (step 6): `findweapon(name)` (a call on it runs that
+  weapon's function), `onwall`, `onwall2`, `onwater`, `onwater2` against
+  `arrays.dat`, `keydown(i)` with GS1's indices ("0..10: up, left, down,
+  right, S, A, D, M, tab, Q, P", the 1.41 commands.rtf), `keydown2(code)`,
+  `getkeycode`/`keycode` with Windows virtual-key codes, `hideplayer`,
+  `setfocus`/`resetfocus`; `play`, `play2`, `playlooped` and `stopsound`
+  are logged until there is a sound layer; `seticonsize` does nothing.
+- **Shots** (step 7): `setshootparams(params...)` and `shoot(x, y, z,
+  angle, zangle, power, gani)` send C->S 40 as GServer-v2 reads it.
+- **Events**: `onWeaponFired` (D), `onPlayerChats` (the chat bar, with
+  `player.chat` set), `onKeyPressed(keycode, char)` and `onMouseDown("left"
+  or "double", with `mousex`/`mousey` in level tiles and
+  `mousescreenx`/`mousescreeny`) for input the GUI did not take,
+  `onPlayerEnters` (each 6 level name), `onPlayerHurt(hearts)` and
+  `onPlayerDies` from the own power prop, `onActionClientSide`.
+- **`player`**: `x`, `y`, `z`, `dir`, `ani`, `chat`, `bombs`, `darts`,
+  `rupees`, `hearts`, `fullhearts`, `mp`, `ap`, `id`, `account`, `nick`,
+  `communityname`, `guild` (the nickname's last `(...)`), `head`, `body`,
+  `level`, `gmap`, `attr[0..30]`, `colors[0..4]`, `freezetime` (-1 when
+  not frozen), `paused`, `weapons` (the weapon objects), `weapon` (the
+  selected one), and `client`/`clientr` kept as the script left them. A
+  script's write to `x`, `y`, `z`, `dir`, `ani`, `chat`, `bombs`, `darts`
+  or `freezetime` goes back to the player; `chat` is sent as prop 12.
+
+Readings in this layer (none was seen from a 6.x client): the argument
+forms are GS1's where the GS2 name is a GS1 command; `showtext2` and
+`showani2` take z after y; show-images on layers 0 to 3 draw over the
+level and its players in level tiles, layer 4 and up over the HUD in
+window pixels, and a new one starts on layer 1; the sign box's layout;
+which keys close it; `setani` drops its gani params, and a gani holds until
+the walk changes it; `onPlayerHurt` gets the hearts lost; `shoot` uses 40
+(PLI_SHOOT), not 48 (PLI_SHOOT2), and takes no ganiparams.
+
+Not yet: other players' shots (175, 191) and `onActionProjectile`; the
+shot's own flight; `showpoly2`; show-image text fonts (the built-in face
+is used); `testnpc`, `findplayer`, `seteffect`, `showstats`, `putleaps`,
+`serverwarp`, `isobject`, `enablefeatures`, the weapon-select switches and
+the rest of the corpus's long tail (no name blocks more than 16 weapons).
 
 ## Rebuild choices (not the original's)
 

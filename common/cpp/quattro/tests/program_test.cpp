@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <set>
 #include <thread>
 
@@ -536,11 +537,230 @@ void test_weapons() {
   CHECK(run(p, nullptr, &game, [&] { return p.weapons().list().empty() && !p.scripts().weapon("Stick"); }));
 }
 
+// A GS2 weapon on the fired-weapon path of the corpus (steps 1 to 5): it
+// plays a gani, holds the player, tells the server, writes player.chat,
+// shows an image and a sign; the events onPlayerChats, onKeyPressed,
+// onActionClientSide and onPlayerEnters reach it.
+void test_weapon_scripts() {
+  const Net::BuildProfile* prof = Net::find_profile("6.03r7");
+  CHECK(prof);
+  if (!prof) return;
+  FakeServer game;
+  CHECK(game.start());
+  Shell::Options opt;
+  opt.host = "127.0.0.1";
+  opt.port = game.port();
+  opt.server_name = "Lab Server";
+  Draw::HeadlessWindow win;
+  Shell::Program p(*prof, opt, win);
+  CHECK(p.start());
+  CHECK(game.conn.accept_from(game.listener));
+  CHECK(run(p, nullptr, &game, [&] { return game.saw(37, "English"); }));
+  // Establish living login props before exercising damage notifications.
+  game.send(send_level("onlinestartlocal.nw", 7) + gchar(9) + gchar(World::kMaxPower) + gchar(3) +
+            gchar(World::kCurPower) + gchar(6) + gchar(World::kX) + gchar(60) + gchar(World::kY) +
+            gchar(60) + "\n" + gchar(194) + "\n");
+  CHECK(run(p, nullptr, &game, [&] { return p.world().have_level; }));
+
+  using gs2asm::Asm;
+  const int PLAYER = 182;
+  Asm a;
+  a.function("onWeaponFired", {});
+  a.op(Asm::MARKER).str("sword").callName("setani").op(Asm::POP);
+  a.op(Asm::MARKER).num(0.5).callName("freezeplayer").op(Asm::POP);
+  a.op(Asm::MARKER).str("zap").str("Wand").str("gui").callName("triggerserver").op(Asm::POP);
+  a.op(PLAYER).var("chat").op(Asm::MEMBER).str("zap!").op(Asm::ASSIGN);
+  a.op(Asm::MARKER).num(31).num(31).str("light.png").num(200).callName("showimg").op(Asm::POP);
+  a.op(Asm::MARKER).str("Hello#bthere").callName("say2").op(Asm::POP);
+  a.num(0).op(Asm::RET);
+  a.function("onPlayerChats", {});
+  a.var("heard").op(PLAYER).var("chat").op(Asm::MEMBER).op(Asm::ASSIGN).num(0).op(Asm::RET);
+  a.function("onKeyPressed", {"code", "ch"});
+  a.var("key_events").op(Asm::INC).op(Asm::POP);
+  a.var("key").var("code").op(Asm::ASSIGN).num(0).op(Asm::RET);
+  a.function("onPlayerHurt", {"damage"});
+  a.var("hurt_events").op(Asm::INC).op(Asm::POP).num(0).op(Asm::RET);
+  a.function("onPlayerDies", {});
+  a.var("death_events").op(Asm::INC).op(Asm::POP).num(0).op(Asm::RET);
+  a.function("public.held", {"code"});
+  a.op(Asm::MARKER).var("code").callName("keydown2").op(Asm::RET);
+  a.function("onActionClientSide", {"cmd"});
+  a.op(PLAYER).var("chat").op(Asm::MEMBER).var("cmd").op(Asm::ASSIGN).num(0).op(Asm::RET);
+  a.function("onPlayerEnters", {});
+  a.var("entered").op(Asm::INC).op(Asm::POP).num(0).op(Asm::RET);
+  Shell::ScriptDescriptor d;
+  d.type = "weapon";
+  d.name = "Wand";
+  std::string raw = gchar(140) + Shell::make_script_packet(d, a.bytes()) + "\n";
+  game.send(gchar(33) + Net::gstring("Wand") + "\n" + gchar(100) + Net::gint3(static_cast<uint32_t>(raw.size())) + "\n" + raw);
+  CHECK(run(p, nullptr, &game, [&] { return p.scripts().machine().hasScript(p.scripts().weapon("Wand")); }));
+  auto u = p.scripts().machine().universe();
+  auto g = [&](const char* k) { return u->child(k) ? u->child(k)->string() : std::string("<none>"); };
+
+  p.action("doD", true);
+  CHECK(run(p, nullptr, &game, [&] {
+    return game.saw(38, Net::gint3(0) + gchar(0) + gchar(0) + "serverside,Wand,zap");
+  }));
+  p.action("doD", false);
+  CHECK(run(p, nullptr, &game, [&] { return game.saw(2, gchar(World::kCurChat) + Net::gstring("zap!")); }));
+  CHECK(p.me().gani == "sword");
+  CHECK(p.freeze_left() > 0);
+  CHECK(p.show_images().size() == 1);
+  CHECK(p.sign_text() == "Hello#bthere");
+  p.tick();
+  bool drew_sign = false;
+  for (const auto& n : p.last_passes()) drew_sign |= n == "Sign";
+  CHECK(drew_sign);
+  // The freeze runs out (0.5 s is 10 ticks).
+  CHECK(run(p, nullptr, &game, [&] { return p.freeze_left() == 0; }));
+
+  // A key the sign does not take reaches onKeyPressed; A closes the sign.
+  Draw::InputEvent k;
+  k.key = "k";
+  k.ch = 'k';
+  win.push_input(k);
+  CHECK(run(p, nullptr, &game, [&] { return g("key") == "75"; }));
+  CHECK(g("key_events") == "1");
+  k.key = "a";
+  k.ch = 'a';
+  win.push_input(k);
+  CHECK(run(p, nullptr, &game, [&] { return p.sign_text().empty(); }));
+  auto wand = p.scripts().weapon("Wand");
+  CHECK(p.scripts().machine().callFunction(wand, "held", {gs2::Value::number(75)}).num == 1);
+  p.action("doQ", true);
+  p.tick();
+  p.action("doQ", false);
+  p.tick();
+  CHECK(p.item_list_open());
+  k.type = Draw::InputEvent::KeyUp;
+  k.key = "k";
+  k.ch = 'k';
+  win.push_input(k);
+  p.tick();
+  CHECK(p.scripts().machine().callFunction(wand, "held", {gs2::Value::number(75)}).num == 0);
+  CHECK(g("key_events") == "1");
+  p.action("doQ", true);
+  p.tick();
+  p.action("doQ", false);
+  p.tick();
+  CHECK(!p.item_list_open());
+
+  p.say("hello");
+  CHECK(run(p, nullptr, &game, [&] { return g("heard") == "hello"; }));
+
+  // 48 clientside,Wand,open -> onActionClientSide("open") -> player.chat.
+  game.send(gchar(48) + Net::gshort(0) + Net::gint3(0) + gchar(0) + gchar(0) + "clientside,Wand,open\n");
+  CHECK(run(p, nullptr, &game, [&] { return p.me().chat == "open"; }));
+
+  game.send(send_level("second.nw", 7));
+  CHECK(run(p, nullptr, &game, [&] { return g("entered") == "1"; }));
+  CHECK(p.me().max_power == 3 && p.me().power == 6);
+  CHECK(g("hurt_events") == "<none>" && g("death_events") == "<none>");
+  game.send(gchar(9) + gchar(World::kCurPower) + gchar(4) + "\n");
+  CHECK(run(p, nullptr, &game, [&] { return g("hurt_events") == "1"; }));
+  game.send(gchar(9) + gchar(World::kCurPower) + gchar(4) + "\n");
+  for (int i = 0; i < 5; ++i) p.tick();
+  CHECK(g("hurt_events") == "1"); // unchanged server echo is not a second hit
+  game.send(gchar(9) + gchar(World::kCurPower) + gchar(0) + "\n");
+  CHECK(run(p, nullptr, &game, [&] { return g("death_events") == "1"; }));
+  CHECK(g("hurt_events") == "2");
+  for (const auto& e : p.scripts().machine().errors()) std::fprintf(stderr, "%s\n", e.c_str());
+  CHECK(p.scripts().machine().errors().empty());
+}
+
+
+void test_script_native_bounds() {
+  const auto* prof = Net::find_profile("6.03r7");
+  CHECK(prof);
+  if (!prof) return;
+  namespace fs = std::filesystem;
+  const auto root = fs::temp_directory_path() / "quattro-script-bounds";
+  Files::Board board{};
+  board.fill(7);
+  write(root / "levels/probe.graal", "GR-V1.03" + Files::write_board_stream(board) + "#\n\xFF\xFF\xFF\n#\n" +
+        gchar(17) + gchar(17) + gchar(0) + gchar(0) + "\n#\n\n");
+  Draw::Image pixels(16, 8, {255, 0, 0, 255});
+  for (int y = 0; y < 8; ++y)
+    for (int x = 8; x < 16; ++x) pixels.at(x, y) = {0, 255, 0, 255};
+  auto png = Torque::Gui::encode_png(pixels);
+  write(root / "frames.png", std::string(png.begin(), png.end()));
+  const std::string gani = "GANI0001\nSPRITE 0 frames.png 0 0 8 8\nSPRITE 1 frames.png 8 0 8 8\n"
+                           "SINGLEDIRECTION\nLOOP\nANI\n0 0 0\n1 0 0\nANIEND\n";
+  write(root / "first.gani", gani);
+  write(root / "second.gani", gani);
+  Shell::Options opt;
+  opt.assets = root.string();
+  Draw::HeadlessWindow win;
+  Shell::Program p(*prof, opt, win);
+  CHECK(p.start_offline("probe.graal", 30, 30));
+  gs2asm::Asm a;
+  for (const char* name : {"onwall2", "onwater2"}) {
+    a.function(std::string("public.") + name + "_probe", {"x", "y", "w", "h"});
+    a.op(gs2asm::Asm::MARKER).var("h").var("w").var("y").var("x").callName(name).op(gs2asm::Asm::RET);
+  }
+  a.function("public.image", {"index"});
+  a.op(gs2asm::Asm::MARKER).var("index").callName("findimg").op(gs2asm::Asm::RET);
+  auto& m = p.scripts().machine();
+  auto one = m.newVar("probe-one"), two = m.newVar("probe-two");
+  CHECK(m.setScript(one, a.bytes()));
+  CHECK(m.setScript(two, a.bytes()));
+  const double inf = std::numeric_limits<double>::infinity();
+  const double nan = std::numeric_limits<double>::quiet_NaN();
+  for (const char* name : {"onwall2", "onwater2"})
+    for (double size : {1e100, inf, nan, -1.0})
+      CHECK(m.callFunction(one, std::string(name) + "_probe", {gs2::Value::number(0), gs2::Value::number(0),
+            gs2::Value::number(size), gs2::Value::number(1)}).num == 0);
+  CHECK(m.callFunction(one, "onwall2_probe", {gs2::Value::number(16.75), gs2::Value::number(17.5),
+        gs2::Value::number(0.25), gs2::Value::number(0)}).num == 1); // includes the far edge on the chest
+  auto image = [&](const gs2::VarPtr& owner, int index) {
+    return m.callFunction(owner, "image", {gs2::Value::number(index)}).obj;
+  };
+  auto first = image(one, -7), second = image(two, -7);
+  CHECK(first && second && first != second);
+  if (!first || !second) return;
+  for (auto im : {first, second}) {
+    im->childOrCreate("type")->setString("ani");
+    im->childOrCreate("layer")->setNumber(4);
+    im->childOrCreate("y")->setNumber(100);
+  }
+  first->childOrCreate("x")->setNumber(100);
+  second->childOrCreate("x")->setNumber(200);
+  first->childOrCreate("ani")->setString("first");
+  second->childOrCreate("ani")->setString("second");
+  p.tick();
+  CHECK(win.last().at(100, 100).r == 255 && win.last().at(200, 100).r == 255);
+  p.tick();
+  CHECK(win.last().at(100, 100).g == 255 && win.last().at(200, 100).g == 255);
+  auto huge = image(one, 99);
+  huge->childOrCreate("type")->setString("image");
+  huge->childOrCreate("image")->setString("frames.png");
+  huge->childOrCreate("layer")->setNumber(4);
+  huge->childOrCreate("red")->setNumber(0.5);
+  huge->childOrCreate("zoom")->setNumber(60000);
+  huge->childOrCreate("x")->setNumber(500000);
+  CHECK(p.tick()); // huge tinted, wholly offscreen: no full-image iteration
+  huge->childOrCreate("x")->setNumber(nan);
+  CHECK(p.tick()); // no nonfinite double-to-int conversion
+  huge->childOrCreate("x")->setNumber(0);
+  huge->childOrCreate("type")->setString("poly");
+  auto polygon = huge->childOrCreate("polygon");
+  polygon->setArray(6);
+  const double coords[] = {-1000000, -1000000, 1000000, -1000000, 0, 1000000};
+  for (int i = 0; i < 6; ++i) polygon->elements()[i]->setNumber(coords[i]);
+  CHECK(p.tick()); // clip scanlines and pixels to the viewport
+  polygon->elements()[0]->setNumber(inf);
+  CHECK(p.tick());
+  CHECK(m.errors().empty());
+  fs::remove_all(root);
+}
+
 int main() {
+  test_script_native_bounds();
   test_program();
   test_offline();
   test_update_packages();
   test_downloads();
   test_weapons();
+  test_weapon_scripts();
   TEST_MAIN_END();
 }

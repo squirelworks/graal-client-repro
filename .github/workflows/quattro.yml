@@ -40,9 +40,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Install zlib, bzip2 and Xlib
-        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev libbz2-dev libx11-dev
+        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev libbz2-dev libx11-dev valgrind
       - name: Build and test
         run: make -C common/cpp/quattro test
+      - name: Check weapon scripts and program memory
+        run: |
+          valgrind --error-exitcode=1 --leak-check=full --errors-for-leak-kinds=definite,indirect common/cpp/quattro/build/scripts-test
+          valgrind --error-exitcode=1 --leak-check=full --errors-for-leak-kinds=definite,indirect common/cpp/quattro/build/program-test
       - name: Check with address and undefined behavior sanitizers
         run: |
           make -C common/cpp/quattro clean

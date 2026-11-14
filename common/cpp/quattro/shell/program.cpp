@@ -97,6 +97,7 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
     if (log) log(s);
   };
   register_weapon_commands();
+  register_script_commands();
   world_.player.x = 30;
   world_.player.y = 30;
   std::vector<std::string> asset_folders;
@@ -117,7 +118,10 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
     canvas_.push_clip({r.x, r.y, r.w, r.h});
     renderer_.draw(canvas_, world_, Draw::follow(world_, canvas_.width(), canvas_.height()),
                    [this](const std::string& name) { passes_.push_back(name); });
+    draw_show_images(false);
     draw_hud();
+    draw_show_images(true);
+    draw_sign();
     canvas_.pop_clip();
   };
   if (!opt_.program.empty()) {
@@ -356,6 +360,10 @@ Draw::Rect Program::sprite_cell(int sprite) const {
 void Program::say(const std::string& text) {
   me_.chat = text;
   if (props_sent_) session_.connection().send(2, Net::gchar(World::kCurChat) + Net::gstring(text));
+  // The player's own chat line: player.chat holds it while onPlayerChats runs.
+  scripts_.player()->childOrCreate("chat")->setString(text);
+  script_seen_.chat = text;
+  scripts_.queue_all("PlayerChats");
 }
 
 std::string Program::window_title() const {
@@ -675,6 +683,7 @@ void Program::on_message(int id, std::string_view body) {
       entry_x_ = me_.x;  // where a dead player comes back
       entry_y_ = me_.y;
       load_local_level(level_name_);
+      scripts_.queue_all("PlayerEnters");
       break;
     case 7: {  // PLO_BOARDMODIFY: x, y, w, h, then the tiles row by row
       int x = static_cast<int>(r.gchar()), y = static_cast<int>(r.gchar());
@@ -823,6 +832,8 @@ void Program::on_message(int id, std::string_view body) {
 }
 
 bool Program::tick() {
+  const int old_power = me_.power;
+  const bool had_player = offline_ || props_sent_;
   if (!offline_) session_.tick();
   if (!offline_ && session_.logins() != logins_seen_) {
     logins_seen_ = session_.logins();
@@ -838,14 +849,19 @@ bool Program::tick() {
     }
     if (k == Draw::Key::Close || (k == Draw::Key::Escape && !gui_->has_content())) quit_ = true;
   }
+  // Input the GUI does not take goes to the weapon scripts (onKeyPressed,
+  // onMouseDown, keydown2) and the say2 box.
   for (Draw::InputEvent e; window_.poll_input(e);) {
-    if (gui_->has_content())
-      gui_->input(e);
-    else if (item_list_open_)
+    // Releases update physical state even when an overlay takes the event.
+    if (e.type == Draw::InputEvent::KeyUp) keys_down_.erase(ScriptHost::keycode(e.key, e.ch));
+    if (gui_->has_content() && gui_->input(e)) continue;
+    if (item_list_open_) {
       item_list_input(e);
-    else if (e.type == Draw::InputEvent::KeyDown)
-      scripts_.key_pressed(e.key, e.ch);
+      continue;
+    }
+    if (!world_.lobby) script_input(e);
   }
+  script_tick();
   // Walking: half a tile per held arrow per tick, against the walls.
   if (!world_.lobby) {
     auto& p = me_;
@@ -862,8 +878,13 @@ bool Program::tick() {
                      (window_.held(Draw::Key::S) ? World::kKeyS : 0u) |
                      (!armed && (d_held || q_held) ? World::kKeyD : 0u) |
                      (action_items_ & (World::kKeyA | World::kKeyS));
+    // Script movement/freeze gates hold walking and built-in item keys.
+    if (freeze_left_ > 0 || !def_movement_) {
+      keys = 0;
+      items = 0;
+    }
     const bool q_pressed = armed && q_held && !weapon_keys_[1];
-    const bool d_pressed = armed && d_held && !weapon_keys_[0];
+    const bool d_pressed = armed && d_held && !weapon_keys_[0] && weapons_enabled_ && freeze_left_ <= 0;
     weapon_keys_[0] = armed && d_held;
     weapon_keys_[1] = armed && q_held;
     if (!armed) item_list_open_ = false;
@@ -959,6 +980,9 @@ bool Program::tick() {
     world_.others.push_back(actor_for(pid, o));
   }
 
+  // One notification point for server props and victim-side health changes.
+  // Initial login props are not a hit; an unchanged server echo is not another hit.
+  if (had_player && (offline_ || props_sent_)) player_changed(old_power);
   sync_player_in();
   scripts_.tick();
   sync_player_out();
@@ -974,8 +998,11 @@ bool Program::tick() {
   } else {
     renderer_.draw(canvas_, world_, Draw::follow(world_, canvas_.width(), canvas_.height()),
                    [this](const std::string& name) { passes_.push_back(name); });
+    draw_show_images(false);
     draw_hud();
     draw_item_list();
+    draw_show_images(true);
+    draw_sign();
   }
   window_.present(canvas_.surface());
   return !quit_;
@@ -1052,18 +1079,62 @@ void Program::sync_player_in() {
   auto str = [&](const char* k, const std::string& v) { pl->childOrCreate(k)->setString(v); };
   num("x", me_.x);
   num("y", me_.y);
+  num("z", me_.z);
   num("dir", me_.dir);
   num("bombs", me_.bombs);
   num("darts", me_.arrows);
   num("rupees", me_.rupees);
   num("hearts", me_.power / 2.0);
   num("fullhearts", me_.max_power);
+  num("mp", me_.mp);
+  num("ap", me_.ap);
   num("id", me_.id);
+  num("freezetime", freeze_left_ > 0 ? freeze_left_ : -1);
+  num("paused", 0);
   str("account", me_.account);
   str("nick", me_.nickname);
+  str("communityname", me_.community.empty() ? me_.account : me_.community);
+  str("head", me_.head);
+  str("body", me_.body);
   str("ani", me_.gani);
+  str("chat", me_.chat);
   str("level", me_.level);
-  script_seen_ = {me_.x, me_.y, me_.dir, me_.bombs, me_.arrows};
+  // The gmap: the level's name when it is one, else empty.
+  const std::string lv = lower_name(me_.level);
+  str("gmap", lv.size() > 5 && lv.compare(lv.size() - 5, 5, ".gmap") == 0 ? me_.level : std::string());
+  // The guild: the nickname's last "(...)".
+  std::string guild;
+  if (auto o = me_.nickname.rfind('('); o != std::string::npos && !me_.nickname.empty() && me_.nickname.back() == ')')
+    guild = me_.nickname.substr(o + 1, me_.nickname.size() - o - 2);
+  str("guild", guild);
+  // attr[0..30] and colors[0..4] as arrays.
+  gs2::VarPtr attr = pl->childOrCreate("attr");
+  if (attr->kind() != gs2::Var::Kind::Array || attr->elements().size() != me_.attr.size()) attr->setArray(me_.attr.size());
+  for (size_t i = 0; i < me_.attr.size(); ++i) attr->elements()[i]->setString(me_.attr[i]);
+  gs2::VarPtr colors = pl->childOrCreate("colors");
+  if (colors->kind() != gs2::Var::Kind::Array || colors->elements().size() != me_.colors.size()) colors->setArray(me_.colors.size());
+  for (size_t i = 0; i < me_.colors.size(); ++i) colors->elements()[i]->setNumber(me_.colors[i]);
+  // weapons: the weapon objects; weapon: the selected one.
+  gs2::VarPtr list = pl->childOrCreate("weapons");
+  auto objs = scripts_.weapon_objects();
+  list->setArray(objs.size());
+  for (size_t i = 0; i < objs.size(); ++i) list->elements()[i]->setObject(objs[i]);
+  const World::Weapon* sel = weapons_.selected();
+  gs2::VarPtr selv = sel ? scripts_.weapon(sel->name) : nullptr;
+  if (selv) pl->childOrCreate("weapon")->setObject(selv);
+  else pl->childOrCreate("weapon")->setNumber(0);
+  // client.* and clientr.* are the script's own (kept between ticks).
+  pl->childOrCreate("client")->setAcceptsAllProperties(true);
+  pl->childOrCreate("clientr")->setAcceptsAllProperties(true);
+  script_seen_.x = me_.x;
+  script_seen_.y = me_.y;
+  script_seen_.z = me_.z;
+  script_seen_.dir = me_.dir;
+  script_seen_.bombs = me_.bombs;
+  script_seen_.arrows = me_.arrows;
+  script_seen_.chat = me_.chat;
+  script_seen_.ani = me_.gani;
+  script_seen_.freeze = freeze_left_ > 0 ? freeze_left_ : -1;
 }
 
 void Program::sync_player_out() {
@@ -1074,11 +1145,23 @@ void Program::sync_player_out() {
     gs2::VarPtr c = pl->child(k);
     return c ? c->number() : 0.0;
   };
+  auto str = [&](const char* k) {
+    gs2::VarPtr c = pl->child(k);
+    return c ? c->string() : std::string();
+  };
   if (num("x") != script_seen_.x) me_.x = num("x");
   if (num("y") != script_seen_.y) me_.y = num("y");
+  if (static_cast<int>(num("z")) != script_seen_.z) me_.z = static_cast<int>(num("z"));
   if (static_cast<int>(num("dir")) != script_seen_.dir) me_.dir = static_cast<int>(num("dir")) & 3;
   if (static_cast<int>(num("bombs")) != script_seen_.bombs) me_.bombs = std::clamp(static_cast<int>(num("bombs")), 0, 99);
   if (static_cast<int>(num("darts")) != script_seen_.arrows) me_.arrows = std::clamp(static_cast<int>(num("darts")), 0, 99);
+  if (str("ani") != script_seen_.ani) me_.gani = str("ani");
+  if (num("freezetime") != script_seen_.freeze) freeze_left_ = std::max(0.0, num("freezetime"));
+  // player.chat = text: the chat bubble and prop 12 (no onPlayerChats).
+  if (str("chat") != script_seen_.chat) {
+    me_.chat = str("chat");
+    if (props_sent_) session_.connection().send(2, Net::gchar(World::kCurChat) + Net::gstring(me_.chat));
+  }
   send_counts();
 }
 
