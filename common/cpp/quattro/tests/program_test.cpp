@@ -556,7 +556,9 @@ void test_weapon_scripts() {
   CHECK(p.start());
   CHECK(game.conn.accept_from(game.listener));
   CHECK(run(p, nullptr, &game, [&] { return game.saw(37, "English"); }));
-  game.send(send_level("onlinestartlocal.nw", 7) + gchar(9) + gchar(World::kX) + gchar(60) + gchar(World::kY) +
+  // Establish living login props before exercising damage notifications.
+  game.send(send_level("onlinestartlocal.nw", 7) + gchar(9) + gchar(World::kMaxPower) + gchar(3) +
+            gchar(World::kCurPower) + gchar(6) + gchar(World::kX) + gchar(60) + gchar(World::kY) +
             gchar(60) + "\n" + gchar(194) + "\n");
   CHECK(run(p, nullptr, &game, [&] { return p.world().have_level; }));
 
@@ -652,6 +654,8 @@ void test_weapon_scripts() {
 
   game.send(send_level("second.nw", 7));
   CHECK(run(p, nullptr, &game, [&] { return g("entered") == "1"; }));
+  CHECK(p.me().max_power == 3 && p.me().power == 6);
+  CHECK(g("hurt_events") == "<none>" && g("death_events") == "<none>");
   game.send(gchar(9) + gchar(World::kCurPower) + gchar(4) + "\n");
   CHECK(run(p, nullptr, &game, [&] { return g("hurt_events") == "1"; }));
   game.send(gchar(9) + gchar(World::kCurPower) + gchar(4) + "\n");
