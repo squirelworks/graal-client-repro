@@ -45,6 +45,7 @@ public class Net {
   double sentX = -999, sentY = -999;
   int sentDir = -1, sentFrame = -1;
   String sentChat = "";
+  String sentNickname, sentColours;
   int tickCount;
 
   public Net(Relay relay, Game game) {
@@ -102,12 +103,25 @@ public class Net {
     d('T', time10(loginTime));
     d('P', position());
     d('C', game.chat);
-    d('N', game.nickname);
+    pushAppearance(true);
+    d('O', " ");
+  }
+
+  /** Options change the game state; the regular network tick publishes it. */
+  void pushAppearance(boolean force) {
+    if (myId.length() == 0) return;
+    if (force || !game.nickname.equals(sentNickname)) {
+      d('N', game.nickname);
+      sentNickname = game.nickname;
+    }
     StringBuffer s = new StringBuffer();
     s.append(c(game.colours.length));
     for (int i = 0; i < game.colours.length; i++) s.append(c(game.colours[i]));
-    d('S', s.toString());
-    d('O', " ");
+    String colours = s.toString();
+    if (force || !colours.equals(sentColours)) {
+      d('S', colours);
+      sentColours = colours;
+    }
   }
 
   void join() {
@@ -143,6 +157,7 @@ public class Net {
       d('C', game.chat);
       sentChat = game.chat;
     }
+    pushAppearance(false);
   }
 
   public void receive(String l) {
@@ -154,6 +169,8 @@ public class Net {
         myId = arg.length() >= 8 ? arg.substring(0, 8) : arg;
         try { myNum = Integer.parseInt(myId.substring(4)); } catch (Exception e) { myNum = 0; }
         sentX = -999;
+        sentNickname = null;
+        sentColours = null;
         break;
       case '+':
         if (arg.length() >= 8) {

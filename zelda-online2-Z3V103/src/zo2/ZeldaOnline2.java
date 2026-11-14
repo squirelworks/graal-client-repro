@@ -15,6 +15,8 @@ import java.awt.Panel;
 import java.awt.TextField;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
@@ -38,7 +40,7 @@ import javax.imageio.ImageIO;
  */
 public class ZeldaOnline2 extends Canvas {
   static final String TITLE = "Zelda Online";
-  /** The address field is pre-filled with this, never with a local address. */
+  /** Multiplayer defaults to a server on this machine; One-Player starts offline. */
   public static final String DEFAULT_SERVER = "127.0.0.1";
 
   Game game;
@@ -56,6 +58,17 @@ public class ZeldaOnline2 extends Canvas {
       public void keyReleased(KeyEvent e) { key(e, false); }
       public void keyTyped(KeyEvent e) { typed(e.getKeyChar()); }
     });
+    addFocusListener(new FocusAdapter() {
+      public void focusLost(FocusEvent e) { releaseInput(); }
+    });
+  }
+
+  void releaseInput() {
+    synchronized (game) {
+      game.keys = 0;
+      game.action = false;
+      swallow = -1;
+    }
   }
 
   void typed(char c) {
@@ -99,7 +112,11 @@ public class ZeldaOnline2 extends Canvas {
           game.action = down;
           return;
         case KeyEvent.VK_ENTER:
-          if (down && game.net != null) { typing = new StringBuffer(); game.typing = ""; game.keys = 0; }
+          if (down && game.net != null) {
+            releaseInput();
+            typing = new StringBuffer();
+            game.typing = "";
+          }
           return;
         default: return;
       }
@@ -363,6 +380,9 @@ public class ZeldaOnline2 extends Canvas {
     // under the 512x448 view: the chat field and the Options button (the
     // window is 512x482 inside, isolated lab 2026-11-13)
     final TextField chat = new TextField();
+    chat.addFocusListener(new FocusAdapter() {
+      public void focusGained(FocusEvent e) { c.releaseInput(); }
+    });
     Button options = new Button("Options");
     Panel bar = new Panel(new BorderLayout(4, 0));
     bar.add(chat, BorderLayout.CENTER);
@@ -377,6 +397,7 @@ public class ZeldaOnline2 extends Canvas {
     });
     options.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
+        c.releaseInput();
         optionsWindow(f, game);
         c.requestFocus();
       }
