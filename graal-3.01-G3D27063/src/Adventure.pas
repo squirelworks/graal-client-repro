@@ -718,6 +718,8 @@ begin
   Colors[4] := 18;
   BodyImage := 'body.png';
   HeadImage := 'head0.png';
+  SwordImage := 'sword1.png';
+  ShieldImage := 'shield1.png';
   Dir := DirDown;
   AniName := 'idle';
   FixedStep := -1;
@@ -913,10 +915,20 @@ begin
   FOthers := TList.Create;
   FTileDefs := TStringList.Create;
   FTileDefTypes := TStringList.Create;
+  { a new 2.05 account, as the 2.22 rebuild starts offline: 3 of 3
+    hearts, 10 bombs, 5 arrows, glove and sword 1, and the client's own
+    bomb; online the server sends the props and the weapon list }
+  Player.MaxPower := 3;
+  Player.Power := 6;      { half hearts, as PLPROP_CURPOWER }
+  Player.Bombs := 10;
+  Player.Arrows := 5;
+  Player.GlovePower := 1;
+  Player.SwordPower := 1;
   CarryKind := -1;
   AP := 50;
   WeaponsOn := True;
   Selected := -1;
+  AddDefaultWeapon(8);
   UseBuiltins;
 end;
 
@@ -1100,6 +1112,8 @@ begin
   FPassword := Password;
   ConnectAtMs := NowMs;
   LoginMs := -1;
+  SetLength(Weapons, 0);
+  Selected := -1;
   Result := FClient.Connect(Host, Port);
   if not Result then
   begin
