@@ -1001,6 +1001,51 @@ begin
   end;
 end;
 
+procedure TestReceivedSwordHealAP;
+var
+  G: TAdventure;
+  P: TServerPlayer;
+  A, Kind, Expected: Integer;
+begin
+  for A := 39 to 40 do
+    for Kind := 0 to 1 do
+    begin
+      G := TAdventure.Create;
+      try
+        G.Headless := True;
+        Check(G.LoadLevelFile('start.nw'), 'received heal: board loads');
+        G.Player.X := 30;
+        G.Player.Y := 30;
+        G.Player.MaxPower := 3;
+        G.Player.Power := 3;
+        G.AP := A;
+        if Kind = 0 then
+        begin
+          { Custom sword: encoded 29 decodes to signed power -1. }
+          G.Receive(PLO_OTHERPLPROPS, GShort(7) + GChar(PLPROP_X) + GChar(56) +
+            GChar(PLPROP_Y) + GChar(60) + GChar(PLPROP_SWORDPOWER) + GChar(29) +
+            GString('custom.gif') + GChar(PLPROP_SPRITE) + GChar(6 * 4 + DirRight));
+          Expected := 3 + Ord(A >= 40);
+        end
+        else
+        begin
+          G.Receive(PLO_OTHERPLPROPS, GShort(7) + GChar(PLPROP_X) + GChar(56) +
+            GChar(PLPROP_Y) + GChar(60) + GChar(PLPROP_SWORDPOWER) + GChar(2) +
+            GChar(PLPROP_SPRITE) + GChar(6 * 4 + DirRight));
+          Expected := 1;
+        end;
+        P := G.FindOther(7, False);
+        Check((P <> nil) and (((Kind = 0) and (P.SwordPower = -1)) or
+          ((Kind = 1) and (P.SwordPower = 2))), 'received heal: production prop decoder preserves power');
+        P.HitSecond := -1;
+        G.Tick;
+        Check(G.Player.Power = Expected, 'received heal: AP39 ignores heal, AP40 heals, positive sword damages both');
+        Check(not G.Hurtable and (G.Player.AniName = 'hurt'), 'received heal: both healing gates retain hurt path');
+      finally
+        G.Free;
+      end;
+    end;
+end;
 procedure TestCombat;
 var
   G: TAdventure;
@@ -1483,6 +1528,7 @@ begin
   RunNpcTests(Check, NpcSkipped);
   Inc(Skipped, NpcSkipped);
   RunBaddyTests(Check);
+  TestReceivedSwordHealAP;
   TestCombat;
   TestSigns;
   TestWeapons;
