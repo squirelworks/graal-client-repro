@@ -116,6 +116,19 @@ class Combat {
   std::vector<Packet> tick(Files::Level& level, const ObjectTables& tables, const TileTypes& types);
   void clear() { bombs_.clear(); blasts_.clear(); shots_.clear(); }
 
+  // What hits this player now, judged on the victim's side as 2.05 does:
+  // a blast piece whose centre is under a tile from the body's centre
+  // (x + 1.5, y + 2) on both axes (a power-3 blast one heart, else half);
+  // another player's shot over the body box (x + 0.5 to 2.5, y + 1 to 3),
+  // which then goes (a fireball or nuke one heart, else half). A shot
+  // met head on by a shield while standing or walking does not hurt: with
+  // shield power 2 or more it flies back as this player's own (the 9
+  // ARROWADD with flag 4 is in `out`), with power 1 it drops.
+  struct Hit {
+    double hearts = 0.5, kx = 0, ky = 0;
+  };
+  std::vector<Hit> hits_on(const Player& me, const ObjectTables& tables, std::vector<Packet>& out);
+
   const std::vector<Bomb>& bombs() const { return bombs_; }
   const std::vector<Blast>& blasts() const { return blasts_; }
   const std::vector<Shot>& shots() const { return shots_; }

@@ -51,7 +51,7 @@ this program. This directory does.
 | `files/` | levels and packages | **done**: `GR-V1.00`–`1.05` (1.05 board layers), the 101 board packet, links, chests, signs; `GANI0001` sprite-mode ganis (sprites, steps, WAIT, SINGLEDIRECTION, ATTACHSPRITE/2, defaults). Packages and movie-mode ganis next |
 | `draw/` | the draw passes and the window | **done**: the world passes in the original's order on a software canvas (shared with `common/torque/gui`), the lobby rule, an Xlib window and a headless window; players drawn from their gani with head, body, sword, shield and hats from the player's folder (`draw/assets`), the body in the player's five colours; the 6.x HUD (`draw/hud`: tabs, sword and glove, AP and MP bars, counters, hearts) |
 | `shell/` | the program loop, `StartScript_*`, `GuiGraalCtrl` | **started**: the 50 ms loop, level name/board/links/chests from the session, window title per server, and the script host on `gs2::Machine` (140, 197 with the `GRESCR01` cache, 33/34, 190), and the GUI host: `StartScript_*` read from the player's own program file (`--program`), `MainMenuGui2D` as the content, the world drawn in its `GuiGraalCtrl`, mouse and keys from the window. The show-image emitters run each tick and draw through the painter (add, transparent, subtract, day-night). Next: the engine actions and `GuiShowImgCtrl` animations |
-| `world/` | `TServerPlayer` and the props | **done**: the prop stream of 9 and 8 (the 2.22 table plus X2/Y2/Z2), the initial props after login, and the X2/Y2 movement diff each tick; walking against `arrays.dat` walls and chests with the six-point box, the corner nudge, and `push` with 38 `pushed,0`; the item keys (`world/actions`): S swings and cuts bushes (1 BOARDMODIFY), A lifts, throws (11) or grabs and pulls, D toggles the status bit, walking into a chest opens it (20); the server's 7 BOARDMODIFY is applied; Q and Tab toggle the status bit like D while no weapon is shown. The weapons (`world/weapons`): the weapon list (33, 34, 43 built-ins, 194 clears it) with the 2.05 selection rules; with a weapon shown D uses the selected one, a GS2 weapon through `onWeaponFired`, the built-in Bomb, Superbomb and Joltbomb by laying a bomb (4 BOMBADD, then 27 EXPLOSION and the blast's board changes), the Bow and the three magic shots by firing a shot (9 ARROWADD); other players' bombs, shots and explosions (11, 12, 19, 36) are drawn too; the scripts get `putbomb`, `shootarrow`, `shootfireball`, `shootfireblast`, `shootnuke` and a `player` object (x, y, dir, bombs, darts, rupees, hearts, ani, ...) The item drawing (`world/effects`, from the 6.03r7 item-drawing lab): the carried object over the head (bobbing with it, rising while lifted), `carry`/`carrystill`, a thrown object's 128 px flight with its shadow and its break into leaves, shards or sign pieces, a cut bush's leaves, and the item over an opened chest with its 13 ITEMDEL after 1.2 s |
+| `world/` | `TServerPlayer` and the props | **done**: the prop stream of 9 and 8 (the 2.22 table plus X2/Y2/Z2), the initial props after login, and the X2/Y2 movement diff each tick; walking against `arrays.dat` walls and chests with the six-point box, the corner nudge, and `push` with 38 `pushed,0`; the item keys (`world/actions`): S swings and cuts bushes (1 BOARDMODIFY), A lifts, throws (11) or grabs and pulls, D toggles the status bit, walking into a chest opens it (20); the server's 7 BOARDMODIFY is applied; Q and Tab toggle the status bit like D while no weapon is shown. The weapons (`world/weapons`): the weapon list (33, 34, 43 built-ins, 194 clears it) with the 2.05 selection rules; with a weapon shown D uses the selected one, a GS2 weapon through `onWeaponFired`, the built-in Bomb, Superbomb and Joltbomb by laying a bomb (4 BOMBADD, then 27 EXPLOSION and the blast's board changes), the Bow and the three magic shots by firing a shot (9 ARROWADD); other players' bombs, shots and explosions (11, 12, 19, 36) are drawn too; the scripts get `putbomb`, `shootarrow`, `shootfireball`, `shootfireblast`, `shootnuke`, `onKeyPressed` and a `player` object (x, y, dir, bombs, darts, rupees, hearts, ani, ...); Q opens the item list (`world/item_list`); blasts, shots, swings and 40 HURTPLAYER hurt the player, with knockback, death and coming back (`world/health`) The item drawing (`world/effects`, from the 6.03r7 item-drawing lab): the carried object over the head (bobbing with it, rising while lifted), `carry`/`carrystill`, a thrown object's 128 px flight with its shadow and its break into leaves, shards or sign pieces, a cut bush's leaves, and the item over an opened chest with its 13 ITEMDEL after 1.2 s |
 | `gui/` | the GS2 controls | in `common/cpp/gs2` (`gui.hpp`, B4): one control tree for 4.x to 6.x; Quattro paints it on its canvas (`shell/gui_host`) |
 
 The split with Track B: `common/cpp/gs2/` owns the bytecode loader, the
@@ -125,15 +125,26 @@ were not measured.
   no GUI (the lab saw Esc toggle the status bit like D, Q and Tab).
   Through `Program::action` (the engine library's bindings), `doQ` does
   D and `doS2` (Space) does S.
-- Weapons: with a weapon shown, Q and Tab step to the next one, a stand-in
-  for the Q item list, which 6.x builds as a GUI script. Where a bomb or a
-  shot starts, the 55-tick fuse, the reach-2 blast of 11 ticks, a shot's
-  tile a tick, and the bomb1.png cells are the 2.x Pascal rebuilds'
-  readings, since no 6.x note gives them. After a bomb or an arrow the
-  client sends its new count (props 4 and 5); that 6.x does so was not
-  seen. Blasts and shots hurt nobody yet, and the HUD does not draw the
-  selected weapon. The GS1 command names are kept for GS2; the 6.x
-  command run is not copied out in the notes.
+- Weapons: with a weapon shown, Q and Tab open the client's own item
+  list (`world/item_list`, 2.05's layout, arrows, Delete sending 29, Esc
+  and the game keys closing it). A 6.x server usually sends its own list
+  as a GS2 GUI script, which the scripts can open from `onKeyPressed`
+  (every key down goes to every weapon script, with the Windows key code;
+  that 6.x uses those codes is a reading). The window's colours, folders
+  and scroll arrows were not read. Where a bomb or a shot starts, the
+  55-tick fuse, the reach-2 blast of 11 ticks, a shot's tile a tick, and
+  the bomb1.png cells are the 2.x Pascal rebuilds' readings, since no 6.x
+  note gives them. After a bomb or an arrow the client sends its new
+  count (props 4 and 5); that 6.x does so was not seen. The HUD does not
+  draw the selected weapon. The GS1 command names are kept for GS2; the
+  6.x command run is not copied out in the notes.
+- Being hurt (`world/health`): the victim's client judges blasts, other
+  players' shots and swings, and 40 HURTPLAYER, with 2.05's rules; the
+  hurt lasts 31 ticks with 5 tiles of knockback, as the 6.03r7 lab saw.
+  The shield's knock-back of an arrow with power 1 drops the arrow here.
+  Dying sends hearts 0 and 14 CLAIMPKER; an arrow key brings the player
+  back where the level was entered, with hearts by AP (the Pascal
+  rebuilds' reading). Own blasts hurt their owner, as in 2.05.
 - Stand-ins until the real art is drawn: tiles with no `pics1.png` are flat
   colours from their id; chests are boxes (6.03r7 draws none, as the
   real client does), and so is a player when no

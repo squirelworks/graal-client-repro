@@ -6,6 +6,7 @@
 #include "check.hpp"
 #include "fake_server.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
@@ -502,9 +503,35 @@ void test_weapons() {
   CHECK(p.me().bombs == 2);  // a script's bomb takes none
   p.action("doD", false);
 
-  p.action("doQ", true);  // Q steps to the next weapon: Bomb again
-  CHECK(run(p, nullptr, &game, [&] { return p.weapons().selected()->name == "Bomb"; }));
+  // Q opens the item list: Bomb and Stick side by side, Stick selected.
+  p.action("doQ", true);
+  CHECK(run(p, nullptr, &game, [&] { return p.item_list_open(); }));
   p.action("doQ", false);
+  auto cells = p.item_cells();
+  CHECK(cells.size() == 2 && cells[0].x == 48 && cells[0].y == 112 && cells[1].x == cells[0].x + cells[0].w);
+  Draw::InputEvent left;
+  left.key = "left";
+  win.push_input(left);
+  CHECK(run(p, nullptr, &game, [&] { return p.weapons().selected()->name == "Bomb"; }));
+  CHECK(std::find(p.last_passes().begin(), p.last_passes().end(), "ItemList") != p.last_passes().end());
+  Draw::InputEvent del;
+  del.key = "delete";
+  win.push_input(del);  // Delete drops Bomb and tells the server
+  CHECK(run(p, nullptr, &game, [&] { return game.saw(29, "Bomb"); }));
+  CHECK(p.weapons().list().size() == 1 && p.weapons().selected()->name == "Stick");
+  Draw::InputEvent esc;
+  esc.key = "escape";
+  win.push_input(esc);
+  CHECK(run(p, nullptr, &game, [&] { return !p.item_list_open(); }));
+
+  // Another player's HURTPLAYER: one heart off, the hurt pose, the new hearts sent.
+  game.send(gchar(9) + gchar(World::kMaxPower) + gchar(3) + gchar(World::kCurPower) + gchar(6) + "\n" + gchar(8) +
+            Net::gshort(7) + gchar(World::kX) + gchar(64) + gchar(World::kY) + gchar(60) + "\n");
+  CHECK(run(p, nullptr, &game, [&] { return p.others().count(7) == 1 && p.me().power == 6; }));
+  game.send(gchar(40) + Net::gshort(7) + gchar(0x40) + gchar(0x40) + gchar(2) + "\n");
+  CHECK(run(p, nullptr, &game, [&] { return game.saw(2, gchar(World::kCurPower) + gchar(4)); }));
+  CHECK(p.me().power == 4 && p.health().hurting());
+
   game.send(gchar(194) + "\n");
   CHECK(run(p, nullptr, &game, [&] { return p.weapons().list().empty() && !p.scripts().weapon("Stick"); }));
 }

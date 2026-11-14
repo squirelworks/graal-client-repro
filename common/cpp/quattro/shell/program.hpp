@@ -18,6 +18,8 @@
 #include "../world/player.hpp"
 #include "../world/walk.hpp"
 #include "../world/weapons.hpp"
+#include "../world/health.hpp"
+#include "../world/item_list.hpp"
 #include "gui_host.hpp"
 #include "scripts.hpp"
 
@@ -94,6 +96,10 @@ class Program {
   // The weapon list (33, 34, 43, 194) and the bombs, blasts and shots in the level.
   const World::WeaponList& weapons() const { return weapons_; }
   const World::Combat& combat() const { return combat_; }
+  const World::Health& health() const { return health_; }
+  // The Q item list window (2.05's layout) is open.
+  bool item_list_open() const { return item_list_open_; }
+  std::vector<World::ItemCell> item_cells() const;
   // Uses the selected weapon, as D does: a server weapon with a script gets
   // onWeaponFired; a built-in one lays its bomb or fires its shot.
   void fire_weapon();
@@ -159,6 +165,8 @@ class Program {
   void sync_player_in();   // the script's `player` from me_
   void sync_player_out();  // what a script changed back into me_
   void combat_effects();   // bombs, blasts and shots as effect sprites
+  void item_list_input(const Draw::InputEvent& e);
+  void draw_item_list();
 
   const Net::BuildProfile& profile_;
   Options opt_;
@@ -181,6 +189,9 @@ class Program {
   World::Effects effects_;
   World::WeaponList weapons_;
   World::Combat combat_;
+  World::Health health_;
+  double entry_x_ = 30, entry_y_ = 30;  // where the level was entered
+  bool item_list_open_ = false;
   bool weapon_keys_[2] = {false, false};  // D, and Q/Tab, last tick (with a weapon shown)
   int sent_arrows_ = -1, sent_bombs_ = -1;
   struct { double x = 0, y = 0; int dir = 0, bombs = 0, arrows = 0; } script_seen_;

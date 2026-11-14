@@ -75,6 +75,13 @@ class ScriptHost {
   void clear_weapons() { weapons_.clear(); }
   // Raises onWeaponFired on the named weapon; false when it has no script.
   bool fire(const std::string& name);
+  // A key went down (Torque key name, typed character): onKeyPressed
+  // (keycode, key text) on every weapon with a script.
+  void key_pressed(const std::string& key, int ch);
+  // The keycode a GS2 script sees for a key name: the Windows virtual-key
+  // code (letters and digits as upper-case ASCII, arrows 37 to 40). A
+  // reading; the 6.x key table is not copied out in the notes.
+  static int keycode(const std::string& key, int ch);
   // The `player` the scripts see (the program fills its fields each tick).
   gs2::VarPtr player() const { return player_; }
   const std::map<std::string, std::string>& classes() const { return classes_; }

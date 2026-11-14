@@ -187,6 +187,27 @@ bool ScriptHost::fire(const std::string& name) {
   return true;
 }
 
+int ScriptHost::keycode(const std::string& key, int ch) {
+  static const std::map<std::string, int> kNamed = {
+      {"backspace", 8}, {"tab", 9}, {"enter", 13}, {"return", 13}, {"shift", 16}, {"ctrl", 17}, {"alt", 18},
+      {"escape", 27}, {"space", 32}, {"pageup", 33}, {"pagedown", 34}, {"end", 35}, {"home", 36},
+      {"left", 37}, {"up", 38}, {"right", 39}, {"down", 40}, {"insert", 45}, {"delete", 46},
+  };
+  if (auto it = kNamed.find(lower(key)); it != kNamed.end()) return it->second;
+  if (key.size() == 1) return std::toupper(static_cast<unsigned char>(key[0]));
+  if (key.size() >= 2 && (key[0] == 'f' || key[0] == 'F') && std::isdigit(static_cast<unsigned char>(key[1])))
+    return 111 + std::atoi(key.c_str() + 1);  // F1 is 112
+  return ch;
+}
+
+void ScriptHost::key_pressed(const std::string& key, int ch) {
+  int code = keycode(key, ch);
+  std::string text = ch > 0 && ch < 256 ? std::string(1, static_cast<char>(ch)) : std::string();
+  for (auto& [n, w] : weapons_)
+    if (machine_.hasScript(w))
+      machine_.queueEvent(w, "KeyPressed", {gs2::Value::number(code), gs2::Value::string(text)});
+}
+
 std::string ScriptHost::cache_path(const ScriptDescriptor& d) const {
   if (cache_dir_.empty()) return {};
   // Path separators and dots in the name are kept out of the path.

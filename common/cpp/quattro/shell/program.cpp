@@ -1,5 +1,6 @@
 #include "program.hpp"
 
+#include "../draw/ui_font.hpp"
 #include "../net/gtypes.hpp"
 
 #include <algorithm>
@@ -641,6 +642,9 @@ void Program::on_message(int id, std::string_view body) {
       if (wr.ok()) weapons_.add_default(item);
       return;
     }
+    case 40:  // PLO_HURTPLAYER: s attacker, c dx, c dy, c power
+      send_packets(health_.on_hurt_player(me_, body, others_));
+      return;
     case 194:  // PLO_RESETCLIENT: the weapon list follows
       weapons_.clear();
       scripts_.clear_weapons();
@@ -662,6 +666,8 @@ void Program::on_message(int id, std::string_view body) {
       item_keys_.new_level();
       effects_.clear();
       combat_.clear();
+      entry_x_ = me_.x;  // where a dead player comes back
+      entry_y_ = me_.y;
       load_local_level(level_name_);
       break;
     case 7: {  // PLO_BOARDMODIFY: x, y, w, h, then the tiles row by row
@@ -820,10 +826,19 @@ bool Program::tick() {
   if (window_.title() != window_title()) window_.set_title(window_title());
 
   for (Draw::Key k = window_.poll_key(); k != Draw::Key::NoKey; k = window_.poll_key()) {
+    if (k == Draw::Key::Escape && item_list_open_) {
+      item_list_open_ = false;  // Esc closes the item list
+      continue;
+    }
     if (k == Draw::Key::Close || (k == Draw::Key::Escape && !gui_->has_content())) quit_ = true;
   }
   for (Draw::InputEvent e; window_.poll_input(e);) {
-    if (gui_->has_content()) gui_->input(e);
+    if (gui_->has_content())
+      gui_->input(e);
+    else if (item_list_open_)
+      item_list_input(e);
+    else if (e.type == Draw::InputEvent::KeyDown)
+      scripts_.key_pressed(e.key, e.ch);
   }
   // Walking: half a tile per held arrow per tick, against the walls.
   if (!world_.lobby) {
@@ -833,7 +848,7 @@ bool Program::tick() {
                     action_moves_;
     // D, Q and Tab toggle the same status bit while no weapon is shown
     // (item-keys lab). With one, D uses the selected weapon and Q or Tab
-    // steps the selection (the rebuild's stand-in for the item list).
+    // opens and closes the item list.
     const bool d_held = window_.held(Draw::Key::D) || action_d_;
     const bool q_held = window_.held(Draw::Key::Q) || window_.held(Draw::Key::Tab) || action_q_;
     const bool armed = weapons_.any_shown();
@@ -841,10 +856,32 @@ bool Program::tick() {
                      (window_.held(Draw::Key::S) ? World::kKeyS : 0u) |
                      (!armed && (d_held || q_held) ? World::kKeyD : 0u) |
                      (action_items_ & (World::kKeyA | World::kKeyS));
-    if (armed && d_held && !weapon_keys_[0] && !item_keys_.busy() && !item_keys_.carrying()) fire_weapon();
-    if (armed && q_held && !weapon_keys_[1]) weapons_.select_next();
+    const bool q_pressed = armed && q_held && !weapon_keys_[1];
+    const bool d_pressed = armed && d_held && !weapon_keys_[0];
     weapon_keys_[0] = armed && d_held;
     weapon_keys_[1] = armed && q_held;
+    if (!armed) item_list_open_ = false;
+    if (item_list_open_) {
+      // The list holds the game: the item key closes it, so do A, S, D.
+      if (q_pressed || d_pressed || (items & (World::kKeyA | World::kKeyS))) item_list_open_ = false;
+      keys = 0;
+      items = 0;
+    } else if (q_pressed) {
+      item_list_open_ = true;
+      keys = 0;
+      items = 0;
+    }
+    // Dead: nothing but an arrow key, which brings the player back where
+    // the level was entered. Hurt: the knockback holds the walk.
+    if (health_.dead()) {
+      if (keys) send_packets(health_.respawn(p, entry_x_, entry_y_, level_name_));
+      keys = 0;
+      items = 0;
+    } else if (health_.hurting()) {
+      keys = 0;
+      items &= ~World::kKeyD;
+    }
+    if (d_pressed && !item_list_open_ && !health_.dead() && !item_keys_.busy() && !item_keys_.carrying()) fire_weapon();
     // The item keys first (sword, lift, throw, grab); a swing or a lift
     // holds the walk.
     int carried = p.carry_sprite;
@@ -886,7 +923,15 @@ bool Program::tick() {
     if (props_sent_) session_.connection().send(pk.id, pk.body);
   // Bombs burn, blasts age, shots fly; an own bomb's explosion and the
   // board it changed go out.
-  if (!world_.lobby) send_packets(combat_.tick(world_.level, object_tables_, tile_types_));
+  if (!world_.lobby) {
+    send_packets(combat_.tick(world_.level, object_tables_, tile_types_));
+    // What hurts this player: blasts, other players' shots and swings.
+    std::vector<World::Packet> back;
+    for (const auto& h : combat_.hits_on(me_, object_tables_, back)) send_packets(health_.hit(me_, h.hearts, h.kx, h.ky));
+    send_packets(back);
+    send_packets(health_.check_swords(me_, others_));
+    health_.tick(me_, world_.level, tile_types_);
+  }
   send_counts();
   if (opt_.download_files && props_sent_ && frame_ % 10 == 0) ask_for_missing();
   ++frame_;
@@ -924,6 +969,7 @@ bool Program::tick() {
     renderer_.draw(canvas_, world_, Draw::follow(world_, canvas_.width(), canvas_.height()),
                    [this](const std::string& name) { passes_.push_back(name); });
     draw_hud();
+    draw_item_list();
   }
   window_.present(canvas_.surface());
   return !quit_;
@@ -1054,6 +1100,61 @@ void Program::combat_effects() {
       world_.effects.push_back({r, static_cast<int>(std::lround(sh.x * Draw::kTile)),
                                 static_cast<int>(std::lround(sh.y * Draw::kTile)), {}});
   }
+}
+
+// ----------------------------------------------------------- item list
+
+std::vector<World::ItemCell> Program::item_cells() const {
+  return World::layout_items(
+      weapons_, canvas_.width(), canvas_.height(),
+      [this](const std::string& name) -> std::pair<int, int> {
+        const Draw::Image* img = assets_ ? assets_->image(name) : nullptr;
+        return img ? std::pair<int, int>{img->width, img->height} : std::pair<int, int>{0, 0};
+      },
+      [](const std::string& text) { return Draw::ui_text_width(text, false); });
+}
+
+void Program::item_list_input(const Draw::InputEvent& e) {
+  if (e.type != Draw::InputEvent::KeyDown) return;
+  static const char* kArrows[4] = {"up", "left", "down", "right"};
+  for (int d = 0; d < 4; ++d)
+    if (e.key == kArrows[d]) {
+      int to = World::move_in_items(item_cells(), weapons_.selected_index(), d);
+      if (to >= 0) weapons_.select(to);
+      return;
+    }
+  if (e.key == "delete") {
+    const World::Weapon* w = weapons_.selected();
+    if (!w || World::hidden_weapon(w->name)) return;
+    std::string name = w->name;
+    weapons_.remove(name);
+    if (props_sent_) session_.connection().send(29, name);  // PLI_NPCWEAPONDEL
+    weapons_.select(weapons_.selected_index());
+    return;
+  }
+  if (e.key == "escape") item_list_open_ = false;
+}
+
+void Program::draw_item_list() {
+  if (!item_list_open_) return;
+  const int w = canvas_.width(), h = canvas_.height();
+  Draw::Rect win{World::kItemWindowLeft, World::kItemWindowTop, w - World::kItemWindowMargin - World::kItemWindowLeft,
+                 h - World::kItemWindowMargin - World::kItemWindowTop};
+  // The window's own colours were not read; a dark panel with a light frame.
+  canvas_.fill_rect(win, {0, 0, 64, 200});
+  canvas_.frame_rect(win, {255, 255, 255, 255});
+  for (const auto& c : item_cells()) {
+    const World::Weapon& wp = weapons_.list()[static_cast<size_t>(c.index)];
+    if (c.index == weapons_.selected_index()) canvas_.fill_rect({c.x, c.y, c.w, c.h}, {255, 212, 128, 255});
+    const Draw::Image* img = wp.image.empty() ? nullptr : assets_->image(wp.image);
+    int ix = c.x + (c.w - c.image_w) / 2, iy = c.y + 5;
+    if (img)
+      canvas_.blit(*img, ix, iy);
+    else
+      canvas_.frame_rect({ix, iy, c.image_w, c.image_h}, {160, 160, 160, 255});
+    Draw::ui_draw_text(canvas_, c.x + (c.w - c.label_w) / 2, iy + c.image_h + 5, wp.name, {255, 255, 255, 255}, false);
+  }
+  passes_.push_back("ItemList");
 }
 
 }  // namespace Quattro::Shell
