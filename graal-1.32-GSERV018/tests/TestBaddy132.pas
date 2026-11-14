@@ -23,7 +23,7 @@ type
     PX, PY: Double;
     PDir: Integer;
     Hurts: Double;
-    Shots, Died: Integer;
+    Shots, Died, Drops, Darts: Integer;
     Sent: TStringList;
     constructor Create;
     destructor Destroy; override;
@@ -35,6 +35,7 @@ type
     procedure HurtPlayer(Hearts, FromX, FromY: Double); override;
     procedure Shoot(X, Y: Double; Dir, Sprite, Kind: Integer); override;
     procedure Send(Id: Integer; const Data: string); override;
+    procedure DropItem(Item: Integer; X, Y: Double); override;
     procedure AllDied; override;
   end;
 
@@ -83,6 +84,12 @@ var
   I: Integer;
 begin
   for I := 1 to N do M.Tick;
+end;
+
+procedure TTestBaddyWorld.DropItem(Item: Integer; X, Y: Double);
+begin
+  Inc(Drops);
+  if Item = 4 then Inc(Darts);
 end;
 
 procedure RunBaddyTests(Check: TCheckProc);
@@ -244,6 +251,27 @@ begin
     end;
     Check(Raised = 0, Format('props: 20000 random messages, %d raised', [Raised]));
   finally
+    M.Free;
+  end;
+  { 1.21 to 1.41: a dying baddy rolls its item (darts only from types 3,
+    4 and 9) }
+  W := TTestBaddyWorld.Create;
+  M := TBaddyManager.Create(W);
+  B := TBaddy.Create;
+  try
+    RandSeed := 1;
+    B.Kind := 3;
+    for I := 1 to 1000 do M.DeathDrop(B);
+    Check((W.Drops > 700) and (W.Drops < 800) and (W.Darts > 400),
+      Format('death roll: an archer leaves an item 3 times in 4 (%d, %d darts)', [W.Drops, W.Darts]));
+    W.Drops := 0;
+    W.Darts := 0;
+    B.Kind := 0;
+    for I := 1 to 1000 do M.DeathDrop(B);
+    Check((W.Drops > 250) and (W.Drops < 350) and (W.Darts = 0),
+      Format('death roll: a gray soldier leaves an item 3 times in 10, no darts (%d)', [W.Drops]));
+  finally
+    B.Free;
     M.Free;
   end;
 end;

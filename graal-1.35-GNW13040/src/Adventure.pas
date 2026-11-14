@@ -222,6 +222,10 @@ type
     { Game keys pressed this tick (down edges): A action (lift, throw,
       open), S attack (sword, throw), D item. }
     ActionKey, AttackKey, ItemKey: Boolean;
+    { S is down: laying an item needs S held with A }
+    AttackHeld: Boolean;
+    { the item picked while laying (mode 9), an item number, or -1 }
+    LayPick: Integer;
     { The map key (M) pressed this tick: opens or closes the big map. }
     MapKey: Boolean;
     { What the player is doing: ModeFree, ModeSword, ModeLift, ModeCarry. }
@@ -296,7 +300,21 @@ type
       the change when a tile differs. }
     procedure PutObject(X, Y, List, I: Integer; Send: Boolean);
     { The S key: throws what is carried, or swings the sword and cuts. }
+    { an item the client rolled itself (1.x): a bush, a pot or a baddy }
+    procedure PutRolled(Item: Integer; X, Y: Double);
+    procedure RollDrop(X, Y: Integer);
+    procedure LiftDrop(Kind, X, Y: Integer);
     procedure Attack;
+    { S again during a swing, with the spin status: the spin attack }
+    procedure StartSpin;
+    { laying items: S held + A picks, A alone lays }
+    function CanLay(Item: Integer): Boolean;
+    function NextLayItem(After: Integer): Integer;
+    procedure StartLaying;
+    procedure LayPicked;
+    procedure TakeLaid(Item: Integer);
+    procedure SendOwnProp(const S: string);
+    procedure DrawLaying(CamX, CamY: Integer);
     { The A key: throws, lifts, or opens a chest. }
     procedure Action;
     procedure Throw;
@@ -377,6 +395,14 @@ const
   ModeLift = 2;
   ModeCarry = 3;
   ModeDead = 5;
+  ModeLay = 9;   { picking an item to lay: S held + A }
+  ModeSpin = 13; { the spin attack }
+  { STATUS bit: the player has the spin attack }
+  SpinStatus = $40;
+  { the order S held + A walks the items in; the heart container (11) is
+    not in it }
+  LayOrder: array[0..23] of Integer = (0, 1, 2, 19, 3, 4, 5, 6, 16, 8, 12,
+    23, 7, 20, 21, 22, 9, 15, 17, 10, 13, 18, 14, 24);
   { The sprite of each item (arrays.dat array 24), by item number. }
   ItemSprites: array[0..24] of Integer = (136, 137, 138, 67, 143, 139, 145,
     351, 65, 350, 314, 315, 321, 323, 322, 324, 325, 328, 329, 330, 331, 332,
@@ -800,6 +826,7 @@ begin
   AP := 50;
   ShowStats := $1FF;
   WeaponsOn := True;
+  LayPick := -1;
   { offline the player has the client's own bomb; online the server sends
     the list }
   Selected := -1;
@@ -1131,6 +1158,228 @@ begin
     FClient.SendPacket(PLI_BOARDMODIFY, S);
 end;
 
+{ ---- the spin attack and laying items (graal_analysis
+  client-internals/player-mannerisms-live.md "Spin attack",
+  client-internals/laying-items-and-hiding.md; read in 2.05 and 2.22) ---- }
+
+procedure TAdventure.SendOwnProp(const S: string);
+begin
+  if FClient.Connected then FClient.SendPacket(PLI_PLAYERPROPS, S);
+end;
+
+procedure TAdventure.StartSpin;
+var
+  A: TGraalAni;
+begin
+  { the swing is cut off and spin plays, 13 frames of one tick, then idle }
+  Mode := ModeSpin;
+  Player.AniName := '';
+  Player.SetAni('spin', Frame);
+  A := Assets.Ani('spin');
+  if A <> nil then FModeUntil := Frame + A.TotalTicks else FModeUntil := Frame + 13;
+  { what the spin hits was not checked on the real client: the blade's
+    circle, a 4 x 4 box round the body's centre, stands in }
+  if Assigned(OnSwordHit) then
+    OnSwordHit(Player.X - 0.5, Player.Y, 4, 4, Player.SwordPower);
+end;
+
+{ A sword or shield picture of the stock kind (sword1.gif, shield2.png);
+  a custom picture is not laid here (see the folder README). }
+function StockPicture(const Image, Stem: string): Boolean;
+var
+  N: string;
+begin
+  N := LowerCase(Image);
+  Result := (N = '') or ((Length(N) = Length(Stem) + 5) and
+    (Copy(N, 1, Length(Stem)) = Stem) and (N[Length(Stem) + 1] in ['0'..'9']) and
+    ((Copy(N, Length(Stem) + 2, 4) = '.gif') or (Copy(N, Length(Stem) + 2, 4) = '.png')));
+end;
+
+function TAdventure.CanLay(Item: Integer): Boolean;
+begin
+  case Item of
+    0: Result := Player.Rupees >= 1;
+    1: Result := Player.Rupees >= 5;
+    2: Result := Player.Rupees >= 30;
+    19: Result := Player.Rupees >= 100;
+    3: Result := Player.Bombs >= 5;
+    4: Result := Player.Arrows >= 5;
+    5: Result := Player.Power >= 3; { a heart and a half }
+    6: Result := Player.GlovePower = 2;
+    16: Result := Player.GlovePower = 3;
+    10: Result := (Player.SwordPower = 1) and StockPicture(Player.SwordImage, 'sword');
+    13: Result := (Player.SwordPower = 2) and StockPicture(Player.SwordImage, 'sword');
+    18: Result := (Player.SwordPower = 3) and StockPicture(Player.SwordImage, 'sword');
+    14: Result := (Player.SwordPower = 4) and StockPicture(Player.SwordImage, 'sword');
+    9: Result := (Player.ShieldPower = 1) and StockPicture(Player.ShieldImage, 'shield');
+    15: Result := (Player.ShieldPower = 2) and StockPicture(Player.ShieldImage, 'shield');
+    17: Result := (Player.ShieldPower = 3) and StockPicture(Player.ShieldImage, 'shield');
+    24: Result := (Player.Status and SpinStatus) <> 0;
+  else
+    Result := False; { bow, bomb, superbomb and the shots are never laid }
+  end;
+end;
+
+{ The first item the player can lay after After in the lay order, wrapping
+  round; After -1 starts at the top. -1 when there is none. }
+function TAdventure.NextLayItem(After: Integer): Integer;
+var
+  I, K, N: Integer;
+begin
+  Result := -1;
+  K := -1;
+  for I := 0 to High(LayOrder) do
+    if LayOrder[I] = After then K := I;
+  for N := 1 to Length(LayOrder) do
+  begin
+    I := LayOrder[(K + N) mod Length(LayOrder)];
+    if CanLay(I) then
+    begin
+      Result := I;
+      Exit;
+    end;
+  end;
+end;
+
+procedure TAdventure.StartLaying;
+var
+  PX, PY: Double;
+  I: Integer;
+begin
+  { the point in front must be free (water is not told apart here) }
+  ProbePoint(PX, PY);
+  if PointBlocked(PX, PY) then Exit;
+  I := NextLayItem(-1);
+  if I < 0 then Exit;
+  LayPick := I;
+  Mode := ModeLay;
+  Player.SetAni('idle', Frame);
+  PlaySoundAt('item2.wav', Player.X + 1.5, Player.Y + 2);
+end;
+
+procedure TAdventure.LayPicked;
+const
+  PliItemAdd = 12;
+  { where the item goes by facing: up, left, down, right }
+  LayDX: array[0..3] of Double = (0, -2, 0, 2);
+  LayDY: array[0..3] of Double = (-3, 0, 2, 0);
+var
+  X, Y: Double;
+  It: Integer;
+begin
+  Mode := ModeFree;
+  It := LayPick;
+  LayPick := -1;
+  { checked again: the player may have lost it meanwhile }
+  if (It < 0) or not CanLay(It) then Exit;
+  X := Player.X + 0.5 + LayDX[Player.Dir and 3];
+  Y := Player.Y + 1 + LayDY[Player.Dir and 3];
+  AddItem(X, Y, It, ItemLife);
+  { only floor items go to the others; a laid glove, sword, shield or spin
+    stays local }
+  if FloorItem(It) and FClient.Connected then
+    FClient.SendPacket(PliItemAdd, GChar(Round(X * 2)) + GChar(Round(Y * 2)) + GChar(It));
+  TakeLaid(It);
+  PlaySoundAt('item.wav', Player.X + 1.5, Player.Y + 2);
+end;
+
+procedure TAdventure.TakeLaid(Item: Integer);
+begin
+  case Item of
+    0, 1, 2, 19:
+      begin
+        case Item of
+          0: Dec(Player.Rupees, 1);
+          1: Dec(Player.Rupees, 5);
+          2: Dec(Player.Rupees, 30);
+        else
+          Dec(Player.Rupees, 100);
+        end;
+        SendOwnProp(GChar(PLPROP_RUPEESCOUNT) + GInt3(Player.Rupees));
+      end;
+    3:
+      begin
+        Dec(Player.Bombs, 5);
+        SendOwnProp(GChar(PLPROP_BOMBSCOUNT) + GChar(Player.Bombs));
+      end;
+    4:
+      begin
+        Dec(Player.Arrows, 5);
+        SendOwnProp(GChar(PLPROP_ARROWSCOUNT) + GChar(Player.Arrows));
+      end;
+    5:
+      begin
+        Dec(Player.Power, 2);
+        SendOwnProp(GChar(PLPROP_CURPOWER) + GChar(Player.Power));
+      end;
+    6, 16:
+      begin
+        Dec(Player.GlovePower);
+        SendOwnProp(GChar(PLPROP_GLOVEPOWER) + GChar(Player.GlovePower));
+      end;
+    10, 13, 18, 14:
+      begin
+        Dec(Player.SwordPower);
+        SendOwnProp(GChar(PLPROP_SWORDPOWER) + GChar(Player.SwordPower));
+      end;
+    9, 15, 17:
+      begin
+        Dec(Player.ShieldPower);
+        SendOwnProp(GChar(PLPROP_SHIELDPOWER) + GChar(Player.ShieldPower));
+      end;
+    24:
+      begin
+        Player.Status := Player.Status and not SpinStatus;
+        SendOwnProp(GChar(PLPROP_STATUS) + GChar(Player.Status));
+      end;
+  end;
+end;
+
+{ The picked item over the head while laying, centred on (x + 1.5, y). }
+procedure TAdventure.DrawLaying(CamX, CamY: Integer);
+var
+  Img: TGSurface;
+  SX, SY, SW, SH: Integer;
+begin
+  if (Mode <> ModeLay) or (LayPick < 0) or (LayPick > High(ItemSprites)) then Exit;
+  Img := Assets.Image('sprites.png', '');
+  if (Img = nil) or not Arrays.SpriteRect(ItemSprites[LayPick], SX, SY, SW, SH) then Exit;
+  Screen.Blit(Img, SX, SY, SW, SH, Round((Player.X + 1.5) * TileSize) - SW div 2 - CamX,
+    Round(Player.Y * TileSize) - SH div 2 - CamY);
+end;
+
+{ ---- what the client drops itself in 1.x (graal_analysis
+  client-internals/item-drops.md; read in 1.21 to 1.41) ---- }
+
+procedure TAdventure.PutRolled(Item: Integer; X, Y: Double);
+begin
+  AddItem(X, Y, Item, ItemLife);
+  { the server is not told before 1.38 }
+end;
+
+{ One Random(100) per cut or lifted bush: 0 to 24 a green rupee, 25 and 26
+  a blue one, 27 to 31 a heart, 32 to 36 bombs, else nothing. }
+procedure TAdventure.RollDrop(X, Y: Integer);
+var
+  R: Integer;
+begin
+  R := Random(100);
+  if R < 25 then PutRolled(0, X, Y)
+  else if R < 27 then PutRolled(1, X, Y)
+  else if R < 32 then PutRolled(5, X, Y)
+  else if R < 37 then PutRolled(3, X, Y);
+end;
+
+{ A lifted bush rolls; a lifted pot always leaves a heart; a sign or a
+  stone leaves nothing. }
+procedure TAdventure.LiftDrop(Kind, X, Y: Integer);
+begin
+  case Kind of
+    0: RollDrop(X, Y);
+    2: PutRolled(5, X, Y);
+  end;
+end;
+
 procedure TAdventure.Attack;
 var
   A: TGraalAni;
@@ -1142,6 +1391,14 @@ begin
     Throw;
     Exit;
   end;
+  { S again while the swing still plays, with the spin status: the spin
+    attack; S during the spin is ignored }
+  if Mode = ModeSpin then Exit;
+  if (Mode = ModeSword) and ((Player.Status and SpinStatus) <> 0) then
+  begin
+    StartSpin;
+    Exit;
+  end;
   if (Mode <> ModeFree) or not WeaponsOn or (Player.SwordPower <= 0) then Exit;
   Mode := ModeSword;
   Player.AniName := '';
@@ -1151,7 +1408,11 @@ begin
   { a bush or tall grass at the tip is cut at the start of the swing }
   ProbePoint(PX, PY);
   E := MatchObject(9, MaxInt, PX, PY, OX, OY);
-  if E >= 0 then PutObject(OX, OY, 10, E, True);
+  if E >= 0 then
+  begin
+    PutObject(OX, OY, 10, E, True);
+    RollDrop(OX, OY);
+  end;
   { NPCs and baddies hit by the blade: a 2 x 2 box centred on the tip }
   if Assigned(OnSwordHit) then OnSwordHit(PX - 1, PY - 1, 2, 2, Player.SwordPower);
 end;
@@ -1162,6 +1423,19 @@ var
   PX, PY: Double;
   OX, OY, E, I: Integer;
 begin
+  { laying: A with S held picks the next item, A alone lays it }
+  if Mode = ModeLay then
+  begin
+    if AttackHeld then
+    begin
+      I := NextLayItem(LayPick);
+      if I >= 0 then LayPick := I;
+      PlaySoundAt('item2.wav', Player.X + 1.5, Player.Y + 2);
+    end
+    else
+      LayPicked;
+    Exit;
+  end;
   if Mode = ModeCarry then
   begin
     Throw;
@@ -1175,6 +1449,7 @@ begin
   begin
     PutObject(OX, OY, 12, E, True);
     CarryKind := E;
+    LiftDrop(E, OX, OY);
     Mode := ModeLift;
     Player.SetAni('lift', Frame);
     A := Assets.Ani('lift');
@@ -1203,6 +1478,8 @@ begin
         FClient.SendPacket(PLI_OPENCHEST, GChar(Level.Chests[I].X) + GChar(Level.Chests[I].Y));
       Exit;
     end;
+  { nothing to lift or open: with S held, A picks an item to lay }
+  if AttackHeld and (Mode = ModeFree) then StartLaying;
 end;
 
 procedure TAdventure.Throw;
@@ -1276,6 +1553,7 @@ begin
     13: Player.SwordPower := Max(Player.SwordPower, 2);
     18: Player.SwordPower := Max(Player.SwordPower, 3);
     14: Player.SwordPower := Max(Player.SwordPower, 4);
+    24: Player.Status := Player.Status or SpinStatus;
     11:
       begin
         Player.MaxPower := Min(Player.MaxPower + 1, 20);
@@ -1297,7 +1575,8 @@ begin
     It := Items[I];
     if It.Life < 0 then
     begin
-      if not It.Permanent and FClient.Connected then
+      { a timed-out item goes silently before 1.38 }
+      if not It.Permanent and FClient.Connected and HasItemTake then
         FClient.SendPacket(PLI_ITEMDEL, GChar(Round(It.X * 2)) + GChar(Round(It.Y * 2)));
       RemoveItem(I);
       Continue;
@@ -1372,7 +1651,8 @@ begin
     FKnockY := KY / L;
   end;
   FHurtCount := 40;
-  if (Mode = ModeSword) or (Mode = ModeLift) or (Mode = ModeCarry) then
+  if (Mode = ModeSword) or (Mode = ModeLift) or (Mode = ModeCarry) or
+    (Mode = ModeSpin) or (Mode = ModeLay) then
   begin
     { what happens to a carried object on a hit was not read: it is lost }
     CarryKind := -1;
@@ -1440,12 +1720,11 @@ end;
   under 2 tiles to the side, AP not 100, once a second per attacker. }
 procedure TAdventure.CheckSwordHits;
 var
-  I, S, Sec: Integer;
+  I, S: Integer;
   P: TServerPlayer;
   DX, DY, Ahead, Side: Double;
 begin
   if not Hurtable or (AP = 100) or (Mode = ModeDead) then Exit;
-  Sec := Round(Frac(Now) * 86400);
   for I := 0 to FOthers.Count - 1 do
   begin
     P := Others[I];
@@ -1460,10 +1739,11 @@ begin
     else
       begin Ahead := DX; Side := DY; end;
     end;
-    if (Ahead < 0) or (Ahead > 4) or (Abs(Side) >= 2) then Continue;
-    if P.HitSecond = Sec then Continue;
-    P.HitSecond := Sec;
-    HurtPlayer(Max(-20, Min(20, P.SwordPower)) / 2, DX, DY);
+    if (Ahead < 0) or (Ahead > 4) or (Abs(Side) > 2) then Continue;
+    { no once-a-second stamp before 2.01 }
+    { the power is kept raw in 6 bits before 2.03: no plus or minus
+      20 limit, and a negative power wraps and never heals }
+    HurtPlayer((P.SwordPower and 63) / 2, DX, DY);
     Exit;
   end;
 end;
@@ -2776,13 +3056,23 @@ begin
   end;
   ItemListKey := False;
   { the game keys first: a swing or a lift holds the player still }
+  { laying (mode 9): an arrow, S or D leaves it without laying }
+  if (Mode = ModeLay) and (Keys[0] or Keys[1] or Keys[2] or Keys[3] or AttackKey or ItemKey) then
+  begin
+    Mode := ModeFree;
+    LayPick := -1;
+    AttackKey := False;
+    ItemKey := False;
+    for D := 0 to 3 do Keys[D] := False;
+  end;
   if AttackKey then Attack;
   if ActionKey then Action;
   if ItemKey then UseWeapon;
   AttackKey := False;
   ActionKey := False;
   ItemKey := False;
-  if ((Mode = ModeSword) or (Mode = ModeLift)) and (Frame >= FModeUntil) then
+  if ((Mode = ModeSword) or (Mode = ModeLift) or (Mode = ModeSpin)) and
+    (Frame >= FModeUntil) then
     if Mode = ModeLift then Mode := ModeCarry else Mode := ModeFree;
   { keys run in the order up, left, down, right, each from where the
     earlier ones left the player }
@@ -3233,6 +3523,7 @@ begin
   for I := 0 to FOthers.Count - 1 do
     DrawPlayer(Others[I], CamX, CamY);
   DrawPlayer(Player, CamX, CamY);
+  DrawLaying(CamX, CamY);
   DrawCombat(CamX, CamY);
   DrawShots(CamX, CamY);
   Npcs.Draw(Screen, CamX, CamY, True);

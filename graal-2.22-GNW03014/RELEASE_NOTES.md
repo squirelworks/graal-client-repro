@@ -39,6 +39,9 @@ Files are looked for in the program's own folder first, then in
 
 ## What's new in v0.0.4.2
 
+- [x] **Sword hits as this build judges them.** A sword tip exactly 2 tiles to the side now hits (every build from 1.21 to 2.31 includes the edge). Read in the binaries for seihai-core #28 (#302).
+- [x] **Spin attack.** With the spin status (STATUS bit 0x40, from the server or the spin attack item), pressing S again while the swing still plays cuts it off and plays `spin` (13 ticks, then idle); S during the spin is ignored. Modelled on the live 2.05 and 2.22 runs. What the spin hits (a box round the player here) is not yet checked on the real client (#302).
+- [x] **Laying items.** Hold S and press A to pick an item to lay; it shows over the head. A again with S held picks the next item, A alone lays it in front, and an arrow, S or D leaves without laying. Rupees, bombs, darts, a heart, the glove, a stock sword or shield and the spin can be laid, at the 2.05 costs; online a laid floor item is sent as `PLI_ITEMADD` (12). A custom sword or shield picture is not laid yet, and water in front is not told apart from land (#302).
 - [x] **Minimap only on the map.** The minimap is drawn only on a level of its grid, as the real client does: a server's level off the map (or a house or cave) shows none. Before, it was drawn on every level.
 - [x] **Chests from the server are drawn.** A chest that arrives only as `PLO_LEVELCHEST` (4), on a board with no chest tiles, is drawn closed, and one sent as already opened is drawn opened, as the real client does (lab run 2026-11-12). Before, it blocked the player and could be opened but stayed invisible until then.
 - [x] **F1 Help window.** F1 opens "Help" from the build's own form (TOptions): the "Game windows" group and Close. It is a real dialog on Windows and drawn elsewhere. The rebuild has no editor in 2.22 yet, so Edit level closes it like the other buttons, which do nothing yet.

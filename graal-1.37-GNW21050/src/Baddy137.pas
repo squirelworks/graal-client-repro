@@ -81,6 +81,7 @@ type
     function Image(const Name: string): TGSurface; virtual;
     function Arrays: TGArrays; virtual;
     procedure DrawVerse(Screen: TGSurface; CX, Y: Integer; const Text: string); virtual;
+    procedure DropItem(Item: Integer; X, Y: Double); virtual;
     procedure AllDied; virtual; { the last baddy of the level died }
   end;
 
@@ -89,6 +90,7 @@ type
     Id, Kind, Power, Mode, Ani, Dir, Head, Counter, Lost, Steps: Integer;
     X, Y, StartX, StartY, KnockX, KnockY, Dist: Double;
     Hurt, Aiming, Pending, Gone: Boolean;
+    Rolled: Boolean;                 { its dying item was rolled }
     Image: string;
     Verses: array[0..2] of string;   { sight, hurt, attack }
     VerseFresh: array[0..2] of Boolean;
@@ -145,6 +147,7 @@ type
     { The player's sword swing (2.05 tests it at the player's position
       and direction). }
     procedure SwordHit(Power: Integer);
+    procedure DeathDrop(B: TBaddy);
     { A thrown object, arrow or blast at (X, Y): True when a baddy took it. }
     function PointHit(X, Y: Double; Power: Integer): Boolean;
     procedure Draw(Screen: TGSurface; CamX, CamY: Integer);
@@ -190,6 +193,7 @@ procedure TBaddyWorld.Send(Id: Integer; const Data: string); begin end;
 function TBaddyWorld.Image(const Name: string): TGSurface; begin Result := nil; end;
 function TBaddyWorld.Arrays: TGArrays; begin Result := nil; end;
 procedure TBaddyWorld.DrawVerse(Screen: TGSurface; CX, Y: Integer; const Text: string); begin end;
+procedure TBaddyWorld.DropItem(Item: Integer; X, Y: Double); begin end;
 procedure TBaddyWorld.AllDied; begin end;
 
 { ---- TBaddy ---- }
@@ -1012,6 +1016,11 @@ begin
   begin
     B := Baddy(I);
     if Runs then Think(B);
+    if Runs and (B.Mode = BdDying) and not B.Rolled then
+    begin
+      B.Rolled := True;
+      DeathDrop(B);
+    end;
     Touch(B);
     if B.Kind = 3 then B.Ani := (B.Ani and 1) + 2;
     if (B.Kind = 6) and (B.Ani < 2) then B.Ani := (B.Ani and 1) + 4;
@@ -1080,6 +1089,20 @@ begin
 end;
 
 { the sword: the swing's reach by the player's direction }
+{ A baddy that starts dying rolls its item in 1.21 to 1.41: Random(100)
+  under 10 a green rupee, under 15 a blue one, under 30 a heart, under 75
+  darts from an archer (types 3 and 9) or type 4. }
+procedure TBaddyManager.DeathDrop(B: TBaddy);
+var
+  R: Integer;
+begin
+  R := Random(100);
+  if R < 10 then World.DropItem(0, B.X, B.Y)
+  else if R < 15 then World.DropItem(1, B.X, B.Y)
+  else if R < 30 then World.DropItem(5, B.X, B.Y)
+  else if (R < 75) and (B.Kind in [3, 4, 9]) then World.DropItem(4, B.X, B.Y);
+end;
+
 procedure TBaddyManager.SwordHit(Power: Integer);
 var
   I, D: Integer;
@@ -1094,7 +1117,10 @@ begin
   for I := Baddies.Count - 1 downto 0 do
   begin
     B := Baddy(I);
-    if not Active(B) then Continue;
+    { 1.21 to 2.00: the sword reaches a swamp soldier from counter 17,
+      when it surfaces }
+    if not (Active(B) or ((B.Mode = BdRise) and (B.Lost < 1) and (B.Counter >= 17))) then
+      Continue;
     BX := B.X + 1;
     BY := B.Y + 1;
     ADX := Abs(PX - BX);
