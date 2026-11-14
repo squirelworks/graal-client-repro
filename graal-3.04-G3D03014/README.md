@@ -114,10 +114,12 @@ Graal304 --server HOST:PORT --account NAME --headless --seconds 600 \
   chests, bombs and the bow and fire shots from D, the Q item list, floor
   items, hurt, knockback, death and respawn. `graal304-torque` reaches them
   through `doA`, `doS`, `doD` and `doQ` (`g304_action`).
-- [ ] The item key's lay-down mode and dropping items (`PLI_ITEMADD`): what
-  that mode does was not read. What the spin cuts or hits offline (not
-  read). Server weapons fired with D, the sign panel, sound and the status
-  bar.
+- [x] Hiding under a carried bush or stone (D), laying items (S held + A,
+  `PLI_ITEMADD`) and S held + D for the next weapon
+  (`client-internals/laying-items-and-hiding.md`).
+- [ ] What the spin cuts or hits offline (not read). Server weapons fired
+  with D, the sign panel, sound and the status bar; the water test before
+  laying, the bush's break effect.
 - [ ] Everything else still missing from the 2.22 rebuild: NPCs, baddies,
   GS1, chat bubbles, Options.
 - [ ] Which offline tutorial level the Tutorial button opens, and where: the

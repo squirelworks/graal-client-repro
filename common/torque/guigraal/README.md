@@ -158,7 +158,9 @@ Rebuild policy, not read from the original:
   control reads itself (input stage, see `../console/engine` stage 3).
 - [x] Sword and spin, lift and throw, chests, bombs, the bow, the item list
   and floor items, through `doA`, `doS`, `doD`, `doQ` (stage 5, 2D parity).
-- [ ] Grab and pull, the item key's lay-down mode, map, voice, PMs, the
+- [x] Hiding (D with a bush or stone), laying items (S held + A) and S
+  held + D for the next weapon: `doS` passes S's held state too.
+- [ ] Grab and pull, map, voice, PMs, the
   player list and profiles, sound (stage 5, 2D parity).
 - [x] Walking on the offline tutorial (3.04's `picso.png` row rule). Online
   levels need 2.22's `arrays.dat` beside the install (see the 3.04 README).

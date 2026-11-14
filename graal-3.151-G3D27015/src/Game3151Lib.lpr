@@ -335,6 +335,8 @@ begin
   if (Which < 0) or (Which > 3) then Exit;
   Press := (Down <> 0) and not S(H).GameKeyDown[Which];
   S(H).GameKeyDown[Which] := Down <> 0;
+  { S held matters too: with A it lays items, with D it picks a weapon }
+  if (Which = 1) and (S(H).G <> nil) then S(H).G.AttackHeld := Down <> 0;
   if not Press or (S(H).G = nil) then Exit;
   case Which of
     0: S(H).G.ActionKey := True;

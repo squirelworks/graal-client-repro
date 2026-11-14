@@ -274,8 +274,13 @@ type
       doS, doD and doQ: A action (lift, throw, open), S attack (sword,
       spin, throw), D weapon, Q the item list. }
     ActionKey, AttackKey, ItemKey, ItemListKey: Boolean;
+    { S is held now (not only pressed): S held with A lays items, with D
+      picks the next weapon }
+    AttackHeld: Boolean;
+    { the item chosen in the lay mode (ModeLay), or -1 }
+    LayItem: Integer;
     { What the player is doing: ModeFree, ModeSword, ModeLift, ModeCarry,
-      ModeSpin, ModeDead. }
+      ModeSpin, ModeDead, ModeHide, ModeLay. }
     Mode: Integer;
     { The lift table entry carried (0 bush, 1 sign, 2 pot, 3 stone,
       4 black stone), or -1. }
@@ -394,6 +399,16 @@ type
     procedure TickShots;
     procedure DrawShots(CamX, CamY: Integer);
     procedure DrawItemList;
+    { The lay mode (graal_analysis client-internals/
+      laying-items-and-hiding.md): whether the player owns Item to lay,
+      the next owned one after From in the lay order (-1 for none), and
+      laying the chosen one in front. }
+    function CanLay(Item: Integer): Boolean;
+    function NextLayItem(From: Integer): Integer;
+    procedure LayDown;
+    { D with a bush or stone carried: hide under it, or come out again. }
+    procedure ToggleHide;
+    procedure SendStatus;
     property Others[I: Integer]: TServerPlayer read GetOther;
     property OtherCount: Integer read GetOtherCount;
     property Client: TAdventureClient read FClient;
@@ -411,6 +426,14 @@ const
   { the charged spin (2.05's mode 13), here its own mode }
   ModeSpin = 4;
   ModeDead = 5;
+  { hiding under a carried bush or stone (2.05's mode 14) }
+  ModeHide = 6;
+  { choosing an item to lay down (2.05's mode 9) }
+  ModeLay = 7;
+  { STATUS bit: hidden (protocol/player-props.md) }
+  StatusHidden = $02;
+  { walking while hidden: a fifth of the speed }
+  HideWalkFactor = 0.2;
   { STATUS bit: has the spin attack (protocol/player-props.md) }
   StatusHasSpin = $40;
   { spin.gani: 13 frames of one tick (player-mannerisms-live.md) }
@@ -924,6 +947,7 @@ begin
   Player.GlovePower := 1;
   Player.SwordPower := 1;
   CarryKind := -1;
+  LayItem := -1;
   AP := 50;
   WeaponsOn := True;
   Selected := -1;
@@ -1196,12 +1220,14 @@ const
     (1.025, 1.975, 2.025, 2.975, 3.025, 0.975),
     (0.525, 1.475, 1.525, 2.475, 2.525, 0.475),
     (1.025, 1.975, 2.025, 2.975, 3.025, 0.975));
-  Speed = 1.0; { on foot }
 var
-  NX, NY, F: Double;
+  Speed, NX, NY, F: Double;
   B: array[0..5] of Boolean;
   I: Integer;
 begin
+  { on foot; hidden under a bush or stone, a fifth of that }
+  Speed := 1.0;
+  if Mode = ModeHide then Speed := HideWalkFactor;
   Player.Dir := Dir;
   NX := Player.X + StepX[Dir] * Speed;
   NY := Player.Y + StepY[Dir] * Speed;
@@ -1347,7 +1373,7 @@ var
   PX, PY: Double;
   OX, OY, E: Integer;
 begin
-  if Mode = ModeCarry then
+  if (Mode = ModeCarry) or (Mode = ModeHide) then
   begin
     Throw;
     Exit;
@@ -1386,6 +1412,11 @@ var
   PX, PY: Double;
   OX, OY, E, I: Integer;
 begin
+  if Mode = ModeHide then
+  begin
+    ToggleHide;
+    Exit;
+  end;
   if Mode = ModeCarry then
   begin
     Throw;
@@ -1427,6 +1458,137 @@ begin
         FClient.SendPacket(PLI_OPENCHEST, GChar(Level.Chests[I].X) + GChar(Level.Chests[I].Y));
       Exit;
     end;
+  { nothing to lift or open: S held with A starts the lay mode on the
+    first item owned, when the point in front is free }
+  if AttackHeld and not PointBlocked(PX, PY) then
+  begin
+    LayItem := NextLayItem(-1);
+    if LayItem >= 0 then
+    begin
+      Mode := ModeLay;
+      Player.SetAni('idle', Frame);
+    end;
+  end;
+end;
+
+{ ---- laying items and hiding (graal_analysis client-internals/
+  laying-items-and-hiding.md, read from 3.04 and 2.05; the tables are the
+  same in 2.22 and 3.153). The 3.x enablefeatures bits 0x10 (laying) and
+  0x20 (S + D) are taken as on, their default. Not modelled: the
+  water test on the point in front, the bush's break effect, the sounds,
+  and an NPC carried (no NPCs yet). ---- }
+
+const
+  { the order the lay mode offers the items in }
+  LayOrder: array[0..23] of Integer = (0, 1, 2, 19, 3, 4, 5, 6, 16, 8, 12, 23, 7,
+    20, 21, 22, 9, 15, 17, 10, 13, 18, 14, 24);
+
+function TAdventure.CanLay(Item: Integer): Boolean;
+begin
+  case Item of
+    0: Result := Player.Rupees >= 1;
+    1: Result := Player.Rupees >= 5;
+    2: Result := Player.Rupees >= 30;
+    19: Result := Player.Rupees >= 100;
+    3: Result := Player.Bombs >= 5;
+    4: Result := Player.Arrows >= 5;
+    5: Result := Player.Power >= 3; { at least a heart and a half }
+    { glove, shield and sword by their power: laying one steps it down }
+    6: Result := Player.GlovePower = 2;
+    16: Result := Player.GlovePower = 3;
+    9: Result := Player.ShieldPower = 1;
+    15: Result := Player.ShieldPower = 2;
+    17: Result := Player.ShieldPower = 3;
+    10: Result := Player.SwordPower = 1;
+    13: Result := Player.SwordPower = 2;
+    18: Result := Player.SwordPower = 3;
+    14: Result := Player.SwordPower = 4;
+    24: Result := Player.Status and StatusHasSpin <> 0;
+  else
+    { 7, 8, 11, 12 and 20 to 23 are never laid }
+    Result := False;
+  end;
+end;
+
+function TAdventure.NextLayItem(From: Integer): Integer;
+var
+  I, K, Start: Integer;
+begin
+  Result := -1;
+  Start := 0;
+  for I := 0 to High(LayOrder) do
+    if LayOrder[I] = From then Start := I + 1;
+  for K := 0 to High(LayOrder) do
+  begin
+    I := (Start + K) mod Length(LayOrder);
+    if CanLay(LayOrder[I]) then
+    begin
+      Result := LayOrder[I];
+      Exit;
+    end;
+  end;
+end;
+
+procedure TAdventure.LayDown;
+const
+  DX: array[0..3] of Double = (0, -2, 0, 2);
+  DY: array[0..3] of Double = (-3, 0, 2, 0);
+var
+  X, Y: Double;
+  It: Integer;
+begin
+  It := LayItem;
+  Mode := ModeFree;
+  LayItem := -1;
+  if not CanLay(It) then Exit;
+  X := Player.X + 0.5 + DX[Player.Dir and 3];
+  Y := Player.Y + 1 + DY[Player.Dir and 3];
+  AddItem(X, Y, It, ItemLife);
+  { the cost }
+  case It of
+    0: Dec(Player.Rupees, 1);
+    1: Dec(Player.Rupees, 5);
+    2: Dec(Player.Rupees, 30);
+    19: Dec(Player.Rupees, 100);
+    3: Dec(Player.Bombs, 5);
+    4: Dec(Player.Arrows, 5);
+    5: Dec(Player.Power, 2);
+    6, 16: Dec(Player.GlovePower);
+    9, 15, 17: Dec(Player.ShieldPower);
+    10, 13, 18, 14: Dec(Player.SwordPower);
+    { the spin attack: assumed to take the has-spin status (not read) }
+    24: Player.Status := Player.Status and not StatusHasSpin;
+  end;
+  if FloorItem(It) and FClient.Connected then
+    FClient.SendPacket(PLI_ITEMADD, GChar(Round(X * 2)) + GChar(Round(Y * 2)) + GChar(It));
+end;
+
+procedure TAdventure.SendStatus;
+begin
+  if FClient.Connected then
+    FClient.SendPacket(PLI_PLAYERPROPS, GChar(PLPROP_STATUS) + GChar(Player.Status));
+end;
+
+procedure TAdventure.ToggleHide;
+begin
+  if Mode = ModeHide then
+  begin
+    { out again, still carrying }
+    Mode := ModeCarry;
+    Player.Status := Player.Status and not StatusHidden;
+    Player.SetAni('carrystill', Frame);
+    SendStatus;
+  end
+  else if (Mode = ModeCarry) and (CarryKind >= 0) and (CarryKind <= High(CarrySprites)) and
+    ((CarrySprites[CarryKind] = 261) or (CarrySprites[CarryKind] = 263) or
+    (CarrySprites[CarryKind] = 239)) then
+  begin
+    { a bush or a stone (not a pot or a sign) }
+    Mode := ModeHide;
+    Player.Status := Player.Status or StatusHidden;
+    Player.SetAni('hiddenstill', Frame);
+    SendStatus;
+  end;
 end;
 
 procedure TAdventure.Throw;
@@ -1448,6 +1610,11 @@ begin
   Thrown[N].Kind := CarryKind;
   Thrown[N].Age := 0;
   CarryKind := -1;
+  if Player.Status and StatusHidden <> 0 then
+  begin
+    Player.Status := Player.Status and not StatusHidden;
+    SendStatus;
+  end;
   Mode := ModeFree;
   Player.SetAni('idle', Frame);
 end;
@@ -1588,10 +1755,12 @@ begin
     FKnockY := KY / L;
   end;
   FHurtCount := 40;
-  if (Mode = ModeSword) or (Mode = ModeLift) or (Mode = ModeCarry) then
+  if Mode in [ModeSword, ModeLift, ModeCarry, ModeHide, ModeLay] then
   begin
     { what happens to a carried object on a hit was not read: it is lost }
     CarryKind := -1;
+    LayItem := -1;
+    Player.Status := Player.Status and not StatusHidden;
     Mode := ModeFree;
   end;
   if Player.Power <= 0 then
@@ -1884,6 +2053,17 @@ end;
 
 procedure TAdventure.UseWeapon;
 begin
+  if (Mode = ModeCarry) or (Mode = ModeHide) then
+  begin
+    ToggleHide;
+    Exit;
+  end;
+  { S held with D picks the next weapon instead of using one }
+  if AttackHeld and (Mode = ModeFree) then
+  begin
+    if Length(Weapons) > 0 then SelectWeapon(Selected + 1);
+    Exit;
+  end;
   if (Selected < 0) or (Selected > High(Weapons)) or (Mode <> ModeFree) or not WeaponsOn then Exit;
   case Weapons[Selected].Item of
     8: LayBombOf(1);
@@ -3086,6 +3266,22 @@ begin
     FListWasDown := True;
   end;
   ItemListKey := False;
+  { the lay mode: S held with A takes the next item, A alone lays it, any
+    other game key leaves the mode }
+  if Mode = ModeLay then
+  begin
+    if ActionKey and AttackHeld then LayItem := NextLayItem(LayItem)
+    else if ActionKey then LayDown
+    else if AttackKey or ItemKey or Keys[0] or Keys[1] or Keys[2] or Keys[3] then
+    begin
+      Mode := ModeFree;
+      LayItem := -1;
+    end;
+    AttackKey := False;
+    ActionKey := False;
+    ItemKey := False;
+    for D := 0 to 3 do Keys[D] := False;
+  end;
   { the game keys first: a swing, a spin or a lift holds the player still }
   if AttackKey then Attack;
   if ActionKey then Action;
@@ -3101,7 +3297,7 @@ begin
   AX := 0;
   AY := 0;
   for D := 0 to 3 do
-    if Keys[D] and not Frozen and ((Mode = ModeFree) or (Mode = ModeCarry)) and
+    if Keys[D] and not Frozen and (Mode in [ModeFree, ModeCarry, ModeHide]) and
       (FHurtCount < 35) then
     begin
       WalkStep(D);
@@ -3119,6 +3315,7 @@ begin
         { the hurt pose holds while the hurt mode runs }
       else if Moved then Player.SetAni('walk', Frame) else Player.SetAni('idle', Frame);
     ModeCarry: if Moved then Player.SetAni('carry', Frame) else Player.SetAni('carrystill', Frame);
+    ModeHide: if Moved then Player.SetAni('hidden', Frame) else Player.SetAni('hiddenstill', Frame);
   end;
   if Moved then CrossEdges;
   TickItems;
@@ -3561,6 +3758,14 @@ begin
   for I := 0 to High(Thrown) do
     DrawCarried(Thrown[I].Kind, Round(Thrown[I].X * TileSize) - LCamX,
       Round(Thrown[I].Y * TileSize) - LCamY);
+  { the item chosen in the lay mode, centred on (x + 1.5, y) }
+  if (Mode = ModeLay) and (LayItem >= 0) then
+  begin
+    Tiles := Assets.Image('sprites.png', '');
+    if (Tiles <> nil) and Arrays.SpriteRect(ItemSprites[LayItem], TX, TY, X0, Y0) then
+      Screen.Blit(Tiles, TX, TY, X0, Y0, Round((Player.X + 1.5) * TileSize) - LCamX - X0 div 2,
+        Round(Player.Y * TileSize) - LCamY - Y0 div 2);
+  end;
   if ItemListOpen then DrawItemList;
 end;
 

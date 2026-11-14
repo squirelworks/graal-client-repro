@@ -1268,6 +1268,106 @@ begin
   end;
 end;
 
+{ Hiding under a carried bush or stone, laying items (S held + A), and
+  S held + D picking the next weapon (laying-items-and-hiding.md). }
+procedure TestLayAndHide;
+var
+  G: TAdventure;
+  Codec: TGen5;
+  Msgs: TStringList;
+  I, N: Integer;
+  Y0: Double;
+  Laid: string;
+begin
+  G := ActionGame;
+  try
+    G.Mode := ModeCarry;
+    G.CarryKind := 0;
+    G.ItemKey := True;
+    G.Tick;
+    Check((G.Mode = ModeHide) and (G.Player.Status and StatusHidden <> 0) and
+      (G.Player.AniName = 'hiddenstill'), 'lay/hide: D with a bush carried hides');
+    Y0 := G.Player.Y;
+    for I := 1 to 5 do
+    begin
+      G.Keys[DirDown] := True;
+      G.Tick;
+    end;
+    G.Keys[DirDown] := False;
+    Check((Abs(G.Player.Y - Y0 - 0.5) < 0.001) and (G.Player.AniName = 'hidden'),
+      'lay/hide: hidden, the walk is a fifth of the speed');
+    G.ItemKey := True;
+    G.Tick;
+    Check((G.Mode = ModeCarry) and (G.Player.Status and StatusHidden = 0),
+      'lay/hide: D again comes out, still carrying');
+    G.CarryKind := 2;
+    G.ItemKey := True;
+    G.Tick;
+    Check(G.Mode = ModeCarry, 'lay/hide: a pot does not hide');
+    G.AttackKey := True;
+    G.Tick;
+    Check((G.Mode = ModeFree) and (G.CarryKind = -1), 'lay/hide: S throws');
+    { laying }
+    G.Player.Rupees := 10;
+    G.AttackHeld := True;
+    G.ActionKey := True;
+    G.Tick;
+    Check((G.Mode = ModeLay) and (G.LayItem = 0), 'lay/hide: S held + A with nothing in front lays, green rupee first');
+    G.ActionKey := True;
+    G.Tick;
+    Check(G.LayItem = 1, 'lay/hide: S held + A again takes the next item owned');
+    G.AttackHeld := False;
+    G.ActionKey := True;
+    G.Tick;
+    Check((G.Mode = ModeFree) and (Length(G.Items) = 1) and (G.Items[0].Item = 1) and
+      (G.Player.Rupees = 5) and (G.Items[0].Y = G.Player.Y + 3),
+      'lay/hide: A lays it two tiles ahead and takes five rupees');
+    G.AttackHeld := True;
+    G.ActionKey := True;
+    G.Tick;
+    G.Keys[DirLeft] := True;
+    G.Tick;
+    G.Keys[DirLeft] := False;
+    Check((G.Mode = ModeFree) and (Length(G.Items) = 1), 'lay/hide: another key leaves the lay mode');
+    G.AttackHeld := False;
+    { S held + D }
+    G.Receive(PLO_DEFAULTWEAPON, GChar(7));
+    I := G.Selected;
+    N := G.Player.Bombs;
+    G.AttackHeld := True;
+    G.ItemKey := True;
+    G.Tick;
+    Check((G.Selected <> I) and (G.Player.Bombs = N) and (Length(G.Shots) = 0),
+      'lay/hide: S held + D picks the next weapon, uses none');
+  finally
+    G.Free;
+  end;
+  { online: a laid floor item goes out as ITEMADD }
+  G := LoggedInGame(Codec);
+  Msgs := TStringList.Create;
+  try
+    G.Headless := True;
+    G.Tick;
+    Drain(G, Codec);
+    G.Player.Rupees := 3;
+    G.AttackHeld := True;
+    G.ActionKey := True;
+    G.Tick;
+    G.AttackHeld := False;
+    G.ActionKey := True;
+    G.Tick;
+    Check(ServerReadAll(Codec, G.Client.Sent, Msgs), 'lay/hide: the frame decodes');
+    Laid := '';
+    for I := 0 to Msgs.Count - 1 do
+      if MsgId(Msgs[I]) = PLI_ITEMADD then Laid := Msgs[I];
+    Check((Length(Laid) = 4) and (Laid[4] = GChar(0)), 'lay/hide: online the laid rupee is sent as ITEMADD');
+  finally
+    Msgs.Free;
+    Codec.Free;
+    G.Free;
+  end;
+end;
+
 procedure TestBoardModify;
 var
   G: TAdventure;
@@ -1331,6 +1431,7 @@ begin
   TestShowImg;
   TestBoardModify;
   TestActions;
+  TestLayAndHide;
   TestFuzz;
   TestReceiveLimits;
   WriteLn(Format('%d passed, %d failed, %d skipped', [Passed, Failed, Skipped]));
