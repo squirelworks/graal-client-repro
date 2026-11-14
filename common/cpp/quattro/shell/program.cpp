@@ -852,6 +852,8 @@ bool Program::tick() {
   // Input the GUI does not take goes to the weapon scripts (onKeyPressed,
   // onMouseDown, keydown2) and the say2 box.
   for (Draw::InputEvent e; window_.poll_input(e);) {
+    // Releases update physical state even when an overlay takes the event.
+    if (e.type == Draw::InputEvent::KeyUp) keys_down_.erase(ScriptHost::keycode(e.key, e.ch));
     if (gui_->has_content() && gui_->input(e)) continue;
     if (item_list_open_) {
       item_list_input(e);

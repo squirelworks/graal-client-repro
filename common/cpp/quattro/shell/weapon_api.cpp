@@ -410,7 +410,6 @@ bool Program::held_index(int i) const {
 
 void Program::script_input(const Draw::InputEvent& e) {
   if (e.type == Draw::InputEvent::KeyUp) {
-    keys_down_.erase(ScriptHost::keycode(e.key, e.ch));
     return;
   }
   if (e.type == Draw::InputEvent::KeyDown) {

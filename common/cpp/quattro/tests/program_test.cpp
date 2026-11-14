@@ -580,6 +580,8 @@ void test_weapon_scripts() {
   a.var("hurt_events").op(Asm::INC).op(Asm::POP).num(0).op(Asm::RET);
   a.function("onPlayerDies", {});
   a.var("death_events").op(Asm::INC).op(Asm::POP).num(0).op(Asm::RET);
+  a.function("public.held", {"code"});
+  a.op(Asm::MARKER).var("code").callName("keydown2").op(Asm::RET);
   a.function("onActionClientSide", {"cmd"});
   a.op(PLAYER).var("chat").op(Asm::MEMBER).var("cmd").op(Asm::ASSIGN).num(0).op(Asm::RET);
   a.function("onPlayerEnters", {});
@@ -621,6 +623,25 @@ void test_weapon_scripts() {
   k.ch = 'a';
   win.push_input(k);
   CHECK(run(p, nullptr, &game, [&] { return p.sign_text().empty(); }));
+  auto wand = p.scripts().weapon("Wand");
+  CHECK(p.scripts().machine().callFunction(wand, "held", {gs2::Value::number(75)}).num == 1);
+  p.action("doQ", true);
+  p.tick();
+  p.action("doQ", false);
+  p.tick();
+  CHECK(p.item_list_open());
+  k.type = Draw::InputEvent::KeyUp;
+  k.key = "k";
+  k.ch = 'k';
+  win.push_input(k);
+  p.tick();
+  CHECK(p.scripts().machine().callFunction(wand, "held", {gs2::Value::number(75)}).num == 0);
+  CHECK(g("key_events") == "1");
+  p.action("doQ", true);
+  p.tick();
+  p.action("doQ", false);
+  p.tick();
+  CHECK(!p.item_list_open());
 
   p.say("hello");
   CHECK(run(p, nullptr, &game, [&] { return g("heard") == "hello"; }));
