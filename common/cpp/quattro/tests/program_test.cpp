@@ -673,7 +673,8 @@ void test_script_native_bounds() {
   const auto root = fs::temp_directory_path() / "quattro-script-bounds";
   Files::Board board{};
   board.fill(7);
-  write(root / "levels/probe.graal", "GR-V1.03" + Files::write_board_stream(board) + "#\n\xFF\xFF\xFF\n#\n#\n\n");
+  write(root / "levels/probe.graal", "GR-V1.03" + Files::write_board_stream(board) + "#\n\xFF\xFF\xFF\n#\n" +
+        gchar(17) + gchar(17) + gchar(0) + gchar(0) + "\n#\n\n");
   Draw::Image pixels(16, 8, {255, 0, 0, 255});
   for (int y = 0; y < 8; ++y)
     for (int x = 8; x < 16; ++x) pixels.at(x, y) = {0, 255, 0, 255};
@@ -705,8 +706,8 @@ void test_script_native_bounds() {
     for (double size : {1e100, inf, nan, -1.0})
       CHECK(m.callFunction(one, std::string(name) + "_probe", {gs2::Value::number(0), gs2::Value::number(0),
             gs2::Value::number(size), gs2::Value::number(1)}).num == 0);
-  CHECK(m.callFunction(one, "onwall2_probe", {gs2::Value::number(63.75), gs2::Value::number(1),
-        gs2::Value::number(0.5), gs2::Value::number(0)}).num == 1); // includes the far edge outside the board
+  CHECK(m.callFunction(one, "onwall2_probe", {gs2::Value::number(16.75), gs2::Value::number(17.5),
+        gs2::Value::number(0.25), gs2::Value::number(0)}).num == 1); // includes the far edge on the chest
   auto image = [&](const gs2::VarPtr& owner, int index) {
     return m.callFunction(owner, "image", {gs2::Value::number(index)}).obj;
   };
