@@ -13,6 +13,43 @@ FLAGS=${FPCFLAGS:--O2}
 cd "$ROOT"
 if [ $# -gt 0 ]; then BUILDS="$*"; else BUILDS=$(ls -d graal-*/ | tr -d /); fi
 . "$ROOT/scripts/v7.sh"
+# BUILD_JOBS > 1 builds that many folders at a time, each in its own run
+# of this script with its log kept apart and printed in order afterwards.
+# The folders that make a shared C++ tree under common/ (torque, cpp)
+# build one after another, beside the rest.
+JOBS=${BUILD_JOBS:-1}
+if [ -z "${GRAAL_BUILD_ONE:-}" ] && [ "$JOBS" -gt 1 ] && [ "$(echo $BUILDS | wc -w)" -gt 1 ]; then
+  SERIAL=""
+  PAR=""
+  for B in $BUILDS; do
+    case $B in
+      graal-3.04-*|graal-3.153-*|graal-3.0beta-*|graal-3.01-*|graal-3.151-*|graal-4.20r8-*|graal-4.04r2-*|graal-5.12-*)
+        SERIAL="$SERIAL $B" ;;
+      *) PAR="$PAR $B" ;;
+    esac
+  done
+  LOGS=$(mktemp -d)
+  (
+    for B in $SERIAL; do
+      GRAAL_BUILD_ONE=1 sh "$ROOT/scripts/build.sh" "$B" > "$LOGS/$B.log" 2>&1 || echo "$B" >> "$LOGS/failed"
+    done
+  ) &
+  if [ -n "$PAR" ]; then
+    printf '%s\n' $PAR | xargs -P "$JOBS" -I{} sh -c \
+      'GRAAL_BUILD_ONE=1 sh "$1" "$2" > "$3/$2.log" 2>&1 || echo "$2" >> "$3/failed"' \
+      sh "$ROOT/scripts/build.sh" {} "$LOGS"
+  fi
+  wait
+  for B in $BUILDS; do cat "$LOGS/$B.log"; done
+  if [ -f "$LOGS/failed" ]; then
+    echo "== build failed:"
+    sed 's/^/  /' "$LOGS/failed"
+    rm -rf "$LOGS"
+    exit 1
+  fi
+  rm -rf "$LOGS"
+  exit 0
+fi
 for B in $BUILDS; do
   # A v7 folder builds in its own run, so its failure is reported and the
   # other builds go on (scripts/v7.sh).
