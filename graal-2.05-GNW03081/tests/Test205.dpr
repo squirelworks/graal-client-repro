@@ -1479,7 +1479,38 @@ begin
     Check(G.Player.Power = 4, 'warp sword: pending link suppresses swing');
     G.Receive(PLO_PLAYERWARP, GChar(60) + GChar(60) + 'pending.nw');
     G.Tick;
-    Check(G.Player.Power = 2, 'warp sword: server warp completion permits swing again');
+    Check(G.Player.Power = 4, 'warp sword: acknowledgement alone still suppresses swing');
+    G.Receive(PLO_LEVELNAME, 'pending.nw');
+    { LEVELNAME removes old peers: recreate through the actual prop receiver. }
+    G.Receive(PLO_OTHERPLPROPS, GShort(7) + GChar(PLPROP_X) + GChar(56) +
+      GChar(PLPROP_Y) + GChar(60) + GChar(PLPROP_SWORDPOWER) + GChar(2) +
+      GChar(PLPROP_SPRITE) + GChar(6 * 4 + DirRight));
+    P := G.FindOther(7, False);
+    P.HitSecond := -1;
+    G.Tick;
+    Check(G.Player.Power = 4, 'warp sword: level name without board still suppresses swing');
+    G.Receive(PLO_BOARDPACKET, StringOfChar(#0, BoardSize * 2 - 1));
+    G.Tick;
+    Check(not G.BoardLoaded and (G.Player.Power = 4), 'warp sword: incomplete board does not resume hits');
+    G.Receive(PLO_BOARDPACKET, StringOfChar(#0, BoardSize * 2));
+    G.Tick;
+    Check(G.BoardLoaded and (G.Player.Power = 2), 'warp sword: valid board permits swing again');
+    P.Sprite := 0;
+    for I := 1 to 40 do G.Tick;
+    G.Player.X := 30;
+    G.Player.Y := 30;
+    SetLength(G.Level.Links, 1);
+    G.Level.Links[0].Dest := 'failed.nw';
+    G.Level.Links[0].NewX := '30';
+    G.Level.Links[0].NewY := '30';
+    Check(G.FollowLink(0), 'warp sword: request another online link');
+    P.Sprite := 6 * 4 + DirRight;
+    P.HitSecond := -1;
+    G.Tick;
+    Check(G.Player.Power = 2, 'warp sword: second pending request suppresses swing');
+    G.Receive(PLO_WARPFAILED, 'failed.nw');
+    G.Tick;
+    Check(G.Player.Power = 0, 'warp sword: failed request restores old-level sword judging');
   finally
     G.Free;
     CloseSocket(Listener);

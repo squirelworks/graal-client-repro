@@ -189,6 +189,7 @@ type
       index (dy + 1) * 3 + dx + 1, nil where there is none }
     FNear: array[0..8] of TAdventureLevel;
     FNearFor: string;
+    FBetweenLevels: Boolean; { request/ack through valid board completion }
     FWarpPending: Boolean; { a link warp was asked of the server }
     FWarpX, FWarpY: Double;
     FWarpLevel: string;
@@ -1894,7 +1895,7 @@ var
   P: TServerPlayer;
   DX, DY, Ahead, Side: Double;
 begin
-  if FWarpPending or not Hurtable or (AP = 100) or (Mode = ModeDead) then Exit;
+  if (FClient.Connected and FBetweenLevels) or not Hurtable or (AP = 100) or (Mode = ModeDead) then Exit;
   Sec := Round(Frac(Now) * 86400);
   for I := 0 to FOthers.Count - 1 do
   begin
@@ -2861,6 +2862,7 @@ begin
       warp, the level name and the board }
     FClient.SendPacket(PLI_LEVELWARP, GChar(Round(NX * 2)) + GChar(Round(NY * 2)) + L.Dest);
     FWarpPending := True;
+    FBetweenLevels := True;
     FWarpX := NX;
     FWarpY := NY;
     FWarpLevel := L.Dest;
@@ -3008,6 +3010,7 @@ begin
         end;
       PLO_PLAYERWARP: { c x*2, c y*2, level }
         begin
+          FBetweenLevels := True;
           Player.X := R.ReadGChar / 2;
           Player.Y := R.ReadGChar / 2;
           Player.Level := R.ReadRest;
@@ -3018,6 +3021,7 @@ begin
         end;
       PLO_LEVELNAME:
         begin
+          FBetweenLevels := True;
           Npcs.Clear;
           Baddies.Clear;
           while FOthers.Count > 0 do RemoveOther(Others[0].Id);
@@ -3041,6 +3045,7 @@ begin
       PLO_BOARDPACKET:
         begin
           BoardLoaded := Level.LoadBoardPacket(Data);
+          if BoardLoaded then FBetweenLevels := False;
           if BoardLoaded and LoggedIn and (LoginMs < 0) and (ConnectAtMs > 0) then
             LoginMs := ClampMs(NowMs - ConnectAtMs);
           if BoardLoaded and (FWarpTimed <> '') and (Level.Name = FWarpTimed) then
@@ -3213,6 +3218,7 @@ begin
         end;
       PLO_WARPFAILED:
         begin
+          FBetweenLevels := False;
           FWarpPending := False;
           Log('WARPFAILED ' + Data);
         end;
