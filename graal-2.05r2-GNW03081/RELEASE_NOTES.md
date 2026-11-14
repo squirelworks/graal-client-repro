@@ -18,6 +18,8 @@ bodies.
 
 ## What's new in v0.0.5
 
+- [x] Ignore healing from negative damage below AP 40 while retaining hurt state and knockback; AP 40 healing still stops at maximum hearts.
+
 - [x] Reject laying over default-tileset liquid (arrays.dat list 1, including lava). Alternate tileset and NPC-shape water classification remain unresolved.
 
 - [x] Repeated named animation props restart another player's swing; direction-only updates keep its clock.
