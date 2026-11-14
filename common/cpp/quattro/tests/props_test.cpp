@@ -1,5 +1,6 @@
 // The player prop stream and the props the client sends.
 #include "../world/actions.hpp"
+#include "../net/profile.hpp"
 #include "../world/effects.hpp"
 #include "../world/weapons.hpp"
 #include "../world/health.hpp"
@@ -223,7 +224,7 @@ std::string gani_of(const std::vector<Packet>& out) {
   return {};
 }
 
-void test_item_keys() {
+void test_item_keys(const char* build, int sprite_after, int still_after) {
   std::string d = items_dat();
   ObjectTables tables;
   TileTypes types;
@@ -243,7 +244,10 @@ void test_item_keys() {
   p.y = 30;
   p.dir = 3;
   p.sword_power = 1;
-  ItemKeys k;
+  const auto* profile = Net::find_profile(build);
+  CHECK(profile);
+  if (!profile) return;
+  ItemKeys k(profile->carry_sprite_after, profile->carry_still_after);
   auto out = k.tick(p, kKeyS, 0, l, tables, types);
   CHECK(out.size() == 2 && gani_of(out) == "sword" && out[0].body.substr(out[0].body.size() - 2) == gchar(kSprite) + gchar(3));
   CHECK(out[1].id == 1 && out[1].body == board_modify(34, 32, 2, 2, {677, 678, 693, 694}));
@@ -253,7 +257,7 @@ void test_item_keys() {
   CHECK(gani_of(out) == "idle" && !k.busy());
   CHECK(k.tick(p, kKeyS, 0, l, tables, types).empty());
 
-  // A on the bush: lift, the carry sprite at 0.20 s, carrystill at 0.30 s.
+  // A on the bush: immediate lift, then profile-specific carry and still ticks.
   set_tile(l, 34, 32, 2);
   set_tile(l, 35, 32, 3);
   set_tile(l, 34, 33, 18);
@@ -263,11 +267,14 @@ void test_item_keys() {
   CHECK(out.size() == 2 && out[0].id == 1 && gani_of(out) == "lift" && k.carrying());
   CHECK(out[1].body.substr(out[1].body.size() - 2) == gchar(kCarrySprite) + gchar(static_cast<unsigned>(-1)));
   std::vector<std::string> seen;
-  for (int t = 1; t <= ItemKeys::kCarryStillAfter; ++t)
-    for (const auto& pk : k.tick(p, 0, 0, l, tables, types)) seen.push_back(std::to_string(t) + ":" + pk.body);
-  CHECK(seen.size() == 2 && seen[0] == "4:" + gchar(kCarrySprite) + gchar(1) && p.carry_sprite == 1);
+  for (int t = 1; t <= still_after; ++t) {
+    const auto packets = k.tick(p, 0, 0, l, tables, types);
+    if (t < sprite_after) CHECK(packets.empty() && p.carry_sprite == -1 && p.gani == "lift");
+    for (const auto& pk : packets) seen.push_back(std::to_string(t) + ":" + pk.body);
+  }
+  CHECK(seen.size() == 2 && seen[0] == std::to_string(sprite_after) + ":" + gchar(kCarrySprite) + gchar(1) && p.carry_sprite == 1);
   CHECK(k.carry_sprite() == 1 && carried_sprite(p.carry_sprite) == 261);
-  CHECK(seen[1] == "6:" + gchar(kGani) + gstring("carrystill") && !k.busy() && k.carrying());
+  CHECK(seen[1] == std::to_string(still_after) + ":" + gchar(kGani) + gstring("carrystill") && !k.busy() && k.carrying());
   // A again: thrown.
   out = k.tick(p, kKeyA, 0, l, tables, types);
   CHECK(out.size() == 2 && out[0].id == 11 && out[0].body.empty() && gani_of(out) == "idle" && !k.carrying());
@@ -598,7 +605,9 @@ int main() {
   test_arrays_dat();
   test_walls();
   test_push();
-  test_item_keys();
+  test_item_keys("6.03r7", 6, 8);
+  test_item_keys("6.01r1", 4, 6);
+  test_item_keys("4.04r2", 4, 6);
   test_effects();
   test_carry_walk();
   test_weapon_list();

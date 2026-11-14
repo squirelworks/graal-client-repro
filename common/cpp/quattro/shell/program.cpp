@@ -72,6 +72,7 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
       opt_(std::move(opt)),
       window_(window),
       session_(profile, {}),
+      item_keys_(profile.carry_sprite_after, profile.carry_still_after),
       canvas_(opt_.width, opt_.height),
       run_start_(std::filesystem::file_time_type::clock::now()) {
   Net::Session::Events ev;
