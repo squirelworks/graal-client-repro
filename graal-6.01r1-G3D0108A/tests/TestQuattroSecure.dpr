@@ -17,7 +17,7 @@ end;
 procedure TestRouting;
 var
   Dir, Exe, Mode: string;
-  I: Integer;
+  I, RouteCount: Integer;
   F: TStringList;
 
   procedure Route(const EnvMode, ExplicitMode: string; Online, WantQuattro: Boolean;
@@ -25,32 +25,46 @@ var
   var
     P: TProcess;
     J: Integer;
-    E: string;
+    E, HeapLog: string;
+    Heap: TStringList;
   begin
+    Inc(RouteCount);
+    HeapLog := Dir + 'route-' + IntToStr(RouteCount) + '.heap';
     P := TProcess.Create(nil);
+    Heap := TStringList.Create;
     try
       { A fresh process tests the actual startup environment, as when the
         player launches the GUI. It only selects a program, never runs it. }
       P.Executable := ExpandFileName(ParamStr(0));
       P.Parameters.Add('--route');
       P.Parameters.Add(Dir);
-      P.Parameters.Add(ExplicitMode);
+      { TProcess may omit empty arguments. Keep every child slot explicit. }
+      if ExplicitMode = '' then P.Parameters.Add('configured')
+      else P.Parameters.Add(ExplicitMode);
       P.Parameters.Add(BoolToStr(Online, True));
       P.Parameters.Add(BoolToStr(WantQuattro, True));
       for J := 1 to GetEnvironmentVariableCount do
       begin
         E := GetEnvironmentString(J);
         if (Pos('DISPLAY=', E) <> 1) and (Pos('GRAAL_PASCAL_GAME=', E) <> 1) and
-          (Pos('GRAAL_SECURE_LOGIN=', E) <> 1) then P.Environment.Add(E);
+          (Pos('GRAAL_SECURE_LOGIN=', E) <> 1) and (Pos('HEAPTRC=', E) <> 1) then
+          P.Environment.Add(E);
       end;
+      { Each child owns its tracer log; the parent's report stays intact. }
+      P.Environment.Add('HEAPTRC=log=' + HeapLog);
       if Display then P.Environment.Add('DISPLAY=:123');
       if PascalGame then P.Environment.Add('GRAAL_PASCAL_GAME=1');
       if EnvMode <> '' then P.Environment.Add('GRAAL_SECURE_LOGIN=' + EnvMode);
       P.Options := [poWaitOnExit];
       P.Execute;
       Check(P.ExitStatus = 0, What);
+      Check(FileExists(HeapLog), What + ': child heap report exists');
+      Heap.LoadFromFile(HeapLog);
+      Check(Pos('0 unfreed memory blocks', Heap.Text) > 0, What + ': child has no unfreed blocks');
     finally
+      Heap.Free;
       P.Free;
+      DeleteFile(HeapLog);
     end;
   end;
 
@@ -60,6 +74,7 @@ begin
   Dir := IncludeTrailingPathDelimiter(Dir);
   Exe := Dir + 'quattro-play';
   F := TStringList.Create;
+  RouteCount := 0;
   try
     { A fake installed player plus DISPLAY makes the insecure route
       available. No X server or executable game is needed. }
@@ -92,16 +107,22 @@ end;
 procedure ChildRoute;
 var
   Mode: TSecMode;
-  GotQuattro: Boolean;
+  GotQuattro, Online, WantQuattro: Boolean;
 begin
+  if (ParamCount <> 5) or not TryStrToBool(ParamStr(4), Online) or
+    not TryStrToBool(ParamStr(5), WantQuattro) then
+  begin
+    WriteLn(ErrOutput, 'invalid route test arguments');
+    Halt(2);
+  end;
   PinDirOverride := ParamStr(2);
-  if ParamStr(3) <> '' then
+  if ParamStr(3) <> 'configured' then
   begin
     if not ParseSecMode(ParamStr(3), Mode) then Halt(2);
     SetSecure(Mode, 'given-key');
   end;
-  GotQuattro := QuattroProgram(ParamStr(2), StrToBool(ParamStr(4))) <> '';
-  if GotQuattro <> StrToBool(ParamStr(5)) then Halt(1);
+  GotQuattro := QuattroProgram(ParamStr(2), Online) <> '';
+  if GotQuattro <> WantQuattro then Halt(1);
 end;
 {$ENDIF}
 
