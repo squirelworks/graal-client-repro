@@ -105,6 +105,11 @@ screen and the server list too.
 - `required`: never send the password in the clear.
 - `--server-key KEY`: trust that key only (the pin file is left alone).
 
+If the pin store cannot be read, or a new server key cannot be saved and
+read back from it, the
+login stops before sending C2. No password is sent and no successful pin
+message is shown.
+
 The settings folder is shared by every rebuild of the player:
 `%APPDATA%\graal-delphi` on Windows, `~/.config/graal-delphi` elsewhere
 (`GRAAL_SECURE_DIR` moves it). `known_servers.txt` there holds one

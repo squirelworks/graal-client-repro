@@ -39,7 +39,7 @@ const
 
 type
   TSecMode = (smOff, smAuto, smRequired);
-  TPinResult = (prUnknown, prMatches, prMismatch);
+  TPinResult = (prUnknown, prMatches, prMismatch, prUnavailable);
   { Where one connection's secure login stands. }
   TSecState = (ssNone, ssAwaitS1, ssDone, ssRefused, ssNoAnswer, ssFailed);
 
@@ -93,7 +93,8 @@ function PinFile: string;
 function RefusedFile: string;
 function PinCheck(const Server, Key: string; out Pinned: string): TPinResult;
 function IsPinned(const Server: string): Boolean;
-procedure PinAppend(const Server, Key: string);
+{ True only when the pin was written, closed and can be read back. }
+function PinAppend(const Server, Key: string): Boolean;
 function WasRefused(const Server: string): Boolean;
 procedure RememberRefused(const Server: string);
 
@@ -354,45 +355,97 @@ begin
   Result := WithTrailingSep(PinDir) + 'refused_servers.txt';
 end;
 
-{ the file's lines, or none if it cannot be read }
-function ReadLines(const Path: string): TStringArray;
+{ Missing files are empty; existing non-files and I/O errors are failures. }
+function TryReadLines(const Path: string; out Lines: TStringArray): Boolean;
 var
   F: TextFile;
-  L: string;
-  N: Integer;
+  L, Parent, NextParent: string;
+  N, Attr, ReadError, CloseError: Integer;
+  Done: Boolean;
 begin
-  SetLength(Result, 0);
-  if not FileExists(Path) then Exit;
+  Result := False;
+  SetLength(Lines, 0);
+  if DirExists(Path) then Exit;
+  Attr := FileGetAttr(Path);
+  if (Attr <> -1) and ((Attr and (faDirectory or faSysFile)) <> 0) then Exit;
+  Parent := ExtractFileDir(Path);
+  while Parent <> '' do
+  begin
+    if FileExists(Parent) then Exit;
+    NextParent := ExtractFileDir(Parent);
+    if NextParent = Parent then Break;
+    Parent := NextParent;
+  end;
   AssignFile(F, Path);
   {$I-}
   Reset(F);
   {$I+}
-  if IOResult <> 0 then Exit;
-  N := 0;
-  while not Eof(F) do
+  ReadError := IOResult;
+  if ReadError <> 0 then
   begin
+    { File/path not found is the ordinary first-use case. }
+    Result := (ReadError = 2) or (ReadError = 3);
+    Exit;
+  end;
+  N := 0;
+  while True do
+  begin
+    Done := False;
+    {$I-}
+    Done := Eof(F);
+    {$I+}
+    ReadError := IOResult;
+    if (ReadError <> 0) or Done then Break;
+    {$I-}
     ReadLn(F, L);
+    {$I+}
+    ReadError := IOResult;
+    if ReadError <> 0 then Break;
     L := Trim(L);
     if (L = '') or (L[1] = '#') then Continue;
-    SetLength(Result, N + 1);
-    Result[N] := L;
+    SetLength(Lines, N + 1);
+    Lines[N] := L;
     Inc(N);
   end;
+  {$I-}
   CloseFile(F);
+  {$I+}
+  CloseError := IOResult;
+  Result := (ReadError = 0) and (CloseError = 0);
+  if not Result then SetLength(Lines, 0);
 end;
 
-procedure AppendLine(const Path, Line: string);
+{ Other callers retain their existing default when the file cannot be read. }
+function ReadLines(const Path: string): TStringArray;
+begin
+  TryReadLines(Path, Result);
+end;
+
+function AppendLine(const Path, Line: string): Boolean;
 var
   F: TextFile;
+  WriteError, CloseError: Integer;
 begin
-  MakeDirs(ExtractFileDir(Path));
+  Result := False;
+  try
+    if not MakeDirs(ExtractFileDir(Path)) then Exit;
+  except
+    on Exception do Exit;
+  end;
   AssignFile(F, Path);
   {$I-}
   if FileExists(Path) then Append(F) else Rewrite(F);
   {$I+}
   if IOResult <> 0 then Exit;
+  {$I-}
   WriteLn(F, Line);
+  {$I+}
+  WriteError := IOResult;
+  {$I-}
   CloseFile(F);
+  {$I+}
+  CloseError := IOResult;
+  Result := (WriteError = 0) and (CloseError = 0);
 end;
 
 function SplitPin(const Line: string; out Server, Key: string): Boolean;
@@ -415,7 +468,11 @@ var
 begin
   Result := prUnknown;
   Pinned := '';
-  Lines := ReadLines(PinFile);
+  if not TryReadLines(PinFile, Lines) then
+  begin
+    Result := prUnavailable;
+    Exit;
+  end;
   for I := 0 to High(Lines) do
     if SplitPin(Lines[I], S, K) and (S = Server) then
     begin
@@ -429,12 +486,21 @@ function IsPinned(const Server: string): Boolean;
 var
   Pinned: string;
 begin
+  { An unavailable trust store must never enable a clear-text fallback. }
   Result := PinCheck(Server, '', Pinned) <> prUnknown;
 end;
 
-procedure PinAppend(const Server, Key: string);
+function PinAppend(const Server, Key: string): Boolean;
+var
+  Pinned: string;
 begin
-  AppendLine(PinFile, Server + ' ' + EncodeKey(Key));
+  Result := False;
+  if not AppendLine(PinFile, Server + ' ' + EncodeKey(Key)) then Exit;
+  try
+    Result := PinCheck(Server, Key, Pinned) = prMatches;
+  except
+    on Exception do Result := False;
+  end;
 end;
 
 function WasRefused(const Server: string): Boolean;
@@ -541,7 +607,12 @@ begin
     prMatches: Result := True;
     prUnknown:
       begin
-        PinAppend(Server, H.ServerKey);
+        if not PinAppend(Server, H.ServerKey) then
+        begin
+          Why := 'cannot save the server key for ' + Server + ' in ' + PinFile +
+            '; not sending the password';
+          Exit;
+        end;
         if Assigned(Note) then
           Note('secure login: trusting ' + Server + ' on first use, key ' +
             KeyFingerprint(H.ServerKey) + ' (saved in ' + PinFile + ')');
@@ -550,6 +621,9 @@ begin
     prMismatch:
       Why := 'server key ' + KeyFingerprint(H.ServerKey) + ' for ' + Server +
         ' is not the pinned key ' + KeyFingerprint(Pinned) + ' in ' + PinFile +
+        '; not sending the password';
+    prUnavailable:
+      Why := 'cannot read the server key file ' + PinFile +
         '; not sending the password';
   end;
 end;

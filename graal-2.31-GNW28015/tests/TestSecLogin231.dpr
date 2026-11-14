@@ -24,9 +24,18 @@ uses
 type
   TClientAccess = class(TAdventureClient);
   TListAccess = class(TListServerClient);
+  TNotes = class
+    Text: string;
+    procedure Note(const Line: string);
+  end;
 
 var
   Passed, Failed: Integer;
+
+procedure TNotes.Note(const Line: string);
+begin
+  Text := Text + Line + #10;
+end;
 
 procedure Check(Cond: Boolean; const What: string);
 begin
@@ -232,7 +241,7 @@ begin
     K1 := StringOfChar('a', 32);
     K2 := StringOfChar('b', 32);
     Check(PinCheck('h:1', K1, Pinned) = prUnknown, 'no pin file: unknown');
-    PinAppend('h:1', K1);
+    Check(PinAppend('h:1', K1), 'pin append reports successful persistence');
     Check(PinCheck('h:1', K1, Pinned) = prMatches, 'pinned key matches');
     Check((PinCheck('h:1', K2, Pinned) = prMismatch) and (Pinned = K1), 'another key: mismatch, names the pinned one');
     Check(PinCheck('h:2', K1, Pinned) = prUnknown, 'pins are per host:port');
@@ -292,6 +301,97 @@ end;
 function Frame(const Body: string): string;
 begin
   Result := Chr(Length(Body) shr 8) + Chr(Length(Body) and $FF) + Body;
+end;
+
+procedure TestPinPersistence;
+var
+  Dir: string;
+  Notes: TNotes;
+  FileText: TStringList;
+
+  procedure Login(ExpectSuccess: Boolean; const What: string);
+  var
+    C: TClientAccess;
+    F: TStringList;
+    Line, Tail, Pinned: string;
+  begin
+    Notes.Text := '';
+    C := TClientAccess.Create;
+    F := nil;
+    try
+      C.StartOffline(64);
+      C.Sink := True;
+      C.Sec.Reset('h:1');
+      C.Sec.Mode := smAuto;
+      C.Sec.OnNote := Notes.Note;
+      C.SendLogin('loop1', 'labpw123', 'English');
+      F := SplitFrames(C.Sent);
+      Check((F.Count = 1) and ZDecompress(F[0], Line), What + ': C1 only before S1');
+      SetLength(Line, Length(Line) - 1);
+      C.Sent := '';
+      C.FeedRaw(Frame(ZCompress(ServerHello(Line, 2) + #10)));
+      if ExpectSuccess then
+      begin
+        Check(C.Sec.State = ssDone, What + ': handshake accepted');
+        Check(PinCheck('h:1', Ed25519PublicKey(UnHex(ServerSeed)), Pinned) = prMatches,
+          What + ': key readable from pin file');
+        F.Free;
+        F := SplitFrames(C.Sent);
+        Check((F.Count = 2) and ZDecompress(F[0], Line), What + ': C2 and language sent');
+        SetLength(Line, Length(Line) - 1);
+        Check(ServerOpen(Line, Tail) and (Tail = GString('loop1') + GString('labpw123')),
+          What + ': C2 opens after pin was saved');
+        Check(Pos('(saved in ', Notes.Text) > 0, What + ': save message is truthful');
+        Check(not MayFallBack(smAuto, 'h:1'), What + ': persisted pin prevents fallback');
+      end
+      else
+      begin
+        Check((C.Sec.State = ssFailed) and (C.Sent = ''), What + ': no C2 or password sent');
+        Check(Pos('cannot read the server key file', C.Sec.Why) > 0, What + ': useful trust-store error');
+        Check(Pos('(saved in ', Notes.Text) = 0, What + ': no false save message');
+      end;
+    finally
+      F.Free;
+      C.Free;
+    end;
+  end;
+
+begin
+  Dir := IncludeTrailingPathDelimiter(GetTempDir) + 'seclogin-persist-' + IntToStr(GetProcessID);
+  ForceDirectories(Dir);
+  Notes := TNotes.Create;
+  FileText := TStringList.Create;
+  try
+    PinDirOverride := Dir;
+    ForceDirectories(PinFile);  { deterministic open failure even as root }
+    Check(not PinAppend('h:1', StringOfChar('a', 32)), 'non-file pin path cannot be written');
+    RememberRefused('h:1');
+    Check(WasRefused('h:1') and ShouldProbe(smAuto, 'h:1'),
+      'unavailable trust store overrides a cached refusal');
+    Check(not MayFallBack(smAuto, 'h:1'), 'unavailable trust store forbids classic fallback');
+    Check(not ShouldProbe(smOff, 'h:1'), 'explicit off ignores the unavailable trust store');
+    Login(False, 'pin path is a directory');
+    RemoveDir(PinFile);
+    DeleteFile(RefusedFile);
+    FileText.Add('not a folder');
+    FileText.SaveToFile(IncludeTrailingPathDelimiter(Dir) + 'blocked');
+    PinDirOverride := IncludeTrailingPathDelimiter(Dir) + 'blocked';
+    Check(not PinAppend('h:1', StringOfChar('a', 32)), 'regular-file parent cannot hold a pin');
+    Check(not MayFallBack(smAuto, 'h:1'), 'regular-file parent forbids classic fallback');
+    Login(False, 'pin parent is a regular file');
+    PinDirOverride := Dir;
+    Login(True, 'writable pin file');
+  finally
+    PinDirOverride := Dir;
+    DeleteFile(PinFile);
+    DeleteFile(RefusedFile);
+    RemoveDir(PinFile);
+    DeleteFile(IncludeTrailingPathDelimiter(Dir) + 'blocked');
+    PinDirOverride := '';
+    FileText.Free;
+    Notes.Free;
+    RemoveDir(Dir);
+  end;
 end;
 
 procedure TestGameWire;
@@ -402,6 +502,7 @@ begin
   TestVectors;
   TestHandshake;
   TestPins;
+  TestPinPersistence;
   TestGameWire;
   TestListWire;
   WriteLn(Passed, ' passed, ', Failed, ' failed');
