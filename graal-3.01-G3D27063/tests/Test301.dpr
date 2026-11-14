@@ -27,7 +27,9 @@ uses
   Adventure in '../src/Adventure.pas',
   GBuiltin in '../../common/GBuiltin.pas',
   GStartScreen in '../../common/GStartScreen.pas',
-  ListServer301 in '../src/ListServer301.pas';
+  ListServer301 in '../src/ListServer301.pas',
+  TestNpc301 in 'TestNpc301.pas',
+  TestBaddy301 in 'TestBaddy301.pas';
 
 {$I Capture301.inc}
 
@@ -36,7 +38,7 @@ type
   TClientAccess = class(TAdventureClient);
 
 var
-  Passed, Failed, Skipped: Integer;
+  Passed, Failed, Skipped, NpcSkipped: Integer;
   { The game link is gen 4 (bz2 bodies, no compression byte); the list step
     and the gen-5 capture checks switch this off. }
   WireGen4: Boolean = True;
@@ -1526,6 +1528,9 @@ begin
   TestLayAndHide;
   TestFuzz;
   TestReceiveLimits;
+  RunNpcTests(Check, NpcSkipped);
+  Inc(Skipped, NpcSkipped);
+  RunBaddyTests(Check);
   WriteLn(Format('%d passed, %d failed, %d skipped', [Passed, Failed, Skipped]));
   if Failed > 0 then Halt(1);
 end.

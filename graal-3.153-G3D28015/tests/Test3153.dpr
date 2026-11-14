@@ -27,7 +27,9 @@ uses
   Adventure in '../src/Adventure.pas',
   GBuiltin in '../../common/GBuiltin.pas',
   GStartScreen in '../../common/GStartScreen.pas',
-  ListServer3153 in '../src/ListServer3153.pas';
+  ListServer3153 in '../src/ListServer3153.pas',
+  TestNpc3153 in 'TestNpc3153.pas',
+  TestBaddy3153 in 'TestBaddy3153.pas';
 
 {$I Capture3153.inc}
 
@@ -36,7 +38,7 @@ type
   TClientAccess = class(TAdventureClient);
 
 var
-  Passed, Failed, Skipped: Integer;
+  Passed, Failed, Skipped, NpcSkipped: Integer;
 
 procedure Check(Cond: Boolean; const What: string);
 begin
@@ -1434,6 +1436,9 @@ begin
   TestLayAndHide;
   TestFuzz;
   TestReceiveLimits;
+  RunNpcTests(Check, NpcSkipped);
+  Inc(Skipped, NpcSkipped);
+  RunBaddyTests(Check);
   WriteLn(Format('%d passed, %d failed, %d skipped', [Passed, Failed, Skipped]));
   if Failed > 0 then Halt(1);
 end.

@@ -28,7 +28,8 @@ unit Adventure;
 interface
 
 uses
-  Classes, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GAssetDirs, GraalClient, Protocol3151;
+  Classes, GTypes, GLevel, GSurface, GArrays, GAni, GBuiltin, GAssetDirs, GraalClient, Protocol3151,
+  Npc3151, Baddy3151;
 
 const
   { The game view: 800 x 600, as the Linux 3.04 opens (lab run), taken for
@@ -174,10 +175,23 @@ type
     Back: Integer;   { ticks left of a bounce off a shield, or 0 }
   end;
 
+  { Hooks for what the NPC and baddy code answers to, in tiles: a sword
+    swing's hit box, a bomb blast's centre and reach, an arrow's middle
+    (True when something took the shot, which then goes). }
+  TSwordHitEvent = procedure(X, Y, W, H: Double; Power: Integer) of object;
+  TBombBlastEvent = procedure(X, Y: Double; Radius: Integer) of object;
+  TArrowHitEvent = function(X, Y: Double; Power: Integer): Boolean of object;
+
   TAdventure = class
   private
     FModeUntil: Integer;   { frame the sword swing, spin or lift ends }
     FListWasDown: Boolean;
+    FSignWasDown: Boolean; { a game key was down on the tick before }
+    FPushCount: Integer;   { pushed back by a baddy's shield: ticks left }
+    { the level NPC messages go to: SETACTIVELEVEL, or LEVELNAME when the
+      server has no NPC server (protocol/packet-layouts.md) }
+    FObjectLevel: string;
+    FAniReplace: TStringList;
     FHurtCount: Integer;   { hurt mode: ticks left of 40 }
     FKnockX, FKnockY: Double;
     FEntryX, FEntryY: Double; { where the player came into this level }
@@ -213,7 +227,6 @@ type
     procedure WarpDone;
     procedure HandleMessage(Id: Integer; const Data: string);
     procedure ClientLog(const Line: string);
-    function PointBlocked(PX, PY: Double): Boolean;
     procedure SendLoginFrame;
     procedure SendMovedProps;
     function BodyFor(P: TServerPlayer): TGSurface;
@@ -225,6 +238,11 @@ type
     procedure CrossEdges;
     procedure ReceiveFile(const Data: string);
     procedure ServerWarp(const Data: string);
+    { The player's level changed: what lived in the old one goes, and
+      offline the new level's own NPCs and baddies start. }
+    procedure LevelEntered;
+    procedure ScopeNpcs;
+    procedure SetNpcTarget;
     procedure KnockStep;
     procedure CheckSwordHits;
     procedure ItemListKeys;
@@ -295,6 +313,19 @@ type
     Shots: array of TShot;
     { The item list window (Q) is open: it takes the keys. }
     ItemListOpen: Boolean;
+    { Reading a sign: its lines and the first line of the page shown. }
+    Reading: Boolean;
+    SignLines: array of string;
+    SignLine: Integer;
+    { showstats bits from GS1; the rebuilt 3.x draws no status bar yet }
+    ShowStats: Integer;
+    { NPCs and their scripts (Npc3151, NpcBridge3151) }
+    Npcs: TNpcManager;
+    { baddies (Baddy3151): from the level offline, from the server online }
+    Baddies: TBaddyManager;
+    OnSwordHit: TSwordHitEvent;
+    OnBombBlast: TBombBlastEvent;
+    OnArrowHit: TArrowHitEvent;
     constructor Create;
     destructor Destroy; override;
     procedure Log(const S: string);
@@ -409,6 +440,27 @@ type
     { D with a bush or stone carried: hide under it, or come out again. }
     procedure ToggleHide;
     procedure SendStatus;
+    { HurtPlayer with the knockback pointing away from (FromX, FromY). }
+    procedure HurtFrom(Hearts, FromX, FromY: Double);
+    { pushed back along (KX, KY) without harm (a baddy's shield) }
+    procedure PushPlayer(KX, KY: Double);
+    { The level sign whose 2 x 2 holds (PX, PY), or -1. }
+    function SignAt(PX, PY: Double): Integer;
+    { Opens the sign panel on Text (lines split at newlines). }
+    procedure ReadSign(const Text: string);
+    { The keys while reading: Up turns back a page, any other game key
+      turns on, or ends reading on a page that is not full. }
+    procedure SignKeys;
+    procedure DrawSign(CamTop: Integer);
+    { replaceani Old,New: the player's Old gani is drawn as New }
+    procedure ReplaceAni(const Old, New: string);
+    function PlayerAniFor(const Name: string): string;
+    { addtiledef from a script: image, level-name prefix, sheet type }
+    procedure AddTileDef(const Img, Prefix: string; Kind: Integer);
+    { walls, chests and blocking NPCs at a point, in tiles }
+    function PointBlocked(PX, PY: Double): Boolean;
+    function IsOnline: Boolean;
+    procedure SendPacket(Id: Integer; const Data: string);
     property Others[I: Integer]: TServerPlayer read GetOther;
     property OtherCount: Integer read GetOtherCount;
     property Client: TAdventureClient read FClient;
@@ -457,7 +509,7 @@ function SpriteWalkStep(Sprite: Integer): Integer;
 implementation
 
 uses
-  SysUtils, Math, GFont;
+  SysUtils, Math, GFont, NpcBridge3151;
 
 procedure MakeIndexSheet(Sheet: TGSurface);
 var
@@ -951,8 +1003,22 @@ begin
   AP := 50;
   WeaponsOn := True;
   Selected := -1;
+  ShowStats := $1FF;
+  FAniReplace := TStringList.Create;
+  Npcs := CreateNpcManager(Self);
+  Baddies := CreateBaddyManager(Self);
   AddDefaultWeapon(8);
   UseBuiltins;
+end;
+
+function TAdventure.IsOnline: Boolean;
+begin
+  Result := FClient.Connected;
+end;
+
+procedure TAdventure.SendPacket(Id: Integer; const Data: string);
+begin
+  if FClient.Connected then FClient.SendPacket(Id, Data);
 end;
 
 procedure TAdventure.UseBuiltins;
@@ -982,6 +1048,9 @@ begin
   FOthers.Free;
   FTileDefs.Free;
   FTileDefTypes.Free;
+  FreeAndNil(Baddies);
+  FreeAndNil(Npcs);
+  FAniReplace.Free;
   FLog.Free;
   inherited Destroy;
 end;
@@ -1137,6 +1206,9 @@ begin
   LoginMs := -1;
   SetLength(Weapons, 0);
   Selected := -1;
+  FObjectLevel := '';
+  Npcs.Clear;
+  Npcs.HasNpcServer := False;
   Result := FClient.Connect(Host, Port);
   if not Result then
   begin
@@ -1181,7 +1253,8 @@ function TAdventure.PointBlocked(PX, PY: Double): Boolean;
 var
   TX, TY, I, T: Integer;
 begin
-  Result := False;
+  Result := Npcs.PointBlocked(PX, PY);
+  if Result then Exit;
   { chests: x, y to x + 2, y + 2, edges included, opened or not }
   for I := 0 to High(Level.Chests) do
     if (PX >= Level.Chests[I].X) and (PX <= Level.Chests[I].X + 2) and
@@ -1267,6 +1340,295 @@ begin
   Player.Y := NY;
 end;
 
+{ ---- signs (sign-panel.md) ---- }
+
+const
+  { a character's glyph is its place in this string; '#' places are glyphs
+    with no plain character }
+  GlyphOrder = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789' +
+    '!?-.,#>()#####"####'':/~&### <####;';
+
+function GlyphOf(C: Char): Integer;
+begin
+  if C = '#' then Result := -1 else Result := Pos(C, GlyphOrder) - 1;
+end;
+
+{ Half the advance of each glyph of the letters sheet, as Graal_222.exe
+  keeps them (a 96-entry table in its data) }
+const
+  GlyphHalfWidth: array[0..95] of Byte = (
+    6, 6, 6, 6, 6, 6, 6, 6, 3, 6, 6, 6, 7, 6, 6, 6, 6, 6, 6, 7, 6, 7, 7, 7,
+    7, 6, 6, 6, 6, 6, 6, 6, 6, 6, 3, 5, 6, 3, 7, 6, 6, 6, 6, 5, 6, 6, 6, 7,
+    7, 7, 7, 6, 6, 4, 6, 6, 6, 6, 6, 6, 6, 6, 3, 7, 6, 4, 4, 6, 6, 6, 6, 6,
+    6, 6, 8, 8, 5, 7, 7, 7, 7, 4, 3, 7, 8, 7, 8, 8, 8, 4, 6, 8, 8, 8, 8, 6);
+  { the codes after '#' and the glyphs each draws (Graal_222.exe: "ABXYudlrhxyz4."
+    with its count, start and glyph tables) }
+  ButtonCodes = 'ABXYudlrhxyz4.';
+  ButtonStart: array[0..13] of Byte = (0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 15);
+  ButtonCount: array[0..13] of Byte = (1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 2, 1);
+  ButtonGlyphs: array[0..15] of Byte = (91, 92, 93, 94, 77, 78, 79, 80, 74, 75,
+    71, 72, 73, 87, 88, 67);
+  { drawn for a '#' code the client does not know; the code is then drawn
+    as a letter }
+  UnknownCodeGlyph = 86;
+
+function GlyphAdvance(G: Integer): Integer;
+begin
+  if (G >= 0) and (G <= High(GlyphHalfWidth)) then Result := 2 * GlyphHalfWidth[G]
+  else Result := 12;
+end;
+
+function TAdventure.SignAt(PX, PY: Double): Integer;
+var
+  I, TX, TY: Integer;
+begin
+  Result := -1;
+  TX := Floor(PX);
+  TY := Floor(PY);
+  for I := 0 to High(Level.Signs) do
+    if (TX >= Level.Signs[I].X) and (TX <= Level.Signs[I].X + 1) and
+      (TY >= Level.Signs[I].Y) and (TY <= Level.Signs[I].Y + 1) then
+    begin
+      Result := I;
+      Exit;
+    end;
+end;
+
+procedure TAdventure.ReadSign(const Text: string);
+var
+  I, St: Integer;
+  T: string;
+begin
+  SetLength(SignLines, 0);
+  T := Text;
+  while (T <> '') and ((T[Length(T)] = #10) or (T[Length(T)] = #13)) do
+    SetLength(T, Length(T) - 1);
+  St := 1;
+  for I := 1 to Length(T) + 1 do
+    if (I > Length(T)) or (T[I] = #10) then
+    begin
+      SetLength(SignLines, Length(SignLines) + 1);
+      SignLines[High(SignLines)] := Copy(T, St, I - St);
+      if (SignLines[High(SignLines)] <> '') and
+        (SignLines[High(SignLines)][Length(SignLines[High(SignLines)])] = #13) then
+        SetLength(SignLines[High(SignLines)], Length(SignLines[High(SignLines)]) - 1);
+      St := I + 1;
+    end;
+  SignLine := 0;
+  Reading := True;
+  { the key that opened the sign does nothing until it is let go }
+  FSignWasDown := True;
+end;
+
+procedure TAdventure.SignKeys;
+var
+  Down: Boolean;
+  D: Integer;
+begin
+  Down := Keys[0] or Keys[1] or Keys[2] or Keys[3] or ActionKey or AttackKey or ItemKey;
+  if Down and not FSignWasDown then
+  begin
+    if Keys[DirUp] then
+    begin
+      if SignLine > 0 then Dec(SignLine, 3);
+    end
+    else if Length(SignLines) < SignLine + 3 then
+      Reading := False
+    else
+      Inc(SignLine, 3);
+  end;
+  FSignWasDown := Down;
+  for D := 0 to 3 do Keys[D] := False;
+  ActionKey := False;
+  AttackKey := False;
+  ItemKey := False;
+end;
+
+procedure TAdventure.DrawSign(CamTop: Integer);
+const
+  CellsW = 24;
+  CellsH = 9;
+var
+  L: TGSurface;
+  X, Y, W, H, I, J, K, CX, G: Integer;
+  S: string;
+  Fill: Cardinal;
+
+  procedure Glyph(N, DX, DY: Integer);
+  begin
+    Screen.Blit(L, (N mod 16) * 16, (N div 16) * 32, 16, 32, DX, DY);
+  end;
+
+begin
+  L := Assets.Image('letters.png', '');
+  W := CellsW * 16;
+  H := CellsH * 16;
+  X := (ScreenW - W) div 2;
+  { low on the view, or high when the player is far down it }
+  { (on the 640 x 480 view: y 256, or 128 past 14 tiles down) }
+  if Player.Y - CamTop / TileSize > 14 then Y := 128 else Y := 256;
+  if L = nil then
+  begin
+    Screen.FillRect(X, Y, W, H, $FF000000);
+    Screen.FillRect(X + 2, Y + 2, W - 4, H - 4, $FFFFE7A5);
+  end
+  else
+  begin
+    for I := 0 to CellsW - 1 do
+    begin
+      Glyph(100, X + I * 16, Y);
+      Glyph(101, X + I * 16, Y + H - 32);
+    end;
+    I := 0;
+    while I * 32 < H do
+    begin
+      Glyph(102, X, Y + I * 32);
+      Glyph(103, X + W - 16, Y + I * 32);
+      Inc(I);
+    end;
+    Glyph(96, X, Y);
+    Glyph(97, X + W - 16, Y);
+    Glyph(98, X, Y + H - 32);
+    Glyph(99, X + W - 16, Y + H - 32);
+    { the two fills, from the colours at (254, 223) and (255, 223), each
+      skipped when it is the sheet's clear colour }
+    Fill := L.GetPixel(254, 223);
+    if Fill shr 24 <> 0 then Screen.FillRect(X + 16, Y + 24, W - 32, H - 48, Fill);
+    Fill := L.GetPixel(255, 223);
+    if Fill shr 24 <> 0 then Screen.FillRect(X + 24, Y + 32, W - 48, H - 64, Fill);
+  end;
+  { three lines a page, 32 pixels apart }
+  for K := 0 to 2 do
+  begin
+    if SignLine + K > High(SignLines) then Break;
+    S := SignLines[SignLine + K];
+    CX := X + 16;
+    I := 1;
+    while I <= Length(S) do
+    begin
+      if S[I] = '#' then
+      begin
+        if I = Length(S) then Break;
+        Inc(I);
+        if S[I] = 'i' then
+        begin
+          Inc(I, 2); { #i and a character: an image from the level's list, not drawn }
+          Continue;
+        end;
+        J := Pos(S[I], ButtonCodes);
+        if J > 0 then
+        begin
+          for G := ButtonStart[J - 1] to ButtonStart[J - 1] + ButtonCount[J - 1] - 1 do
+          begin
+            if L <> nil then Glyph(ButtonGlyphs[G], CX, Y + 16 + K * 32);
+            Inc(CX, GlyphAdvance(ButtonGlyphs[G]));
+          end;
+        end
+        else
+        begin
+          if L <> nil then Glyph(UnknownCodeGlyph, CX, Y + 16 + K * 32);
+          Inc(CX, GlyphAdvance(UnknownCodeGlyph));
+          Continue; { the code itself is then drawn as a letter }
+        end;
+      end
+      else
+      begin
+        G := GlyphOf(S[I]);
+        if (G >= 0) and (L <> nil) then
+        begin
+          Glyph(G, CX, Y + 16 + K * 32);
+          Inc(CX, GlyphAdvance(G));
+        end
+        else
+        begin
+          { outside the glyph order: the system font, in the colour at (253, 223) }
+          if L <> nil then Fill := L.GetPixel(253, 223) else Fill := $FF000000;
+          DrawText(Screen, CX, Y + 16 + K * 32 + 8, S[I], Fill or $FF000000, 2);
+          Inc(CX, 12);
+        end;
+      end;
+      Inc(I);
+    end;
+  end;
+end;
+
+procedure TAdventure.ReplaceAni(const Old, New: string);
+var
+  I: Integer;
+  K: string;
+begin
+  K := LowerCase(Trim(Old));
+  if K = '' then Exit;
+  I := FAniReplace.IndexOfName(K);
+  if I >= 0 then FAniReplace.Delete(I);
+  if (Trim(New) <> '') and (LowerCase(Trim(New)) <> K) then
+    FAniReplace.Add(K + '=' + Trim(New));
+end;
+
+function TAdventure.PlayerAniFor(const Name: string): string;
+var
+  V: string;
+begin
+  Result := Name;
+  V := FAniReplace.Values[LowerCase(Name)];
+  if V <> '' then Result := V;
+end;
+
+procedure TAdventure.LevelEntered;
+begin
+  SetLength(Items, 0);
+  SetLength(Thrown, 0);
+  Baddies.Clear;
+  { online the server sends the level's NPCs and baddies; NPCs it sent
+    earlier for this level (a gmap's other cells) come in now }
+  if FClient.Connected then ScopeNpcs
+  else
+  begin
+    Npcs.Clear;
+    if Level.HasBoard then
+    begin
+      Npcs.LoadLevel(Level);
+      Baddies.LoadLevel(Level);
+    end;
+  end;
+end;
+
+procedure TAdventure.ScopeNpcs;
+begin
+  if Level = nil then Exit;
+  if Gmap <> nil then Npcs.SetScope(Level.Name, GmapName, Player.GmapX, Player.GmapY)
+  else if (GmapName <> '') and SameText(Player.Level, GmapName) then
+    Npcs.SetScope(Level.Name, GmapName, Player.GmapX, Player.GmapY)
+  else Npcs.SetScope(Level.Name, '', -1, -1);
+end;
+
+{ before an NPC message: which level it is for and, on a gmap, which cell
+  (the level whose data came last; the player's cell for the player's) }
+procedure TAdventure.SetNpcTarget;
+var
+  T: TCachedLevel;
+  CX, CY: Integer;
+begin
+  if FObjectLevel <> '' then Npcs.ObjectLevel := FObjectLevel
+  else if Level <> nil then Npcs.ObjectLevel := Level.Name
+  else Npcs.ObjectLevel := '';
+  Npcs.DataCellX := -1;
+  Npcs.DataCellY := -1;
+  T := FCurrentData;
+  if T = nil then T := Level;
+  if T = nil then Exit;
+  if (Gmap <> nil) and Gmap.FindCell(T.Name, CX, CY) then
+  begin
+    Npcs.DataCellX := CX;
+    Npcs.DataCellY := CY;
+  end
+  else if T = Level then
+  begin
+    Npcs.DataCellX := Player.GmapX;
+    Npcs.DataCellY := Player.GmapY;
+  end;
+end;
+
 { ---- other players ---- }
 
 { ---- actions: sword and spin, lift and throw, chests, floor items,
@@ -1276,8 +1638,8 @@ end;
   item-drops.md, decomp-findings-2026-10-24-d/01-sword-damage.md,
   damage-sources.md, status-display.md, decomp-findings-2026-10-28/
   01-sword-while-carrying.md and 02-item-list.md. 3.04 keeps 2.22's game
-  (torque/304-adventure.md); the rebuilt 3.04 has no sound, NPCs,
-  baddies or sign panel yet, so those calls are left out. ---- }
+  (torque/304-adventure.md); the rebuilt 3.x has no sound yet, so those
+  calls are left out. ---- }
 
 function FloorItem(Item: Integer): Boolean;
 begin
@@ -1404,6 +1766,8 @@ begin
   ProbePoint(PX, PY);
   E := MatchObject(9, MaxInt, PX, PY, OX, OY);
   if E >= 0 then PutObject(OX, OY, 10, E, True);
+  { NPCs and baddies hit by the blade: a 2 x 2 box centred on the tip }
+  if Assigned(OnSwordHit) then OnSwordHit(PX - 1, PY - 1, 2, 2, Player.SwordPower);
 end;
 
 procedure TAdventure.Action;
@@ -1452,8 +1816,7 @@ begin
         GiveItem(Level.Chests[I].Item);
       end;
       if (Level.Chests[I].Sign >= 0) and (Level.Chests[I].Sign <= High(Level.Signs)) then
-        { no sign panel in the rebuilt 3.04 yet: the text goes to the log }
-        Log('chest sign: ' + Level.Signs[Level.Chests[I].Sign].Text);
+        ReadSign(Level.Signs[Level.Chests[I].Sign].Text);
       if FClient.Connected then
         FClient.SendPacket(PLI_OPENCHEST, GChar(Level.Chests[I].X) + GChar(Level.Chests[I].Y));
       Exit;
@@ -1776,6 +2139,31 @@ begin
     FClient.SendPacket(PLI_PLAYERPROPS, GChar(PLPROP_CURPOWER) + GChar(Player.Power));
 end;
 
+procedure TAdventure.HurtFrom(Hearts, FromX, FromY: Double);
+begin
+  HurtPlayer(Hearts, Player.X + 1.5 - FromX, Player.Y + 2 - FromY);
+end;
+
+procedure TAdventure.PushPlayer(KX, KY: Double);
+var
+  L: Double;
+begin
+  if (Mode = ModeDead) or (FHurtCount > 0) then Exit;
+  L := Sqrt(KX * KX + KY * KY);
+  if L < 0.0001 then
+  begin
+    FKnockX := 1;
+    FKnockY := 0;
+  end
+  else
+  begin
+    FKnockX := KX / L;
+    FKnockY := KY / L;
+  end;
+  { the push's length was not read from 2.22: two ticks of a tile }
+  FPushCount := 2;
+end;
+
 procedure TAdventure.Respawn;
 begin
   { hearts by alignment (measured on 2.22): AP below 20 three, below 40
@@ -1889,6 +2277,7 @@ begin
   Blasts[N].Kind := Kind;
   Blasts[N].Age := 0;
   Blasts[N].Mine := Mine;
+  if Assigned(OnBombBlast) then OnBombBlast(X + 1, Y + 1, Reach);
   { only the owner changes the board: bushes (cut entry 0) and the sign,
     pot and stone (lift entries 1 to 3) under each piece, at four points }
   if not Mine then Exit;
@@ -1929,6 +2318,11 @@ begin
     Dec(FHurtCount);
     if FHurtCount >= 35 then KnockStep;
     if (FHurtCount = 0) and (Mode = ModeFree) then Player.SetAni('idle', Frame);
+  end
+  else if FPushCount > 0 then
+  begin
+    Dec(FPushCount);
+    KnockStep;
   end;
   CheckSwordHits;
   { bombs burn down and go off as a blast of reach 2 }
@@ -2157,7 +2551,13 @@ begin
         Hit := True;
       end
       else if Sh.Mine then
-        { no NPCs or baddies in the rebuilt 3.04 yet: an own shot flies on }
+      begin
+        if Assigned(OnArrowHit) and OnArrowHit(Sh.X + W / 2, Sh.Y + H / 2, 1 + Ord(Sh.Kind in [1, 3])) then
+        begin
+          Gone := True;
+          Hit := True;
+        end;
+      end
       else if Hurtable and (AP <> 100) and (Sh.X + W > Player.X + 0.5) and (Sh.X < Player.X + 2.5) and
         (Sh.Y + H > Player.Y + 1) and (Sh.Y < Player.Y + 3) then
       begin
@@ -2506,6 +2906,7 @@ begin
     Level := CachedLevel(Gmap.CellName(0, 0), True);
     Player.Level := GmapName;
     Result := Level.HasBoard;
+    if Result then LevelEntered;
     Exit;
   end;
   FreeAndNil(Gmap);
@@ -2525,6 +2926,7 @@ begin
   if not Result then Level.LastError := L.LastError;
   if Result then Level := L;
   Player.Level := Level.Name;
+  if Result then LevelEntered;
 end;
 
 function TAdventure.LinkAt(PX, PY: Double): Integer;
@@ -2668,6 +3070,7 @@ begin
   Level.Name := N;
   BoardLoaded := Level.HasBoard;
   while FOthers.Count > 0 do RemoveOther(Others[0].Id);
+  if FClient.Connected then ScopeNpcs;
   Log(Format('crossed into %s (cell %d,%d)', [N, Player.GmapX, Player.GmapY]));
   if FClient.Connected then
     AskAdjacent;
@@ -2844,6 +3247,13 @@ begin
     if (Id >= 0) and (Id <= 255) then Inc(Ignored[Id]);
     Exit;
   end;
+  { NPC and baddy messages go to their units }
+  SetNpcTarget;
+  if Npcs.Receive(Id, Data) or Baddies.Receive(Id, Data) then
+  begin
+    if (Id >= 0) and (Id <= 255) then Inc(Handled[Id]);
+    Exit;
+  end;
   R := TGReader.Create(Data);
   try
     case Id of
@@ -2911,6 +3321,7 @@ begin
         end;
       PLO_LEVELNAME:
         begin
+          if not Npcs.HasNpcServer then FObjectLevel := Data;
           if EndsWith(Data, '.gmap') then
           begin
             { the "named level" goes back to the gmap after a level's data }
@@ -2932,6 +3343,7 @@ begin
               FreeAndNil(Gmap);
               GmapName := '';
               Level := T;
+              LevelEntered;
               BoardLoaded := T.HasBoard;
               if BoardLoaded then
                 WarpDone;
@@ -2943,6 +3355,7 @@ begin
               begin
                 while FOthers.Count > 0 do RemoveOther(Others[0].Id);
                 Level := T;
+                LevelEntered;
                 BoardLoaded := T.HasBoard;
               end;
             end;
@@ -3170,6 +3583,7 @@ begin
       PLO_FILE: ReceiveFile(Data);
       PLO_SETACTIVELEVEL:
         begin
+          FObjectLevel := Data;
           if EndsWith(Data, '.gmap') then SetGmap(Data);
           FCurrentData := nil;
           Log('SETACTIVELEVEL ' + Data);
@@ -3258,9 +3672,12 @@ begin
     ActionKey := False;
     ItemKey := False;
   end;
+  { reading a sign is its own input state: nothing walks or acts }
+  if Reading then SignKeys
+  else FSignWasDown := False;
   { the item list (Q) takes the keys while it is open }
   if ItemListOpen then ItemListKeys
-  else if ItemListKey and (Mode = ModeFree) then
+  else if ItemListKey and (Mode = ModeFree) and not Reading then
   begin
     ItemListOpen := True;
     FListWasDown := True;
@@ -3321,9 +3738,23 @@ begin
   TickItems;
   TickShots;
   TickCombat;
+  { NPCs: pushing into one, walking over one, then timeouts }
+  for D := 0 to 3 do
+    if Keys[D] and ((Mode = ModeFree) or (Mode = ModeCarry)) then
+      Npcs.PlayerPush(D, Player.X, Player.Y);
+  if Moved then Npcs.PlayerMoved(Player.X, Player.Y);
+  Npcs.Tick;
+  Baddies.Tick;
   { links are tested on the player's own walk, at one point: the body's
     centre pushed ahead in the walking direction }
   if Moved then FollowLink(LinkAt(Player.X + 1.5 + AX, Player.Y + 2 + AY));
+  { walking up against a sign opens it (the probe over the sign's 2 x 2) }
+  if Moved and Keys[DirUp] and (Mode = ModeFree) and not Reading then
+  begin
+    ProbePoint(AX, AY);
+    D := SignAt(Player.X + 1.5, AY);
+    if (D >= 0) and ((Player.Dir and 3) = DirUp) then ReadSign(Level.Signs[D].Text);
+  end;
   SendMovedProps;
   { 3.151 sends no periodic 24 over TCP (3.04 lab run, assumed) }
   FClient.Flush;
@@ -3386,7 +3817,8 @@ begin
     BX := Round(P.X * TileSize) - CamX;
     BY := Round(P.Y * TileSize) - CamY;
   end;
-  A := Assets.Ani(P.AniName);
+  if P = Player then A := Assets.Ani(PlayerAniFor(P.AniName))
+  else A := Assets.Ani(P.AniName);
   if A = nil then A := Assets.Ani('idle');
   if A = nil then
   begin
@@ -3498,6 +3930,19 @@ begin
   finally
     Parts.Free;
   end;
+end;
+
+{ addtiledef from a GS1 script (the bridge): newest first, as the level
+  script lines are read }
+procedure TAdventure.AddTileDef(const Img, Prefix: string; Kind: Integer);
+var
+  K: string;
+begin
+  if (Img = '') or (Pos('..', Img) > 0) then Exit;
+  K := LowerCase(Trim(Prefix)) + #9 + Img;
+  if FTileDefs.IndexOf(K) >= 0 then FTileDefs.Delete(FTileDefs.IndexOf(K));
+  FTileDefs.Insert(0, K);
+  FTileDefTypes.Values[K] := IntToStr(Kind);
 end;
 
 { The FTileDefs entry for a level: the first whose prefix starts its
@@ -3750,11 +4195,14 @@ begin
     anything in the air }
   DrawChests(Tiles, LCamX, LCamY);
   DrawItems(LCamX, LCamY);
+  Npcs.Draw(Screen, LCamX, LCamY, False);
+  Baddies.Draw(Screen, LCamX, LCamY);
   for I := 0 to FOthers.Count - 1 do
     DrawPlayer(Others[I], CamX, CamY);
   DrawPlayer(Player, CamX, CamY);
   DrawCombat(LCamX, LCamY);
   DrawShots(LCamX, LCamY);
+  Npcs.Draw(Screen, LCamX, LCamY, True);
   for I := 0 to High(Thrown) do
     DrawCarried(Thrown[I].Kind, Round(Thrown[I].X * TileSize) - LCamX,
       Round(Thrown[I].Y * TileSize) - LCamY);
@@ -3766,6 +4214,7 @@ begin
       Screen.Blit(Tiles, TX, TY, X0, Y0, Round((Player.X + 1.5) * TileSize) - LCamX - X0 div 2,
         Round(Player.Y * TileSize) - LCamY - Y0 div 2);
   end;
+  if Reading then DrawSign(LCamY);
   if ItemListOpen then DrawItemList;
 end;
 
