@@ -60,7 +60,7 @@ var
       Check(P.ExitStatus = 0, What);
       Check(FileExists(HeapLog), What + ': child heap report exists');
       Heap.LoadFromFile(HeapLog);
-      Check(Pos('0 unfreed memory blocks', Heap.Text) > 0, What + ': child has no unfreed blocks');
+      Check(Heap.IndexOf('0 unfreed memory blocks : 0') >= 0, What + ': child has no unfreed blocks');
     finally
       Heap.Free;
       P.Free;
