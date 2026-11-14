@@ -184,6 +184,18 @@ provides, not the machine: the GUI commands (`addcontrol`, the text list's
 `format` (84), `objindex` (82) and a few engine functions
 (`Adventure_getInstallationPath`, `extractFileBase`, `lowercase`).
 
+## Weapon-script commands (corpus steps 3 and 6)
+
+`addEngineCommands` also registers, for every program: `scheduleevent(seconds,
+event, params...)` and `cancelevents(event)` on the calling object (or the
+object a method call names), `trigger(event, params...)` (queued now),
+`destroy()` (the object's script, classes, queued and scheduled events and
+sleeping runs go; `Machine::onDestroy` lets the program take a control off
+the screen, `Screen::remove`), and `md5(text)` (RFC 1321, lower-case hex).
+An event scheduled by its handler's own name (`"onFoo"`) finds `onFoo`.
+`client.*` and `clientr.*` resolve to the player object when the program
+sets one, else to members of `player` (the Quattro program's weapons).
+
 ## Not yet
 
 Each is refused with `opcode N (name) is not implemented` instead of
@@ -191,22 +203,36 @@ guessed.
 
 - [x] Object creation and array literals (37, 40, 42, 43), registers and
   `makeprop` (45 to 47), 48, 49, 121, and the 6.00 folds 234 to 240 and 242
-- [ ] 41 (`makevar`), 38 and 39 (`initarray`, `setarray`), 54, 104
-  (`compare`, whose result slot the read leaves unclear) and fold 241 (which
-  objects carry its flag is not read)
+- [x] 41 (`makevar`), 38 and 39 (`new[n]`, `setarray`), 142 (`new[a][b]`)
+- [ ] 54, 104 (`compare`, whose result slot the read leaves unclear) and
+  fold 241 (which objects carry its flag is not read)
 - [ ] An opcode with no case: the engines skip two slots after a helper;
   here it stops the script
-- [ ] `waitfor` (11): it pops a number and two strings and registers a
-  catch; how the resumed script sees the result is not read
+- [x] `waitfor` (11): pops the timeout, the event and the object; the run
+  sleeps until that object's event is queued (1) or the time runs out (0),
+  and the result is pushed when it wakes. That the result is pushed on
+  waking is a reading (Seihai's VM returns the same values)
 - [x] `indexof` (82) and `format` (84), from Graal_analysis
   `client-internals/showimg-particles-and-gs2-format.md`. Readings: string
   search keeps letter case, `%d` truncates toward zero, `%f` defaults to six
   places
-- [ ] `in` ranges and objects (80, 81), `type` (83),
-  `log`, `getangle`, `getdir` (92, 95, 96), `indices`, `link`, the object
-  compare (99, 100, 104), `substring`, `tokenize`, `translate`, `positions`
-  (118, 120), multi-dimensional arrays and the array methods (133 to
-  142), `foreach` (163)
+- [x] `in` ranges and lists (80, 81), `type` (83), `log`, `getangle`,
+  `getdir` (92, 95, 96), `indices` (99), `tokenize` and `positions` (118,
+  120), two-dimensional arrays (133, 134, 142) and the list methods
+  `subarray`, `add`, `delete`, `remove`, `replace`, `insert`, `clear` (135
+  to 141), for the GS2 weapons (Graal_analysis
+  `npc-library/gs2-weapon-corpus-2026-11-14.md`, step 4). The stack shapes
+  are the ones Seihai's compiler emits and its VM runs
+  (seihai-core `scripting/gs2/exec.rs`); the semantics follow that VM:
+  a list method on a variable that holds no list makes it an empty list
+  first; `x in` a list (or a range) with a list `x` asks for every element;
+  `replace` past the end adds; `tokenize` splits on any separator byte,
+  keeps `"quoted, tokens"` whole and trims spaces; `getangle` counts
+  counter-clockwise with y down; `getdir` takes the longer axis, ties to the
+  vertical. Each is a reading, not an observed engine result. Opcode 36 on
+  a name that does not resolve leaves the name, so the list method after it
+  can make the variable
+- [ ] `link` and the object compare (100, 104)
 - [ ] The built-in command table and its signature letters (B2)
 - [ ] A show-image's `actor` (head, body, `attr[n]`): here a plain object
   that takes every property, with `attr` an array of 31. That is a reading

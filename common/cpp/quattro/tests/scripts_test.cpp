@@ -173,10 +173,78 @@ void test_delivery_and_cache() {
   fs::remove_all(dir);
 }
 
+
+// The trigger actions both ways and findweapon (corpus steps 1 and 6).
+void test_triggers_and_findweapon() {
+  // CSV as Seihai's gserver writes and reads it.
+  CHECK(Shell::to_csv({"serverside", "Bow", "a,b", "say \"hi\""}) == "serverside,Bow,\"a,b\",\"say \"\"hi\"\"\"");
+  auto f = Shell::from_csv("clientside,Bow,\"a,b\",,\"say \"\"hi\"\"\"");
+  CHECK(f.size() == 5 && f[2] == "a,b" && f[3].empty() && f[4] == "say \"hi\"");
+  CHECK(Shell::from_csv("").empty());
+
+  Shell::ScriptHost h;
+  std::vector<std::pair<int, std::string>> sent;
+  h.set_send([&](int id, std::string_view b) {
+    sent.emplace_back(id, std::string(b));
+    return true;
+  });
+  // Weapon A: onCreated sends triggerserver("gui", "A", "hit", 3) and
+  // triggeraction(10, 20.5, "pushed", 1); onActionClientSide(cmd, n) keeps
+  // both; useB calls B's public function through findweapon.
+  Asm a;
+  a.function("onCreated", {});
+  a.op(Asm::MARKER).num(3).str("hit").str("A").str("gui").callName("triggerserver").op(Asm::POP);
+  a.op(Asm::MARKER).num(1).str("pushed").num(20.5).num(10).callName("triggeraction").op(Asm::POP);
+  a.num(0).op(Asm::RET);
+  a.function("onActionClientSide", {"cmd", "n"});
+  a.var("gotcmd").var("cmd").op(Asm::ASSIGN).var("gotn").var("n").op(Asm::ASSIGN).num(0).op(Asm::RET);
+  a.function("onActionfire", {"x"});
+  a.var("fired").var("x").op(Asm::ASSIGN).num(0).op(Asm::RET);
+  a.function("useB", {});
+  // twice = findweapon("B").twice(21)
+  a.var("viab").op(Asm::MARKER).num(21).op(Asm::MARKER).str("B").callName("findweapon").var("twice").op(Asm::MEMBER)
+      .op(Asm::CALL).op(Asm::ASSIGN);
+  a.num(0).op(Asm::RET);
+  Asm b;
+  b.function("onCreated", {});
+  b.num(0).op(Asm::RET);
+  b.function("public.twice", {"x"});
+  b.var("x").var("x").op(Asm::ADD).op(Asm::RET);
+  Shell::ScriptDescriptor d;
+  d.type = "weapon";
+  d.name = "A";
+  CHECK(h.on_message(140, Shell::make_script_packet(d, a.bytes())));
+  d.name = "B";
+  CHECK(h.on_message(140, Shell::make_script_packet(d, b.bytes())));
+  h.tick();
+  CHECK(sent.size() == 2);
+  if (sent.size() == 2) {
+    CHECK(sent[0].first == 38 && sent[0].second == Net::gint3(0) + Net::gchar(0) + Net::gchar(0) + "serverside,A,hit,3");
+    CHECK(sent[1].first == 38 && sent[1].second == Net::gint3(0) + Net::gchar(20) + Net::gchar(41) + "pushed,1");
+  }
+  // 48 clientside,A,<params>: onActionClientSide with the params after the name.
+  auto u = h.machine().universe();
+  std::string head = Net::gshort(0) + Net::gint3(0) + Net::gchar(0) + Net::gchar(0);
+  CHECK(h.on_message(48, head + "clientside,A,open,\"7,8\""));
+  h.tick();
+  CHECK(u->child("gotcmd") && u->child("gotcmd")->string() == "open");
+  CHECK(u->child("gotn") && u->child("gotn")->string() == "7,8");
+  // Any other action: onAction<name> on every weapon (and the program may see it).
+  CHECK(!h.on_message(48, head + "fire,5"));
+  h.tick();
+  CHECK(u->child("fired") && u->child("fired")->number() == 5);
+  // findweapon(name).fn() runs the other weapon's function.
+  h.machine().callFunction(h.weapon("A"), "useB");
+  CHECK(u->child("viab") && u->child("viab")->number() == 42);
+  for (const auto& e : h.machine().errors()) std::fprintf(stderr, "%s\n", e.c_str());
+  CHECK(h.machine().errors().empty());
+}
+
 }  // namespace
 
 int main() {
   test_descriptors();
   test_delivery_and_cache();
+  test_triggers_and_findweapon();
   TEST_MAIN_END();
 }

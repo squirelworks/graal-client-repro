@@ -382,14 +382,15 @@ static void testLimitsAndRefusals() {
   CHECK(hasError(m50, "opcode 54 (op54) is not implemented"));
   CHECK(m42.universe()->child("reached") == nullptr);
 
-  // waitfor is refused until its stack layout is read.
+  // waitfor with nothing on the stack underflows (its run is in
+  // testEventCommands).
   Asm c;
   c.function("onCreated", {});
   c.op(Asm::WAITFOR);
   c.num(0).op(Asm::RET);
   gs2::Machine mw;
   run(mw, c);
-  CHECK(hasError(mw, "opcode 11 (waitfor) is not implemented"));
+  CHECK(hasError(mw, "Stack underflow"));
 
   // Underflow stops the script.
   Asm d;
@@ -760,7 +761,157 @@ static void testIndexofAndFormat() {
   CHECK(globalStr(m, "h") == "FFA");
 }
 
+// The list, membership, maths and makevar opcodes the weapon scripts use
+// (Graal_analysis npc-library/gs2-weapon-corpus-2026-11-14.md, step 4), in
+// the stack shapes of Seihai's compiler.
+static void testListOpcodes() {
+  gs2::Machine m(gs2::Profile::Engine600);
+  Asm a;
+  a.function("onCreated", {});
+  // toks = "a b,\"x, y\"".tokenize(" ,"); n = toks.size(); t2 = toks[2];
+  a.var("toks").str("a b,\"x, y\"").op(34).str(" ,").op(118).op(Asm::ASSIGN);
+  a.var("n").var("toks").op(Asm::SIZE).op(Asm::ASSIGN);
+  a.var("t2").var("toks").num(2).op(Asm::ARRAYGET).op(Asm::ASSIGN);
+  // l.add(5); l.add("x"); l.insert(0, 7) (value, then index); l.remove(5);
+  // l.replace(1, "y"); then l = {7, "y"}; l.delete(0) leaves {"y"}.
+  a.var("l").op(Asm::TOOBJECT).num(5).op(136);
+  a.var("l").op(Asm::TOOBJECT).str("x").op(136);
+  a.var("l").op(Asm::TOOBJECT).num(7).num(0).op(140);
+  a.var("l").op(Asm::TOOBJECT).num(5).op(138);
+  a.var("l").op(Asm::TOOBJECT).str("y").num(1).op(139);
+  a.var("first").var("l").num(0).op(Asm::ARRAYGET).op(Asm::ASSIGN);
+  a.var("l").op(Asm::TOOBJECT).num(0).op(137);
+  a.var("ln").var("l").op(Asm::SIZE).op(Asm::ASSIGN);
+  // in1 = "y" in l; in0 = 9 in l; inr = 3 in |1, 5|; outr = 6 in |1, 5|
+  a.var("in1").str("y").var("l").op(Asm::TOOBJECT).op(81).op(Asm::ASSIGN);
+  a.var("in0").num(9).var("l").op(Asm::TOOBJECT).op(81).op(Asm::ASSIGN);
+  a.var("inr").num(3).num(1).num(5).op(80).op(Asm::ASSIGN);
+  a.var("outr").num(6).num(1).num(5).op(80).op(Asm::ASSIGN);
+  // arr = new[3]; setarray(arr, 5); grid = new[2][3]; grid[1][2] = 9; g = grid[1][2]
+  a.var("arr").num(3).op(38).op(Asm::ASSIGN);
+  a.var("an").var("arr").op(Asm::SIZE).op(Asm::ASSIGN);
+  a.var("arr").op(Asm::TOOBJECT).num(5).op(39);
+  a.var("an2").var("arr").op(Asm::SIZE).op(Asm::ASSIGN);
+  a.var("grid").num(2).op(38).num(3).op(142).op(Asm::ASSIGN);
+  a.var("grid").num(1).num(2).num(9).op(134);
+  a.var("g").var("grid").num(1).num(2).op(133).op(Asm::ASSIGN);
+  a.var("g0").var("grid").num(0).num(1).op(133).op(Asm::ASSIGN);
+  // getangle(1, -1), getdir(-3, 1), log(2, 8)
+  a.var("ang").num(1).num(-1).op(95).op(Asm::ASSIGN);
+  a.var("dir").num(-3).num(1).op(96).op(Asm::ASSIGN);
+  a.var("lg").num(2).num(8).op(92).op(Asm::ASSIGN);
+  // "s".type(), l.type(); "aaa".positions("aa").size(); toks.subarray(1, 1)[0]
+  a.var("ty1").str("s").op(83).op(Asm::ASSIGN);
+  a.var("ty3").var("toks").op(Asm::TOOBJECT).op(83).op(Asm::ASSIGN);
+  a.var("pos").str("aaa").str("aa").op(120).op(Asm::SIZE).op(Asm::ASSIGN);
+  a.var("sub").var("toks").op(Asm::TOOBJECT).num(1).num(1).op(135).num(0).op(Asm::ARRAYGET).op(Asm::ASSIGN);
+  // idx = l.indices("y").size()
+  a.var("idx").var("l").op(Asm::TOOBJECT).str("y").op(99).op(Asm::SIZE).op(Asm::ASSIGN);
+  // makevar("mv.x") = 4
+  a.str("mv.x").op(34).op(41).num(4).op(Asm::ASSIGN);
+  // l.clear()
+  a.var("l").op(Asm::TOOBJECT).op(141);
+  a.var("ln2").var("l").op(Asm::SIZE).op(Asm::ASSIGN);
+  a.num(0).op(Asm::RET);
+  run(m, a);
+  for (const auto& e : m.errors()) std::fprintf(stderr, "%s\n", e.c_str());
+  CHECK(m.errors().empty());
+  CHECK(global(m, "n") == 3);
+  CHECK(globalStr(m, "t2") == "x, y");
+  CHECK(globalStr(m, "first") == "7");
+  CHECK(global(m, "ln") == 1);
+  CHECK(global(m, "in1") == 1 && global(m, "in0") == 0);
+  CHECK(global(m, "inr") == 1 && global(m, "outr") == 0);
+  CHECK(global(m, "an") == 3 && global(m, "an2") == 5);
+  CHECK(global(m, "g") == 9 && global(m, "g0") == 0);
+  CHECK(std::fabs(global(m, "ang") - 3.14159265358979 / 4) < 1e-9);
+  CHECK(global(m, "dir") == 1);
+  CHECK(std::fabs(global(m, "lg") - 3) < 1e-9);
+  CHECK(global(m, "ty1") == 1 && global(m, "ty3") == 3);
+  CHECK(global(m, "pos") == 2);
+  CHECK(globalStr(m, "sub") == "b");
+  CHECK(global(m, "idx") == 1);
+  auto mv = m.universe()->child("mv");
+  CHECK(mv && mv->child("x") && mv->child("x")->number() == 4);
+  CHECK(global(m, "ln2") == 0);
+}
+
+// waitfor, scheduleevent, cancelevents, trigger, destroy and md5.
+static void testEventCommands() {
+  CHECK(gs2::md5Hex("") == "d41d8cd98f00b204e9800998ecf8427e");
+  CHECK(gs2::md5Hex("abc") == "900150983cd24fb0d6963f7d28e17f72");
+  CHECK(gs2::md5Hex(std::string(100, 'a')) == "36a92cc94a9e0fa21f625f8bfb007adf");
+
+  gs2::Machine m(gs2::Profile::Engine600);
+  gs2::addEngineCommands(m, gs2::EngineHost{});
+  Asm a;
+  a.function("onCreated", {});
+  // scheduleevent(0.1, "Ping", 3); scheduleevent(0.1, "onPong", 4);
+  // scheduleevent(0.1, "Gone", 1); cancelevents("Gone"); trigger("Now", 2)
+  a.op(Asm::MARKER).num(3).str("Ping").num(0.1).callName("scheduleevent").op(Asm::POP);
+  a.op(Asm::MARKER).num(4).str("onPong").num(0.1).callName("scheduleevent").op(Asm::POP);
+  a.op(Asm::MARKER).num(1).str("Gone").num(0.1).callName("scheduleevent").op(Asm::POP);
+  a.op(Asm::MARKER).str("Gone").callName("cancelevents").op(Asm::POP);
+  a.op(Asm::MARKER).num(2).str("Now").callName("trigger").op(Asm::POP);
+  a.var("h").op(Asm::MARKER).str("abc").callName("md5").op(Asm::ASSIGN);
+  // got = waitfor("bell", "onRing", 5); late = waitfor("bell", "onNever", 0.1)
+  a.var("got").str("bell").str("onRing").num(5).op(11).op(Asm::ASSIGN);
+  a.var("late").str("bell").str("onNever").num(0.1).op(11).op(Asm::ASSIGN);
+  a.op(Asm::MARKER).callName("destroy").op(Asm::POP);
+  a.num(0).op(Asm::RET);
+  a.function("onPing", {"x"});
+  a.var("pinged").var("x").op(Asm::ASSIGN).num(0).op(Asm::RET);
+  a.function("onPong", {"x"});
+  a.var("ponged").var("x").op(Asm::ASSIGN).num(0).op(Asm::RET);
+  a.function("onGone", {});
+  a.var("gone").num(1).op(Asm::ASSIGN).num(0).op(Asm::RET);
+  a.function("onNow", {"x"});
+  a.var("now").var("x").op(Asm::ASSIGN).num(0).op(Asm::RET);
+  auto bell = m.newVar("bell");
+  auto obj = run(m, a, "weapon");
+  CHECK(globalStr(m, "h") == "900150983cd24fb0d6963f7d28e17f72");
+  CHECK(global(m, "got") == -9999);  // still waiting
+  m.queueEvent(bell, "ring");
+  m.runScripts();  // the waiter wakes with 1 and goes on to the second wait
+  CHECK(global(m, "got") == 1);
+  for (int i = 0; i < 4; ++i) m.runScripts();
+  CHECK(global(m, "late") == 0);
+  // destroy() ran last: the queued and scheduled events went with the script.
+  CHECK(!m.hasScript(obj));
+  CHECK(global(m, "gone") == -9999);
+
+  // The same events on an object that stays.
+  Asm b;
+  b.function("onCreated", {});
+  b.op(Asm::MARKER).num(3).str("Ping").num(0.1).callName("scheduleevent").op(Asm::POP);
+  b.op(Asm::MARKER).num(4).str("onPong").num(0.1).callName("scheduleevent").op(Asm::POP);
+  b.op(Asm::MARKER).num(1).str("Gone").num(0.1).callName("scheduleevent").op(Asm::POP);
+  b.op(Asm::MARKER).str("Gone").callName("cancelevents").op(Asm::POP);
+  b.op(Asm::MARKER).num(2).str("Now").callName("trigger").op(Asm::POP);
+  b.num(0).op(Asm::RET);
+  b.function("onPing", {"x"});
+  b.var("pinged").var("x").op(Asm::ASSIGN).num(0).op(Asm::RET);
+  b.function("onPong", {"x"});
+  b.var("ponged").var("x").op(Asm::ASSIGN).num(0).op(Asm::RET);
+  b.function("onGone", {});
+  b.var("gone").num(1).op(Asm::ASSIGN).num(0).op(Asm::RET);
+  b.function("onNow", {"x"});
+  b.var("now").var("x").op(Asm::ASSIGN).num(0).op(Asm::RET);
+  gs2::VarPtr destroyed;
+  m.onDestroy = [&](const gs2::VarPtr& v) { destroyed = v; };
+  auto keeper = run(m, b, "keeper");
+  m.runScripts();
+  CHECK(global(m, "now") == 2);
+  for (int i = 0; i < 3; ++i) m.runScripts();
+  CHECK(global(m, "pinged") == 3 && global(m, "ponged") == 4);
+  CHECK(global(m, "gone") == -9999);
+  m.destroy(keeper);
+  CHECK(destroyed == keeper && !m.hasScript(keeper));
+}
+
 int main() {
+  testListOpcodes();
+  testEventCommands();
   testIndexofAndFormat();
   testClassesAndDelivery();
   testStartScripts();

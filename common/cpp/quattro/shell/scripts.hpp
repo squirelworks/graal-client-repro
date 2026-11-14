@@ -18,6 +18,19 @@
 // - 33 adds a weapon by name; 34 deletes it (gs2lib names).
 // - 190 raises onServerListerConnect on the Login server
 //   (client-internals/engine-600r2.md, "Network").
+// - 48 (PLO_TRIGGERACTION, protocol/packet-ids.md; the GServer-v2 writer
+//   is GSHORT player, GINT3 NPC, GCHAR x, GCHAR y, then the CSV
+//   "action,params"): `clientside,<weapon>,<params>` queues
+//   onActionClientSide on that weapon with the params after the weapon's
+//   name (npc-library/gs2-weapon-corpus-2026-11-14.md, step 1). Any other
+//   action queues onAction<action> on every weapon (a reading: GS2 calls
+//   triggered actions that way, but no 6.x client was read for it).
+// - Weapon scripts send to the server with `triggerserver(kind, weapon,
+//   params...)` and `triggeraction(x, y, action, params...)`: both are
+//   C->S 38 (GINT3 0, GCHAR x * 2, GCHAR y * 2, then the CSV), the first
+//   as "serverside,<weapon>,<params>", which GServer-v2 turns into the
+//   weapon's onActionServerSide [srv]. That triggerserver sends exactly
+//   this is read from the scripts and the server, not from a client.
 //
 // How the descriptor's key words sit after the third comma (directly, or
 // each after its own comma) is not spelled out in the notes. This reader
@@ -48,6 +61,11 @@ struct ScriptDescriptor {
 bool parse_script_packet(std::string_view payload, ScriptDescriptor& d, std::string& body);
 // Parses a 197 body.
 bool parse_load_script(std::string_view payload, ScriptDescriptor& d);
+// The CSV the trigger actions use: a field is quoted when it holds a comma,
+// a quote, a backslash or a byte past 126, with quotes and backslashes
+// doubled inside (Seihai's gserver `toCSV` / `fromCSV`).
+std::string to_csv(const std::vector<std::string>& fields);
+std::vector<std::string> from_csv(std::string_view text);
 // Builds those payloads (for the fake servers in tests and lab tools).
 std::string make_script_packet(const ScriptDescriptor& d, std::string_view body);
 std::string make_load_script(const ScriptDescriptor& d);
@@ -73,8 +91,19 @@ class ScriptHost {
   gs2::VarPtr weapon(const std::string& name) const;
   // 194 (PLO_RESETCLIENT, was CLEARWEAPONS): every weapon goes.
   void clear_weapons() { weapons_.clear(); }
+  // The trigger actions as C->S 38 bodies (also for tests).
+  static std::string trigger_body(double x, double y, const std::string& csv);
   // Raises onWeaponFired on the named weapon; false when it has no script.
   bool fire(const std::string& name);
+  // Queues an event on every weapon that has a script (onPlayerChats,
+  // onKeyPressed, onPlayerEnters, ...).
+  void queue_all(const std::string& event, std::vector<gs2::Value> args = {});
+  // The weapon whose object this is, by name ("" when it is none).
+  std::string weapon_name(const gs2::Var* v) const;
+  // Drops a weapon (194, 34, or its script's destroy()).
+  void remove_weapon(const std::string& name);
+  // Every weapon object, in name order.
+  std::vector<gs2::VarPtr> weapon_objects() const;
   // The `player` the scripts see (the program fills its fields each tick).
   gs2::VarPtr player() const { return player_; }
   const std::map<std::string, std::string>& classes() const { return classes_; }

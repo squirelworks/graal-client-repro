@@ -20,6 +20,7 @@
 #include "../world/weapons.hpp"
 #include "gui_host.hpp"
 #include "scripts.hpp"
+#include "weapon_api.hpp"
 
 #include <filesystem>
 #include <map>
@@ -97,6 +98,13 @@ class Program {
   // Uses the selected weapon, as D does: a server weapon with a script gets
   // onWeaponFired; a built-in one lays its bomb or fires its shot.
   void fire_weapon();
+  // What the weapon scripts set (shell/weapon_api.cpp).
+  const ShowImages& show_images() const { return show_images_; }
+  const std::string& sign_text() const { return sign_text_; }  // say2's box; empty when closed
+  double freeze_left() const { return freeze_left_; }
+  bool def_movement() const { return def_movement_; }
+  bool weapons_enabled() const { return weapons_enabled_; }
+  const std::string& shoot_params() const { return shoot_params_; }
   Draw::Assets& assets() { return *assets_; }
   const std::string& level_name() const { return level_name_; }
   // Files asked for with C->S 23, lower case.
@@ -156,6 +164,15 @@ class Program {
   void send_packets(const std::vector<World::Packet>& out);
   void send_counts();  // props 4 and 5 when the arrow or bomb count changed
   void register_weapon_commands();
+  // shell/weapon_api.cpp: the GS2 weapon commands and events.
+  void register_script_commands();
+  void script_input(const Draw::InputEvent& e);  // onKeyPressed, onMouseDown, the say2 box
+  void script_tick();                            // freeze time, hidden player, focus
+  bool held_index(int i) const;                  // keydown(i): up,left,down,right,S,A,D,M,tab,Q,P
+  void draw_show_images(bool screen_layer);
+  void draw_sign();
+  void on_destroy(const gs2::VarPtr& v);
+  void player_changed(int old_power);            // onPlayerHurt, onPlayerDies
   void sync_player_in();   // the script's `player` from me_
   void sync_player_out();  // what a script changed back into me_
   void combat_effects();   // bombs, blasts and shots as effect sprites
@@ -183,7 +200,19 @@ class Program {
   World::Combat combat_;
   bool weapon_keys_[2] = {false, false};  // D, and Q/Tab, last tick (with a weapon shown)
   int sent_arrows_ = -1, sent_bombs_ = -1;
-  struct { double x = 0, y = 0; int dir = 0, bombs = 0, arrows = 0; } script_seen_;
+  struct {
+    double x = 0, y = 0;
+    int dir = 0, bombs = 0, arrows = 0, z = 0;
+    std::string chat, ani;
+    double freeze = 0;
+  } script_seen_;
+  ShowImages show_images_;
+  std::string sign_text_;
+  double freeze_left_ = 0;  // seconds the player stays frozen
+  double hide_left_ = 0;    // hideplayer
+  bool def_movement_ = true, weapons_enabled_ = true;
+  std::string shoot_params_;
+  std::set<int> keys_down_;  // virtual-key codes held (from the window's input events)
   bool props_sent_ = false;
   ScriptHost scripts_;
   std::unique_ptr<GuiHost> gui_;

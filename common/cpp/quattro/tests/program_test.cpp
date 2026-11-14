@@ -509,11 +509,105 @@ void test_weapons() {
   CHECK(run(p, nullptr, &game, [&] { return p.weapons().list().empty() && !p.scripts().weapon("Stick"); }));
 }
 
+// A GS2 weapon on the fired-weapon path of the corpus (steps 1 to 5): it
+// plays a gani, holds the player, tells the server, writes player.chat,
+// shows an image and a sign; the events onPlayerChats, onKeyPressed,
+// onActionClientSide and onPlayerEnters reach it.
+void test_weapon_scripts() {
+  const Net::BuildProfile* prof = Net::find_profile("6.03r7");
+  CHECK(prof);
+  if (!prof) return;
+  FakeServer game;
+  CHECK(game.start());
+  Shell::Options opt;
+  opt.host = "127.0.0.1";
+  opt.port = game.port();
+  opt.server_name = "Lab Server";
+  Draw::HeadlessWindow win;
+  Shell::Program p(*prof, opt, win);
+  CHECK(p.start());
+  CHECK(game.conn.accept_from(game.listener));
+  CHECK(run(p, nullptr, &game, [&] { return game.saw(37, "English"); }));
+  game.send(send_level("onlinestartlocal.nw", 7) + gchar(9) + gchar(World::kX) + gchar(60) + gchar(World::kY) +
+            gchar(60) + "\n" + gchar(194) + "\n");
+  CHECK(run(p, nullptr, &game, [&] { return p.world().have_level; }));
+
+  using gs2asm::Asm;
+  const int PLAYER = 182;
+  Asm a;
+  a.function("onWeaponFired", {});
+  a.op(Asm::MARKER).str("sword").callName("setani").op(Asm::POP);
+  a.op(Asm::MARKER).num(0.5).callName("freezeplayer").op(Asm::POP);
+  a.op(Asm::MARKER).str("zap").str("Wand").str("gui").callName("triggerserver").op(Asm::POP);
+  a.op(PLAYER).var("chat").op(Asm::MEMBER).str("zap!").op(Asm::ASSIGN);
+  a.op(Asm::MARKER).num(31).num(31).str("light.png").num(200).callName("showimg").op(Asm::POP);
+  a.op(Asm::MARKER).str("Hello#bthere").callName("say2").op(Asm::POP);
+  a.num(0).op(Asm::RET);
+  a.function("onPlayerChats", {});
+  a.var("heard").op(PLAYER).var("chat").op(Asm::MEMBER).op(Asm::ASSIGN).num(0).op(Asm::RET);
+  a.function("onKeyPressed", {"code", "ch"});
+  a.var("key").var("code").op(Asm::ASSIGN).num(0).op(Asm::RET);
+  a.function("onActionClientSide", {"cmd"});
+  a.op(PLAYER).var("chat").op(Asm::MEMBER).var("cmd").op(Asm::ASSIGN).num(0).op(Asm::RET);
+  a.function("onPlayerEnters", {});
+  a.var("entered").op(Asm::INC).op(Asm::POP).num(0).op(Asm::RET);
+  Shell::ScriptDescriptor d;
+  d.type = "weapon";
+  d.name = "Wand";
+  std::string raw = gchar(140) + Shell::make_script_packet(d, a.bytes()) + "\n";
+  game.send(gchar(33) + Net::gstring("Wand") + "\n" + gchar(100) + Net::gint3(static_cast<uint32_t>(raw.size())) + "\n" + raw);
+  CHECK(run(p, nullptr, &game, [&] { return p.scripts().machine().hasScript(p.scripts().weapon("Wand")); }));
+  auto u = p.scripts().machine().universe();
+  auto g = [&](const char* k) { return u->child(k) ? u->child(k)->string() : std::string("<none>"); };
+
+  p.action("doD", true);
+  CHECK(run(p, nullptr, &game, [&] {
+    return game.saw(38, Net::gint3(0) + gchar(0) + gchar(0) + "serverside,Wand,zap");
+  }));
+  p.action("doD", false);
+  CHECK(run(p, nullptr, &game, [&] { return game.saw(2, gchar(World::kCurChat) + Net::gstring("zap!")); }));
+  CHECK(p.me().gani == "sword");
+  CHECK(p.freeze_left() > 0);
+  CHECK(p.show_images().size() == 1);
+  CHECK(p.sign_text() == "Hello#bthere");
+  p.tick();
+  bool drew_sign = false;
+  for (const auto& n : p.last_passes()) drew_sign |= n == "Sign";
+  CHECK(drew_sign);
+  // The freeze runs out (0.5 s is 10 ticks).
+  CHECK(run(p, nullptr, &game, [&] { return p.freeze_left() == 0; }));
+
+  // A key the sign does not take reaches onKeyPressed; A closes the sign.
+  Draw::InputEvent k;
+  k.key = "k";
+  k.ch = 'k';
+  win.push_input(k);
+  CHECK(run(p, nullptr, &game, [&] { return g("key") == "75"; }));
+  k.key = "a";
+  k.ch = 'a';
+  win.push_input(k);
+  CHECK(run(p, nullptr, &game, [&] { return p.sign_text().empty(); }));
+
+  p.say("hello");
+  CHECK(run(p, nullptr, &game, [&] { return g("heard") == "hello"; }));
+
+  // 48 clientside,Wand,open -> onActionClientSide("open") -> player.chat.
+  game.send(gchar(48) + Net::gshort(0) + Net::gint3(0) + gchar(0) + gchar(0) + "clientside,Wand,open\n");
+  CHECK(run(p, nullptr, &game, [&] { return p.me().chat == "open"; }));
+
+  game.send(send_level("second.nw", 7));
+  CHECK(run(p, nullptr, &game, [&] { return g("entered") == "1"; }));
+  for (const auto& e : p.scripts().machine().errors()) std::fprintf(stderr, "%s\n", e.c_str());
+  CHECK(p.scripts().machine().errors().empty());
+}
+
+
 int main() {
   test_program();
   test_offline();
   test_update_packages();
   test_downloads();
   test_weapons();
+  test_weapon_scripts();
   TEST_MAIN_END();
 }

@@ -156,6 +156,9 @@ bool opcodeImplemented(int op) {
     case 97: case 98: case 101: case 102: case 103:
     case 110: case 111: case 112: case 113: case 114: case 116: case 117:
     case 130: case 131: case 132: case 150: case 151:
+    case 11: case 38: case 39: case 41: case 80: case 81: case 83: case 92: case 95: case 96: case 99:
+    case 118: case 120: case 133: case 134: case 135: case 136: case 137: case 138: case 139: case 140:
+    case 141: case 142:
     case 180: case 181: case 182: case 183: case 184: case 189: case 190:
       return true;
     default:
@@ -188,6 +191,10 @@ struct Machine::Exec {
   bool suspended = false;
   double wake = 0;
   Value result;
+  // waitfor: the object and event waited on (lower case, no `on`); the
+  // result (1 the event came, 0 the time ran out) is pushed on waking.
+  bool waiting = false, waitHit = false;
+  std::string waitObject, waitEvent;
 };
 
 struct Machine::Space {
@@ -292,6 +299,8 @@ bool Machine::setScript(const VarPtr& var, const std::string& bytes, std::string
 bool Machine::setScript(const VarPtr& var, std::shared_ptr<const Script> script) {
   Space* sp = space(var, true);
   if (!sp) return false;
+  for (const auto& ex : sp->sleeping)
+    if (ex->waiting && waiters_ > 0) --waiters_;
   sp->sleeping.clear();
   if (!script || script->code.empty()) {
     sp->script.reset();
@@ -312,6 +321,17 @@ void Machine::catchEvent(const std::string& objectName, const std::string& event
 }
 
 bool Machine::queueEvent(const VarPtr& var, const std::string& name, std::vector<Value> args) {
+  if (var && waiters_ > 0) {
+    std::string ev = lower(name);
+    if (ev.compare(0, 2, "on") == 0) ev.erase(0, 2);
+    const std::string obj = var == universe_ ? "universe" : lower(var->name());
+    for (Space* wsp : order_)
+      for (auto& ex : wsp->sleeping)
+        if (ex->waiting && !ex->waitHit && ex->waitObject == obj && ex->waitEvent == ev) {
+          ex->waitHit = true;
+          ex->wake = clock_;
+        }
+  }
   if (var && !catches_.empty()) {
     std::string ev = lower(name);
     if (ev.compare(0, 2, "on") == 0) ev.erase(0, 2);
@@ -364,6 +384,22 @@ void Machine::cancelEvents(const VarPtr& var, const std::string& name) {
   sp->actions.erase(std::remove_if(sp->actions.begin(), sp->actions.end(),
                                    [&](const Space::Action& a) { return a.name == n; }),
                     sp->actions.end());
+}
+
+void Machine::destroy(const VarPtr& var) {
+  if (!var) return;
+  if (onDestroy) onDestroy(var);
+  if (Space* sp = space(var, false)) {
+    sp->script.reset();
+    sp->joined.clear();
+    sp->actions.clear();
+    sp->scheduled.clear();
+    for (const auto& ex : sp->sleeping)
+      if (ex->waiting && waiters_ > 0) --waiters_;
+    sp->sleeping.clear();
+    sp->initialized = false;
+  }
+  objects_.erase(std::remove(objects_.begin(), objects_.end(), var), objects_.end());
 }
 
 void Machine::addCommand(const std::string& name, const std::string& signature, Command fn) {
@@ -420,7 +456,11 @@ VarPtr Machine::resolveName(Exec& ex, const std::string& name, bool create) {
   if (n == "this") return ex.with.empty() ? thiso : ex.with.back();
   if (n == "thiso") return thiso;
   if (n == "player") return player_;
-  if (n == "playero" || n == "client" || n == "clientr" || n == "serverr") return playero_;
+  if (n == "playero") return playero_;
+  // client.*, clientr.*: the player object's (the engine library sets one);
+  // without it, members of `player` (the Quattro program's weapons).
+  if (n == "client" || n == "clientr" || n == "serverr")
+    return playero_ ? playero_ : (player_ ? player_->childOrCreate(n) : nullptr);
   if (n == "level") return level_;
 
   for (auto it = ex.with.rbegin(); it != ex.with.rend(); ++it)
@@ -494,6 +534,8 @@ VarPtr Machine::toObject(const Value& v) const {
 void Machine::runAction(Space& sp, const std::string& name, std::vector<Value> args) {
   std::shared_ptr<const Script> piece;
   const Function* f = findFunction(&sp, "on" + name, &piece);
+  // An event scheduled or triggered by its handler's own name ("onFoo").
+  if (!f && name.compare(0, 2, "on") == 0) f = findFunction(&sp, name, &piece);
   if (!f) return;
   auto ex = std::make_unique<Exec>();
   ex->sp = &sp;
@@ -562,6 +604,11 @@ void Machine::runDue() {
         sp->sleeping.erase(sp->sleeping.begin() + static_cast<long>(i));
         ex->suspended = false;
         ex->loops = 0;
+        if (ex->waiting) {
+          ex->waiting = false;
+          --waiters_;
+          ex->stack.push_back(Value::number(ex->waitHit ? 1 : 0));
+        }
         execute(*ex);
         if (ex->suspended) sp->sleeping.push_back(std::move(ex));
       } else {
@@ -596,6 +643,38 @@ void Machine::runScripts() {
 // ------------------------------------------------------------ executor
 
 namespace {
+
+// `text.tokenize(seps)`: a token runs to the next separator byte; one that
+// starts with `"` runs to the next lone `"`, and `""` inside it is one `"`.
+// Tokens are trimmed of spaces; an empty token is dropped unless it was
+// quoted. (The rule Seihai's VM uses, seihai-core scripting/gs2/lists.rs.)
+std::vector<std::string> tokenizeText(const std::string& s, const std::string& seps) {
+  auto trim = [](const std::string& t) {
+    const auto f = t.find_first_not_of(' ');
+    if (f == std::string::npos) return std::string();
+    return t.substr(f, t.find_last_not_of(' ') - f + 1);
+  };
+  std::vector<std::string> out;
+  std::string rest = s;
+  while (!rest.empty()) {
+    const bool quoted = rest[0] == '"';
+    if (quoted) rest.erase(0, 1);
+    std::size_t stop = 0;
+    while (stop < rest.size()) {
+      const char ch = rest[stop];
+      if (!quoted) {
+        if (seps.find(ch) != std::string::npos) break;
+      } else if (ch == '"') {
+        if (stop + 1 >= rest.size() || rest[stop + 1] != '"') break;
+        rest.erase(stop, 1);
+      }
+      ++stop;
+    }
+    if (stop > 0 || quoted) out.push_back(trim(rest.substr(0, stop)));
+    rest = stop + 1 < rest.size() ? trim(rest.substr(stop + 1)) : std::string();
+  }
+  return out;
+}
 
 int compare3(const Machine& m, const Value& x, const Value& y) {
   using T = Value::Tag;
@@ -756,6 +835,43 @@ Value Machine::execute(Exec& ex) {
   };
   auto unimplemented = [&](int op) {
     fail("opcode " + std::to_string(op) + " (" + opcodeName(op) + ") is not implemented");
+  };
+  // A list element as a stack value (an array element as itself).
+  auto elemValue = [&](const VarPtr& e) -> Value {
+    if (!e) return Value::number(0);
+    switch (e->kind()) {
+      case Var::Kind::Number: return Value::number(e->number());
+      case Var::Kind::String: return Value::string(e->string());
+      case Var::Kind::Object: return Value::object(e->object());
+      default: return Value::object(e);
+    }
+  };
+  auto sameValue = [&](const Value& x, const Value& y) { return compare3(*this, x, y) == 0; };
+  // A plain value into a variable, arrays copied.
+  auto storeValue = [&](Var& t, const Value& d) {
+    if (d.tag == Value::Tag::String) t.setString(d.str);
+    else if (d.tag == Value::Tag::Object) {
+      if (d.obj && d.obj->kind() == Var::Kind::Array) t.assignFrom(*d.obj);
+      else t.setObject(d.obj);
+    } else t.setNumber(toNumber(d));
+  };
+  // The array a list opcode reads: an array object, or a variable holding one.
+  auto listRead = [&](const Value& v) -> VarPtr {
+    VarPtr t = v.tag == Value::Tag::Object ? v.obj : varOf(v, false);
+    if (t && t->kind() == Var::Kind::Object) t = t->object();
+    return t && t->kind() == Var::Kind::Array ? t : nullptr;
+  };
+  // The array a list opcode changes: the variable is made if missing, and a
+  // variable holding no array becomes an empty one (as in Seihai's VM).
+  auto listTarget = [&](const Value& v) -> VarPtr {
+    VarPtr t = v.tag == Value::Tag::Object ? v.obj : varOf(v, true);
+    if (!t) return nullptr;
+    if (t->kind() == Var::Kind::Object) {
+      VarPtr o = t->object();
+      return o && o->kind() == Var::Kind::Array ? o : nullptr;
+    }
+    if (t->kind() != Var::Kind::Array) t->setArray(0);
+    return t;
   };
 
   while (!ex.stopped && !ex.suspended) {
@@ -953,7 +1069,16 @@ Value Machine::execute(Exec& ex) {
         push(Value::reference(std::move(r)));
         break;
       }
-      case 36: if (pop(a)) push(Value::object(obj(a))); break;
+      case 36: {
+        if (!pop(a)) break;
+        // A name that does not resolve stays a name, so a list opcode after
+        // it can make the variable (`this.list.add(x)` on a new list); read,
+        // it is still nothing.
+        auto o = obj(a);
+        if (!o && (a.tag == Value::Tag::Ref || a.tag == Value::Tag::Name)) push(std::move(a));
+        else push(Value::object(o));
+        break;
+      }
       case 37: {  // array literal: the values above the marker, in push order
         std::vector<Value> items;
         bool marked = false;
@@ -1013,7 +1138,8 @@ Value Machine::execute(Exec& ex) {
             else if (l == "thiso") o = thiso;
             else if (l == "player") o = player_;
             else if (l == "playero") o = playero_;
-            else if (l == "client" || l == "clientr" || l == "serverr") o = playero_ ? playero_->childOrCreate(piece) : nullptr;
+            else if (l == "client" || l == "clientr" || l == "serverr")
+              o = playero_ ? playero_->childOrCreate(piece) : (player_ ? player_->childOrCreate(l) : nullptr);
             else o = player_ ? player_->childOrCreate(piece) : nullptr;
             first = false;
           } else {
@@ -1387,6 +1513,303 @@ Value Machine::execute(Exec& ex) {
         }
         ex.stack.resize(m - 1);
         push(Value::string(text));
+        break;
+      }
+      // ---- lists (the Seihai VM's stack shapes, seihai-core
+      // scripting/gs2/exec.rs; behaviour notes in README.md) ----
+      case 38: {  // new[n]: an array of n zeros
+        if (!pop(a)) break;
+        auto arr = std::make_shared<Var>();
+        arr->setArray(static_cast<std::size_t>(std::clamp(floorInt(num(a)), 0L, 10000L)));
+        for (auto& e : arr->elements()) e->setNumber(0);
+        push(Value::object(arr));
+        break;
+      }
+      case 142: {  // new[a][b]: each leaf of the array on the stack becomes b zeros
+        if (!pop(a)) break;
+        if (ex.stack.empty()) { fail("Stack underflow"); break; }
+        auto arr = obj(ex.stack.back());
+        const auto n = static_cast<std::size_t>(std::clamp(floorInt(num(a)), 0L, 10000L));
+        std::function<void(Var&)> fill = [&](Var& l) {
+          for (auto& e : l.elements()) {
+            if (e->kind() == Var::Kind::Array) fill(*e);
+            else {
+              e->setArray(n);
+              for (auto& z : e->elements()) z->setNumber(0);
+            }
+          }
+        };
+        if (arr && arr->kind() == Var::Kind::Array) fill(*arr);
+        break;
+      }
+      case 39: {  // setarray(list, n): pads with zeros or cuts to n (0 to 10000)
+        if (!pop(b) || !pop(a)) break;
+        if (auto l = listTarget(a)) {
+          const auto n = static_cast<std::size_t>(std::clamp(floorInt(num(b)), 0L, 10000L));
+          auto& el = l->elements();
+          while (el.size() > n) el.pop_back();
+          while (el.size() < n) {
+            el.push_back(std::make_shared<Var>());
+            el.back()->setNumber(0);
+          }
+        }
+        break;
+      }
+      case 41: {  // makevar(text): the variable a dotted name names, made if missing
+        if (!pop(a)) break;
+        const std::string path = str(a);
+        VarPtr v;
+        std::size_t p = 0;
+        bool first = true;
+        while (p <= path.size()) {
+          const std::size_t dot = path.find('.', p);
+          const std::string piece = path.substr(p, dot == std::string::npos ? std::string::npos : dot - p);
+          if (piece.empty()) { v = nullptr; break; }
+          v = first ? resolveName(ex, piece, true) : (v ? v->childOrCreate(piece) : nullptr);
+          first = false;
+          if (!v || dot == std::string::npos) break;
+          p = dot + 1;
+        }
+        Ref r;
+        r.var = v;
+        if (v) push(Value::reference(std::move(r)));
+        else push(Value::number(0));
+        break;
+      }
+      case 80: {  // x in |a, b|; a list x is in when every element is
+        if (!pop(c) || !pop(b) || !pop(a)) break;
+        const double lo = num(b), hi = num(c);
+        auto inside = [&](double v) { return v >= lo && v <= hi; };
+        bool yes;
+        VarPtr l = listRead(a);
+        if (l && !l->elements().empty()) {
+          yes = true;
+          for (const auto& e : l->elements()) yes = yes && inside(e->number());
+        } else {
+          yes = inside(num(a));
+        }
+        push(Value::number(yes ? 1 : 0));
+        break;
+      }
+      case 81: {  // x in list; a list x is in when every element is
+        if (!pop(b) || !pop(a)) break;
+        VarPtr l = listRead(b);
+        auto has = [&](const Value& v) {
+          if (!l) return false;
+          for (const auto& e : l->elements())
+            if (sameValue(elemValue(e), v)) return true;
+          return false;
+        };
+        bool yes;
+        VarPtr xs = listRead(a);
+        if (xs && !xs->elements().empty()) {
+          yes = true;
+          for (const auto& e : xs->elements()) yes = yes && has(elemValue(e));
+        } else {
+          yes = has(deref(a));
+        }
+        push(Value::number(yes ? 1 : 0));
+        break;
+      }
+      case 83: {  // type: 0 number, 1 string, 2 object, 3 a list with elements, -1 anything else
+        if (!pop(a)) break;
+        double t = -1;
+        if (a.tag == Value::Tag::Object) {
+          if (a.obj && a.obj->kind() == Var::Kind::Array) t = a.obj->elements().empty() ? -1 : 3;
+          else if (a.obj) t = 2;
+        } else if (a.tag == Value::Tag::Number) {
+          t = 0;
+        } else if (a.tag == Value::Tag::String) {
+          t = 1;
+        } else if (auto v = varOf(a, false)) {
+          switch (v->kind()) {
+            case Var::Kind::Number: t = 0; break;
+            case Var::Kind::String: t = 1; break;
+            case Var::Kind::Object: t = v->object() ? 2 : -1; break;
+            case Var::Kind::Array: t = v->elements().empty() ? -1 : 3; break;
+          }
+        }
+        push(Value::number(t));
+        break;
+      }
+      case 92: {  // log(base, x); a base of 0 or less gives 0
+        if (!pop(b) || !pop(a)) break;
+        const double base = num(a), x = num(b);
+        push(Value::number(base > 0 && base != 1 && x > 0 ? std::log(x) / std::log(base) : 0));
+        break;
+      }
+      case 95: case 96: {  // getangle(dx, dy), getdir(dx, dy)
+        if (!pop(b) || !pop(a)) break;
+        const double dx = num(a), dy = num(b);
+        double r;
+        if (op == 95) {
+          const double pi = 3.14159265358979323846;
+          if (dx == 0) {
+            r = dy > 0 ? 3 * pi / 2 : pi / 2;
+          } else {
+            r = std::atan(-dy / dx);
+            if (dx < 0) r += pi;
+            if (r < 0) r += 2 * pi;
+          }
+        } else if (std::fabs(dx) <= std::fabs(dy)) {
+          r = dy < 0 ? 0 : 2;
+        } else {
+          r = dx < 0 ? 1 : 3;
+        }
+        push(Value::number(r));
+        break;
+      }
+      case 99: {  // list.indices(value): every index holding it
+        if (!pop(b) || !pop(a)) break;
+        VarPtr l = listRead(a);
+        const Value v = deref(b);
+        auto out = std::make_shared<Var>();
+        out->setArray(0);
+        if (l)
+          for (std::size_t i = 0; i < l->elements().size(); ++i)
+            if (sameValue(elemValue(l->elements()[i]), v)) {
+              out->elements().push_back(std::make_shared<Var>());
+              out->elements().back()->setNumber(static_cast<double>(i));
+            }
+        push(Value::object(out));
+        break;
+      }
+      case 118: {  // text.tokenize(separators)
+        if (!pop(b) || !pop(a)) break;
+        auto out = std::make_shared<Var>();
+        out->setArray(0);
+        for (const auto& t : tokenizeText(str(a), str(b))) {
+          out->elements().push_back(std::make_shared<Var>());
+          out->elements().back()->setString(t);
+        }
+        push(Value::object(out));
+        break;
+      }
+      case 120: {  // text.positions(sub): every index sub starts at, overlapping too
+        if (!pop(b) || !pop(a)) break;
+        const std::string t = str(a), x = str(b);
+        auto out = std::make_shared<Var>();
+        out->setArray(0);
+        if (!x.empty() && x.size() <= t.size())
+          for (std::size_t i = 0; i + x.size() <= t.size(); ++i)
+            if (t.compare(i, x.size(), x) == 0) {
+              out->elements().push_back(std::make_shared<Var>());
+              out->elements().back()->setNumber(static_cast<double>(i));
+            }
+        push(Value::object(out));
+        break;
+      }
+      case 133: {  // list[i][j]
+        if (!pop(c) || !pop(b) || !pop(a)) break;
+        VarPtr l = obj(a);
+        VarPtr e;
+        const long i = floorInt(num(b)), j = floorInt(num(c));
+        if (l && l->kind() == Var::Kind::Array && i >= 0 && static_cast<std::size_t>(i) < l->elements().size()) {
+          VarPtr row = l->elements()[static_cast<std::size_t>(i)];
+          if (row->kind() == Var::Kind::Array && j >= 0 && static_cast<std::size_t>(j) < row->elements().size())
+            e = row->elements()[static_cast<std::size_t>(j)];
+          else if (row->kind() != Var::Kind::Array)
+            e = row;  // a value indexed again gives the value
+        }
+        Ref r;
+        if (e) r.var = e;
+        else { r.owner = l; r.index = LONG_MAX; }  // reads as 0, stores nowhere
+        push(Value::reference(std::move(r)));
+        break;
+      }
+      case 134: {  // list[i][j] = v
+        Value d;
+        if (!pop(d) || !pop(c) || !pop(b) || !pop(a)) break;
+        VarPtr l = obj(a);
+        const long i = floorInt(num(b)), j = floorInt(num(c));
+        if (l && l->kind() == Var::Kind::Array && i >= 0 && static_cast<std::size_t>(i) < l->elements().size()) {
+          VarPtr row = l->elements()[static_cast<std::size_t>(i)];
+          if (row->kind() == Var::Kind::Array && j >= 0 && static_cast<std::size_t>(j) < row->elements().size()) {
+            Ref r;
+            r.var = row->elements()[static_cast<std::size_t>(j)];
+            assign(Value::reference(std::move(r)), d);
+          }
+        }
+        break;
+      }
+      case 135: {  // list.subarray(start, length); a length below 0 runs to the end
+        if (!pop(c) || !pop(b) || !pop(a)) break;
+        VarPtr l = listRead(a);
+        auto out = std::make_shared<Var>();
+        out->setArray(0);
+        if (l) {
+          const long n = static_cast<long>(l->elements().size());
+          const long st = std::clamp(floorInt(num(b)), 0L, n);
+          const long len = floorInt(num(c));
+          const long end = len < 0 ? n : std::min(n, st + len);
+          for (long k = st; k < end; ++k) {
+            auto e = std::make_shared<Var>();
+            e->assignFrom(*l->elements()[static_cast<std::size_t>(k)]);
+            out->elements().push_back(e);
+          }
+        }
+        push(Value::object(out));
+        break;
+      }
+      case 136: case 138: {  // list.add(v), list.remove(v) (the first equal element)
+        if (!pop(b) || !pop(a)) break;
+        VarPtr l = listTarget(a);
+        if (!l) break;
+        const Value v = deref(b);
+        auto& el = l->elements();
+        if (op == 136) {
+          el.push_back(std::make_shared<Var>());
+          storeValue(*el.back(), v);
+        } else {
+          for (std::size_t k = 0; k < el.size(); ++k)
+            if (sameValue(elemValue(el[k]), v)) { el.erase(el.begin() + static_cast<long>(k)); break; }
+        }
+        break;
+      }
+      case 137: {  // list.delete(index)
+        if (!pop(b) || !pop(a)) break;
+        VarPtr l = listTarget(a);
+        const long i = floorInt(num(b));
+        if (l && i >= 0 && static_cast<std::size_t>(i) < l->elements().size())
+          l->elements().erase(l->elements().begin() + i);
+        break;
+      }
+      case 139: case 140: {  // list.replace(index, v), list.insert(index, v): the index on top
+        if (!pop(c) || !pop(b) || !pop(a)) break;
+        VarPtr l = listTarget(a);
+        if (!l) break;
+        const Value v = deref(b);
+        const long i = floorInt(num(c));
+        auto& el = l->elements();
+        auto e = std::make_shared<Var>();
+        storeValue(*e, v);
+        if (op == 139) {
+          if (i >= 0 && static_cast<std::size_t>(i) < el.size()) el[static_cast<std::size_t>(i)] = e;
+          else el.push_back(e);  // out of range, replace adds at the end
+        } else {
+          el.insert(el.begin() + std::clamp(i, 0L, static_cast<long>(el.size())), e);
+        }
+        break;
+      }
+      case 141: {  // list.clear()
+        if (!pop(a)) break;
+        if (VarPtr l = listTarget(a)) l->elements().clear();
+        break;
+      }
+      case 11: {  // waitfor(object, event, timeout) -> 1 the event came, 0 the time ran out
+        if (!pop(c) || !pop(b) || !pop(a)) break;
+        std::string ev = lower(str(b));
+        if (ev.compare(0, 2, "on") == 0) ev.erase(0, 2);
+        const double t = num(c);
+        if (ev.empty() || t <= 0) { push(Value::number(0)); break; }
+        VarPtr o = a.tag == Value::Tag::Object ? a.obj : nullptr;
+        ex.waitObject = o ? (o == universe_ ? "universe" : lower(o->name())) : lower(str(a));
+        ex.waitEvent = ev;
+        ex.waiting = true;
+        ex.waitHit = false;
+        ex.wake = clock_ + t;
+        ex.suspended = true;
+        ++waiters_;
         break;
       }
       default:

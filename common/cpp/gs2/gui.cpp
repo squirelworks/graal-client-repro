@@ -264,6 +264,23 @@ bool Screen::popDialog(const Control* c) {
   return true;
 }
 
+bool Screen::remove(const Var* v) {
+  auto it = std::find_if(all_.begin(), all_.end(), [&](const ControlPtr& c) { return c.get() == v; });
+  if (it == all_.end()) return false;
+  ControlPtr c = *it;
+  if (content_ == c) setContent(nullptr);
+  popDialog(c.get());
+  maps_.erase(std::remove(maps_.begin(), maps_.end(), c), maps_.end());
+  if (c->parent()) c->parent()->removeChild(c.get());
+  for (auto n = byName_.begin(); n != byName_.end();) {
+    if (n->second == c) n = byName_.erase(n);
+    else ++n;
+  }
+  all_.erase(std::find(all_.begin(), all_.end(), c));
+  if (auto r = responder_.lock(); r && !isAwake(r.get())) responder_.reset();
+  return true;
+}
+
 void Screen::makeFirstResponder(const ControlPtr& c) {
   auto old = responder_.lock();
   if (old == c) return;
