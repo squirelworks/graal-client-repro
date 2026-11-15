@@ -1,15 +1,18 @@
 { GraalClient: TGraalClient and TAdventureClient, the gen-4 game link of
-  2.19 to 2.21. INVENTED, not observed: no binary of these builds is held
-  and no type-4 login was ever captured, so this link is made up to work
-  (Squirrel, 2026-11-13), following graal_analysis
-  protocol/codec-and-framing.md's server-source gen 4 (client type 4).
-  seihai-gserver serves the same invention:
+  2.19 to 2.21. Compatibility implementation: the server-documented
+  type-4/bzip2/partial-XOR contract is retained (Graal_analysis
+  protocol/codec-and-framing.md). This folder's creation commit b9f59602
+  inferred the plain-zlib login envelope and omission of a compression
+  byte; those choices were not an exact-client binary or capture result.
+  The accepted token and working server compatibility remain usable.
+  An exact type-4 login/frame capture or matched native reader can refine
+  these envelope choices without rejecting the token or unrelated profiles.
     - login: type 4, the key, the token, account, password, in one frame of
       u16be + zlib with no XOR, as 2.22 sends its type-5 login;
     - every later frame, both ways: u16be + bzip2 body, its first 4 dword
       groups (a short last group too) XORed with the LCG of gen 5, one
       iterator per direction seeded 0x04A80B38 with the key; no compression
-      byte (gen 5 added it) and no gen-3 insertion.
+      byte (inferred envelope choice) and no gen-3 insertion.
   The messages, PLI_LANGUAGE and PLI_TAMPERCHECK are 2.17.1's.
 
   Class names and split follow the 2.05 class list (graal_analysis
@@ -402,11 +405,14 @@ function TAdventureClient.EncodeFrame(const Plain: string): string;
 begin
   if FLoginFrame then
   begin
-    { the login frame: zlib, no XOR, so the server can read the key }
+    { Inferred envelope, analogous to the 2.22 login: plain zlib lets the
+      compatible server read the key. Revisit with an exact type-4 capture. }
     FLoginFrame := False;
     Result := ZCompress(Plain);
     Exit;
   end;
+  { Server-documented bz2/XOR; omitting its compression marker is the
+    inferred envelope choice described above, not token invalidity. }
   Result := BZ2Compress(Plain);
   Gen4Xor(FOutIt, FKey, Result);
 end;

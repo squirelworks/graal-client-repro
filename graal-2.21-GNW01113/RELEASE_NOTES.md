@@ -1,4 +1,4 @@
-# Graal 2.21 (GNW01113), inferred, INVENTED link
+# Graal 2.21 (GNW01113), inferred, with gen-4 compatibility
 
 A client that logs in with `GNW01113`, the token gs2lib lists for Graal 2.21. No
 binary of 2.21 is known; this is the 2.17.1 rebuild with that token on the generation-4 link 2.19 to 2.21 used. It is
@@ -8,9 +8,11 @@ for testing servers with the 2.21 login.
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").
 
-**Invented link.** The generation-4 link this client uses is made up to
-work, not observed: no 2.19 to 2.21 client or type-4 login has ever been
-captured. seihai-gserver serves the same invention.
+**Compatibility basis.** The accepted token and server-compatible gen-4
+path are retained. The bz2/partial-XOR contract is server-documented; the
+plain-zlib login envelope and omitted compression marker were inferred in
+b9f59602. Production comments name these choices and the exact-client
+reader/capture evidence that can improve them. No protocol behavior changes.
 
 ## What's new in v0.0.5
 
