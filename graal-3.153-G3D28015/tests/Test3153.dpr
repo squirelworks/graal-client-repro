@@ -1407,7 +1407,10 @@ begin
   try
     G.Receive(PLO_DEFAULTWEAPON, GChar(8));
     G.Receive(PLO_DEFAULTWEAPON, GChar(7));
-    Check((Length(G.Weapons) = 2) and (G.Selected = 1), 'actions: DEFAULTWEAPON adds and selects');
+    Check((Length(G.Weapons) = 2) and (G.Selected = 1) and
+      (G.Weapons[0].Name = 'Bomb') and (G.Weapons[0].Image = 'wbomb1.png') and
+      (G.Weapons[1].Name = 'Bow') and (G.Weapons[1].Image = 'wbowi1.png'),
+      'actions: default weapons are wbomb1.png and wbowi1.png');
     G.Player.Arrows := 2;
     G.ItemKey := True;
     G.Tick;

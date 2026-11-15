@@ -2453,8 +2453,9 @@ var
   Img, N: string;
 begin
   case Item of
-    7: Img := 'wbowi1.gif';
-    8: Img := 'wbomb1.gif';
+    { Mac lab UPDATEFILE names: version-profiles/lab-mac-tiger-2026-10-31.md }
+    7: Img := 'wbowi1.png';
+    8: Img := 'wbomb1.png';
     12: Img := 'wbomb2.gif';
     20: Img := 'wbowi2.gif';
     21: Img := 'wbowi3.gif';
