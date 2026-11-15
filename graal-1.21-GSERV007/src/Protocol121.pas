@@ -16,11 +16,12 @@ uses
   GBetaHud;
 const
   { 1.21 has no listserver: its connect dialog was pre-filled with a host
-    and port. The rebuild pre-fills the community host instead, and
+    and port. The rebuild defaults to a loopback game server, not a
+    later listserver endpoint. This is rebuild policy, not a native default;
     graalconfig.txt (serveraddr=, serverport=) or listserver.txt next to
     the program replace it. }
-  DefaultServerHost = 'listserver.graal.in';
-  DefaultServerPort = 14923;
+  DefaultServerHost = '127.0.0.1';
+  DefaultServerPort = 14802;
 
   { The 8-byte version token in the login line. }
   ClientVersionToken = 'GSERV007';
