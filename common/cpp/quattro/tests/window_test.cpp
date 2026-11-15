@@ -49,6 +49,10 @@ int main() {
   SendMessageA(hwnd, WM_KILLFOCUS, 0, 0);
   CHECK(!win->held(Draw::Key::Right));
   CHECK(win->poll_input(event) && event.type == Draw::InputEvent::KeyUp && event.key == "right");
+  SendMessageA(hwnd, WM_KEYDOWN, VK_OEM_PERIOD, 0);
+  CHECK(win->poll_input(event) && event.type == Draw::InputEvent::KeyDown && event.key == ".");
+  SendMessageA(hwnd, WM_KILLFOCUS, 0, 0);
+  CHECK(win->poll_input(event) && event.type == Draw::InputEvent::KeyUp && event.key == ".");
   SendMessageA(hwnd, WM_LBUTTONDBLCLK, 0, MAKELPARAM(12, 34));
   CHECK(win->poll_input(event) && event.type == Draw::InputEvent::MouseDown &&
         event.x == 12 && event.y == 34 && event.clicks == 2);

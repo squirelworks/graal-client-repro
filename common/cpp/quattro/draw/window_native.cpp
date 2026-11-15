@@ -8,6 +8,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <map>
 #include <set>
 #include <vector>
 
@@ -105,11 +106,11 @@ class WinWindow final : public Window {
     if (!self) return DefWindowProcA(hwnd, msg, w, l);
     if (msg == WM_CLOSE) { self->keys_.push_back(Key::Close); return 0; }
     if (msg == WM_KILLFOCUS) {
-      for (const auto& key : self->pressed_) {
-        InputEvent e; e.type = InputEvent::KeyUp; e.key = key_name(key);
-        if (!e.key.empty()) self->input_.push_back(e);
+      for (const auto& key : self->gui_down_) {
+        InputEvent e = key.second; e.type = InputEvent::KeyUp;
+        self->input_.push_back(e);
       }
-      self->pressed_.clear(); self->down_.clear(); return 0;
+      self->gui_down_.clear(); self->pressed_.clear(); self->down_.clear(); return 0;
     }
     if (msg == WM_KEYDOWN || msg == WM_KEYUP || msg == WM_SYSKEYDOWN || msg == WM_SYSKEYUP) {
       // Keep the platform's Alt+F4 close command.
@@ -134,6 +135,14 @@ class WinWindow final : public Window {
       if (state[VK_SHIFT] & 0x80) mod("shift");
       if (state[VK_CONTROL] & 0x80) mod("ctrl");
       if (state[VK_MENU] & 0x80) mod("alt");
+      if (press && !e.key.empty()) self->gui_down_.emplace(w, e);
+      if (!press) {
+        auto it = self->gui_down_.find(w);
+        if (it != self->gui_down_.end()) {
+          e.key = it->second.key; e.ch = it->second.ch;
+          self->gui_down_.erase(it);
+        }
+      }
       if (!e.key.empty()) self->input_.push_back(e);
       return 0;
     }
@@ -159,6 +168,7 @@ class WinWindow final : public Window {
   std::string title_;
   std::set<Key> down_;
   std::set<WPARAM> pressed_;
+  std::map<WPARAM, InputEvent> gui_down_;
   std::deque<Key> keys_;
   std::deque<InputEvent> input_;
   std::vector<unsigned> pixels_;
