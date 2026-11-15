@@ -35,6 +35,7 @@ uses
   Baddy2100 in '..\src\Baddy2100.pas',
   NpcBridge2100 in '..\src\NpcBridge2100.pas',
   Adventure in '..\src\Adventure.pas',
+  Map2100 in '..\src\Map2100.pas',
   GFont in '..\..\common\GFont.pas',
   GWindow in '..\..\common\GWindow.pas',
   GStartScreen in '..\..\common\GStartScreen.pas',
@@ -1332,16 +1333,67 @@ begin
     Check(G.GhostText = '', 'public 2.1: empty ghost text clears the previous text');
     G.Receive(PLO_GHOSTMODE, Chr(0 + 32));
     Check(not G.GhostMode, '2.1: ghost mode 0 turns it off');
-    G.Receive(PLO_BIGMAP, 'worldmap.txt,worldmap.png,10,10');
-    Check(G.ServerBigMap = 'worldmap.txt,worldmap.png', '2.1: BIGMAP text file first');
-    G.Receive(PLO_MINIMAP, 'mini.png,mini.txt,4,4');
-    Check(G.ServerMiniMap = 'mini.txt,mini.png', '2.1: MINIMAP picture first (setmap order)');
-    G.Receive(PLO_MINIMAP, 'short.txt,short.png');
-    Check(G.ServerMiniMap = 'mini.txt,mini.png', '2.1: a map with fewer than four fields is ignored');
     G.Receive(PLO_FILE, Chr(32) + Chr(32) + Chr(32) + Chr(32) + Chr(33) + Chr(5 + 32) + 'a.txt' + 'hello');
     Check(Pos('FILE a.txt (5 bytes)', G.LogLines.Text) > 0, '2.1: PLO_FILE reads the mod time, then the name');
   finally
     G.Free;
+  end;
+end;
+
+procedure TestPublicMapMessages;
+var
+  G: TAdventure;
+  Dir: string;
+begin
+  Dir := IncludeTrailingPathDelimiter(GetTempDir) + 'public2100maps-' + IntToStr(Random(1000000)) + PathDelim;
+  PutFile(Dir + 'maps/main-grid.data', 'main.nw');
+  PutFile(Dir + 'levels/mini-grid.png', 'mini.nw');
+  G := TAdventure.Create;
+  try
+    G.Headless := True;
+    SetAssetRootsFor('', Dir, '');
+    G.Receive(PLO_BIGMAP, 'main-grid.data,missing-image.png');
+    Check((G.ServerBigMap = 'main-grid.data,missing-image.png') and
+      (BigMap.TextName = 'main-grid.data') and (BigMap.ImageName = 'missing-image.png'),
+      'public map: two fields commit resolved text even without an image');
+    G.Receive(PLO_MINIMAP, 'mini-grid.png,missing-image.txt,ignored-third');
+    Check((G.ServerMiniMap = 'mini-grid.png,missing-image.txt') and
+      (MiniMap.TextName = 'mini-grid.png') and (MiniMap.ImageName = 'missing-image.txt'),
+      'public map: three fields keep fixed text/image order regardless of extension');
+    OpenBigMap(G);
+    Check((BigMap.IndexOf('main.nw') >= 0) and (MiniMap.IndexOf('mini.nw') >= 0) and
+      (BigMap.Image = nil) and (MiniMap.Image = nil),
+      'public map: production map loader consumes both received text resources without images');
+    G.Receive(PLO_BIGMAP, 'later-grid.txt,later.png,10,20');
+    Check((G.ServerBigMap = 'main-grid.data,missing-image.png') and
+      (BigMap.TextName = 'main-grid.data') and (BigMap.ImageName = 'missing-image.png'),
+      'public map: unresolved text preserves the previous main map');
+    G.Receive(PLO_MINIMAP, 'later-grid.txt,later.png');
+    Check((G.ServerMiniMap = 'mini-grid.png,missing-image.txt') and
+      (MiniMap.TextName = 'mini-grid.png') and (MiniMap.ImageName = 'missing-image.txt'),
+      'public map: unresolved text preserves the previous minimap');
+    PutFile(Dir + 'maps/later-grid.txt', '');
+    G.Receive(PLO_BIGMAP, 'later-grid.txt,later.png');
+    Check((G.ServerBigMap = 'later-grid.txt,later.png') and (BigMap.TextName = 'later-grid.txt'),
+      'public map: delivery followed by receive commits even an empty resolved text file');
+    Check(G.ServerMiniMap = 'mini-grid.png,missing-image.txt',
+      'public map: a main-map update leaves the minimap configuration alone');
+    G.Receive(PLO_BIGMAP, 'main-grid.data');
+    G.Receive(PLO_MINIMAP, '');
+    Check((G.ServerBigMap = 'later-grid.txt,later.png') and
+      (G.ServerMiniMap = 'mini-grid.png,missing-image.txt'),
+      'public map: fewer than two fields preserve both configurations');
+  finally
+    G.Free;
+    SetAssetRootsFor('', '', '');
+    UseDefaultMaps;
+    MapOpen := False;
+    DeleteFile(Dir + 'maps/main-grid.data');
+    DeleteFile(Dir + 'maps/later-grid.txt');
+    DeleteFile(Dir + 'levels/mini-grid.png');
+    RemoveDir(Dir + 'maps');
+    RemoveDir(Dir + 'levels');
+    RemoveDir(ExcludeTrailingPathDelimiter(Dir));
   end;
 end;
 
@@ -1514,6 +1566,7 @@ begin
   TestTutorials;
   TestServerList;
   Test21Messages;
+  TestPublicMapMessages;
   TestAssetDirs;
   TestBuiltins;
   TestStatus;

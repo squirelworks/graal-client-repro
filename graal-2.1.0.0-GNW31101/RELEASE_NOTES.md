@@ -22,6 +22,11 @@ install's files come first.
 
 ## What's new in v0.0.5
 
+- [x] **Public-client map receive names.** Accepts text/image pairs in
+  fixed order, resolves the text before replacing either map configuration,
+  and retains it on missing text. A missing image does not block the names.
+  Optional head-coordinate rendering and missing-text requests remain open.
+
 - [x] **Public-client ghost flags.** Receives 170 and 174 leave their
   state unchanged for an empty payload, and enable it for any positive
   decoded first character, not only 1. Later bytes are unused. Exact-image
