@@ -102,7 +102,8 @@ class WinWindow final : public Window {
     if (msg == WM_CLOSE) { self->keys_.push_back(Key::Close); return 0; }
     if (msg == WM_KILLFOCUS) {
       for (const auto& key : self->pressed_) {
-        InputEvent e; e.type = InputEvent::KeyUp; e.key = key_name(key); self->input_.push_back(e);
+        InputEvent e; e.type = InputEvent::KeyUp; e.key = key_name(key);
+        if (!e.key.empty()) self->input_.push_back(e);
       }
       self->pressed_.clear(); self->down_.clear(); return 0;
     }
@@ -112,8 +113,8 @@ class WinWindow final : public Window {
       const bool press = msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN;
       const auto k = game_key(w);
       if (press) {
-        if (!self->pressed_.insert(w).second) return 0;
-        if (k != Key::NoKey) { self->down_.insert(k); self->keys_.push_back(k); }
+        const bool first = self->pressed_.insert(w).second;
+        if (k != Key::NoKey && first) { self->down_.insert(k); self->keys_.push_back(k); }
       } else { self->pressed_.erase(w); self->down_.erase(k); }
       InputEvent e; e.type = press ? InputEvent::KeyDown : InputEvent::KeyUp; e.key = key_name(w);
       BYTE state[256]{};

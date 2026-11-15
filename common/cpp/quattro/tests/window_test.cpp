@@ -38,6 +38,9 @@ int main() {
   CHECK(win->poll_key() == Draw::Key::NoKey);
   CHECK(win->held(Draw::Key::Right));
   CHECK(win->poll_input(event) && event.type == Draw::InputEvent::KeyDown && event.key == "right");
+  // GUI controls receive text/navigation repeats, while gameplay actions
+  // remain edge-triggered and movement uses held state.
+  CHECK(win->poll_input(event) && event.type == Draw::InputEvent::KeyDown && event.key == "right");
   CHECK(!win->poll_input(event));
   SendMessageA(hwnd, WM_KILLFOCUS, 0, 0);
   CHECK(!win->held(Draw::Key::Right));
