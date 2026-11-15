@@ -33,6 +33,7 @@ public class TestZO2 {
     encodings();
     lobby();
     multiplayer();
+    TestBoardReplay.run();
     realLevels();
     System.out.println(checks + " checks, " + failed + " failed");
     System.exit(failed == 0 ? 0 : 1);
@@ -296,7 +297,8 @@ public class TestZO2 {
       check(pb != null && pb.chat.equals("hi"), "chat over D");
       b.enter("level2.zelda", 1, 30.5);
       for (int i = 0; i < 10; i++) { b.tick(); nb.tick(); a.tick(); na.tick(); Thread.sleep(15); }
-      check(na.peers.get(nb.myId) == null && !nb.myId.equals(pb.id), "level change leaves the room");
+      check(na.peers.get(nb.myId) == null && nb.myId.equals(pb.id),
+          "level change leaves old room and retains rebuild connection identity");
       check(nb.room.equals("Zlevel21.6"), "new room joined (" + nb.room + ")");
       na.close(); nb.close();
     } finally {

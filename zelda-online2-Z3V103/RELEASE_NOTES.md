@@ -15,6 +15,8 @@ next to it.
 
 ## What's new in v0.0.5
 
+- [x] Known-peer `B` board rectangles now update the real board without echo and retain ordered visit-local history. Known-peer `T` triggers leader-selected party replay; reload/re-entry clears history. Generated two/three-client loopback checks cover non-square encoding, local board mutation, malformed/unknown input, overlapping replay and real room changes. Keyboard sword/lift hooks and baddy/dead-state simulation remain missing. Per-cell change detection and defensive rectangle validation are explicit rebuild policies; native replay was not observed by the source study.
+
 - [x] Nickname and colour changes made in Options are sent to existing peers by the regular network tick, without reconnecting.
 - [x] The server field starts at loopback (127.0.0.1) with One-Player mode selected. Multiplayer needs a server you choose.
 

@@ -1,7 +1,7 @@
 package zo2;
 
-import java.util.Enumeration;
 import java.util.Hashtable;
+import java.util.Vector;
 
 /**
  * Multiplayer through the GServ lobby, as Zelda Online 2 used it
@@ -17,8 +17,8 @@ import java.util.Hashtable;
  *   and carried object.
  * - D lines are "D" + sender id (two base-128 characters) + type + payload.
  *   Numbers are one character each, value + 32; positions are half tiles.
- * - The level leader is the peer with the earliest login time (ties: lower
- *   id); it runs the baddies.
+ * - T causes party-wide board-history replay by the source-selected leader.
+ *   Its comparisons use local time, not a global running minimum.
  */
 public class Net {
   public static final int PORT = 14801;
@@ -29,7 +29,7 @@ public class Net {
     public int dir = Game.DOWN, frame;
     public String nick = "", chat = "";
     public int[] colours = new int[0];
-    public long loginTime = Long.MAX_VALUE;
+    public long loginTime = -1;
     public boolean here = true; // false after an I (left the level)
   }
 
@@ -39,6 +39,8 @@ public class Net {
   int myNum;
   public long loginTime;
   public Hashtable peers = new Hashtable();
+  final Vector<Peer> peerOrder = new Vector<Peer>();
+  long joinedVisit = -1;
   String room = "";
   String levelName = "";
   boolean askedParty;
@@ -128,14 +130,20 @@ public class Net {
     levelName = game.level.name;
     room = roomFor(levelName);
     peers.clear();
+    peerOrder.clear();
+    joinedVisit = game.visit;
     askedParty = false;
     relay.send("N" + room + "#def");
+  }
+
+  void levelLoaded() {
+    loginTime = System.currentTimeMillis();
   }
 
   /** Called once per game tick, after Game.tick(). */
   public void tick() {
     tickCount++;
-    if (game.level != null && !game.level.name.equals(levelName)) {
+    if (game.level != null && game.visit != joinedVisit) {
       if (levelName.length() > 0) {
         relay.send("C");
         relay.send("-");
@@ -182,14 +190,14 @@ public class Net {
         }
         break;
       case '-':
-        peers.remove(arg);
+        removePeer(arg);
         break;
       case 'P':
         peer(arg);
         pushState();
         break;
       case 'C':
-        peers.remove(arg);
+        removePeer(arg);
         break;
       case 'D':
         if (arg.length() >= 3) data(idFromSid(arg.substring(0, 2)), arg.charAt(2), arg.substring(3));
@@ -205,13 +213,22 @@ public class Net {
       p = new Peer();
       p.id = id;
       peers.put(id, p);
+      peerOrder.addElement(p);
     }
     return p;
   }
 
+  void removePeer(String id) {
+    Peer p = (Peer) peers.remove(id);
+    if (p != null) peerOrder.removeElement(p);
+  }
+
   void data(String id, char type, String s) {
     if (id.equals(myId)) return;
-    Peer p = peer(id);
+    Peer p = (Peer) peers.get(id);
+    // Only a P partnership introduces a peer. Unsolicited data cannot
+    // manufacture a known sender and then mutate the board or trigger replay.
+    if (p == null) return;
     switch (type) {
       case 'P':
         if (s.length() >= 3) {
@@ -225,7 +242,17 @@ public class Net {
         break;
       case 'C': p.chat = s; break;
       case 'N': p.nick = s; break;
-      case 'T': p.loginTime = untime10(s); break;
+      case 'T':
+        if (s.length() != 10) break;
+        for (int i = 0; i < s.length(); i++)
+          if (s.charAt(i) < 32 || s.charAt(i) > 159) return;
+        p.loginTime = untime10(s);
+        if (leader()) replayBoard();
+        break;
+      case 'B':
+        try { game.applyBoard(BoardChange.decode(s)); }
+        catch (IllegalArgumentException malformed) { /* reject atomically, own policy */ }
+        break;
       case 'I': p.here = false; break;
       case 'S':
         if (s.length() >= 1) {
@@ -235,17 +262,39 @@ public class Net {
         }
         break;
       default:
-        break; // B, M, H, E, O, W, A, D: later
+        break; // M, H, E, O, W, A, D: later
     }
   }
 
-  /** Whether this client is the level leader: earliest login time, ties to the lower id. */
+  void replayBoard() {
+    for (BoardChange change : game.boardHistory) d('B', change.encode());
+  }
+
+  /** Published Zelda source contract: compare each peer with LOCAL time.
+   * Arrival order is this rebuild's explicit iteration policy. */
   public boolean leader() {
-    for (Enumeration e = peers.elements(); e.hasMoreElements();) {
-      Peer p = (Peer) e.nextElement();
-      if (p.loginTime < loginTime || p.loginTime == loginTime && p.id.compareTo(myId) < 0) return false;
+    return leaderCandidate().equals(myId);
+  }
+
+  String leaderCandidate() {
+    String candidate = myId;
+    long candidateTime = loginTime;
+    for (Peer p : peerOrder) {
+      // Unknown (negative) peer time has a different eligibility rule:
+      // it cannot displace a timed candidate, even if its id sorts first.
+      boolean eligible;
+      if (p.loginTime >= 0) {
+        eligible = p.loginTime < loginTime ||
+            p.loginTime == loginTime && p.id.compareTo(candidate) < 0;
+      } else {
+        eligible = candidateTime < 0 && p.id.compareTo(candidate) < 0;
+      }
+      if (eligible) {
+        candidate = p.id;
+        candidateTime = p.loginTime;
+      }
     }
-    return true;
+    return candidate;
   }
 
   public void close() {

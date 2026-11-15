@@ -95,6 +95,15 @@ zip from your own copy: `pics1.gif`, `arrays.dat` and the levels only.
 - Multiplayer: room per level (`Zlevel11.6` for `level1.zelda`), party on
   the first `+`, the state push on `P`, positions every 2 ticks, chat,
   nickname, colours, leaving the room on a level change, the level leader.
+- [x] Received board rectangles update the real Game board and renderer,
+  with known-peer validation and no network echo. Whole-tile x/y, packed
+  dimensions and high-first base-128 tiles are decoded in x-major order.
+  Visit-local history replays to the whole party when a known peer's `T`
+  timestamp arrives and local-timestamp comparison selects this client;
+  `P` alone does not replay it. Successful reloads, including the same
+  filename, clear history and renew the timestamp. A local `modifyBoard`
+  seam records and sends the same rectangles; keyboard sword/lift actions
+  are still absent and do not call it yet.
 - The GServ lobby. The rebuilt client was also run against the original
   GServ server on loopback: both players got ids, joined a party and saw
   each other's nickname and position.
@@ -104,7 +113,10 @@ zip from your own copy: `pics1.gif`, `arrays.dat` and the levels only.
 - [ ] The player sprite from `link.gif` (a stand-in figure is drawn,
   coloured by the options).
 - [ ] Sword, bushes, lifting, baddies, chests.
-- [ ] Board changes over the wire.
+- [x] Board rectangle transport, real board application and visit-local replay.
+- [ ] Connect playable sword-cut/lift resource semantics to the local board
+  mutation seam; no original tile tables or new keyboard actions are supplied.
+- [ ] Baddy simulation and dead-baddy-state replay alongside board history.
 - [ ] The password save (its alphabet and mask are not in the notes yet).
 - [ ] Sound.
 - [ ] The colour list from the original (the rebuild's list is its own).
@@ -112,3 +124,34 @@ zip from your own copy: `pics1.gif`, `arrays.dat` and the levels only.
   screen before "Press any key to start!".
 - [ ] The original start position (not known; the rebuild starts near the
   middle of `level1`).
+
+## Board replay scope and deliberate policies
+
+Behavior reference: [published source-only board/replay study](https://github.com/squirelworks/Graal_analysis/blob/cb82aec5d02f053b1875dc0b3e0e6a669c1cb3c2/client-internals/zelda-online-1998.md#board-changes-and-a-joining-players-state).
+The original client's native board mutation, replay and re-entry were not
+observed in that study. Generated loopback tests are reproduction checks.
+
+The source-only top-left change-detector quirk is deliberately not copied:
+this rebuild compares each destination tile, so a uniform rectangle that
+changes another cell is retained and sent. Reapplying an identical rectangle
+does not append history. This is an explicit fidelity difference until a
+native result or owner decision calls for the historical detector.
+Truncated/trailing/out-of-board rectangles and non-base-128 tile words are
+rejected atomically; these defensive rules are rebuild policy. The wire
+dimension byte limits height to 1–7 and width to the representable rectangle.
+
+Leadership retains the published comparisons against LOCAL login time,
+not a global running minimum; equal-local-time identity comparisons and
+negative candidate-time handling are preserved. Peer encounter order is
+this rebuild's explicit iteration order. Only the local-leader boolean
+controls replay; this does not add a baddy engine.
+Nonnegative peers qualify only below local time, or at equal local time
+with a lower candidate identity. A negative-time peer qualifies only when
+the retained candidate time is negative and its identity sorts lower;
+unknown times never displace a positive-time candidate.
+
+The rebuilt lobby now permits a new room join after explicit withdrawal
+(`C`, `-`, then `N`), retaining the connection identity as rebuild policy.
+It previously ignored that `N`, so changing the client room label did not
+actually move the server connection. Duplicate `N` without withdrawal
+remains ignored. Tests now check actual room isolation and return.

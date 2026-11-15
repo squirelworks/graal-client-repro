@@ -45,7 +45,7 @@ public class GServ {
     Socket socket;
     OutputStream out;
     String id = "", name = "", game = "";
-    boolean joined, available, observer, superUser;
+    boolean joined, available, observer, superUser, withdrawn;
     Vector party; // includes this player; null when not in one
     Vector watchers = new Vector();
 
@@ -201,7 +201,8 @@ public class GServ {
       case 'N':
       case 'O':
       case 'S': {
-        if (p.joined) return;
+        if (p.joined && !p.withdrawn) return;
+        if (p.joined) leaveParty(p);
         int h = arg.indexOf('#');
         p.observer = cmd == 'O';
         p.superUser = cmd == 'S';
@@ -211,8 +212,11 @@ public class GServ {
           p.game = h < 0 ? arg : arg.substring(0, h);
           p.name = h < 0 ? "" : arg.substring(h + 1);
         }
-        p.id = nextId();
+        // Rebuild re-entry policy: a withdrawn connection may select a new
+        // room and keeps its connection identity. No native identity claim.
+        if (!p.joined) p.id = nextId();
         p.joined = true;
+        p.withdrawn = false;
         p.available = !p.observer && !p.superUser;
         p.send("I" + p.id);
         for (int i = 0; i < players.size(); i++) {
@@ -230,6 +234,7 @@ public class GServ {
         break;
       case '-':
         withdraw(p);
+        p.withdrawn = true;
         break;
       case 'P': {
         Player o = byId(arg);

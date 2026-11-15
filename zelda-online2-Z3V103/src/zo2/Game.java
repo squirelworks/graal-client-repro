@@ -14,6 +14,8 @@ package zo2;
  * 2x1 tiles are the feet, which is what collides.
  */
 public class Game {
+  final java.util.Vector<BoardChange> boardHistory = new java.util.Vector<BoardChange>();
+  long visit;
   public static final int TICK_MS = 50;
   public static final double STEP = 0.5;
   public static final double SLIDE = STEP / 4;
@@ -63,10 +65,28 @@ public class Game {
       return false;
     }
     level = lv;
+    boardHistory.clear();
+    visit++;
+    if (net != null) net.levelLoaded();
     if (nx >= 0) x = nx;
     if (ny >= 0) y = ny;
     if (blocked(x, y)) findFreeSpot();
     status = name;
+    return true;
+  }
+
+  /** Local board mutation seam. Keyboard sword/lift mechanics are not yet
+   * implemented; callers supply replacement tiles, never an original table. */
+  public boolean modifyBoard(int x, int y, int width, int height, int[] tiles) {
+    BoardChange change = new BoardChange(x, y, width, height, tiles);
+    if (!applyBoard(change)) return false;
+    if (net != null) net.d('B', change.encode());
+    return true;
+  }
+
+  boolean applyBoard(BoardChange change) {
+    if (level == null || !change.apply(level)) return false;
+    boardHistory.addElement(change);
     return true;
   }
 
