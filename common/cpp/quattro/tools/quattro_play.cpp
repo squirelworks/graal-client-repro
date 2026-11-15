@@ -86,7 +86,7 @@ int main(int argc, char** argv) {
 
   std::unique_ptr<Draw::Window> window;
   Draw::HeadlessWindow* hw = nullptr;
-  if (!headless) window = Draw::open_x11_window(opt.width, opt.height, "Graal");
+  if (!headless) window = Draw::open_window(opt.width, opt.height, "Graal");
   if (!window) {
     if (!headless) std::fprintf(stderr, "no display: running headless\n");
     auto h = std::make_unique<Draw::HeadlessWindow>();

@@ -69,4 +69,8 @@ class HeadlessWindow : public Window {
 // program was built without X11).
 std::unique_ptr<Window> open_x11_window(int w, int h, const std::string& title);
 
+// The platform window: Win32 on Windows, X11 where available on Unix.
+// Returns nullptr if the native window cannot be created.
+std::unique_ptr<Window> open_window(int w, int h, const std::string& title);
+
 }  // namespace Quattro::Draw

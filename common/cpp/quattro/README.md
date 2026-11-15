@@ -83,6 +83,17 @@ rounded down (`Cipher::set_packed_round_down`; Graal_analysis
 
 ## Build and test
 
+`quattro-play` uses a Win32 software window on Windows and X11 on Linux.
+Both feed the existing `Shell::Program`; `--headless` remains available.
+The Windows CI native-window smoke presents generated pixels and runs a
+generated offline level through Program with native movement, release,
+focus-loss and close messages. This does not switch any folder's default
+entrypoint or establish an original build's engine identity. Folder release
+packaging and default launch routes still need separate integration.
+
+- [x] Native Windows window and input for the existing Quattro Program.
+- [ ] Folder packaging and default entrypoints on the appropriate engine.
+
 ```
 make -C common/cpp/quattro test
 ```
