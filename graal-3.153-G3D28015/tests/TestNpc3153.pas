@@ -337,9 +337,6 @@ var
   M: TNpcManager;
   N: TNpc;
   Script, S: string;
-  Rdr: TGReader;
-  I, PId: Integer;
-  FoundX2, Half: Boolean;
 begin
   W := TTestWorld.Create;
   W.IsOnline := True;
@@ -370,36 +367,8 @@ begin
     C((N.Y = 5) and (N.X = 20), 'NPCPROPS: an unknown prop id ends the stream');
     M.Fire(N, 'playertouchsme');
     C(W.Sent.IndexOf('18:touched') >= 0, 'flags: set sends PLI_FLAGSET');
-    { x = 12 is X2: abs(12 * 16) shifted up one bit. Visibility (13) is
-      before X2 (75). A half-tile X (prop 2) or props 15 and 16 fail this. }
-    FoundX2 := False;
-    Half := False;
-    for I := 0 to W.Sent.Count - 1 do
-      if Copy(W.Sent[I], 1, 2) = '3:' then
-      begin
-        Rdr := TGReader.Create(Copy(W.Sent[I], 3, MaxInt));
-        try
-          if Rdr.ReadGInt3 <> 7 then Continue;
-          while not Rdr.Eof do
-          begin
-            PId := Rdr.ReadGChar;
-            if PId = NPCPROP_VISFLAGS then Rdr.ReadGChar
-            else if PId = NPCPROP_X2 then
-            begin
-              if Rdr.ReadGShort = 384 then FoundX2 := True else Half := True;
-            end
-            else if (PId = NPCPROP_X) or (PId = NPCPROP_Y) or (PId = 15) or (PId = 16) then
-            begin
-              Half := True;
-              Break;
-            end
-            else Break;
-          end;
-        finally
-          Rdr.Free;
-        end;
-      end;
-    C(FoundX2 and not Half, 'NPCPROPS: visibility then X2, not a half-tile');
+    C(W.Sent.IndexOf('3:' + GInt3(7) + GChar(NPCPROP_X) + GChar(24) +
+      GChar(NPCPROP_VISFLAGS) + GChar(0)) >= 0, 'NPCPROPS: x and visibility sent in prop order');
     M.Receive(28, 'quest=2');
     M.Receive(28, 'quest=3');
     C(M.Flags.IndexOf('quest=2') >= 0, 'FLAGSET: a set flag is not overwritten');
@@ -588,18 +557,16 @@ end;
 { (2.22's TestDownloads is left out: the 3.x game asks the server for no
   missing files yet) }
 
-{ Incoming X2/Y2/Z2 through Receive, and a position the client sends.
-  The raw values are the wire form: abs(v * 16) shifted up one bit, sign
-  in the low bit. 2 is +1/16, 3 is -1/16, 48 is +1.5, 49 is -1.5. }
+{ Incoming X2/Y2/Z2 through Receive. The raw values are the wire form:
+  abs(v * 16) shifted up one bit, sign in the low bit. 2 is +1/16,
+  3 is -1/16, 48 is +1.5, 49 is -1.5. A script that assigns x and y
+  still sends half-tile props 2 and 3. }
 procedure TestNpcPrecise;
 var
   W: TTestWorld;
   M: TNpcManager;
   N: TNpc;
-  Script, Payload: string;
-  R: TGReader;
-  P, V: Integer;
-  SawX2, SawY2, SawZ2, SawHalf: Boolean;
+  Script: string;
 
   procedure Recv(Raw: Integer; Want: Double; const Name: string);
   begin
@@ -647,43 +614,13 @@ begin
     N := M.FindById(8);
     C((N <> nil) and (Abs(N.X - 1.5) < 1E-9) and (Abs(N.Y + 1.0 / 16) < 1E-9),
       'NPC precise: a script sets a fractional position');
-    C(W.Sent.Count = 1, 'NPC precise: the script position is sent once');
+    { 1.5 is half-tile 3. -1/16 rounds to half-tile 0. Props 75 and 76
+      are not in this packet. }
+    C(W.Sent.Count = 1, 'NPC assign: the script position is sent once');
     if W.Sent.Count <> 1 then Exit;
-    Payload := Copy(W.Sent[0], 3, MaxInt);
-    R := TGReader.Create(Payload);
-    try
-      C(R.ReadGInt3 = 8, 'NPC precise: the sent id is the NPC');
-      SawX2 := False;
-      SawY2 := False;
-      SawZ2 := False;
-      SawHalf := False;
-      while not R.Eof do
-      begin
-        P := R.ReadGChar;
-        if P = NPCPROP_X2 then
-        begin
-          V := R.ReadGShort;
-          if V = 48 then SawX2 := True else SawHalf := True;
-        end
-        else if P = NPCPROP_Y2 then
-        begin
-          V := R.ReadGShort;
-          if V = 3 then SawY2 := True else SawHalf := True;
-        end
-        else if P = NPCPROP_Z2 then
-        begin
-          R.ReadGShort;
-          SawZ2 := True;
-        end
-        else
-          SawHalf := True;
-        if SawHalf or SawZ2 then Break;
-      end;
-      C(SawX2 and SawY2 and not SawZ2 and not SawHalf and not R.Overrun,
-        'NPC precise: sent as X2 and Y2, not half-tile props and not Z2');
-    finally
-      R.Free;
-    end;
+    C(W.Sent[0] = '3:' + GInt3(8) + GChar(NPCPROP_X) + GChar(3) +
+      GChar(NPCPROP_Y) + GChar(0),
+      'NPC assign: the script position goes out as half-tile X and Y');
   finally
     M.Free;
     W.Free;
@@ -691,20 +628,18 @@ begin
 end;
 
 { Production move: the GS1 `move` statement is GsOpMove, so Command
-  marks X2 and Y2 at the position then. Fire flushes that mark before
-  any Tick. Later ticks step X and Y and send nothing further. The
-  start is X2 80 (2.5) and Y2 9 (-0.25). move 1.5, -0.5 over 0.2 s
-  is four 50 ms steps. }
+  marks half-tile X and Y at the position then. Fire flushes that mark
+  before any Tick. Later ticks step X and Y and send nothing further.
+  The start arrives as X2 80 (2.5) and Y2 9 (-0.25). The mark sends
+  half-tile 5 and 0. move 1.5, -0.5 over 0.2 s is four 50 ms steps. }
 procedure TestNpcMoveCommand;
 var
   W: TTestWorld;
   M: TNpcManager;
   N: TNpc;
-  Script, Payload: string;
-  R: TGReader;
-  P, V, Steps, SentBefore: Integer;
+  Script: string;
+  Steps, SentBefore: Integer;
   StartX, StartY, StepX, StepY: Double;
-  SawX2, SawY2, SawZ2, SawHalf: Boolean;
 begin
   W := TTestWorld.Create;
   W.IsOnline := True;
@@ -729,45 +664,14 @@ begin
     StepY := -0.5 / Steps;
     M.Fire(N, 'washit');
     C((Abs(N.X - StartX) < 1E-9) and (Abs(N.Y - StartY) < 1E-9),
-      'NPC move: Command(GsOpMove) marks X2 and Y2 before any tick');
+      'NPC move: Command(GsOpMove) marks the start before any tick');
     C(N.MoveTicks = Steps, 'NPC move: the command arms the later ticks');
     C(W.Sent.Count = 1, 'NPC move: the mark is flushed once, before any tick');
     if W.Sent.Count <> 1 then Exit;
-    Payload := Copy(W.Sent[0], 3, MaxInt);
-    R := TGReader.Create(Payload);
-    try
-      C(R.ReadGInt3 = 11, 'NPC move: the sent id is the NPC');
-      SawX2 := False;
-      SawY2 := False;
-      SawZ2 := False;
-      SawHalf := False;
-      while not R.Eof do
-      begin
-        P := R.ReadGChar;
-        if P = NPCPROP_X2 then
-        begin
-          V := R.ReadGShort;
-          if V = 80 then SawX2 := True else SawHalf := True;
-        end
-        else if P = NPCPROP_Y2 then
-        begin
-          V := R.ReadGShort;
-          if V = 9 then SawY2 := True else SawHalf := True;
-        end
-        else if P = NPCPROP_Z2 then
-        begin
-          R.ReadGShort;
-          SawZ2 := True;
-        end
-        else
-          SawHalf := True;
-        if SawHalf or SawZ2 then Break;
-      end;
-      C(SawX2 and SawY2 and not SawZ2 and not SawHalf and not R.Overrun,
-        'NPC move: the mark emits the start as X2 and Y2');
-    finally
-      R.Free;
-    end;
+    { 2.5 is half-tile 5. -0.25 rounds to half-tile 0. }
+    C(W.Sent[0] = '3:' + GInt3(11) + GChar(NPCPROP_X) + GChar(5) +
+      GChar(NPCPROP_Y) + GChar(0),
+      'NPC move: the mark emits the start as half-tile X and Y');
     SentBefore := W.Sent.Count;
     M.Tick;
     C((Abs(N.X - (StartX + StepX)) < 1E-9) and (Abs(N.Y - (StartY + StepY)) < 1E-9),

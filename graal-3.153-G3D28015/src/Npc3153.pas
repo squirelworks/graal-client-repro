@@ -1,10 +1,11 @@
 { Npc3153: the 2.22 rebuild's Npc222, for 3.153 (which plays as 2.22
-  and has GS1: graal_analysis version-profiles/3.04-3.153.md). NPC
-  props 75, 76 and 77 are X2, Y2 and Z2
+  and has GS1: graal_analysis version-profiles/3.04-3.153.md). Incoming
+  NPC props 75, 76 and 77 are X2, Y2 and Z2
   (graal_analysis protocol/player-props.md): a short, abs(v * 16)
   shifted up one bit, sign in the low bit. A position this client
-  changes is sent as 75 and 76. Those notes describe the fields; they
-  do not specify this send. The player's walk props are 78 and 79.
+  changes is sent as half-tile X and Y (props 2 and 3). Those notes
+  name the fields. They do not say this client sends 75 and 76.
+  The player's walk props are 78 and 79.
 
   Npc222: level NPCs of 2.05 rev 2, their props, drawing and scripts.
 
@@ -57,8 +58,8 @@ const
   NpcPropLast222 = 73;
   { 3.153 reads NPC props through 77 (version-profiles/3.04-3.153.toml
     sets the bound only). 75/76/77 are X2/Y2/Z2, encoded as player
-    X2/Y2 in protocol/player-props.md. Half-tile X/Y stay 2/3. A
-    changed position sends 75 and 76. }
+    X2/Y2 in protocol/player-props.md. A changed position is sent as
+    half-tile X and Y (props 2 and 3). }
   NPCPROP_CLASS = 74; NPCPROP_X2 = 75; NPCPROP_Y2 = 76; NPCPROP_Z2 = 77;
   NpcPropMax3153 = 77;
 
@@ -148,7 +149,7 @@ type
     Home: string;
     CellX, CellY: Integer;
     Z: Double;             { tiles; Z2 is signed 1/16, the old Z prop is whole tiles }
-    Dirty: array[0..NpcPropMax3153] of Boolean;
+    Dirty: array[0..NpcPropLast205] of Boolean;
     constructor Create;
     destructor Destroy; override;
     function Visible: Boolean;
@@ -361,16 +362,14 @@ end;
 
 procedure TNpc.MarkDirty(Prop: Integer);
 begin
-  if ((Prop >= 0) and (Prop <= NpcPropLast205)) or (Prop = NPCPROP_X2) or
-    (Prop = NPCPROP_Y2) or (Prop = NPCPROP_Z2) then
-    Dirty[Prop] := True;
+  if (Prop >= 0) and (Prop <= NpcPropLast205) then Dirty[Prop] := True;
 end;
 
 function TNpc.AnyDirty: Boolean;
 var
   I: Integer;
 begin
-  for I := 0 to NpcPropMax3153 do
+  for I := 0 to NpcPropLast205 do
     if Dirty[I] then
     begin
       Result := True;
@@ -690,29 +689,13 @@ end;
 
 { ---- props ---- }
 
-{ X2 / Y2 / Z2: abs(v * 16) shl 1, the low bit the sign. That is the
-  NPCPROP 75/76/77 encoding in protocol/player-props.md (as player
-  X2/Y2). The player's own walk props are 78, 79 and 80. }
+{ Incoming X2 / Y2 / Z2: abs(v * 16) shl 1, the low bit the sign.
+  That is the NPCPROP 75/76/77 encoding in protocol/player-props.md
+  (as player X2/Y2). The player's own walk props are 78, 79 and 80. }
 function NpcPrecise(Raw: Integer): Double;
 begin
   Result := (Raw shr 1) / 16;
   if Raw and 1 <> 0 then Result := -Result;
-end;
-
-function NpcPreciseRaw(V: Double): Integer;
-var
-  N: Integer;
-begin
-  if V < 0 then
-  begin
-    N := Round(-V * 16);
-    Result := (N shl 1) or 1;
-  end
-  else
-  begin
-    N := Round(V * 16);
-    Result := N shl 1;
-  end;
 end;
 
 procedure TNpcManager.ApplyProps(N: TNpc; R: TGReader; FromServer: Boolean);
@@ -879,9 +862,6 @@ begin
     NPCPROP_GATTRIB1..NPCPROP_GATTRIB5: Result := Result + GString(N.Attr[Prop - NPCPROP_GATTRIB1 + 1]);
     NPCPROP_GATTRIB6..NPCPROP_GATTRIB9: Result := Result + GString(N.Attr[Prop - NPCPROP_GATTRIB6 + 6]);
     NPCPROP_GATTRIB10..NPCPROP_GATTRIB30: Result := Result + GString(N.Attr[Prop - NPCPROP_GATTRIB10 + 10]);
-    NPCPROP_X2: Result := Result + GShort(NpcPreciseRaw(N.X));
-    NPCPROP_Y2: Result := Result + GShort(NpcPreciseRaw(N.Y));
-    NPCPROP_Z2: Result := Result + GShort(NpcPreciseRaw(N.Z));
   else
     Result := '';
   end;
@@ -893,10 +873,8 @@ var
   I: Integer;
 begin
   S := '';
-  { 0 to 40, then X2, Y2 and Z2. A position change marks 75 and 76,
-    not the half-tile X and Y. Z2 goes only when the height was marked;
-    this client never changes an NPC's height itself. }
-  for I := 0 to NpcPropMax3153 do
+  { 0 to 40. A position change marks half-tile X and Y (props 2 and 3). }
+  for I := 0 to NpcPropLast205 do
     if N.Dirty[I] then
     begin
       S := S + PropBytes(N, I);
@@ -1142,12 +1120,12 @@ begin
   if Name = 'x' then
   begin
     N.X := V;
-    N.MarkDirty(NPCPROP_X2);
+    N.MarkDirty(NPCPROP_X);
   end
   else if Name = 'y' then
   begin
     N.Y := V;
-    N.MarkDirty(NPCPROP_Y2);
+    N.MarkDirty(NPCPROP_Y);
   end
   else if (Name = 'dir') or (Name = 'sprite') then
   begin
@@ -1834,15 +1812,15 @@ begin
     GsOpMove:
       begin
         { dx, dy over time seconds; option 8: event when done.
-          Mark X2 and Y2 now, at this position. Tick steps later.
-          Fire flushes the mark after the script returns. }
+          Mark half-tile X and Y now, at this position. Tick steps
+          later. Fire flushes the mark after the script returns. }
         I := Max(1, Round(A.Num[2] / TickSeconds));
         N.MoveDX := A.Num[0] / I;
         N.MoveDY := A.Num[1] / I;
         N.MoveTicks := I;
         N.MoveEvent := Trunc(A.Num[3]) and 8 <> 0;
-        N.MarkDirty(NPCPROP_X2);
-        N.MarkDirty(NPCPROP_Y2);
+        N.MarkDirty(NPCPROP_X);
+        N.MarkDirty(NPCPROP_Y);
       end;
     GsOpSetString:
       if A.Str[1] = '' then PutFlag(A.Str[0], False, True)

@@ -95,13 +95,13 @@ README, "Seihai secure login". CI logs in once more with
 - [ ] What 3.153 sends beyond 3.04, still not sent: 46 ENTERLEVEL, 50, the
   RC file browser, 152/154 text, 155/156 uploads, 157/158 gani and script
   requests.
-- [x] NPC positions use X2 and Y2 (props 75 and 76). Z2 (prop 77) is
-  applied when it arrives. Graal_analysis `protocol/player-props.md`
-  (the NPCPROP table, repeated in `manual/02-protocol/06-props.md`)
-  names 75 and 76 as X2 and Y2, encoded as player X2 and Y2: a short,
-  `abs(v * 16)` shifted up one bit, with the sign in the low bit. Prop
-  77 is Z2, two bytes decoded the same way, and it sets Z. Incoming
-  1/16 and 1.5 stay, positive and negative.
+- [x] Incoming NPC props 75, 76 and 77 are stored as a fractional
+  position. Z2 (prop 77) sets Z. Graal_analysis
+  `protocol/player-props.md` (the NPCPROP table, repeated in
+  `manual/02-protocol/06-props.md`) names 75 and 76 as X2 and Y2,
+  encoded as player X2 and Y2: a short, `abs(v * 16)` shifted up one
+  bit, with the sign in the low bit. Prop 77 is Z2, two bytes decoded
+  the same way. Incoming 1/16 and 1.5 stay, positive and negative.
   `version-profiles/plo-npcprops-layouts.tsv` says the 2.31 NPC parser
   adds Z2 (77) and the highest id it parses is 77 (it still stops at
   48 to 52); that row gives no byte encoding.
@@ -109,15 +109,12 @@ README, "Seihai secure login". CI logs in once more with
   In that profile, player prop 75 is the OS name and player prop 76 is
   the code page. The Mac lab walk records the player's props 78 and 79
   (`version-profiles/lab-mac-tiger-2026-10-31.md`).
-  A position this client changes (script `x` and `y`, and `move`) is
-  sent as 75 and 76 with that published field encoding. Those notes
-  describe the fields on an NPC prop stream. A client send on
-  assignment or `move`, and any send interval, are outside them
-  (`3.04-3.153.md` lists client id 3 as assumed from 3.04). `move`
-  (GsOpMove) marks X2 and Y2 at the position then; the existing 50 ms
-  tick steps the NPC afterwards and adds no send. Z2 is received. This
-  client does not change an NPC's height, so it does not send Z2.
-  Half-tile X and Y (props 2 and 3) are still accepted from a server.
+  No note in that set says a 3.153 client sends NPC props 75 and 76
+  when a script assigns `x` or `y`, or on `move`. A position this
+  client changes is sent as half-tile X and Y (props 2 and 3). `move`
+  (GsOpMove) marks those half-tile props at the position then; the
+  existing 50 ms tick steps the NPC afterwards and adds no send.
+  Half-tile X and Y are still accepted from a server.
 - [ ] Default weapon images are still the older `wbowi1.gif` and
   `wbomb1.gif` names; the Mac lab asked for `wbomb1.png` and
   `wbowi1.png`.
