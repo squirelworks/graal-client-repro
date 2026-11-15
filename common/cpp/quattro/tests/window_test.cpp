@@ -55,6 +55,9 @@ int main() {
   Files::Board board{};
   std::ofstream(root / "levels/native.graal", std::ios::binary)
       << "GR-V1.03" << Files::write_board_stream(board) << "#\n\xFF\xFF\xFF\n#\n#\n\n";
+  std::string error;
+  CHECK(Torque::Gui::write_file((root / "pics1.png").string(),
+        Torque::Gui::encode_png(Draw::Image(256, 32, {21, 67, 193, 255})), error));
   const auto* profile = Net::find_profile("6.03r7");
   CHECK(profile);
   if (!profile) return 1;
@@ -67,6 +70,9 @@ int main() {
     CHECK(program.tick());
     CHECK(program.world().have_level);
     CHECK(program.last_passes() == Draw::pass_order());
+    dc = GetDC(hwnd);
+    CHECK(GetPixel(dc, 10, 180) == RGB(21, 67, 193)); // loaded tile sheet, through Program
+    ReleaseDC(hwnd, dc);
     const double x = program.me().x;
     SendMessageA(hwnd, WM_KEYDOWN, VK_RIGHT, 0);
     CHECK(program.tick());
