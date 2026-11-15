@@ -75,6 +75,8 @@ procedure UseDefaultMaps;
 procedure UseTutorialMaps;
 procedure SetBigMap(const TextName, ImageName: string);
 procedure SetMiniMap(const TextName, ImageName: string);
+{ Resolves a map resource using the same allowed roots as the map loader. }
+function MapFile(const Name: string): string;
 { The level name as the map lists it: no folder, lower case. }
 function MapLevelName(const S: string): string;
 { Once a tick, before the game keys: the map key opens or closes the big

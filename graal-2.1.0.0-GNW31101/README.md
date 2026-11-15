@@ -51,9 +51,18 @@ server messages is the Graal 2002 ver10 set plus ids 2, 4, 17, 18, 154 and
 | 173 | GHOSTTEXT | text shown at the lower right of the view in ghost mode |
 | 174 | GHOSTICON | a flag: show the ghost icon |
 
-GServer-v2 sends its `bigmap=` and `minimap=` options at login with the text
-file first, and its `setmap` with the picture first; the rebuild takes the
-field that ends in `.txt` as the text file, so both work.
+- [x] Map receive names use fixed text-then-image order with at least two
+  fields. The existing asset resolver must find the text file before the
+  configuration changes; missing text preserves the previous map, while a
+  missing image does not prevent committing the names. Generated receive
+  fixtures exercise the same map loader used for display.
+- [ ] The optional default head coordinates and the context-gated request
+  for unresolved map text. Current rendering keeps its earlier positioning.
+
+The shared parser's public-image source is Graal_analysis #519; the
+text-resolution commit guard comes from its subsequent exact-image callee
+read. Other Graal 2002 builds are not changed. The old filename-extension
+swap was a server-compatibility guess and is removed from this client.
 
 A 2.1 client also gets each file's mod time in `PLO_FILE` (102) ahead of the
 name. The rebuild reads it and logs the file; keeping downloaded files is

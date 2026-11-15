@@ -3404,10 +3404,10 @@ begin
     $FFFFFFFF, $FF000000, hfHint);
 end;
 
-{ PLO_BIGMAP / PLO_MINIMAP: "file,file,x,y". GServer-v2 sends its bigmap=
-  and minimap= options in that order (text file first) at login, and its
-  setmap the picture first; the text file is the one ending in .txt, so
-  either order works. Fewer than four fields: ignored. }
+{ Public 2.1.0.0: the first two fields are text and image, in that order.
+  Only a resolved text resource permits replacing the retained map names;
+  the image may still fail to load afterward. Coordinate rendering and
+  the context-gated request on failed resolution remain separate work. }
 procedure TAdventure.ServerMap(Id: Integer; const Data: string);
 var
   F: array[0..3] of string;
@@ -3430,15 +3430,9 @@ begin
     Delete(Rest, 1, P);
     Inc(N);
   end;
-  if N < 4 then Exit;
-  if LowerCase(ExtractFileExt(F[1])) = '.txt' then
-  begin
-    T := F[1]; I := F[0];
-  end
-  else
-  begin
-    T := F[0]; I := F[1];
-  end;
+  if N < 2 then Exit;
+  T := F[0]; I := F[1];
+  if MapFile(T) = '' then Exit;
   if Id = PLO_BIGMAP then
   begin
     ServerBigMap := T + ',' + I;
