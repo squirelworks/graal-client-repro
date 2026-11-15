@@ -229,6 +229,10 @@ void test_cold_gani_requests() {
     std::thread accept([&] { next.conn.accept_from(next.listener); });
     CHECK(run(p, &game, nullptr, [&] { return p.session().logins() == 2; }));
     accept.join();
+    // Accepting TCP does not initialize the fake server codec: pump its login first.
+    const bool ready = run(p, nullptr, &next, [&] { return next.saw(37, "English"); });
+    CHECK(ready && next.enc != nullptr);
+    if (!ready || !next.enc) continue;
     next.send(send_level("next.nw", 7) + own("idle"));
     CHECK(run(p, nullptr, &next, [&] { return next.saw(157, metadata); }));
     CHECK(next.saw(23, "idle.gani"));
