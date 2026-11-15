@@ -53,10 +53,12 @@ std::vector<BuildProfile> make() {
   // items-603r7-black-box.md: idle-VM wire timings at 50 ms per tick.
   r603.carry_sprite_after = 6;
   r603.carry_still_after = 8;
+  r603.escape_menu = true;
   rows.push_back(r603);
 
   // 6.01r1: the 6.03r7 receive set without 111, the send set without 160.
   BuildProfile r601 = r603;
+  r601.escape_menu = false;
   r601.carry_sprite_after = 4; // no transfer of the 6.03r7-only measurement
   r601.carry_still_after = 6;
   r601.label = "6.01r1 Linux";
