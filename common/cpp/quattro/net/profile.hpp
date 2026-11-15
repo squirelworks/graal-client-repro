@@ -35,6 +35,7 @@ struct BuildProfile {
   // After each login: basepackage.gupd (23, or 47 with a cached copy's
   // CRC-32), and bigmap.txt on the Login session once per run.
   bool update_packages = false;
+  bool cold_gani_requests = false; // measured cold-cache pair only for 4.04r2
   int carry_sprite_after = 4, carry_still_after = 6; // legacy rebuild timing unless measured
   bool escape_menu = false; // measured only for Linux 6.03r7 without a scripted GUI
   bool draws_chests = true;       // a chest is drawn (6.03r7: never, only its tiles)

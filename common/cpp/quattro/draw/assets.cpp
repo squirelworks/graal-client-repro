@@ -3,6 +3,7 @@
 #include "body_colors.hpp"
 
 #include <cctype>
+#include <filesystem>
 
 namespace Quattro::Draw {
 
@@ -65,6 +66,14 @@ const Files::Gani* Assets::gani(const std::string& name) {
   return (ganis_[key] = std::move(g)).get();
 }
 
+bool Assets::missing_gani_file(const std::string& basename) const {
+  if (!safe(basename)) return false;
+  for (const auto& d : dirs_) {
+    std::error_code ec;
+    if (std::filesystem::exists(d + "/" + basename + ".gani", ec) || ec) return false;
+  }
+  return true;
+}
 void Assets::forget(const std::string& name) {
   std::string key = lower(name);
   images_.erase(key);
