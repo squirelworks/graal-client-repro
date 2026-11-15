@@ -337,6 +337,9 @@ var
   M: TNpcManager;
   N: TNpc;
   Script, S: string;
+  Rdr: TGReader;
+  I, PId: Integer;
+  FoundX2, Half: Boolean;
 begin
   W := TTestWorld.Create;
   W.IsOnline := True;
@@ -367,8 +370,36 @@ begin
     C((N.Y = 5) and (N.X = 20), 'NPCPROPS: an unknown prop id ends the stream');
     M.Fire(N, 'playertouchsme');
     C(W.Sent.IndexOf('18:touched') >= 0, 'flags: set sends PLI_FLAGSET');
-    C(W.Sent.IndexOf('3:' + GInt3(7) + GChar(NPCPROP_X) + GChar(24) +
-      GChar(NPCPROP_VISFLAGS) + GChar(0)) >= 0, 'NPCPROPS: x and visibility sent in prop order');
+    { x = 12 is X2: abs(12 * 16) shifted up one bit. Visibility (13) is
+      before X2 (75). A half-tile X (prop 2) or props 15 and 16 fail this. }
+    FoundX2 := False;
+    Half := False;
+    for I := 0 to W.Sent.Count - 1 do
+      if Copy(W.Sent[I], 1, 2) = '3:' then
+      begin
+        Rdr := TGReader.Create(Copy(W.Sent[I], 3, MaxInt));
+        try
+          if Rdr.ReadGInt3 <> 7 then Continue;
+          while not Rdr.Eof do
+          begin
+            PId := Rdr.ReadGChar;
+            if PId = NPCPROP_VISFLAGS then Rdr.ReadGChar
+            else if PId = NPCPROP_X2 then
+            begin
+              if Rdr.ReadGShort = 384 then FoundX2 := True else Half := True;
+            end
+            else if (PId = NPCPROP_X) or (PId = NPCPROP_Y) or (PId = 15) or (PId = 16) then
+            begin
+              Half := True;
+              Break;
+            end
+            else Break;
+          end;
+        finally
+          Rdr.Free;
+        end;
+      end;
+    C(FoundX2 and not Half, 'NPCPROPS: visibility then X2, not a half-tile');
     M.Receive(28, 'quest=2');
     M.Receive(28, 'quest=3');
     C(M.Flags.IndexOf('quest=2') >= 0, 'FLAGSET: a set flag is not overwritten');
@@ -557,6 +588,108 @@ end;
 { (2.22's TestDownloads is left out: the 3.x game asks the server for no
   missing files yet) }
 
+{ Incoming X2/Y2/Z2 through Receive, and a position the client sends.
+  The raw values are the wire form: abs(v * 16) shifted up one bit, sign
+  in the low bit. 2 is +1/16, 3 is -1/16, 48 is +1.5, 49 is -1.5. }
+procedure TestNpcPrecise;
+var
+  W: TTestWorld;
+  M: TNpcManager;
+  N: TNpc;
+  Script, Payload: string;
+  R: TGReader;
+  P, V: Integer;
+  SawX2, SawY2, SawZ2, SawHalf: Boolean;
+
+  procedure Recv(Raw: Integer; Want: Double; const Name: string);
+  begin
+    W.Sent.Clear;
+    C(M.Receive(3, GInt3(4) + GChar(NPCPROP_X2) + GShort(Raw) +
+      GChar(NPCPROP_Y2) + GShort(Raw) + GChar(NPCPROP_Z2) + GShort(Raw)),
+      'NPC precise: ' + Name + ' is taken');
+    N := M.FindById(4);
+    C(N <> nil, 'NPC precise: ' + Name + ' has an NPC');
+    if N = nil then Exit;
+    C(Abs(N.X - Want) < 1E-9, 'NPC X2 receive: ' + Name);
+    C(Abs(N.Y - Want) < 1E-9, 'NPC Y2 receive: ' + Name);
+    C(Abs(N.Z - Want) < 1E-9, 'NPC Z2 receive: ' + Name);
+    C(W.Sent.Count = 0, 'NPC precise: ' + Name + ' writes no props');
+  end;
+
+begin
+  W := TTestWorld.Create;
+  W.IsOnline := True;
+  M := TNpcManager.Create(W);
+  try
+    Recv(2, 1.0 / 16, '+1/16');
+    Recv(3, -1.0 / 16, '-1/16');
+    Recv(48, 1.5, '+1.5');
+    Recv(49, -1.5, '-1.5');
+    if N = nil then Exit;
+    W.Sent.Clear;
+    M.Receive(3, GInt3(4) + GChar(NPCPROP_X2) + GShort(2) +
+      GChar(NPCPROP_Y2) + GShort(49) + GChar(NPCPROP_Z2) + GShort(48) +
+      GChar(NPCPROP_IMAGE) + GString('block.png'));
+    C((Abs(N.X - 1.0 / 16) < 1E-9) and (Abs(N.Y + 1.5) < 1E-9) and
+      (Abs(N.Z - 1.5) < 1E-9) and (N.Image = 'block.png'),
+      'NPC precise: X2, Y2 and Z2 differ, and a prop after Z2 is read');
+    C(W.Sent.Count = 0, 'NPC precise: that update writes no props');
+    M.Receive(3, GInt3(4) + GChar(NPCPROP_CLASS) + GString('item') +
+      GChar(NPCPROP_X2) + GShort(48));
+    C((Abs(N.X - 1.5) < 1E-9) and (Abs(N.Y + 1.5) < 1E-9) and (Abs(N.Z - 1.5) < 1E-9),
+      'NPC precise: class is read, then X2, and Y2 and Z2 stay');
+    M.Receive(3, GInt3(4) + GChar(78) + GShort(2) + GChar(NPCPROP_X) + GChar(40));
+    C((Abs(N.X - 1.5) < 1E-9) and (Abs(N.Y + 1.5) < 1E-9) and (Abs(N.Z - 1.5) < 1E-9),
+      'NPC precise: an id above 77 ends the stream, so half-tile X is not applied');
+    W.Sent.Clear;
+    Script := 'if (playerenters) { x = 1.5; y = -1/16; }';
+    M.Receive(3, GInt3(8) + GChar(NPCPROP_SCRIPT) + GShort(Length(Script)) + Script);
+    N := M.FindById(8);
+    C((N <> nil) and (Abs(N.X - 1.5) < 1E-9) and (Abs(N.Y + 1.0 / 16) < 1E-9),
+      'NPC precise: a script sets a fractional position');
+    C(W.Sent.Count = 1, 'NPC precise: the script position is sent once');
+    if W.Sent.Count <> 1 then Exit;
+    Payload := Copy(W.Sent[0], 3, MaxInt);
+    R := TGReader.Create(Payload);
+    try
+      C(R.ReadGInt3 = 8, 'NPC precise: the sent id is the NPC');
+      SawX2 := False;
+      SawY2 := False;
+      SawZ2 := False;
+      SawHalf := False;
+      while not R.Eof do
+      begin
+        P := R.ReadGChar;
+        if P = NPCPROP_X2 then
+        begin
+          V := R.ReadGShort;
+          if V = 48 then SawX2 := True else SawHalf := True;
+        end
+        else if P = NPCPROP_Y2 then
+        begin
+          V := R.ReadGShort;
+          if V = 3 then SawY2 := True else SawHalf := True;
+        end
+        else if P = NPCPROP_Z2 then
+        begin
+          R.ReadGShort;
+          SawZ2 := True;
+        end
+        else
+          SawHalf := True;
+        if SawHalf or SawZ2 then Break;
+      end;
+      C(SawX2 and SawY2 and not SawZ2 and not SawHalf and not R.Overrun,
+        'NPC precise: sent as X2 and Y2, not half-tile props and not Z2');
+    finally
+      R.Free;
+    end;
+  finally
+    M.Free;
+    W.Free;
+  end;
+end;
+
 procedure RunNpcTests(Check: TCheckProc; out Skipped: Integer);
 begin
   Skipped := 0;
@@ -564,6 +697,7 @@ begin
   TestLanguage;
   TestNpcCommands;
   TestNpcProps;
+  TestNpcPrecise;
   TestNpcScope;
   TestLibrary(Skipped);
   TestInGame;
