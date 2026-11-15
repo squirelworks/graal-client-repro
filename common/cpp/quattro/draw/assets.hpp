@@ -29,6 +29,8 @@ class Assets {
   const Torque::Gui::Image* body(const std::string& name, const std::array<int, 5>& colors);
   // A gani by name, with or without ".gani".
   const Files::Gani* gani(const std::string& name);
+  // True only when no resolver directory contains the file; errors are not cold absence.
+  bool missing_gani_file(const std::string& basename) const;
   // Drops what is kept for a file name (and its recoloured bodies), so the
   // next lookup reads the folders again (a file that was just downloaded).
   void forget(const std::string& name);

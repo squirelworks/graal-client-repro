@@ -240,6 +240,7 @@ class Program {
   bool quit_ = false;
   bool offline_ = false;
   int logins_seen_ = 0;
+  std::set<std::string> gani_requests_; // per connection, unlike run-wide file requests
   std::filesystem::file_time_type run_start_;  // a cached package older than this counts
   Files::Gmap gmap_;
   bool have_gmap_ = false;

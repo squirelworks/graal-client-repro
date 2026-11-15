@@ -95,6 +95,7 @@ std::vector<BuildProfile> make() {
   // bigmap.txt (Login only, once per run); a copy cached before the run
   // goes as 47 (VERIFYWANTSEND) with its CRC-32.
   r404.update_packages = true;
+  r404.cold_gani_requests = true;
   rows.push_back(r404);
 
   // 5.00r7 and 5.12 (Windows, the GraalEngine.dll session, used by
@@ -108,6 +109,7 @@ std::vector<BuildProfile> make() {
   r500.token = "G3D22067";
   r500.machine_fields = kFakeWinFields;  // win,<md5>,"",<md5> in the lab (no network card)
   r500.packed_round_down = false;  // 5.00r7 rounds up both ways
+  r500.cold_gani_requests = false;
   r500.update_packages = false;    // the same rule in the lab; not wired for 5.x here yet
   // In Login mode the level, chests and image NPCs are drawn; characters
   // and the HUD are not (protocol/v5v6-lab-play.md, "The Login server mode").

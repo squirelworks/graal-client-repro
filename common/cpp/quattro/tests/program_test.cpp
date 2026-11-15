@@ -167,6 +167,78 @@ void test_program() {
 // 102 reply (and a large file in 68 / 102 / 69) is kept in the install's
 // levels/images/downloads/ and drawn from; arrays.dat is read from an
 // extra asset root.
+void test_cold_gani_requests() {
+  namespace fs = std::filesystem;
+  const auto root = fs::temp_directory_path() / "quattro-cold-gani";
+  fs::create_directories(root / "levels/ganis");
+  { std::ofstream f(root / "levels/ganis/broken.gani"); f << "invalid generated gani"; }
+  for (const char* build : {"4.04r2", "5.00r7", "6.03r7"}) {
+    const auto* profile = Net::find_profile(build);
+    CHECK(profile);
+    if (!profile) continue;
+    FakeServer game, next;
+    CHECK(game.start() && next.start());
+    Shell::Options opt;
+    opt.host = "127.0.0.1";
+    opt.port = game.port();
+    opt.server_name = "Lab Server";
+    opt.assets = root.string();
+    opt.download_files = true;
+    Draw::HeadlessWindow win;
+    Shell::Program p(*profile, opt, win);
+    CHECK(p.start());
+    CHECK(game.conn.accept_from(game.listener));
+    CHECK(run(p, nullptr, &game, [&] { return game.saw(37, "English"); }));
+    const auto own = [](const std::string& gani) {
+      return gchar(9) + gchar(World::kGani) + Net::gstring(gani) + "\n";
+    };
+    game.send(send_level("probe.nw", 7) + own("idle"));
+    CHECK(run(p, nullptr, &game, [&] { return game.saw(23, "pics1.png"); }));
+    for (int i = 0; i < 30; ++i) { p.tick(); game.pump(); }
+    const std::string metadata = Net::gint5(0) + "idle";
+    CHECK(game.saw(157, metadata) == profile->cold_gani_requests);
+    if (!profile->cold_gani_requests) continue;
+    auto count = [&](int id, const std::string& body) {
+      return std::count(game.got.begin(), game.got.end(), std::make_pair(id, body));
+    };
+    CHECK(count(23, "idle.gani") == 1 && count(157, metadata) == 1);
+    auto file = std::find(game.got.begin(), game.got.end(), std::make_pair(23, std::string("idle.gani")));
+    CHECK(file != game.got.end() && std::next(file) != game.got.end() &&
+          *std::next(file) == std::make_pair(157, metadata));
+    CHECK(count(157, Net::gint5(0) + "pics1.png") == 0);
+    game.send(own("shoot,wbow1.png"));
+    CHECK(run(p, nullptr, &game, [&] { return game.saw(157, Net::gint5(0) + "shoot"); }));
+    CHECK(p.me().gani == "shoot,wbow1.png"); // retain parameters in production player state
+    CHECK(count(23, "shoot.gani") == 1 && count(157, Net::gint5(0) + "shoot") == 1);
+    CHECK(!game.saw(23, "shoot,wbow1.png.gani") && !game.saw(157, Net::gint5(0) + "shoot,wbow1.png"));
+    auto shoot = std::find(game.got.begin(), game.got.end(), std::make_pair(23, std::string("shoot.gani")));
+    CHECK(shoot != game.got.end() && std::next(shoot) != game.got.end() &&
+          *std::next(shoot) == std::make_pair(157, Net::gint5(0) + "shoot"));
+    game.send(own("shoot,another-generated.png"));
+    for (int i = 0; i < 30; ++i) { p.tick(); game.pump(); }
+    CHECK(p.me().gani == "shoot,another-generated.png");
+    CHECK(count(23, "shoot.gani") == 1 && count(157, Net::gint5(0) + "shoot") == 1);
+    game.send(own("broken"));
+    for (int i = 0; i < 30; ++i) { p.tick(); game.pump(); }
+    CHECK(p.me().gani == "broken");
+    CHECK(!game.saw(23, "broken.gani") && !game.saw(157, Net::gint5(0) + "broken"));
+    game.send(own("idle"));
+    for (int i = 0; i < 30; ++i) { p.tick(); game.pump(); }
+    CHECK(count(23, "idle.gani") == 1 && count(157, metadata) == 1);
+    game.send(gchar(178) + "0,Next Lab,127.0.0.1," + std::to_string(next.port()) + "\n");
+    std::thread accept([&] { next.conn.accept_from(next.listener); });
+    CHECK(run(p, &game, nullptr, [&] { return p.session().logins() == 2; }));
+    accept.join();
+    // Accepting TCP does not initialize the fake server codec: pump its login first.
+    const bool ready = run(p, nullptr, &next, [&] { return next.saw(37, "English"); });
+    CHECK(ready && next.enc != nullptr);
+    if (!ready || !next.enc) continue;
+    next.send(send_level("next.nw", 7) + own("idle"));
+    CHECK(run(p, nullptr, &next, [&] { return next.saw(157, metadata); }));
+    CHECK(next.saw(23, "idle.gani"));
+  }
+  fs::remove_all(root);
+}
 void test_downloads() {
   namespace fs = std::filesystem;
   const Net::BuildProfile* prof = Net::find_profile("5.12 Windows");
@@ -853,6 +925,7 @@ int main() {
   test_offline();
   test_update_packages();
   test_downloads();
+  test_cold_gani_requests();
   test_weapons();
   test_weapon_scripts();
   test_escape_menu();
