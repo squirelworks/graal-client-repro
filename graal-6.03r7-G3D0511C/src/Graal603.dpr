@@ -51,7 +51,7 @@ program Graal603;
 {$IFDEF MSWINDOWS}{$IFDEF FPC}{$R Graal603.rc}{$SETPEOPTFLAGS $0140}{$ENDIF}{$ENDIF}
 
 uses
-  SysUtils, Classes,
+  SysUtils, Classes, Math,
   GTypes in '../../common/GTypes.pas',
   GZlib in '../../common/GZlib.pas',
   GSocket in '../../common/GSocket.pas',
@@ -112,6 +112,99 @@ begin
   Result := False;
   for I := 1 to ArgCount do
     if ArgAt(I) = Name then Result := True;
+end;
+
+{ Only the windowed CLI subset with an equivalent Quattro argument is
+  handed over. Stress, diagnostic and unknown options keep their Pascal
+  implementation; in particular --frames is not a wall-clock duration. }
+function TryQuattroCli(out Code: Integer): Boolean;
+var
+  I, J, Port: Integer;
+  Name, Value, Dir, Data, Server, Exe, Password: string;
+  Online: Boolean;
+  Coordinate: Double;
+  Mode: TSecMode;
+  Roots: array of string;
+  Args: TQuattroArgs;
+begin
+  Result := False;
+{$IFDEF LINUX}
+  if not HasArg('--window') or HasArg('--headless') then Exit;
+  I := 1;
+  while I <= ArgCount do
+  begin
+    Name := ArgAt(I);
+    if Name = '--window' then Inc(I)
+    else
+    begin
+      if (Name <> '--server') and (Name <> '--account') and
+        (Name <> '--password-env') and (Name <> '--server-name') and
+        (Name <> '--level') and (Name <> '--x') and (Name <> '--y') and
+        (Name <> '--data') and (Name <> '--seconds') and
+        (Name <> '--secure-login') and (Name <> '--server-key') then Exit;
+      if I = ArgCount then Exit;
+      Value := ArgAt(I + 1);
+      if (Value = '') or (Copy(Value, 1, 2) = '--') then Exit;
+      { Duplicate options have no single unambiguous translation. }
+      for J := 1 to I - 1 do if ArgAt(J) = Name then Exit;
+      Inc(I, 2);
+    end;
+  end;
+  Server := Arg('--server', '');
+  Online := Server <> '';
+  if Online = (Arg('--level', '') <> '') then Exit;
+  if Online then
+  begin
+    I := Pos(':', Server);
+    if (I <= 1) or (Arg('--account', '') = '') then Exit;
+    if not TryStrToInt(Copy(Server, I + 1, MaxInt), Port) or
+      (Port < 1) or (Port > 65535) then Exit;
+    if HasArg('--x') or HasArg('--y') then Exit;
+    if HasArg('--secure-login') or HasArg('--server-key') then
+    begin
+      if not ParseSecMode(Arg('--secure-login', 'required'), Mode) then Exit;
+      SetSecure(Mode, Arg('--server-key', ''));
+    end;
+  end
+  else if HasArg('--account') or HasArg('--password-env') or
+    HasArg('--server-name') or HasArg('--secure-login') or HasArg('--server-key') then Exit;
+  if HasArg('--seconds') then
+    if not TryStrToInt(Arg('--seconds', ''), I) or (I <= 0) then Exit;
+  if HasArg('--x') then
+  begin
+    if (Pos(',', Arg('--x', '')) > 0) or not TryStrToFloat(Arg('--x', ''), Coordinate) then Exit;
+    if IsNan(Coordinate) or IsInfinite(Coordinate) then Exit;
+  end;
+  if HasArg('--y') then
+  begin
+    if (Pos(',', Arg('--y', '')) > 0) or not TryStrToFloat(Arg('--y', ''), Coordinate) then Exit;
+    if IsNan(Coordinate) or IsInfinite(Coordinate) then Exit;
+  end;
+  Dir := ExtractFilePath(ParamStr(0));
+  Exe := QuattroProgram(Dir, Online);
+  if Exe = '' then Exit;
+  Data := Arg('--data', Dir);
+  { The Pascal shared-install allow-list has no Quattro equivalent. }
+  if DirectoryExists(IncludeTrailingPathDelimiter(Dir) + '_clients') or
+    DirectoryExists(IncludeTrailingPathDelimiter(Data) + '_clients') then Exit;
+  SetAssetRoots(Data, ClientBuildLabel);
+  SetLength(Roots, AssetRootCount);
+  for I := 0 to AssetRootCount - 1 do Roots[I] := AssetRoot(I);
+  Args := QuattroArgs(Dir, Roots, Arg('--level', ''), Arg('--x', '30'),
+    Arg('--y', '30'), Server, Arg('--account', ''),
+    Arg('--server-name', FirstServerName), '');
+  if HasArg('--seconds') then
+  begin
+    I := Length(Args);
+    SetLength(Args, I + 2);
+    Args[I] := '--seconds';
+    Args[I + 1] := Arg('--seconds', '');
+  end;
+  Password := '';
+  if Online then Password := GetEnvironmentVariable(Arg('--password-env', 'GRAAL_PW'));
+  Code := RunQuattro(Exe, ClientBuildLabel, Args, Password);
+  Result := True;
+{$ENDIF}
 end;
 
 
@@ -633,10 +726,13 @@ begin
 end;
 
 
+var
+  CliCode: Integer;
 begin
   Randomize;
   if ParamCount = 0 then
     Halt(RunGui);
   OpenConsoleIO;
+  if TryQuattroCli(CliCode) then Halt(CliCode);
   Halt(RunGame(nil, '', ''));
 end.
