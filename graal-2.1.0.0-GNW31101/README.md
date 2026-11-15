@@ -37,6 +37,12 @@ server messages is the Graal 2002 ver10 set plus ids 2, 4, 17, 18, 154 and
 
 ### The new server messages
 
+- [x] Public 2.1.0.0 ghost mode/icon receive guards: empty payloads preserve
+  state; a positive decoded first character enables the flag (170/174).
+  The whole ghost-text payload is retained, and an empty one clears it (173).
+  Source: Graal_analysis #519, exact public-image body reads. These tests do
+  not establish the sibling Graal 2002 handler widths.
+
 | Id | gs2lib name | What the rebuild does |
 |---|---|---|
 | 170 | GHOSTMODE | a flag: the player is a ghost (free accounts walk as ghosts in 2.1) |
