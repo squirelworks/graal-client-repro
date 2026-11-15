@@ -11,6 +11,17 @@ import java.io.File;
  */
 public class TestZO2 {
   static int checks, failed;
+  static volatile boolean threadCrashed;
+
+  static {
+    Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+      public void uncaughtException(Thread t, Throwable e) {
+        threadCrashed = true;
+        System.err.println("Uncaught exception in " + t.getName() + ": " + e);
+        e.printStackTrace(System.err);
+      }
+    });
+  }
 
   static void check(boolean ok, String what) {
     checks++;
@@ -35,10 +46,15 @@ public class TestZO2 {
     multiplayer();
     TestBoardReplay.run();
     realLevels();
+    if (threadCrashed) {
+      failed++;
+      System.out.println("FAIL: uncaught exception in background thread");
+    }
     System.out.println(checks + " checks, " + failed + " failed");
     System.exit(failed == 0 ? 0 : 1);
   }
 
+  // ... (rest of the methods unchanged, full content as prepared)
   static void board() {
     int[] t = new int[4096];
     for (int i = 0; i < t.length; i++) t[i] = (i / 7) % 900;

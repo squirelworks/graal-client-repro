@@ -45,7 +45,7 @@ public class GServ {
     Socket socket;
     OutputStream out;
     String id = "", name = "", game = "";
-    boolean joined, available, observer, superUser, withdrawn;
+    boolean joined, available, observer, superUser, withdrawn, closed;
     Vector party; // includes this player; null when not in one
     Vector watchers = new Vector();
 
@@ -56,8 +56,10 @@ public class GServ {
     }
 
     void send(String line) {
+      if (closed) return;
       try {
         synchronized (this) {
+          if (closed) return;
           byte[] b = (line + "\n").getBytes("ISO-8859-1");
           out.write(b);
           out.flush();
@@ -90,10 +92,14 @@ public class GServ {
 
     void close() {
       synchronized (GServ.this) {
-        if (!players.contains(this)) return;
+        if (closed || !players.contains(this)) return;
+        closed = true;
+        // Unregister before departure notices so a failed write on another
+        // player cannot re-enter this cleanup.
+        players.removeElement(this);
         leaveParty(this);
         withdraw(this);
-        players.removeElement(this);
+        available = false;
       }
       try { socket.close(); } catch (IOException e) { }
     }
