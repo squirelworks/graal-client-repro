@@ -1296,8 +1296,12 @@ end;
 { The 2.1 messages 170 to 174: ghost mode, the server's maps, and the
   ghost text; and PLO_FILE with the 2.1 mod time in front. }
 procedure Test21Messages;
+const
+  FlagBytes: array[0..4] of Integer = (0, 31, 32, 34, 255);
+  FlagStates: array[0..4] of Boolean = (False, False, False, True, True);
 var
   G: TAdventure;
+  I: Integer;
 begin
   G := TAdventure.Create;
   try
@@ -1307,6 +1311,25 @@ begin
     G.Receive(PLO_GHOSTICON, Chr(1 + 32));
     Check(G.GhostMode and G.GhostIcon and (G.GhostText = 'You are a ghost'),
       '2.1: ghost mode, text and icon are read');
+    G.Receive(PLO_GHOSTMODE, '');
+    G.Receive(PLO_GHOSTICON, '');
+    Check(G.GhostMode and G.GhostIcon, 'public 2.1: empty flags preserve enabled state');
+    for I := 0 to High(FlagBytes) do
+    begin
+      G.Receive(PLO_GHOSTMODE, Chr(FlagBytes[I]) + Chr(33));
+      G.Receive(PLO_GHOSTICON, Chr(FlagBytes[I]) + Chr(33));
+      Check((G.GhostMode = FlagStates[I]) and (G.GhostIcon = FlagStates[I]),
+        'public 2.1: first flag byte ' + IntToStr(FlagBytes[I]) + ', trailing byte unused');
+    end;
+    G.Receive(PLO_GHOSTMODE, Chr(32));
+    G.Receive(PLO_GHOSTICON, Chr(32));
+    G.Receive(PLO_GHOSTMODE, '');
+    G.Receive(PLO_GHOSTICON, '');
+    Check(not G.GhostMode and not G.GhostIcon, 'public 2.1: empty flags preserve disabled state');
+    G.Receive(PLO_GHOSTTEXT, 'raw,text' + Chr(0) + 'tail');
+    Check(G.GhostText = 'raw,text' + Chr(0) + 'tail', 'public 2.1: ghost text takes the entire payload');
+    G.Receive(PLO_GHOSTTEXT, '');
+    Check(G.GhostText = '', 'public 2.1: empty ghost text clears the previous text');
     G.Receive(PLO_GHOSTMODE, Chr(0 + 32));
     Check(not G.GhostMode, '2.1: ghost mode 0 turns it off');
     G.Receive(PLO_BIGMAP, 'worldmap.txt,worldmap.png,10,10');

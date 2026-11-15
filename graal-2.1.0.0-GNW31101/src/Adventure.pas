@@ -2913,9 +2913,14 @@ begin
               end;
           AddShot(FX, FY, V and 3, BX, Max(0, Min(3, BY)), False);
         end;
-      PLO_GHOSTMODE: GhostMode := R.ReadGChar = 1;
+      { Public 2.1.0.0: an absent flag does not change the state; every
+        positive decoded character enables it. Trailing bytes are unused.
+        Graal_analysis client-internals/graal2002-and-140-builds.md. }
+      PLO_GHOSTMODE:
+        if Length(Data) >= 1 then GhostMode := R.ReadGChar > 0;
       PLO_GHOSTTEXT: GhostText := Data;
-      PLO_GHOSTICON: GhostIcon := R.ReadGChar = 1;
+      PLO_GHOSTICON:
+        if Length(Data) >= 1 then GhostIcon := R.ReadGChar > 0;
       PLO_BIGMAP, PLO_MINIMAP: ServerMap(Id, Data);
       PLO_FILE: ReceiveFile(Data);
       PLO_LEVELMODTIME, PLO_ISLEADER, PLO_ONLINEMODE,
