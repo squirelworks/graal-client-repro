@@ -115,9 +115,9 @@ README, "Seihai secure login". CI logs in once more with
   (GsOpMove) marks those half-tile props at the position then; the
   existing 50 ms tick steps the NPC afterwards and adds no send.
   Half-tile X and Y are still accepted from a server.
-- [ ] Default weapon images are still the older `wbowi1.gif` and
-  `wbomb1.gif` names; the Mac lab asked for `wbomb1.png` and
-  `wbowi1.png`.
+- [x] Default weapon images are `wbomb1.png` and `wbowi1.png`. The Mac
+  lab's 3.153 session sent UPDATEFILE for those names
+  (`version-profiles/lab-mac-tiger-2026-10-31.md`).
 - [ ] Walk props still go out every 100 ms. The Mac capture's X2 spacing
   was about 150 ms.
 - [ ] The 3D mode (Torque on UDP, the listed port + 1, `Graal3D` protocol 19).
