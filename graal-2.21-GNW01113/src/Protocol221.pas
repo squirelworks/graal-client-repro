@@ -35,8 +35,10 @@ const
   { 2.19 to 2.21 log in as client type 4 (gs2lib PLTYPE_CLIENT2), the
     only type-4 game clients besides 3.0 and 3.01; the server then uses the
     gen-4 codec (graal_analysis protocol/codec-and-framing.md). The gen-4
-    link here is INVENTED (made up to work, not observed): no 2.19 to 2.21
-    binary is held and no type-4 login was captured. }
+    compatibility link retains that contract. Its plain-zlib login and
+    absent compression marker were inferred in b9f59602, not read from
+    an exact client. Refine those choices with a matched reader/capture;
+    keep the community token accepted independently. }
   ClientType = 4;
   { gen 4: every frame after the login is bzip2'd, then its first 4 dword
     groups are XORed with the gen-5 LCG; each direction has its own

@@ -1,4 +1,4 @@
-# Graal 2.21 (`GNW01113`), inferred, on an invented link
+# Graal 2.21 (`GNW01113`), inferred, with gen-4 compatibility
 
 **No binary of Graal 2.21 is held.** The token is the one gs2lib's version
 table lists for 2.21. Squirrel asked for every listed token to have a
@@ -14,12 +14,15 @@ What is known of 2.21 itself: gen 4, as 2.19; the last before 2.22 moved to gen 
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").
 
 
-## The link: INVENTED
+## Compatibility basis and inferred envelope
 
-**This link is invented, not observed.** Squirrel asked for a working gen 4
-without waiting for a capture (2026-11-13). seihai-gserver serves the same
-invention, so the client logs in there (loopback passes); a real capture of
-a type-4 client (3.0beta or 3.01 are held and listed as type 4) replaces it.
+The accepted community token and server-compatible gen-4 implementation
+remain usable. The retained creation commit
+b9f59602 distinguishes a server-documented type-4/bzip2/partial-XOR
+contract from an inferred plain-zlib login envelope and omitted compression
+marker. Those envelope choices are not an exact-client capture or binary
+result. A matched type-4 reader or capture can refine them; this does not
+make the token invalid or select a unique build from a shared token.
 
 The link is generation 4, written from graal_analysis `protocol/codec-and-framing.md` (gen 4, client type 4, server source): the login line is type 4, the key byte, `GNW01113`, account and password, alone in a u16be + zlib frame with no XOR (as 2.22 sends its login); every later frame, both ways, is u16be + a bzip2 body whose first 4 dword groups are XORed with the gen-5 LCG, one iterator per direction seeded 0x04A80B38 with the key, with no compression byte. The messages after the login, PLI_LANGUAGE and PLI_TAMPERCHECK (2.17.1's bytes) are 2.17.1's. No real gen-4 client has been captured; the login frame and the missing compression byte are guesses.
 
@@ -32,7 +35,7 @@ next to it, or a `graal-assets/` folder, or point at one with `--data`.
 ## Checks for 0.0.1
 
 - Builds with Free Pascal on Windows; its tests pass with no leaks (the login, receive and fuzz tests of 2.17.1, rewritten for the gen-4 frames).
-- `scripts/loopback.sh` against seihai-gserver with its invented gen 4: two copies log in, the second sees the first.
+- `scripts/loopback.sh` against seihai-gserver with its compatible gen-4 implementation: two copies log in, the second sees the first.
 - There is no real client to compare with.
 
 ## Not yet

@@ -70,8 +70,25 @@ program (`common/cpp/quattro`), which `scripts/build.sh` puts next to
 `Graal603`: the start screen picks the server or Training and hands the game
 over (`common/GQuattroPlay.pas`), then comes back when it ends. Set
 `GRAAL_PASCAL_GAME=1` to play in this folder's own Pascal game instead,
-as Windows and a machine with no X display always do. The command-line
-modes below are the Pascal game's.
+as Windows and a machine with no X display always do.
+
+On Linux, `--window` also hands compatible command-line games to the same
+player. The supported subset is `--server HOST:PORT --account NAME`
+with optional `--password-env` and `--server-name`, or `--level FILE`
+with optional `--x` and `--y`; both accept `--data` and a positive integer
+`--seconds`. Passwords travel in the child environment, never arguments.
+Online secure-login settings still keep the game in Pascal; explicit
+`--secure-login off` selects the original-login route. Quattro returns its
+own exit status and online output, rather than the Pascal JSON summary.
+No arguments still opens the Pascal start screen.
+
+Headless games, `--frames`, scripted movement, dumps, statistics, custom
+tile sheets and other unsupported or malformed options retain the Pascal
+CLI. They are not silently dropped or translated into different timing.
+Shared installs containing `_clients` also retain Pascal's file allow-list.
+The missing-player, no-display and `GRAAL_PASCAL_GAME=1` fallbacks apply
+to windowed command-line games too. This is rebuild routing, not recovery
+of the original executable's startup dialogs or connection-event dispatch.
 
 Put `Graal603` in the root of a 6.03r7 install and start it with no
 arguments for the start screen. It finds the install's files from there,
