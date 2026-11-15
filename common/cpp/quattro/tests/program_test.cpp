@@ -206,6 +206,18 @@ void test_cold_gani_requests() {
     CHECK(file != game.got.end() && std::next(file) != game.got.end() &&
           *std::next(file) == std::make_pair(157, metadata));
     CHECK(count(157, Net::gint5(0) + "pics1.png") == 0);
+    game.send(own("shoot,wbow1.png"));
+    CHECK(run(p, nullptr, &game, [&] { return game.saw(157, Net::gint5(0) + "shoot"); }));
+    CHECK(p.me().gani == "shoot,wbow1.png"); // retain parameters in production player state
+    CHECK(count(23, "shoot.gani") == 1 && count(157, Net::gint5(0) + "shoot") == 1);
+    CHECK(!game.saw(23, "shoot,wbow1.png.gani") && !game.saw(157, Net::gint5(0) + "shoot,wbow1.png"));
+    auto shoot = std::find(game.got.begin(), game.got.end(), std::make_pair(23, std::string("shoot.gani")));
+    CHECK(shoot != game.got.end() && std::next(shoot) != game.got.end() &&
+          *std::next(shoot) == std::make_pair(157, Net::gint5(0) + "shoot"));
+    game.send(own("shoot,another-generated.png"));
+    for (int i = 0; i < 30; ++i) { p.tick(); game.pump(); }
+    CHECK(p.me().gani == "shoot,another-generated.png");
+    CHECK(count(23, "shoot.gani") == 1 && count(157, Net::gint5(0) + "shoot") == 1);
     game.send(own("broken"));
     for (int i = 0; i < 30; ++i) { p.tick(); game.pump(); }
     CHECK(p.me().gani == "broken");

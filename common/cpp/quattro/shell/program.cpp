@@ -187,7 +187,9 @@ void Program::ask_for_missing() {
       if (!n->empty() && n->find('.') != std::string::npos && !assets_->image(*n)) want_file(*n);
   };
   if (profile_.cold_gani_requests && !me_.gani.empty()) {
-    std::string name = lower_name(me_.gani);
+    // Prop 10 may include animation parameters, e.g. shoot,wbow1.png.
+    // They remain in player state but are not part of the requested file.
+    std::string name = lower_name(me_.gani.substr(0, me_.gani.find(',')));
     if (name.size() > 5 && name.substr(name.size() - 5) == ".gani") name.resize(name.size() - 5);
     if (safe_file_name(name + ".gani") && !assets_->gani(name) && assets_->missing_gani_file(name) &&
         gani_requests_.insert(name).second) {
