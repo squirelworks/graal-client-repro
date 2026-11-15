@@ -23,6 +23,8 @@ to the program works too (`graal-assets/6.03r7/`, then
 
 ## What's new in v0.0.5
 
+- [x] In Quattro without scripted GUI content or a shown weapon, Escape toggles the menu status bit instead of quitting, matching the Linux 6.03r7 capture. Explicit window close still quits.
+
 - [x] Quattro lift timing follows the corrected Linux 6.03r7 capture: carry sprite at 0.30 s, carrystill at 0.40 s; immediate lift/board change and throw remain unchanged.
 
 - [x] **Seihai secure login (optional, off by default).** With `--secure-login auto` (or `required`, or `secure_login.txt` in the settings folder), the account and password go sealed to a Seihai game server or list server (`SEI00001`), after the server's key is checked and pinned. Servers that do not know it get the original login under `auto`. Off, the login is byte for byte the original's. This is not in the original 6.03r7.
