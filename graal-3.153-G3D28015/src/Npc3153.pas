@@ -1,8 +1,10 @@
 { Npc3153: the 2.22 rebuild's Npc222, for 3.153 (which plays as 2.22
   and has GS1: graal_analysis version-profiles/3.04-3.153.md). NPC
-  positions this client changes go out as X2 and Y2 (props 75 and 76).
-  Incoming X2, Y2 and Z2 (77) use the same signed 1/16-tile values as a
-  player's X2, Y2 and Z2.
+  props 75, 76 and 77 are X2, Y2 and Z2
+  (graal_analysis protocol/player-props.md): a short, abs(v * 16)
+  shifted up one bit, sign in the low bit. A position this client
+  changes is sent as 75 and 76. Those notes describe the fields; they
+  do not specify this send. The player's walk props are 78 and 79.
 
   Npc222: level NPCs of 2.05 rev 2, their props, drawing and scripts.
 
@@ -53,9 +55,10 @@ const
   NPCPROP_GATTRIB6 = 44; NPCPROP_GATTRIB9 = 47; NPCPROP_SCRIPTER = 49;
   NPCPROP_CURLEVEL = 52; NPCPROP_GATTRIB10 = 53; NPCPROP_GATTRIB30 = 73;
   NpcPropLast222 = 73;
-  { 3.153 reads NPC props through 77 (version-profiles/3.04-3.153.toml).
-    75/76/77 are X2/Y2/Z2, the same encoding as a player's 78/79/80.
-    Half-tile X/Y stay 2/3 and are not what a changed position sends. }
+  { 3.153 reads NPC props through 77 (version-profiles/3.04-3.153.toml
+    sets the bound only). 75/76/77 are X2/Y2/Z2, encoded as player
+    X2/Y2 in protocol/player-props.md. Half-tile X/Y stay 2/3. A
+    changed position sends 75 and 76. }
   NPCPROP_CLASS = 74; NPCPROP_X2 = 75; NPCPROP_Y2 = 76; NPCPROP_Z2 = 77;
   NpcPropMax3153 = 77;
 
@@ -687,8 +690,9 @@ end;
 
 { ---- props ---- }
 
-{ X2 / Y2 / Z2: abs(v * 16) shl 1, the low bit the sign. Same encoding
-  as a player's props 78, 79 and 80 (Adventure.Precise). }
+{ X2 / Y2 / Z2: abs(v * 16) shl 1, the low bit the sign. That is the
+  NPCPROP 75/76/77 encoding in protocol/player-props.md (as player
+  X2/Y2). The player's own walk props are 78, 79 and 80. }
 function NpcPrecise(Raw: Integer): Double;
 begin
   Result := (Raw shr 1) / 16;
@@ -1829,7 +1833,9 @@ begin
       if A.Num[0] > 0 then N.Timeout := A.Num[0];
     GsOpMove:
       begin
-        { dx, dy over time seconds; option 8: event when done }
+        { dx, dy over time seconds; option 8: event when done.
+          Mark X2 and Y2 now, at this position. Tick steps later.
+          Fire flushes the mark after the script returns. }
         I := Max(1, Round(A.Num[2] / TickSeconds));
         N.MoveDX := A.Num[0] / I;
         N.MoveDY := A.Num[1] / I;

@@ -690,6 +690,100 @@ begin
   end;
 end;
 
+{ Production move: the GS1 `move` statement is GsOpMove, so Command
+  marks X2 and Y2 at the position then. Fire flushes that mark before
+  any Tick. Later ticks step X and Y and send nothing further. The
+  start is X2 80 (2.5) and Y2 9 (-0.25). move 1.5, -0.5 over 0.2 s
+  is four 50 ms steps. }
+procedure TestNpcMoveCommand;
+var
+  W: TTestWorld;
+  M: TNpcManager;
+  N: TNpc;
+  Script, Payload: string;
+  R: TGReader;
+  P, V, Steps, SentBefore: Integer;
+  StartX, StartY, StepX, StepY: Double;
+  SawX2, SawY2, SawZ2, SawHalf: Boolean;
+begin
+  W := TTestWorld.Create;
+  W.IsOnline := True;
+  M := TNpcManager.Create(W);
+  try
+    Script := 'if (washit) { move 1.5, -0.5, 0.2, 0; }';
+    C(M.Receive(3, GInt3(11) + GChar(NPCPROP_X2) + GShort(80) +
+      GChar(NPCPROP_Y2) + GShort(9) + GChar(NPCPROP_SCRIPT) +
+      GShort(Length(Script)) + Script),
+      'NPC move: the NPC is taken');
+    N := M.FindById(11);
+    C(N <> nil, 'NPC move: the NPC exists');
+    if N = nil then Exit;
+    StartX := 2.5;
+    StartY := -0.25;
+    C((Abs(N.X - StartX) < 1E-9) and (Abs(N.Y - StartY) < 1E-9) and (N.MoveTicks = 0),
+      'NPC move: X2 and Y2 set the start, and no move is armed yet');
+    W.Sent.Clear;
+    Steps := Round(0.2 / TickSeconds);
+    if Steps < 1 then Steps := 1;
+    StepX := 1.5 / Steps;
+    StepY := -0.5 / Steps;
+    M.Fire(N, 'washit');
+    C((Abs(N.X - StartX) < 1E-9) and (Abs(N.Y - StartY) < 1E-9),
+      'NPC move: Command(GsOpMove) marks X2 and Y2 before any tick');
+    C(N.MoveTicks = Steps, 'NPC move: the command arms the later ticks');
+    C(W.Sent.Count = 1, 'NPC move: the mark is flushed once, before any tick');
+    if W.Sent.Count <> 1 then Exit;
+    Payload := Copy(W.Sent[0], 3, MaxInt);
+    R := TGReader.Create(Payload);
+    try
+      C(R.ReadGInt3 = 11, 'NPC move: the sent id is the NPC');
+      SawX2 := False;
+      SawY2 := False;
+      SawZ2 := False;
+      SawHalf := False;
+      while not R.Eof do
+      begin
+        P := R.ReadGChar;
+        if P = NPCPROP_X2 then
+        begin
+          V := R.ReadGShort;
+          if V = 80 then SawX2 := True else SawHalf := True;
+        end
+        else if P = NPCPROP_Y2 then
+        begin
+          V := R.ReadGShort;
+          if V = 9 then SawY2 := True else SawHalf := True;
+        end
+        else if P = NPCPROP_Z2 then
+        begin
+          R.ReadGShort;
+          SawZ2 := True;
+        end
+        else
+          SawHalf := True;
+        if SawHalf or SawZ2 then Break;
+      end;
+      C(SawX2 and SawY2 and not SawZ2 and not SawHalf and not R.Overrun,
+        'NPC move: the mark emits the start as X2 and Y2');
+    finally
+      R.Free;
+    end;
+    SentBefore := W.Sent.Count;
+    M.Tick;
+    C((Abs(N.X - (StartX + StepX)) < 1E-9) and (Abs(N.Y - (StartY + StepY)) < 1E-9),
+      'NPC move: the first tick steps by the per-tick delta');
+    C(W.Sent.Count = SentBefore, 'NPC move: that tick sends no further position');
+    while N.MoveTicks > 0 do M.Tick;
+    C((Abs(N.X - (StartX + 1.5)) < 1E-9) and (Abs(N.Y - (StartY - 0.5)) < 1E-9) and
+      (N.MoveTicks = 0),
+      'NPC move: the remaining ticks reach the move delta');
+    C(W.Sent.Count = SentBefore, 'NPC move: the later ticks add no send');
+  finally
+    M.Free;
+    W.Free;
+  end;
+end;
+
 procedure RunNpcTests(Check: TCheckProc; out Skipped: Integer);
 begin
   Skipped := 0;
@@ -698,6 +792,7 @@ begin
   TestNpcCommands;
   TestNpcProps;
   TestNpcPrecise;
+  TestNpcMoveCommand;
   TestNpcScope;
   TestLibrary(Skipped);
   TestInGame;
