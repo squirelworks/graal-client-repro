@@ -23,6 +23,8 @@ to the program works too (`graal-assets/6.03r7/`, then
 
 ## What's new in v0.0.5
 
+- [x] Compatible Linux `--window` command-line games now use the existing Quattro player handoff, with password-only environment transfer and coherent level/server/assets arguments. Secure online, headless, stress/diagnostic and unsupported options retain Pascal routing. Generated fake-player tests exercise the actual client executable; this adds no native startup events or scripted account-screen claim.
+
 - [x] In Quattro without scripted GUI content or a shown weapon, Escape toggles the menu status bit instead of quitting, matching the Linux 6.03r7 capture. Explicit window close still quits.
 
 - [x] Quattro lift timing follows the corrected Linux 6.03r7 capture: carry sprite at 0.30 s, carrystill at 0.40 s; immediate lift/board change and throw remain unchanged.
