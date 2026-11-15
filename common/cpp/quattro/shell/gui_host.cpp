@@ -202,6 +202,10 @@ int GuiHost::load_start_scripts(const std::string& program_path, std::string& er
 void GuiHost::pick_content() {
   if (screen_.content()) return;
   if (auto c = screen_.find("MainMenuGui2D")) screen_.setContent(c);
+  // The native Linux 6.03 GraalGui path selects GUIContainer as canvas
+  // content. Keep the existing menu preference when both names exist;
+  // that precedence is rebuild policy, not an original startup claim.
+  else if (auto c = screen_.find("GUIContainer")) screen_.setContent(c);
 }
 
 namespace {

@@ -77,7 +77,8 @@ class GuiHost {
   // how many were attached.
   int load_start_scripts(const std::string& program_path, std::string& error);
 
-  // Makes MainMenuGui2D the content once a script has made it.
+  // Picks existing MainMenuGui2D, otherwise GUIContainer. Explicit content
+  // is retained; the two-name preference is rebuild policy.
   void pick_content();
   bool has_content() const { return screen_.content() != nullptr; }
   // The first GuiGraalCtrl under the content, or null.

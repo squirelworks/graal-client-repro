@@ -83,6 +83,18 @@ rounded down (`Cipher::set_packed_round_down`; Graal_analysis
 
 ## Build and test
 
+The GUI host can select an existing `GUIContainer` when `MainMenuGui2D`
+is absent. Generated Program-loop regressions verify painting and button
+input through both roots, the retained menu preference when both exist,
+and preservation of explicitly selected content. That fallback supports
+the canvas-content boundary read in the exact Linux 6.03 native GraalGui
+path. The two-name preference is rebuild policy; startup ordering, account
+screens and default-entrypoint integration remain separate work. Script
+attachment already queues the created event; root selection adds no event.
+
+- [x] Render and dispatch input through an existing `GUIContainer` root.
+- [ ] Original shell bootstrap ordering and normal default launch route.
+
 `quattro-play` uses a Win32 software window on Windows and X11 on Linux.
 Both feed the existing `Shell::Program`; `--headless` remains available.
 The Windows CI native-window smoke presents generated pixels and runs a

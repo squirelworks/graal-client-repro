@@ -28,7 +28,9 @@ void end_new(Asm& a, std::size_t end) {
 
 void prop(Asm& a, const std::string& k, const std::string& v) { a.var(k).str(v).op(Asm::ASSIGN); }
 
-Asm menu() {
+// Generated definitions are attached before generated controls. This tests
+// the existing created-event pipeline, not the native temporary-object lifecycle.
+Asm profiles() {
   Asm a;
   a.function("onCreated", {});
   auto p = begin_new(a, "GuiControlProfile", "GuiDefaultProfile");
@@ -36,7 +38,16 @@ Asm menu() {
   prop(a, "fillColor", "0 0 128");
   prop(a, "opaque", "1");
   end_new(a, p);
-  auto root = begin_new(a, "GuiControl", "MainMenuGui2D");
+  a.var("profiles_ready").num(1).op(Asm::ASSIGN);
+  a.num(0).op(Asm::RET);
+  return a;
+}
+
+Asm menu(const std::string& root_name, bool alternate_root) {
+  Asm a;
+  a.function("onCreated", {});
+  a.var("gui_saw_profiles").var("profiles_ready").op(Asm::ASSIGN);
+  auto root = begin_new(a, "GuiControl", root_name);
   prop(a, "extent", "320 240");
   auto f = begin_new(a, "GuiGraalCtrl", "Playfield");
   prop(a, "position", "0 0");
@@ -48,6 +59,11 @@ Asm menu() {
   prop(a, "text", "Go");
   end_new(a, b);
   end_new(a, root);
+  if (alternate_root) {
+    auto other = begin_new(a, "GuiControl", "GUIContainer");
+    prop(a, "extent", "320 240");
+    end_new(a, other);
+  }
   a.num(0).op(Asm::RET);
   a.function("GoButton.onAction", {});
   a.var("clicked").num(1).op(Asm::ASSIGN);
@@ -70,20 +86,25 @@ void test_font() {
   CHECK(Draw::ui_text_width("Go", true) >= Draw::ui_text_width("Go", false));
 }
 
-void test_menu() {
+void test_menu(const std::string& root_name, bool alternate_root = false) {
   Draw::HeadlessWindow win;
   Shell::Options opt;
   opt.width = 320;
   opt.height = 240;
   Shell::Program prog(*Net::find_profile("6.03r7"), opt, win);
   gs2::Machine& m = prog.scripts().machine();
-  auto script = m.newVar("StartScript_Test");
+  auto definitions = m.newVar("GeneratedProfiles");
   std::string err;
-  CHECK(m.setScript(script, menu().bytes(), &err));
+  CHECK(m.setScript(definitions, profiles().bytes(), &err));
+  auto script = m.newVar("StartScript_Test");
+  CHECK(m.setScript(script, menu(root_name, alternate_root).bytes(), &err));
 
   prog.tick();
   for (const auto& e : m.errors()) std::fprintf(stderr, "  %s\n", e.c_str());
+  CHECK(m.errors().empty());
+  CHECK(global(m, "gui_saw_profiles") == 1);
   CHECK(prog.gui().has_content());
+  CHECK(prog.gui().screen().content() == prog.gui().screen().find(root_name));
   CHECK(prog.gui().playfield() != nullptr);
   const auto& passes = prog.last_passes();
   CHECK(!passes.empty() && passes.back() == "RenderGUI");
@@ -108,6 +129,13 @@ void test_menu() {
   win.push_input(press);
   prog.tick();
   CHECK(global(m, "clicked") == 1);
+  if (alternate_root) {
+    auto other = prog.gui().screen().find("GUIContainer");
+    CHECK(other);
+    prog.gui().screen().setContent(other);
+    prog.tick();
+    CHECK(prog.gui().screen().content() == other); // explicit content is retained
+  }
 }
 
 
@@ -140,7 +168,8 @@ void test_sprite() {
 
 int main() {
   test_font();
-  test_menu();
+  test_menu("MainMenuGui2D", true); // both names: preserve the existing preference
+  test_menu("GUIContainer");       // native-shaped root: actual pixels and input
   test_sprite();
   TEST_MAIN_END();
 }
