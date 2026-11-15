@@ -557,6 +557,137 @@ end;
 { (2.22's TestDownloads is left out: the 3.x game asks the server for no
   missing files yet) }
 
+{ Incoming X2/Y2/Z2 through Receive. The raw values are the wire form:
+  abs(v * 16) shifted up one bit, sign in the low bit. 2 is +1/16,
+  3 is -1/16, 48 is +1.5, 49 is -1.5. A script that assigns x and y
+  still sends half-tile props 2 and 3. }
+procedure TestNpcPrecise;
+var
+  W: TTestWorld;
+  M: TNpcManager;
+  N: TNpc;
+  Script: string;
+
+  procedure Recv(Raw: Integer; Want: Double; const Name: string);
+  begin
+    W.Sent.Clear;
+    C(M.Receive(3, GInt3(4) + GChar(NPCPROP_X2) + GShort(Raw) +
+      GChar(NPCPROP_Y2) + GShort(Raw) + GChar(NPCPROP_Z2) + GShort(Raw)),
+      'NPC precise: ' + Name + ' is taken');
+    N := M.FindById(4);
+    C(N <> nil, 'NPC precise: ' + Name + ' has an NPC');
+    if N = nil then Exit;
+    C(Abs(N.X - Want) < 1E-9, 'NPC X2 receive: ' + Name);
+    C(Abs(N.Y - Want) < 1E-9, 'NPC Y2 receive: ' + Name);
+    C(Abs(N.Z - Want) < 1E-9, 'NPC Z2 receive: ' + Name);
+    C(W.Sent.Count = 0, 'NPC precise: ' + Name + ' writes no props');
+  end;
+
+begin
+  W := TTestWorld.Create;
+  W.IsOnline := True;
+  M := TNpcManager.Create(W);
+  try
+    Recv(2, 1.0 / 16, '+1/16');
+    Recv(3, -1.0 / 16, '-1/16');
+    Recv(48, 1.5, '+1.5');
+    Recv(49, -1.5, '-1.5');
+    if N = nil then Exit;
+    W.Sent.Clear;
+    M.Receive(3, GInt3(4) + GChar(NPCPROP_X2) + GShort(2) +
+      GChar(NPCPROP_Y2) + GShort(49) + GChar(NPCPROP_Z2) + GShort(48) +
+      GChar(NPCPROP_IMAGE) + GString('block.png'));
+    C((Abs(N.X - 1.0 / 16) < 1E-9) and (Abs(N.Y + 1.5) < 1E-9) and
+      (Abs(N.Z - 1.5) < 1E-9) and (N.Image = 'block.png'),
+      'NPC precise: X2, Y2 and Z2 differ, and a prop after Z2 is read');
+    C(W.Sent.Count = 0, 'NPC precise: that update writes no props');
+    M.Receive(3, GInt3(4) + GChar(NPCPROP_CLASS) + GString('item') +
+      GChar(NPCPROP_X2) + GShort(48));
+    C((Abs(N.X - 1.5) < 1E-9) and (Abs(N.Y + 1.5) < 1E-9) and (Abs(N.Z - 1.5) < 1E-9),
+      'NPC precise: class is read, then X2, and Y2 and Z2 stay');
+    M.Receive(3, GInt3(4) + GChar(78) + GShort(2) + GChar(NPCPROP_X) + GChar(40));
+    C((Abs(N.X - 1.5) < 1E-9) and (Abs(N.Y + 1.5) < 1E-9) and (Abs(N.Z - 1.5) < 1E-9),
+      'NPC precise: an id above 77 ends the stream, so half-tile X is not applied');
+    W.Sent.Clear;
+    Script := 'if (playerenters) { x = 1.5; y = -1/16; }';
+    M.Receive(3, GInt3(8) + GChar(NPCPROP_SCRIPT) + GShort(Length(Script)) + Script);
+    N := M.FindById(8);
+    C((N <> nil) and (Abs(N.X - 1.5) < 1E-9) and (Abs(N.Y + 1.0 / 16) < 1E-9),
+      'NPC precise: a script sets a fractional position');
+    { 1.5 is half-tile 3. -1/16 rounds to half-tile 0. Props 75 and 76
+      are not in this packet. }
+    C(W.Sent.Count = 1, 'NPC assign: the script position is sent once');
+    if W.Sent.Count <> 1 then Exit;
+    C(W.Sent[0] = '3:' + GInt3(8) + GChar(NPCPROP_X) + GChar(3) +
+      GChar(NPCPROP_Y) + GChar(0),
+      'NPC assign: the script position goes out as half-tile X and Y');
+  finally
+    M.Free;
+    W.Free;
+  end;
+end;
+
+{ Production move: the GS1 `move` statement is GsOpMove, so Command
+  marks half-tile X and Y at the position then. Fire flushes that mark
+  before any Tick. Later ticks step X and Y and send nothing further.
+  The start arrives as X2 80 (2.5) and Y2 9 (-0.25). The mark sends
+  half-tile 5 and 0. move 1.5, -0.5 over 0.2 s is four 50 ms steps. }
+procedure TestNpcMoveCommand;
+var
+  W: TTestWorld;
+  M: TNpcManager;
+  N: TNpc;
+  Script: string;
+  Steps, SentBefore: Integer;
+  StartX, StartY, StepX, StepY: Double;
+begin
+  W := TTestWorld.Create;
+  W.IsOnline := True;
+  M := TNpcManager.Create(W);
+  try
+    Script := 'if (washit) { move 1.5, -0.5, 0.2, 0; }';
+    C(M.Receive(3, GInt3(11) + GChar(NPCPROP_X2) + GShort(80) +
+      GChar(NPCPROP_Y2) + GShort(9) + GChar(NPCPROP_SCRIPT) +
+      GShort(Length(Script)) + Script),
+      'NPC move: the NPC is taken');
+    N := M.FindById(11);
+    C(N <> nil, 'NPC move: the NPC exists');
+    if N = nil then Exit;
+    StartX := 2.5;
+    StartY := -0.25;
+    C((Abs(N.X - StartX) < 1E-9) and (Abs(N.Y - StartY) < 1E-9) and (N.MoveTicks = 0),
+      'NPC move: X2 and Y2 set the start, and no move is armed yet');
+    W.Sent.Clear;
+    Steps := Round(0.2 / TickSeconds);
+    if Steps < 1 then Steps := 1;
+    StepX := 1.5 / Steps;
+    StepY := -0.5 / Steps;
+    M.Fire(N, 'washit');
+    C((Abs(N.X - StartX) < 1E-9) and (Abs(N.Y - StartY) < 1E-9),
+      'NPC move: Command(GsOpMove) marks the start before any tick');
+    C(N.MoveTicks = Steps, 'NPC move: the command arms the later ticks');
+    C(W.Sent.Count = 1, 'NPC move: the mark is flushed once, before any tick');
+    if W.Sent.Count <> 1 then Exit;
+    { 2.5 is half-tile 5. -0.25 rounds to half-tile 0. }
+    C(W.Sent[0] = '3:' + GInt3(11) + GChar(NPCPROP_X) + GChar(5) +
+      GChar(NPCPROP_Y) + GChar(0),
+      'NPC move: the mark emits the start as half-tile X and Y');
+    SentBefore := W.Sent.Count;
+    M.Tick;
+    C((Abs(N.X - (StartX + StepX)) < 1E-9) and (Abs(N.Y - (StartY + StepY)) < 1E-9),
+      'NPC move: the first tick steps by the per-tick delta');
+    C(W.Sent.Count = SentBefore, 'NPC move: that tick sends no further position');
+    while N.MoveTicks > 0 do M.Tick;
+    C((Abs(N.X - (StartX + 1.5)) < 1E-9) and (Abs(N.Y - (StartY - 0.5)) < 1E-9) and
+      (N.MoveTicks = 0),
+      'NPC move: the remaining ticks reach the move delta');
+    C(W.Sent.Count = SentBefore, 'NPC move: the later ticks add no send');
+  finally
+    M.Free;
+    W.Free;
+  end;
+end;
+
 procedure RunNpcTests(Check: TCheckProc; out Skipped: Integer);
 begin
   Skipped := 0;
@@ -564,6 +695,8 @@ begin
   TestLanguage;
   TestNpcCommands;
   TestNpcProps;
+  TestNpcPrecise;
+  TestNpcMoveCommand;
   TestNpcScope;
   TestLibrary(Skipped);
   TestInGame;

@@ -1,5 +1,11 @@
-{ Npc3153: the 2.22 rebuild's Npc222, unchanged, for 3.153 (which plays as
-  2.22 and has GS1: graal_analysis version-profiles/3.04-3.153.md).
+{ Npc3153: the 2.22 rebuild's Npc222, for 3.153 (which plays as 2.22
+  and has GS1: graal_analysis version-profiles/3.04-3.153.md). Incoming
+  NPC props 75, 76 and 77 are X2, Y2 and Z2
+  (graal_analysis protocol/player-props.md): a short, abs(v * 16)
+  shifted up one bit, sign in the low bit. A position this client
+  changes is sent as half-tile X and Y (props 2 and 3). Those notes
+  name the fields. They do not say this client sends 75 and 76.
+  The player's walk props are 78 and 79.
 
   Npc222: level NPCs of 2.05 rev 2, their props, drawing and scripts.
 
@@ -50,6 +56,12 @@ const
   NPCPROP_GATTRIB6 = 44; NPCPROP_GATTRIB9 = 47; NPCPROP_SCRIPTER = 49;
   NPCPROP_CURLEVEL = 52; NPCPROP_GATTRIB10 = 53; NPCPROP_GATTRIB30 = 73;
   NpcPropLast222 = 73;
+  { 3.153 reads NPC props through 77 (version-profiles/3.04-3.153.toml
+    sets the bound only). 75/76/77 are X2/Y2/Z2, encoded as player
+    X2/Y2 in protocol/player-props.md. A changed position is sent as
+    half-tile X and Y (props 2 and 3). }
+  NPCPROP_CLASS = 74; NPCPROP_X2 = 75; NPCPROP_Y2 = 76; NPCPROP_Z2 = 77;
+  NpcPropMax3153 = 77;
 
   VisVisible = 1; VisOver = 2; VisUnder = 4;
   BlockNone = 1;
@@ -136,7 +148,7 @@ type
       case, and its gmap cell when that level is a gmap (-1 if none) }
     Home: string;
     CellX, CellY: Integer;
-    Z: Integer;
+    Z: Double;             { tiles; Z2 is signed 1/16, the old Z prop is whole tiles }
     Dirty: array[0..NpcPropLast205] of Boolean;
     constructor Create;
     destructor Destroy; override;
@@ -677,6 +689,15 @@ end;
 
 { ---- props ---- }
 
+{ Incoming X2 / Y2 / Z2: abs(v * 16) shl 1, the low bit the sign.
+  That is the NPCPROP 75/76/77 encoding in protocol/player-props.md
+  (as player X2/Y2). The player's own walk props are 78, 79 and 80. }
+function NpcPrecise(Raw: Integer): Double;
+begin
+  Result := (Raw shr 1) / 16;
+  if Raw and 1 <> 0 then Result := -Result;
+end;
+
 procedure TNpcManager.ApplyProps(N: TNpc; R: TGReader; FromServer: Boolean);
 var
   P, V, L, I: Integer;
@@ -685,7 +706,9 @@ begin
   while not R.Eof do
   begin
     P := R.ReadGChar;
-    if (P < 0) or (P > NpcPropLast222) or (P = 48) then Exit;
+    { 48 still ends the stream. 74 to 77 are class and X2/Y2/Z2; an id
+      above 77 ends it (3.04-3.153.toml, npc props through 77). }
+    if (P < 0) or (P > NpcPropMax3153) or (P = 48) then Exit;
     case P of
       NPCPROP_IMAGE:
         begin
@@ -792,6 +815,10 @@ begin
         N.Attr[P - NPCPROP_GATTRIB10 + 10] := R.ReadGString;
       NPCPROP_SCRIPTER..NPCPROP_CURLEVEL:
         R.ReadGString;
+      NPCPROP_CLASS: R.ReadGString;
+      NPCPROP_X2: N.X := NpcPrecise(R.ReadGShort);
+      NPCPROP_Y2: N.Y := NpcPrecise(R.ReadGShort);
+      NPCPROP_Z2: N.Z := NpcPrecise(R.ReadGShort);
     end;
     if R.Overrun then Exit;
   end;
@@ -846,6 +873,7 @@ var
   I: Integer;
 begin
   S := '';
+  { 0 to 40. A position change marks half-tile X and Y (props 2 and 3). }
   for I := 0 to NpcPropLast205 do
     if N.Dirty[I] then
     begin
@@ -1783,7 +1811,9 @@ begin
       if A.Num[0] > 0 then N.Timeout := A.Num[0];
     GsOpMove:
       begin
-        { dx, dy over time seconds; option 8: event when done }
+        { dx, dy over time seconds; option 8: event when done.
+          Mark half-tile X and Y now, at this position. Tick steps
+          later. Fire flushes the mark after the script returns. }
         I := Max(1, Round(A.Num[2] / TickSeconds));
         N.MoveDX := A.Num[0] / I;
         N.MoveDY := A.Num[1] / I;

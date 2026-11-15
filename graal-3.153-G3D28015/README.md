@@ -95,9 +95,29 @@ README, "Seihai secure login". CI logs in once more with
 - [ ] What 3.153 sends beyond 3.04, still not sent: 46 ENTERLEVEL, 50, the
   RC file browser, 152/154 text, 155/156 uploads, 157/158 gani and script
   requests.
-- [ ] NPC positions still use the half-tile props. Default weapon images
-  are still the older `wbowi1.gif` and `wbomb1.gif` names; the Mac lab
-  asked for `wbomb1.png` and `wbowi1.png`.
+- [x] Incoming NPC props 75, 76 and 77 are stored as a fractional
+  position. Z2 (prop 77) sets Z. Graal_analysis
+  `protocol/player-props.md` (the NPCPROP table, repeated in
+  `manual/02-protocol/06-props.md`) names 75 and 76 as X2 and Y2,
+  encoded as player X2 and Y2: a short, `abs(v * 16)` shifted up one
+  bit, with the sign in the low bit. Prop 77 is Z2, two bytes decoded
+  the same way. Incoming 1/16 and 1.5 stay, positive and negative.
+  `version-profiles/plo-npcprops-layouts.tsv` says the 2.31 NPC parser
+  adds Z2 (77) and the highest id it parses is 77 (it still stops at
+  48 to 52); that row gives no byte encoding.
+  `version-profiles/3.04-3.153.toml` only sets `npcprops_max = 77`.
+  In that profile, player prop 75 is the OS name and player prop 76 is
+  the code page. The Mac lab walk records the player's props 78 and 79
+  (`version-profiles/lab-mac-tiger-2026-10-31.md`).
+  No note in that set says a 3.153 client sends NPC props 75 and 76
+  when a script assigns `x` or `y`, or on `move`. A position this
+  client changes is sent as half-tile X and Y (props 2 and 3). `move`
+  (GsOpMove) marks those half-tile props at the position then; the
+  existing 50 ms tick steps the NPC afterwards and adds no send.
+  Half-tile X and Y are still accepted from a server.
+- [ ] Default weapon images are still the older `wbowi1.gif` and
+  `wbomb1.gif` names; the Mac lab asked for `wbomb1.png` and
+  `wbowi1.png`.
 - [ ] Walk props still go out every 100 ms. The Mac capture's X2 spacing
   was about 150 ms.
 - [ ] The 3D mode (Torque on UDP, the listed port + 1, `Graal3D` protocol 19).
