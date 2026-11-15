@@ -73,7 +73,9 @@ int main() {
     CHECK(program.start_offline("native.graal", 30, 30));
     CHECK(program.tick());
     CHECK(program.world().have_level);
-    CHECK(program.last_passes() == Draw::pass_order());
+    auto passes = Draw::pass_order();
+    passes.push_back("HUD"); // offline 6.x play includes the HUD after world passes
+    CHECK(program.last_passes() == passes);
     dc = GetDC(hwnd);
     CHECK(GetPixel(dc, 10, 180) == RGB(21, 67, 193)); // loaded tile sheet, through Program
     ReleaseDC(hwnd, dc);
