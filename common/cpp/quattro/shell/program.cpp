@@ -77,6 +77,7 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
       run_start_(std::filesystem::file_time_type::clock::now()) {
   Net::Session::Events ev;
   ev.connecting = [this](const std::string& name, const std::string& addr) {
+    gani_requests_.clear();
     if (log) log("connecting to " + name + " (" + addr + ")");
   };
   ev.connect_failed = [this](const std::string& why) {
@@ -185,6 +186,16 @@ void Program::ask_for_missing() {
     for (const std::string* n : {&p.head, &p.body, &p.sword_image, &p.shield_image})
       if (!n->empty() && n->find('.') != std::string::npos && !assets_->image(*n)) want_file(*n);
   };
+  if (profile_.cold_gani_requests && !me_.gani.empty()) {
+    std::string name = lower_name(me_.gani);
+    if (name.size() > 5 && name.substr(name.size() - 5) == ".gani") name.resize(name.size() - 5);
+    if (safe_file_name(name + ".gani") && !assets_->gani(name) && assets_->missing_gani_file(name) &&
+        gani_requests_.insert(name).second) {
+      asked_.insert(name + ".gani");
+      session_.connection().send(23, name + ".gani");
+      session_.connection().send(157, Net::gint5(0) + name);
+    }
+  }
   images(me_);
   for (const auto& [pid, o] : others_) images(o);
 }
