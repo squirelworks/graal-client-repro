@@ -4,6 +4,7 @@ LIBS = -lz -lbz2
 X11_LIBS =
 ifeq ($(OS),Windows_NT)
 LIBS += -lws2_32
+WINDOW_LIBS = -luser32 -lgdi32
 else
 # X11 is optional: with no Xlib headers the program runs headless only.
 ifneq ($(wildcard /usr/include/X11/Xlib.h),)
@@ -21,6 +22,7 @@ DRAW = draw/world.cpp draw/assets.cpp draw/body_colors.cpp draw/hud.cpp draw/ui_
 GS2 = ../gs2/loader.cpp ../gs2/machine.cpp ../gs2/var.cpp ../gs2/startscripts.cpp ../gs2/engine_commands.cpp ../gs2/delivery.cpp ../gs2/gui.cpp ../gs2/gui_draw.cpp ../gs2/emitter.cpp
 SHELL_SRC = shell/program.cpp shell/weapon_api.cpp shell/scripts.cpp shell/gui_host.cpp world/player.cpp world/walk.cpp world/actions.cpp world/effects.cpp world/weapons.cpp world/health.cpp world/item_list.cpp $(GS2) $(CACHE)
 HDRS = $(wildcard net/*.hpp cache/*.hpp files/*.hpp draw/*.hpp shell/*.hpp world/*.hpp tests/*.hpp ../../torque/gui/*.hpp ../gs2/*.hpp)
+WINDOW = draw/window_x11.cpp draw/window_native.cpp
 
 .PHONY: all test clean
 all: build/quattro-session build/quattro-play
@@ -55,8 +57,11 @@ build/gui-test: $(NET) $(FILES) $(DRAW) $(SHELL_SRC) $(HDRS) draw/window_x11.cpp
 build/quattro-session: $(NET) $(HDRS) tools/quattro_session.cpp | build
 	$(CXX) $(CXXFLAGS) $(NET) tools/quattro_session.cpp -o $@ $(LIBS)
 
-build/quattro-play: $(NET) $(FILES) $(DRAW) $(SHELL_SRC) $(HDRS) draw/window_x11.cpp tools/quattro_play.cpp | build
-	$(CXX) $(CXXFLAGS) $(X11_DEFS) $(NET) $(FILES) $(DRAW) $(SHELL_SRC) draw/window_x11.cpp tools/quattro_play.cpp -o $@ $(LIBS) $(X11_LIBS)
+build/quattro-play: $(NET) $(FILES) $(DRAW) $(SHELL_SRC) $(HDRS) $(WINDOW) tools/quattro_play.cpp | build
+	$(CXX) $(CXXFLAGS) $(X11_DEFS) $(NET) $(FILES) $(DRAW) $(SHELL_SRC) $(WINDOW) tools/quattro_play.cpp -o $@ $(LIBS) $(X11_LIBS) $(WINDOW_LIBS)
+
+build/window-test: $(NET) $(FILES) $(DRAW) $(SHELL_SRC) $(HDRS) $(WINDOW) tests/window_test.cpp | build
+	$(CXX) $(CXXFLAGS) $(X11_DEFS) $(NET) $(FILES) $(DRAW) $(SHELL_SRC) $(WINDOW) tests/window_test.cpp -o $@ $(LIBS) $(X11_LIBS) $(WINDOW_LIBS) -pthread
 
 test: build/codec-test build/cache-test build/session-test build/level-test build/props-test build/scripts-test build/program-test build/gui-test build/quattro-session build/quattro-play
 	./build/codec-test

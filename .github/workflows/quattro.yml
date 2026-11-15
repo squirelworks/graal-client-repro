@@ -64,3 +64,8 @@ jobs:
       - name: Build and test
         shell: msys2 {0}
         run: make -C common/cpp/quattro test
+      - name: Native window, input and Program play smoke
+        shell: msys2 {0}
+        run: |
+          make -C common/cpp/quattro build/window-test
+          common/cpp/quattro/build/window-test
