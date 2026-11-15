@@ -25,9 +25,11 @@ tests that name 2.05 were measured on 2.05.
   that follows a fresh board keeps it; a link warp, where the name comes
   first, works as in 2.05.
 - **No server list.** 1.28 beta 2 had a connect dialog with one address,
-  pre-filled with the official host and port 14804. The rebuild pre-fills
-  `listserver.graal.in:14923` instead and shows it as the only row of the
-  server page. `graalconfig.txt` next to the program (`serveraddr=HOST` or
+  pre-filled with the official host and port 14804. The rebuild defaults
+  to the loopback game endpoint `127.0.0.1:14802` and shows it as the only
+  row of the server page; it does not query a later listserver. This is
+  rebuild policy, not the original default or a running bundled server.
+  `graalconfig.txt` next to the program (`serveraddr=HOST` or
   `HOST:PORT`, `serverport=PORT`) or `listserver.txt` (host, then port)
   replaces it.
 - Items on the floor: this version has no `PLI_ITEMTAKE` (it came with 1.38), so taking one sends `PLI_ITEMDEL` and the client gives itself the item.

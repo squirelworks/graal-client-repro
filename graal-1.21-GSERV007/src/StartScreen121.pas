@@ -47,9 +47,9 @@ begin
   SetLength(Servers, 1);
   Servers[0].Name := Host;
   Servers[0].Language := '';
-  Servers[0].Description := 'This version has no server list. It connects ' +
-    'to the address in graalconfig.txt (serveraddr=, serverport=) next to ' +
-    'the program.';
+  Servers[0].Description := 'Direct game connection; this version has no server list. ' +
+    'graalconfig.txt or listserver.txt can replace the rebuild default ' +
+    '(loopback game server).';
   Servers[0].Url := '';
   Servers[0].Version := '';
   Servers[0].Players := '';
