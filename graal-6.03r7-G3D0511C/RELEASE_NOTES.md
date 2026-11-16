@@ -23,6 +23,8 @@ to the program works too (`graal-assets/6.03r7/`, then
 
 ## What's new in v0.0.5
 
+- [x] Quattro HUD draws the selected weapon beside the D tab (whole image at x 170, centred on y 45) when weapons are enabled; asset lookup also searches `levels/weapons` and `weapons`.
+
 - [x] Quattro draws `GuiShowImgCtrl` animations: a control with an `ani` plays its gani (actor head/body/attrs, its own clock, offsets, clipped to the control), so StartScript show-images are visible beside the particle emitters.
 
 - [x] Quattro `GuiShowImgCtrl` `playerlook` and plain `image`: with `playerlook` true the gani uses the player's head/body/sword/shield/attrs/colours; with it false, `actor.*`. When `ani` is empty, the control's `image` draws at the same offsets with zoom and RGBA.

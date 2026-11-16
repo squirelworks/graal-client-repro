@@ -13,6 +13,8 @@
 // - at 5 and 5.5 hearts the small block sits 10 px lower;
 // - the A, S and D tabs are the same sprite with no letters; the glove
 //   (sprites.png, from power 2) sits in A and the sword (swordN.png) in S;
+// - the selected weapon's whole image sits beside the D tab at x 170,
+//   centred on y 45 (client-internals/status-display.md; Adventure.pas);
 // - gralats are drawn with no padding, bombs and arrows with two digits,
 //   from state.png's digit row, 12 px apart.
 //
@@ -34,7 +36,8 @@ struct HudState {
   int gralats = 0, bombs = 0, arrows = 0;
   int ap = 50, mp = 0;
   int glove_power = 0, sword_power = 0;
-  std::string sword_image;  // empty: sword<power>.png
+  std::string sword_image;   // empty: sword<power>.png
+  std::string weapon_image;  // empty: no selected weapon beside D
 };
 
 class Hud {

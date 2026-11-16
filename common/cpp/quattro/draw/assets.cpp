@@ -22,9 +22,9 @@ std::vector<std::string> asset_dirs(const std::string& root) {
   std::vector<std::string> out;
   if (root.empty()) return out;
   for (const char* sub : {"", "/levels", "/levels/ganis", "/levels/heads", "/levels/bodies", "/levels/swords",
-                          "/levels/shields", "/levels/hats", "/levels/images", "/levels/tiles",
+                          "/levels/shields", "/levels/hats", "/levels/weapons", "/levels/images", "/levels/tiles",
                           "/levels/images/downloads", "/ganis", "/heads", "/bodies",
-                          "/swords", "/shields", "/hats", "/images"})
+                          "/swords", "/shields", "/hats", "/weapons", "/images"})
     out.push_back(root + sub);
   return out;
 }

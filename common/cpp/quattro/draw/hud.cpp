@@ -28,6 +28,8 @@ constexpr Rect kSwordSrc{94, 36, 28, 28};
 constexpr int kSwordX = 105, kSwordY = 31;
 constexpr Rect kGlove2{28, 212, 28, 32}, kGlove3{0, 212, 28, 32};
 constexpr int kGloveX = 40, kGloveY = 29;
+// Selected weapon whole image beside D: top-left (170, 45 - h/2).
+constexpr int kWeaponX = 170, kWeaponCentreY = 45;
 
 // Client positions.
 constexpr int kTabX[3] = {15, 80, 145}, kTabY = 30;
@@ -93,6 +95,10 @@ void Hud::draw(Torque::Gui::Canvas& c, const HudState& s) const {
   if (s.sword_power > 0) {
     std::string name = s.sword_image.empty() ? "sword" + std::to_string(s.sword_power) + ".png" : s.sword_image;
     if (const Image* sword = assets_->image(name)) c.blit(*sword, kSwordSrc, kSwordX, kSwordY);
+  }
+  if (!s.weapon_image.empty()) {
+    if (const Image* weapon = assets_->image(s.weapon_image))
+      c.blit(*weapon, kWeaponX, kWeaponCentreY - weapon->height / 2);
   }
   struct Counter {
     Rect icon;

@@ -363,11 +363,19 @@ void test_hud() {
   s.bombs = 0;
   s.sword_power = 1;
   s.glove_power = 2;
+  // Selected weapon: whole image at (170, 45 - h/2); a 20x10 mark at centre.
+  Draw::Image weapon(20, 10, {0, 0, 0, 0});
+  weapon.at(10, 5) = {11, 22, 33, 255};
+  assets.put_image("wbomb1.png", weapon);
+  s.weapon_image = "wbomb1.png";
   Draw::Canvas d(1024, 200);
   hud.draw(d, s);
   CHECK(d.surface().at(326 + 1, 48 + 1).r == 255 && d.surface().at(338 + 1, 48 + 1).r == 255);  // "00"
   CHECK(d.surface().at(105 + 6, 31 + 10).r == 9);   // sword: source + (11, -5)
   CHECK(d.surface().at(40, 29).r == 7);             // glove power 2
+  // Mark at weapon (10,5) → canvas (180, 45): whole image top-left (170, 40).
+  CHECK(d.surface().at(180, 45).r == 11 && d.surface().at(180, 45).g == 22 &&
+        d.surface().at(180, 45).b == 33);
 }
 
 // GRMAP001: the LEVELNAMES grid, row-major and lowercased, and the short
