@@ -200,6 +200,11 @@ void test_profiles() {
   CHECK(find_profile("7.0") == nullptr);
   CHECK(find_profile("6.0") == nullptr);
 
+  const BuildProfile* r524 = find_profile("5.24r4");
+  CHECK(r524 && r524->token == "G3D15010" && r524->platform == "win" &&
+        r524->login_draws_tiles && !r524->answers_ping &&
+        !r524->plo.test(111) && r524->has_os_version);
+
   // 5.00r7 and 5.12: the same 100-id switch (v5v6-windows-unpacked.md).
   const BuildProfile* r500 = find_profile("5.00r7");
   const BuildProfile* r512 = find_profile("5.12");

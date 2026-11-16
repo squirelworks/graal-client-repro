@@ -69,7 +69,9 @@ commands. Nothing here re-implements the machine.
 | 5.00r7 Windows (the engine library's session) | `G3D22067` | `net/profile.cpp` | `graal-5.00r7-G3D22067` |
 | 5.12 Windows (the engine library's session) | `G3D14097` | `net/profile.cpp` | `graal-5.12-G3D14097` |
 | Windows 6.03r7 | `G3D0311C` | start-screen handoff (`Graal603w`) | Win32 window |
-| 5.30r3, 5.31r4, Windows 6.00r2, 6.00r4, 6.00 betas | | later (Track D3, D5) | |
+| 5.24r4 Windows | `G3D15010` | `net/profile.cpp` (login/level/walk loopback) | `graal-5.24r4-G3D15010` |
+| 5.30r3, 5.31r4 | `G3D26090` | blocked (opcode+32 framing; Track D3) | `graal-5.31r4-G3D26090` |
+| Windows 6.00r2, 6.00r4, 6.00 betas | | later (Track D5) | |
 | 6.11r1 Mac, 6.1.1.3 | set by the connector script | later (Track D4) | |
 
 Linux first: those two are unpacked native binaries, so their notes are the

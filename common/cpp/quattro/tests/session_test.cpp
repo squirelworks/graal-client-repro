@@ -186,10 +186,52 @@ void test_session_512() {
   CHECK(game.login_line == want);
 }
 
+// 5.24r4: win + OS version login, tiles in Login, no ping answer, 178 hand-on.
+void test_session_524() {
+  const BuildProfile* prof = find_profile("5.24r4");
+  CHECK(prof && prof->login_draws_tiles && !prof->answers_ping);
+  if (!prof) return;
+  FakeServer login, game;
+  CHECK(login.start() && game.start());
+  std::vector<std::pair<int, std::string>> delivered;
+  Session::Events ev;
+  ev.message = [&](int id, std::string_view b) { delivered.emplace_back(id, std::string(b)); };
+  Session s(*prof, ev);
+  s.next_key = [] { return uint8_t(0x5A); };
+  CHECK(s.start("127.0.0.1", login.port(), "guest", "pw"));
+  CHECK(login.conn.accept_from(login.listener));
+  CHECK(s.lobby_mode());
+  CHECK(run_until(s, &login, nullptr, [&] { return login.saw(37, "English"); }));
+  const std::string want = "G3D15010" + gstring("guest") + gstring("pw") +
+    "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400,\"6.2 9200 \"";
+  CHECK(login.login_line == want);
+  // 108 is pre-switch; without answers_ping it is dropped. 41 is not in
+  // 5.24's receive switch (Protocol524r4.PLOKnown). 6 is delivered.
+  login.send(gchar(108) + gchar(0) + gshort(1234) + "\n" + gchar(41) + "hello\n" +
+             gchar(6) + "onlinestartlocal.nw\n");
+  CHECK(run_until(s, &login, nullptr, [&] { return !delivered.empty(); }));
+  CHECK(delivered.size() == 1 && delivered[0].first == 6 &&
+        delivered[0].second == "onlinestartlocal.nw");
+  CHECK(!login.saw(162, "!" + gshort(1234)));
+  CHECK(s.connection().dropped() >= 1);
+  CHECK(!s.connection().send(39, "x"));
+  CHECK(s.connection().send(6, "hi"));
+  login.send(gchar(178) + "0,Lab Server,127.0.0.1," + std::to_string(game.port()) + "\n");
+  std::atomic<bool> accepted{false};
+  std::thread acc([&] { accepted = game.conn.accept_from(game.listener); });
+  bool warped = run_until(s, &login, nullptr, [&] { return s.logins() == 2; });
+  acc.join();
+  CHECK(warped && accepted);
+  CHECK(s.server_name() == "Lab Server");
+  CHECK(run_until(s, nullptr, &game, [&] { return game.saw(37, "English"); }));
+  CHECK(game.login_line == want);
+}
+
 int main() {
   test_warp_parse();
   test_session();
   test_session_404();
   test_session_512();
+  test_session_524();
   TEST_MAIN_END();
 }
