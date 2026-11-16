@@ -696,6 +696,19 @@ void Program::on_message(int id, std::string_view body) {
   if (scripts_.on_message(id, body)) return;
   Net::Reader r(body);
   switch (id) {
+    case 22: {  // PLO_ITEMADD: c x*2, c y*2, c item
+      if (body.size() < 3) break;
+      double fx = r.gchar() / 2.0, fy = r.gchar() / 2.0;
+      int item = static_cast<int>(r.gchar());
+      if (r.ok() && World::is_floor_item(item)) floor_items_.add(fx, fy, item);
+      break;
+    }
+    case 23: {  // PLO_ITEMDEL: c x*2, c y*2
+      if (body.size() < 2) break;
+      double fx = r.gchar() / 2.0, fy = r.gchar() / 2.0;
+      if (r.ok()) floor_items_.remove_at(fx, fy);
+      break;
+    }
     case 6:  // PLO_LEVELNAME
       // The same name again after its board (a Seihai gserver sends it
       // once more with the level's props) keeps the board.
@@ -705,6 +718,7 @@ void Program::on_message(int id, std::string_view body) {
       world_.have_level = false;
       item_keys_.new_level();
       effects_.clear();
+      floor_items_.clear();
       combat_.clear();
       entry_x_ = me_.x;  // where a dead player comes back
       entry_y_ = me_.y;
@@ -964,6 +978,13 @@ bool Program::tick() {
         int bx = static_cast<int>(br.gchar()), by = static_cast<int>(br.gchar());
         effects_.cut_bush(bx, by);
       }
+      // Local lay: show the floor item at once (Adventure.AddItem before send).
+      if (pk.id == 12 && pk.body.size() >= 3) {
+        Net::Reader ir(pk.body);
+        double ix = ir.gchar() / 2.0, iy = ir.gchar() / 2.0;
+        int item = static_cast<int>(ir.gchar());
+        if (ir.ok()) floor_items_.add(ix, iy, item);
+      }
     }
     if (props_sent_) {
       for (const auto& pk : sent) session_.connection().send(pk.id, pk.body);
@@ -988,6 +1009,9 @@ bool Program::tick() {
   // The thrown objects, pieces, leaves and chest items; a chest item's
   // time out sends its ITEMDEL.
   for (const auto& pk : effects_.tick())
+    if (props_sent_) session_.connection().send(pk.id, pk.body);
+  // Floor items (bush gralats, lays): life, pickup, expire.
+  for (const auto& pk : floor_items_.tick(me_, props_sent_ && !offline_))
     if (props_sent_) session_.connection().send(pk.id, pk.body);
   // Bombs burn, blasts age, shots fly; an own bomb's explosion and the
   // board it changed go out.
@@ -1015,6 +1039,18 @@ bool Program::tick() {
   }
   world_.effects.clear();
   for (const auto& pc : effects_.pieces()) {
+    Draw::Rect r = sprite_cell(pc.sprite);
+    if (r.width > 0) world_.effects.push_back({r, pc.x, pc.y, {}});
+  }
+  auto floor_size = [](int sprite, int& w, int& h, void* ctx) -> bool {
+    auto* self = static_cast<Program*>(ctx);
+    Draw::Rect r = self->sprite_cell(sprite);
+    if (r.width <= 0) return false;
+    w = r.width;
+    h = r.height;
+    return true;
+  };
+  for (const auto& pc : floor_items_.pieces(floor_size, this)) {
     Draw::Rect r = sprite_cell(pc.sprite);
     if (r.width > 0) world_.effects.push_back({r, pc.x, pc.y, {}});
   }

@@ -81,6 +81,11 @@ struct Packet {
 // Item key bits for ItemKeys::tick.
 enum ItemKey : unsigned { kKeyA = 1, kKeyS = 2, kKeyD = 4 };
 
+// Indexes that may lie on the board (Adventure.FloorItem; PLO_ITEMADD).
+inline bool is_floor_item(int item) {
+  return (item >= 0 && item <= 5) || item == 7 || item == 8 || item == 19 || item == 24;
+}
+
 class ItemKeys {
  public:
   explicit ItemKeys(int sprite_after = 4, int still_after = 6)

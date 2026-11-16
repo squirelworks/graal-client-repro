@@ -15,6 +15,7 @@
 #include "../net/connection.hpp"
 #include "../world/actions.hpp"
 #include "../world/effects.hpp"
+#include "../world/floor_items.hpp"
 #include "../world/player.hpp"
 #include "../world/walk.hpp"
 #include "../world/weapons.hpp"
@@ -95,6 +96,7 @@ class Program {
   const World::TileTypes& tile_types() const { return tile_types_; }
   void set_object_tables(const World::ObjectTables& t) { object_tables_ = t; }
   const World::Effects& effects() const { return effects_; }
+  const World::FloorItems& floor_items() const { return floor_items_; }
   // The weapon list (33, 34, 43, 194) and the bombs, blasts and shots in the level.
   const World::WeaponList& weapons() const { return weapons_; }
   const World::Combat& combat() const { return combat_; }
@@ -208,6 +210,7 @@ class Program {
   unsigned action_moves_ = 0, action_items_ = 0;  // what they hold: walk keys, World::ItemKey bits
   bool action_d_ = false, action_q_ = false;      // doD, doQ held
   World::Effects effects_;
+  World::FloorItems floor_items_;
   World::WeaponList weapons_;
   World::Combat combat_;
   World::Health health_;
