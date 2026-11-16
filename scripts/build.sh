@@ -23,11 +23,7 @@ if [ -z "${GRAAL_BUILD_ONE:-}" ] && [ "$JOBS" -gt 1 ] && [ "$(echo $BUILDS | wc 
   PAR=""
   for B in $BUILDS; do
     case $B in
-<<<<<<< HEAD
-      graal-3.04-*|graal-3.153-*|graal-3.0beta-*|graal-3.01-*|graal-3.151-*|graal-4.20r8-*|graal-4.04r2-*|graal-5.00r7-*|graal-5.12-*)
-=======
-      graal-3.04-*|graal-3.153-*|graal-3.0beta-*|graal-3.01-*|graal-3.151-*|graal-4.20r8-*|graal-4.04r2-*|graal-5.12-*|graal-6.01r1-*|graal-6.03r7-*)
->>>>>>> 057ec204 (Win 6.03r7: default game handoff to quattro-play)
+      graal-3.04-*|graal-3.153-*|graal-3.0beta-*|graal-3.01-*|graal-3.151-*|graal-4.20r8-*|graal-4.04r2-*|graal-5.00r7-*|graal-5.12-*|graal-6.01r1-*|graal-6.03r7-*)
         SERIAL="$SERIAL $B" ;;
       *) PAR="$PAR $B" ;;
     esac
