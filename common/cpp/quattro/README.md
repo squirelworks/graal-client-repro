@@ -182,8 +182,10 @@ machine-level part (opcodes, `scheduleevent`, `cancelevents`, `trigger`,
   `changeimgmode`, `getimgwidth`, `getimgheight`. Each show-image is an
   object whose members are its fields, numbered per script object.
 - **The rest** (step 6): `findweapon(name)` (a call on it runs that
-  weapon's function), `testnpc(x, y)` (topmost level NPC whose image box
-  covers the point, or -1), `onwall`, `onwall2`, `onwater`, `onwater2`
+  weapon's function), `findplayer(account)` (the online player's object by
+  account, or 0; self is `player`, others are cached from the player list),
+  `testnpc(x, y)` (topmost level NPC whose image box covers the point, or
+  -1), `onwall`, `onwall2`, `onwater`, `onwater2`
   against `arrays.dat`, `keydown(i)` with GS1's indices ("0..10: up, left,
   down, right, S, A, D, M, tab, Q, P", the 1.41 commands.rtf),
   `keydown2(code)`, `getkeycode`/`keycode` with Windows virtual-key codes,
@@ -218,9 +220,10 @@ the walk changes it; `onPlayerHurt` gets the hearts lost; `shoot` uses 40
 
 Not yet: other players' shots (175, 191) and `onActionProjectile`; the
 shot's own flight; `showpoly2`; show-image text fonts (the built-in face
-is used); `findplayer`, `putleaps`, `serverwarp`, `isobject`,
+is used); `putleaps`, `serverwarp`, `isobject`,
 `enablefeatures`, and the rest of the corpus's long tail (no name blocks
-more than 16 weapons). `noplayerkilling`, `testnpc` and `seteffect` are in.
+more than 16 weapons). `noplayerkilling`, `testnpc`, `seteffect` and
+`findplayer` are in.
 
 ## Rebuild choices (not the original's)
 

@@ -195,6 +195,9 @@ class Program {
   void player_changed(int old_power);            // onPlayerHurt, onPlayerDies
   void sync_player_in();   // the script's `player` from me_
   void sync_player_out();  // what a script changed back into me_
+  // Copy World::Player fields onto a GS2 object (findplayer for others).
+  static void fill_player_object(const gs2::VarPtr& pl, const World::Player& p,
+                                 const std::string& account_fallback = {});
   void combat_effects();   // bombs, blasts and shots as effect sprites
   void item_list_input(const Draw::InputEvent& e);
   void draw_item_list();
@@ -245,6 +248,9 @@ class Program {
   std::set<int> keys_down_;  // virtual-key codes held (from the window's input events)
   bool props_sent_ = false;
   ScriptHost scripts_;
+  // findplayer(account): other players' objects, keyed by lower-case account.
+  // Self returns scripts_.player(); missing account returns 0.
+  std::map<std::string, gs2::VarPtr> found_players_;
   std::unique_ptr<GuiHost> gui_;
   std::unique_ptr<CanvasPainter> painter_;
   std::string cache_server_;
