@@ -463,32 +463,83 @@ std::string showimg_ani_name(const std::string& s) {
 
 void Program::draw_showimg_ctrl(const gs2::gui::Control& c, const gs2::gui::Rect& r) {
   if (!assets_ || r.w <= 0 || r.h <= 0) return;
-  const std::string ani = showimg_ani_name(c.prop("ani"));
-  if (ani.empty() || !assets_->gani(ani)) return;
-  auto& clock = showimg_start_[&c];
-  if (clock.first != ani) {
-    clock.first = ani;
-    clock.second = frame_;
-  }
-  Draw::Actor a;
-  a.gani = ani;
-  a.dir = static_cast<int>(c.numProp("dir", 2)) & 3;
-  a.ani_tick = frame_ - clock.second;
-  if (c.actor) {
-    if (auto v = c.actor->child("head")) a.head = v->string();
-    if (auto v = c.actor->child("body")) a.body = v->string();
-    if (auto v = c.actor->child("sword")) a.sword = v->string();
-    if (auto v = c.actor->child("shield")) a.shield = v->string();
-    if (auto v = c.actor->child("attr"))
-      for (std::size_t i = 1; i < a.attr.size() && i < v->elements().size(); ++i) {
-        const std::string s = v->elements()[i]->string();
-        if (!s.empty() && s != "0") a.attr[i] = s;
-      }
-  }
   const int ox = static_cast<int>(c.numProp("offsetx"));
   const int oy = static_cast<int>(c.numProp("offsety"));
+  const int px = r.x + ox, py = r.y + oy;
+  auto chan = [](double v) {
+    return static_cast<std::uint8_t>(std::isfinite(v) ? std::clamp(v, 0.0, 1.0) * 255 + 0.5 : 0);
+  };
+  const Torque::Gui::Color col{chan(c.numProp("red", 1)), chan(c.numProp("green", 1)), chan(c.numProp("blue", 1)),
+                               chan(c.numProp("alpha", 1))};
+
+  const std::string ani = showimg_ani_name(c.prop("ani"));
+  if (!ani.empty()) {
+    if (!assets_->gani(ani)) return;
+    auto& clock = showimg_start_[&c];
+    if (clock.first != ani) {
+      clock.first = ani;
+      clock.second = frame_;
+    }
+    Draw::Actor a;
+    a.gani = ani;
+    a.dir = static_cast<int>(c.numProp("dir", 2)) & 3;
+    a.ani_tick = frame_ - clock.second;
+    // playerlook true (default): body parts from the player (the owner).
+    // false: from showimg.actor.* (4.04r2 StartAni1). Help string in
+    // Graal_analysis client-internals/showimg-particles-and-gs2-format.md.
+    if (c.flag("playerlook", true)) {
+      a.head = me_.head;
+      a.body = me_.body;
+      a.sword = me_.sword_image;
+      a.shield = me_.shield_image;
+      a.colors = me_.colors;
+      for (std::size_t i = 1; i < a.attr.size(); ++i) a.attr[i] = me_.attr[i];
+    } else if (c.actor) {  // playerlook false: actor.* only
+      if (auto v = c.actor->child("head")) a.head = v->string();
+      if (auto v = c.actor->child("body")) a.body = v->string();
+      if (auto v = c.actor->child("sword")) a.sword = v->string();
+      if (auto v = c.actor->child("shield")) a.shield = v->string();
+      if (auto v = c.actor->child("attr"))
+        for (std::size_t i = 1; i < a.attr.size() && i < v->elements().size(); ++i) {
+          const std::string s = v->elements()[i]->string();
+          if (!s.empty() && s != "0") a.attr[i] = s;
+        }
+    }
+    canvas_.push_clip({r.x, r.y, r.w, r.h});
+    renderer_.draw_actor(canvas_, a, px, py, {0, 0, 0, 0});
+    canvas_.pop_clip();
+    passes_.push_back("Draw_ShowImg");
+    return;
+  }
+
+  // Plain picture: the control's `image` (TShowImg image kind), same
+  // placement as ani. Zoom and RGBA are the control's own 6.03 fields.
+  const std::string image = c.prop("image");
+  if (image.empty()) return;
+  const Torque::Gui::Image* pic = assets_->image(image);
+  if (!pic) return;
+  Draw::Rect src{0, 0, pic->width, pic->height};
+  const double zoom = c.numProp("zoom", 1);
+  int dw = 0, dh = 0;
+  if (!pixel_int(src.width * zoom, dw) || !pixel_int(src.height * zoom, dh) || dw <= 0 || dh <= 0) return;
   canvas_.push_clip({r.x, r.y, r.w, r.h});
-  renderer_.draw_actor(canvas_, a, r.x + ox, r.y + oy, {0, 0, 0, 0});
+  if (col == Torque::Gui::Color{255, 255, 255, 255}) {
+    if (dw == src.width && dh == src.height) canvas_.blit(*pic, src, px, py);
+    else canvas_.stretch_blit(*pic, src, {px, py, dw, dh});
+  } else {
+    for (int y = std::max(0, -py); y < std::min(dh, canvas_.height() - py); ++y)
+      for (int x = std::max(0, -px); x < std::min(dw, canvas_.width() - px); ++x) {
+        const int sx = src.x + static_cast<int>(static_cast<long long>(x) * src.width / dw);
+        const int sy = src.y + static_cast<int>(static_cast<long long>(y) * src.height / dh);
+        if (sx < 0 || sy < 0 || sx >= pic->width || sy >= pic->height) continue;
+        Torque::Gui::Color pcol = pic->at(sx, sy);
+        pcol.r = static_cast<std::uint8_t>(pcol.r * col.r / 255);
+        pcol.g = static_cast<std::uint8_t>(pcol.g * col.g / 255);
+        pcol.b = static_cast<std::uint8_t>(pcol.b * col.b / 255);
+        pcol.a = static_cast<std::uint8_t>(pcol.a * col.a / 255);
+        if (pcol.a) canvas_.blend_pixel(px + x, py + y, pcol);
+      }
+  }
   canvas_.pop_clip();
   passes_.push_back("Draw_ShowImg");
 }

@@ -23,7 +23,9 @@ to the program works too (`graal-assets/6.03r7/`, then
 
 ## What's new in v0.0.5
 
-- [x] Quattro draws `GuiShowImgCtrl` animations: a control with an `ani` plays its gani (actor head/body/attrs, its own clock, offsets, clipped to the control), so StartScript show-images are visible beside the particle emitters. Plain show-image bitmaps and `playerlook` are still open.
+- [x] Quattro draws `GuiShowImgCtrl` animations: a control with an `ani` plays its gani (actor head/body/attrs, its own clock, offsets, clipped to the control), so StartScript show-images are visible beside the particle emitters.
+
+- [x] Quattro `GuiShowImgCtrl` `playerlook` and plain `image`: with `playerlook` true the gani uses the player's head/body/sword/shield/attrs/colours; with it false, `actor.*`. When `ani` is empty, the control's `image` draws at the same offsets with zoom and RGBA.
 
 - [x] Compatible Linux `--window` command-line games now use the existing Quattro player handoff, with password-only environment transfer and coherent level/server/assets arguments. Secure online, headless, stress/diagnostic and unsupported options retain Pascal routing. Generated fake-player tests exercise the actual client executable; this adds no native startup events or scripted account-screen claim.
 
