@@ -312,6 +312,13 @@ void Program::draw_hud() {
   s.glove_power = me_.glove_power;
   s.sword_power = me_.sword_power;
   s.sword_image = me_.sword_image;
+  // Beside D: selected weapon's whole image when weapons are on
+  // (status-display.md; Adventure.pas WeaponsOn + Selected.Image).
+  if (weapons_enabled_) {
+    if (const World::Weapon* w = weapons_.selected()) {
+      if (!World::hidden_weapon(w->name) && !w->image.empty()) s.weapon_image = w->image;
+    }
+  }
   hud_->draw(canvas_, s);
   passes_.push_back("HUD");
 }
