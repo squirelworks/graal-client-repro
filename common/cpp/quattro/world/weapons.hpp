@@ -126,6 +126,8 @@ class Combat {
   // ARROWADD with flag 4 is in `out`), with power 1 it drops.
   struct Hit {
     double hearts = 0.5, kx = 0, ky = 0;
+    // True when the hit is from another player's blast or shot (not our own).
+    bool pvp = false;
   };
   std::vector<Hit> hits_on(const Player& me, const ObjectTables& tables, std::vector<Packet>& out);
 

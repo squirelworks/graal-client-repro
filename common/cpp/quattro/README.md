@@ -167,8 +167,9 @@ machine-level part (opcodes, `scheduleevent`, `cancelevents`, `trigger`,
   `freezeplayer(seconds)` (walk, item keys and D held), `disabledefmovement`
   / `enabledefmovement` (walk and item keys), `disableweapons` /
   `enableweapons` (D), `disableselectweapons` / `enableselectweapons`
-  (Q/Tab opening the item list; disable closes it), `showstats(bits)`
-  (which HUD parts draw; Adventure masks, default `0x1FF`).
+  (Q/Tab opening the item list; disable closes it), `noplayerkilling`
+  (turns off player-vs-player damage for the level; own blasts still hurt),
+  `showstats(bits)` (which HUD parts draw; Adventure masks, default `0x1FF`).
 - **Events and boxes** (step 3): `say2(text)` opens a sign box (lines split
   at `#b`) that A, S, D, Enter or Space closes; `destroy()` on a weapon
   takes it off the list here, on a control off the screen, on a
@@ -217,7 +218,7 @@ Not yet: other players' shots (175, 191) and `onActionProjectile`; the
 shot's own flight; `showpoly2`; show-image text fonts (the built-in face
 is used); `findplayer`, `seteffect`, `putleaps`, `serverwarp`, `isobject`,
 `enablefeatures`, and the rest of the corpus's long tail (no name blocks
-more than 16 weapons).
+more than 16 weapons). `noplayerkilling` is in.
 
 ## Rebuild choices (not the original's)
 

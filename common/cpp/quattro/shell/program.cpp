@@ -445,6 +445,7 @@ bool Program::load_offline_level(const std::string& name) {
     level_name_ = fp.filename().string();
   }
   me_.level = level_name_;
+  player_killing_ = true;  // noplayerkilling is per level
   read_level_script();
   pick_tile_sheet();
   return true;
@@ -692,7 +693,7 @@ void Program::on_message(int id, std::string_view body) {
       return;
     }
     case 40:  // PLO_HURTPLAYER: s attacker, c dx, c dy, c power
-      send_packets(health_.on_hurt_player(me_, body, others_));
+      if (player_killing_) send_packets(health_.on_hurt_player(me_, body, others_));
       return;
     case 194:  // PLO_RESETCLIENT: the weapon list follows
       weapons_.clear();
@@ -729,6 +730,7 @@ void Program::on_message(int id, std::string_view body) {
       effects_.clear();
       floor_items_.clear();
       combat_.clear();
+      player_killing_ = true;  // noplayerkilling is per level
       entry_x_ = me_.x;  // where a dead player comes back
       entry_y_ = me_.y;
       load_local_level(level_name_);
@@ -1027,10 +1029,14 @@ bool Program::tick() {
   if (!world_.lobby) {
     send_packets(combat_.tick(world_.level, object_tables_, tile_types_));
     // What hurts this player: blasts, other players' shots and swings.
+    // noplayerkilling drops the PvP ones (other players' blasts, shots, swings).
     std::vector<World::Packet> back;
-    for (const auto& h : combat_.hits_on(me_, object_tables_, back)) send_packets(health_.hit(me_, h.hearts, h.kx, h.ky));
+    for (const auto& h : combat_.hits_on(me_, object_tables_, back)) {
+      if (!player_killing_ && h.pvp) continue;
+      send_packets(health_.hit(me_, h.hearts, h.kx, h.ky));
+    }
     send_packets(back);
-    send_packets(health_.check_swords(me_, others_));
+    if (player_killing_) send_packets(health_.check_swords(me_, others_));
     health_.tick(me_, world_.level, tile_types_);
   }
   send_counts();

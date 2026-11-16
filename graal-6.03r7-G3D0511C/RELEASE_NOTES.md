@@ -25,6 +25,8 @@ to the program works too (`graal-assets/6.03r7/`, then
 
 - [x] Quattro `testnpc(x, y)`: returns the index of the topmost level NPC whose image box covers the point, or -1 (GS1; image size in tiles).
 
+- [x] Quattro `noplayerkilling`: turns off player-vs-player damage for the level (other players' swings, HURTPLAYER, blasts and shots); own blasts still hurt; resets on level change.
+
 - [x] Quattro `enableselectweapons` / `disableselectweapons`: scripts can allow or block opening the Q/Tab item list (GS1); disable closes it if open.
 
 - [x] Quattro `showstats` gates the 6.x HUD (tabs, icons, counters, hearts, AP, MP) with Adventure bit masks; weapons off shows only the A tab.
