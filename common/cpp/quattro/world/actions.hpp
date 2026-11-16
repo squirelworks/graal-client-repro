@@ -1,12 +1,17 @@
-// The item keys: S swings the sword, A lifts, throws or grabs, D toggles
-// the weapon state, and walking into a chest opens it.
+// The item keys: S swings the sword (and spins), A lifts, throws or grabs,
+// D toggles the weapon state, and walking into a chest opens it.
 //
-// Behaviour, from the 6.03r7 item-keys lab (Linux client, 2026-11-13):
+// Behaviour, from the 6.03r7 item-keys lab (Linux client, 2026-11-13), plus
+// the spin from the 2.05/2.22 live runs (same rule the 4.04r2 Adventure
+// rebuild uses; STATUS bit 0x40):
 // - Every carry sprite prop sent is also kept in the player's carry_sprite.
 // - S: gani `sword` with the facing (props 10 and 17) at once, `idle`
 //   5 ticks (0.25 s) later; holding S swings once. A bush (arrays.dat
 //   list 9) at the blade's tip is cut in the same tick: 1 BOARDMODIFY with
 //   its 2 x 2 "left" tiles from list 10. No hit or item packet.
+// - S again during the swing, with STATUS bit 0x40 (has-spin): cuts the
+//   swing off and plays `spin` for 13 ticks, then idle. S during the spin
+//   is ignored. Hit reach for a spin is every facing (health.cpp).
 // - A, free: a liftable object (list 11, the first glove + 2 entries) at
 //   the tip is lifted: BOARDMODIFY with list 12, gani `lift` and carry
 //   sprite -1 in one tick; the carry sprite 4 ticks (0.20 s) later (bush
@@ -85,17 +90,19 @@ class ItemKeys {
   std::vector<Packet> touch_chests(const Player& p, unsigned arrows, const Files::Level& level);
   void new_level() { opened_.clear(); }
 
-  bool busy() const { return mode_ == Mode::Sword || mode_ == Mode::Lift; }
+  bool busy() const { return mode_ == Mode::Sword || mode_ == Mode::Spin || mode_ == Mode::Lift; }
   bool carrying() const { return mode_ == Mode::Carry || mode_ == Mode::Lift; }
   bool lifting() const { return mode_ == Mode::Lift; }
   // The carry sprite of what is lifted or carried (from the press on), or -1.
   int carry_sprite() const { return carrying() && carry_kind_ >= 0 && carry_kind_ < 3 ? kLiftSprites[carry_kind_] : -1; }
   static constexpr int kLiftSprites[3] = {1, 7, 5};  // bush, sign, pot
 
-  static constexpr int kSwordTicks = 5, kCarrySpriteAfter = 4, kCarryStillAfter = 6;
+  static constexpr int kSwordTicks = 5, kSpinTicks = 13, kCarrySpriteAfter = 4, kCarryStillAfter = 6;
+  // STATUS bit: the player has the spin attack (server or spinattack item).
+  static constexpr int kStatusHasSpin = 0x40;
 
  private:
-  enum class Mode { Free, Sword, Lift, Carry };
+  enum class Mode { Free, Sword, Spin, Lift, Carry };
   Mode mode_ = Mode::Free;
   int sprite_after_, still_after_;
   int ticks_ = 0;       // since the mode started

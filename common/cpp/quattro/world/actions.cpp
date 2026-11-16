@@ -163,8 +163,23 @@ std::vector<Packet> ItemKeys::tick(Player& p, unsigned keys, unsigned arrows, Fi
   last_keys_ = keys;
   ++ticks_;
 
+  // S again during the swing with the has-spin STATUS bit: cut off the
+  // swing and play spin (2.05/2.22; 4.04r2 Adventure.Attack). Checked
+  // before the sword times out so a press on the last swing tick still spins.
+  if ((pressed & kKeyS) && mode_ == Mode::Sword && (p.status & kStatusHasSpin) != 0) {
+    mode_ = Mode::Spin;
+    ticks_ = 0;
+    p.gani = "spin";
+    out.push_back({2, prop_gani(p.gani) + gchar(kSprite) + gchar(static_cast<unsigned>(p.dir & 3))});
+    return out;
+  }
+
   // Timed steps of the current mode.
   if (mode_ == Mode::Sword && ticks_ >= kSwordTicks) {
+    mode_ = Mode::Free;
+    p.gani = "idle";
+    out.push_back({2, prop_gani(p.gani)});
+  } else if (mode_ == Mode::Spin && ticks_ >= kSpinTicks) {
     mode_ = Mode::Free;
     p.gani = "idle";
     out.push_back({2, prop_gani(p.gani)});
@@ -185,20 +200,23 @@ std::vector<Packet> ItemKeys::tick(Player& p, unsigned keys, unsigned arrows, Fi
     out.push_back({2, gchar(kStatus) + gchar(static_cast<unsigned>(p.status))});
   }
 
-  if ((pressed & kKeyS) && mode_ == Mode::Free && p.sword_power > 0) {
-    mode_ = Mode::Sword;
-    ticks_ = 0;
-    p.gani = "sword";
-    double x, y;
-    probe_point(p, x, y);
-    int ox, oy;
-    int e = match_object(level, tables.cut, static_cast<int>(tables.cut.size()), x, y, ox, oy);
-    std::string board;
-    if (e >= 0 && e < static_cast<int>(tables.cut_left.size()))
-      board = put_object(level, ox, oy, tables.cut_left[static_cast<size_t>(e)]);
-    out.push_back({2, prop_gani(p.gani) + gchar(kSprite) + gchar(static_cast<unsigned>(p.dir & 3))});
-    if (!board.empty()) out.push_back({1, board});
-    return out;
+  if (pressed & kKeyS) {
+    if (mode_ == Mode::Spin) return out;  // S during the spin is ignored
+    if (mode_ == Mode::Free && p.sword_power > 0) {
+      mode_ = Mode::Sword;
+      ticks_ = 0;
+      p.gani = "sword";
+      double x, y;
+      probe_point(p, x, y);
+      int ox, oy;
+      int e = match_object(level, tables.cut, static_cast<int>(tables.cut.size()), x, y, ox, oy);
+      std::string board;
+      if (e >= 0 && e < static_cast<int>(tables.cut_left.size()))
+        board = put_object(level, ox, oy, tables.cut_left[static_cast<size_t>(e)]);
+      out.push_back({2, prop_gani(p.gani) + gchar(kSprite) + gchar(static_cast<unsigned>(p.dir & 3))});
+      if (!board.empty()) out.push_back({1, board});
+      return out;
+    }
   }
 
   if (pressed & kKeyA) {

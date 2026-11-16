@@ -27,6 +27,8 @@ to the program works too (`graal-assets/6.03r7/`, then
 
 - [x] Quattro `GuiShowImgCtrl` `playerlook` and plain `image`: with `playerlook` true the gani uses the player's head/body/sword/shield/attrs/colours; with it false, `actor.*`. When `ani` is empty, the control's `image` draws at the same offsets with zoom and RGBA.
 
+- [x] Quattro spin attack: with STATUS bit 0x40, pressing S again during the sword swing plays `spin` for 13 ticks (S during the spin ignored); other players' spins hit on every facing. Item laying (S+A) is still open.
+
 - [x] Compatible Linux `--window` command-line games now use the existing Quattro player handoff, with password-only environment transfer and coherent level/server/assets arguments. Secure online, headless, stress/diagnostic and unsupported options retain Pascal routing. Generated fake-player tests exercise the actual client executable; this adds no native startup events or scripted account-screen claim.
 
 - [x] In Quattro without scripted GUI content or a shown weapon, Escape toggles the menu status bit instead of quitting, matching the Linux 6.03r7 capture. Explicit window close still quits.

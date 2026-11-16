@@ -257,6 +257,28 @@ void test_item_keys(const char* build, int sprite_after, int still_after) {
   CHECK(gani_of(out) == "idle" && !k.busy());
   CHECK(k.tick(p, kKeyS, 0, l, tables, types).empty());
 
+  // Spin: STATUS 0x40, release S then press again during the swing.
+  p.status = ItemKeys::kStatusHasSpin;
+  k.tick(p, 0, 0, l, tables, types);  // clear the held S from the swing above
+  out = k.tick(p, kKeyS, 0, l, tables, types);
+  CHECK(gani_of(out) == "sword" && k.busy());
+  k.tick(p, 0, 0, l, tables, types);  // release
+  out = k.tick(p, kKeyS, 0, l, tables, types);
+  CHECK(gani_of(out) == "spin" && p.gani == "spin" && k.busy());
+  // S during the spin is ignored.
+  CHECK(k.tick(p, kKeyS, 0, l, tables, types).empty() && p.gani == "spin");
+  k.tick(p, 0, 0, l, tables, types);  // release; ticks_ == 2
+  for (int t = 3; t < ItemKeys::kSpinTicks; ++t) CHECK(k.tick(p, 0, 0, l, tables, types).empty());
+  out = k.tick(p, 0, 0, l, tables, types);  // ticks_ == kSpinTicks: idle
+  CHECK(gani_of(out) == "idle" && !k.busy());
+  // Without the bit, S again during the swing does not spin.
+  p.status = 0;
+  k.tick(p, kKeyS, 0, l, tables, types);
+  k.tick(p, 0, 0, l, tables, types);
+  CHECK(k.tick(p, kKeyS, 0, l, tables, types).empty() && p.gani == "sword");  // ticks_ == 2
+  for (int t = 3; t < ItemKeys::kSwordTicks; ++t) k.tick(p, 0, 0, l, tables, types);
+  CHECK(gani_of(k.tick(p, 0, 0, l, tables, types)) == "idle");
+
   // A on the bush: immediate lift, then profile-specific carry and still ticks.
   set_tile(l, 34, 32, 2);
   set_tile(l, 35, 32, 3);
@@ -524,9 +546,21 @@ void test_health() {
   for (int t = 0; t < Health::kHurtTicks; ++t) h.tick(p, l, types);
   CHECK(h.check_swords(p, others).empty());  // within a second of the last
   for (int t = 0; t < Health::kSwingGap; ++t) h.tick(p, l, types);
+  // A spin hits beside the attacker too (every facing), not only ahead.
+  others[9].gani = "spin";
+  others[9].sword_power = 1;  // half a heart from power 2
+  others[9].x = p.x + 2;
+  others[9].y = p.y;
+  others[9].dir = 2;  // facing down; victim is to the right
+  out = h.check_swords(p, others);
+  CHECK(out.size() == 1 && p.power == 1);
+  for (int t = 0; t < Health::kHurtTicks; ++t) h.tick(p, l, types);
+  for (int t = 0; t < Health::kSwingGap; ++t) h.tick(p, l, types);
+  others[9].gani = "sword";
   others[9].x = p.x;
   others[9].y = p.y - 4;
   others[9].sword_power = 6;  // three hearts: dead, and the claim names player 9
+  p.power = 6;
   out = h.check_swords(p, others);
   CHECK(out.size() == 2 && out[0].body == gchar(kCurPower) + gchar(0) && out[1].id == 14 && out[1].body == gshort(9));
   CHECK(h.dead() && p.gani == "dead" && h.hit(p, 1, 0, 0).empty());
