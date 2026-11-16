@@ -38,33 +38,35 @@ As in 3.04, with the suffix `3153`: `Protocol3153`, `GraalClient`,
 
 ## Running it
 
-### On the Torque engine (Linux, Windows, macOS)
+### Default: the Torque engine (Linux, Windows, macOS)
 
-The Linux zip also holds `graal304-torque` and `libGame3153Lib.so`, the
-Windows zip `graal304-torque.exe` and `Game3153Lib.dll`, and the macOS zips
-`graal304-torque.app` with `libGame3153Lib.dylib` inside it. Copy them
-into the root of a 3.153 install (the folder with `main.cs` and
-`scripts2D/`) and start `graal304-torque`. It sees a 3.153 install and runs
-its own scripts on the rebuilt Torque engine (`common/torque/guigraal`):
-the main menu at 640 × 480, its logo and its text, with the game drawn
-inside the `Adventure` control. The install ships no font caches, so the
+Put the zip's programs in the root of a 3.153 install (the folder with
+`main.cs` and `scripts2D/`). With no arguments, `Graal3153` starts
+`graal304-torque` next to it (the install's own scripts on the rebuilt
+Torque engine: main menu at 640 × 480, server list, options, F2, game in
+`Adventure`). You can also start `graal304-torque` yourself. The Linux zip
+holds `graal304-torque` and `libGame3153Lib.so`; Windows
+`graal304-torque.exe` and `Game3153Lib.dll`; macOS `graal304-torque.app`
+with `libGame3153Lib.dylib` inside. The install ships no font caches, so
 fonts are made from the system's Arial, or Liberation Sans or DejaVu Sans
-where there is no Arial. It also starts with `--root DIR`. Prefs go to
-`~/.graal304-torque` (`%APPDATA%\graal304-torque` on Windows). On Linux it
-needs an X11 display. On macOS, drag the app with the Finder into the
-install. It is not signed, so the first time choose System Settings >
-Privacy & Security > Open Anyway, or run
-`xattr -dr com.apple.quarantine graal304-torque.app`.
+where there is no Arial. Prefs go to `~/.graal304-torque`
+(`%APPDATA%\graal304-torque` on Windows). On Linux it needs an X11
+display. On macOS, drag the app into the install; it is not signed, so the
+first time choose System Settings > Privacy & Security > Open Anyway, or
+run `xattr -dr com.apple.quarantine graal304-torque.app`. `--root DIR`
+still works on the Torque program.
 
-### The Pascal program
+### Pascal fallback
 
-Put `Graal3153` in the root of a 3.153 install and start it with no
-arguments for the start screen. It finds the install's files from there,
-or from `graal-assets/3.153/` and `graal-assets/common/` next to it.
-It also reads the 3.04 install layout (tile sheets in `levels/tiles/`,
-the offline tutorial in `levels/tutorial/`,
-`levels/tiledefs/tiledefsOffline.txt`), taken to hold for 3.153 until a
-3.153 install is in `graal-assets`.
+`Graal3153 --pascal`, or `GRAAL_PASCAL=1` / `GRAAL_PASCAL_GAME=1`, opens the
+Pascal start screen instead. The same fallback applies when
+`graal304-torque` is missing, or on Linux with no `DISPLAY`. CLI runs stay
+in Pascal. Put `Graal3153` in the root of a 3.153 install; it finds the
+install's files from there, or from `graal-assets/3.153/` and
+`graal-assets/common/` next to it. It also reads the 3.04 install layout
+(tile sheets in `levels/tiles/`, the offline tutorial in
+`levels/tutorial/`, `levels/tiledefs/tiledefsOffline.txt`), taken to hold
+for 3.153 until a 3.153 install is in `graal-assets`.
 
 ```
 GRAAL_PW=... Graal3153 --server HOST:PORT --account NAME

@@ -101,6 +101,8 @@ clients stay Object Pascal. Live tracking is
   object slice (closed slice issues; see Done)
 - [x] 3.04: stock GUI, ActionMap / F2, `GuiGraalCtrl` and windowed
   `graal304-torque` (#257, #259, #258)
+- [x] 3.04 / 3.153: `graal304-torque` is the no-argument release entry
+  (Pascal via `--pascal` / `GRAAL_PASCAL=1`)
 - [ ] 3.04 Debian lab check of the windowed program (menu, keys, offline
   and online walk, clean exit); then 3.153 boot profile (PPC `.dso`
   floats, script layout, the four extra methods)
