@@ -287,6 +287,23 @@ void Program::register_script_commands() {
   });
 
   // Step 6: the board tests, keys, sound, focus and the rest.
+  // testnpc(x, y): index of the topmost level NPC whose image box covers
+  // (x, y), or -1 (GS1 testnpc; Npc222.NpcAt / IndexOf).
+  m.addCommand("testnpc", "nn", [this](gs2::Machine& mm, gs2::Var&, Args& a) {
+    const double px = mm.toNumber(a[0]), py = mm.toNumber(a[1]);
+    if (!std::isfinite(px) || !std::isfinite(py)) return gs2::Value::number(-1);
+    const auto& npcs = world_.level.npcs;
+    for (int i = static_cast<int>(npcs.size()) - 1; i >= 0; --i) {
+      const auto& n = npcs[static_cast<size_t>(i)];
+      double bw = 0, bh = 0;
+      if (const auto* im = assets_->image(n.image)) {
+        bw = im->width / 16.0;
+        bh = im->height / 16.0;
+      }
+      if (bw > 0 && px >= n.x && px < n.x + bw && py >= n.y && py < n.y + bh) return gs2::Value::number(i);
+    }
+    return gs2::Value::number(-1);
+  });
   m.addCommand("onwall", "nn", [this](gs2::Machine& mm, gs2::Var&, Args& a) {
     if (!board_rect(mm.toNumber(a[0]), mm.toNumber(a[1]), 0, 0)) return gs2::Value::number(0);
     return gs2::Value::number(World::point_blocked(world_.level, tile_types_, mm.toNumber(a[0]), mm.toNumber(a[1])) ? 1 : 0);
