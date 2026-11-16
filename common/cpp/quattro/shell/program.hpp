@@ -84,6 +84,7 @@ class Program {
   bool action(std::string_view command, bool down);
 
   const Draw::WorldState& world() const { return world_; }
+  World::Player& me() { return me_; }
   const World::Player& me() const { return me_; }
   const std::map<int, World::Player>& others() const { return others_; }
   Net::Session& session() { return session_; }
@@ -176,9 +177,8 @@ class Program {
   void script_tick();                            // freeze time, hidden player, focus
   bool held_index(int i) const;                  // keydown(i): up,left,down,right,S,A,D,M,tab,Q,P
   void draw_show_images(bool screen_layer);
-  // GuiShowImgCtrl with an `ani`: character at the control plus offsets.
-  // Graal_analysis client-internals/showimg-particles-and-gs2-format.md;
-  // same shape as common/cpp/graalengine/src/showimg.cpp.
+  // GuiShowImgCtrl: ani (playerlook / actor) or plain `image`, plus offsets.
+  // Graal_analysis client-internals/showimg-particles-and-gs2-format.md.
   void draw_showimg_ctrl(const gs2::gui::Control& c, const gs2::gui::Rect& r);
   void draw_sign();
   void on_destroy(const gs2::VarPtr& v);

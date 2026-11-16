@@ -140,9 +140,8 @@ void test_menu(const std::string& root_name, bool alternate_root = false) {
 }
 
 
-// GuiShowImgCtrl with an `ani`: steps each tick with the control's actor
-// head, clipped to the control, offset into the rectangle (same shape as
-// graalengine's ShowImgPainter).
+// GuiShowImgCtrl: actor ani (playerlook false), playerlook from me_, and a
+// plain `image` with zoom/tint. Placement matches the engine library.
 void test_showimg_ani() {
   namespace fs = std::filesystem;
   fs::path dir = fs::temp_directory_path() / "quattro-gui-showimg";
@@ -151,11 +150,16 @@ void test_showimg_ani() {
   fs::create_directories(dir / "levels" / "heads");
   {
     std::ofstream g(dir / "levels" / "ganis" / "wave.gani", std::ios::binary);
-    g << "GANI0001\nSPRITE 1 HEAD 0 0 4 4 head\nSINGLEDIRECTION\nANI\n1 0 0\n\n1 2 0\nANIEND\n";
+    // One step so a second tick (playerlook) keeps the head at the same pixel.
+    g << "GANI0001\nSPRITE 1 HEAD 0 0 4 4 head\nSINGLEDIRECTION\nANI\n1 0 0\nANIEND\n";
   }
   Torque::Gui::Image red(4, 4, {255, 0, 0, 255});
+  Torque::Gui::Image blue(4, 4, {0, 0, 255, 255});
+  Torque::Gui::Image lamp(6, 6, {0, 200, 0, 255});
   std::string err;
   CHECK(Torque::Gui::write_file((dir / "levels" / "heads" / "red.png").string(), Torque::Gui::encode_png(red), err));
+  CHECK(Torque::Gui::write_file((dir / "levels" / "heads" / "blue.png").string(), Torque::Gui::encode_png(blue), err));
+  CHECK(Torque::Gui::write_file((dir / "levels" / "heads" / "lamp.png").string(), Torque::Gui::encode_png(lamp), err));
 
   Draw::HeadlessWindow win;
   Shell::Options opt;
@@ -163,6 +167,7 @@ void test_showimg_ani() {
   opt.height = 48;
   opt.assets = dir.string();
   Shell::Program prog(*Net::find_profile("6.03r7"), opt, win);
+  prog.me().head = "blue.png";
 
   Asm a;
   a.function("onCreated", {});
@@ -173,6 +178,8 @@ void test_showimg_ani() {
   prop(a, "position", "8 4");
   prop(a, "extent", "40 36");
   prop(a, "ani", "wave,some.wav");
+  // StartAni1-style: actor parts, not the player.
+  a.var("playerlook").num(0).op(Asm::ASSIGN);
   a.var("offsetx").num(2).op(Asm::ASSIGN);
   a.var("offsety").num(1).op(Asm::ASSIGN);
   a.var("actor").op(Asm::TOOBJECT).var("head").op(Asm::MEMBER).str("red.png").op(Asm::ASSIGN);
@@ -192,18 +199,31 @@ void test_showimg_ani() {
   CHECK(std::find(passes.begin(), passes.end(), "Draw_ShowImg") != passes.end());
   CHECK(std::find(passes.begin(), passes.end(), "RenderGUI") != passes.end());
 
-  // Head at control (8,4) + offset (2,1) = (10,5); 4x4 red.
+  // Head at control (8,4) + offset (2,1) = (10,5); actor red, not me_ blue.
   const auto& pix = win.last();
-  CHECK(pix.at(10, 5).r == 255 && pix.at(10, 5).g == 0);
+  CHECK(pix.at(10, 5).r == 255 && pix.at(10, 5).g == 0 && pix.at(10, 5).b == 0);
   CHECK(pix.at(13, 8).r == 255);
-  // Outside the control clip stays black.
   CHECK(pix.at(0, 0).r == 0 && pix.at(0, 0).g == 0 && pix.at(0, 0).b == 0);
 
-  // Missing ani draws nothing on the cleared canvas.
-  walker->setProp("ani", "missing");
+  // playerlook true: body parts from the player (me_.head = blue.png).
+  walker->setNumProp("playerlook", 1);
+  CHECK(prog.assets().image("blue.png") != nullptr);
+  prog.tick();
+  CHECK(prog.me().head == "blue.png");
+  CHECK(win.last().at(10, 5).b == 255 && win.last().at(10, 5).r == 0);
+
+  // Plain image when ani is cleared: lamp.png at the same offset, zoom 1.
+  walker->setProp("ani", "");
+  walker->setProp("image", "lamp.png");
+  prog.tick();
+  CHECK(win.last().at(10, 5).g == 200 && win.last().at(10, 5).r == 0);
+  CHECK(win.last().at(15, 10).g == 200);
+
+  // Missing ani and missing image: nothing drawn.
+  walker->setProp("image", "missing.png");
   prog.tick();
   int lit = 0;
-  for (const auto& px : win.last().pixels) lit += px.r;
+  for (const auto& px : win.last().pixels) lit += px.r + px.g + px.b;
   CHECK(lit == 0);
   fs::remove_all(dir);
 }

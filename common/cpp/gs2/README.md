@@ -294,11 +294,11 @@ guessed.
     up the screen;
   - a global clock starts when the modifier is added;
   - one template (`particletypes` is not used yet), and no clipping box
-- [x] A show-image drawing its ani (`ani`, `actor`) through
-  `Painter::engineControl` (B5b ani): Quattro draws the gani with the
-  control's actor and clock (`common/cpp/quattro`); the 4.x engine library
-  does the same in `common/cpp/graalengine/src/showimg.cpp`. Still open:
-  `playerlook` and the plain image
+- [x] A show-image drawing its ani (`ani`, `actor`, `playerlook`) and the
+  plain `image` through `Painter::engineControl` (B5b): Quattro draws the
+  gani with playerlook or actor parts, its own clock, offsets, and a plain
+  bitmap with zoom/RGBA (`common/cpp/quattro`). The 4.x engine library still
+  has ani/actor only in `common/cpp/graalengine/src/showimg.cpp`
 - [ ] Pop-up menus step to the next row on a press until the open list is
   drawn; window frames, scroll bars, sliders and multi-line text draw
   plainly (fill, frame, text), not from the theme
