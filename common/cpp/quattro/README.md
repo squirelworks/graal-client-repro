@@ -166,8 +166,9 @@ machine-level part (opcodes, `scheduleevent`, `cancelevents`, `trigger`,
 - **Gani and hold** (step 2): `setani(gani)`, `replaceani(old, new)`,
   `freezeplayer(seconds)` (walk, item keys and D held), `disabledefmovement`
   / `enabledefmovement` (walk and item keys), `disableweapons` /
-  `enableweapons` (D), `showstats(bits)` (which HUD parts draw; Adventure
-  masks, default `0x1FF`).
+  `enableweapons` (D), `disableselectweapons` / `enableselectweapons`
+  (Q/Tab opening the item list; disable closes it), `showstats(bits)`
+  (which HUD parts draw; Adventure masks, default `0x1FF`).
 - **Events and boxes** (step 3): `say2(text)` opens a sign box (lines split
   at `#b`) that A, S, D, Enter or Space closes; `destroy()` on a weapon
   takes it off the list here, on a control off the screen, on a
@@ -213,8 +214,8 @@ the walk changes it; `onPlayerHurt` gets the hearts lost; `shoot` uses 40
 Not yet: other players' shots (175, 191) and `onActionProjectile`; the
 shot's own flight; `showpoly2`; show-image text fonts (the built-in face
 is used); `testnpc`, `findplayer`, `seteffect`, `putleaps`,
-`serverwarp`, `isobject`, `enablefeatures`, the weapon-select switches and
-the rest of the corpus's long tail (no name blocks more than 16 weapons).
+`serverwarp`, `isobject`, `enablefeatures`, and the rest of the corpus's
+long tail (no name blocks more than 16 weapons).
 
 ## Rebuild choices (not the original's)
 

@@ -113,6 +113,8 @@ class Program {
   double freeze_left() const { return freeze_left_; }
   bool def_movement() const { return def_movement_; }
   bool weapons_enabled() const { return weapons_enabled_; }
+  // enableselectweapons / disableselectweapons: Q/Tab may open the item list.
+  bool select_weapons_enabled() const { return select_weapons_enabled_; }
   // showstats bits (default 0x1FF): which HUD parts draw.
   int show_stats() const { return show_stats_; }
   const std::string& shoot_params() const { return shoot_params_; }
@@ -230,7 +232,7 @@ class Program {
   std::string sign_text_;
   double freeze_left_ = 0;  // seconds the player stays frozen
   double hide_left_ = 0;    // hideplayer
-  bool def_movement_ = true, weapons_enabled_ = true;
+  bool def_movement_ = true, weapons_enabled_ = true, select_weapons_enabled_ = true;
   int show_stats_ = 0x1FF;  // Adventure default: all HUD parts
   std::string shoot_params_;
   std::set<int> keys_down_;  // virtual-key codes held (from the window's input events)

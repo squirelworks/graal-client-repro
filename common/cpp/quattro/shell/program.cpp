@@ -957,7 +957,7 @@ bool Program::tick() {
       if (q_pressed || d_pressed || (items & (World::kKeyA | World::kKeyS))) item_list_open_ = false;
       keys = 0;
       items = 0;
-    } else if (q_pressed) {
+    } else if (q_pressed && select_weapons_enabled_) {
       item_list_open_ = true;
       keys = 0;
       items = 0;

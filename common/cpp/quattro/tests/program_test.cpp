@@ -919,6 +919,68 @@ void test_script_native_bounds() {
   fs::remove_all(root);
 }
 
+// disableselectweapons blocks Q/Tab from opening the item list; enable restores it.
+void test_select_weapons() {
+  const Net::BuildProfile* prof = Net::find_profile("6.03r7");
+  CHECK(prof);
+  if (!prof) return;
+  FakeServer game;
+  CHECK(game.start());
+  Shell::Options opt;
+  opt.host = "127.0.0.1";
+  opt.port = game.port();
+  opt.server_name = "Lab Server";
+  Draw::HeadlessWindow win;
+  Shell::Program p(*prof, opt, win);
+  CHECK(p.start());
+  CHECK(game.conn.accept_from(game.listener));
+  CHECK(run(p, nullptr, &game, [&] { return game.saw(37, "English"); }));
+  game.send(send_level("probe.nw", 7) + gchar(9) + gchar(World::kStatus) + gchar(0) + "\n" +
+            gchar(33) + Net::gstring("Stick") + "\n");
+  CHECK(run(p, nullptr, &game, [&] { return p.weapons().any_shown(); }));
+  CHECK(p.select_weapons_enabled());
+
+  using gs2asm::Asm;
+  Asm a;
+  a.function("public.lock_select", {});
+  a.op(Asm::MARKER).callName("disableselectweapons").op(Asm::POP);
+  a.num(0).op(Asm::RET);
+  a.function("public.open_select", {});
+  a.op(Asm::MARKER).callName("enableselectweapons").op(Asm::POP);
+  a.num(0).op(Asm::RET);
+  Shell::ScriptDescriptor d;
+  d.type = "weapon";
+  d.name = "Stick";
+  std::string raw = gchar(140) + Shell::make_script_packet(d, a.bytes()) + "\n";
+  game.send(gchar(100) + Net::gint3(static_cast<uint32_t>(raw.size())) + "\n" + raw);
+  CHECK(run(p, nullptr, &game, [&] { return p.scripts().machine().hasScript(p.scripts().weapon("Stick")); }));
+  auto stick = p.scripts().weapon("Stick");
+
+  p.action("doQ", true);
+  p.tick();
+  p.action("doQ", false);
+  p.tick();
+  CHECK(p.item_list_open());
+
+  CHECK(p.scripts().machine().callFunction(stick, "lock_select", {}).num == 0);
+  CHECK(!p.select_weapons_enabled());
+  CHECK(!p.item_list_open());  // disable closes an open list
+
+  p.action("doQ", true);
+  p.tick();
+  p.action("doQ", false);
+  p.tick();
+  CHECK(!p.item_list_open());  // Q does not open while disabled
+
+  CHECK(p.scripts().machine().callFunction(stick, "open_select", {}).num == 0);
+  CHECK(p.select_weapons_enabled());
+  p.action("doQ", true);
+  p.tick();
+  p.action("doQ", false);
+  p.tick();
+  CHECK(p.item_list_open());
+}
+
 int main() {
   test_script_native_bounds();
   test_program();
@@ -929,5 +991,6 @@ int main() {
   test_weapons();
   test_weapon_scripts();
   test_escape_menu();
+  test_select_weapons();
   TEST_MAIN_END();
 }
