@@ -1,9 +1,9 @@
-// The item keys: S swings the sword (and spins), A lifts, throws or grabs,
-// D toggles the weapon state, and walking into a chest opens it.
+// The item keys: S swings the sword (and spins), A lifts, throws, grabs or
+// lays, D toggles the weapon state, and walking into a chest opens it.
 //
 // Behaviour, from the 6.03r7 item-keys lab (Linux client, 2026-11-13), plus
-// the spin from the 2.05/2.22 live runs (same rule the 4.04r2 Adventure
-// rebuild uses; STATUS bit 0x40):
+// the spin and lay mode from the 2.05/2.22 live runs (same rules the 4.04r2
+// Adventure rebuild uses; STATUS bit 0x40):
 // - Every carry sprite prop sent is also kept in the player's carry_sprite.
 // - S: gani `sword` with the facing (props 10 and 17) at once, `idle`
 //   5 ticks (0.25 s) later; holding S swings once. A bush (arrays.dat
@@ -20,6 +20,12 @@
 //   Nothing is sent when it lands.
 // - A against anything else that blocks: gani `grab`; with the arrow away
 //   from it held, `pull`. Only the pose changes; it stays after release.
+// - A with S held and nothing to lift (probe not a wall): enter the lay
+//   mode with the first layable item. A with S held again picks the next;
+//   A alone lays it two tiles ahead (three up) and sends 12 ITEMADD for
+//   floor items plus the counter prop. An arrow, D or S leaves without
+//   laying. Custom sword/shield pictures and water-vs-land are not told
+//   apart yet (same known limits as the Pascal rebuilds).
 // - D (and Q, Tab) with no weapon shown: the status prop toggles bit 0
 //   (20 <-> 21). With one, the program uses the weapon instead (weapons.hpp).
 // - Walking into a closed chest opens it: 20 OPENCHEST x, y, once.
@@ -90,9 +96,14 @@ class ItemKeys {
   std::vector<Packet> touch_chests(const Player& p, unsigned arrows, const Files::Level& level);
   void new_level() { opened_.clear(); }
 
-  bool busy() const { return mode_ == Mode::Sword || mode_ == Mode::Spin || mode_ == Mode::Lift; }
+  bool busy() const {
+    return mode_ == Mode::Sword || mode_ == Mode::Spin || mode_ == Mode::Lift || mode_ == Mode::Lay;
+  }
   bool carrying() const { return mode_ == Mode::Carry || mode_ == Mode::Lift; }
   bool lifting() const { return mode_ == Mode::Lift; }
+  bool laying() const { return mode_ == Mode::Lay; }
+  // The item index being offered in the lay mode, or -1.
+  int laying_item() const { return mode_ == Mode::Lay ? lay_item_ : -1; }
   // The carry sprite of what is lifted or carried (from the press on), or -1.
   int carry_sprite() const { return carrying() && carry_kind_ >= 0 && carry_kind_ < 3 ? kLiftSprites[carry_kind_] : -1; }
   static constexpr int kLiftSprites[3] = {1, 7, 5};  // bush, sign, pot
@@ -102,11 +113,12 @@ class ItemKeys {
   static constexpr int kStatusHasSpin = 0x40;
 
  private:
-  enum class Mode { Free, Sword, Spin, Lift, Carry };
+  enum class Mode { Free, Sword, Spin, Lift, Carry, Lay };
   Mode mode_ = Mode::Free;
   int sprite_after_, still_after_;
   int ticks_ = 0;       // since the mode started
   int carry_kind_ = -1;
+  int lay_item_ = -1;   // item index while Mode::Lay
   unsigned last_keys_ = 0;
   std::vector<std::pair<int, int>> opened_;
 };

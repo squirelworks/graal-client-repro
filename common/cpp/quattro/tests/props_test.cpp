@@ -309,6 +309,54 @@ void test_item_keys(const char* build, int sprite_after, int still_after) {
   k.tick(p, 0, 0, l, tables, types);
   CHECK(gani_of(k.tick(p, kKeyA, 2, l, tables, types)) == "pull");
 
+  // Lay mode: clear the tip, hold S then press A (same as Adventure: AttackHeld).
+  // Pressing A and S together on one tick would swing first.
+  set_tile(l, 34, 32, 0);
+  set_tile(l, 35, 32, 0);
+  set_tile(l, 34, 33, 0);
+  set_tile(l, 35, 33, 0);
+  p.rupees = 6;
+  p.bombs = 5;
+  p.sword_power = 0;  // no sword on S while entering lay
+  p.dir = 3;          // right: laid item at (x+0.5+2, y+1)
+  k.tick(p, 0, 0, l, tables, types);
+  k.tick(p, kKeyS, 0, l, tables, types);  // hold S
+  CHECK(k.tick(p, kKeyA | kKeyS, 0, l, tables, types).empty() && k.laying() && k.laying_item() == 0 &&
+        k.busy());
+  // A with S held again: next layable (blue rupee, needs 5).
+  k.tick(p, kKeyS, 0, l, tables, types);  // release A, keep S
+  CHECK(k.tick(p, kKeyA | kKeyS, 0, l, tables, types).empty() && k.laying_item() == 1);
+  // A alone: lay blue rupee, ITEMADD + rupees prop.
+  k.tick(p, 0, 0, l, tables, types);
+  out = k.tick(p, kKeyA, 0, l, tables, types);
+  CHECK(!k.laying() && p.rupees == 1 && out.size() == 2 && out[0].id == 12);
+  CHECK(out[0].body == gchar(static_cast<unsigned>(std::lround((p.x + 2.5) * 2))) +
+                           gchar(static_cast<unsigned>(std::lround((p.y + 1) * 2))) + gchar(1));
+  CHECK(out[1].id == 2 && out[1].body == gchar(kRupees) + gint3(1));
+  // Arrow leaves the lay mode without laying.
+  p.rupees = 1;
+  k.tick(p, kKeyS, 0, l, tables, types);
+  CHECK(k.tick(p, kKeyA | kKeyS, 0, l, tables, types).empty() && k.laying() && k.laying_item() == 0);
+  CHECK(k.tick(p, kKeyS, 1, l, tables, types).empty() && !k.laying() && p.rupees == 1);
+  // Spinattack (24) is a floor item: laying it clears STATUS 0x40 and sends ITEMADD.
+  p.status = ItemKeys::kStatusHasSpin;
+  p.rupees = 0;
+  p.bombs = 0;
+  p.arrows = 0;
+  p.power = 0;
+  p.glove_power = 0;
+  p.sword_power = 0;
+  p.shield_power = 0;
+  k.tick(p, 0, 0, l, tables, types);
+  k.tick(p, kKeyS, 0, l, tables, types);
+  CHECK(k.tick(p, kKeyA | kKeyS, 0, l, tables, types).empty() && k.laying_item() == 24);
+  k.tick(p, 0, 0, l, tables, types);
+  out = k.tick(p, kKeyA, 0, l, tables, types);
+  CHECK(out.size() == 2 && out[0].id == 12);
+  CHECK(out[0].body == gchar(static_cast<unsigned>(std::lround((p.x + 2.5) * 2))) +
+                           gchar(static_cast<unsigned>(std::lround((p.y + 1) * 2))) + gchar(24));
+  CHECK(p.status == 0 && out[1].body == gchar(kStatus) + gchar(0));
+
   // D toggles bit 0 of the status.
   p.status = 20;
   k.tick(p, 0, 0, l, tables, types);

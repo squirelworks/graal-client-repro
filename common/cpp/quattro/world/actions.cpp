@@ -11,8 +11,110 @@ namespace Quattro::World {
 namespace {
 
 using Net::gchar;
+using Net::gint3;
 using Net::gshort;
 using Net::gstring;
+
+// 2.05 rev 2 lay order (4.04r2 Adventure.pas). Entries CanLay rejects are skipped.
+constexpr int kLayOrder[] = {0, 1, 2, 19, 3, 4, 5, 6, 16, 8, 12, 23, 7, 20, 21, 22, 9, 15, 17, 10, 13, 18, 14, 24};
+constexpr double kLayDX[4] = {0, -2, 0, 2};
+constexpr double kLayDY[4] = {-3, 0, 2, 0};
+
+bool can_lay(const Player& p, int item) {
+  switch (item) {
+    case 0: return p.rupees >= 1;
+    case 1: return p.rupees >= 5;
+    case 2: return p.rupees >= 30;
+    case 19: return p.rupees >= 100;
+    case 3: return p.bombs >= 5;
+    case 4: return p.arrows >= 5;
+    case 5: return p.power >= 3;
+    case 6: return p.glove_power == 2;
+    case 16: return p.glove_power == 3;
+    case 10: return p.sword_power == 1;
+    case 13: return p.sword_power == 2;
+    case 18: return p.sword_power == 3;
+    case 14: return p.sword_power == 4;
+    case 9: return p.shield_power == 1;
+    case 15: return p.shield_power == 2;
+    case 17: return p.shield_power == 3;
+    case 24: return (p.status & ItemKeys::kStatusHasSpin) != 0;
+    default: return false;
+  }
+}
+
+bool floor_item(int item) {
+  return (item >= 0 && item <= 5) || item == 7 || item == 8 || item == 19 || item == 24;
+}
+
+int next_layable(const Player& p, int after) {
+  const int n = static_cast<int>(sizeof(kLayOrder) / sizeof(kLayOrder[0]));
+  int start = 0;
+  for (int i = 0; i < n; ++i)
+    if (kLayOrder[i] == after) start = i + 1;
+  for (int i = 0; i < n; ++i) {
+    int item = kLayOrder[(start + i) % n];
+    if (can_lay(p, item)) return item;
+  }
+  return -1;
+}
+
+std::vector<Packet> take_lay_cost(Player& p, int item) {
+  std::string prop;
+  switch (item) {
+    case 0:
+      p.rupees -= 1;
+      prop = gchar(kRupees) + gint3(static_cast<uint32_t>(p.rupees));
+      break;
+    case 1:
+      p.rupees -= 5;
+      prop = gchar(kRupees) + gint3(static_cast<uint32_t>(p.rupees));
+      break;
+    case 2:
+      p.rupees -= 30;
+      prop = gchar(kRupees) + gint3(static_cast<uint32_t>(p.rupees));
+      break;
+    case 19:
+      p.rupees -= 100;
+      prop = gchar(kRupees) + gint3(static_cast<uint32_t>(p.rupees));
+      break;
+    case 3:
+      p.bombs -= 5;
+      prop = gchar(kBombs) + gchar(static_cast<unsigned>(p.bombs));
+      break;
+    case 4:
+      p.arrows -= 5;
+      prop = gchar(kArrows) + gchar(static_cast<unsigned>(p.arrows));
+      break;
+    case 5:
+      p.power -= 2;
+      prop = gchar(kCurPower) + gchar(static_cast<unsigned>(p.power));
+      break;
+    case 6:
+    case 16:
+      --p.glove_power;
+      prop = gchar(kGlovePower) + gchar(static_cast<unsigned>(p.glove_power));
+      break;
+    case 10:
+    case 13:
+    case 18:
+    case 14:
+      --p.sword_power;
+      prop = gchar(kSwordPower) + gchar(static_cast<unsigned>(p.sword_power));
+      break;
+    case 9:
+    case 15:
+    case 17:
+      --p.shield_power;
+      prop = gchar(kShieldPower) + gchar(static_cast<unsigned>(p.shield_power));
+      break;
+    default:
+      p.status &= ~ItemKeys::kStatusHasSpin;
+      prop = gchar(kStatus) + gchar(static_cast<unsigned>(p.status));
+      break;
+  }
+  return {{2, prop}};
+}
 
 struct Node {
   std::vector<int> values;
@@ -195,6 +297,39 @@ std::vector<Packet> ItemKeys::tick(Player& p, unsigned keys, unsigned arrows, Fi
     }
   }
 
+  // Lay mode: an arrow, D or S leaves without laying; A with S held picks
+  // the next item; A alone lays it (4.04r2 Adventure.PlayerTick / Action).
+  if (mode_ == Mode::Lay) {
+    if ((arrows & 0xF) != 0 || (pressed & (kKeyD | kKeyS)) != 0) {
+      mode_ = Mode::Free;
+      lay_item_ = -1;
+      return out;
+    }
+    if (pressed & kKeyA) {
+      if (keys & kKeyS) {
+        lay_item_ = next_layable(p, lay_item_);
+        if (lay_item_ < 0) mode_ = Mode::Free;
+        return out;
+      }
+      const int item = lay_item_;
+      mode_ = Mode::Free;
+      lay_item_ = -1;
+      if (item < 0 || !can_lay(p, item)) return out;
+      const int d = p.dir & 3;
+      const double x = p.x + 0.5 + kLayDX[d];
+      const double y = p.y + 1 + kLayDY[d];
+      if (floor_item(item)) {
+        const unsigned ix = static_cast<unsigned>(std::lround(x * 2));
+        const unsigned iy = static_cast<unsigned>(std::lround(y * 2));
+        out.push_back({12, gchar(ix) + gchar(iy) + gchar(static_cast<unsigned>(item))});
+      }
+      auto cost = take_lay_cost(p, item);
+      out.insert(out.end(), cost.begin(), cost.end());
+      return out;
+    }
+    return out;
+  }
+
   if (pressed & kKeyD) {
     p.status ^= 1;
     out.push_back({2, gchar(kStatus) + gchar(static_cast<unsigned>(p.status))});
@@ -243,6 +378,16 @@ std::vector<Packet> ItemKeys::tick(Player& p, unsigned keys, unsigned arrows, Fi
       p.carry_sprite = -1;
       if (!board.empty()) out.push_back({1, board});
       out.push_back({2, prop_gani(p.gani) + prop_carry(-1)});
+      return out;
+    }
+    // A with S held and a clear tip: enter the lay mode.
+    if (keys & kKeyS) {
+      if (point_blocked(level, types, x, y)) return out;
+      const int item = next_layable(p, -1);
+      if (item < 0) return out;
+      mode_ = Mode::Lay;
+      lay_item_ = item;
+      p.gani = "idle";
       return out;
     }
     if (point_blocked(level, types, x, y)) {
