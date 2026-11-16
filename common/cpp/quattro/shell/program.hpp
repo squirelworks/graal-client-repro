@@ -176,6 +176,10 @@ class Program {
   void script_tick();                            // freeze time, hidden player, focus
   bool held_index(int i) const;                  // keydown(i): up,left,down,right,S,A,D,M,tab,Q,P
   void draw_show_images(bool screen_layer);
+  // GuiShowImgCtrl with an `ani`: character at the control plus offsets.
+  // Graal_analysis client-internals/showimg-particles-and-gs2-format.md;
+  // same shape as common/cpp/graalengine/src/showimg.cpp.
+  void draw_showimg_ctrl(const gs2::gui::Control& c, const gs2::gui::Rect& r);
   void draw_sign();
   void on_destroy(const gs2::VarPtr& v);
   void player_changed(int old_power);            // onPlayerHurt, onPlayerDies
@@ -234,6 +238,8 @@ class Program {
   std::unique_ptr<Draw::Hud> hud_;
   int frame_ = 0;
   std::map<int, std::pair<std::string, int>> gani_start_;  // id (-1 for me) -> gani, first tick
+  // GuiShowImgCtrl ani clocks: each control keeps its own start tick.
+  std::map<const gs2::gui::Control*, std::pair<std::string, int>> showimg_start_;
   Draw::Canvas canvas_;
   std::string level_name_;
   std::vector<std::string> passes_;
