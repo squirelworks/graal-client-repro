@@ -160,6 +160,11 @@ void Program::register_script_commands() {
     weapons_enabled_ = true;
     return zero;
   });
+  // showstats(bits): which HUD parts draw (GS1 showstats; Adventure.ShowStats).
+  m.addCommand("showstats", "n", [this, zero](gs2::Machine& mm, gs2::Var&, Args& a) {
+    show_stats_ = static_cast<int>(mm.toNumber(a[0]));
+    return zero;
+  });
 
   // Step 3: the sign box.
   m.addCommand("say2", "s", [this, zero](gs2::Machine& mm, gs2::Var&, Args& a) {

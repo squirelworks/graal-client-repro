@@ -398,6 +398,21 @@ void test_hud() {
   // Mark at weapon (10,5) → canvas (180, 45): whole image top-left (170, 40).
   CHECK(d.surface().at(180, 45).r == 11 && d.surface().at(180, 45).g == 22 &&
         d.surface().at(180, 45).b == 33);
+  // showstats: hearts only — no tabs, no AP.
+  s.show_stats = Draw::HudState::kHearts;
+  Draw::Canvas hearts_only(1024, 200);
+  hud.draw(hearts_only, s);
+  CHECK(hearts_only.surface().at(826 + 5, 24 + 5).r == 255);
+  CHECK(hearts_only.surface().at(15 + 3, 30 + 3).b == 0);
+  CHECK(hearts_only.surface().at(37 + 29, 71 + 2).r == 0);
+  // Weapons off: A tab only (no D, no sword/weapon).
+  s.show_stats = 0x1FF;
+  s.weapons_on = false;
+  Draw::Canvas no_wep(1024, 200);
+  hud.draw(no_wep, s);
+  CHECK(no_wep.surface().at(15 + 3, 30 + 3).b == 255);
+  CHECK(no_wep.surface().at(145 + 3, 30 + 3).b == 0);
+  CHECK(no_wep.surface().at(180, 45).r == 0);
 }
 
 // GRMAP001: the LEVELNAMES grid, row-major and lowercased, and the short
