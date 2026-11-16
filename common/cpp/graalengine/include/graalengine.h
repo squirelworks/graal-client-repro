@@ -179,7 +179,7 @@ GE_API void GE_CALL setGraal3DConnectionError(const char *reason);
 #define GRAALENGINE_ABI 1
 GE_API int32_t GE_CALL graalengine_abi(void);
 
-/* The launcher's build ("4.04r2", "5.00r7", "5.12"), before
+/* The launcher's build ("4.04r2", "4.20r8", "5.00r7", "5.12"), before
  * graal_engineInitialize: the session's wire row and the GS2 opcode
  * profile. 4.04r2 when never called. Returns 0 for a build the library
  * has no row for (the build is then left as it was). */

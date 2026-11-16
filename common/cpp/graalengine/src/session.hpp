@@ -1,8 +1,8 @@
 // The 2D session of the engine library: what connectToGraalServer starts
 // when no session code was set with Engine::setConnector.
 //
-// 4.04r2, 5.00r7 and 5.12 are gen 5 on the wire, as the Quattro program
-// (common/cpp/quattro) is, so the session is that program's: its
+// 4.04r2, 4.20r8, 5.00r7 and 5.12 are gen 5 on the wire, as the Quattro
+// program (common/cpp/quattro) is, so the session is that program's: its
 // connection (the launcher's build row), level, walking and world passes. The world is drawn
 // into the GS2 screen where GraalGui puts its GuiGraalCtrl (GraalControl);
 // the arrows come from the MoveMap2D bindings (moveUp2D ...), and the chat

@@ -58,10 +58,11 @@ class Engine {
   gs2::Machine* machine() { return machine_.get(); }
   void setProfile(gs2::Profile p) { profile_ = p; }
 
-  // The build the launcher is ("4.04r2", "5.00r7", "5.12"; the rebuild's
-  // graalengine_setBuild, called before graal_engineInitialize). It picks
-  // the session's wire row (common/cpp/quattro/net/profile.cpp) and the GS2
-  // profile: 4.2 for 4.x, 5.0 for 5.x. False for a build with no row.
+  // The build the launcher is ("4.04r2", "4.20r8", "5.00r7", "5.12"; the
+  // rebuild's graalengine_setBuild, called before graal_engineInitialize).
+  // It picks the session's wire row (common/cpp/quattro/net/profile.cpp)
+  // and the GS2 profile: 4.2 for 4.x, 5.0 for 5.x. False for a build with
+  // no row.
   bool setBuild(const std::string& label);
   const std::string& build() const { return build_; }
 
