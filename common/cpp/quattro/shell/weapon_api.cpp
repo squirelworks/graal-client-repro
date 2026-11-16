@@ -160,6 +160,17 @@ void Program::register_script_commands() {
     weapons_enabled_ = true;
     return zero;
   });
+  // enableselectweapons / disableselectweapons: allow or block opening the
+  // weapon selection (GS1; gs1-command-reference-205.md).
+  m.addCommand("disableselectweapons", "", [this, zero](gs2::Machine&, gs2::Var&, Args&) {
+    select_weapons_enabled_ = false;
+    item_list_open_ = false;
+    return zero;
+  });
+  m.addCommand("enableselectweapons", "", [this, zero](gs2::Machine&, gs2::Var&, Args&) {
+    select_weapons_enabled_ = true;
+    return zero;
+  });
   // showstats(bits): which HUD parts draw (GS1 showstats; Adventure.ShowStats).
   m.addCommand("showstats", "n", [this, zero](gs2::Machine& mm, gs2::Var&, Args& a) {
     show_stats_ = static_cast<int>(mm.toNumber(a[0]));
