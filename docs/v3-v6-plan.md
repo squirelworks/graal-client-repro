@@ -41,8 +41,8 @@ Graal_analysis read of the real build. Open PRs are counted as not merged.
 | **4.20r8** `G3D20126` | Pascal stand-in / shell; built-in 2D actions (#360); C++ boot stub (`host4208`) is not the engine | Delphi launcher plus `GraalEngine.dll` and `Graal3DEngine.dll` | Engine-library session like 4.04r2; `GR-V1.05` board layers; 3D |
 | **5.00r7** `G3D22067` | Pascal stand-in; Login-server mode reaches the server list; built-in 2D actions on the engine path (#360) | Same split; engine adds opcodes 48, 49, 54, 121 and `TGraalUniverse::runScripts` | Login server's scripted GUI (GS2), packages, base-file requests, 3D (protocol 24) |
 | 5.12 `G3D14097` | Folder on the engine library (`--engine`): menus, login, level, walk, chat; Players window / tray from the lab log (#278, #317) | Same split | Options forms and remaining launcher callbacks; scripted Login GUI; 3D world draw |
-| 5.24r3, 5.24r4 `G3D15010` | Folder `graal-5.24r4-G3D15010`: Pascal stand-in | First `quattro_lib` builds | Quattro program as the game (D3 / D5) |
-| **5.31r4** `G3D26090` (and 5.30r3) | Scaffold: sends the token, no window, no session | `quattro_lib`, Torque control names and GUI field names still present | Everything: Quattro program on the GS2 core |
+| 5.24r3, 5.24r4 `G3D15010` | Pascal stand-in; Quattro wire row + loopback login/level/walk | First `quattro_lib` builds | Folder handoff to `quattro-play` (D5); Login GUI |
+| **5.31r4** `G3D26090` (and 5.30r3) | Scaffold only (`ScaffoldOnly`). Quattro blocked: opcode+32 framing, no id sets / cipher strip | `quattro_lib`, Torque control names and GUI field names still present | Framer + id sets, then Quattro program on the GS2 core (D3) |
 | **6.01r1** Linux `G3D0108A` | On Linux with an X display, the start screen hands the game to `quattro-play` (weapons, bombs/shots, hurt, Q list) (#359). Pascal fallback on Windows / no display / secure-login online | `quattro_lib` (Linux) | Windows/macOS Quattro windows; Login GUI (140, 197); remaining GS2 builtins; SEI00001 inside Quattro |
 | **6.03r7** Linux `G3D0511C` | Same Quattro handoff as 6.01r1 (#359). Frame comparison work under #305. `seteffect` day/night tint (#397). `findplayer` in flight (#398) | `quattro_lib` (Linux) | Pixel fidelity; show-image animations; remaining corpus builtins; Windows folder on Quattro |
 | **6.11r1** Mac, **6.1.1.3** `GNP1905C` | Connector login and a level; control names registered as stubs | `quattro_lib`, connector script (`StartScript_Connector`), `setprotocol` framer, AES/RC4 | GS2 machine to run the connector and shell scripts (D4); Quattro gameplay |
@@ -121,9 +121,11 @@ files).
 - [x] **D2+** Selected GS2 weapon / world builtins: weapons, bombs/shots,
   hurt/Q list, floor items, spin, `showstats`, `noplayerkilling`,
   `testnpc`, `seteffect` (#397)
-- [ ] **D2+** `#398` `findplayer(account)` (open PR); then the long-tail
-  builtins (`putleaps`, `serverwarp`, …)
-- [ ] **D3** 5.31r4 and 5.30r3 on Quattro
+- [x] **D2+** `findplayer` (#398) and `putleaps` (#400)
+- [ ] **D2+** remaining long-tail builtins (`serverwarp`, …)
+- [ ] **D3** 5.31r4 / 5.30r3 on Quattro — blocked until opcode+32 framing,
+  id sets and in-frame cipher are recovered (`Late531.pas`)
+- [x] **D3 partial** 5.24r4 Quattro wire row: loopback login + level + walk
 - [ ] **D4** 6.1.1.3 and 6.11r1: the connector script on the machine, the
   `setprotocol` framer, AES and RC4
 - [x] **D5** Windows 6.03r7 (`G3D0311C`) hands off to `quattro-play` (same

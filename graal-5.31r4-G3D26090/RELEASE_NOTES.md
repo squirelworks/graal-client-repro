@@ -31,6 +31,10 @@ exits. It does not play the game.
 
 - This folder was not in that release.
 
+## What's new in v0.0.5
+
+- [x] **Quattro blockers named.** Login / level / walk on Quattro stay blocked for 5.30r3 and 5.31r4 until opcode+32 framing, id sets and in-frame cipher are recovered (`Late531.pas`). Documented in the folder README.
+
 ## Not yet
 
 Client-to-server opcode numbers, the length-wrap bytes,

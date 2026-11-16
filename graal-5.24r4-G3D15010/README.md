@@ -24,7 +24,7 @@ Login mode too, before any server warp. This is the 0.0.1 reproduction: hit or m
 Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
 
 - **default:** Delphi/Pascal stand-in (no-argument / release entry on main today).
-- **faithful engine:** Quattro one-exe program (`common/cpp/quattro`) — still being wired; not the release default.
+- **faithful engine:** Quattro wire row `5.24r4 Windows` (`G3D15010`) — loopback login, level and walk proven in `common/cpp/quattro` tests. Folder handoff to `quattro-play` not the release default yet (D5).
 - **relic:** none yet. When the faithful engine is validated end-to-end and switched to default, the Pascal stand-in becomes the labeled relic/fallback and is never deleted.
 
 ## Sources

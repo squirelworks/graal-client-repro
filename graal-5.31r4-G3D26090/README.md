@@ -50,9 +50,25 @@ Where a layout was not recovered, the unit leaves it unwritten.
 | `src/Graal531.dpr` | the shell: no arguments exits 0; `--show` prints the cut and the token |
 | `tests/TestLate531.dpr` | the cut, the login token, the newline rule, the flush order, and the length header |
 
+## Quattro blockers (login / level / walk)
+
+5.30r3 and 5.31r4 share this folder. Quattro (`common/cpp/quattro`) cannot
+yet run them as a game session. Blockers, from the cut in `Late531.pas`:
+
+- Outbound framing is opcode **plus 32**, then body and newline — not the
+  gen-5 Quattro session framer used for 5.24 / 6.x.
+- No recovered client→server id list; two internal opcodes skip the newline
+  check but their length-wrap bytes are open.
+- No cipher / compression strip inside a frame; inbound is raw length headers.
+- No server→client switch, no property ids, no window or player.
+
+Until those land (Track D3), this folder stays a scaffolding shell
+(`ScaffoldOnly`): `--show` prints the cut; nothing connects.
+
 ## Not yet
 
 - [x] ~~A login token, once one is recovered. Do not invent an eight-character literal~~ The login line sends `G3D26090` for 5.30r3 and 5.31r4. The images store no literal.
+- [ ] Quattro login + level + walk (blocked: framing / id sets / cipher above)
 - [ ] Numeric client-to-server opcodes. None were recovered as a fixed list
 - [ ] The length-wrap bytes for the two internal opcodes
 - [ ] The byte pattern that produces "illegal data (2)"

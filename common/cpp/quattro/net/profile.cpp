@@ -78,6 +78,28 @@ std::vector<BuildProfile> make() {
   r601.pli.reset(160);
   rows.push_back(r601);
 
+  // 5.24r4 Windows (G3D15010): first one-exe quattro_lib. Receive switch is
+  // the 6.03r7 set without 111 (Protocol524r4.PLOKnown). Login draws tiles
+  // (v5v6-lab-play.md); no ping answer in the rebuild. Quattro's send floor
+  // is the late-5/6.x pli (39 never sent).
+  BuildProfile r524 = r603;
+  r524.label = "5.24r4 Windows";
+  r524.token = "G3D15010";
+  r524.platform = "win";
+  r524.machine_fields = kFakeWinFields;
+  r524.has_os_version = true;
+  r524.os_version = "6.2 9200 ";
+  r524.answers_ping = false;
+  r524.login_draws_tiles = true;
+  r524.hud_6x = false;
+  r524.draws_chests = true;
+  r524.title_is_server = false;
+  r524.escape_menu = false;
+  r524.carry_sprite_after = 4;
+  r524.carry_still_after = 6;
+  r524.plo.reset(111);
+  rows.push_back(r524);
+
   // 4.04r2 (Windows, the GraalEngine.dll session, used by
   // common/cpp/graalengine). From Graal_analysis protocol/v4x-clients.md
   // and version-profiles/4.04-4.20.toml, as graal-4.04r2-G3D17026's
