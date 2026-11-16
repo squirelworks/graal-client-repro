@@ -23,6 +23,8 @@ to the program works too (`graal-assets/6.03r7/`, then
 
 ## What's new in v0.0.5
 
+- [x] Quattro draws `PARAMn` gani sheets and step tokens from comma params / `DEFAULTPARAMn` (PARAM1 falls back to the sword; a PARAM1 step draws the carried object at its offset).
+
 - [x] Quattro draws floor items from `PLO_ITEMADD` / local lays (bush gralats, dropped rupees): bounce, blink, shadow, `ITEMTAKE` pickup and `ITEMDEL` expiry (2.05 Adventure rules).
 
 - [x] Quattro HUD draws the selected weapon beside the D tab (whole image at x 170, centred on y 45) when weapons are enabled; asset lookup also searches `levels/weapons` and `weapons`.

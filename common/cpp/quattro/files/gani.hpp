@@ -40,7 +40,8 @@ struct Gani {
   std::vector<GaniStep> steps;
   bool loop = false, continuous = false, single_direction = false;
   std::string set_back_to, default_head, default_body;
-  std::array<std::string, 31> default_attr;  // 1..30
+  std::array<std::string, 31> default_attr;   // 1..30
+  std::array<std::string, 21> default_param;  // 1..20 (DEFAULTPARAMn)
 
   const GaniSprite* sprite(int id) const;
   int total_ticks() const;

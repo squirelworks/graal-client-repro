@@ -41,11 +41,12 @@ struct Actor {
   int dir = 2;       // 0 up, 1 left, 2 down, 3 right
   int ani_tick = 0;  // 50 ms ticks since this gani started
   std::string head, body, sword, shield;
-  std::array<std::string, 31> attr;  // 1..30
-  std::array<int, 5> colors{};      // skin, coat, sleeves, shoes, belt
-  // The carried object's cell on sprites.png (width 0: nothing carried),
-  // drawn at (8, head y - 22) from the top-left. `lift_tick` >= 0 while it
-  // is being lifted: it waits on the ground row, then rises (kLiftY).
+  std::array<std::string, 31> attr;   // 1..30
+  std::array<std::string, 21> param;  // 1..20: gani comma params / DEFAULTPARAMn
+  std::array<int, 5> colors{};        // skin, coat, sleeves, shoes, belt
+  // The carried object's cell on sprites.png (width 0: nothing carried).
+  // A PARAM1 step part draws it at that part's offset; otherwise it sits
+  // at (8, head y - 22). `lift_tick` >= 0 while lifting (kLiftY).
   Rect carry{0, 0, 0, 0};
   int lift_tick = -1;
   static constexpr int kLiftTicks = 8;

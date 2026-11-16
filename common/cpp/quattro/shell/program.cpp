@@ -329,8 +329,15 @@ Draw::Actor Program::actor_for(int id, const World::Player& p) {
   a.y = p.y;
   a.chat = p.chat;
   a.gani = p.gani.empty() ? "idle" : p.gani;
-  // replaceani from an offline level's script (idle -> human2_idle in 4.x).
-  if (auto r = replace_ani_.find(lower_name(a.gani)); r != replace_ani_.end()) a.gani = r->second;
+  // replaceani matches the gani base name (before comma params).
+  {
+    std::string base = a.gani;
+    if (auto c = base.find(','); c != std::string::npos) base.resize(c);
+    if (auto r = replace_ani_.find(lower_name(base)); r != replace_ani_.end()) {
+      if (auto c = a.gani.find(','); c != std::string::npos) a.gani = r->second + a.gani.substr(c);
+      else a.gani = r->second;
+    }
+  }
   a.dir = p.dir;
   a.head = p.head;
   a.body = p.body;
