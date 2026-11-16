@@ -7,6 +7,14 @@ Windows 2.31 client with its own token. This folder starts from
 binary and from the Mac lab run. Where a behaviour is not in either, the
 3.04 lab run is taken to hold. This is the 0.0.1 reproduction: hit or miss.
 
+## Repro tracks
+
+Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
+
+- **default:** Delphi/Pascal stand-in (no-argument / release entry on main today).
+- **faithful engine:** Torque `graal304-torque` / `common/torque` (ships beside Pascal; not no-arg default on main) — still being wired; not the release default.
+- **relic:** none yet. When the faithful engine is validated end-to-end and switched to default, the Pascal stand-in becomes the labeled relic/fallback and is never deleted.
+
 ## Sources
 
 From [graal_analysis](https://github.com/squirelworks/graal_analysis), not

@@ -16,6 +16,14 @@ server's 4.02.11 entry can be tested; it is not a reproduction of a real
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").
 
+## Repro tracks
+
+Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
+
+- **default:** Delphi/Pascal stand-in (no-argument / release entry on main today).
+- **faithful engine:** Split launcher + engine library (inferred stand-in; not wired in this folder) — still being wired; not the release default.
+- **relic:** none yet. When the faithful engine is validated end-to-end and switched to default, the Pascal stand-in becomes the labeled relic/fallback and is never deleted.
+
 ## Why 4.20r8
 
 The nearest real Windows 4.x builds on each side are 4.03r3 (`G3D09125`,

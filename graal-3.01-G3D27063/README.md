@@ -5,6 +5,14 @@ from `graal-3.04-G3D03014` and changes what is known of 3.01. It was never run i
 the lab, so everything not listed below is the sibling's. This
 is the 0.0.1 reproduction: hit or miss.
 
+## Repro tracks
+
+Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
+
+- **default:** Delphi/Pascal stand-in (no-argument / release entry on main today).
+- **faithful engine:** Torque windowed host (shared `graal304-torque` line); boot/profile for this token still open — still being wired; not the release default.
+- **relic:** none yet. When the faithful engine is validated end-to-end and switched to default, the Pascal stand-in becomes the labeled relic/fallback and is never deleted.
+
 ## Sources
 
 From [graal_analysis](https://github.com/squirelworks/graal_analysis), not

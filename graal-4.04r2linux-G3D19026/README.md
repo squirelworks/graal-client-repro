@@ -13,6 +13,14 @@ logged in to a local lab server, and its first frame carried `G3D19026`
 (graal_analysis `protocol/linux-local-login-matrix.md`). Nothing else of
 its login line was published, so the rest is inferred.
 
+## Repro tracks
+
+Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
+
+- **default:** Delphi/Pascal stand-in (no-argument / release entry on main today).
+- **faithful engine:** Split launcher + engine library (Linux sibling) — still being wired; not the release default.
+- **relic:** none yet. When the faithful engine is validated end-to-end and switched to default, the Pascal stand-in becomes the labeled relic/fallback and is never deleted.
+
 ## Sources
 
 From [graal_analysis](https://github.com/squirelworks/graal_analysis), not

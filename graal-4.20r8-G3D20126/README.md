@@ -12,6 +12,14 @@ with its signature check patched out. The notes are read from that copy;
 the lab ran it with the eight hooked bytes put back. Nothing here copies
 from it.
 
+## Repro tracks
+
+Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
+
+- **default:** Delphi/Pascal stand-in (no-argument / release entry on main today).
+- **faithful engine:** C++ boot stub / shell (`host4208`); full engine-library session still open — still being wired; not the release default.
+- **relic:** none yet. When the faithful engine is validated end-to-end and switched to default, the Pascal stand-in becomes the labeled relic/fallback and is never deleted.
+
 ## Sources
 
 From [graal_analysis](https://github.com/squirelworks/graal_analysis), not
