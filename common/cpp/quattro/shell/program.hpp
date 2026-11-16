@@ -119,6 +119,8 @@ class Program {
   bool player_killing() const { return player_killing_; }
   // showstats bits (default 0x1FF): which HUD parts draw.
   int show_stats() const { return show_stats_; }
+  // seteffect(r,g,b,a): global day/night tint (0..1 each; default 1,1,1,1).
+  const double* screen_effect() const { return screen_effect_; }
   const std::string& shoot_params() const { return shoot_params_; }
   Draw::Assets& assets() { return *assets_; }
   const std::string& level_name() const { return level_name_; }
@@ -237,6 +239,8 @@ class Program {
   bool def_movement_ = true, weapons_enabled_ = true, select_weapons_enabled_ = true;
   bool player_killing_ = true;  // noplayerkilling clears this for the level
   int show_stats_ = 0x1FF;  // Adventure default: all HUD parts
+  // seteffect: day/night multiply on the level (below the HUD).
+  double screen_effect_[4] = {1, 1, 1, 1};
   std::string shoot_params_;
   std::set<int> keys_down_;  // virtual-key codes held (from the window's input events)
   bool props_sent_ = false;

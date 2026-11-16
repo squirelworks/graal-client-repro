@@ -181,6 +181,15 @@ void Program::register_script_commands() {
     show_stats_ = static_cast<int>(mm.toNumber(a[0]));
     return zero;
   });
+  // seteffect(r, g, b, a): global screen tint (day/night). GS1 seteffect;
+  // Graal_analysis npc-library/gs1-command-reference-205.md. The 2.05
+  // online gate needed PLO_HASNPCSERVER (44); 2.31 dropped that id and
+  // Classic always has an NPC server, so 6.03r7 always applies it.
+  m.addCommand("seteffect", "nnnn", [this, zero](gs2::Machine& mm, gs2::Var&, Args& a) {
+    auto clamp01 = [](double v) { return std::max(0.0, std::min(1.0, v)); };
+    for (int i = 0; i < 4; ++i) screen_effect_[i] = clamp01(mm.toNumber(a[static_cast<size_t>(i)]));
+    return zero;
+  });
 
   // Step 3: the sign box.
   m.addCommand("say2", "s", [this, zero](gs2::Machine& mm, gs2::Var&, Args& a) {

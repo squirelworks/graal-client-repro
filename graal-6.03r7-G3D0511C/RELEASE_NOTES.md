@@ -23,6 +23,8 @@ to the program works too (`graal-assets/6.03r7/`, then
 
 ## What's new in v0.0.5
 
+- [x] Quattro `seteffect(r, g, b, a)`: global day/night tint on the level (0..1 each; multiply below the HUD).
+
 - [x] Quattro `noplayerkilling`: turns off player-vs-player damage for the level (other players' swings, HURTPLAYER, blasts and shots); own blasts still hurt; resets on level change.
 
 - [x] Quattro `enableselectweapons` / `disableselectweapons`: scripts can allow or block opening the Q/Tab item list (GS1); disable closes it if open.
