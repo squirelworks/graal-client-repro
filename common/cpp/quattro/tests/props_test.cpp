@@ -686,7 +686,7 @@ void test_hits() {
   // a bomb at (30.5, 31) puts its centre at the body's centre.
   CHECK(c.on_message(36, gshort(5) + gchar(2) + gchar(61) + gchar(62) + gchar(1)));
   auto hits = c.hits_on(me, tables, back);
-  CHECK(hits.size() == 1 && hits[0].hearts == 0.5);
+  CHECK(hits.size() == 1 && hits[0].hearts == 0.5 && hits[0].pvp);
   c.clear();
   CHECK(c.on_message(36, gshort(5) + gchar(2) + gchar(61) + gchar(62) + gchar(3)));
   CHECK(c.hits_on(me, tables, back)[0].hearts == 1.0);
@@ -695,7 +695,7 @@ void test_hits() {
   // sends it back as this player's own.
   CHECK(c.on_message(19, gshort(5) + gchar(62) + gchar(62) + gchar(1) + gchar(108) + gchar(1)));
   hits = c.hits_on(me, tables, back);
-  CHECK(hits.size() == 1 && hits[0].kx == -1 && c.shots().empty());
+  CHECK(hits.size() == 1 && hits[0].kx == -1 && hits[0].pvp && c.shots().empty());
   me.dir = 3;
   me.shield_power = 2;
   CHECK(c.on_message(19, gshort(5) + gchar(62) + gchar(62) + gchar(1) + gchar(108) + gchar(1)));
