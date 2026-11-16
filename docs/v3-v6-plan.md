@@ -34,8 +34,8 @@ Graal_analysis read of the real build. Open PRs are counted as not merged.
 
 | Build | Repro today | Original | Missing |
 |---|---|---|---|
-| **3.04** Linux `G3D03014` | Pascal stand-in still ships; separately, `graal304-torque` boots the install's `main.cs`, draws the stock GUI, takes keys / F2, and hosts the 2D game through `GuiGraalCtrl` (#255, #257, #259, #258). Player actions through `doA`/`doS`/`doD`/`doQ` (#358). Lab check of the windowed program is still open (#303) | TGE 1.2 program; menus are `.dso`; game is `GuiGraalCtrl` (31 methods) | Lab pass; UDP between players; Tutorial fidelity; side-by-side; replace the release stand-in |
-| **3.153** Mac PPC `G3D28015` | Pascal stand-in with 3.04's login frame; player actions on the Torque bridge (#358, #364) | Same engine as 3.04 on PowerPC: big-endian `.dso` float tables, the Mac script layout, four `GuiGraalCtrl` methods 3.04 lacks | 3.153 boot profile, PPC DSO variant and the four methods; 3D mode (protocol 19 on port + 1) later |
+| **3.04** Linux `G3D03014` | `graal304-torque` is the no-argument default; Pascal via `--pascal` / env. Boots the install's `main.cs`, draws the stock GUI, takes keys / F2, hosts the 2D game through `GuiGraalCtrl` (#255, #257, #259, #258). Player actions through `doA`/`doS`/`doD`/`doQ` (#358). Lab check of the windowed program is still open (#303) | TGE 1.2 program; menus are `.dso`; game is `GuiGraalCtrl` (31 methods) | Lab pass; UDP between players; Tutorial fidelity; side-by-side |
+| **3.153** Mac PPC `G3D28015` | Same Torque default entry as 3.04; Pascal fallback; player actions on the Torque bridge (#358, #364) | Same engine as 3.04 on PowerPC: big-endian `.dso` float tables, the Mac script layout, four `GuiGraalCtrl` methods 3.04 lacks | 3.153 boot profile, PPC DSO variant and the four methods; 3D mode (protocol 19 on port + 1) later |
 | **4.04r2** `G3D17026` | Pascal launcher plus `common/cpp/graalengine`: embedded GS2 menus, offline tutorial, weapon/item keys, built-in 2D actions (#264, #315, #360). Update packages after login still open (#304) | Delphi launcher plus `GraalEngine`; menus are 14 compiled GS2 scripts embedded in the exe | Update packages (`GRPKG001`), scripted server weapons, full 3D world |
 | **4.11 Mac** `G3D27076` (first named 4.20r6) | Pascal stand-in; sibling of the engine-library line | Mac build of the 4.1x split | Same as 4.20r8, plus a Mac window |
 | **4.20r8** `G3D20126` | Pascal stand-in / shell; built-in 2D actions (#360); C++ boot stub (`host4208`) is not the engine | Delphi launcher plus `GraalEngine.dll` and `Graal3DEngine.dll` | Engine-library session like 4.04r2; `GR-V1.05` board layers; 3D |
@@ -67,8 +67,9 @@ files).
 - [x] Keys through `ActionMap`, F2 console, remap (#259)
 - [x] `GuiGraalCtrl` hosts the 2D game (#258)
 - [x] Windowed `graal304-torque` (Linux X11, Windows GDI, macOS Cocoa)
-- [ ] Debian lab check of that windowed program; then drop the Pascal
-  stand-in as the release entry when Squirrel says so
+- [x] `graal304-torque` is the no-argument release entry for 3.04 and 3.153
+  (Pascal via `--pascal` / `GRAAL_PASCAL=1` / `GRAAL_PASCAL_GAME=1`)
+- [ ] Debian lab check of that windowed program (#303)
 - [ ] 3.153 boot profile: PPC `.dso` floats, its script layout, the four
   3.153 methods, compared with its own captures
 - [ ] 3D mode: the Torque world (terrain, interiors, DTS) and protocol 19

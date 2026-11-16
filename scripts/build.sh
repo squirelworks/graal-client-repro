@@ -109,9 +109,9 @@ for B in $BUILDS; do
     TARGET_OS=$("$FPC" -iTO 2>/dev/null || true)
     case "$(uname -s)/$TARGET_OS" in
       Linux/linux)
-        echo "== common/torque/guigraal (graal304-torque, lib$GAMEBASE.so)"
-        make -C "$G" lib build/graal304-torque CXX="${CXX:-g++}" FPC="$FPC"
-        cp "$G/build/graal304-torque" "$G/build/lib/lib$GAMEBASE.so" "$OUT/"
+        echo "== common/torque/guigraal (graal304-torque, tq-play, lib$GAMEBASE.so)"
+        make -C "$G" lib build/graal304-torque build/tq-play CXX="${CXX:-g++}" FPC="$FPC"
+        cp "$G/build/graal304-torque" "$G/build/tq-play" "$G/build/lib/lib$GAMEBASE.so" "$OUT/"
         ;;
       Darwin/darwin|Linux/darwin)
         # macOS: graal304-torque.app with the game library inside. On Linux

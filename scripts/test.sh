@@ -87,6 +87,33 @@ if [ -x "$PLAYER" ]; then
   echo "== $PLAYER --self-check"
   "$PLAYER" --self-check --world "$WORLD" || fail graal-worlds-614-20240421 "worlds-player --self-check failed"
 fi
+# Torque FakeServer / loopback: menu to gserver login on 127.0.0.1 for the
+# 3.04 and 3.153 libraries when tq-play was built with them.
+run_torque_online() {
+  local B=$1 LIB=$2 TOKEN=$3
+  local G="$ROOT/common/torque/guigraal"
+  local PLAY=""
+  if [ -x "$G/build/tq-play" ]; then PLAY="$G/build/tq-play"
+  elif [ -x "$ROOT/build/$B/tq-play" ]; then PLAY="$ROOT/build/$B/tq-play"
+  else return 0
+  fi
+  if [ ! -f "$G/build/lib/$LIB" ] && [ -f "$ROOT/build/$B/$LIB" ]; then
+    mkdir -p "$G/build/lib"
+    cp "$ROOT/build/$B/$LIB" "$G/build/lib/$LIB"
+  fi
+  [ -f "$G/build/lib/$LIB" ] || return 0
+  # online.sh expects tq-play under guigraal/build/
+  if [ ! -x "$G/build/tq-play" ]; then
+    mkdir -p "$G/build"
+    cp "$PLAY" "$G/build/tq-play"
+  fi
+  echo "== torque online ($B, $TOKEN)"
+  if ! GAME_LIB="$LIB" GAME_TOKEN="$TOKEN" sh "$G/tests/online.sh"; then
+    fail "$B" "torque FakeServer/loopback (online.sh) failed"
+  fi
+}
+run_torque_online graal-3.04-G3D03014 libGame304Lib.so G3D03014
+run_torque_online graal-3.153-G3D28015 libGame3153Lib.so G3D28015
 if [ "$FAIL" -ne 0 ]; then
   echo "== failed:$FAILED"
 fi

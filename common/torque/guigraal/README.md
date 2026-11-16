@@ -26,6 +26,13 @@ frame scaled into the control.
 
 ### graal304-torque
 
+Default interactive entrypoint for the 3.04 and 3.153 rebuilds: with no
+arguments, `Graal304` / `Graal3153` start this program when it sits beside
+them. Pascal remains the fallback (`--pascal`, `GRAAL_PASCAL=1` /
+`GRAAL_PASCAL_GAME=1`, missing binary, or no `DISPLAY` on Linux).
+`scripts/test.sh` runs `tests/online.sh` (FakeServer loopback) for each
+built game library.
+
 `build/graal304-torque [--root INSTALL] [--prefs DIR] [--game LIB]
 [--steps FILE] [--seconds N] [--trace FILE] [--shot FILE.bmp]` is the windowed
 program. It boots the install from its own `main.cs`

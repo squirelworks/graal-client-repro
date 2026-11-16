@@ -58,29 +58,30 @@ decompiled code:
 
 ## Running it
 
-### On the Torque engine (Linux, Windows, macOS)
+### Default: the Torque engine (Linux, Windows, macOS)
 
-The Linux zip also holds `graal304-torque` and `libGame304Lib.so`; the
-Windows zip holds `graal304-torque.exe` and `Game304Lib.dll`. Copy both
-into the root of a 3.04 install (beside `main.cs`) and start
-`graal304-torque`. The macOS zips hold `graal304-torque.app`, with the
-game library inside it: drag the app with the Finder into the root of
-the install and open it. It is not signed, so the first time macOS
-blocks it: choose System Settings > Privacy & Security > Open Anyway
-(macOS 15 has no Control-click Open), or run
-`xattr -dr com.apple.quarantine graal304-torque.app`. It runs the install's own scripts on the rebuilt
-Torque engine (`common/torque/guigraal`): the install's main menu, server
-list, options and F2 console, with the game below drawn inside the
-`Adventure` control. It also starts from the install folder as the current
-folder, or with `--root DIR`. Prefs go to `~/.graal304-torque`
-(`%APPDATA%\graal304-torque` on Windows). On Linux it needs an X11
-display.
+Put the zip's programs in the root of a 3.04 install (beside `main.cs`).
+With no arguments, `Graal304` starts `graal304-torque` next to it (the
+install's own main menu, server list, options, F2 console, and the game
+in `GuiGraalCtrl` / `Adventure`, with `doA` / `doS` / `doD` / `doQ`).
+You can also start `graal304-torque` yourself. The Linux zip holds
+`graal304-torque` and `libGame304Lib.so`; Windows holds
+`graal304-torque.exe` and `Game304Lib.dll`; macOS holds
+`graal304-torque.app` with the game library inside (drag the app into the
+install; it is not signed, so the first time choose System Settings >
+Privacy & Security > Open Anyway, or run
+`xattr -dr com.apple.quarantine graal304-torque.app`). Prefs go to
+`~/.graal304-torque` (`%APPDATA%\graal304-torque` on Windows). On Linux it
+needs an X11 display. `--root DIR` still works on the Torque program.
 
-### The Pascal program
+### Pascal fallback
 
-Put `Graal304` in the root of a 3.04 install (where the original
-`graalexe` lies) and start it with no arguments for the start screen. It
-finds the install's files from there, or from `graal-assets/3.04/` and
+`Graal304 --pascal`, or `GRAAL_PASCAL=1` / `GRAAL_PASCAL_GAME=1`, opens the
+Pascal start screen instead. The same fallback applies when
+`graal304-torque` is missing, or on Linux with no `DISPLAY`. CLI runs
+(`--server`, `--level`, stress) stay in Pascal. Put `Graal304` in the root
+of a 3.04 install (where the original `graalexe` lies); it finds the
+install's files from there, or from `graal-assets/3.04/` and
 `graal-assets/common/` next to it.
 
 It reads the 3.04 install's own layout: tile sheets in `levels/tiles/`

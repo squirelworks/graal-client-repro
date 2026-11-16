@@ -3,6 +3,8 @@
   2.22 wire (graal_analysis protocol/v3x-clients.md).
 
   Command line:
+    Graal304                 # graal304-torque (Torque menus); Pascal with --pascal
+    Graal304 --pascal        # Pascal start screen
     Graal304 --server HOST:PORT --account NAME [--password-env VAR]
     Graal304 --level FILE.graal|FILE.nw|FILE.gmap [--x X --y Y]
   common options:
@@ -65,6 +67,7 @@ uses
   GraalClient in 'GraalClient.pas',
   Adventure in 'Adventure.pas',
   GStartScreen in '../../common/GStartScreen.pas',
+  GTorquePlay in '../../common/GTorquePlay.pas',
   ListServer304 in 'ListServer304.pas',
   StartScreen304 in 'StartScreen304.pas',
   RunMode in 'RunMode.pas';
@@ -112,7 +115,9 @@ end;
 procedure Usage;
 begin
   WriteLn('Graal ', ClientBuildLabel, ' (', ClientVersionToken, ') rebuild');
-  WriteLn('  (no arguments: the start screen, Training or the server list)');
+  WriteLn('  (no arguments: graal304-torque; Pascal start screen with --pascal');
+  WriteLn('   or GRAAL_PASCAL=1 / GRAAL_PASCAL_GAME=1)');
+  WriteLn('  --pascal         Pascal start screen (Training or the server list)');
   WriteLn('  --server HOST:PORT --account NAME [--password-env VAR]');
   WriteLn('          [--secure-login off|auto|required] [--server-key KEY]');
   WriteLn('  --level FILE [--x X --y Y]');
@@ -595,10 +600,26 @@ begin
   end;
 end;
 
+var
+  TorqueExe: string;
 begin
   Randomize;
-  if ParamCount = 0 then
+  { Interactive default: the Torque program beside this one. Pascal is the
+    fallback with --pascal / GRAAL_PASCAL=1, when torque is missing, or with
+    no DISPLAY on Linux. CLI (--server, --level, stress) stays in Pascal. }
+  if (ParamCount = 0) or ((ParamCount = 1) and (ParamStr(1) = '--pascal')) then
+  begin
+    if ParamCount = 0 then
+    begin
+      TorqueExe := TorqueProgram(ExtractFilePath(ParamStr(0)));
+{$IFDEF LINUX}
+      if (TorqueExe <> '') and (GetEnvironmentVariable('DISPLAY') = '') then
+        TorqueExe := '';
+{$ENDIF}
+      if TorqueExe <> '' then Halt(RunTorque(TorqueExe));
+    end;
     Halt(RunGui);
+  end;
   OpenConsoleIO;
   Halt(RunGame(nil, '', ''));
 end.
