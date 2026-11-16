@@ -3,6 +3,7 @@
 #include "../net/profile.hpp"
 #include "../world/effects.hpp"
 #include "../world/weapons.hpp"
+#include "../world/floor_items.hpp"
 #include "../world/health.hpp"
 #include "../world/item_list.hpp"
 #include <map>
@@ -464,6 +465,51 @@ void test_effects() {
   CHECK(p.carry_sprite == -1);
 }
 
+void test_floor_items() {
+  FloorItems f;
+  Player p;
+  p.x = 30;
+  p.y = 30;
+  // Server ITEMADD: green gralat at (30, 30).
+  f.add(30, 30, 0);
+  CHECK(f.list().size() == 1 && f.list()[0].item == 0 && f.list()[0].life == FloorItems::kItemLife);
+  CHECK(is_floor_item(0) && is_floor_item(24) && !is_floor_item(6));
+  // First draw: bounce + shadow + sprite 136.
+  auto ps = f.pieces(nullptr, nullptr);
+  CHECK(ps.size() == 2 && ps[1].sprite == 136);
+  CHECK(ps[1].x == 30 * 16 + 16 - 8);  // centred on (x+1)*16 with w 16
+  // After four ticks, walk onto it offline: GiveItem +1 rupee.
+  for (int t = 0; t < 4; ++t) CHECK(f.tick(p, false).empty());
+  p.rupees = 0;
+  auto out = f.tick(p, false);
+  CHECK(out.empty() && f.empty() && p.rupees == 1);
+  // Online pickup sends ITEMTAKE.
+  f.add(30, 30, 0);
+  for (int t = 0; t < 4; ++t) f.tick(p, true);
+  out = f.tick(p, true);
+  CHECK(out.size() == 1 && out[0].id == FloorItems::kPlItemTake && f.empty());
+  CHECK(out[0].body == gchar(60) + gchar(60) + gchar(0));
+  // Expire: initial life >= 100 (not permanent); ages out → ITEMDEL.
+  f.add(10, 12, 1, 100);
+  for (int t = 0; t < 100; ++t) CHECK(f.tick(p, true).empty());
+  out = f.tick(p, true);
+  CHECK(out.size() == 1 && out[0].id == FloorItems::kPlItemDel &&
+        out[0].body == gchar(20) + gchar(24) && f.empty());
+  // Permanent (initial life < 100): no take, no ITEMDEL; still ages out locally.
+  f.add(5, 5, 0, 50);
+  CHECK(f.list()[0].permanent);
+  for (int t = 0; t < 60; ++t) CHECK(f.tick(p, true).empty());
+  CHECK(f.empty());
+  f.add(5, 5, 0, 50);
+  f.remove_at(5, 5);
+  CHECK(f.empty());
+  // Blink: after life falls below 37 and is odd, no pieces (far from player).
+  f.add(0, 0, 0);
+  for (int t = 0; t < FloorItems::kItemLife - 35; ++t) f.tick(p, true);
+  CHECK(f.list()[0].life == 35 && f.pieces(nullptr, nullptr).empty());
+  f.clear();
+}
+
 void test_carry_walk() {
   Files::Level l = open_level();
   TileTypes types;
@@ -691,6 +737,7 @@ int main() {
   test_item_keys("6.01r1", 4, 6);
   test_item_keys("4.04r2", 4, 6);
   test_effects();
+  test_floor_items();
   test_carry_walk();
   test_weapon_list();
   test_combat();

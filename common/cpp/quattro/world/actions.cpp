@@ -43,10 +43,6 @@ bool can_lay(const Player& p, int item) {
   }
 }
 
-bool floor_item(int item) {
-  return (item >= 0 && item <= 5) || item == 7 || item == 8 || item == 19 || item == 24;
-}
-
 int next_layable(const Player& p, int after) {
   const int n = static_cast<int>(sizeof(kLayOrder) / sizeof(kLayOrder[0]));
   int start = 0;
@@ -318,7 +314,7 @@ std::vector<Packet> ItemKeys::tick(Player& p, unsigned keys, unsigned arrows, Fi
       const int d = p.dir & 3;
       const double x = p.x + 0.5 + kLayDX[d];
       const double y = p.y + 1 + kLayDY[d];
-      if (floor_item(item)) {
+      if (is_floor_item(item)) {
         const unsigned ix = static_cast<unsigned>(std::lround(x * 2));
         const unsigned iy = static_cast<unsigned>(std::lround(y * 2));
         out.push_back({12, gchar(ix) + gchar(iy) + gchar(static_cast<unsigned>(item))});

@@ -33,8 +33,8 @@
 // Rebuild choices: the leaves' paths are the lab's per-tick drifts rounded
 // to one rule per corner; the break's offset past the landing cell was
 // measured facing right and down only; a thrown stone (carry sprite 3)
-// breaks into nothing, as it was not measured. The gralat the server drops
-// from a cut bush (its ITEMADD) is a floor item, not drawn yet.
+// breaks into nothing, as it was not measured. Floor items from ITEMADD
+// (bush gralats, lays) are drawn by `world/floor_items`.
 #pragma once
 
 #include "actions.hpp"
