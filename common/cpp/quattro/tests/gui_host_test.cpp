@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <fstream>
 
 using namespace Quattro;
 using gs2asm::Asm;
@@ -139,6 +140,74 @@ void test_menu(const std::string& root_name, bool alternate_root = false) {
 }
 
 
+// GuiShowImgCtrl with an `ani`: steps each tick with the control's actor
+// head, clipped to the control, offset into the rectangle (same shape as
+// graalengine's ShowImgPainter).
+void test_showimg_ani() {
+  namespace fs = std::filesystem;
+  fs::path dir = fs::temp_directory_path() / "quattro-gui-showimg";
+  fs::remove_all(dir);
+  fs::create_directories(dir / "levels" / "ganis");
+  fs::create_directories(dir / "levels" / "heads");
+  {
+    std::ofstream g(dir / "levels" / "ganis" / "wave.gani", std::ios::binary);
+    g << "GANI0001\nSPRITE 1 HEAD 0 0 4 4 head\nSINGLEDIRECTION\nANI\n1 0 0\n\n1 2 0\nANIEND\n";
+  }
+  Torque::Gui::Image red(4, 4, {255, 0, 0, 255});
+  std::string err;
+  CHECK(Torque::Gui::write_file((dir / "levels" / "heads" / "red.png").string(), Torque::Gui::encode_png(red), err));
+
+  Draw::HeadlessWindow win;
+  Shell::Options opt;
+  opt.width = 64;
+  opt.height = 48;
+  opt.assets = dir.string();
+  Shell::Program prog(*Net::find_profile("6.03r7"), opt, win);
+
+  Asm a;
+  a.function("onCreated", {});
+  // MainMenuGui2D so pick_content selects it as the screen content.
+  auto root = begin_new(a, "GuiControl", "MainMenuGui2D");
+  prop(a, "extent", "64 48");
+  auto show = begin_new(a, "GuiShowImgCtrl", "Walker");
+  prop(a, "position", "8 4");
+  prop(a, "extent", "40 36");
+  prop(a, "ani", "wave,some.wav");
+  a.var("offsetx").num(2).op(Asm::ASSIGN);
+  a.var("offsety").num(1).op(Asm::ASSIGN);
+  a.var("actor").op(Asm::TOOBJECT).var("head").op(Asm::MEMBER).str("red.png").op(Asm::ASSIGN);
+  end_new(a, show);
+  end_new(a, root);
+  a.num(0).op(Asm::RET);
+
+  auto script = prog.scripts().machine().newVar("StartScript_ShowImg");
+  CHECK(prog.scripts().machine().setScript(script, a.bytes(), &err));
+  prog.tick();
+  for (const auto& e : prog.scripts().machine().errors()) std::fprintf(stderr, "  %s\n", e.c_str());
+  CHECK(prog.scripts().machine().errors().empty());
+  CHECK(prog.gui().has_content());
+  auto walker = prog.gui().screen().find("Walker");
+  CHECK(walker && walker->actor);
+  const auto& passes = prog.last_passes();
+  CHECK(std::find(passes.begin(), passes.end(), "Draw_ShowImg") != passes.end());
+  CHECK(std::find(passes.begin(), passes.end(), "RenderGUI") != passes.end());
+
+  // Head at control (8,4) + offset (2,1) = (10,5); 4x4 red.
+  const auto& pix = win.last();
+  CHECK(pix.at(10, 5).r == 255 && pix.at(10, 5).g == 0);
+  CHECK(pix.at(13, 8).r == 255);
+  // Outside the control clip stays black.
+  CHECK(pix.at(0, 0).r == 0 && pix.at(0, 0).g == 0 && pix.at(0, 0).b == 0);
+
+  // Missing ani draws nothing on the cleared canvas.
+  walker->setProp("ani", "missing");
+  prog.tick();
+  int lit = 0;
+  for (const auto& px : win.last().pixels) lit += px.r;
+  CHECK(lit == 0);
+  fs::remove_all(dir);
+}
+
 // A particle: a 4 x 4 red square doubled in size, added onto black, and
 // transparent at half alpha.
 void test_sprite() {
@@ -170,6 +239,7 @@ int main() {
   test_font();
   test_menu("MainMenuGui2D", true); // both names: preserve the existing preference
   test_menu("GUIContainer");       // native-shaped root: actual pixels and input
+  test_showimg_ani();
   test_sprite();
   TEST_MAIN_END();
 }

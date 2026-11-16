@@ -449,6 +449,50 @@ void Program::player_changed(int old_power) {
 
 // ---------------------------------------------------------------- drawing
 
+namespace {
+
+// `ani` may carry a trailing ",sound" like the 4.04r2 menu (wave,some.wav).
+std::string showimg_ani_name(const std::string& s) {
+  const auto comma = s.find(',');
+  std::string out = comma == std::string::npos ? s : s.substr(0, comma);
+  while (!out.empty() && (out.back() == ' ' || out.back() == '\t')) out.pop_back();
+  return out;
+}
+
+}  // namespace
+
+void Program::draw_showimg_ctrl(const gs2::gui::Control& c, const gs2::gui::Rect& r) {
+  if (!assets_ || r.w <= 0 || r.h <= 0) return;
+  const std::string ani = showimg_ani_name(c.prop("ani"));
+  if (ani.empty() || !assets_->gani(ani)) return;
+  auto& clock = showimg_start_[&c];
+  if (clock.first != ani) {
+    clock.first = ani;
+    clock.second = frame_;
+  }
+  Draw::Actor a;
+  a.gani = ani;
+  a.dir = static_cast<int>(c.numProp("dir", 2)) & 3;
+  a.ani_tick = frame_ - clock.second;
+  if (c.actor) {
+    if (auto v = c.actor->child("head")) a.head = v->string();
+    if (auto v = c.actor->child("body")) a.body = v->string();
+    if (auto v = c.actor->child("sword")) a.sword = v->string();
+    if (auto v = c.actor->child("shield")) a.shield = v->string();
+    if (auto v = c.actor->child("attr"))
+      for (std::size_t i = 1; i < a.attr.size() && i < v->elements().size(); ++i) {
+        const std::string s = v->elements()[i]->string();
+        if (!s.empty() && s != "0") a.attr[i] = s;
+      }
+  }
+  const int ox = static_cast<int>(c.numProp("offsetx"));
+  const int oy = static_cast<int>(c.numProp("offsety"));
+  canvas_.push_clip({r.x, r.y, r.w, r.h});
+  renderer_.draw_actor(canvas_, a, r.x + ox, r.y + oy, {0, 0, 0, 0});
+  canvas_.pop_clip();
+  passes_.push_back("Draw_ShowImg");
+}
+
 void Program::draw_show_images(bool screen_layer) {
   if (show_images_.size() == 0) return;
   Draw::View view = Draw::follow(world_, canvas_.width(), canvas_.height());

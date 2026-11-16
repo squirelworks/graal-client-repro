@@ -115,8 +115,13 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
     for (const char* sub : {"", "/gui", "/images", "/levels", "/levels/images"}) dirs.push_back(opt_.assets + sub);
   painter_ = std::make_unique<CanvasPainter>(canvas_, dirs);
   painter_->on_engine_control = [this](const gs2::gui::Control& c, const gs2::gui::Rect& r) {
+    const std::string t = lower_name(c.type());
+    if (t == "guishowimgctrl") {
+      draw_showimg_ctrl(c, r);
+      return;
+    }
     // The playfield: the world passes inside the control's rectangle.
-    if (c.type() != "GuiGraalCtrl" && c.type() != "guigraalctrl") return;
+    if (t != "guigraalctrl") return;
     canvas_.push_clip({r.x, r.y, r.w, r.h});
     renderer_.draw(canvas_, world_, Draw::follow(world_, canvas_.width(), canvas_.height()),
                    [this](const std::string& name) { passes_.push_back(name); });
