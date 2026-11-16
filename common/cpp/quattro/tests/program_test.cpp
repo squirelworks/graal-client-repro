@@ -981,6 +981,61 @@ void test_select_weapons() {
   CHECK(p.item_list_open());
 }
 
+// testnpc(x, y): index of the level NPC whose image box covers the point, or -1.
+void test_testnpc() {
+  const Net::BuildProfile* prof = Net::find_profile("6.03r7");
+  CHECK(prof);
+  if (!prof) return;
+  namespace fs = std::filesystem;
+  const fs::path root = fs::temp_directory_path() / ("quattro-testnpc-" + std::to_string(std::rand()));
+  Files::Board b{};
+  // Two NPCs: later one is on top for the same point (NpcAt walks reverse).
+  const std::string npcs = gchar(10) + gchar(12) + "box.png#;\n" + gchar(10) + gchar(12) + "box.png#;\n";
+  write(root / "levels/probe.nw",
+        "GR-V1.03" + Files::write_board_stream(b) + "#\n\xFF\xFF\xFF\n" + npcs + "#\n#\n\n");
+  Draw::Image box(32, 32, {255, 0, 0, 255});  // 2 x 2 tiles
+  const auto png = Torque::Gui::encode_png(box);
+  write(root / "levels/images/box.png", std::string(png.begin(), png.end()));
+
+  FakeServer game;
+  CHECK(game.start());
+  Shell::Options opt;
+  opt.host = "127.0.0.1";
+  opt.port = game.port();
+  opt.server_name = "Lab Server";
+  opt.assets = root.string();
+  Draw::HeadlessWindow win;
+  Shell::Program p(*prof, opt, win);
+  CHECK(p.start());
+  CHECK(game.conn.accept_from(game.listener));
+  CHECK(run(p, nullptr, &game, [&] { return game.saw(37, "English"); }));
+  game.send(send_level("probe.nw", 7) + gchar(9) + gchar(World::kStatus) + gchar(0) + "\n" +
+            gchar(33) + Net::gstring("Probe") + "\n");
+  CHECK(run(p, nullptr, &game, [&] {
+    return p.world().have_level && p.world().level.npcs.size() == 2 && p.weapons().any_shown();
+  }));
+
+  using gs2asm::Asm;
+  Asm a;
+  a.function("public.at", {"x", "y"});
+  a.op(Asm::MARKER).var("y").var("x").callName("testnpc").op(Asm::RET);
+  Shell::ScriptDescriptor d;
+  d.type = "weapon";
+  d.name = "Probe";
+  std::string raw = gchar(140) + Shell::make_script_packet(d, a.bytes()) + "\n";
+  game.send(gchar(100) + Net::gint3(static_cast<uint32_t>(raw.size())) + "\n" + raw);
+  CHECK(run(p, nullptr, &game, [&] { return p.scripts().machine().hasScript(p.scripts().weapon("Probe")); }));
+  auto probe = p.scripts().weapon("Probe");
+  auto& m = p.scripts().machine();
+  // Inside the 2 x 2 box: topmost NPC is index 1.
+  CHECK(m.callFunction(probe, "at", {gs2::Value::number(10.5), gs2::Value::number(12.5)}).num == 1);
+  CHECK(m.callFunction(probe, "at", {gs2::Value::number(11.9), gs2::Value::number(13.9)}).num == 1);
+  // Outside the box, or on the exclusive right/bottom edge.
+  CHECK(m.callFunction(probe, "at", {gs2::Value::number(12), gs2::Value::number(12.5)}).num == -1);
+  CHECK(m.callFunction(probe, "at", {gs2::Value::number(9.5), gs2::Value::number(12.5)}).num == -1);
+  fs::remove_all(root);
+}
+
 // noplayerkilling turns off other players' swings and HURTPLAYER for the level.
 void test_noplayerkilling() {
   const Net::BuildProfile* prof = Net::find_profile("6.03r7");
@@ -1099,6 +1154,7 @@ int main() {
   test_weapon_scripts();
   test_escape_menu();
   test_select_weapons();
+  test_testnpc();
   test_noplayerkilling();
   test_seteffect();
   TEST_MAIN_END();
