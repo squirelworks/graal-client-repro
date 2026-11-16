@@ -256,7 +256,10 @@ the rest of the corpus's long tail (no name blocks more than 16 weapons).
   real client does), and so is a player when no
   gani (not even `idle`) is in `--assets`. Body colours take the
   palette entries and the 20 colours of the Pascal clients; that 6.x uses
-  the same entries was not seen in a lab. `PARAMn` sprites are not drawn yet. A gani steps once per 50 ms tick and starts over when the
+  the same entries was not seen in a lab. `PARAMn` sheets and step tokens
+  use the gani's comma params (prop 10 `name,p1,...`), `DEFAULTPARAMn`, or
+  the sword for PARAM1; a PARAM1 step draws the carried object at its
+  offset. A gani steps once per 50 ms tick and starts over when the
   player's gani changes.
 - Upper board layers treat tile 0 as empty; each layer's bit stream starts
   on a new byte. The 5.x note gives the layer count and boards, not these.

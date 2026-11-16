@@ -167,6 +167,9 @@ bool read_gani(std::string_view text, Gani& g) {
         g.default_head = w[1];
       } else if (key == "defaultbody" && w.size() > 1) {
         g.default_body = w[1];
+      } else if (key.compare(0, 12, "defaultparam") == 0 && w.size() > 1) {
+        int n = int_or(key.substr(12), 0);
+        if (n >= 1 && n <= 20) g.default_param[static_cast<size_t>(n)] = w[1];
       } else if (key.compare(0, 11, "defaultattr") == 0 && w.size() > 1) {
         int n = int_or(key.substr(11), 0);
         if (n >= 1 && n <= 30) g.default_attr[static_cast<size_t>(n)] = w[1];

@@ -275,6 +275,28 @@ void test_actor_drawing() {
   Draw::Canvas d(160, 160);
   r.draw(d, w, v);
   CHECK(d.surface().at(32 + 10, 32 + 40).r == 230);
+
+  // PARAMn: a SPRITE sheet PARAM1 uses the gani comma param (or sword).
+  Files::Gani shoot;
+  CHECK(Files::read_gani("SPRITE 1 PARAM1 0 0 8 8 bow\nDEFAULTPARAM1 def.png\nSINGLEDIRECTION\nANI\n1 4 6\nANIEND\n", shoot));
+  CHECK(shoot.default_param[1] == "def.png");
+  assets.put_gani("shoot", shoot);
+  assets.put_image("wbow1.png", Draw::Image(8, 8, {9, 8, 7, 255}));
+  assets.put_image("sword1.png", Draw::Image(8, 8, {50, 50, 50, 255}));
+  w.player.gani = "shoot,wbow1.png";
+  w.player.dir = 2;
+  Draw::Canvas p(160, 160);
+  r.draw(p, w, v);
+  // Top-left (32,32) + part (4,6): the param image, not the sword.
+  CHECK(p.surface().at(32 + 4, 32 + 6).r == 9 && p.surface().at(32 + 4, 32 + 6).b == 7);
+  // PARAM1 step token with carry uses the carry cell at the part offset.
+  w.player.gani = "walk";
+  w.player.dir = 3;  // kWalk right row has PARAM1 0 0
+  w.player.carry = {0, 0, 32, 32};
+  Draw::Canvas q(160, 160);
+  r.draw(q, w, v);
+  CHECK(q.surface().at(32 + 0, 32 + 0).b == 3);
+  CHECK(q.surface().at(32 + 8, 32 - 22).b != 3);  // no head-fallback carry
 }
 
 void test_body_colours() {

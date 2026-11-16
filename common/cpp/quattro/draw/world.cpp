@@ -121,11 +121,28 @@ std::string upper(std::string s) {
 
 // The gani's step for the actor's tick and facing, each part from its
 // sheet (as the Pascal clients draw it, common/GAni.pas), the body in the
-// player's colours.
+// player's colours. Prop 10 may be "name,param1,param2,..."; PARAM sheet
+// and PARAM1 step parts use those images (Adventure.pas DrawPlayer).
 void WorldRenderer::draw_actor(Canvas& c, const Actor& a, int px, int py, Color box) const {
+  std::string gani_name = a.gani.empty() ? "idle" : a.gani;
+  std::array<std::string, 21> params = a.param;
+  if (auto comma = gani_name.find(','); comma != std::string::npos) {
+    // Fill empty param slots from the comma list after the gani name.
+    std::string rest = gani_name.substr(comma + 1);
+    gani_name.resize(comma);
+    size_t i = 1;
+    while (i < params.size() && !rest.empty()) {
+      auto next = rest.find(',');
+      std::string one = next == std::string::npos ? rest : rest.substr(0, next);
+      if (params[i].empty()) params[i] = one;
+      if (next == std::string::npos) break;
+      rest = rest.substr(next + 1);
+      ++i;
+    }
+  }
   const Files::Gani* g = nullptr;
   if (assets_) {
-    g = assets_->gani(a.gani.empty() ? "idle" : a.gani);
+    g = assets_->gani(gani_name);
     if (!g) g = assets_->gani("idle");
   }
   if (!g || g->steps.empty()) {
@@ -134,9 +151,38 @@ void WorldRenderer::draw_actor(Canvas& c, const Actor& a, int px, int py, Color 
     c.frame_rect({px + 8, py + 8, 32, 40}, {255, 255, 255, 255});
     return;
   }
+  for (size_t i = 1; i < params.size(); ++i)
+    if (params[i].empty()) params[i] = g->default_param[i];
+  auto param_file = [&](int n) -> std::string {
+    if (n >= 1 && n < static_cast<int>(params.size()) && !params[static_cast<size_t>(n)].empty())
+      return params[static_cast<size_t>(n)];
+    // Adventure: a SPRITE sheet PARAM1 falls back to the sword picture.
+    if (n == 1) return a.sword.empty() ? "sword1.png" : a.sword;
+    return {};
+  };
   const auto& parts = g->steps[g->step_at(a.ani_tick)].dirs[static_cast<size_t>(a.dir & 3)];
-  int head_y = 0;  // the carried object follows the head
+  int head_y = 0;  // the carried object follows the head when no PARAM1 part
+  bool has_param1 = false;
   for (const auto& part : parts) {
+    // PARAM1 step token: the carried object at this offset (lift/carry).
+    if (part.sprite == Files::kParamSprite - 1) {
+      has_param1 = true;
+      if (a.carry.width > 0) {
+        if (const Image* sprites = assets_->image("sprites.png"))
+          c.blit(*sprites, a.carry, px + part.x, py + part.y);
+      } else if (std::string file = param_file(1); !file.empty()) {
+        if (const Image* img = assets_->image(file)) c.blit(*img, px + part.x, py + part.y);
+      }
+      continue;
+    }
+    if (part.sprite <= Files::kParamSprite - 2) {
+      // PARAMn (n >= 2) step token: the caller's parameter image, whole.
+      int n = Files::kParamSprite - part.sprite;
+      if (std::string file = param_file(n); !file.empty()) {
+        if (const Image* img = assets_->image(file)) c.blit(*img, px + part.x, py + part.y);
+      }
+      continue;
+    }
     const Files::GaniSprite* s = g->sprite(part.sprite);
     if (!s) continue;
     std::string sheet = upper(s->sheet), file;
@@ -154,14 +200,15 @@ void WorldRenderer::draw_actor(Canvas& c, const Actor& a, int px, int py, Color 
         else file = g->default_attr[static_cast<size_t>(n)];
       }
     } else if (sheet.compare(0, 5, "PARAM") == 0) {
-      continue;  // the caller's parameter images: not drawn yet
+      file = param_file(std::atoi(sheet.c_str() + 5));
     } else {
       file = s->sheet;
     }
     const Image* img = file.empty() ? nullptr : sheet == "BODY" ? assets_->body(file, a.colors) : assets_->image(file);
     if (img) c.blit(*img, {s->x, s->y, s->w, s->h}, px + part.x, py + part.y);
   }
-  if (a.carry.width > 0) {
+  // Classic lift/carry ganis with no PARAM1 part: carry above the head.
+  if (a.carry.width > 0 && !has_param1) {
     const Image* sprites = assets_->image("sprites.png");
     int dy = head_y - 22;
     if (a.lift_tick >= 0 && a.lift_tick < Actor::kLiftTicks) dy = Actor::kLiftY[a.lift_tick];
