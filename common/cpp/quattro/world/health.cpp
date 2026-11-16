@@ -55,16 +55,24 @@ std::vector<Packet> Health::on_hurt_player(Player& p, std::string_view body, con
 std::vector<Packet> Health::check_swords(Player& p, const std::map<int, Player>& others) {
   if (!hurtable(p)) return {};
   for (const auto& [id, a] : others) {
-    if (a.gone || a.gani != "sword") continue;
+    if (a.gone) continue;
+    const bool spin = a.gani == "spin";
+    if (!spin && a.gani != "sword") continue;
     if (!a.level.empty() && !p.level.empty() && a.level != p.level) continue;
-    double dx = p.x - a.x, dy = p.y - a.y, ahead = 0, side = 0;
-    switch (a.dir & 3) {
-      case 0: ahead = -dy; side = dx; break;
-      case 1: ahead = -dx; side = dy; break;
-      case 2: ahead = dy; side = dx; break;
-      default: ahead = dx; side = dy; break;
+    double dx = p.x - a.x, dy = p.y - a.y;
+    bool in_reach = false;
+    for (int d = 0; d < 4; ++d) {
+      if (!spin && d != (a.dir & 3)) continue;
+      double ahead = 0, side = 0;
+      switch (d) {
+        case 0: ahead = -dy; side = dx; break;
+        case 1: ahead = -dx; side = dy; break;
+        case 2: ahead = dy; side = dx; break;
+        default: ahead = dx; side = dy; break;
+      }
+      if (ahead >= 0 && ahead <= 4 && std::fabs(side) < 2) in_reach = true;
     }
-    if (ahead < 0 || ahead > 4 || std::fabs(side) >= 2) continue;
+    if (!in_reach) continue;
     auto last = swing_tick_.find(id);
     if (last != swing_tick_.end() && ticks_ - last->second < kSwingGap) continue;
     swing_tick_[id] = ticks_;

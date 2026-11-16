@@ -9,8 +9,9 @@
 //   client decides a hit. A swing counts when the attacker shows the sword
 //   (gani `sword`), the victim is 0 to 4 tiles ahead of it and under 2 to
 //   the side, and the victim's AP is not exactly 100; no second hit while
-//   hurt. CURPOWER (prop 2) is in half hearts and the client sends its new
-//   value; at 0 it sends 14 CLAIMPKER with the killer's id.
+//   hurt. A spin (gani `spin`) uses the same box on every facing (4.04r2
+//   Adventure.CheckSwordHits). CURPOWER (prop 2) is in half hearts and the
+//   client sends its new value; at 0 it sends 14 CLAIMPKER with the killer's id.
 // - manual/02-protocol/05-plo.md: 40 HURTPLAYER (s attacker, c (dx+4)*16,
 //   c (dy+4)*16, c power in half hearts); refused from an NPC or from a
 //   player more than 10 tiles away.
