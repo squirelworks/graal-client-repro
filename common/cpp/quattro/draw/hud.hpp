@@ -8,15 +8,19 @@
 // - up to 4 hearts are full size (40 x 44, 45 px apart) in one row; from 5
 //   they are small (35 px apart) in staggered rows of 5, 6, 5 and 4;
 // - only the current hearts are drawn, in half-heart steps;
-// - the AP bar always shows; its fill is the fixed 100-pixel strip cut at
-//   the AP value. The MP bar shows only when MP is above 0;
+// - the AP bar always shows when its showstats bit is on; its fill is the
+//   fixed 100-pixel strip cut at the AP value. The MP bar shows only when
+//   MP is above 0 and the magic bit is on;
 // - at 5 and 5.5 hearts the small block sits 10 px lower;
 // - the A, S and D tabs are the same sprite with no letters; the glove
 //   (sprites.png, from power 2) sits in A and the sword (swordN.png) in S;
 // - the selected weapon's whole image sits beside the D tab at x 170,
 //   centred on y 45 (client-internals/status-display.md; Adventure.pas);
 // - gralats are drawn with no padding, bombs and arrows with two digits,
-//   from state.png's digit row, 12 px apart.
+//   from state.png's digit row, 12 px apart;
+// - `showstats` bits (Adventure.pas / GS1 showstats): 0x01 tabs+weapon,
+//   0x02 counter icons, 0x04 gralats, 0x08 bombs, 0x10 arrows, 0x20 hearts,
+//   0x40 AP, 0x80 MP. With weapons off, only the A tab (and AP when set).
 //
 // The sheet positions are those of the player's own state.png (224 x 145);
 // the rebuild does not ship one. With no state.png nothing is drawn.
@@ -38,6 +42,11 @@ struct HudState {
   int glove_power = 0, sword_power = 0;
   std::string sword_image;   // empty: sword<power>.png
   std::string weapon_image;  // empty: no selected weapon beside D
+  // showstats bitmask; default all HUD parts. weapons_on: S/D and counters.
+  int show_stats = 0x1FF;
+  bool weapons_on = true;
+  static constexpr int kTabs = 0x01, kIcons = 0x02, kGralats = 0x04, kBombs = 0x08, kArrows = 0x10,
+                       kHearts = 0x20, kAp = 0x40, kMp = 0x80;
 };
 
 class Hud {

@@ -312,6 +312,8 @@ void Program::draw_hud() {
   s.glove_power = me_.glove_power;
   s.sword_power = me_.sword_power;
   s.sword_image = me_.sword_image;
+  s.show_stats = show_stats_;
+  s.weapons_on = weapons_enabled_;
   // Beside D: selected weapon's whole image when weapons are on
   // (status-display.md; Adventure.pas WeaponsOn + Selected.Image).
   if (weapons_enabled_) {

@@ -79,41 +79,56 @@ void Hud::draw_number(Torque::Gui::Canvas& c, const Image& sheet, const std::str
 void Hud::draw(Torque::Gui::Canvas& c, const HudState& s) const {
   const Image* sheet = assets_ ? assets_->image("state.png") : nullptr;
   if (!sheet || sheet->width < 224 || sheet->height < 129) return;
-  for (int x : kTabX) c.blit(*sheet, kTab, x, kTabY);
-  c.blit(*sheet, kApFrame, kBarX, kApY);
-  int ap = std::clamp(s.ap, 0, 100);
-  if (ap) c.blit(*sheet, {kApFill.x, kApFill.y, ap, kApFill.height}, kBarX + kFillDx, kApY + kFillDy);
-  if (s.mp > 0) {
+  const int bits = s.show_stats;
+  // Tabs: with weapons off only A (Adventure.ShowStats / WeaponsOn).
+  if (bits & HudState::kTabs) {
+    c.blit(*sheet, kTab, kTabX[0], kTabY);
+    if (s.weapons_on) {
+      c.blit(*sheet, kTab, kTabX[1], kTabY);
+      c.blit(*sheet, kTab, kTabX[2], kTabY);
+      if (s.glove_power >= 2) {
+        if (const Image* sprites = assets_->image("sprites.png"))
+          c.blit(*sprites, s.glove_power >= 3 ? kGlove3 : kGlove2, kGloveX, kGloveY);
+      }
+      if (s.sword_power > 0) {
+        std::string name = s.sword_image.empty() ? "sword" + std::to_string(s.sword_power) + ".png" : s.sword_image;
+        if (const Image* sword = assets_->image(name)) c.blit(*sword, kSwordSrc, kSwordX, kSwordY);
+      }
+      if (!s.weapon_image.empty()) {
+        if (const Image* weapon = assets_->image(s.weapon_image))
+          c.blit(*weapon, kWeaponX, kWeaponCentreY - weapon->height / 2);
+      }
+    }
+  }
+  if ((bits & HudState::kAp) != 0) {
+    c.blit(*sheet, kApFrame, kBarX, kApY);
+    int ap = std::clamp(s.ap, 0, 100);
+    if (ap) c.blit(*sheet, {kApFill.x, kApFill.y, ap, kApFill.height}, kBarX + kFillDx, kApY + kFillDy);
+  }
+  if ((bits & HudState::kMp) != 0 && s.mp > 0) {
     c.blit(*sheet, kMpFrame, kBarX, kMpY);
     int mp = std::min(s.mp, 100);
     c.blit(*sheet, {kMpFill.x, kMpFill.y, mp, kMpFill.height}, kBarX + kFillDx, kMpY + kFillDy);
   }
-  if (s.glove_power >= 2) {
-    if (const Image* sprites = assets_->image("sprites.png"))
-      c.blit(*sprites, s.glove_power >= 3 ? kGlove3 : kGlove2, kGloveX, kGloveY);
+  if (s.weapons_on) {
+    struct Counter {
+      Rect icon;
+      int value, centre, digit_bit;
+      bool two;
+    } counters[3] = {{kGralat, s.gralats, kGralatC, HudState::kGralats, false},
+                     {kBomb, s.bombs, kBombC, HudState::kBombs, true},
+                     {kArrow, s.arrows, kArrowC, HudState::kArrows, true}};
+    for (const auto& k : counters) {
+      if (bits & HudState::kIcons) c.blit(*sheet, k.icon, k.icon.x + kIconDx, k.icon.y + kIconDy);
+      if (bits & k.digit_bit) draw_number(c, *sheet, counter_text(k.value, k.two), k.centre, kNumberY);
+    }
   }
-  if (s.sword_power > 0) {
-    std::string name = s.sword_image.empty() ? "sword" + std::to_string(s.sword_power) + ".png" : s.sword_image;
-    if (const Image* sword = assets_->image(name)) c.blit(*sword, kSwordSrc, kSwordX, kSwordY);
-  }
-  if (!s.weapon_image.empty()) {
-    if (const Image* weapon = assets_->image(s.weapon_image))
-      c.blit(*weapon, kWeaponX, kWeaponCentreY - weapon->height / 2);
-  }
-  struct Counter {
-    Rect icon;
-    int value, centre;
-    bool two;
-  } counters[3] = {{kGralat, s.gralats, kGralatC, false}, {kBomb, s.bombs, kBombC, true},
-                   {kArrow, s.arrows, kArrowC, true}};
-  for (const auto& k : counters) {
-    c.blit(*sheet, k.icon, k.icon.x + kIconDx, k.icon.y + kIconDy);
-    draw_number(c, *sheet, counter_text(k.value, k.two), k.centre, kNumberY);
-  }
-  bool small = false;
-  for (const auto& h : heart_slots(s.half_hearts, c.width(), small)) {
-    Rect src = small ? (h.half ? kSmallHalfHeart : kSmallHeart) : (h.half ? kHalfHeart : kHeart);
-    c.blit(*sheet, src, h.x, h.y);
+  if (bits & HudState::kHearts) {
+    bool small = false;
+    for (const auto& h : heart_slots(s.half_hearts, c.width(), small)) {
+      Rect src = small ? (h.half ? kSmallHalfHeart : kSmallHeart) : (h.half ? kHalfHeart : kHeart);
+      c.blit(*sheet, src, h.x, h.y);
+    }
   }
 }
 
