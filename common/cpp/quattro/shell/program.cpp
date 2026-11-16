@@ -998,9 +998,13 @@ bool Program::tick() {
   ++frame_;
   world_.player = actor_for(-1, me_);
   // Our own load shows from the press on, before its carry sprite is sent.
+  // Lay mode shows the offered floor/equip item over the head the same way.
   if (item_keys_.carrying()) {
     world_.player.carry = sprite_cell(World::carried_sprite(item_keys_.carry_sprite()));
     world_.player.lift_tick = item_keys_.lifting() ? world_.player.ani_tick : -1;
+  } else if (item_keys_.laying()) {
+    world_.player.carry = sprite_cell(World::item_sprite(item_keys_.laying_item()));
+    world_.player.lift_tick = -1;
   }
   world_.effects.clear();
   for (const auto& pc : effects_.pieces()) {
