@@ -194,6 +194,9 @@ machine-level part (opcodes, `scheduleevent`, `cancelevents`, `trigger`,
   nothing.
 - **Shots** (step 7): `setshootparams(params...)` and `shoot(x, y, z,
   angle, zangle, power, gani)` send C->S 40 as GServer-v2 reads it.
+  `putleaps(kind, x, y)` (GS1; kind 0..5 bush/swamp/stone/sign/ball/water)
+  spawns the item-key leaf or sign burst at the tile; swamp, ball and water
+  leave no pieces until their sprites are measured.
 - **Events**: `onWeaponFired` (D), `onPlayerChats` (the chat bar, with
   `player.chat` set), `onKeyPressed(keycode, char)` and `onMouseDown("left"
   or "double", with `mousex`/`mousey` in level tiles and
@@ -220,10 +223,11 @@ the walk changes it; `onPlayerHurt` gets the hearts lost; `shoot` uses 40
 
 Not yet: other players' shots (175, 191) and `onActionProjectile`; the
 shot's own flight; `showpoly2`; show-image text fonts (the built-in face
-is used); `putleaps`, `serverwarp`, `isobject`,
+is used); `serverwarp`, `isobject`,
 `enablefeatures`, and the rest of the corpus's long tail (no name blocks
-more than 16 weapons). `noplayerkilling`, `testnpc`, `seteffect` and
-`findplayer` are in.
+more than 16 weapons). `noplayerkilling`, `testnpc`, `seteffect`,
+`findplayer` and `putleaps` are in. Swamp, ball and water leap sprites are
+not measured yet.
 
 ## Rebuild choices (not the original's)
 

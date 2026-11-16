@@ -427,6 +427,24 @@ void test_effects() {
   for (int t = 0; t <= Effects::kThrowTicks; ++t) e.tick();
   CHECK(e.empty());
 
+  // putleaps: bush leaves at once; sign shards; stone / unmeasured kinds empty.
+  e.put_leaps(0, 10, 12);
+  ps = e.pieces();
+  CHECK(ps.size() == 4 && ps[0].sprite == 25 && ps[0].x == 158 && ps[0].y == 188);
+  for (int t = 0; t < Effects::kLeafTicks; ++t) e.tick();
+  CHECK(e.empty());
+  e.put_leaps(3, 2, 3);
+  ps = e.pieces();
+  CHECK(ps.size() == 4 && ps[0].sprite == 102 && ps[1].sprite == 100);
+  for (int t = 0; t < Effects::kBreakTicks; ++t) e.tick();
+  CHECK(e.empty());
+  e.put_leaps(2, 0, 0);
+  e.put_leaps(1, 0, 0);
+  e.put_leaps(4, 0, 0);
+  e.put_leaps(5, 0, 0);
+  e.put_leaps(9, 0, 0);  // clamped to water; still unmeasured
+  CHECK(e.empty());
+
   // A cut bush: 4 leaves on its tiles from the 4th tick, for 6 ticks.
   e.cut_bush(34, 32);
   for (int t = 0; t < Effects::kCutLeafDelay; ++t) {

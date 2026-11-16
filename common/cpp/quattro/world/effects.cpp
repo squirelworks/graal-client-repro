@@ -3,6 +3,7 @@
 #include "../net/gtypes.hpp"
 
 #include <algorithm>
+#include <cmath>
 
 namespace Quattro::World {
 
@@ -35,6 +36,16 @@ void Effects::throw_object(int carry_sprite, int px, int py, int dir) {
 }
 
 void Effects::cut_bush(int tx, int ty) { bursts_.push_back({kLeaves, tx * 16, ty * 16, 0, kCutLeafDelay}); }
+
+void Effects::put_leaps(int kind, double x, double y) {
+  if (!std::isfinite(x) || !std::isfinite(y)) return;
+  kind = std::clamp(kind, 0, 5);
+  const int px = static_cast<int>(std::lround(x * 16)), py = static_cast<int>(std::lround(y * 16));
+  // bush -> leaves at once (a scripted leap, not the cut-bush delay);
+  // sign -> the same four-shard break as a thrown sign; stone -> nothing.
+  if (kind == 0) bursts_.push_back({kLeaves, px, py, 0, 0});
+  else if (kind == 3) bursts_.push_back({kSign, px, py, 0, 0});
+}
 
 void Effects::chest_item(int item, int cx, int cy) {
   int s = item_sprite(item);

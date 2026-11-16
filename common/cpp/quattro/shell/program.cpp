@@ -1165,6 +1165,11 @@ void Program::register_weapon_commands() {
     send_packets(combat_.put_bomb(static_cast<int>(mm.toNumber(a[0])), mm.toNumber(a[1]), mm.toNumber(a[2])));
     return gs2::Value::number(0);
   });
+  // putleaps(kind, x, y): object-explosion burst (GS1; kind 0..5 bush..water).
+  m.addCommand("putleaps", "nnn", [this](gs2::Machine& mm, gs2::Var&, std::vector<gs2::Value>& a) {
+    effects_.put_leaps(static_cast<int>(mm.toNumber(a[0])), mm.toNumber(a[1]), mm.toNumber(a[2]));
+    return gs2::Value::number(0);
+  });
   static const char* kShots[4] = {"shootarrow", "shootfireball", "shootfireblast", "shootnuke"};
   for (int kind = 0; kind < 4; ++kind)
     m.addCommand(kShots[kind], "n", [this, kind](gs2::Machine& mm, gs2::Var&, std::vector<gs2::Value>& a) {
