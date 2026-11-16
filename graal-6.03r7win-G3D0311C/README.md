@@ -21,9 +21,9 @@ token and the Windows login tail change. This is the 0.0.1 reproduction: hit or 
 
 Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
 
-- **default:** Delphi/Pascal stand-in (no-argument / release entry on main today).
-- **faithful engine:** Quattro one-exe program (Windows) — still being wired; not the release default.
-- **relic:** none yet. When the faithful engine is validated end-to-end and switched to default, the Pascal stand-in becomes the labeled relic/fallback and is never deleted.
+- **default:** With no arguments the start screen hands the game to `quattro-play` beside the program when present (same Quattro rebuild as Linux 6.03r7). Pascal is the labeled fallback (`GRAAL_PASCAL_GAME=1`, missing player, or secure-login online).
+- **faithful engine:** Quattro one-exe program (`quattro-play`) — now the no-arg game path when the player is shipped.
+- **relic / fallback:** Pascal without `quattro-play`, or with `GRAAL_PASCAL_GAME=1`.
 
 ## Sources
 
@@ -89,6 +89,9 @@ From the program's folder (or `--data`), then `graal-assets/6.03r7 Windows/`, th
 
 ## Not yet, or not known
 
+- [x] No-arg / start-screen game hands off to `quattro-play` (Windows Win32
+  window; Linux X11 when this folder is built there). `GRAAL_PASCAL_GAME=1`
+  keeps the Pascal game.
 - [x] ~~The four Windows machine fields are sent as `""`~~: they now carry made-up MD5 hashes of SquirrelOS, SquirrelNIC and SquirrelBIOS strings, then the quoted Windows version, the shape the original sends.
 - [ ] The chat font (Tempus Sans ITC 24) and the 6.03r7 bomb drawing seen in the lab.
 - [ ] No side-by-side run against the real client; that is 0.0.2 work.

@@ -46,7 +46,8 @@ Graal_analysis read of the real build. Open PRs are counted as not merged.
 | **6.01r1** Linux `G3D0108A` | On Linux with an X display, the start screen hands the game to `quattro-play` (weapons, bombs/shots, hurt, Q list) (#359). Pascal fallback on Windows / no display / secure-login online | `quattro_lib` (Linux) | Windows/macOS Quattro windows; Login GUI (140, 197); remaining GS2 builtins; SEI00001 inside Quattro |
 | **6.03r7** Linux `G3D0511C` | Same Quattro handoff as 6.01r1 (#359). Frame comparison work under #305. `seteffect` day/night tint (#397). `findplayer` in flight (#398) | `quattro_lib` (Linux) | Pixel fidelity; show-image animations; remaining corpus builtins; Windows folder on Quattro |
 | **6.11r1** Mac, **6.1.1.3** `GNP1905C` | Connector login and a level; control names registered as stubs | `quattro_lib`, connector script (`StartScript_Connector`), `setprotocol` framer, AES/RC4 | GS2 machine to run the connector and shell scripts (D4); Quattro gameplay |
-| 6.00b1, 6.00b2, 6.00r2, 6.00r4, Windows 6.03r7 `G3D0311C` | Folders exist as Pascal stand-ins | `quattro_lib` | Quattro program as the game (D5) |
+| 6.00b1, 6.00b2, 6.00r2, 6.00r4 | Folders exist as Pascal stand-ins | `quattro_lib` | Quattro program as the game (D5) |
+| **Windows 6.03r7** `G3D0311C` | Start screen hands the game to `quattro-play` (Win32); Pascal via `GRAAL_PASCAL_GAME=1` | `quattro_lib` | Login GUI (140, 197); SEI00001 inside Quattro |
 
 Ato (the Seihai 3D client) already speaks Torque UDP protocol 24 against real
 5.12 bytes and holds a link on Windows. That is a separate client in the
@@ -125,8 +126,10 @@ files).
 - [ ] **D3** 5.31r4 and 5.30r3 on Quattro
 - [ ] **D4** 6.1.1.3 and 6.11r1: the connector script on the machine, the
   `setprotocol` framer, AES and RC4
-- [ ] **D5** Quattro as the game for the Pascal-stand-in folders: 5.24r3/r4,
-  6.00b1, 6.00b2, 6.00r2, 6.00r4, Windows 6.03r7
+- [x] **D5** Windows 6.03r7 (`G3D0311C`) hands off to `quattro-play` (same
+  depth as Linux D2 for the start-screen game path)
+- [ ] **D5** Quattro as the game for the remaining Pascal-stand-in folders:
+  5.24r3/r4, 6.00b1, 6.00b2, 6.00r2, 6.00r4
 
 ## Rules this plan keeps
 

@@ -68,7 +68,8 @@ commands. Nothing here re-implements the machine.
 | 4.04r2 Windows (the engine library's session) | `G3D17026` | `net/profile.cpp` | `graal-4.04r2-G3D17026` |
 | 5.00r7 Windows (the engine library's session) | `G3D22067` | `net/profile.cpp` | `graal-5.00r7-G3D22067` |
 | 5.12 Windows (the engine library's session) | `G3D14097` | `net/profile.cpp` | `graal-5.12-G3D14097` |
-| 5.30r3, 5.31r4, Windows 6.00r2, 6.00r4, 6.03r7, 6.00 betas | | later (Track D3, D5) | |
+| Windows 6.03r7 | `G3D0311C` | start-screen handoff (`Graal603w`) | Win32 window |
+| 5.30r3, 5.31r4, Windows 6.00r2, 6.00r4, 6.00 betas | | later (Track D3, D5) | |
 | 6.11r1 Mac, 6.1.1.3 | set by the connector script | later (Track D4) | |
 
 Linux first: those two are unpacked native binaries, so their notes are the

@@ -23,7 +23,11 @@ if [ -z "${GRAAL_BUILD_ONE:-}" ] && [ "$JOBS" -gt 1 ] && [ "$(echo $BUILDS | wc 
   PAR=""
   for B in $BUILDS; do
     case $B in
+<<<<<<< HEAD
       graal-3.04-*|graal-3.153-*|graal-3.0beta-*|graal-3.01-*|graal-3.151-*|graal-4.20r8-*|graal-4.04r2-*|graal-5.00r7-*|graal-5.12-*)
+=======
+      graal-3.04-*|graal-3.153-*|graal-3.0beta-*|graal-3.01-*|graal-3.151-*|graal-4.20r8-*|graal-4.04r2-*|graal-5.12-*|graal-6.01r1-*|graal-6.03r7-*)
+>>>>>>> 057ec204 (Win 6.03r7: default game handoff to quattro-play)
         SERIAL="$SERIAL $B" ;;
       *) PAR="$PAR $B" ;;
     esac
@@ -236,25 +240,35 @@ for B in $BUILDS; do
       esac
     fi
   fi
-  # The 6.01r1 and 6.03r7 Linux clients are one C++ program (quattro_lib).
-  # Its rebuild, common/cpp/quattro's quattro-play, sits beside the start
-  # screen, which hands the game to it (common/GQuattroPlay.pas). Linux
-  # only: it draws through Xlib, and elsewhere the start screen keeps
-  # playing in its own Pascal game.
-  if { [ "$B" = "graal-6.03r7-G3D0511C" ] || [ "$B" = "graal-6.01r1-G3D0108A" ]; } && [ -f "$ROOT/common/cpp/quattro/Makefile" ]; then
+  # The 6.01r1 / 6.03r7 Linux and Windows 6.03r7 clients are one C++
+  # program (quattro_lib). Its rebuild, common/cpp/quattro's quattro-play,
+  # sits beside the start screen, which hands the game to it
+  # (common/GQuattroPlay.pas). Linux draws through Xlib; Windows through
+  # Win32. Elsewhere the start screen keeps the Pascal game.
+  if { [ "$B" = "graal-6.03r7-G3D0511C" ] || [ "$B" = "graal-6.01r1-G3D0108A" ] ||
+       [ "$B" = "graal-6.03r7win-G3D0311C" ]; } &&
+     [ -f "$ROOT/common/cpp/quattro/Makefile" ]; then
+    CXXBIN=${CXX:-g++}
     case "$(uname -s)" in
       Linux)
         # Without Xlib it would only run headless, so it is left out.
         if [ -f /usr/include/X11/Xlib.h ]; then
           echo "== common/cpp/quattro"
-          CXXBIN=${CXX:-g++}
           make -C "$ROOT/common/cpp/quattro" build/quattro-play CXX="$CXXBIN"
           cp "$ROOT/common/cpp/quattro/build/quattro-play" "$OUT/"
         else
           echo "quattro-play: no Xlib headers; the Pascal game plays here"
         fi
         ;;
-      *) echo "quattro-play: Linux only (Xlib); the Pascal game plays here" ;;
+      MINGW*|MSYS*|CYGWIN*)
+        echo "== common/cpp/quattro"
+        make -C "$ROOT/common/cpp/quattro" build/quattro-play CXX="$CXXBIN" ||
+          echo "::warning::quattro-play not built; the Pascal game plays here"
+        for L in quattro-play.exe quattro-play; do
+          if [ -f "$ROOT/common/cpp/quattro/build/$L" ]; then cp "$ROOT/common/cpp/quattro/build/$L" "$OUT/"; fi
+        done
+        ;;
+      *) echo "quattro-play: skipped on this host; the Pascal game plays here" ;;
     esac
   fi
   # 6.114's connector is a small C++ program. The playable stand-in is
