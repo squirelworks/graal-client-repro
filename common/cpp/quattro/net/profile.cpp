@@ -56,6 +56,17 @@ std::vector<BuildProfile> make() {
   r603.escape_menu = true;
   rows.push_back(r603);
 
+  // 6.03r7 Windows (G3D0311C): same release as Linux, own token and win
+  // login tail (protocol/v5v6-windows-unpacked.md, v5v6-lab-play.md).
+  BuildProfile r603w = r603;
+  r603w.label = "6.03r7 Windows";
+  r603w.token = "G3D0311C";
+  r603w.platform = "win";
+  r603w.machine_fields = kFakeWinFields;
+  r603w.has_os_version = true;
+  r603w.os_version = "6.2 9200 ";
+  rows.push_back(r603w);
+
   // 6.01r1: the 6.03r7 receive set without 111, the send set without 160.
   BuildProfile r601 = r603;
   r601.escape_menu = false;

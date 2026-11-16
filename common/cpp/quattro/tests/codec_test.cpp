@@ -181,10 +181,13 @@ void test_login_frame() {
 void test_profiles() {
   const BuildProfile* r603 = find_profile("6.03r7");
   const BuildProfile* r601 = find_profile("6.01r1 linux");
-  CHECK(r603 && r601);
-  if (!r603 || !r601) return;
+  const BuildProfile* r603w = find_profile("6.03r7 Windows");
+  CHECK(r603 && r601 && r603w);
+  if (!r603 || !r601 || !r603w) return;
   CHECK(r603->token == "G3D0511C");
   CHECK(r601->token == "G3D0108A");
+  CHECK(r603w->token == "G3D0311C" && r603w->platform == "win" &&
+        r603w->has_os_version && r603w->plo == r603->plo);
   CHECK(r603->plo.count() == 92);
   CHECK(r601->plo.count() == 91);
   CHECK(r603->plo.test(111) && !r601->plo.test(111));

@@ -27,6 +27,9 @@ uses
   GraalClient in '../src/GraalClient.pas',
   Adventure in '../src/Adventure.pas',
   GBuiltin in '../../common/GBuiltin.pas',
+  GSecCrypto in '../../common/GSecCrypto.pas',
+  GSecLogin in '../../common/GSecLogin.pas',
+  GQuattroPlay in '../../common/GQuattroPlay.pas',
   GStartScreen in '../../common/GStartScreen.pas',
   ListServer603w in '../src/ListServer603w.pas';
 
@@ -1273,6 +1276,11 @@ begin
   end;
 end;
 
+procedure TestQuattroHandoff;
+begin
+  Check(QuattroProgram('/nonexistent-folder/') = '', 'no quattro-play: the Pascal game');
+end;
+
 begin
   TestGTypes;
   TestBzip2;
@@ -1293,6 +1301,7 @@ begin
   TestBoardModify;
   TestFuzz;
   TestReceiveLimits;
+  TestQuattroHandoff;
   WriteLn(Format('%d passed, %d failed, %d skipped', [Passed, Failed, Skipped]));
   if Failed > 0 then Halt(1);
 end.

@@ -2,15 +2,15 @@ unit GQuattroPlay;
 
 { Hands a game from a 6.x start screen to the Quattro program.
 
-  The real 6.01r1 and 6.03r7 Linux clients are one native C++ program
+  The real 6.01r1 and 6.03r7 clients are one native C++ program
   (quattro_lib; Graal_analysis client-internals/engine-600r2.md). The
   rebuild of that program is common/cpp/quattro, and scripts/build.sh
   puts its player (quattro-play) beside these folders' start screens.
   The start screen still picks the server (or Training); the game then
   runs in quattro-play: GS2 weapons, bombs and arrows, being hurt, the
-  item list. It needs an X display, so on Windows, macOS, with no
-  DISPLAY, without the program, or with GRAAL_PASCAL_GAME=1 set, the
-  start screen plays in its own Pascal game as before. }
+  item list. On Linux it needs an X display; on Windows a Win32 window.
+  Without the program, with GRAAL_PASCAL_GAME=1, or (Linux) with no
+  DISPLAY, the start screen plays in its own Pascal game as before. }
 
 interface
 
@@ -22,8 +22,8 @@ type
   implements SEI00001. Training is allowed regardless of the setting. }
 function QuattroProgram(const Dir: string; Online: Boolean = False): string;
 
-{ Runs it and waits. Build is the profile label ('6.03r7'); Args are the
-  game's arguments; a Password is handed over in the environment
+{ Runs it and waits. Build is the profile label ('6.03r7', '6.03r7 Windows');
+  Args are the game's arguments; a Password is handed over in the environment
   (GRAAL_QUATTRO_PW), never on the command line. Returns the exit code,
   or -1 when it could not be started. }
 function RunQuattro(const Exe, Build: string; const Args: array of string;
@@ -38,20 +38,33 @@ function QuattroArgs(const Dir: string; const Roots: array of string; const Leve
 implementation
 
 uses
-  SysUtils, GSecLogin{$IFDEF LINUX}, Classes, Process{$ENDIF};
+  SysUtils, GSecLogin{$IF DEFINED(LINUX) OR DEFINED(MSWINDOWS)}, Classes, Process{$ENDIF};
 
 const
   PasswordVar = 'GRAAL_QUATTRO_PW';
 
 function QuattroProgram(const Dir: string; Online: Boolean): string;
+var
+  Base, Candidate: string;
 begin
   Result := '';
   if Online and (ConfiguredSecMode <> smOff) then Exit;
-{$IFDEF LINUX}
+{$IF DEFINED(LINUX) OR DEFINED(MSWINDOWS)}
   if GetEnvironmentVariable('GRAAL_PASCAL_GAME') = '1' then Exit;
+{$IFDEF LINUX}
   if GetEnvironmentVariable('DISPLAY') = '' then Exit;
-  if FileExists(IncludeTrailingPathDelimiter(Dir) + 'quattro-play') then
-    Result := IncludeTrailingPathDelimiter(Dir) + 'quattro-play';
+{$ENDIF}
+  Base := IncludeTrailingPathDelimiter(Dir);
+{$IFDEF MSWINDOWS}
+  Candidate := Base + 'quattro-play.exe';
+  if FileExists(Candidate) then
+  begin
+    Result := Candidate;
+    Exit;
+  end;
+{$ENDIF}
+  Candidate := Base + 'quattro-play';
+  if FileExists(Candidate) then Result := Candidate;
 {$ENDIF}
 end;
 
@@ -101,14 +114,14 @@ end;
 
 function RunQuattro(const Exe, Build: string; const Args: array of string;
   const Password: string): Integer;
-{$IFDEF LINUX}
+{$IF DEFINED(LINUX) OR DEFINED(MSWINDOWS)}
 var
   P: TProcess;
   I: Integer;
 {$ENDIF}
 begin
   Result := -1;
-{$IFDEF LINUX}
+{$IF DEFINED(LINUX) OR DEFINED(MSWINDOWS)}
   P := TProcess.Create(nil);
   try
     P.Executable := Exe;
