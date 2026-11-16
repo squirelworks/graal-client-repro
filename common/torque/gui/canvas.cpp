@@ -46,6 +46,26 @@ void Canvas::fill_rect(const Rect& rect, Color color) {
     for (int x = r.x; x < r.x + r.width; ++x) blend_pixel(x, y, color);
 }
 
+void Canvas::multiply_tint(const Rect& rect, double r, double g, double b, double a) {
+  r = std::max(0.0, std::min(1.0, r));
+  g = std::max(0.0, std::min(1.0, g));
+  b = std::max(0.0, std::min(1.0, b));
+  a = std::max(0.0, std::min(1.0, a));
+  if (a <= 0.0 || (a >= 1.0 && r >= 1.0 && g >= 1.0 && b >= 1.0)) return;
+  const double fr = 1.0 - a + a * r, fg = 1.0 - a + a * g, fb = 1.0 - a + a * b;
+  auto clamp8 = [](double v) {
+    return static_cast<std::uint8_t>(std::max(0.0, std::min(255.0, v + 0.5)));
+  };
+  Rect area = intersect(rect, clip());
+  for (int y = area.y; y < area.y + area.height; ++y)
+    for (int x = area.x; x < area.x + area.width; ++x) {
+      Color& d = surface_.at(x, y);
+      d.r = clamp8(d.r * fr);
+      d.g = clamp8(d.g * fg);
+      d.b = clamp8(d.b * fb);
+    }
+}
+
 void Canvas::frame_rect(const Rect& rect, Color color) {
   if (rect.empty()) return;
   fill_rect({rect.x, rect.y, rect.width, 1}, color);

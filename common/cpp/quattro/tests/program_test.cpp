@@ -1090,6 +1090,59 @@ void test_noplayerkilling() {
   CHECK(run(p, nullptr, &game, [&] { return p.player_killing() && p.level_name() == "next.nw"; }));
 }
 
+// seteffect(r,g,b,a): global day/night tint (GS1; clamped 0..1).
+void test_seteffect() {
+  const Net::BuildProfile* prof = Net::find_profile("6.03r7");
+  CHECK(prof);
+  if (!prof) return;
+  FakeServer game;
+  CHECK(game.start());
+  Shell::Options opt;
+  opt.host = "127.0.0.1";
+  opt.port = game.port();
+  opt.server_name = "Lab Server";
+  Draw::HeadlessWindow win;
+  Shell::Program p(*prof, opt, win);
+  CHECK(p.start());
+  CHECK(game.conn.accept_from(game.listener));
+  CHECK(run(p, nullptr, &game, [&] { return game.saw(37, "English"); }));
+  game.send(send_level("probe.nw", 7) + gchar(9) + gchar(World::kStatus) + gchar(0) + "\n" +
+            gchar(33) + Net::gstring("Tint") + "\n");
+  CHECK(run(p, nullptr, &game, [&] { return p.weapons().any_shown(); }));
+  const double* e0 = p.screen_effect();
+  CHECK(e0[0] == 1 && e0[1] == 1 && e0[2] == 1 && e0[3] == 1);
+
+  using gs2asm::Asm;
+  Asm a;
+  a.function("public.night", {});
+  a.op(Asm::MARKER).num(0.99).num(0.4).num(0.5).num(0.6).callName("seteffect").op(Asm::POP);
+  a.num(0).op(Asm::RET);
+  Shell::ScriptDescriptor d;
+  d.type = "weapon";
+  d.name = "Tint";
+  std::string raw = gchar(140) + Shell::make_script_packet(d, a.bytes()) + "\n";
+  game.send(gchar(100) + Net::gint3(static_cast<uint32_t>(raw.size())) + "\n" + raw);
+  CHECK(run(p, nullptr, &game, [&] { return p.scripts().machine().hasScript(p.scripts().weapon("Tint")); }));
+  auto tint = p.scripts().weapon("Tint");
+  CHECK(p.scripts().machine().callFunction(tint, "night", {}).num == 0);
+  const double* e = p.screen_effect();
+  CHECK(e[0] == 0.6 && e[1] == 0.5 && e[2] == 0.4 && e[3] == 0.99);
+
+  // Out-of-range args clamp to 0..1.
+  Asm b;
+  b.function("public.clamp", {});
+  b.op(Asm::MARKER).num(2).num(-1).num(0.25).num(1.5).callName("seteffect").op(Asm::POP);
+  b.num(0).op(Asm::RET);
+  d.name = "Clamp";
+  raw = gchar(140) + Shell::make_script_packet(d, b.bytes()) + "\n";
+  game.send(gchar(33) + Net::gstring("Clamp") + "\n");
+  game.send(gchar(100) + Net::gint3(static_cast<uint32_t>(raw.size())) + "\n" + raw);
+  CHECK(run(p, nullptr, &game, [&] { return p.scripts().machine().hasScript(p.scripts().weapon("Clamp")); }));
+  CHECK(p.scripts().machine().callFunction(p.scripts().weapon("Clamp"), "clamp", {}).num == 0);
+  const double* c = p.screen_effect();
+  CHECK(c[0] == 1 && c[1] == 0.25 && c[2] == 0 && c[3] == 1);
+}
+
 int main() {
   test_script_native_bounds();
   test_program();
@@ -1103,5 +1156,6 @@ int main() {
   test_select_weapons();
   test_testnpc();
   test_noplayerkilling();
+  test_seteffect();
   TEST_MAIN_END();
 }

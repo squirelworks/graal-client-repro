@@ -126,6 +126,9 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
     renderer_.draw(canvas_, world_, Draw::follow(world_, canvas_.width(), canvas_.height()),
                    [this](const std::string& name) { passes_.push_back(name); });
     draw_show_images(false);
+    // Day/night below the HUD (drawaslight sits above this tint).
+    canvas_.multiply_tint({r.x, r.y, r.w, r.h}, screen_effect_[0], screen_effect_[1], screen_effect_[2],
+                          screen_effect_[3]);
     draw_hud();
     draw_show_images(true);
     draw_sign();
@@ -1095,6 +1098,9 @@ bool Program::tick() {
     renderer_.draw(canvas_, world_, Draw::follow(world_, canvas_.width(), canvas_.height()),
                    [this](const std::string& name) { passes_.push_back(name); });
     draw_show_images(false);
+    // Day/night below the HUD (drawaslight sits above this tint).
+    canvas_.multiply_tint({0, 0, canvas_.width(), canvas_.height()}, screen_effect_[0], screen_effect_[1],
+                          screen_effect_[2], screen_effect_[3]);
     draw_hud();
     draw_item_list();
     draw_show_images(true);

@@ -44,6 +44,10 @@ class Canvas {
   void blend_pixel(int x, int y, Color color);
   void fill_rect(const Rect& rect, Color color);
   void frame_rect(const Rect& rect, Color color);  // one-pixel outline
+  // Day-night / GS1 seteffect: out = dst * (1 - a + a * channel) per RGB,
+  // with r,g,b,a in 0..1. Clipped to the current clip. No-op when a is 0
+  // or when a is 1 and r=g=b=1.
+  void multiply_tint(const Rect& rect, double r, double g, double b, double a);
 
   // Draw `src` (a region of `image`) with its top-left at (x, y).
   void blit(const Image& image, const Rect& src, int x, int y);

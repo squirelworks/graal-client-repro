@@ -169,7 +169,9 @@ machine-level part (opcodes, `scheduleevent`, `cancelevents`, `trigger`,
   `enableweapons` (D), `disableselectweapons` / `enableselectweapons`
   (Q/Tab opening the item list; disable closes it), `noplayerkilling`
   (turns off player-vs-player damage for the level; own blasts still hurt),
-  `showstats(bits)` (which HUD parts draw; Adventure masks, default `0x1FF`).
+  `showstats(bits)` (which HUD parts draw; Adventure masks, default `0x1FF`),
+  `seteffect(r, g, b, a)` (global day/night tint on the level, 0..1 each;
+  below the HUD).
 - **Events and boxes** (step 3): `say2(text)` opens a sign box (lines split
   at `#b`) that A, S, D, Enter or Space closes; `destroy()` on a weapon
   takes it off the list here, on a control off the screen, on a
@@ -216,9 +218,9 @@ the walk changes it; `onPlayerHurt` gets the hearts lost; `shoot` uses 40
 
 Not yet: other players' shots (175, 191) and `onActionProjectile`; the
 shot's own flight; `showpoly2`; show-image text fonts (the built-in face
-is used); `findplayer`, `seteffect`, `putleaps`, `serverwarp`, `isobject`,
+is used); `findplayer`, `putleaps`, `serverwarp`, `isobject`,
 `enablefeatures`, and the rest of the corpus's long tail (no name blocks
-more than 16 weapons). `noplayerkilling` is in.
+more than 16 weapons). `noplayerkilling`, `testnpc` and `seteffect` are in.
 
 ## Rebuild choices (not the original's)
 
