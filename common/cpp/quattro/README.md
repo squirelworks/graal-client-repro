@@ -179,12 +179,14 @@ machine-level part (opcodes, `scheduleevent`, `cancelevents`, `trigger`,
   `changeimgmode`, `getimgwidth`, `getimgheight`. Each show-image is an
   object whose members are its fields, numbered per script object.
 - **The rest** (step 6): `findweapon(name)` (a call on it runs that
-  weapon's function), `onwall`, `onwall2`, `onwater`, `onwater2` against
-  `arrays.dat`, `keydown(i)` with GS1's indices ("0..10: up, left, down,
-  right, S, A, D, M, tab, Q, P", the 1.41 commands.rtf), `keydown2(code)`,
-  `getkeycode`/`keycode` with Windows virtual-key codes, `hideplayer`,
-  `setfocus`/`resetfocus`; `play`, `play2`, `playlooped` and `stopsound`
-  are logged until there is a sound layer; `seticonsize` does nothing.
+  weapon's function), `testnpc(x, y)` (topmost level NPC whose image box
+  covers the point, or -1), `onwall`, `onwall2`, `onwater`, `onwater2`
+  against `arrays.dat`, `keydown(i)` with GS1's indices ("0..10: up, left,
+  down, right, S, A, D, M, tab, Q, P", the 1.41 commands.rtf),
+  `keydown2(code)`, `getkeycode`/`keycode` with Windows virtual-key codes,
+  `hideplayer`, `setfocus`/`resetfocus`; `play`, `play2`, `playlooped` and
+  `stopsound` are logged until there is a sound layer; `seticonsize` does
+  nothing.
 - **Shots** (step 7): `setshootparams(params...)` and `shoot(x, y, z,
   angle, zangle, power, gani)` send C->S 40 as GServer-v2 reads it.
 - **Events**: `onWeaponFired` (D), `onPlayerChats` (the chat bar, with
@@ -213,9 +215,9 @@ the walk changes it; `onPlayerHurt` gets the hearts lost; `shoot` uses 40
 
 Not yet: other players' shots (175, 191) and `onActionProjectile`; the
 shot's own flight; `showpoly2`; show-image text fonts (the built-in face
-is used); `testnpc`, `findplayer`, `seteffect`, `putleaps`,
-`serverwarp`, `isobject`, `enablefeatures`, and the rest of the corpus's
-long tail (no name blocks more than 16 weapons).
+is used); `findplayer`, `seteffect`, `putleaps`, `serverwarp`, `isobject`,
+`enablefeatures`, and the rest of the corpus's long tail (no name blocks
+more than 16 weapons).
 
 ## Rebuild choices (not the original's)
 
