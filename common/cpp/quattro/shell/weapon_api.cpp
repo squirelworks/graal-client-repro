@@ -171,6 +171,11 @@ void Program::register_script_commands() {
     select_weapons_enabled_ = true;
     return zero;
   });
+  // noplayerkilling: turns off player-vs-player damage in this level (GS1).
+  m.addCommand("noplayerkilling", "", [this, zero](gs2::Machine&, gs2::Var&, Args&) {
+    player_killing_ = false;
+    return zero;
+  });
   // showstats(bits): which HUD parts draw (GS1 showstats; Adventure.ShowStats).
   m.addCommand("showstats", "n", [this, zero](gs2::Machine& mm, gs2::Var&, Args& a) {
     show_stats_ = static_cast<int>(mm.toNumber(a[0]));

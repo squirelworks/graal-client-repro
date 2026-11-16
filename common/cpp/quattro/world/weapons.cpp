@@ -273,7 +273,8 @@ std::vector<Combat::Hit> Combat::hits_on(const Player& me, const ObjectTables& t
     for (int d = 0; d < 5; ++d)
       for (int k = (d == 0 ? 0 : 1); k <= (d == 0 ? 0 : b.reach); ++k) {
         double px = b.x + kDx[d] * 2 * k + 1, py = b.y + kDy[d] * 2 * k + 1;
-        if (std::fabs(px - cx) < 1 && std::fabs(py - cy) < 1) hits.push_back({b.power == 3 ? 1.0 : 0.5, double(kDx[d]), double(kDy[d])});
+        if (std::fabs(px - cx) < 1 && std::fabs(py - cy) < 1)
+          hits.push_back({b.power == 3 ? 1.0 : 0.5, double(kDx[d]), double(kDy[d]), !b.mine});
       }
   static constexpr int kSx[4] = {0, -1, 0, 1}, kSy[4] = {-1, 0, 1, 0};
   for (size_t i = 0; i < shots_.size();) {
@@ -304,7 +305,7 @@ std::vector<Combat::Hit> Combat::hits_on(const Player& me, const ObjectTables& t
       }
       continue;
     }
-    hits.push_back({(s.kind == 1 || s.kind == 3) ? 1.0 : 0.5, double(kSx[s.dir]), double(kSy[s.dir])});
+    hits.push_back({(s.kind == 1 || s.kind == 3) ? 1.0 : 0.5, double(kSx[s.dir]), double(kSy[s.dir]), true});
     shots_.erase(shots_.begin() + static_cast<std::ptrdiff_t>(i));
   }
   return hits;

@@ -981,6 +981,60 @@ void test_select_weapons() {
   CHECK(p.item_list_open());
 }
 
+// noplayerkilling turns off other players' swings and HURTPLAYER for the level.
+void test_noplayerkilling() {
+  const Net::BuildProfile* prof = Net::find_profile("6.03r7");
+  CHECK(prof);
+  if (!prof) return;
+  FakeServer game;
+  CHECK(game.start());
+  Shell::Options opt;
+  opt.host = "127.0.0.1";
+  opt.port = game.port();
+  opt.server_name = "Lab Server";
+  Draw::HeadlessWindow win;
+  Shell::Program p(*prof, opt, win);
+  CHECK(p.start());
+  CHECK(game.conn.accept_from(game.listener));
+  CHECK(run(p, nullptr, &game, [&] { return game.saw(37, "English"); }));
+  game.send(send_level("probe.nw", 7) + gchar(9) + gchar(World::kMaxPower) + gchar(3) +
+            gchar(World::kCurPower) + gchar(6) + gchar(World::kX) + gchar(60) + gchar(World::kY) +
+            gchar(60) + "\n" + gchar(33) + Net::gstring("Guard") + "\n");
+  CHECK(run(p, nullptr, &game, [&] { return p.weapons().any_shown() && p.me().power == 6; }));
+  CHECK(p.player_killing());
+
+  using gs2asm::Asm;
+  Asm a;
+  a.function("public.lock_pvp", {});
+  a.op(Asm::MARKER).callName("noplayerkilling").op(Asm::POP);
+  a.num(0).op(Asm::RET);
+  Shell::ScriptDescriptor d;
+  d.type = "weapon";
+  d.name = "Guard";
+  std::string raw = gchar(140) + Shell::make_script_packet(d, a.bytes()) + "\n";
+  game.send(gchar(100) + Net::gint3(static_cast<uint32_t>(raw.size())) + "\n" + raw);
+  CHECK(run(p, nullptr, &game, [&] { return p.scripts().machine().hasScript(p.scripts().weapon("Guard")); }));
+  auto guard = p.scripts().weapon("Guard");
+  CHECK(p.scripts().machine().callFunction(guard, "lock_pvp", {}).num == 0);
+  CHECK(!p.player_killing());
+
+  // Another player's swing and HURTPLAYER do nothing while PvP is off.
+  // Sprite 2 = facing down; 4 tiles north of the body is in sword reach.
+  game.send(gchar(8) + Net::gshort(9) + gchar(World::kX) + gchar(60) + gchar(World::kY) + gchar(52) +
+            gchar(World::kSprite) + gchar(2) + gchar(World::kGani) + Net::gstring("sword") +
+            gchar(World::kSwordPower) + gchar(2) + "\n");
+  CHECK(run(p, nullptr, &game, [&] { return p.others().count(9) == 1; }));
+  for (int i = 0; i < 5; ++i) p.tick();
+  CHECK(p.me().power == 6 && !p.health().hurting());
+  game.send(gchar(40) + Net::gshort(9) + gchar(0x40) + gchar(0x40) + gchar(2) + "\n");
+  for (int i = 0; i < 5; ++i) p.tick();
+  CHECK(p.me().power == 6 && !p.health().hurting());
+
+  // A new level restores player killing.
+  game.send(send_level("next.nw", 7) + gchar(9) + gchar(World::kCurPower) + gchar(6) + "\n");
+  CHECK(run(p, nullptr, &game, [&] { return p.player_killing() && p.level_name() == "next.nw"; }));
+}
+
 int main() {
   test_script_native_bounds();
   test_program();
@@ -992,5 +1046,6 @@ int main() {
   test_weapon_scripts();
   test_escape_menu();
   test_select_weapons();
+  test_noplayerkilling();
   TEST_MAIN_END();
 }
