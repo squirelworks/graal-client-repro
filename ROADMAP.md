@@ -2,7 +2,13 @@
 
 Where graal-delphi stands and what comes next, as task lists: tick an item
 in the PR that does it. Per-folder detail lives in each folder's README
-("Not yet") and in the issues linked here. Updated 2026-11-11.
+("Not yet") and in the issues linked here. Updated 2026-11-16.
+
+The Nov 2026 issue sweep closed the old per-slice trackers and folded their
+open work into a short set of live epics. Closed issue numbers are not
+relisted here; their checklists stay on the closed issues for history.
+Only [#116](https://github.com/squirelworks/graal-client-repro/issues/116)
+from that older set remains open (licence done; signing still on hold).
 
 ## Levels
 
@@ -35,10 +41,47 @@ no release yet. v0.0.4.1 is being cut; the next release after it is 0.0.5.
   transport (#167), explicit script paths (#169)
 - [x] Torque console: DSO v33 reader (#181), integer and branch VM subset
   (#182), native functions with checked argument counts (#183), instruction
-  decoder (#184), bounded execution from serialized DSO files (#185)
+  decoder (#184), bounded execution from serialized DSO files (#185);
+  boot scripts with objects and packages (#255)
+- [x] Torque GUI stock controls (#257), ActionMap / F2 console (#259), and
+  `GuiGraalCtrl` hosting the 3.04 2D game in a windowed `graal304-torque`
+  (#258)
 - [x] CI builds only the legacy clients whose Pascal code changed (#170)
 - [x] GS1 variable ownership made explicit for older Delphi (#171); 1st
   Graal collision probes (#168)
+- [x] GS2 core B1–B3 and the GUI painter (B4 objects): loader, machine,
+  embedded menus, controls (#261, #265)
+- [x] Engine library C1/C2 and 5.12 on it (C3): slots, 4.04r2 menus and
+  session, 5.12 folder (#262, #264, #278)
+- [x] Quattro program shell on Linux for 6.01r1 and 6.03r7: session,
+  `GRESCR01` cache, weapons, bombs/shots, hurt/Q list (#260, #359)
+- [x] Quattro `seteffect(r, g, b, a)` day/night screen tint (#397, merged)
+
+## Live epics
+
+Open tracking issues only. Detail and checklists live on each issue.
+
+- [ ] [#194](https://github.com/squirelworks/graal-client-repro/issues/194)
+  focus versions
+- [ ] [#373](https://github.com/squirelworks/graal-client-repro/issues/373)
+  end-to-end playable focus versions through the lab stack (6.03r7 first)
+- [ ] [#302](https://github.com/squirelworks/graal-client-repro/issues/302)
+  classic clients (betas to 2.31, NewMain, NewWorld, GraalX, 39ster)
+- [ ] [#303](https://github.com/squirelworks/graal-client-repro/issues/303)
+  Torque 3.x (3.04, 3.153): lab check, fidelity, remaining engine gates
+- [ ] [#304](https://github.com/squirelworks/graal-client-repro/issues/304)
+  4.x / 5.x engine library and launchers, including 3D
+- [ ] [#305](https://github.com/squirelworks/graal-client-repro/issues/305)
+  Quattro (6.x and 5.24–5.31r4): fidelity, world objects and GS2
+  - [x] #397 `seteffect` day/night tint (merged)
+  - [ ] #398 `findplayer(account)` (open PR, in flight)
+- [ ] [#306](https://github.com/squirelworks/graal-client-repro/issues/306)
+  side builds (Java, Game Boy, Zelda Online, Graal3D 2000) and Seihai mode
+- [ ] [#307](https://github.com/squirelworks/graal-client-repro/issues/307)
+  releases, platforms and toolchains (stress gate, Delphi period build,
+  macOS polishing)
+- [ ] [#282](https://github.com/squirelworks/graal-client-repro/issues/282)
+  v7 Worlds: from the C# stand-in to a working reproduction
 
 ## Release v0.0.4.1
 
@@ -47,27 +90,25 @@ no release yet. v0.0.4.1 is being cut; the next release after it is 0.0.5.
 - [ ] Run release-all for v0.0.4.1 and check the Linux and Windows results
   before publishing (Squirrel)
 
-## Torque reconstruction (active)
+## Torque reconstruction (active → #303)
 
 The 3.x to early-5 clients are Torque Game Engine 1.2-era programs. The
 reconstruction is C++ under `common/torque/`; the historical v0 to v2
-clients stay Object Pascal. Parent issue
-[#109](https://github.com/squirelworks/graal-client-repro/issues/109)
-holds the ordered gates.
+clients stay Object Pascal. Live tracking is
+[#303](https://github.com/squirelworks/graal-client-repro/issues/303).
 
-- [ ] #151 per-build boot, DSO execution, object and host-entry contracts
-- [ ] #152 shared modules and explicit per-program build manifests
-- [ ] #172 first compiled-script execution and object slice, compared with
-  the original
-- [ ] 3.04: the shipped entry sequence and DSO set, then GUI, input and the
-  Graal game control (loopback login, level, movement)
-- [ ] 3.153, then Windows 4.04r2, 4.20 and early 5 from each build's own
-  evidence
-- [ ] #110 finish: record provenance for any outside engine material
-- [ ] #154 7.x Worlds: optional research only
+- [x] Per-build boot hosts, shared modules and first compiled-script /
+  object slice (closed slice issues; see Done)
+- [x] 3.04: stock GUI, ActionMap / F2, `GuiGraalCtrl` and windowed
+  `graal304-torque` (#257, #259, #258)
+- [ ] 3.04 Debian lab check of the windowed program (menu, keys, offline
+  and online walk, clean exit); then 3.153 boot profile (PPC `.dso`
+  floats, script layout, the four extra methods)
+- [ ] 3D mode: the Torque world (terrain, interiors, DTS) and protocol 19
 
 The late-5 and 6.x clients are not Torque (one `quattro_lib` program), so
-they are a separate own-engine track (#109, "Separate own-engine track").
+they are a separate own-engine track under
+[#305](https://github.com/squirelworks/graal-client-repro/issues/305).
 
 ## v3 to v6: the plan
 
@@ -80,7 +121,11 @@ clients, and the Quattro program for late 5 and 6.x.
 - [x] B2: object creation, array literals, registers and the 5.0 and 6.00
   opcodes; the 4.04r2 menus run `created` with no refused opcode
 - [x] B3: the menus embedded in the player's own exe found, named and run
-- [ ] B4: the GUI controls and key maps those menus build
+- [x] B4: GUI controls and key maps those menus build; painter on the
+  engine library's draw slots
+- [ ] Remaining: B5 playfield / `TShowImg` depth, B6b packages and layers;
+  C3 sibling platforms; C4 3D world; D3–D5 Quattro on the later builds
+  (see the plan and #304 / #305)
 
 ## Builds with no folder
 
@@ -99,7 +144,6 @@ needs a folder named by the folder naming rule.
 - [x] 5.24r3 and 5.24r4 Windows (`G3D15010`): `graal-5.24r4-G3D15010`
 - [x] 6.00r2 and 6.00r4 Windows (`G3D26090`): `graal-6.00r4-G3D26090`
 - [x] 6.03r7 Windows (`G3D0311C`): `graal-6.03r7win-G3D0311C`
-- [ ] Android vx: seven APK builds, Classic 1.7 and 1.8 among them (#177)
 - [x] The 39ster client, a Windows C++/SDL/OpenGL host (#176): `graal-39ster-1.00`, an offline build with no token, so the folder carries its version alone
 - [x] 4.04r2 Mac (`G3D18026`, on the wire) and 4.04r2 Linux (`G3D19026`, on the wire): `graal-4.04r2mac-G3D18026`, `graal-4.04r2linux-G3D19026`, from the 4.11 Mac rebuild
 - [x] 4.10r2 and 4.11 Linux (`G3D28076`, read from both binaries): `graal-4.11linux-G3D28076`, from the 4.11 Mac rebuild. The Mac 4.10r2 sends `G3D27076`, already `graal-4.11mac-G3D27076`
@@ -110,26 +154,24 @@ needs a folder named by the folder naming rule.
 
 5.30r3 shares the `graal-5.31r4-G3D26090` folder. 2.1.x, 2.2x before 2.22, 2.3
 and 6.036 have tokens or version strings only, no exe, so they wait for
-one.
+one. Android vx APKs have no folder yet (research only; not an open issue
+here).
 
 ## 0.0.5
+
+Per-client backlog and the live epics above. Tick folder README / release
+notes items in the PR that does the fix.
 
 - [ ] The `Not yet` list in each folder's `RELEASE_NOTES.md` and README:
   the per-client backlog (for example the NewWorld clock and sword,
   2.17.1's names, the Training view, the 2.22 gani frame rate)
-- [ ] #100 precursors and side builds: remaining folders
-- [ ] #101 1998 betas to 1.1: remaining folders
-- [ ] #105 2.17.1 to 2.31: remaining folders
-- [ ] #106 3.x to 6.x: look pass for the remaining folders
-- [ ] #108 2.22: the rest of the real client
-- [ ] #174 v0 to v2 gameplay: exact-build movement, GS1, weapons, NewWorld
-- [ ] #179 1.35: the one-byte remote-player prefix
-- [ ] #180 2.05r2: keep terminal LF bytes inside counted raw messages
-- [ ] #107 stress gate: first run on Actions
-- [ ] macOS: framework path in `scripts/release/darwin-cross.sh` so the
-  Cocoa window links (notes in project files, `graal-delphi/macos-cross/`),
-  then run it on a real Mac (#115)
-- [ ] #114 a real Delphi 5 or 7 build
+- [ ] Classic fidelity and gameplay (#302)
+- [ ] Torque 3.x lab and fidelity (#303)
+- [ ] 4.x / 5.x engine library, launchers and 3D (#304)
+- [ ] Quattro fidelity and GS2 builtins (#305), including #398
+- [ ] Side builds and Seihai extras (#306)
+- [ ] Release / platform gates (#307)
+- [ ] Focus versions end to end (#373 / #194)
 
 During each folder's PR, also tick or remove items in that folder's
 README "Not yet" list that are already done (the lists were turned into
@@ -137,36 +179,27 @@ task lists mechanically on 2026-11-05 and some are older than the code).
 
 ## Seihai and later
 
-- [ ] #173 GS2: serialized scripts, envelopes, cache and event delivery
-- [ ] #150 Seihai mode: extras only when the server is Seihai
-- [ ] #148 encrypted login channel for the server-capable rebuilds, original
-  login kept as the fallback (#153 closed as its duplicate)
-  - [x] `common/GSecCrypto.pas` and `common/GSecLogin.pas` (pure Pascal,
-    RFC vectors), pins, `off`/`auto`/`required` (off by default)
-  - [x] Gen 5 Delphi: 2.22, 2.3, 2.31, game and list links, loopback
-    against seihai-gserver and seihai-listserver
-  - [x] 3.04, 3.153, 4.04r2, 4.11 Mac, 4.20r6, 4.20r8, 5.00r7, 5.12,
-    6.00 beta, 6.01r1, 6.0.1.5, 6.0.3.4, 6.03r7 (platform fields inside C2), game and list
-    links
-  - [ ] 5.31r4: its folder is a scaffold that speaks to no server yet, so
-    the login goes in when its link does
-  - [x] Gen 3: 1.41r1, 2.0 to 2.17.1, X, nm24, nm26 and the nwb builds,
-    game link
-  - [ ] Gen 3 and gen 2 list link: it sends id 0 `newmain` with no key or
-    token, so the spec's list C1 does not fit it (#148 open question 2)
-  - [x] Gen 2: 1.21 to 1.39 and 1.3 test, game link (C1 carries the type
-    byte only)
-  - [ ] seihai-gserver-v2 side (its own repo)
-- [ ] #149 mixed-build stress in one level on seihai-gserver
-- [ ] #178 implementation roadmap: v0 to v2 and vx, verified completion
+Tracked under
+[#306](https://github.com/squirelworks/graal-client-repro/issues/306).
+Secure login (`SEI00001`) is in for the server-capable rebuilds that the
+issue marks done; remaining gaps stay there.
+
+- [x] `common/GSecCrypto.pas` and `common/GSecLogin.pas` (pure Pascal,
+  RFC vectors), pins, `off`/`auto`/`required` (off by default)
+- [x] Gen 5 Delphi, gen 3/2 game links, and the listed 3.x–6.x folders
+  (see #306)
+- [ ] 5.31r4: its folder is a scaffold that speaks to no server yet, so
+  the login goes in when its link does
+- [ ] Gen 3 and gen 2 list link: it sends id 0 `newmain` with no key or
+  token, so the spec's list C1 does not fit it (open question on #306)
+- [ ] seihai-gserver-v2 side (its own repo)
+- [ ] Mixed-build stress and Seihai extras mode (#306)
 
 ## On hold
 
-- [ ] #111 2.3 from a real 2.3 exe (the supplied "2.3" archive turned out
-  to hold the 2.31 exe)
-- [ ] #112 Graal3D side by side (d3drm.dll)
-- [ ] #113 4.04r2 side by side (the real client crashes)
-- [ ] #116 licence and code signing (Squirrel decides)
+- [ ] [#116](https://github.com/squirelworks/graal-client-repro/issues/116)
+  licence and code signing (licence: Apache-2.0 via #357; signing route
+  still the owner's call)
 
 ## Standing goals
 
