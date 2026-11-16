@@ -18,6 +18,14 @@ Windows login tail the Windows 5.12 to 6.03r7 builds send. This is the 0.0.1 rep
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").
 
+## Repro tracks
+
+Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
+
+- **default:** Delphi/Pascal stand-in (no-argument / release entry on main today).
+- **faithful engine:** Quattro one-exe program — still being wired; not the release default.
+- **relic:** none yet. When the faithful engine is validated end-to-end and switched to default, the Pascal stand-in becomes the labeled relic/fallback and is never deleted.
+
 ## Sources
 
 | Area | Where |

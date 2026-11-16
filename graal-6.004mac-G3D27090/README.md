@@ -13,6 +13,14 @@ connect routine of the x86_64 slice (graal_analysis
 binary has not been run in a lab, so everything past the token is
 inferred.
 
+## Repro tracks
+
+Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
+
+- **default:** Delphi/Pascal stand-in (no-argument / release entry on main today).
+- **faithful engine:** Quattro one-exe program (Mac) — still being wired; not the release default.
+- **relic:** none yet. When the faithful engine is validated end-to-end and switched to default, the Pascal stand-in becomes the labeled relic/fallback and is never deleted.
+
 ## Sources
 
 From [graal_analysis](https://github.com/squirelworks/graal_analysis), not

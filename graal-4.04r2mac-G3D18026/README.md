@@ -13,6 +13,14 @@ unchanged on Mac OS X 10.4 in an emulated PowerPC machine (qemu) against a
 lab server, logged in, took the 178 warp, loaded the level and walked
 (graal_analysis `version-profiles/lab-mac-ppc-404r2-512-2026-11-13.md`).
 
+## Repro tracks
+
+Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
+
+- **default:** Delphi/Pascal stand-in (no-argument / release entry on main today).
+- **faithful engine:** Split launcher + engine library (Mac sibling) — still being wired; not the release default.
+- **relic:** none yet. When the faithful engine is validated end-to-end and switched to default, the Pascal stand-in becomes the labeled relic/fallback and is never deleted.
+
 ## Sources
 
 From [graal_analysis](https://github.com/squirelworks/graal_analysis), not

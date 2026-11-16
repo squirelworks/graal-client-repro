@@ -20,6 +20,14 @@ Three layers are marked in the units and below.
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").
 
+## Repro tracks
+
+Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
+
+- **default:** Delphi/Pascal stand-in (no-argument / release entry on main today).
+- **faithful engine:** Quattro + connector/script path — still being wired; not the release default.
+- **relic:** none yet. When the faithful engine is validated end-to-end and switched to default, the Pascal stand-in becomes the labeled relic/fallback and is never deleted.
+
 ## Gap against "TGE 1.2 lineage"
 
 | TGE 1.2 idea | What the merged notes say | What this folder does |

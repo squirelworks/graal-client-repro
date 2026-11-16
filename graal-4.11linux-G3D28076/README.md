@@ -17,6 +17,14 @@ the connect routine of both Linux binaries (graal_analysis
 `client-internals/version-token-catalogue.md`, grade B). It is not the
 public list's 4.11 token (`G3D26076`, the Windows build's). No lab run yet.
 
+## Repro tracks
+
+Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
+
+- **default:** Delphi/Pascal stand-in (no-argument / release entry on main today).
+- **faithful engine:** Split launcher + engine library (Linux sibling) — still being wired; not the release default.
+- **relic:** none yet. When the faithful engine is validated end-to-end and switched to default, the Pascal stand-in becomes the labeled relic/fallback and is never deleted.
+
 ## Sources
 
 From [graal_analysis](https://github.com/squirelworks/graal_analysis), not

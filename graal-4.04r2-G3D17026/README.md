@@ -7,6 +7,14 @@ Delphi launcher over a C++ engine DLL. On the wire it is gen 5, as 2.22 to
 starts from `graal-3.153-G3D28015` and changes what the notes and the lab
 runs of the real 4.04r2 show. This is the 0.0.1 reproduction: hit or miss.
 
+## Repro tracks
+
+Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
+
+- **default:** Delphi/Pascal stand-in (no-argument / release entry on main today).
+- **faithful engine:** `--engine` over `common/cpp/graalengine` (optional flag; menus/session present) — still being wired; not the release default.
+- **relic:** none yet. When the faithful engine is validated end-to-end and switched to default, the Pascal stand-in becomes the labeled relic/fallback and is never deleted.
+
 ## Sources
 
 From [graal_analysis](https://github.com/squirelworks/graal_analysis), not

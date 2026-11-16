@@ -9,6 +9,14 @@ hands it on to a game server. This folder is the 4.20r8 rebuild
 (`graal-4.20r8-G3D20126`) with what the notes and the qemu lab run read
 from this Mac binary. This is the 0.0.1 reproduction: hit or miss.
 
+## Repro tracks
+
+Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
+
+- **default:** Delphi/Pascal stand-in (no-argument / release entry on main today).
+- **faithful engine:** Split launcher + engine library (Mac sibling) — still being wired; not the release default.
+- **relic:** none yet. When the faithful engine is validated end-to-end and switched to default, the Pascal stand-in becomes the labeled relic/fallback and is never deleted.
+
 ## Why 4.11 and not 4.20r6
 
 This folder was first named 4.20r6, because the archive copy it was built

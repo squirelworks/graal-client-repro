@@ -17,6 +17,14 @@ code page, the empty 44, the 99 server ids) are taken for 4.20r6 until a
 run of this binary says otherwise.
 This is the 0.0.1 reproduction: hit or miss.
 
+## Repro tracks
+
+Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
+
+- **default:** Delphi/Pascal stand-in (no-argument / release entry on main today).
+- **faithful engine:** Split launcher + engine library — still being wired; not the release default.
+- **relic:** none yet. When the faithful engine is validated end-to-end and switched to default, the Pascal stand-in becomes the labeled relic/fallback and is never deleted.
+
 ## Token
 
 `G3D21126` is the token listed for the Mac 4.20r6 (Batch-1
