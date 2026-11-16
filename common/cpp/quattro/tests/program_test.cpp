@@ -1036,6 +1036,7 @@ void test_testnpc() {
   fs::remove_all(root);
 }
 
+
 // findplayer(account): online player object by account, or 0 (GS2).
 void test_findplayer() {
   const Net::BuildProfile* prof = Net::find_profile("6.03r7");
@@ -1093,6 +1094,53 @@ void test_findplayer() {
   auto miss = m.callFunction(lookup, "by", {gs2::Value::string("nobody")});
   CHECK(miss.tag == gs2::Value::Tag::Number && miss.num == 0);
 }
+
+
+// putleaps(kind, x, y): object-explosion burst (GS1; kind 0..5).
+void test_putleaps() {
+  const Net::BuildProfile* prof = Net::find_profile("6.03r7");
+  CHECK(prof);
+  if (!prof) return;
+  FakeServer game;
+  CHECK(game.start());
+  Shell::Options opt;
+  opt.host = "127.0.0.1";
+  opt.port = game.port();
+  opt.server_name = "Lab Server";
+  Draw::HeadlessWindow win;
+  Shell::Program p(*prof, opt, win);
+  CHECK(p.start());
+  CHECK(game.conn.accept_from(game.listener));
+  CHECK(run(p, nullptr, &game, [&] { return game.saw(37, "English"); }));
+  game.send(send_level("probe.nw", 7) + gchar(9) + gchar(World::kStatus) + gchar(0) + "\n" +
+            gchar(33) + Net::gstring("Burst") + "\n");
+  CHECK(run(p, nullptr, &game, [&] { return p.weapons().any_shown(); }));
+  CHECK(p.effects().empty());
+
+  using gs2asm::Asm;
+  Asm a;
+  a.function("public.bush", {});
+  a.op(Asm::MARKER).num(12).num(10).num(0).callName("putleaps").op(Asm::POP);
+  a.num(0).op(Asm::RET);
+  a.function("public.stone", {});
+  a.op(Asm::MARKER).num(1).num(1).num(2).callName("putleaps").op(Asm::POP);
+  a.num(0).op(Asm::RET);
+  Shell::ScriptDescriptor d;
+  d.type = "weapon";
+  d.name = "Burst";
+  std::string raw = gchar(140) + Shell::make_script_packet(d, a.bytes()) + "\n";
+  game.send(gchar(100) + Net::gint3(static_cast<uint32_t>(raw.size())) + "\n" + raw);
+  CHECK(run(p, nullptr, &game, [&] { return p.scripts().machine().hasScript(p.scripts().weapon("Burst")); }));
+  auto burst = p.scripts().weapon("Burst");
+  CHECK(p.scripts().machine().callFunction(burst, "bush", {}).num == 0);
+  CHECK(!p.effects().empty() && p.effects().pieces().size() == 4);
+  CHECK(p.effects().pieces()[0].sprite == 25);
+  for (int i = 0; i < World::Effects::kLeafTicks; ++i) p.tick();
+  CHECK(p.effects().empty());
+  CHECK(p.scripts().machine().callFunction(burst, "stone", {}).num == 0);
+  CHECK(p.effects().empty());
+}
+
 
 // noplayerkilling turns off other players' swings and HURTPLAYER for the level.
 void test_noplayerkilling() {
@@ -1214,6 +1262,7 @@ int main() {
   test_select_weapons();
   test_testnpc();
   test_findplayer();
+  test_putleaps();
   test_noplayerkilling();
   test_seteffect();
   TEST_MAIN_END();

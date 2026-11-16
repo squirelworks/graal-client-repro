@@ -62,6 +62,12 @@ class Effects {
   void throw_object(int carry_sprite, int px, int py, int dir);
   // S cut the bush whose 2 x 2 corner is tile (tx, ty).
   void cut_bush(int tx, int ty);
+  // GS1 putleaps(kind, x, y): object-explosion burst at tile (x, y).
+  // kind 0..5 = bush, swamp, stone, sign, ball, water (gs1-command-reference-205).
+  // Drawn kinds today: bush -> leaves (no cut delay), sign -> sign shards;
+  // stone -> nothing (as a thrown stone). Swamp, ball and water have no
+  // measured sprites yet, so they leave no pieces.
+  void put_leaps(int kind, double x, double y);
   // A chest at tile (cx, cy) opened with `item`.
   void chest_item(int item, int cx, int cy);
 
