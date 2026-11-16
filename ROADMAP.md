@@ -52,7 +52,8 @@ no release yet. v0.0.4.1 is being cut; the next release after it is 0.0.5.
 - [x] GS2 core B1–B3 and the GUI painter (B4 objects): loader, machine,
   embedded menus, controls (#261, #265)
 - [x] Engine library C1/C2 and 5.12 on it (C3): slots, 4.04r2 menus and
-  session, 5.12 folder (#262, #264, #278)
+  session, 5.12 folder (#262, #264, #278); 4.20r8 and 5.00r7 `--engine`
+  handoff + loopback
 - [x] Quattro program shell on Linux for 6.01r1 and 6.03r7: session,
   `GRESCR01` cache, weapons, bombs/shots, hurt/Q list (#260, #359)
 - [x] Quattro `seteffect(r, g, b, a)` day/night screen tint (#397, merged)

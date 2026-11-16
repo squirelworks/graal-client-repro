@@ -210,6 +210,9 @@ void test_profiles() {
   CHECK(r512->has_os_version && !r500->has_os_version);
   const BuildProfile* r404 = find_profile("4.04r2");
   CHECK(r404 && r404->packed_round_down && !r404->compress_always);
+  const BuildProfile* r420 = find_profile("4.20r8");
+  CHECK(r420 && r420->token == "G3D20126" && r420->packed_round_down &&
+        r420->plo == r404->plo);
 }
 
 // 5.12 steps packed bodies len / 4 rounded down; raw ones still round up

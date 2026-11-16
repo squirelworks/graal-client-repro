@@ -173,13 +173,14 @@ character, and walking right into `offlinetutorial_c-2.graal`.
 ## Which build (rebuild only)
 
 `graalengine_setBuild(label)`, called before `graal_engineInitialize`,
-names the launcher's build: `4.04r2` (the default), `5.00r7` or `5.12`. It
-picks the session's wire row (`common/cpp/quattro/net/profile.cpp`) and
-the GS2 opcode profile (4.2 for 4.x, 5.0 for 5.x). The original library
+names the launcher's build: `4.04r2` (the default), `4.20r8`, `5.00r7` or
+`5.12`. It picks the session's wire row (`common/cpp/quattro/net/profile.cpp`)
+and the GS2 opcode profile (4.2 for 4.x, 5.0 for 5.x). The original library
 had no such call; each was built for its own launcher. The 5.0 launcher
 has no `LogGraalMessage`, so with no log slot the engine's lines go to
 stderr when `GRAALENGINE_LOG` is set, and the playfield is drawn with
-`DrawGraphics` (no stretched draw on 5.0).
+`DrawGraphics` (no stretched draw on 5.0). The 4.20r8 and 5.00r7 Pascal
+launchers hand off with `--engine` the same way 4.04r2 and 5.12 do.
 
 Each login (the first server, then every warp) is passed to the
 launcher's `OnServerLogin` with the server's name; the 5.x launcher titles

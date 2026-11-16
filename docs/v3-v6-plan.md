@@ -105,8 +105,9 @@ files).
   (#262)
 - [x] **C2** 4.04r2 on it: the real launcher form, the embedded menus drawn
   through the callbacks, loopback login, level, walk, chat (#264, #275)
-- [x] **C3** 5.12 folder on the engine library (#278); 4.20r8 / 4.11 Mac /
-  5.00r7 still need the same depth as 4.04r2
+- [x] **C3** 5.12 folder on the engine library (#278); 4.20r8 and 5.00r7
+  `--engine` handoff + loopback (same depth as 4.04r2 for the library
+  path); 4.11 Mac still needs the same depth as 4.04r2
 - [ ] **C4** 3D: library loads for `"3 "` servers (#294); draw the 3D world
   (shapes, Sun, Sky, camera) and prove protocol 21 / 24 on loopback
 

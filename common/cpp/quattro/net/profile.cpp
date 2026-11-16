@@ -98,6 +98,14 @@ std::vector<BuildProfile> make() {
   r404.cold_gani_requests = true;
   rows.push_back(r404);
 
+  // 4.20r8 (Windows, the GraalEngine.dll session). Same gen-5 shape as
+  // 4.04r2 (Graal_analysis protocol/v4x-clients.md, version-profiles/4.04-4.20.toml);
+  // its own token. Packed bodies step len/4 rounded down, as 4.04r2.
+  BuildProfile r420 = r404;
+  r420.label = "4.20r8 Windows";
+  r420.token = "G3D20126";
+  rows.push_back(r420);
+
   // 5.00r7 and 5.12 (Windows, the GraalEngine.dll session, used by
   // common/cpp/graalengine). Graal_analysis protocol/v5x-clients.md,
   // protocol/v5v6-windows-unpacked.md and version-profiles/5.00-6.03.toml:

@@ -17,7 +17,7 @@ from it.
 Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
 
 - **default:** Delphi/Pascal stand-in (no-argument / release entry on main today).
-- **faithful engine:** C++ boot stub / shell (`host4208`); full engine-library session still open — still being wired; not the release default.
+- **faithful engine:** C++ boot stub / shell (`host4208`); `--engine` loads the rebuilt GraalEngine library (`4.20r8` wire row) — not the release default (Pascal without the flag stays default).
 - **relic:** none yet. When the faithful engine is validated end-to-end and switched to default, the Pascal stand-in becomes the labeled relic/fallback and is never deleted.
 
 ## Sources
@@ -120,5 +120,7 @@ README, "Seihai secure login". CI logs in once more with
   C++ engine host. The host registers the engine controls, opens a
   level-shaped object, places a tile, and sends the login-shaped first
   frame to loopback (`Shell420`, `common/torque/host4208`).
+- [x] `--engine` hands off to the rebuilt GraalEngine library (same depth as
+  4.04r2 for the library path: setBuild `4.20r8`, loopback login/level/walk).
 - [ ] The engine host is not the real `GraalEngine.dll`. Tile drawing,
   `GuiCanvas` input, and frames after the login line are not built.

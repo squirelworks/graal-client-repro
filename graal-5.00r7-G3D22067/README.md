@@ -15,7 +15,7 @@ the 5.x notes say differs. This is the 0.0.1 reproduction: hit or miss.
 Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
 
 - **default:** Delphi/Pascal stand-in (no-argument / release entry on main today).
-- **faithful engine:** Split launcher + engine library (5.0 opcode profile) — still being wired; not the release default.
+- **faithful engine:** Split launcher + engine library (5.0 opcode profile); `--engine` loads the rebuilt GraalEngine library (`5.00r7` wire row) — not the release default (Pascal without the flag stays default).
 - **relic:** none yet. When the faithful engine is validated end-to-end and switched to default, the Pascal stand-in becomes the labeled relic/fallback and is never deleted.
 
 ## Sources
@@ -107,6 +107,8 @@ README, "Seihai secure login". CI logs in once more with
 
 ## Not yet, or not known
 
+- [x] `--engine` hands off to the rebuilt GraalEngine library (5.0 draw slots,
+  setBuild `5.00r7`, OpenServerList without `--connect`, loopback covered).
 - [ ] The Login server's scripted GUI (server list, accounts) and GS2 in
   general: 140 and 197 (class and weapon scripts, the `GRESCR01` cache),
   195 (gani scripts) and 190 (`onServerListerConnect`) are accepted and

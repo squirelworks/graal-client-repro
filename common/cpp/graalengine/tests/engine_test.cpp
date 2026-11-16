@@ -696,8 +696,11 @@ void testLoopbackSession(const char* build, const char* labEnv, const std::strin
   run("Adventure_setNickName Tester");
 
   FakeServer login, game;
-  // A server for 5.12 or 4.04r2 steps short packed frames as they do.
-  login.round_down = game.round_down = e.build() == "5.12" || e.build() == "4.04r2";
+  // Step short packed frames the way that build's wire row does.
+  {
+    const auto* row = Quattro::Net::find_profile(e.build());
+    login.round_down = game.round_down = row && row->packed_round_down;
+  }
   CHECK(login.start() && game.start());
   auto pump = [&](FakeServer* s, auto done) {
     auto end = std::chrono::steady_clock::now() + std::chrono::seconds(3);
@@ -781,8 +784,14 @@ void testLoopbackSession(const char* build, const char* labEnv, const std::strin
               gchar(QW::kCurLevel) + gstring("labprobe-write.nw") + gchar(QW::kAccountName) + gstring("pc:9284355") +
               gchar(QW::kCommunityName) + gstring("guest") + "\n");
     CHECK(pump(&game, [&] { return seen("listupdate 4").size() == 1; }));
-    CHECK(seen("listupdate 4").back() ==
-          "listupdate 4|lab205|head0.png|account=pc:9284355,level=labprobe-write.nw,communityname=guest,attr[1]=|8192");
+    // 5.12's last_prop includes community name; 5.00r7's list leaves it empty.
+    {
+      const char* community = (e.build() == "5.12") ? "guest" : "";
+      const std::string want4 =
+          std::string("listupdate 4|lab205|head0.png|account=pc:9284355,level=labprobe-write.nw,communityname=") +
+          community + ",attr[1]=|8192";
+      CHECK(seen("listupdate 4").back() == want4);
+    }
     game.send(gchar(8) + gshort(4) + gchar(QW::kConnected) + "\n");
     CHECK(pump(&game, [&] { return seen("listdelete 4").size() == 1; }));
     CHECK(seen("messagebox ").empty());
@@ -979,6 +988,8 @@ int main() {
   testLabMenu512();
   testOfflineTutorial();
   testLoopbackSession("4.04r2", "GRAAL404_ENGINE", "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400");
+  testLoopbackSession("4.20r8", "GRAAL420_ENGINE", "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400");
+  testLoopbackSession("5.00r7", "GRAAL500_ENGINE", "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400");
   testLoopbackSession("5.12", "GRAAL512_ENGINE", "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400,\"6.2 9200 \"");
   testGraal3DBridge();
   CHECK(graalengine_setBuild("9.99") == 0);
