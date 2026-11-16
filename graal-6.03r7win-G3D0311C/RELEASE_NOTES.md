@@ -22,7 +22,7 @@ to the program works too.
 
 ## What's new in v0.0.5
 
-- [x] **The game runs in the Quattro program by default.** The real Windows 6.03r7 is one C++ program (`quattro_lib`); its rebuild, `quattro-play` from `common/cpp/quattro`, ships next to `Graal603w`. The start screen still picks the server (or Training) and then hands the game to it (GS2 weapons, bombs/arrows, hurt, Q list). Password goes in the environment. With `GRAAL_PASCAL_GAME=1`, without the player, or for secure-login online (SEI00001 not in Quattro yet), the Pascal game plays as before.
+- [x] **The game runs in the Quattro program by default.** The real Windows 6.03r7 is one C++ program (`quattro_lib`); its rebuild, `quattro-play` from `common/cpp/quattro`, ships next to `Graal603w`. The start screen still picks the server (or Training) and then hands the game to it (GS2 weapons, bombs/arrows, hurt, Q list). Password goes in the environment. With `GRAAL_PASCAL_GAME=1` or without the player, the Pascal game plays as before. Seihai secure login stays Linux-only for now.
 - [x] **New client.** 6.03r7 Windows has a folder of its own, started from `graal-6.03r7-G3D0511C` with its own token `G3D0311C` and the Windows login tail (`win` and four machine fields) and `win` as its system name.
 - [x] **Machine fields in the original's shape.** The login line now sends `win`, three fixed made-up MD5 hashes (of SquirrelOS, SquirrelNIC and SquirrelBIOS strings) and the quoted Windows version `"6.2 9200 "`, the shape the real client sends. Nothing is read from your machine.
 

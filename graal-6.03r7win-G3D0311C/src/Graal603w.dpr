@@ -59,8 +59,6 @@ uses
   GTypes in '../../common/GTypes.pas',
   GZlib in '../../common/GZlib.pas',
   GSocket in '../../common/GSocket.pas',
-  GSecCrypto in '../../common/GSecCrypto.pas',
-  GSecLogin in '../../common/GSecLogin.pas',
   GLevel in '../../common/GLevel.pas',
   GSurface in '../../common/GSurface.pas',
   GArrays in '../../common/GArrays.pas',
@@ -127,7 +125,6 @@ var
   Name, Value, Dir, Data, Server, Exe, Password: string;
   Online: Boolean;
   Coordinate: Double;
-  Mode: TSecMode;
   Roots: array of string;
   Args: TQuattroArgs;
 begin
@@ -144,8 +141,7 @@ begin
       if (Name <> '--server') and (Name <> '--account') and
         (Name <> '--password-env') and (Name <> '--server-name') and
         (Name <> '--level') and (Name <> '--x') and (Name <> '--y') and
-        (Name <> '--data') and (Name <> '--seconds') and
-        (Name <> '--secure-login') and (Name <> '--server-key') then Exit;
+        (Name <> '--data') and (Name <> '--seconds') then Exit;
       if I = ArgCount then Exit;
       Value := ArgAt(I + 1);
       if (Value = '') or (Copy(Value, 1, 2) = '--') then Exit;
@@ -163,14 +159,9 @@ begin
     if not TryStrToInt(Copy(Server, I + 1, MaxInt), Port) or
       (Port < 1) or (Port > 65535) then Exit;
     if HasArg('--x') or HasArg('--y') then Exit;
-    if HasArg('--secure-login') or HasArg('--server-key') then
-    begin
-      if not ParseSecMode(Arg('--secure-login', 'required'), Mode) then Exit;
-      SetSecure(Mode, Arg('--server-key', ''));
-    end;
   end
   else if HasArg('--account') or HasArg('--password-env') or
-    HasArg('--server-name') or HasArg('--secure-login') or HasArg('--server-key') then Exit;
+    HasArg('--server-name') then Exit;
   if HasArg('--seconds') then
     if not TryStrToInt(Arg('--seconds', ''), I) or (I <= 0) then Exit;
   if HasArg('--x') then
