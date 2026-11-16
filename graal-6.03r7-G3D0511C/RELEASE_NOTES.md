@@ -23,6 +23,8 @@ to the program works too (`graal-assets/6.03r7/`, then
 
 ## What's new in v0.0.5
 
+- [x] Quattro `findplayer(account)`: returns the online player's GS2 object by account name (case-insensitive), or 0; self is `player`.
+
 - [x] Quattro `seteffect(r, g, b, a)`: global day/night tint on the level (0..1 each; multiply below the HUD).
 
 - [x] Quattro `testnpc(x, y)`: returns the index of the topmost level NPC whose image box covers the point, or -1 (GS1; image size in tiles).

@@ -1036,6 +1036,64 @@ void test_testnpc() {
   fs::remove_all(root);
 }
 
+// findplayer(account): online player object by account, or 0 (GS2).
+void test_findplayer() {
+  const Net::BuildProfile* prof = Net::find_profile("6.03r7");
+  CHECK(prof);
+  if (!prof) return;
+  FakeServer game;
+  CHECK(game.start());
+  Shell::Options opt;
+  opt.host = "127.0.0.1";
+  opt.port = game.port();
+  opt.server_name = "Lab Server";
+  opt.account = "Seich";
+  Draw::HeadlessWindow win;
+  Shell::Program p(*prof, opt, win);
+  CHECK(p.start());
+  CHECK(game.conn.accept_from(game.listener));
+  CHECK(run(p, nullptr, &game, [&] { return game.saw(37, "English"); }));
+  game.send(send_level("probe.nw", 7) + gchar(9) + gchar(World::kNickname) + Net::gstring("Self") +
+            gchar(World::kX) + gchar(40) + gchar(World::kY) + gchar(42) + "\n" + gchar(33) +
+            Net::gstring("Lookup") + "\n");
+  CHECK(run(p, nullptr, &game, [&] { return p.weapons().any_shown() && p.me().x == 20; }));
+
+  // Another online player with an account (also lands in everyone_).
+  game.send(gchar(8) + Net::gshort(9) + gchar(World::kNickname) + Net::gstring("Other") +
+            gchar(World::kAccountName) + Net::gstring("pc:other") + gchar(World::kX) + gchar(50) +
+            gchar(World::kY) + gchar(52) + "\n");
+  CHECK(run(p, nullptr, &game, [&] { return p.others().count(9) == 1; }));
+
+  using gs2asm::Asm;
+  Asm a;
+  a.function("public.by", {"name"});
+  a.op(Asm::MARKER).var("name").callName("findplayer").op(Asm::RET);
+  a.function("public.nick_of", {"name"});
+  a.op(Asm::MARKER).var("name").callName("findplayer").var("nick").op(Asm::MEMBER).op(Asm::RET);
+  a.function("public.x_of", {"name"});
+  a.op(Asm::MARKER).var("name").callName("findplayer").var("x").op(Asm::MEMBER).op(Asm::RET);
+  Shell::ScriptDescriptor d;
+  d.type = "weapon";
+  d.name = "Lookup";
+  std::string raw = gchar(140) + Shell::make_script_packet(d, a.bytes()) + "\n";
+  game.send(gchar(100) + Net::gint3(static_cast<uint32_t>(raw.size())) + "\n" + raw);
+  CHECK(run(p, nullptr, &game, [&] { return p.scripts().machine().hasScript(p.scripts().weapon("Lookup")); }));
+  auto lookup = p.scripts().weapon("Lookup");
+  auto& m = p.scripts().machine();
+  p.tick();  // sync_player_in so self.account is set from opt.account
+
+  // Self by login account (case-insensitive); same object as player.
+  auto self = m.callFunction(lookup, "by", {gs2::Value::string("seich")});
+  CHECK(self.tag == gs2::Value::Tag::Object && self.obj.get() == p.scripts().player().get());
+  CHECK(m.callFunction(lookup, "nick_of", {gs2::Value::string("Seich")}).str == "Self");
+
+  // Other by account; missing account is 0.
+  CHECK(m.callFunction(lookup, "nick_of", {gs2::Value::string("pc:other")}).str == "Other");
+  CHECK(m.callFunction(lookup, "x_of", {gs2::Value::string("PC:OTHER")}).num == 25);
+  auto miss = m.callFunction(lookup, "by", {gs2::Value::string("nobody")});
+  CHECK(miss.tag == gs2::Value::Tag::Number && miss.num == 0);
+}
+
 // noplayerkilling turns off other players' swings and HURTPLAYER for the level.
 void test_noplayerkilling() {
   const Net::BuildProfile* prof = Net::find_profile("6.03r7");
@@ -1155,6 +1213,7 @@ int main() {
   test_escape_menu();
   test_select_weapons();
   test_testnpc();
+  test_findplayer();
   test_noplayerkilling();
   test_seteffect();
   TEST_MAIN_END();

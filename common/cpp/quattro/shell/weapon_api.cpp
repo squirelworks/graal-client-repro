@@ -296,6 +296,44 @@ void Program::register_script_commands() {
   });
 
   // Step 6: the board tests, keys, sound, focus and the rest.
+  // findplayer(account): the online player's object by account name, or 0
+  // (GS2; Graal_analysis npc-library/gs2-weapon-corpus-2026-11-14.md). Self
+  // is the script `player`; others are cached and filled from everyone_/others_.
+  m.addCommand("findplayer", "s", [this](gs2::Machine& mm, gs2::Var&, Args& a) {
+    const std::string want = low(mm.toString(a[0]));
+    if (want.empty()) return gs2::Value::number(0);
+    const std::string mine = low(me_.account.empty() ? opt_.account : me_.account);
+    if (!mine.empty() && mine == want) {
+      gs2::VarPtr self = scripts_.player();
+      if (me_.account.empty() && !opt_.account.empty()) self->childOrCreate("account")->setString(opt_.account);
+      return gs2::Value::object(self);
+    }
+    const World::Player* found = nullptr;
+    for (const auto& [id, e] : everyone_) {
+      (void)id;
+      if (!e.account.empty() && low(e.account) == want) {
+        found = &e;
+        break;
+      }
+    }
+    if (!found) {
+      for (const auto& [id, o] : others_) {
+        (void)id;
+        if (!o.account.empty() && low(o.account) == want) {
+          found = &o;
+          break;
+        }
+      }
+    }
+    if (!found) return gs2::Value::number(0);
+    gs2::VarPtr& slot = found_players_[want];
+    if (!slot) {
+      slot = std::make_shared<gs2::Var>("player");
+      slot->setAcceptsAllProperties(true);
+    }
+    fill_player_object(slot, *found);
+    return gs2::Value::object(slot);
+  });
   // testnpc(x, y): index of the topmost level NPC whose image box covers
   // (x, y), or -1 (GS1 testnpc; Npc222.NpcAt / IndexOf).
   m.addCommand("testnpc", "nn", [this](gs2::Machine& mm, gs2::Var&, Args& a) {

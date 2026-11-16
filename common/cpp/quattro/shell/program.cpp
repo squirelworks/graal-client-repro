@@ -640,6 +640,7 @@ void Program::unlist_all() {
   listed_.erase(self_list_id_);
   if (list_delete) list_delete(self_list_id_);
   everyone_.clear();
+  found_players_.clear();
 }
 
 bool Program::start() {
@@ -1175,40 +1176,44 @@ void Program::register_weapon_commands() {
     });
 }
 
-void Program::sync_player_in() {
-  gs2::VarPtr pl = scripts_.player();
+void Program::fill_player_object(const gs2::VarPtr& pl, const World::Player& p,
+                                 const std::string& account_fallback) {
   auto num = [&](const char* k, double v) { pl->childOrCreate(k)->setNumber(v); };
   auto str = [&](const char* k, const std::string& v) { pl->childOrCreate(k)->setString(v); };
-  num("x", me_.x);
-  num("y", me_.y);
-  num("z", me_.z);
-  num("dir", me_.dir);
-  num("bombs", me_.bombs);
-  num("darts", me_.arrows);
-  num("rupees", me_.rupees);
-  num("hearts", me_.power / 2.0);
-  num("fullhearts", me_.max_power);
-  num("mp", me_.mp);
-  num("ap", me_.ap);
-  num("id", me_.id);
-  num("freezetime", freeze_left_ > 0 ? freeze_left_ : -1);
+  num("x", p.x);
+  num("y", p.y);
+  num("z", p.z);
+  num("dir", p.dir);
+  num("bombs", p.bombs);
+  num("darts", p.arrows);
+  num("rupees", p.rupees);
+  num("hearts", p.power / 2.0);
+  num("fullhearts", p.max_power);
+  num("mp", p.mp);
+  num("ap", p.ap);
+  num("id", p.id);
   num("paused", 0);
-  str("account", me_.account);
-  str("nick", me_.nickname);
-  str("communityname", me_.community.empty() ? me_.account : me_.community);
-  str("head", me_.head);
-  str("body", me_.body);
-  str("ani", me_.gani);
-  str("chat", me_.chat);
-  str("level", me_.level);
-  // The gmap: the level's name when it is one, else empty.
-  const std::string lv = lower_name(me_.level);
-  str("gmap", lv.size() > 5 && lv.compare(lv.size() - 5, 5, ".gmap") == 0 ? me_.level : std::string());
-  // The guild: the nickname's last "(...)".
+  const std::string account = p.account.empty() ? account_fallback : p.account;
+  str("account", account);
+  str("nick", p.nickname);
+  str("communityname", p.community.empty() ? account : p.community);
+  str("head", p.head);
+  str("body", p.body);
+  str("ani", p.gani);
+  str("chat", p.chat);
+  str("level", p.level);
+  const std::string lv = lower_name(p.level);
+  str("gmap", lv.size() > 5 && lv.compare(lv.size() - 5, 5, ".gmap") == 0 ? p.level : std::string());
   std::string guild;
-  if (auto o = me_.nickname.rfind('('); o != std::string::npos && !me_.nickname.empty() && me_.nickname.back() == ')')
-    guild = me_.nickname.substr(o + 1, me_.nickname.size() - o - 2);
+  if (auto o = p.nickname.rfind('('); o != std::string::npos && !p.nickname.empty() && p.nickname.back() == ')')
+    guild = p.nickname.substr(o + 1, p.nickname.size() - o - 2);
   str("guild", guild);
+}
+
+void Program::sync_player_in() {
+  gs2::VarPtr pl = scripts_.player();
+  fill_player_object(pl, me_, opt_.account);
+  pl->childOrCreate("freezetime")->setNumber(freeze_left_ > 0 ? freeze_left_ : -1);
   // attr[0..30] and colors[0..4] as arrays.
   gs2::VarPtr attr = pl->childOrCreate("attr");
   if (attr->kind() != gs2::Var::Kind::Array || attr->elements().size() != me_.attr.size()) attr->setArray(me_.attr.size());
