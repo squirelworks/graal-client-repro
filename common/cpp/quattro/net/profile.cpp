@@ -54,6 +54,7 @@ std::vector<BuildProfile> make() {
   r603.carry_sprite_after = 6;
   r603.carry_still_after = 8;
   r603.escape_menu = true;
+  r603.own_props = OwnProps::k6x;  // probed on Linux 6.03r7; 6.03r7 Windows and 6.01r1 inherit it [inf]
   rows.push_back(r603);
 
   // 6.03r7 Windows (G3D0311C): same release as Linux, own token and win
@@ -98,6 +99,7 @@ std::vector<BuildProfile> make() {
   r524.carry_sprite_after = 4;
   r524.carry_still_after = 6;
   r524.plo.reset(111);
+  r524.own_props = OwnProps::k5x;  // probed on Windows 5.24r4
   rows.push_back(r524);
 
   // 4.04r2 (Windows, the GraalEngine.dll session, used by
@@ -119,6 +121,7 @@ std::vector<BuildProfile> make() {
   r404.pli = ids({{0, 6},   {18, 19}, {23, 24}, {28, 28}, {30, 31}, {34, 35},
                   {37, 38}, {44, 44}, {46, 47}, {157, 157}});
   r404.answers_ping = false;
+  r404.own_props = OwnProps::k4x;  // probed on Windows 4.20r8; 4.04r2 and 5.00r7 inherit it [inf]
   // The stock 4.04r2 GraalEngine.dll steps the cipher as 5.12 does:
   // len >> 2 for zlib and bzip2 bodies (at most 4), (len + 3) >> 2 for raw
   // ones (at most 12), both ways (read for seihai-core #41).
@@ -180,6 +183,7 @@ std::vector<BuildProfile> make() {
   r512.packed_round_down = true;
   r512.compress_always = true;
   r512.last_prop = 82;  // its player list showed each player's community name
+  r512.own_props = OwnProps::k5x;  // 82 as a string, as 5.24r4 [inf: 5.12 was not probed]
   rows.push_back(r512);
 
   return rows;

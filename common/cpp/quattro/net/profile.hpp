@@ -13,6 +13,22 @@
 
 namespace Quattro::Net {
 
+// How a build reads its own prop stream (PLO_PLAYERPROPS, 9). From real
+// clients probed with injected packets (Graal_analysis
+// protocol/probe-targets-2026-11-18.md, protocol/probe-results.tsv).
+enum class OwnProps {
+  // 2.22's parser: an id it has no case for ends the message.
+  k222,
+  // 4.20r8: ids 33, 50, 51, 53, 75 to 77, 82, 83 and past 83 have no case
+  // and are skipped with one value byte; the message goes on.
+  k4x,
+  // 5.24r4: as 4.20r8, but 82 (community name) is a length-prefixed string.
+  k5x,
+  // 6.03r7: as 5.24r4, plus 77 (five bytes, nothing stored) and 83 (the
+  // gralat count in five bytes, applied only up to 999,999,999).
+  k6x,
+};
+
 struct BuildProfile {
   std::string label;       // "6.03r7 Linux"
   std::string token;       // the 8-character version token
@@ -51,6 +67,9 @@ struct BuildProfile {
   // The highest player prop id the build reads (2.22's parsers stop past
   // 80; the lab's 5.12 listed players' community names, prop 82).
   int last_prop = 80;
+  // The own-prop rules (OwnProps). Other players' props (8) keep the 2.22
+  // table up to last_prop.
+  OwnProps own_props = OwnProps::k222;
 };
 
 // Made-up machine fields, the shape the originals send. Windows: the MD5

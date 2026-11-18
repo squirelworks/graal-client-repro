@@ -789,7 +789,7 @@ void Program::on_message(int id, std::string_view body) {
       break;
     }
     case 9: {  // PLO_PLAYERPROPS
-      World::apply_props(r, me_, false, profile_.last_prop);
+      World::apply_own_props(r, me_, profile_.own_props, profile_.last_prop);
       if (!props_sent_) {
         // Logged in: the client's own props, then only what moves.
         session_.connection().send(2, World::initial_props(me_, profile_.platform));

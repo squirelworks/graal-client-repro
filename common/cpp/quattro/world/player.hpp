@@ -5,14 +5,16 @@
 // The prop table is Graal_analysis protocol/player-props.md as the 2.22
 // parser reads it, plus X2/Y2/Z2 (78 to 80), which the lab saw 5.x and 6.x
 // send (protocol/v6-props.md, protocol/v5v6-lab-play.md). It is the same
-// table the graal-6.03r7 Pascal folder reads; no 6.x prop parser was read
-// from the binary.
+// table the graal-6.03r7 Pascal folder reads. The own stream of 4.20r8,
+// 5.24r4 and 6.03r7 follows the probe results of 2026-11-18
+// (protocol/probe-results.tsv): see apply_own_props.
 //
 // Movement: the lab saw 6.03r7 send only the coordinate that changed, as X2
 // or Y2, every 50 ms while walking.
 #pragma once
 
 #include "../net/gtypes.hpp"
+#include "../net/profile.hpp"
 
 #include <array>
 #include <cstdint>
@@ -59,6 +61,15 @@ struct Player {
 // `last_prop`: the highest id the build reads (81 and 82 only for a build
 // that sets it so).
 int apply_props(Net::Reader& r, Player& p, bool other, int last_prop = 80);
+
+// Applies the client's own prop stream (9) by a build's rules. k222 is
+// apply_props(r, p, false, last_prop). The 4.x to 6.x rules skip an id
+// they have no case for with one value byte and read on, so a longer value
+// loses only the rest of this message (Net::OwnProps).
+int apply_own_props(Net::Reader& r, Player& p, Net::OwnProps rules, int last_prop = 80);
+
+// The largest gralat count 6.x applies from prop 83.
+constexpr uint64_t kMaxGralats83 = 999999999;
 
 // X2/Y2/Z2 encoding: pixels (1/16 tile) times two, the low bit a sign.
 unsigned to_pixels2(double tiles);

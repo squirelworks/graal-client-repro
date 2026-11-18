@@ -1375,6 +1375,32 @@ begin
   end;
 end;
 
+{ A NUL byte in a message loses the rest of that frame (the real 2.22,
+  probe runs 2026-11-18); a NUL-free frame and the next frame are read. }
+procedure TestNulCutsFrame;
+var
+  G: TAdventure;
+  SrvOut: TGen5;
+begin
+  G := TAdventure.Create;
+  SrvOut := TGen5.Create(3);
+  try
+    G.Client.StartOffline(3);
+    G.Client.FeedRaw(ServerFrame(SrvOut, GChar(PLO_PLAYERPROPS) + GChar(PLPROP_BOMBSCOUNT) +
+      GChar(5) + #10 + GChar(PLO_PLAYERPROPS) + GChar(PLPROP_CURCHAT) + GString('a') + #0#10 +
+      GChar(PLO_PLAYERPROPS) + GChar(PLPROP_BOMBSCOUNT) + GChar(99) + #10));
+    Check(G.Player.Bombs = 5, 'nul: messages before the NUL are read');
+    Check(G.Player.Chat = 'a', 'nul: the message is kept up to the NUL');
+    Check(G.Player.Bombs <> 99, 'nul: the message after it in the frame is lost');
+    G.Client.FeedRaw(ServerFrame(SrvOut, GChar(PLO_PLAYERPROPS) + GChar(PLPROP_BOMBSCOUNT) +
+      GChar(11) + #10));
+    Check(G.Player.Bombs = 11, 'nul: the next frame reads normally');
+  finally
+    SrvOut.Free;
+    G.Free;
+  end;
+end;
+
 procedure TestReceiveLimits;
 var
   G: TAdventure;
@@ -2106,6 +2132,7 @@ begin
   TestBoardModify;
   TestFuzz;
   TestReceiveLimits;
+  TestNulCutsFrame;
   TestStatus;
   TestActions;
   TestSpinAndLay;

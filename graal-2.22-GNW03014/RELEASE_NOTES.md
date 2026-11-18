@@ -35,6 +35,8 @@ Files are looked for in the program's own folder first, then in
 
 ## What's new in v0.0.5
 
+- [x] A frame stops at a NUL byte, as the real 2.22 does: a message with a `00` byte loses the messages after it in that frame; a frame carrying a board or file keeps its bytes (probe results 2026-11-18, graal-client-repro#407). The own prop stream already ended at ids 75 and up, which the probes confirm.
+
 - [x] **Seihai secure login (optional, off by default).** With `--secure-login auto` (or `required`, or `secure_login.txt` in the settings folder), the account and password go sealed to a Seihai game server or list server (`SEI00001`), after the server's key is checked and pinned. Servers that do not know it get the original login under `auto`. Off, the login is byte for byte the original's. This is not in the original 2.22.
 
 ## What's new in v0.0.4.2

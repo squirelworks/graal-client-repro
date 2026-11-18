@@ -20,6 +20,8 @@ its files, or keep those files in a `graal-assets/` folder beside it.
 
 ## What's new in v0.0.5
 
+- [x] A frame stops at a NUL byte, as the real 2.31 does: a message with a `00` byte loses the messages after it in that frame; a frame carrying a board or file keeps its bytes (probe results 2026-11-18, graal-client-repro#407). The own prop stream already read 78 to 80 as two bytes and ended at 81 and up, which the probes confirm.
+
 - [x] **Secure-login pins must be saved.** The shared login code stops before sending the sealed credentials when a new server key cannot be written, closed and read back from the pin file. It reports the save error instead of claiming the key was pinned. An unreadable or non-file pin store also prevents `auto` from falling back to clear-text login, even after a cached refusal.
 
 - [x] **Seihai secure login (optional, off by default).** With `--secure-login auto` (or `required`, or `secure_login.txt` in the settings folder), the account and password go sealed to a Seihai game server or list server (`SEI00001`), after the server's key is checked and pinned. Servers that do not know it get the original login under `auto`. Off, the login is byte for byte the original's. This is not in the original 2.31.
