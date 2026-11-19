@@ -1285,7 +1285,7 @@ begin
   A := QuattroArgs('/g/', ['/g/', '/g/graal-assets/x/'], '', '', '', 'h:14900', 'acct', 'Lab Server', 'Nick');
   S := '';
   for I := 0 to High(A) do S := S + A[I] + '|';
-  Check(S = '--connect|h:14900|--account|acct|--password-env|GRAAL_QUATTRO_PW|--server-name|Lab Server|' +
+  Check(S = '--connect|h:14900|--account|acct|--password-env|GRAAL_QUATTRO_PW|--server-name|Lab Server|--secure-login|off|' +
     '--nickname|Nick|--download-files|--assets|/g|--asset-root|/g/graal-assets/x|', 'quattro args online: ' + S);
   A := QuattroArgs('/g/', [], '/g/levels/start.nw', '30', '31', '', '', '', '');
   S := '';

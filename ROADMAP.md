@@ -192,8 +192,10 @@ issue marks done; remaining gaps stay there.
   RFC vectors), pins, `off`/`auto`/`required` (off by default)
 - [x] Gen 5 Delphi, gen 3/2 game links, and the listed 3.x–6.x folders
   (see #306)
-- [ ] 5.31r4: its folder is a scaffold that speaks to no server yet, so
-  the login goes in when its link does
+- [x] 5.31r4: the login goes through `quattro-play`, which speaks
+  `SEI00001` itself (C++ in `common/cpp/quattro/net/seclogin.cpp`, same
+  pins and modes); the same goes for every folder that hands its game to
+  Quattro (5.24r4, 6.01r1, 6.03r7 Linux and Windows)
 - [ ] Gen 3 and gen 2 list link: it sends id 0 `newmain` with no key or
   token, so the spec's list C1 does not fit it (open question on #306)
 - [ ] seihai-gserver-v2 side (its own repo)

@@ -1304,10 +1304,68 @@ void test_program_524() {
   CHECK(p.me().x > x0);
 }
 
+// 5.31r4 on Quattro: login, the 178 warp and walk, as the lab played it.
+// Login mode draws no tiles before the warp (v5v6-lab-play.md).
+void test_program_531() {
+  const Net::BuildProfile* prof = Net::find_profile("5.31r4");
+  CHECK(prof && !prof->login_draws_tiles);
+  if (!prof) return;
+  FakeServer login, game;
+  CHECK(login.start() && game.start());
+
+  Shell::Options opt;
+  opt.host = "127.0.0.1";
+  opt.port = login.port();
+  opt.account = "guest";
+  opt.password = "pw";
+  HeldWindow win;
+  Shell::Program p(*prof, opt, win);
+  CHECK(p.start());
+  CHECK(login.conn.accept_from(login.listener));
+  CHECK(run(p, &login, nullptr, [&] { return login.saw(37, "English"); }));
+  CHECK(login.login_line.find("G3D26090") == 0);
+  CHECK(login.login_line.find("win,") != std::string::npos);
+
+  login.send(send_level("onlinestartlocal.nw", 7));
+  CHECK(run(p, &login, nullptr, [&] { return p.world().have_level; }));
+  CHECK(p.world().lobby);
+  p.tick();
+  CHECK(win.last().at(1, 1) != Draw::tile_colour(7));
+
+  login.send(gchar(178) + "0,Lab Server,127.0.0.1," + std::to_string(game.port()) + "\n");
+  std::thread acc([&] { game.conn.accept_from(game.listener); });
+  bool warped = run(p, &login, nullptr, [&] { return p.session().logins() == 2; });
+  acc.join();
+  CHECK(warped);
+  CHECK(run(p, nullptr, &game, [&] { return game.saw(37, "English"); }));
+  CHECK(game.login_line.find("G3D26090") == 0);
+  game.send(send_level("walk.nw", 7));
+  CHECK(run(p, nullptr, &game, [&] { return p.world().have_level && !p.world().lobby; }));
+  p.tick();
+  CHECK(win.last().at(1, 1) == Draw::tile_colour(7));
+  game.send(gchar(9) + gchar(World::kX2) + Net::gshort(World::to_pixels2(20)) + gchar(World::kY2) +
+            Net::gshort(World::to_pixels2(22)) + "\n");
+  CHECK(run(p, nullptr, &game, [&] {
+    for (auto& [id, b] : game.got)
+      if (id == 2) return true;
+    return false;
+  }));
+  CHECK(p.me().x == 20 && p.me().y == 22);
+  const double x0 = p.me().x;
+  win.keys.insert(Draw::Key::Right);
+  for (int i = 0; i < 20; ++i) {
+    p.tick();
+    game.pump();
+  }
+  win.keys.clear();
+  CHECK(p.me().x > x0);
+}
+
 int main() {
   test_script_native_bounds();
   test_program();
   test_program_524();
+  test_program_531();
   test_offline();
   test_update_packages();
   test_downloads();

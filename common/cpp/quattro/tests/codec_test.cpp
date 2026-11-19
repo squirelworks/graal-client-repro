@@ -207,6 +207,16 @@ void test_profiles() {
         r524->login_draws_tiles && !r524->answers_ping &&
         !r524->plo.test(111) && r524->has_os_version);
 
+  // 5.30r3 / 5.31r4: G3D26090, 5.24's switch without 41 and 181, 95 ids.
+  const BuildProfile* r531 = find_profile("5.31r4");
+  CHECK(r531 && r531->token == "G3D26090" && r531->platform == "win" && r531->has_os_version &&
+        !r531->login_draws_tiles && !r531->answers_ping && r531->draws_chests);
+  if (r531) {
+    CHECK(!r531->plo.test(41) && !r531->plo.test(181) && !r531->plo.test(111));
+    for (int id : {165, 169, 175, 184, 109, 198}) CHECK(r531->plo.test(static_cast<size_t>(id)));
+    CHECK(r531->plo.count() == 95);
+  }
+
   // 5.00r7 and 5.12: the same 100-id switch (v5v6-windows-unpacked.md).
   const BuildProfile* r500 = find_profile("5.00r7");
   const BuildProfile* r512 = find_profile("5.12");

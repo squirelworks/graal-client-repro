@@ -163,6 +163,8 @@ begin
     if HasArg('--secure-login') or HasArg('--server-key') then
     begin
       if not ParseSecMode(Arg('--secure-login', 'required'), Mode) then Exit;
+      { A bad key is reported by the Pascal game, not handed on. }
+      if HasArg('--server-key') and not DecodeKey(Arg('--server-key', ''), Value) then Exit;
       SetSecure(Mode, Arg('--server-key', ''));
     end;
   end

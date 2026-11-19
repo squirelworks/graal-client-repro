@@ -181,6 +181,12 @@ std::unique_ptr<Window> open_window(int w, int h, const std::string& title) {
   return win;
 }
 }
+#elif defined(QUATTRO_COCOA)
+namespace Quattro::Draw {
+std::unique_ptr<Window> open_window(int w, int h, const std::string& title) {
+  return open_cocoa_window(w, h, title);
+}
+}
 #else
 namespace Quattro::Draw {
 std::unique_ptr<Window> open_window(int w, int h, const std::string& title) {

@@ -5,7 +5,7 @@ Pascal). The original is a Windows program from 2010; this rebuild runs on
 Linux and Windows. It is an early version: most of the game (NPCs, items,
 weapons, scripts, the scripted login screens) is not there yet.
 
-> **Major defects in fidelity.** The original is one native C++ program (the 6.x `quattro_lib` engine); this release is the Delphi stand-in that speaks its wire protocol. It does not behave like the original in many ways until the 6.x engine track (#109, "Separate own-engine track") reaches this build.
+> **Major defects in fidelity.** The original is one native C++ program (the 6.x `quattro_lib` engine). The game now runs in the rebuilt Quattro player when present; the start screen and the CLI fallback remain Delphi. Login GUI scripts and lab parity gaps remain.
 
 **Login token: tested against the real client.** Seen on the wire: the real 5.24r3, 5.24r4 and 6.00 beta 2 were run in the lab and sent `G3D15010` (graal_analysis `protocol/v5v6-windows-unpacked.md`, "Tokens"); this rebuild sends the same token.
 
@@ -22,9 +22,11 @@ to the program works too.
 
 ## What's new in v0.0.5
 
+- [x] **The game runs in the Quattro program by default.** The real 5.24r4 is one C++ program (`quattro_lib`); its rebuild, `quattro-play`, now ships next to `Graal524r4`. The start screen still picks the server (or Training) and hands the game to it, as the Windows 6.03r7 folder does; `--window` with `--server` or `--level` goes there too. The password goes in the environment. With `GRAAL_PASCAL_GAME=1` or without the player, the Pascal game plays as before. Seihai secure login works in both.
+
 - [x] Quattro reads its own props as the probed 5.24r4 does (graal-client-repro#407): an id with no case (33, 50, 51, 53, 75 to 77, 83, 84 and up) is skipped with one byte and the message goes on; 82 is a string.
 
-- [x] **Quattro login + level + walk.** The `5.24r4 Windows` row in `common/cpp/quattro` (`G3D15010`, win + OS version, tiles in Login) passes loopback session and program tests: language, board, 178 warp, and a walk step. Folder start-screen handoff to `quattro-play` is still D5.
+- [x] **Quattro login + level + walk.** The `5.24r4 Windows` row in `common/cpp/quattro` (`G3D15010`, win + OS version, tiles in Login) passes loopback session and program tests: language, board, 178 warp, and a walk step. The folder hands its game to `quattro-play` (above).
 - [x] **New client.** 5.24r4 has a folder of its own, started from `graal-6.0.1.5-G3D3007A` with its own token `G3D15010` and the Windows login tail (`win` and four machine fields) and `win` as its system name.
 - [x] **Machine fields in the original's shape.** The login line now sends `win`, three fixed made-up MD5 hashes (of SquirrelOS, SquirrelNIC and SquirrelBIOS strings) and the quoted Windows version `"6.2 9200 "`, the shape the real client sends. Nothing is read from your machine.
 

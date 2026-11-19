@@ -44,6 +44,12 @@ struct Options {
   std::string account;
   std::string password;
   std::string language = "English";
+  // The Seihai secure login (SEI00001; not in any original client). Off is
+  // the original login byte for byte. quattro-play sets it from the
+  // player's setting (GRAAL_SECURE_LOGIN, secure_login.txt) or
+  // --secure-login; server_key (base64), when set, is the only key trusted.
+  Net::Sec::Mode secure = Net::Sec::Mode::Off;
+  std::string server_key;
   std::string nickname;  // empty: "unknown", as the lab's 6.03r7 sent
   // The first server's name: "Login" (the lobby) unless the launcher
   // connected to a server by name (the engine library's connectToGraalServer).
