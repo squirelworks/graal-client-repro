@@ -39,4 +39,12 @@ constexpr std::size_t dso_max_items = 1024 * 1024;
 bool load_dso(const std::vector<std::uint8_t>& bytes, FloatOrder order,
               DsoBlock& output, DsoError& error);
 
+// The float byte order of one file: the Mac PPC build writes its float
+// tables big-endian, the Linux and Windows builds little-endian
+// (Graal_analysis torque/scripting.md: "the decoder detects this per
+// file"). Both readings are tried; the one whose floats look like script
+// constants (finite, moderate, few fraction digits) wins. Fallback when the
+// file has no floats, does not parse, or the two readings tie.
+FloatOrder detect_dso_float_order(const std::vector<std::uint8_t>& bytes, FloatOrder fallback);
+
 } // namespace Torque
