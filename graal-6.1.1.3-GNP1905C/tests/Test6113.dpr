@@ -16,6 +16,7 @@ uses
   Level6113 in '../src/Level6113.pas',
   Sha6113 in '../src/Sha6113.pas',
   Rsa6113 in '../src/Rsa6113.pas',
+  SecLogin6113 in '../src/SecLogin6113.pas',
   Connector6113 in '../src/Connector6113.pas',
   Lab6113 in '../src/Lab6113.pas',
   Play6113 in '../src/Play6113.pas',
@@ -466,6 +467,107 @@ begin
     'SHA-256 of the two-block FIPS vector');
 end;
 
+function FromHex(const H: string): string;
+var
+  I: Integer;
+  Hi, Lo: Integer;
+  function Nib(C: Char): Integer;
+  begin
+    case C of
+      '0'..'9': Nib := Ord(C) - Ord('0');
+      'a'..'f': Nib := Ord(C) - Ord('a') + 10;
+      'A'..'F': Nib := Ord(C) - Ord('A') + 10;
+    else
+      Nib := 0;
+    end;
+  end;
+begin
+  Result := '';
+  I := 1;
+  while I + 1 <= Length(H) do
+  begin
+    Hi := Nib(H[I]);
+    Lo := Nib(H[I + 1]);
+    Result := Result + Chr((Hi shl 4) or Lo);
+    Inc(I, 2);
+  end;
+end;
+
+function ToHex(const S: string): string;
+const
+  Hex = '0123456789abcdef';
+var
+  I: Integer;
+begin
+  Result := '';
+  for I := 1 to Length(S) do
+    Result := Result + Hex[(Ord(S[I]) shr 4) + 1] + Hex[(Ord(S[I]) and 15) + 1];
+end;
+
+{ The SEI00001 secure-login primitives, checked against the published RFC
+  vectors. SEI00001 is Seihai's own login (seihai/documentation/secure-login.md);
+  this is the clean-room client half of its cryptography. }
+procedure TestSecLogin;
+var
+  D, Tag, Okm, Cipher, Box, Got, Key, Nonce, Aad, Plain, Msg, Salt, Info: string;
+begin
+  { base64, standard alphabet, no padding, strict (RFC 4648) }
+  Check(Base64Encode('') = '', 'base64 of the empty string');
+  Check(Base64Encode('f') = 'Zg', 'base64 of f');
+  Check(Base64Encode('foobar') = 'Zm9vYmFy', 'base64 of foobar');
+  Check(Base64Decode('Zm9vYmFy', D) and (D = 'foobar'), 'base64 decodes foobar');
+  Check(Base64Decode('Zm9vYg', D) and (D = 'foob'), 'base64 decodes with no padding');
+  Check(not Base64Decode('Zg==', D), 'base64 refuses padding');
+  Check(not Base64Decode('A', D), 'base64 refuses a remainder of one');
+  Check(not Base64Decode('Zm9vYmF_', D), 'base64 refuses a non-alphabet byte');
+
+  { HMAC-SHA256, RFC 4231 test case 2 }
+  Tag := HmacSha256('Jefe', 'what do ya want for nothing?');
+  Check(ToHex(Tag) = '5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843',
+    'HMAC-SHA256 RFC 4231 case 2');
+
+  { HKDF-SHA256, RFC 5869 test case 1 }
+  Salt := FromHex('000102030405060708090a0b0c');
+  Info := FromHex('f0f1f2f3f4f5f6f7f8f9');
+  Okm := HkdfSha256(Salt, StringOfChar(Chr($0b), 22), Info, 42);
+  Check(ToHex(Okm) =
+    '3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865',
+    'HKDF-SHA256 RFC 5869 case 1');
+
+  { Poly1305, RFC 8439 section 2.5.2 }
+  Key := FromHex('85d6be7857556d337f4452fe42d506a80103808afb0db2fd4abff6af4149f51b');
+  Msg := 'Cryptographic Forum Research Group';
+  Check(ToHex(Poly1305(Key, Msg)) = 'a8061dc1305136c6c22b8baf0c0127a9',
+    'Poly1305 RFC 8439 2.5.2');
+
+  { ChaCha20, RFC 8439 section 2.4.2 }
+  Key := FromHex('000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f');
+  Nonce := FromHex('000000000000004a00000000');
+  Plain := 'Ladies and Gentlemen of the class of ''99: If I could offer you only ' +
+    'one tip for the future, sunscreen would be it.';
+  Cipher := Chacha20Xor(Key, Nonce, 1, Plain);
+  Check(ToHex(Cipher) =
+    '6e2e359a2568f98041ba0728dd0d6981e97e7aec1d4360c20a27afccfd9fae0bf91b65c5524733ab8f5' +
+    '93dabcd62b3571639d624e65152ab8f530c359f0861d807ca0dbf500d6a6156a38e088a22b65e52bc51' +
+    '4d16ccf806818ce91ab77937365af90bbf74a35be6b40b8eedf2785e42874d',
+    'ChaCha20 RFC 8439 2.4.2 keystream');
+
+  { AEAD_CHACHA20_POLY1305, RFC 8439 section 2.8.2 }
+  Key := FromHex('808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9f');
+  Nonce := FromHex('070000004041424344454647');
+  Aad := FromHex('50515253c0c1c2c3c4c5c6c7');
+  Box := AeadSeal(Key, Nonce, Aad, Plain);
+  Check(ToHex(Box) =
+    'd31a8d34648e60db7b86afbc53ef7ec2a4aded51296e08fea9e2b5a736ee62d63dbea45e8ca9671282fa' +
+    'fb69da92728b1a71de0a9e060b2905d6a5b67ecd3b3692ddbd7f2d778b8c9803aee328091b58fab324e4' +
+    'fad675945585808b4831d7bc3ff4def08e4b7a9de576d26586cec64b61161ae10b594f09e26a7e902ecb' +
+    'd0600691',
+    'AEAD seal RFC 8439 2.8.2');
+  Check(AeadOpen(Key, Nonce, Aad, Box, Got) and (Got = Plain), 'AEAD open round trip');
+  Box[1] := Chr(Ord(Box[1]) xor 1);
+  Check(not AeadOpen(Key, Nonce, Aad, Box, Got), 'AEAD open rejects a flipped byte');
+end;
+
 procedure TestConfReply;
 var
   Reply, Sig, Payload, Err, Bad: string;
@@ -669,6 +771,7 @@ begin
     TestLabRoundTrip;
     TestRejectHost;
     TestSha256;
+    TestSecLogin;
     TestConfReply;
     TestConnectorScript;
     TestConnectorLogin;
