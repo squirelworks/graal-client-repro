@@ -254,10 +254,13 @@ void test_pins() {
   CHECK(!may_fall_back(Mode::Auto, "h:1"));  // pinned: never in the clear again
   CHECK(!may_fall_back(Mode::Required, "h:3"));
   // The same line form as the Pascal clients and Seihai's own file.
-  std::ifstream f(pin_file());
-  std::string line;
-  std::getline(f, line);
-  CHECK(line == "h:1 " + b64_encode(k1));
+  {
+    // Closed before the folder is cleared: Windows cannot delete an open file.
+    std::ifstream f(pin_file());
+    std::string line;
+    std::getline(f, line);
+    CHECK(line == "h:1 " + b64_encode(k1));
+  }
   Mode m;
   CHECK(parse_mode(" Auto ", m) && m == Mode::Auto);
   CHECK(parse_mode("required", m) && m == Mode::Required);
@@ -275,7 +278,9 @@ void test_pins() {
   // A folder where the pin file should be: the store is unavailable, so it
   // counts as pinned and auto never falls back to the clear login.
   fresh_dir();
-  fs::create_directories(g_dir + "/known_servers.txt");
+  std::error_code ec;
+  fs::create_directories(g_dir + "/known_servers.txt", ec);
+  CHECK(!ec);
   CHECK(pin_check("h:9", k1, pinned) == PinResult::Unavailable);
   CHECK(is_pinned("h:9"));
   fresh_dir();
