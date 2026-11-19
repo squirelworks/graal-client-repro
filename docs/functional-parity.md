@@ -33,12 +33,17 @@ not have to match the original's pixels, fonts, window chrome or artwork.
 - Extracting and wiring each exe's own icons, bitmaps, forms and fonts.
   What is already wired stays; missing ones are not a gap.
 - Title screens and logos that carry no behaviour.
-- Making the faithful engine track (`docs/engine-repro-policy.md`) the
-  default just because it is closer to the original's internals. A folder
-  switches when the engine track behaves better, not to look more alike.
 
 Look-related work that is already merged stays. Nobody removes it; it just
 stops being a reason to hold a release.
+
+## The engine stays
+
+The faithful engine work (`docs/engine-repro-policy.md`: Torque for early
+3.x, the launcher plus engine library for mid-4.x and early 5.x, Quattro
+for late 5.x and 6.x) is part of being functionally the same, because the
+original ran its game on that engine. It stays the target for each folder
+and a release gate, as the policy says.
 
 ## How a check is done
 

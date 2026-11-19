@@ -20,12 +20,6 @@ Both tracks stay in the tree for every in-scope folder. The engine track may
 be partial (boot host, `--engine` flag, scaffold, sibling binary). Partial
 is fine; deleting either track is not.
 
-Since 2026-11-19 the goal is behaviour, not looks
-([functional-parity.md](functional-parity.md)). Moving a folder to the
-engine track is no longer a release gate: a folder flips when the engine
-track plays better than the Pascal one, and a working Pascal default is a
-finished folder.
-
 ## Default vs relic
 
 - **Default** = whatever the folder releases and what a no-argument start
