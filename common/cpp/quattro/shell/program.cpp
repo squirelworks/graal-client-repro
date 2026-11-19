@@ -73,6 +73,9 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
       window_(window),
       session_(profile, {}),
       item_keys_(profile.carry_sprite_after, profile.carry_still_after),
+      scripts_(profile.gs2_engine == 42   ? gs2::Profile::Engine42
+               : profile.gs2_engine == 50 ? gs2::Profile::Engine50
+                                          : gs2::Profile::Engine600),
       canvas_(opt_.width, opt_.height),
       run_start_(std::filesystem::file_time_type::clock::now()) {
   Net::Session::Events ev;
@@ -95,6 +98,8 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
   me_.nickname = opt_.nickname.empty() ? "unknown" : opt_.nickname;  // the lab's 6.03r7 sent "unknown" with no nickname set
   me_.language = opt_.language;
   scripts_.set_send([this](int id, std::string_view body) { return session_.connection().send(id, body); });
+  // 3.153 to 5.12: weapons as bytecode on 132 and 193, cached in <assets>/weblevels/weapons.
+  scripts_.set_v4_scripts(profile_.v4_scripts, opt_.assets.empty() ? std::string() : opt_.assets + "/weblevels");
   scripts_.on_log = [this](const std::string& s) {
     if (log) log(s);
   };

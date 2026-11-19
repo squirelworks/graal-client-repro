@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <zlib.h>
 
 using namespace Quattro;
 using gs2asm::Asm;
@@ -240,6 +241,89 @@ void test_triggers_and_findweapon() {
   CHECK(h.machine().errors().empty());
 }
 
+// The 3.153 to 5.12 path on the 4.2 machine: 132 installs bytecode on a
+// held weapon and caches it, 193 loads a cached copy whose CRC matches and
+// otherwise asks with 158, 133 stores a class for join(), and D on the
+// weapon raises onWeaponFired.
+void test_v4_bytecode() {
+  namespace fs = std::filesystem;
+  const fs::path dir = fs::temp_directory_path() / "quattro-v4-scripts";
+  fs::remove_all(dir);
+  Shell::ScriptHost h(gs2::Profile::Engine42);
+  CHECK(h.machine().profile() == gs2::Profile::Engine42);
+  h.set_v4_scripts(true, (dir / "weblevels").string());
+  std::vector<std::pair<int, std::string>> sent;
+  h.set_send([&](int id, std::string_view b) {
+    sent.emplace_back(id, std::string(b));
+    return true;
+  });
+  Asm a;
+  a.function("onCreated", {});
+  a.op(Asm::MARKER).str("bow ready").callName("echo").op(Asm::POP);
+  a.num(0).op(Asm::RET);
+  a.function("onWeaponFired", {});
+  a.op(Asm::MARKER).str("bow fired").callName("echo").op(Asm::POP);
+  a.op(Asm::MARKER).str("shot").str("Bow").str("gui").callName("triggerserver").op(Asm::POP);
+  a.num(0).op(Asm::RET);
+  const std::string code = a.bytes();
+
+  // 132 for a weapon the player does not hold does nothing.
+  CHECK(h.on_message(132, Shell::ScriptHost::make_bytecode_packet("Bow", code)));
+  CHECK(!h.weapon("Bow"));
+  CHECK(!fs::exists(h.v4_weapon_path("Bow")));
+  // 33 first, then 132: cached and installed.
+  CHECK(h.on_message(33, Net::gstring("Bow")));
+  CHECK(h.on_message(132, Shell::ScriptHost::make_bytecode_packet("Bow", code)));
+  h.tick();
+  CHECK(logged(h, "echo: bow ready"));
+  {
+    std::ifstream in(h.v4_weapon_path("Bow"), std::ios::binary);
+    std::string file((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    CHECK(file == code);
+  }
+  // D: onWeaponFired, which sends the trigger.
+  CHECK(h.fire("Bow"));
+  h.tick();
+  CHECK(logged(h, "echo: bow fired"));
+  CHECK(!sent.empty() && sent.back().first == 38 &&
+        sent.back().second == Net::gint3(0) + Net::gchar(0) + Net::gchar(0) + "serverside,Bow,shot");
+
+  // A new session's weapon list: 193 with the cached copy's CRC loads it, no ask.
+  Shell::ScriptHost h2(gs2::Profile::Engine42);
+  h2.set_v4_scripts(true, (dir / "weblevels").string());
+  std::vector<std::pair<int, std::string>> sent2;
+  h2.set_send([&](int id, std::string_view b) {
+    sent2.emplace_back(id, std::string(b));
+    return true;
+  });
+  const uint32_t crc = static_cast<uint32_t>(::crc32(0L, reinterpret_cast<const Bytef*>(code.data()), static_cast<uInt>(code.size())));
+  CHECK(h2.on_message(33, Net::gstring("Bow")));
+  CHECK(h2.on_message(193, Net::gint5(crc) + "Bow"));
+  h2.tick();
+  CHECK(logged(h2, "weapon Bow loaded"));
+  CHECK(sent2.empty());
+  // A changed CRC asks with 158 and the name.
+  CHECK(h2.on_message(193, Net::gint5(crc ^ 1) + "Bow"));
+  CHECK(sent2.size() == 1 && sent2[0].first == 158 && sent2[0].second == "Bow");
+
+  // 133: a class join() finds; a name alone is an empty class.
+  Asm c;
+  c.function("public.twice", {"x"});
+  c.var("x").var("x").op(Asm::ADD).op(Asm::RET);
+  CHECK(h2.on_message(133, Shell::ScriptHost::make_bytecode_packet("doubler", c.bytes())));
+  CHECK(h2.machine().classScript("doubler") != nullptr);
+  CHECK(h2.on_message(133, Net::gstring("empty")));
+  CHECK(h2.classes().count("empty") == 1);
+
+  // Off the v4 path (6.x), 132 and 193 are not the script host's.
+  Shell::ScriptHost h6;
+  CHECK(!h6.on_message(132, Shell::ScriptHost::make_bytecode_packet("Bow", code)));
+  CHECK(!h6.on_message(193, Net::gint5(crc) + "Bow"));
+  for (const auto& e : h.machine().errors()) std::fprintf(stderr, "%s\n", e.c_str());
+  CHECK(h.machine().errors().empty());
+  fs::remove_all(dir);
+}
+
 }  // namespace
 
 void test_keys() {
@@ -267,5 +351,6 @@ int main() {
   test_delivery_and_cache();
   test_keys();
   test_triggers_and_findweapon();
+  test_v4_bytecode();
   TEST_MAIN_END();
 }

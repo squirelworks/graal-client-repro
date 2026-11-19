@@ -817,6 +817,35 @@ void testLoopbackSession(const char* build, const char* labEnv, const std::strin
   run("Adventure_setChat hello there");
   CHECK(pump(&game, [&] { return game.saw(2, gchar(QW::kCurChat) + gstring("hello there")); }));
 
+  // A server weapon with a GS2 script on the 3.153-5.12 path: 33 adds it,
+  // 132 (behind 100) brings its bytecode, and D raises onWeaponFired, whose
+  // triggerserver goes out as 38.
+  {
+    using gs2asm::Asm;
+    Asm w;
+    w.function("onWeaponFired", {});
+    w.op(Asm::MARKER).str("shot").str("Bow").str("gui").callName("triggerserver").op(Asm::POP);
+    w.num(0).op(Asm::RET);
+    const std::string code = gchar(132) + gstring("Bow") + w.bytes() + "\n";
+    game.send(gchar(33) + gstring("Bow") + "\n" + gchar(100) + Quattro::Net::gint3(uint32_t(code.size())) + "\n" + code);
+    CHECK(pump(&game, [&] {
+      auto wv = e.session()->program().scripts().weapon("Bow");
+      return wv && e.session()->program().scripts().machine().hasScript(wv);
+    }));
+    // Let the sword swing above end first: D is not used while it lasts.
+    const auto settle = std::chrono::steady_clock::now() + std::chrono::milliseconds(600);
+    pump(&game, [&] { return std::chrono::steady_clock::now() > settle; });
+    const std::size_t sent0 = game.got.size();
+    CHECK(e.session()->action("doD", true));
+    const bool fired = pump(&game, [&] {
+      for (std::size_t i = sent0; i < game.got.size(); ++i)
+        if (game.got[i].first == 38 && game.got[i].second.find("serverside,Bow,shot") != std::string::npos) return true;
+      return false;
+    });
+    e.session()->action("doD", false);
+    CHECK(fired);
+  }
+
   CHECK(e.session()->haveFrame());
   CHECK(e.session()->frame().width == screenW && e.session()->frame().height == screenH);
   // With the player's own engine file (the lab run above leaves it set),

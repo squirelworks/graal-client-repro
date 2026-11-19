@@ -147,6 +147,30 @@ With the player's own 4.04r2 `GraalEngine.dll` (`GRAAL404_ENGINE`) the
 world shows in `GraalControl` and the right arrow walks through the real
 MoveMap2D binding.
 
+## Server scripts (C2)
+
+The session runs the server's weapon and class scripts on the build's own
+GS2 machine (the 4.2 opcode set on a 4.x row, 5.0 on 5.00r7 and 5.12),
+by the 3.153-5.12 path Graal_analysis reads in
+`protocol/unknown-ids-2026-11-06.md` and `protocol/class-bytecode-v4.md`:
+
+| Id | Does |
+|---|---|
+| 33 then 132 | `str name`, then the weapon's bytecode. Only for a weapon the player holds; written to `<install>/weblevels/weapons/<name>.code`, then installed and restarted |
+| 193 | GINT5 zlib CRC-32 and the name: a cached `.code` with that CRC is loaded, otherwise C->S 158 asks for it |
+| 133 | `str name`, then a class's bytecode (the name alone: an empty class), kept for `join()` |
+| 140, 197 | the 5.x rows also take the GRESCR01 path the Quattro program has |
+
+D on a weapon with a script raises `onWeaponFired` on it; `onKeyPressed`,
+`onPlayerEnters`, `onActionClientSide` (48), `triggerserver` and
+`triggeraction` (C->S 38) are the Quattro program's
+(`common/cpp/quattro/shell/scripts.hpp`). Checked on loopback in
+`make test` for every 4.x and 5.x row: 33 and 132 behind 100, then D sends
+the script's `triggerserver` as 38. There is no GS1 text runner to build:
+from 4.x on the server compiles GS1 scripts to the same bytecode
+(client-internals/gs1-on-5x-hud-and-flags.md). Level NPCs from the server
+(3, 131) are not drawn or run yet.
+
 ## Offline mode (C2)
 
 `startOfflineMode` with no offline starter set runs the same Quattro
