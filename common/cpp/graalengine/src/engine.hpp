@@ -92,6 +92,8 @@ class Engine {
   // onGraal3DLoginStep(step) on the universe; step 6 makes the 3D GUI the
   // content.
   void graal3DLoginStep(int step);
+  // After each session frame: a dropped 4.x session goes back to the menu.
+  void afterSessionTick();
   // A Graal text message from the 3D server, to the session's scripts.
   void graal3DServerText(const std::string& weapon, const std::string& type, const std::string& option,
                          const std::string& data);

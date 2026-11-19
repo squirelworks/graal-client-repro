@@ -118,7 +118,11 @@ class ScriptHost {
   // 194 (PLO_RESETCLIENT, was CLEARWEAPONS): every weapon goes.
   void clear_weapons() { weapons_.clear(); }
   // The trigger actions as C->S 38 bodies (also for tests).
-  static std::string trigger_body(double x, double y, const std::string& csv);
+  // `npc` is the calling NPC's id (0 for a weapon); the lab's real 4.04r2
+  // sent its NPC's id there.
+  static std::string trigger_body(double x, double y, const std::string& csv, uint32_t npc = 0);
+  // The NPC id of a script object (0: not an NPC), for triggeraction.
+  std::function<int(const gs2::Var*)> npc_id_of;
   // Raises onWeaponFired on the named weapon; false when it has no script.
   bool fire(const std::string& name);
   // A key went down (Torque key name, typed character): onKeyPressed

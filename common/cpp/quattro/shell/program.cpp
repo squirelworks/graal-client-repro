@@ -95,6 +95,7 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
   session_.set_events(std::move(ev));
   world_.lobby_tiles = profile_.login_draws_tiles;
   world_.chest_boxes = profile_.draws_chests;
+  world_.player_chat = profile_.v4_scripts;
   me_.nickname = opt_.nickname.empty() ? "unknown" : opt_.nickname;  // the lab's 6.03r7 sent "unknown" with no nickname set
   me_.language = opt_.language;
   scripts_.set_send([this](int id, std::string_view body) { return session_.connection().send(id, body); });
@@ -105,7 +106,10 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
   };
   register_weapon_commands();
   register_script_commands();
-  if (profile_.v4_scripts) register_npc_commands();
+  if (profile_.v4_scripts) {
+    register_npc_commands();
+    scripts_.npc_id_of = [this](const gs2::Var* v) { return npc_of(v); };
+  }
   world_.player.x = 30;
   world_.player.y = 30;
   std::vector<std::string> asset_folders;
@@ -200,6 +204,10 @@ void Program::ask_for_missing() {
     for (const std::string* n : {&p.head, &p.body, &p.sword_image, &p.shield_image})
       if (!n->empty() && n->find('.') != std::string::npos && !assets_->image(*n)) want_file(*n);
   };
+  // Server NPCs' images, as the lab's real 4.04r2 asked for block.png.
+  for (const auto& [id, n] : npcs_)
+    for (const std::string* f : {&n.image, &n.head, &n.body})
+      if (!f->empty() && f->find('.') != std::string::npos && !assets_->image(*f)) want_file(*f);
   if (profile_.cold_gani_requests && !me_.gani.empty()) {
     // Prop 10 may include animation parameters, e.g. shoot,wbow1.png.
     // They remain in player state but are not part of the requested file.

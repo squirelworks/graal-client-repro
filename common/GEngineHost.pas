@@ -1068,6 +1068,8 @@ procedure cbMessageBox(Title, Text: PAnsiChar; Kind: LongInt); cdecl;
 begin
   Note('MessageBox ' + Str(Title) + ': ' + Str(Text));
   if Cur = nil then Exit;
+  { The launcher's message box; the console launchers print the log. }
+  Cur.Log.Add(Str(Title) + ': ' + Str(Text));
   Cur.MessageTitle := Str(Title);
   Cur.MessageText := Str(Text);
   Inc(Cur.MessageCount);

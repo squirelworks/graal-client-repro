@@ -214,20 +214,31 @@ void ScreenControl::resize(int w, int h) {
 
 void ScreenControl::onRender(const graal_rect&) { gs2::gui::drawScreen(screen_, painter_); }
 
+std::string ScreenControl::keyName(const InputEvent& ev) {
+  std::string key = torqueKeyName(ev.vk);
+  if (!key.empty() || ev.vk != 0) return key;
+  // The control characters share their codes with the virtual keys.
+  if (ev.ch == 8 || ev.ch == 9 || ev.ch == 13 || ev.ch == 27) return torqueKeyName(ev.ch);
+  if (ev.ch >= 32 && ev.ch < 127) return std::string(1, char(std::tolower(ev.ch)));
+  return {};
+}
+
 bool ScreenControl::onInput(const InputEvent& ev) {
   switch (ev.kind) {
     case InputEvent::MouseDown:
       if (ev.button == GRAAL_MOUSE_LEFT) return screen_.mouseDown(ev.x, ev.y, ev.clicks);
       return false;
     case InputEvent::KeyDown: {
-      // A character-only event (vk 0) still reaches the text edit.
-      std::string key = torqueKeyName(ev.vk);
-      if (key.empty() && ev.ch >= 32 && ev.ch < 127) key = std::string(1, char(std::tolower(ev.ch)));
+      // A character-only event (vk 0) still reaches the text edit; its key
+      // name comes from the character, so Enter, Tab, Backspace and Escape
+      // typed as characters work as those keys (the lab: a launcher that
+      // sent them as characters could not open, send or edit the chat bar).
+      const std::string key = keyName(ev);
       if (key.empty() && ev.ch == 0) return false;
       return screen_.keyDown(key, ev.ch, modText(ev.mods));
     }
     case InputEvent::KeyUp: {
-      const std::string key = torqueKeyName(ev.vk);
+      const std::string key = keyName(ev);
       if (key.empty()) return false;
       return screen_.keyUp(key, modText(ev.mods));
     }

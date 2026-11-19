@@ -52,6 +52,9 @@ class Session2D {
   bool haveFrame() const { return frame_.width > 0; }
 
   Quattro::Shell::Program& program() { return *program_; }
+  // The link to the game server dropped (the launcher was told).
+  bool dropped() const { return dropped_; }
+  bool fiveRow() const { return five_; }
   const std::vector<std::string>& log() const { return log_; }
 
  private:
@@ -62,6 +65,7 @@ class Session2D {
   graal_texture frame_{};
   std::vector<std::string> log_;
   int loginsSeen_ = 0;
+  bool dropped_ = false;
   bool five_ = false;  // a 5.x row: the 5.12 launcher calls (player list, status names)
 };
 

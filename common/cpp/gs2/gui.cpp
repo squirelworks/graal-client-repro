@@ -366,6 +366,17 @@ bool Screen::mouseDown(int x, int y, int clicks) {
       }
       return true;
     }
+    if (t == "guipopupeditctrl") {
+      // An edit box with its list's button at the right end: a press on the
+      // text takes the keys (the 4.x menu's AccountEdit is one; the lab's
+      // real 4.04r2 typed into it), a press on the button (a square the
+      // control's height, the rebuild's reading) steps the list.
+      const Rect r = rectOf(*c);
+      if (c->rows.empty() || x < r.x + r.w - r.h) {
+        makeFirstResponder(asControlPtr(c->shared_from_this()));
+        return true;
+      }
+    }
     if (t == "guipopupmenuctrl" || t == "guipopupeditctrl") {
       // Without a drawn list yet, a press steps to the next row.
       if (!c->rows.empty()) {

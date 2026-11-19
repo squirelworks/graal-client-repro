@@ -71,6 +71,7 @@ struct NpcSprite {
   Rect part{0, 0, 0, 0};
   bool character = false;
   Actor actor;
+  std::string message;  // drawn above it (a character's is actor.chat)
 };
 
 struct WorldState {
@@ -79,6 +80,7 @@ struct WorldState {
   Actor player;
   std::vector<Actor> others;
   std::vector<NpcSprite> npcs;  // server NPCs, in the order they came
+  bool player_chat = false;     // draw the players' chat above them (4.x/5.x rows)
   bool lobby = false;        // server name starts with "login"
   bool lobby_tiles = false;  // the build draws tiles in the lobby
   bool chest_boxes = true;   // stand-in boxes for chests (6.03r7 draws none)
@@ -124,6 +126,7 @@ class WorldRenderer {
   void draw_tiles(Canvas& c, const WorldState& w, const View& v) const;
   void draw_objects(Canvas& c, const WorldState& w, const View& v) const;
   void draw_player(Canvas& c, const WorldState& w, const View& v) const;
+  void draw_texts(Canvas& c, const WorldState& w, const View& v) const;
   Image sheet_;
   Assets* assets_ = nullptr;
 };

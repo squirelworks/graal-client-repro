@@ -643,6 +643,21 @@ void testPainter() {
   CHECK(graalengine::torqueKeyName(0x0D) == "return");
   CHECK(graalengine::torqueKeyName(0x26) == "up");
   CHECK(graalengine::torqueKeyName(0xFF).empty());
+  // Character-only events: control characters are their keys, letters their names.
+  {
+    graalengine::InputEvent ev;
+    ev.vk = 0;
+    ev.ch = 13;
+    CHECK(graalengine::ScreenControl::keyName(ev) == "return");
+    ev.ch = 9;
+    CHECK(graalengine::ScreenControl::keyName(ev) == "tab");
+    ev.ch = 8;
+    CHECK(graalengine::ScreenControl::keyName(ev) == "backspace");
+    ev.ch = 'Q';
+    CHECK(graalengine::ScreenControl::keyName(ev) == "q");
+    ev.vk = 0x26;
+    CHECK(graalengine::ScreenControl::keyName(ev) == "up");
+  }
   fs::remove_all(dir);
 }
 
@@ -846,6 +861,9 @@ void testLoopbackSession(const char* build, const char* labEnv, const std::strin
     });
     e.session()->action("doD", false);
     CHECK(fired);
+    // 193 with a CRC the cached copy does not have: the client asks with 158.
+    game.send(gchar(193) + Quattro::Net::gint5(1) + "Bow\n");
+    CHECK(pump(&game, [&] { return game.saw(158, "Bow"); }));
   }
 
   // A server NPC (3) with a script (131): created runs message(), the NPC is
@@ -876,7 +894,9 @@ void testLoopbackSession(const char* build, const char* labEnv, const std::strin
     }));
     CHECK(pump(&game, [&] {
       for (std::size_t i = sent0; i < game.got.size(); ++i)
-        if (game.got[i].first == 38 && game.got[i].second.find("touched") != std::string::npos) return true;
+        if (game.got[i].first == 38 && game.got[i].second.find("touched") != std::string::npos &&
+            game.got[i].second.rfind(Quattro::Net::gint3(5), 0) == 0)
+          return true;
       return false;
     }));
     const auto& world = e.session()->program().world();
@@ -956,6 +976,14 @@ void testLoopbackSession(const char* build, const char* labEnv, const std::strin
     unsetenv("GRAAL_ENGINE_FILE");
 #endif
   }
+  // The server drops the link: the warning box on both rows, and a 4.x
+  // engine goes back to its start menu (the session is gone).
+  calls.clear();
+  game.conn.close();
+  CHECK(pump(&login, [&] { return !seen("messagebox ").empty(); }));
+  CHECK((seen("messagebox ") ==
+         std::vector<std::string>{"messagebox Warning|You have been disconnected from the game server.|1"}));
+  if (!five) CHECK(e.session() == nullptr);
   shutdownGraalEngine();
   fs::remove_all(dir);
 }

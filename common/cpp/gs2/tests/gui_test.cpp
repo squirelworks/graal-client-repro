@@ -234,6 +234,19 @@ static void testObjectsAndCommands() {
   s.keyDown("backspace", 0);
   s.keyDown("x", 'x');
   CHECK(edit->prop("text") == "axb");
+  // A pop-up edit (the 4.x AccountEdit): a press on its text takes the keys,
+  // a press on the button at its right end steps its list.
+  auto pop = std::make_shared<Control>("AccountEdit", "GuiPopUpEditCtrl");
+  pop->setProp("position", "300 200");
+  pop->setProp("extent", "120 20");
+  pop->rows.push_back({1, "alice", nullptr});
+  pop->rows.push_back({2, "bob", nullptr});
+  root->add(pop);
+  CHECK(s.mouseDown(305, 205) && s.firstResponder() == pop);
+  s.keyDown("z", 'z');
+  CHECK(pop->prop("text") == "z");
+  CHECK(s.mouseDown(300 + 115, 205) && pop->selectedRow == 0 && pop->prop("text") == "alice");
+  root->removeChild(pop.get());
   // Keys the text edit does not use go to the key maps: a script function
   // gets 1 on press and 0 on release; an engine action goes to the hook.
   std::vector<std::string> actions;

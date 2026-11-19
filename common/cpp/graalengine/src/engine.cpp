@@ -95,7 +95,10 @@ std::function<void()> frameTimer(Engine& e, std::function<void()> session) {
   return [&e, session] {
     if (auto* m = e.machine()) m->runScripts();
     if (session) session();
-    else if (auto* s = e.session()) s->tick();
+    else if (auto* s = e.session()) {
+      s->tick();
+      e.afterSessionTick();
+    }
     // The show-images: ganis step on, emitters run one frame.
     if (auto* si = e.showImg()) si->tick();
     if (auto* sc = e.screen()) sc->advance(0.05);
@@ -318,6 +321,15 @@ void Engine::installScreen() {
       return screenControl_;
     };
   }
+}
+
+void Engine::afterSessionTick() {
+  // The lab's real 4.04r2 went back to its start menu after the disconnect
+  // box; the 5.x launcher's window is the menu, so 5.x keeps its screen.
+  if (!session_ || !session_->dropped() || session_->fiveRow()) return;
+  session_.reset();
+  mode3d_ = false;
+  setContentFrom("MainMenuGui2D");
 }
 
 void Engine::shutdown() {

@@ -64,6 +64,13 @@ Session2D::Session2D(Login login) : login_(std::move(login)), window_(std::make_
   // the server's name once the login is accepted, and a warning when the
   // link drops. The 4.x rows keep their earlier calls.
   five_ = !login_.build.empty() && login_.build[0] == '5';
+  // A dropped link: the warning box on both rows (the lab's real 4.04r2 and
+  // 5.12 both showed it; 4.04r2's text is taken to be 5.12's [inf]). The
+  // 4.x engine then goes back to the start menu (Engine::afterSessionTick).
+  program_->disconnected = [this](const std::string&) {
+    dropped_ = true;
+    host::OpenMessageBox("Warning", "You have been disconnected from the game server.", 1);
+  };
   if (!five_) return;
   program_->list_update = [](const Quattro::Shell::Program::ListRow& r) {
     host::ExternalPlayerlistUpdate(r.id, r.nick.c_str(), r.head.c_str(), r.props.c_str(), r.flags);
@@ -73,9 +80,6 @@ Session2D::Session2D(Login login) : login_(std::move(login)), window_(std::make_
     host::OnServerLogin(program_->session().server_name().c_str());
     host::OnServerListerConnect();
     host::SetGraalStatusIcons(kStatusesOnline);
-  };
-  program_->disconnected = [](const std::string&) {
-    host::OpenMessageBox("Warning", "You have been disconnected from the game server.", 1);
   };
 }
 

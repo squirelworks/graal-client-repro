@@ -251,17 +251,18 @@ ScriptHost::ScriptHost(gs2::Profile profile) : machine_(profile) {
     return gs2::Value::number(0);
   });
   // triggeraction(x, y, action, params...).
-  machine_.addCommand("triggeraction", "nns", [this](gs2::Machine& m, gs2::Var&, std::vector<gs2::Value>& a) {
+  machine_.addCommand("triggeraction", "nns", [this](gs2::Machine& m, gs2::Var& self, std::vector<gs2::Value>& a) {
     std::vector<std::string> f;
     for (size_t i = 2; i < a.size(); ++i) f.push_back(m.toString(a[i]));
-    if (send_) send_(38, trigger_body(m.toNumber(a[0]), m.toNumber(a[1]), to_csv(f)));
+    const int npc = npc_id_of ? npc_id_of(&self) : 0;
+    if (send_) send_(38, trigger_body(m.toNumber(a[0]), m.toNumber(a[1]), to_csv(f), static_cast<uint32_t>(std::max(npc, 0))));
     return gs2::Value::number(0);
   });
 }
 
-std::string ScriptHost::trigger_body(double x, double y, const std::string& csv) {
+std::string ScriptHost::trigger_body(double x, double y, const std::string& csv, uint32_t npc) {
   auto half = [](double v) { return static_cast<unsigned>(std::clamp(static_cast<long>(std::lround(v * 2)), 0L, 223L)); };
-  return Net::gint3(0) + Net::gchar(half(x)) + Net::gchar(half(y)) + csv;
+  return Net::gint3(npc) + Net::gchar(half(x)) + Net::gchar(half(y)) + csv;
 }
 
 void ScriptHost::queue_all(const std::string& event, std::vector<gs2::Value> args) {
