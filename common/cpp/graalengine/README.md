@@ -168,8 +168,26 @@ D on a weapon with a script raises `onWeaponFired` on it; `onKeyPressed`,
 `make test` for every 4.x and 5.x row: 33 and 132 behind 100, then D sends
 the script's `triggerserver` as 38. There is no GS1 text runner to build:
 from 4.x on the server compiles GS1 scripts to the same bytecode
-(client-internals/gs1-on-5x-hud-and-flags.md). Level NPCs from the server
-(3, 131) are not drawn or run yet.
+(client-internals/gs1-on-5x-hud-and-flags.md).
+
+Server NPCs (`common/cpp/quattro/shell/npcs.cpp`, `world/npcs.hpp`):
+
+| Id | Does |
+|---|---|
+| 3 | `GINT3 id`, then NPC props; the 4.x/5.x parser reads 0-47 and 53-77 and stops at any other id (protocol/v5-props.md) |
+| 131 | `GINT3 id`, then the NPC's bytecode: `created`, then `playerenters` |
+| 29, 150 | the NPC goes |
+| 151 | the level's NPCs 1 to 999 go (also on each new level) |
+
+An NPC with a gani is drawn as a character, otherwise as its image or
+image part; image NPCs show on the Login server too. The script sees its
+props as `this.x`, `this.y`, `this.image`, `this.ani`, `this.dir`,
+`this.nick`, `this.chat` and `this.visible`, and has `setimg`,
+`setimgpart`, `show`, `hide`, `message`, `setcharani` and
+`showcharacter`. `playertouchsme` fires as the player's body starts to
+overlap the NPC. The boxes, the visibility bit and the character rule are
+the rebuild's readings. Checked on loopback in `make test` for every 4.x
+and 5.x row.
 
 ## Offline mode (C2)
 

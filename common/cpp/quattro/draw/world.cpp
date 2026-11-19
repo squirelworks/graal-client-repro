@@ -90,6 +90,19 @@ void WorldRenderer::draw_objects(Canvas& c, const WorldState& w, const View& v) 
     c.fill_rect({px, py, 2 * kTile, 2 * kTile}, {150, 90, 30, 255});
     c.frame_rect({px, py, 2 * kTile, 2 * kTile}, {250, 210, 80, 255});
   }
+  // Server NPCs: image NPCs in the lobby too, characters only outside it.
+  for (const auto& n : w.npcs) {
+    int px = static_cast<int>(std::lround((n.x - v.left) * kTile));
+    int py = static_cast<int>(std::lround((n.y - v.top) * kTile));
+    if (n.character) {
+      if (!w.lobby) draw_actor(c, n.actor, px, py, {120, 200, 120, 255});
+      continue;
+    }
+    const Image* img = assets_ && !n.image.empty() ? assets_->image(n.image) : nullptr;
+    if (!img) continue;
+    Rect src = n.has_part ? n.part : Rect{0, 0, img->width, img->height};
+    c.blit(*img, src, px, py);
+  }
   if (w.lobby) return;
   for (const auto& o : w.others) {
     int px = static_cast<int>(std::lround((o.x - v.left) * kTile));

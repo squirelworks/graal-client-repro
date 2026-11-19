@@ -105,6 +105,7 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
   };
   register_weapon_commands();
   register_script_commands();
+  if (profile_.v4_scripts) register_npc_commands();
   world_.player.x = 30;
   world_.player.y = 30;
   std::vector<std::string> asset_folders;
@@ -678,6 +679,7 @@ void Program::on_message(int id, std::string_view body) {
     cache_server_ = session_.server_host();
     scripts_.set_cache_dir(opt_.assets + "/weblevels/" + cache_server_);
   }
+  if (profile_.v4_scripts && on_npc_message(id, body)) return;
   // The weapon list; the scripts also see 33, 34 and 194.
   switch (id) {
     case 33: {  // PLO_NPCWEAPONADD: str name, then the NPC props (0: image)
@@ -742,6 +744,7 @@ void Program::on_message(int id, std::string_view body) {
       player_killing_ = true;  // noplayerkilling is per level
       entry_x_ = me_.x;  // where a dead player comes back
       entry_y_ = me_.y;
+      if (profile_.v4_scripts) clear_level_npcs();
       load_local_level(level_name_);
       scripts_.queue_all("PlayerEnters");
       break;
@@ -1089,8 +1092,13 @@ bool Program::tick() {
   // Initial login props are not a hit; an unchanged server echo is not another hit.
   if (had_player && (offline_ || props_sent_)) player_changed(old_power);
   sync_player_in();
+  if (profile_.v4_scripts) npc_touches();
   scripts_.tick();
   sync_player_out();
+  if (profile_.v4_scripts) {
+    npcs_from_scripts();
+    npcs_to_world();
+  }
   gui_->pick_content();
   gui_->screen().advance(0.05);  // the show-images' emitters, one 50 ms tick
   passes_.clear();

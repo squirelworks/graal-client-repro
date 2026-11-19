@@ -10,9 +10,11 @@
 #include "../../gs2/tests/assembler.hpp"
 #include "../../quattro/tests/fake_server.hpp"
 #include "../../quattro/shell/program.hpp"
+#include "../../quattro/world/npcs.hpp"
 #include "session.hpp"
 #include "showimg.hpp"
 
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -844,6 +846,44 @@ void testLoopbackSession(const char* build, const char* labEnv, const std::strin
     });
     e.session()->action("doD", false);
     CHECK(fired);
+  }
+
+  // A server NPC (3) with a script (131): created runs message(), the NPC is
+  // drawn as a character where its props put it, and the player standing in
+  // it raises playertouchsme, whose triggeraction goes out as 38.
+  {
+    using gs2asm::Asm;
+    namespace W = Quattro::World;
+    Asm n;
+    n.function("onCreated", {});
+    n.op(Asm::MARKER).str("hello").callName("message").op(Asm::POP);
+    n.num(0).op(Asm::RET);
+    n.function("onPlayerTouchsMe", {});
+    n.op(Asm::MARKER).str("touched").num(1).num(1).callName("triggeraction").op(Asm::POP);
+    n.num(0).op(Asm::RET);
+    const auto& me = e.session()->program().me();
+    const unsigned hx = static_cast<unsigned>(std::lround(me.x * 2)), hy = static_cast<unsigned>(std::lround(me.y * 2));
+    const std::string props = Quattro::Net::gint3(5) + W::npc_prop_string(W::kNpcGani, "idle") +
+                              W::npc_prop_char(W::kNpcX, hx + 1) + W::npc_prop_char(W::kNpcY, hy) +
+                              W::npc_prop_char(W::kNpcVisFlags, 1);
+    const std::string code = gchar(131) + Quattro::Net::gint3(5) + n.bytes() + "\n";
+    const std::size_t sent0 = game.got.size();
+    game.send(gchar(3) + props + "\n" + gchar(100) + Quattro::Net::gint3(uint32_t(code.size())) + "\n" + code);
+    CHECK(pump(&game, [&] {
+      const auto& npcs = e.session()->program().npcs();
+      auto it = npcs.find(5);
+      return it != npcs.end() && it->second.message == "hello";
+    }));
+    CHECK(pump(&game, [&] {
+      for (std::size_t i = sent0; i < game.got.size(); ++i)
+        if (game.got[i].first == 38 && game.got[i].second.find("touched") != std::string::npos) return true;
+      return false;
+    }));
+    const auto& world = e.session()->program().world();
+    CHECK(world.npcs.size() == 1 && world.npcs[0].character && world.npcs[0].actor.chat == "hello");
+    // 29 takes it away.
+    game.send(gchar(29) + Quattro::Net::gint3(5) + "\n");
+    CHECK(pump(&game, [&] { return e.session()->program().npcs().empty(); }));
   }
 
   CHECK(e.session()->haveFrame());
