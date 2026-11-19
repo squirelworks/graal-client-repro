@@ -422,6 +422,11 @@ void Renderer::draw_self(Canvas& canvas, SimObject* control, const Rect& rect) {
     draw_text_list(canvas, control, p, rect);
   } else if (cls == "guimltextctrl") {
     draw_ml_text(canvas, control, p, rect);
+  } else if (cls == "guiscrollctrl") {
+    // Stock GuiScrollCtrl fills its box when the profile is opaque (the
+    // 3.153 console sits on it: lab #303, white console text on the window
+    // parchment). The bars are not drawn yet.
+    if (p.opaque) canvas.fill_rect(rect, p.fill_color);
   } else if (cls == "guisliderctrl") {
     draw_slider(canvas, control, p, rect);
   } else if (cls == "guiconsole") {
@@ -703,7 +708,9 @@ void Renderer::draw_window(Canvas& canvas, SimObject* control, const Profile& p,
   const std::string text = control->field("text");
   if (f && !text.empty()) {
     const int width = f->text_width(text);
-    int tx = rect.x + p.text_offset.x;
+    // Not under the title bar's left end: the 3.153 window's corner
+    // ornament is wider than its 5-pixel textOffset (lab #303, "rning").
+    int tx = std::max(rect.x + p.text_offset.x, rect.x + tl.width);
     if (p.justify == Justify::center) tx = rect.x + (rect.width - width) / 2;
     else if (p.justify == Justify::right) tx = right - p.text_offset.x - width;
     canvas.draw_text(*f, tx, rect.y + p.text_offset.y, text, p.font_color);

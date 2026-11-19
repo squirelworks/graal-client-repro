@@ -29,7 +29,11 @@ void register_host_stubs(Engine& e) {
   for (const char* name : {"videoSetGammaCorrection", "setOpenGLTextureCompressionHint", "setOpenGLAnisotropy",
                            "setOpenGLMipReduction", "setOpenGLInteriorMipReduction", "setOpenGLSkyMipReduction",
                            "setDisplayDevice", "toggleFullScreen",
-                           "lockMouse", "gotoWebPage", "cursorOff", "cursorOn", "enableWinConsole"})
+                           "lockMouse", "gotoWebPage", "cursorOff", "cursorOn", "enableWinConsole",
+                           // the 3.153 layout's Visible Distance (3D) slider
+                           // calls it; no script defines it, and the rebuilt
+                           // game has no 3D view to apply it to
+                           "updateVisibleDistance"})
     stub(e, "", name, 1, 0);
   // setScreenMode(width, height, bpp, fullScreen): the Options dialog's
   // Apply. The engine keeps the mode in $pref::Video::resolution, which
