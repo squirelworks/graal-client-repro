@@ -20,6 +20,7 @@ program works too (`graal-assets/6.004 Mac/`, then `graal-assets/common/`).
 
 ## What's new in v0.0.5
 
+- [x] **Short compressed frames step the cipher rounded down.** A zlib or bz2 body now steps the gen-5 key len / 4 times rounded down (a raw one still rounds up), as the read 4.04r2, 5.12 and 6.03r7 do and as seihai-core v0.7.0 expects of every gen-5 build from 4.04r2 on. Round-up only held while frame lengths happened to agree.
 - [x] **New client.** The Mac 6.004 has a folder of its own, started from `graal-6.00beta-20110627-G3D28090` with its own token `G3D27090` (read from the binary). The Mac login line (`mac`, made-up machine hashes, an empty field and a made-up quoted Darwin kernel string), OSTYPE `mac` and code page 0 are inferred from the Mac 5.12 lab run.
 
 ## Downloads

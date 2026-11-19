@@ -47,6 +47,9 @@ std::vector<BuildProfile> make() {
   r603.plo = plo_603();
   r603.pli = pli_603();
   r603.answers_ping = true;
+  // A zlib or bz2 body steps floor(len / 4) times (read 2026-11-19 in this
+  // build's ELF; seihai-core v0.7.0). The rows copied from it keep it.
+  r603.packed_round_down = true;
   r603.hud_6x = true;  // the 6.03r7 HUD lab (draw/hud.hpp)
   r603.draws_chests = false;  // item-keys lab: only grass shows, the chest still blocks
   r603.title_is_server = true;  // the 6.03r7 frames lab: "HUD Lab 603"
