@@ -46,7 +46,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Install Free Pascal
-        run: sudo apt-get update && sudo apt-get install -y fp-compiler fp-units-base fp-units-fcl libx11-dev xvfb xdotool x11-apps
+        run: sudo apt-get update && sudo apt-get install -y fp-compiler fp-units-base fp-units-fcl libx11-dev xvfb xdotool x11-utils
       - name: Control tests (fake game)
         run: make -C common/torque/guigraal test
       - name: Control tests with address and undefined behavior sanitizers

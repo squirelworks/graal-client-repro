@@ -4,7 +4,7 @@
 # left the level). Holds Right in the game window, moves the focus to
 # another window, lets the key go there, and checks the trace.
 # Needs build/graal304-torque, make lib, an X display (xvfb-run), xdotool
-# and xmessage (x11-apps).
+# and xmessage (x11-utils).
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 BUILD="$HERE/../build"
