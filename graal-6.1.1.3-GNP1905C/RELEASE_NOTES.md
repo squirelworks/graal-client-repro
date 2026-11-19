@@ -25,6 +25,12 @@ host and it does not borrow another version's token.
   script's token is the placeholder `SEI00001`. **Not yet usable**: the
   client stops after the hello until seihai-gserver-v2 handles `SEI00001`.
   `--connector-serve` serves a signed `conf.gs` on loopback for testing.
+- SEI00001 secure login, message layer (`Secure6113`): the shared
+  `common/GSecLogin` handshake with this build's inner token (`GNP1905C`)
+  and tail, so a Seihai login does not send the account and password in the
+  clear. Checked byte for byte against `seihai-gserver-v2`'s client-side
+  vector and a full in-process round trip. The socket transport and a live
+  loopback login are not done yet.
 - The generation-5 seed is the one `protocol/unpacked-6113-wire.md` gives.
   It was 128 too high before.
 - `--lab` is a labeled lab-only fixture: one other entity, its properties,

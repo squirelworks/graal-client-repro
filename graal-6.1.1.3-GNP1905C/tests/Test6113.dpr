@@ -16,6 +16,10 @@ uses
   Level6113 in '../src/Level6113.pas',
   Sha6113 in '../src/Sha6113.pas',
   Rsa6113 in '../src/Rsa6113.pas',
+  GTypes in '../../common/GTypes.pas',
+  GSecCrypto in '../../common/GSecCrypto.pas',
+  GSecLogin in '../../common/GSecLogin.pas',
+  Secure6113 in '../src/Secure6113.pas',
   Connector6113 in '../src/Connector6113.pas',
   Lab6113 in '../src/Lab6113.pas',
   Play6113 in '../src/Play6113.pas',
@@ -649,6 +653,159 @@ begin
   Check(Pos('provisional', Log) = 0, 'the level-view log does not call the token provisional');
 end;
 
+function SecFromHex(const H: string): string;
+  function Nib(C: Char): Integer;
+  begin
+    case C of
+      '0'..'9': Nib := Ord(C) - Ord('0');
+      'a'..'f': Nib := Ord(C) - Ord('a') + 10;
+      'A'..'F': Nib := Ord(C) - Ord('A') + 10;
+    else Nib := 0;
+    end;
+  end;
+var I: Integer;
+begin
+  Result := '';
+  I := 1;
+  while I + 1 <= Length(H) do
+  begin
+    Result := Result + Chr((Nib(H[I]) shl 4) or Nib(H[I + 1]));
+    Inc(I, 2);
+  end;
+end;
+
+function SecToHex(const S: string): string;
+const Hex = '0123456789abcdef';
+var I: Integer;
+begin
+  Result := '';
+  for I := 1 to Length(S) do
+    Result := Result + Hex[(Ord(S[I]) shr 4) + 1] + Hex[(Ord(S[I]) and 15) + 1];
+end;
+
+function SecCounting(Start: Integer): string;
+var I: Integer;
+begin
+  SetLength(Result, 32);
+  for I := 0 to 31 do Result[I + 1] := Chr((Start + I) and 255);
+end;
+
+function SecU16le(N: Integer): string;
+begin
+  SetLength(Result, 2);
+  Result[1] := Chr(N and 255);
+  Result[2] := Chr((N shr 8) and 255);
+end;
+
+{ A minimal Seihai server responder, built from GSecCrypto, so the 6113
+  client's handshake can be driven to C2 in-process without a live gserver.
+  It mirrors seihai-gserver-v2's respond/open. }
+procedure SecRespond(const C1, SxSecret, EdSeed: string; PrefixLen: Integer;
+  out S1, Key, Th: string);
+const
+  SignContext = 'seihai-login-v1/server-hello'#0;
+  C2SInfo = 'seihai-login-v1/c2s key';
+var
+  Sx, Ed, CxB64, Cx, Shared, Signed, Sig: string;
+begin
+  Sx := GSecCrypto.X25519Base(SxSecret);
+  Ed := GSecCrypto.Ed25519PublicKey(EdSeed);
+  CxB64 := Copy(C1, PrefixLen + 8 + 8 + 1, 43);
+  GSecCrypto.B64Decode(CxB64, Cx);
+  Shared := GSecCrypto.X25519(SxSecret, Cx);
+  Signed := SignContext + SecU16le(Length(C1)) + C1 + Sx + Ed;
+  Sig := GSecCrypto.Ed25519Sign(Signed, EdSeed);
+  Th := GSecCrypto.Sha256(Signed + Sig);
+  Key := GSecCrypto.HkdfSha256(Th, Shared, C2SInfo, 32);
+  S1 := SeiToken + GSecCrypto.B64Encode(Sx) + GSecCrypto.B64Encode(Ed) +
+    GSecCrypto.B64Encode(Sig);
+end;
+
+function SecOpenC2(const Key, Th, C2: string; out Tail: string): Boolean;
+var
+  BoxB64, Box, Plain, Nonce: string;
+  TailLen: Integer;
+begin
+  Tail := '';
+  Result := False;
+  if Copy(C2, 1, Length(SeiToken)) <> SeiToken then Exit;
+  BoxB64 := Copy(C2, Length(SeiToken) + 1, MaxInt);
+  if not GSecCrypto.B64Decode(BoxB64, Box) then Exit;
+  Nonce := StringOfChar(#0, 12);
+  if not GSecCrypto.AeadOpen(Key, Nonce, Th, Box, Plain) then Exit;
+  if Length(Plain) < 2 then Exit;
+  TailLen := Ord(Plain[1]) or (Ord(Plain[2]) shl 8);
+  if 2 + TailLen > Length(Plain) then Exit;
+  Tail := Copy(Plain, 3, TailLen);
+  Result := True;
+end;
+
+{ The SEI00001 secure login for the 6.1.1.3 build: the shared handshake with
+  the 6113 inner token and login tail. Checked against seihai-gserver-v2's
+  published client-side vector and an in-process round trip. }
+procedure TestSecure6113;
+const
+  VEC_C1 = '%aSEI00001GNW28015ST6C/HRGSlkmiBdiPSBTxeuOLMSpiLT+4XnsawENUx0';
+  VEC_S1 = 'SEI00001eaYx7t4b+cmPEgMs3q3Q56B5OY/HhriMyEbsia+FpRoA6EHv/POEL4dc' +
+    'N0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg7zJvV7qQwbY7KXGIQCk96lPo4Yz5k+hwUWN7yoAwy' +
+    'QvBbQYKvXjC95DPSXczo38vlSw7jgbWAVpcA8syQbicBw';
+  VEC_C2 = 'SEI00001D9yUpUUI0R6VgG1QcRbQ5LtnZZDUOCJGnpXvFnAuE22eNVszliBIRzU' +
+    'Llkn3lIeZLgFQLYiFyNuE5907zEQReQOFOsIkzAljPbqnfiME1Ok';
+  VEC_EDPUB = '03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8';
+  VEC_FP = 'SHA256:Vkdap1RjR0wChd9dvyvKtz2mUTWIOem3dIGy6rEHcIw';
+  VEC_TAIL = '%test1%labpw';
+var
+  HS: TSecHandshake;
+  C1, S1, C2, Key, Th, Tail, Got: string;
+begin
+  { The 6113 login tail is GSTRING account then GSTRING password. }
+  Check(Sei6113Tail('test1', 'labpw', '') = VEC_TAIL, '6113 tail is GSTRINGs');
+  Check(Sei6113Inner = 'GNP1905C', 'the 6113 inner token is the build token');
+
+  { Byte-for-byte against the server's published client-side vector. }
+  HS := TSecHandshake.Create;
+  try
+    Check(HS.StartWith('%a', 'GNW28015', '', SecCounting($80)), 'vector C1 starts');
+    Check(HS.Hello = VEC_C1, 'C1 matches the server vector');
+    Check(HS.Finish(VEC_S1), 'S1 verifies against the server vector');
+    Check(SecToHex(HS.ServerKey) = VEC_EDPUB, 'server key matches the vector');
+    Check(KeyFingerprint(HS.ServerKey) = VEC_FP, 'fingerprint matches the vector');
+    Check(HS.Seal(VEC_TAIL) = VEC_C2, 'C2 matches the server vector');
+  finally
+    HS.Free;
+  end;
+
+  { A full round trip with the 6113 inner token, against a conforming
+    responder: the server opens C2 and reads back the sealed login tail. }
+  HS := TSecHandshake.Create;
+  try
+    Check(HS.Start('%a', Sei6113Inner, ''), 'C1 starts with a fresh key');
+    C1 := HS.Hello;
+    Check(Copy(C1, 3, 8) = SeiToken, 'C1 carries the SEI00001 token after the prefix');
+    Check(Copy(C1, 11, 8) = Sei6113Inner, 'C1 carries the 6113 inner token');
+    SecRespond(C1, SecCounting($10), SecCounting($20), 2, S1, Key, Th);
+    Check(HS.Finish(S1), 'the client accepts the responder S1');
+    Check(HS.ServerKey = GSecCrypto.Ed25519PublicKey(SecCounting($20)),
+      'the pinned server key is the responder key');
+    Tail := Sei6113Tail('test1', 'labpw', '');
+    C2 := HS.Seal(Tail);
+    Check(SecOpenC2(Key, Th, C2, Got), 'the responder opens C2');
+    Check(Got = Tail, 'the responder reads back the account and password');
+  finally
+    HS.Free;
+  end;
+
+  { A flipped S1 signature is refused. }
+  HS := TSecHandshake.Create;
+  try
+    Check(HS.StartWith('%a', 'GNW28015', '', SecCounting($80)), 'tamper C1 starts');
+    Check(not HS.Finish(Copy(VEC_S1, 1, Length(VEC_S1) - 1) + 'A'),
+      'a changed S1 is refused');
+  finally
+    HS.Free;
+  end;
+end;
+
 begin
   Passed := 0;
   Failed := 0;
@@ -669,6 +826,7 @@ begin
     TestLabRoundTrip;
     TestRejectHost;
     TestSha256;
+    TestSecure6113;
     TestConfReply;
     TestConnectorScript;
     TestConnectorLogin;
