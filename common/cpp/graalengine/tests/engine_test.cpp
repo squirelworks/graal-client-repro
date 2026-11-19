@@ -989,6 +989,11 @@ int main() {
   testOfflineTutorial();
   testLoopbackSession("4.04r2", "GRAAL404_ENGINE", "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400");
   testLoopbackSession("4.20r8", "GRAAL420_ENGINE", "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400");
+  testLoopbackSession("4.02.11", "GRAAL40211_ENGINE", "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400");
+  testLoopbackSession("4.03r1", "GRAAL403R1_ENGINE", "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400");
+  testLoopbackSession("4.03r3", "GRAAL403R3_ENGINE", "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400");
+  testLoopbackSession("4.11", "GRAAL411_ENGINE", "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400");
+  testLoopbackSession("4.20r6", "GRAAL420R6_ENGINE", "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400");
   testLoopbackSession("5.00r7", "GRAAL500_ENGINE", "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400");
   testLoopbackSession("5.12", "GRAAL512_ENGINE", "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400,\"6.2 9200 \"");
   testGraal3DBridge();

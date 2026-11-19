@@ -21,6 +21,7 @@ bodies take their place.
 ## What's new in v0.0.5
 
 - [x] **New client.** A folder for 4.03r1 Linux (`G3D11125`). It is the 4.20r8 rebuild with this build's token and the Linux login values and 4.04r2's server ids, because no lab run of the real 4.03r1 exists yet.
+- [x] **Faithful engine, by flag.** `Graal403r1 --engine` runs the session on the rebuilt engine library (`GraalEngineRepro.dll` / `libgraalengine.so`, shipped beside the program) under this build's wire row. The Pascal client stays the default.
 
 ## Downloads
 

@@ -10,7 +10,7 @@ is the 0.0.1 reproduction: hit or miss.
 Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
 
 - **default:** Delphi/Pascal stand-in (no-argument / release entry on main today).
-- **faithful engine:** Split launcher + engine library — still being wired; not the release default.
+- **faithful engine:** Delphi launcher plus the rebuilt engine library: `Graal403r3 --engine` loads `common/cpp/graalengine` (wire row `4.03r3 Windows`, the 4.04r2 row with this build's token) — still being wired; not the release default (Pascal without the flag stays default).
 - **relic:** none yet. When the faithful engine is validated end-to-end and switched to default, the Pascal stand-in becomes the labeled relic/fallback and is never deleted.
 
 ## Sources
@@ -62,6 +62,8 @@ Graal403r3 --level some.nw                  # offline
 
 ## Not yet, or not known
 
+- [x] `--engine` hands off to the rebuilt GraalEngine library (setBuild `4.03r3`): the start menus from the engine file, the loopback login, level and walk, at the same depth as 4.20r8. Checked on loopback in `make -C common/cpp/graalengine test`; not yet in the lab.
+- [ ] The faithful engine reads its start menus from the engine file (`GRAAL_ENGINE_FILE`, else the install's `GraalEngine.dll`, else the exe). Whether the 4.03r3 install keeps its engine in a separate DLL or inside the exe was not checked; if its start scripts cannot be read from it, the menus need an engine image named with `GRAAL_ENGINE_FILE`.
 - [ ] A lab run of the real 4.03r3 (Windows lab VM; the packed `Graal4Setup.exe` stops on a DirectDraw error under Wine, so it needs a real Windows VM with DirectDraw): see `G3D09125` on the wire, and check the login line, the messages after login and the ids handled, all taken from 4.20r8 and 4.04r2 so far.
 - [ ] Whether 4.03r3 handles 107, 108 and 196; 4.04r2's set (without them) is used.
 - [ ] The install's files compared with 4.20r8's.

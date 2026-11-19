@@ -21,7 +21,7 @@ server's 4.02.11 entry can be tested; it is not a reproduction of a real
 Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
 
 - **default:** Delphi/Pascal stand-in (no-argument / release entry on main today).
-- **faithful engine:** Split launcher + engine library (inferred stand-in; not wired in this folder) — still being wired; not the release default.
+- **faithful engine:** Delphi launcher plus the rebuilt engine library: `Graal40211 --engine` loads `common/cpp/graalengine` (wire row `4.02.11 Windows`, the 4.04r2 row with this build's token) — still being wired; not the release default (Pascal without the flag stays default).
 - **relic:** none yet. When the faithful engine is validated end-to-end and switched to default, the Pascal stand-in becomes the labeled relic/fallback and is never deleted.
 
 ## Why 4.20r8
@@ -61,6 +61,8 @@ Graal40211 --level some.nw                  # offline
 
 ## Not yet, or not known
 
+- [x] `--engine` hands off to the rebuilt GraalEngine library (setBuild `4.02.11`): the start menus from the engine file, the loopback login, level and walk, at the same depth as 4.20r8. Checked on loopback in `make -C common/cpp/graalengine test`; not yet in the lab.
+- [ ] The faithful engine reads its start menus from the engine file (`GRAAL_ENGINE_FILE`, else the install's `GraalEngine.dll`, else the exe). Whether the 4.02.11 install keeps its engine in a separate DLL or inside the exe was not checked; if its start scripts cannot be read from it, the menus need an engine image named with `GRAAL_ENGINE_FILE`.
 - [ ] A real 4.02.11 binary. Until one turns up, nothing about this client is known beyond its listed token.
 - [ ] Whether 4.02.11 handles 107, 108 and 196 (4.20r8's 101 ids are used).
 - [ ] Everything still missing from the 4.20r8 rebuild.
