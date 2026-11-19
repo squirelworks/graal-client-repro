@@ -319,6 +319,14 @@ void test_v4_bytecode() {
   Shell::ScriptHost h6;
   CHECK(!h6.on_message(132, Shell::ScriptHost::make_bytecode_packet("Bow", code)));
   CHECK(!h6.on_message(193, Net::gint5(crc) + "Bow"));
+  // In 3D mode triggerserver goes out as an events line, not as 38.
+  std::vector<std::string> lines;
+  h.set_event_line([&](const std::string& l) { lines.push_back(l); });
+  const size_t before = sent.size();
+  CHECK(h.fire("Bow"));
+  h.tick();
+  CHECK(sent.size() == before);
+  CHECK(lines.size() == 1 && lines[0] == "t weapon,Bow,shot");
   for (const auto& e : h.machine().errors()) std::fprintf(stderr, "%s\n", e.c_str());
   CHECK(h.machine().errors().empty());
   fs::remove_all(dir);

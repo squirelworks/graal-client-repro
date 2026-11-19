@@ -91,6 +91,9 @@ class Program {
   const std::map<int, World::Player>& others() const { return others_; }
   Net::Session& session() { return session_; }
   ScriptHost& scripts() { return scripts_; }
+  // A Graal text message from the Graal3D server (shell/server_text.cpp).
+  void server_text(const std::string& weapon, const std::string& type, const std::string& option,
+                   const std::string& data);
   GuiHost& gui() { return *gui_; }
   // Replaces the wall table (tests; arrays.dat from --assets otherwise).
   void set_tile_types(const World::TileTypes& t) { tile_types_ = t; }

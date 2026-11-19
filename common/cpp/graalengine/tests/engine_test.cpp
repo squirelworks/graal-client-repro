@@ -886,6 +886,37 @@ void testLoopbackSession(const char* build, const char* labEnv, const std::strin
     CHECK(pump(&game, [&] { return e.session()->program().npcs().empty(); }));
   }
 
+  // Graal text from the 3D server: weaponscript gives a weapon its bytecode,
+  // events sets a flag and raises onAction<action> on it, and with a weapon
+  // name the text is onReceiveText.
+  {
+    using gs2asm::Asm;
+    Asm w;
+    w.function("onActiongo", {"n"});
+    w.var("went").var("n").op(Asm::ASSIGN).num(0).op(Asm::RET);
+    w.function("onReceiveText", {"type", "option", "data"});
+    w.var("got").var("data").op(Asm::ASSIGN).num(0).op(Asm::RET);
+    auto& prog = e.session()->program();
+    graalengine_graal3DServerText("", "addweapon", "-Move3D", "", 0);
+    CHECK(prog.weapons().selected() != nullptr);
+    const std::string code = w.bytes();
+    graalengine_graal3DServerText("", "weaponscript", "-Move3D", code.data(), static_cast<int32_t>(code.size()));
+    CHECK(prog.scripts().weapon("-Move3D") && prog.scripts().machine().hasScript(prog.scripts().weapon("-Move3D")));
+    const std::string ev = "s inside3d\nt weapon,-Move3D,go,7\n";
+    graalengine_graal3DServerText("", "events", "", ev.data(), static_cast<int32_t>(ev.size()));
+    graalengine_graal3DServerText("-Move3D", "msg", "x", "hello3d", 7);
+    CHECK(pump(&game, [&] {
+      auto u = prog.scripts().machine().universe();
+      return u->child("went") && u->child("got");
+    }));
+    auto u = prog.scripts().machine().universe();
+    CHECK(u->child("went") && u->child("went")->string() == "7");
+    CHECK(u->child("got") && u->child("got")->string() == "hello3d");
+    CHECK(prog.scripts().player()->child("inside3d") && prog.scripts().player()->child("inside3d")->number() == 1);
+    graalengine_graal3DServerText("", "deleteweapon", "-Move3D", "", 0);
+    CHECK(!prog.scripts().weapon("-Move3D"));
+  }
+
   CHECK(e.session()->haveFrame());
   CHECK(e.session()->frame().width == screenW && e.session()->frame().height == screenH);
   // With the player's own engine file (the lab run above leaves it set),

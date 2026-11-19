@@ -199,6 +199,11 @@ GE_API void GE_CALL graalengine_graal3DLoginStep(int32_t step);
 /* One line to the engine's log: the LogGraalMessage slot, or stderr with
  * GRAALENGINE_LOG set when the launcher has no log slot (5.0). */
 GE_API void GE_CALL graalengine_logLine(const char *line);
+/* A Graal text message from the 3D server (s1 weapon, s2 type, s3 option,
+   then the data, which may hold zero bytes): the session's scripts get it
+   (rebuild only; the original 3D library hands it to the engine's objects). */
+GE_API void GE_CALL graalengine_graal3DServerText(const char *weapon, const char *type, const char *option,
+                                                 const char *data, int32_t length);
 
 /* The slot list, for a launcher to check its own list against the
  * library's: the count, then each name (without `graal_set`) and its
