@@ -758,6 +758,7 @@ std::string Engine::invoke(const Resolved& r, Args& argv, SimObject* self, const
     }
     return fn.native(*this, self, argv);
   }
+  if (!fn.code) return {};  // declared with an empty body
   if (frames.size() >= limits.call_depth) throw ScriptError{"call depth limit"};
   return execute(fn.code, fn.ip, true, &fn, &argv, false);
 }
