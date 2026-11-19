@@ -32,8 +32,13 @@ uses
   GSurface in '../../common/GSurface.pas',
   GWindow in '../../common/GWindow.pas',
   GStartScreen in '../../common/GStartScreen.pas',
+  GTypes in '../../common/GTypes.pas',
+  GSocket in '../../common/GSocket.pas',
+  GSecLogin in '../../common/GSecLogin.pas',
   Lab6113 in 'Lab6113.pas',
   Connector6113 in 'Connector6113.pas',
+  Secure6113 in 'Secure6113.pas',
+  SecureNet6113 in 'SecureNet6113.pas',
   Play6113 in 'Play6113.pas',
   Controls6113 in 'Controls6113.pas';
 
@@ -218,6 +223,101 @@ begin
   if (Result < 1) or (Result > 65535) then Result := -1;
 end;
 
+type
+  { Carries the handshake's trust-on-first-use line to the log. }
+  TNoteSink = class
+    procedure Note(const Line: string);
+  end;
+
+procedure TNoteSink.Note(const Line: string);
+begin
+  LogLine('secure login: ' + Line);
+end;
+
+{ --secure-login 127.0.0.1:PORT [--account A] [--password-env VAR]
+  [--inner TOKEN] [--server-key KEY] [--secure-mode auto|required]
+  [--secure-name HOST:PORT]. Runs the SEI00001 login over the game socket
+  against a Seihai gserver and reports the handshake verdict. }
+function RunSecureLogin: Integer;
+var
+  Sock: TGSocket;
+  Sink: TNoteSink;
+  Mode: TSecMode;
+  Spec, Inner, Acct, PwName, Pw, Key, Name, Why, Prefix, Tail: string;
+  I, Port: Integer;
+  State: TSecState;
+begin
+  Result := 1;
+  Spec := Arg('--secure-login', '');
+  I := Pos(':', Spec);
+  if (I < 2) or (Copy(Spec, 1, I - 1) <> '127.0.0.1') then
+  begin
+    LogLine('error: --secure-login must be 127.0.0.1:PORT');
+    Result := 64; Exit;
+  end;
+  Port := StrToIntDef(Copy(Spec, I + 1, MaxInt), -1);
+  if (Port < 1) or (Port > 65535) then
+  begin
+    LogLine('error: bad port'); Result := 64; Exit;
+  end;
+  Inner := Arg('--inner', Sei6113Inner);
+  if Length(Inner) <> 8 then
+  begin
+    LogLine('error: --inner must be eight bytes'); Result := 64; Exit;
+  end;
+  Acct := Arg('--account', '');
+  if Acct = '' then
+  begin
+    LogLine('error: --secure-login needs --account'); Result := 64; Exit;
+  end;
+  PwName := Arg('--password-env', '');
+  Pw := '';
+  if PwName <> '' then Pw := GetEnvironmentVariable(PwName);
+  Key := '';
+  if HasArg('--server-key') and not DecodeKey(Arg('--server-key', ''), Key) then
+  begin
+    LogLine('error: bad --server-key'); Result := 64; Exit;
+  end;
+  Mode := smRequired;
+  if HasArg('--secure-mode') and not ParseSecMode(Arg('--secure-mode', 'required'), Mode) then
+  begin
+    LogLine('error: --secure-mode is off, auto or required'); Result := 64; Exit;
+  end;
+  Name := Arg('--secure-name', Spec);
+  { The 6.x type byte and a key byte. The key byte only seeds the post-login
+    cipher, which this login does not reach, so a fixed lab byte is used. }
+  Prefix := GChar(Sei6113ClientType) + GChar(Ord('a'));
+  Tail := Sei6113Tail(Acct, Pw, '');
+  Sink := TNoteSink.Create;
+  Sock := TGSocket.Create;
+  try
+    if not Sock.Connect('127.0.0.1', Word(Port)) then
+    begin
+      LogLine('error: ' + Sock.LastError); Exit;
+    end;
+    Sock.SetNoDelay(True);
+    LogLine('secure login: ' + Spec + ' inner ' + Inner + ' mode ' + SecModeName(Mode));
+    State := SeiSocketLogin(Sock, Mode, Prefix, Inner, '', Tail, Name, Key, Sink.Note, Why);
+    case State of
+      ssDone:
+        begin LogLine('secure login: C1/S1/C2 complete; sealed login sent'); Result := 0; end;
+      ssRefused:
+        begin LogLine('secure login: the server refused the token (' + Why + ')'); Result := 2; end;
+      ssNoAnswer:
+        begin LogLine('secure login: no S1 from the server (' + Why + ')'); Result := 3; end;
+      ssNone:
+        begin LogLine('secure login: not attempted (' + Why + ')'); Result := 4; end;
+    else
+      LogLine('secure login: failed (' + Why + ')'); Result := 1;
+    end;
+  finally
+    Pw := '';
+    Tail := '';
+    Sock.Free;
+    Sink.Free;
+  end;
+end;
+
 var
   Session: TSession;
   Surf: TGSurface;
@@ -277,6 +377,9 @@ begin
     end;
     Halt(ServeConnector(Word(Port), Arg('--conf', ''), Seconds));
   end;
+
+  if HasArg('--secure-login') then
+    Halt(RunSecureLogin);
 
   WantWindow := HasArg('--window');
   Lab := HasArg('--lab');

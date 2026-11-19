@@ -173,9 +173,20 @@ does not reach.
 `seihai-gserver-v2`'s published client-side vector (C1, S1, C2, the server
 key and its fingerprint) and runs a full round trip with the `GNP1905C` inner
 token against a conforming responder: the responder opens C2 and reads the
-account and password back. What is left is the socket transport (the plain
-zlib login frames on the game socket) and a live loopback login against a
-`seihai-gserver-v2` built with secure login on.
+account and password back.
+
+`SecureNet6113` carries those three lines over the game socket in the plain
+zlib login frames the Seihai gserver reads (`frame = FrameLen(len(Z)) + Z`,
+`Z = ZCompress(line + #10)`, the same framing the 6.0x folders use), and
+`Graal6113 --secure-login 127.0.0.1:PORT --account A --password-env VAR`
+runs it with pinning and the off/auto/required modes. A live loopback login
+against `seihai-gserver-v2` with secure login on was confirmed: the client
+completes C1/S1/C2 over the socket, pins the server key on first use, and the
+server logs the player in. The inner token is supplied with `--inner`; the
+build's own `GNP1905C` reaches the server but is refused `version not
+allowed` until the server's client catalogue gives that token a version id,
+so a token the server already knows (for example a 6.0x `G3D…`) is used for
+the live run.
 
 ## Wire
 
@@ -251,8 +262,12 @@ inner token and tail.
   handshake with this build's inner token and tail (`Secure6113`), checked
   against `seihai-gserver-v2`'s client-side vector and an in-process round
   trip.
-- [ ] SEI00001 secure login, transport: the plain zlib login frames on the
-  game socket, and a live loopback login against `seihai-gserver-v2`.
+- [x] SEI00001 secure login, transport (`SecureNet6113`,
+  `--secure-login`): the plain zlib login frames on the game socket, with
+  pinning and the off/auto/required modes. A live loopback login against
+  `seihai-gserver-v2` was confirmed (the server logs the player in). The
+  build's own `GNP1905C` token needs a version id in the server's catalogue
+  before the server admits it.
 - [x] The 6.1.1.3 control names, including `GuiGraalCtrl` and `GuiTilesCtrl`, are registered when the client runs. The bodies are stubs. The window stays the software surface. The clear hello stays `GNP1905C`.
 - [ ] OpenGL and the real playfield classes.
 - [ ] GS2 execution.

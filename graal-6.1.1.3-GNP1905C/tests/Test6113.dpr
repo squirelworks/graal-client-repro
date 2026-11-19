@@ -20,6 +20,7 @@ uses
   GSecCrypto in '../../common/GSecCrypto.pas',
   GSecLogin in '../../common/GSecLogin.pas',
   Secure6113 in '../src/Secure6113.pas',
+  SecureNet6113 in '../src/SecureNet6113.pas',
   Connector6113 in '../src/Connector6113.pas',
   Lab6113 in '../src/Lab6113.pas',
   Play6113 in '../src/Play6113.pas',
@@ -806,6 +807,39 @@ begin
   end;
 end;
 
+{ The plain zlib login-frame codec that carries the handshake lines over the
+  game socket. }
+procedure TestSecureNet;
+var
+  Enc, Line, Big: string;
+  Bad, PoppedBig: Boolean;
+begin
+  { encode then pop recovers the line (short form) }
+  Enc := SeiFrameEncode('SEI00001hello');
+  Check(SeiFramePop(Enc, Line, Bad) and not Bad and (Line = 'SEI00001hello') and (Enc = ''),
+    'frame codec round trip, short form');
+
+  { a partial buffer pops nothing and is left intact }
+  Enc := SeiFrameEncode('SEI00001abc');
+  Line := Copy(Enc, 1, Length(Enc) - 1);
+  Check(not SeiFramePop(Line, Line, Bad) and not Bad, 'a partial frame pops nothing');
+
+  { the long-form length prefix (0xFFFF then a 32-bit length) is parsed.
+    Built by hand so the branch runs without a 64 KB incompressible body. }
+  Big := ZCompress('long-form payload' + #10);
+  Enc := Chr($FF) + Chr($FF) +
+    Chr((Length(Big) shr 24) and $FF) + Chr((Length(Big) shr 16) and $FF) +
+    Chr((Length(Big) shr 8) and $FF) + Chr(Length(Big) and $FF) + Big;
+  PoppedBig := SeiFramePop(Enc, Line, Bad);
+  Check(PoppedBig and not Bad and (Line = 'long-form payload') and (Enc = ''),
+    'frame codec pops the long-form length');
+
+  { two frames in one buffer pop in order }
+  Enc := SeiFrameEncode('one') + SeiFrameEncode('two');
+  Check(SeiFramePop(Enc, Line, Bad) and (Line = 'one'), 'first of two frames');
+  Check(SeiFramePop(Enc, Line, Bad) and (Line = 'two') and (Enc = ''), 'second of two frames');
+end;
+
 begin
   Passed := 0;
   Failed := 0;
@@ -827,6 +861,7 @@ begin
     TestRejectHost;
     TestSha256;
     TestSecure6113;
+    TestSecureNet;
     TestConfReply;
     TestConnectorScript;
     TestConnectorLogin;
