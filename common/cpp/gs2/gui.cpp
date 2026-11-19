@@ -6,6 +6,8 @@
 #include <cctype>
 #include <cmath>
 #include <cstdlib>
+#include <functional>
+#include <map>
 #include <sstream>
 
 namespace gs2::gui {
@@ -420,15 +422,60 @@ bool Screen::keyDown(const std::string& key, int ch, const std::string& mods) {
     }
     if (took) {
       r->setProp("text", text);
-      fire(*r, "onKeyDown", {Value::string(key)});
+      fire(*r, "onKeyDown", keyArgs(key, ch));
       return true;
     }
   }
-  return runBinding("keyboard", (mods.empty() ? "" : mods + " ") + key, true);
+  // Any other key: the focused control's onKeyDown (passed up to its
+  // parents until one has it), then the key maps. GraalGui opens the chat
+  // bar from GraalControl.onKeyDown (the lab: Tab reached only the maps).
+  bool ran = fireKey(keyTarget(), "onKeyDown", keyArgs(key, ch));
+  return runBinding("keyboard", (mods.empty() ? "" : mods + " ") + key, true) || ran;
 }
 
 bool Screen::keyUp(const std::string& key, const std::string& mods) {
-  return runBinding("keyboard", (mods.empty() ? "" : mods + " ") + key, false);
+  bool ran = fireKey(keyTarget(), "onKeyUp", keyArgs(key, 0));
+  return runBinding("keyboard", (mods.empty() ? "" : mods + " ") + key, false) || ran;
+}
+
+std::vector<Value> Screen::keyArgs(const std::string& key, int ch) {
+  // (keycode, keystring, scancode), as the GS2 control events take them.
+  // The key codes are the Windows virtual keys; there is no scan code.
+  static const std::map<std::string, int> kNamed = {
+      {"backspace", 8}, {"tab", 9}, {"enter", 13}, {"return", 13}, {"shift", 16}, {"ctrl", 17}, {"alt", 18},
+      {"escape", 27}, {"space", 32}, {"pageup", 33}, {"pagedown", 34}, {"end", 35}, {"home", 36},
+      {"left", 37}, {"up", 38}, {"right", 39}, {"down", 40}, {"insert", 45}, {"delete", 46},
+  };
+  const std::string k = lower(key);
+  int code = ch;
+  if (auto it = kNamed.find(k); it != kNamed.end()) code = it->second;
+  else if (k.size() == 1) code = std::toupper(static_cast<unsigned char>(k[0]));
+  else if (k.size() >= 2 && k[0] == 'f' && std::isdigit(static_cast<unsigned char>(k[1])))
+    code = 111 + std::atoi(k.c_str() + 1);  // F1 is 112
+  const std::string text = ch >= 32 && ch < 256 ? std::string(1, static_cast<char>(ch)) : key;
+  return {Value::number(code), Value::string(text), Value::number(0)};
+}
+
+ControlPtr Screen::keyTarget() const {
+  if (auto r = responder_.lock(); r && isAwake(r.get()) && r->flag("visible", true)) return r;
+  // With no focused control the game control has the keys (a rebuild
+  // reading: the native play control takes focus when it wakes).
+  std::function<ControlPtr(const ControlPtr&)> find = [&](const ControlPtr& c) -> ControlPtr {
+    if (!c || !c->flag("visible", true)) return nullptr;
+    if (lower(c->type()) == "guigraalctrl") return c;
+    for (const auto& k : c->controls())
+      if (auto f = find(k)) return f;
+    return nullptr;
+  };
+  for (auto d = dialogs_.rbegin(); d != dialogs_.rend(); ++d)
+    if (auto f = find(*d)) return f;
+  return find(content_);
+}
+
+bool Screen::fireKey(const ControlPtr& target, const std::string& event, const std::vector<Value>& args) {
+  for (Control* c = target.get(); c; c = c->parent())
+    if (fire(*c, event, args)) return true;
+  return false;
 }
 
 bool Screen::runBinding(const std::string& device, const std::string& action, bool down) {

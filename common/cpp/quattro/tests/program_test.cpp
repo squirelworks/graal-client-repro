@@ -446,6 +446,17 @@ void test_offline() {
   p.tick();
   CHECK(p.me().status == status);
   CHECK(p.action("doQ", false));
+  p.tick();
+  // A press released before the tick still counts once (a launcher that
+  // sends a typed letter as down then up at once).
+  CHECK(p.action("doD", true) && p.action("doD", false));
+  p.tick();
+  CHECK(p.me().status == (status ^ 1));
+  p.tick();
+  CHECK(p.me().status == (status ^ 1));
+  CHECK(p.action("doD", true) && p.action("doD", false));
+  p.tick();
+  CHECK(p.me().status == status);
   CHECK(!p.action("doM", true) && !p.action("moveUp", true));
 
   CHECK(!p.start_offline("missing.gmap", 30, 30));

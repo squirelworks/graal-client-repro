@@ -236,7 +236,8 @@ class Program {
   World::TileTypes tile_types_;
   World::ObjectTables object_tables_;
   World::ItemKeys item_keys_;
-  unsigned action_held_ = 0;  // bindings held by action(), one bit per binding
+  unsigned action_held_ = 0;     // bindings held by action(), one bit per binding
+  unsigned action_pressed_ = 0;  // bindings pressed since the last tick, kept for one tick
   unsigned action_moves_ = 0, action_items_ = 0;  // what they hold: walk keys, World::ItemKey bits
   bool action_d_ = false, action_q_ = false;      // doD, doQ held
   World::Effects effects_;

@@ -386,19 +386,24 @@ bool Program::action(std::string_view command, bool down) {
       {"doQ", 0, World::kKeyD},
   };
   bool known = false;
+  for (unsigned i = 0; i < sizeof kBindings / sizeof kBindings[0]; ++i) {
+    if (command != kBindings[i].name) continue;
+    known = true;
+    action_held_ = down ? (action_held_ | (1u << i)) : (action_held_ & ~(1u << i));
+    // A press counts for the next tick even when its release comes in the
+    // same frame (the lab: a launcher that sends a typed letter as down
+    // then up at once lost every S and D).
+    if (down) action_pressed_ |= 1u << i;
+  }
   action_moves_ = action_items_ = 0;
   action_d_ = action_q_ = false;
+  const unsigned on = action_held_ | action_pressed_;
   for (unsigned i = 0; i < sizeof kBindings / sizeof kBindings[0]; ++i) {
-    if (command == kBindings[i].name) {
-      known = true;
-      action_held_ = down ? (action_held_ | (1u << i)) : (action_held_ & ~(1u << i));
-    }
-    if (action_held_ & (1u << i)) {
-      action_moves_ |= kBindings[i].move;
-      action_items_ |= kBindings[i].item;
-      if (std::string_view(kBindings[i].name) == "doD") action_d_ = true;
-      if (std::string_view(kBindings[i].name) == "doQ") action_q_ = true;
-    }
+    if (!(on & (1u << i))) continue;
+    action_moves_ |= kBindings[i].move;
+    action_items_ |= kBindings[i].item;
+    if (std::string_view(kBindings[i].name) == "doD") action_d_ = true;
+    if (std::string_view(kBindings[i].name) == "doQ") action_q_ = true;
   }
   return known;
 }
@@ -948,6 +953,10 @@ bool Program::tick() {
     if (!world_.lobby) script_input(e);
   }
   script_tick();
+  if (world_.lobby && action_pressed_) {  // no stale press when the game starts
+    action_pressed_ = 0;
+    action("", false);
+  }
   // Walking: half a tile per held arrow per tick, against the walls.
   if (!world_.lobby) {
     auto& p = me_;
@@ -973,6 +982,11 @@ bool Program::tick() {
     const bool d_pressed = armed && d_held && !weapon_keys_[0] && weapons_enabled_ && freeze_left_ <= 0;
     weapon_keys_[0] = armed && d_held;
     weapon_keys_[1] = armed && q_held;
+    // A press latched by action() has now been seen once.
+    if (action_pressed_) {
+      action_pressed_ = 0;
+      action("", false);
+    }
     if (!armed) item_list_open_ = false;
     if (item_list_open_) {
       // The list holds the game: the item key closes it, so do A, S, D.

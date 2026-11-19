@@ -155,6 +155,9 @@ Asm menu() {
   a.function("List.onSelect", {"id", "text"});
   a.var("picked").var("id").op(Asm::ASSIGN);
   a.num(0).op(Asm::RET);
+  a.function("Game.onKeyDown", {"keycode", "keystring", "scancode"});
+  a.var("gamekey").var("keycode").op(Asm::ASSIGN);
+  a.num(0).op(Asm::RET);
   a.function("openWindow", {"down"});
   a.var("opened").var("down").op(Asm::ASSIGN);
   a.num(0).op(Asm::RET);
@@ -255,6 +258,17 @@ static void testObjectsAndCommands() {
   CHECK(s.keyUp("F5") && global(m, "opened") == 0);
   CHECK(s.keyDown("up", 0) && actions.size() == 1 && actions[0] == "moveUp2D+");
   CHECK(!s.keyDown("F9", 0));
+  // With no text edit focused, the game control gets onKeyDown(keycode,
+  // keystring, scancode) first (GraalGui opens its chat bar there), and
+  // the key maps still run.
+  auto game = std::make_shared<Control>("Game", "GuiGraalCtrl");
+  root->add(game);
+  s.makeFirstResponder(nullptr);
+  CHECK(s.keyDown("tab", 9) && global(m, "gamekey") == 9);
+  actions.clear();
+  CHECK(s.keyDown("up", 0) && global(m, "gamekey") == 38 && actions.size() == 1);
+  CHECK(s.keyDown("s", 's') && global(m, "gamekey") == 'S');
+  root->removeChild(game.get());
 
   // Dialogs: pushDialog takes the input; popDialog wakes nothing new.
   auto dlg = std::make_shared<Control>("Dlg", "GuiControl");

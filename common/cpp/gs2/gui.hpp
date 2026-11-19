@@ -163,8 +163,11 @@ class Screen {
   bool mouseDown(int x, int y, int clicks = 1);
   // Keys: `key` is the Torque key name ("a", "up", "escape", "F2", ...),
   // `ch` the character typed (0 for none), `mods` "shift", "ctrl", "alt"
-  // joined by spaces. The first responder takes characters, backspace,
-  // delete, left, right, home, end and return; then the key maps.
+  // joined by spaces. A text edit that has focus takes characters,
+  // backspace, delete, left, right, home, end and return. Any other key
+  // fires onKeyDown(keycode, keystring, scancode) on the focused control
+  // (with none, an awake GuiGraalCtrl), passed up to its parents, and
+  // then runs the key maps; keyUp does the same with onKeyUp.
   bool keyDown(const std::string& key, int ch, const std::string& mods = "");
   bool keyUp(const std::string& key, const std::string& mods = "");
 
@@ -188,6 +191,9 @@ class Screen {
   ControlPtr hit(const ControlPtr& c, int x, int y) const;
   void activate(Control& c, int clicks);
   bool runBinding(const std::string& device, const std::string& action, bool down);
+  static std::vector<Value> keyArgs(const std::string& key, int ch);
+  ControlPtr keyTarget() const;
+  bool fireKey(const ControlPtr& target, const std::string& event, const std::vector<Value>& args);
 
   Machine& m_;
   int w_ = 640, h_ = 480;
