@@ -29,8 +29,14 @@ host and it does not borrow another version's token.
   `common/GSecLogin` handshake with this build's inner token (`GNP1905C`)
   and tail, so a Seihai login does not send the account and password in the
   clear. Checked byte for byte against `seihai-gserver-v2`'s client-side
-  vector and a full in-process round trip. The socket transport and a live
-  loopback login are not done yet.
+  vector and a full in-process round trip.
+- SEI00001 secure login, socket transport (`SecureNet6113`,
+  `--secure-login 127.0.0.1:PORT --account A --password-env VAR`): carries
+  C1/S1/C2 in the plain zlib login frames on the game socket, with
+  `known_servers.txt` pinning and the off/auto/required modes. A live
+  loopback login against `seihai-gserver-v2` was confirmed; `--inner`
+  chooses the inner token, since the build's own `GNP1905C` is refused until
+  the server's catalogue gives it a version id.
 - The generation-5 seed is the one `protocol/unpacked-6113-wire.md` gives.
   It was 128 too high before.
 - `--lab` is a labeled lab-only fixture: one other entity, its properties,
