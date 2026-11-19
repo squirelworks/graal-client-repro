@@ -31,6 +31,15 @@
 //   as "serverside,<weapon>,<params>", which GServer-v2 turns into the
 //   weapon's onActionServerSide [srv]. That triggerserver sends exactly
 //   this is read from the scripts and the server, not from a client.
+// - The 3.153 to 5.12 path (set_v4_scripts; protocol/unknown-ids-2026-11-06.md,
+//   protocol/class-bytecode-v4.md): 132 is `str name` then the weapon's
+//   compiled script. It does nothing unless the player already holds that
+//   weapon (33 first); otherwise the bytes are written to
+//   weblevels/weapons/<name>.code and become the weapon's script, restarted.
+//   133 is `str name` then a class's bytecode (name only: an empty class);
+//   it is stored for join() and not written to disk. 193 is a GINT5 zlib
+//   CRC-32 then the weapon's name: a cached .code with that CRC is loaded,
+//   otherwise the client asks with 158 and the name.
 //
 // How the descriptor's key words sit after the third comma (directly, or
 // each after its own comma) is not spelled out in the notes. This reader
@@ -75,15 +84,28 @@ class ScriptHost {
   // `send` queues an outgoing message (id, body) on the connection.
   using SendFn = std::function<bool(int id, std::string_view body)>;
 
-  ScriptHost();
+  explicit ScriptHost(gs2::Profile profile = gs2::Profile::Engine600);
+
+  // The 132 / 133 / 193 path of 3.153 to 5.12, with the weapon cache in
+  // `weblevels` (weblevels/weapons/<name>.code; one folder for every server,
+  // as 4.04r2 keeps it). Empty: no disk cache.
+  void set_v4_scripts(bool on, std::string weblevels = {}) {
+    v4_scripts_ = on;
+    v4_cache_dir_ = std::move(weblevels);
+  }
+  bool v4_scripts() const { return v4_scripts_; }
+  // The 4.x weapon cache file for a name ("" with no cache folder).
+  std::string v4_weapon_path(const std::string& name) const;
 
   void set_send(SendFn fn) { send_ = std::move(fn); }
   // The cache folder for this server: <assets>/weblevels/<host>. Empty: no
   // disk cache (every 197 then asks again).
   void set_cache_dir(std::string dir) { cache_dir_ = std::move(dir); }
 
-  // Handles 33, 34, 140, 190 and 197. False for other ids.
+  // Handles 33, 34, 140, 190 and 197 (and 132, 133 and 193 on the v4 path). False for other ids.
   bool on_message(int id, std::string_view body);
+  // Builds a 132 or 133 body (for the fake servers in tests and lab tools).
+  static std::string make_bytecode_packet(const std::string& name, std::string_view bytecode);
   // One script pass (the 50 ms tick).
   void tick() { machine_.runScripts(); }
 
@@ -125,6 +147,10 @@ class ScriptHost {
   gs2::Machine machine_;
   SendFn send_;
   std::string cache_dir_;
+  bool v4_scripts_ = false;
+  std::string v4_cache_dir_;
+  void install_weapon(const gs2::VarPtr& w, const std::string& body);
+  bool on_v4_message(int id, std::string_view body);
   gs2::VarPtr player_;
   std::map<std::string, gs2::VarPtr> weapons_;  // lower-cased names
   std::map<std::string, std::string> classes_;  // name -> bytecode

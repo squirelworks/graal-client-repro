@@ -151,6 +151,32 @@ build/graal-6.1.1.3-GNP1905C/Graal6113 \
 Without `--connector` the client still sends the clear `GNP1905C` hello
 described below, and `scripts/loopback.sh` still checks that path.
 
+## SEI00001 secure login
+
+Separate from the `conf.gs` scaffold above (which sends `SEI00001` only as a
+placeholder token), the Seihai **secure login** (`SEI00001`,
+`seihai/documentation/secure-login.md`, not part of any Graal build) lets a
+rebuild log in to a Seihai server without sending the account and password in
+the clear: C1 (a fresh X25519 key), S1 (the server's keys and an Ed25519
+signature over C1), then C2, which seals the login tail with
+ChaCha20-Poly1305. `seihai-gserver-v2` speaks it.
+
+The handshake is the shared code in `common/GSecLogin` (`TSecHandshake`,
+`TSecSession`) over `common/GSecCrypto`, exactly as the 6.0x folders use it.
+This folder adds only `Secure6113`: the build's inner token (`GNP1905C`) and
+the login tail (`GSTRING` account, `GSTRING` password). The 6.1.1.3 type and
+key bytes of the C1 prefix were not recovered, so the prefix is supplied by
+the caller; the key byte only seeds the post-login cipher, which this login
+does not reach.
+
+`Test6113` checks the message layer byte for byte against
+`seihai-gserver-v2`'s published client-side vector (C1, S1, C2, the server
+key and its fingerprint) and runs a full round trip with the `GNP1905C` inner
+token against a conforming responder: the responder opens C2 and reads the
+account and password back. What is left is the socket transport (the plain
+zlib login frames on the game socket) and a live loopback login against a
+`seihai-gserver-v2` built with secure login on.
+
 ## Wire
 
 1. TCP connect. No datagram socket is opened.
@@ -209,7 +235,10 @@ new dependency. It uses Free Pascal and the units already in this repo
 the rest of graal-delphi. No C++ was added. No decompiled body was copied.
 SHA-256 and the RSA check are written from FIPS 180-4 and RFC 8017. The
 connector public key is this project's own; no operator key, connector
-host, `p=` value or captured reply is in the repo.
+host, `p=` value or captured reply is in the repo. The SEI00001 secure
+login reuses the shared `common/GSecLogin` and `common/GSecCrypto` (written
+from the Seihai document and the RFCs); `Secure6113` adds only this build's
+inner token and tail.
 
 ## Not yet
 
@@ -218,6 +247,12 @@ host, `p=` value or captured reply is in the repo.
   anything runs, and the connector script (`setProtocol("EILLLT")`,
   `sendRaw`, `setEncryptionOut`). Token scaffolded as `SEI00001`, not yet
   usable.
+- [x] SEI00001 secure login, message layer: the shared `common/GSecLogin`
+  handshake with this build's inner token and tail (`Secure6113`), checked
+  against `seihai-gserver-v2`'s client-side vector and an in-process round
+  trip.
+- [ ] SEI00001 secure login, transport: the plain zlib login frames on the
+  game socket, and a live loopback login against `seihai-gserver-v2`.
 - [x] The 6.1.1.3 control names, including `GuiGraalCtrl` and `GuiTilesCtrl`, are registered when the client runs. The bodies are stubs. The window stays the software surface. The clear hello stays `GNP1905C`.
 - [ ] OpenGL and the real playfield classes.
 - [ ] GS2 execution.

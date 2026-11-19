@@ -6,6 +6,7 @@
 #include "../world/floor_items.hpp"
 #include "../world/health.hpp"
 #include "../world/item_list.hpp"
+#include "../world/npcs.hpp"
 #include <map>
 #include "../world/player.hpp"
 #include "../world/walk.hpp"
@@ -812,7 +813,36 @@ void test_own_props_probed() {
   }
 }
 
+
+// The 4.x / 5.x NPC prop parser: the values it reads, and an id outside
+// 0-47 and 53-77 ending the stream with what came before kept.
+void test_npc_props() {
+  using namespace Quattro::World;
+  using Quattro::Net::gchar;
+  using Quattro::Net::gshort;
+  using Quattro::Net::gstring;
+  ServerNpc n;
+  std::string s = npc_prop_string(kNpcImage, "door.png") + npc_prop_char(kNpcX, 61) + npc_prop_char(kNpcY, 20) +
+                  gchar(kNpcImagePart) + gshort(32) + gshort(16) + gchar(48) + gchar(32) +
+                  gchar(kNpcHeadImage) + gchar(100 + 9) + "head9.png" + gchar(kNpcColors) + gchar(1) + gchar(2) +
+                  gchar(3) + gchar(4) + gchar(5) + npc_prop_string(kNpcGattrib1, "a1") +
+                  npc_prop_string(kNpcGattrib10, "a10") + gchar(kNpcScript) + gshort(3) + "abc" +
+                  npc_prop_char(kNpcVisFlags, 0);
+  CHECK(apply_npc_props(n, s));
+  CHECK(n.image == "door.png" && n.x == 30.5 && n.y == 10);
+  CHECK(n.has_part && n.part_x == 32 && n.part_y == 16 && n.part_w == 48 && n.part_h == 32);
+  CHECK(n.head == "head9.png" && n.colors[4] == 5 && n.attr[1] == "a1" && n.attr[10] == "a10");
+  CHECK(n.gs1_text == "abc" && !n.visible() && !n.character());
+  // X2 / Y2, then 48 ends it: the nickname after it is not read.
+  ServerNpc m;
+  std::string s2 = gchar(kNpcX2) + gshort(to_pixels2(12.5)) + gchar(kNpcY2) + gshort(to_pixels2(7)) +
+                   npc_prop_string(kNpcGani, "walk") + gchar(48) + npc_prop_string(kNpcNickname, "x");
+  CHECK(!apply_npc_props(m, s2));
+  CHECK(m.x == 12.5 && m.y == 7 && m.gani == "walk" && m.character() && m.nickname.empty());
+}
+
 int main() {
+  test_npc_props();
   test_pixels2();
   test_own_props();
   test_own_props_probed();

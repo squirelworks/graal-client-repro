@@ -15,7 +15,8 @@ from that older set remains open (licence done; signing still on hold).
 - **0.0.1**: first rebuild. Logs in, walks, plays as far as its README says;
   not yet compared action by action with the original.
 - **0.0.1.1**: a 0.0.1 rebuilt with a fix.
-- **0.0.2**: checked side by side with the original client.
+- **0.0.2**: checked side by side with the original client, for behaviour
+  (docs/functional-parity.md).
 - **v0.0.3, v0.0.4**: combined releases of all 71 clients that existed
   then; each client's notes say what was matched and what was not.
 - **v0.0.4.1**: development checkpoint for all 74 clients

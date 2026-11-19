@@ -147,6 +147,48 @@ With the player's own 4.04r2 `GraalEngine.dll` (`GRAAL404_ENGINE`) the
 world shows in `GraalControl` and the right arrow walks through the real
 MoveMap2D binding.
 
+## Server scripts (C2)
+
+The session runs the server's weapon and class scripts on the build's own
+GS2 machine (the 4.2 opcode set on a 4.x row, 5.0 on 5.00r7 and 5.12),
+by the 3.153-5.12 path Graal_analysis reads in
+`protocol/unknown-ids-2026-11-06.md` and `protocol/class-bytecode-v4.md`:
+
+| Id | Does |
+|---|---|
+| 33 then 132 | `str name`, then the weapon's bytecode. Only for a weapon the player holds; written to `<install>/weblevels/weapons/<name>.code`, then installed and restarted |
+| 193 | GINT5 zlib CRC-32 and the name: a cached `.code` with that CRC is loaded, otherwise C->S 158 asks for it |
+| 133 | `str name`, then a class's bytecode (the name alone: an empty class), kept for `join()` |
+| 140, 197 | the 5.x rows also take the GRESCR01 path the Quattro program has |
+
+D on a weapon with a script raises `onWeaponFired` on it; `onKeyPressed`,
+`onPlayerEnters`, `onActionClientSide` (48), `triggerserver` and
+`triggeraction` (C->S 38) are the Quattro program's
+(`common/cpp/quattro/shell/scripts.hpp`). Checked on loopback in
+`make test` for every 4.x and 5.x row: 33 and 132 behind 100, then D sends
+the script's `triggerserver` as 38. There is no GS1 text runner to build:
+from 4.x on the server compiles GS1 scripts to the same bytecode
+(client-internals/gs1-on-5x-hud-and-flags.md).
+
+Server NPCs (`common/cpp/quattro/shell/npcs.cpp`, `world/npcs.hpp`):
+
+| Id | Does |
+|---|---|
+| 3 | `GINT3 id`, then NPC props; the 4.x/5.x parser reads 0-47 and 53-77 and stops at any other id (protocol/v5-props.md) |
+| 131 | `GINT3 id`, then the NPC's bytecode: `created`, then `playerenters` |
+| 29, 150 | the NPC goes |
+| 151 | the level's NPCs 1 to 999 go (also on each new level) |
+
+An NPC with a gani is drawn as a character, otherwise as its image or
+image part; image NPCs show on the Login server too. The script sees its
+props as `this.x`, `this.y`, `this.image`, `this.ani`, `this.dir`,
+`this.nick`, `this.chat` and `this.visible`, and has `setimg`,
+`setimgpart`, `show`, `hide`, `message`, `setcharani` and
+`showcharacter`. `playertouchsme` fires as the player's body starts to
+overlap the NPC. The boxes, the visibility bit and the character rule are
+the rebuild's readings. Checked on loopback in `make test` for every 4.x
+and 5.x row.
+
 ## Offline mode (C2)
 
 `startOfflineMode` with no offline starter set runs the same Quattro
@@ -174,13 +216,16 @@ character, and walking right into `offlinetutorial_c-2.graal`.
 
 `graalengine_setBuild(label)`, called before `graal_engineInitialize`,
 names the launcher's build: `4.04r2` (the default), `4.20r8`, `5.00r7` or
-`5.12`. It picks the session's wire row (`common/cpp/quattro/net/profile.cpp`)
+`5.12`, or one of the other 4.x Windows builds, `4.02.11`, `4.03r1`,
+`4.03r3`, `4.11` and `4.20r6`. Those five rows are the 4.04r2 row with the
+build's own token; none of them was run in the lab. It picks the session's wire row (`common/cpp/quattro/net/profile.cpp`)
 and the GS2 opcode profile (4.2 for 4.x, 5.0 for 5.x). The original library
 had no such call; each was built for its own launcher. The 5.0 launcher
 has no `LogGraalMessage`, so with no log slot the engine's lines go to
 stderr when `GRAALENGINE_LOG` is set, and the playfield is drawn with
-`DrawGraphics` (no stretched draw on 5.0). The 4.20r8 and 5.00r7 Pascal
-launchers hand off with `--engine` the same way 4.04r2 and 5.12 do.
+`DrawGraphics` (no stretched draw on 5.0). The 4.02.11, 4.03r1, 4.03r3, 4.11,
+4.20r6, 4.20r8 and 5.00r7 Pascal launchers hand off with `--engine` the
+same way 4.04r2 and 5.12 do.
 
 Each login (the first server, then every warp) is passed to the
 launcher's `OnServerLogin` with the server's name; the 5.x launcher titles

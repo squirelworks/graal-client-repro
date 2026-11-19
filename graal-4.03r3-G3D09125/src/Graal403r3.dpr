@@ -24,6 +24,9 @@
     --seed N          random walk seed
     --link-every N    random walk: every N seconds head for the nearest link
     --nodelay         set TCP_NODELAY (4.03r3's setting is not traced)
+    --engine          the rebuilt GraalEngine library (common/cpp/graalengine)
+                      beside the launcher; --engine-lib FILE, --window,
+                      --frames N, --dump FRAME.bmp, --connect NAME@HOST:PORT
     --server-name N   the name the client gives the server (default none);
                       a name starting with "login" is a Login session: no
                       players drawn, and 178 hands the client on
@@ -70,7 +73,8 @@ uses
   GStartScreen in '../../common/GStartScreen.pas',
   ListServer403r3 in 'ListServer403r3.pas',
   StartScreen403r3 in 'StartScreen403r3.pas',
-  RunMode in 'RunMode.pas';
+  RunMode in 'RunMode.pas',
+  GEngineHost in '../../common/GEngineHost.pas';
 
 var
   { Set while the start screen runs a game: the arguments it chose, read
@@ -118,6 +122,7 @@ begin
   WriteLn('  (no arguments: the start screen, Training or the server list)');
   WriteLn('  --server HOST:PORT --account NAME [--password-env VAR] [--server-name NAME]');
   WriteLn('  --level FILE [--x X --y Y]');
+  WriteLn('  --engine [--engine-lib FILE] [--window] [--frames N] [--connect NAME@HOST:PORT]');
   WriteLn('  common: [--data DIR] [--window | --headless] [--frames N] [--seconds N]');
   WriteLn('          [--keys SCRIPT] [--walk script|idle|random] [--walk-ms N] [--seed N]');
   WriteLn('          [--link-every N] [--nodelay] [--stats-every N]');
@@ -607,10 +612,134 @@ begin
   end;
 end;
 
+{ The game window's title: "G r a a l" with eight spaces spread at random
+  before and after it, as the 4.20r8 Graal4.exe sets it
+  (this build's title was not read; the sibling's is used). }
+function PaddedTitle: string;
+var
+  I: Integer;
+begin
+  I := Random(9);
+  Result := StringOfChar(' ', I) + 'G r a a l' + StringOfChar(' ', 8 - I);
+end;
+
+{ Graal403r3 --engine: the launcher over the rebuilt engine library
+  (common/cpp/graalengine). Same shape as the 4.04r2 launcher: window,
+  draw callbacks, graal_engineInitialize / loadGraalGui / renderGraalCanvas,
+  keys after ToAscii. Sets the library's build to 4.03r3 (its wire row).
+  Options: --engine-lib FILE, --window, --frames N, --dump FRAME.bmp,
+  --connect NAME@HOST:PORT. }
+function RunEngine: Integer;
+const
+  ArrowVK: array[0..3] of Integer = ($26, $25, $28, $27);
+  ArrowKey: array[0..3] of TGKey = (gkUp, gkLeft, gkDown, gkRight);
+var
+  Host: TEngineHost;
+  Win: TGWindow;
+  Lib, Dump, Target, Chars: string;
+  Frames, I, K, X, Y, At, Colon, LogSeen: Integer;
+  Was: array[0..4] of Boolean;
+  NextUs: Int64;
+begin
+  Result := 1;
+  Lib := Arg('--engine-lib', ExtractFilePath(ParamStr(0)) + EngineLibName);
+  Dump := Arg('--dump', '');
+  if HasArg('--frames') then Frames := StrToIntDef(Arg('--frames', '0'), 0)
+  else if HasArg('--window') then Frames := 0
+  else Frames := 1;
+  Win := nil;
+  Host := TEngineHost.Create(ScreenW, ScreenH);
+  try
+    if not Host.Load(Lib) then
+    begin
+      WriteLn(Host.Error);
+      Exit;
+    end;
+    Host.RegisterSlots(EngineBuild4x);
+    if not Host.SetBuild(ClientBuildLabel) then
+      WriteLn('engine library has no ', ClientBuildLabel, ' build; it runs as its default');
+    if Host.Missing.Count > 0 then
+      WriteLn('engine slots with no launcher function: ', Host.Missing.CommaText);
+    if not Host.Initialize(ParamStr(0)) then
+    begin
+      WriteLn('The execution file could not be started. Check it with your virus checker and drivers.');
+      Exit;
+    end;
+    Host.LoadGui;
+    Target := Arg('--connect', '');
+    if Target <> '' then
+    begin
+      At := LastDelimiter('@', Target);
+      Colon := LastDelimiter(':', Target);
+      if (At > 0) and (Colon > At) then
+        Host.Connect(AnsiString(Copy(Target, 1, At - 1)), AnsiString(Copy(Target, At + 1, Colon - At - 1)),
+          StrToIntDef(Copy(Target, Colon + 1, MaxInt), 0));
+    end;
+    if HasArg('--window') then
+    begin
+      Win := TGWindow.Create(PaddedTitle, ScreenW, ScreenH);
+      if not Win.Ok then FreeAndNil(Win);
+    end;
+    FillChar(Was, SizeOf(Was), 0);
+    LogSeen := 0;
+    I := 0;
+    NextUs := MonoUs;
+    while (Frames = 0) or (I < Frames) do
+    begin
+      if StopRequested then Break;
+      if Win <> nil then
+      begin
+        Win.Pump;
+        if Win.Closed then Break;
+        Host.Active := True;
+        for K := 0 to 3 do
+          if Win.Held[ArrowKey[K]] <> Was[K] then
+          begin
+            Was[K] := Win.Held[ArrowKey[K]];
+            Host.Key(ArrowVK[K], 0, 0, Was[K]);
+          end;
+        if Win.Held[gkEscape] <> Was[4] then
+        begin
+          Was[4] := Win.Held[gkEscape];
+          Host.Key($1B, 27, 0, Was[4]);
+        end;
+        Chars := Win.TakeChars;
+        for K := 1 to Length(Chars) do
+        begin
+          Host.Key(0, Ord(Chars[K]), 0, True);
+          Host.Key(0, Ord(Chars[K]), 0, False);
+        end;
+        while Win.TakeClick(X, Y) do
+        begin
+          Host.Mouse(X, Y, EngineMouseDown, 0, 1, 0, 0);
+          Host.Mouse(X, Y, EngineMouseUp, 0, 0, 0, 0);
+        end;
+      end;
+      Host.Screen.Fill($FF000000);
+      Host.Render;
+      if Win <> nil then Win.Present(Host.Screen);
+      while LogSeen < Host.Log.Count do
+      begin
+        WriteLn(Host.Log[LogSeen]);
+        Inc(LogSeen);
+      end;
+      Inc(I);
+      Inc(NextUs, 50000);
+      if (Win <> nil) and (NextUs > MonoUs) then Sleep((NextUs - MonoUs) div 1000);
+    end;
+    if Dump <> '' then Host.Screen.SaveBMP(Dump);
+    Result := 0;
+  finally
+    Win.Free;
+    Host.Free;
+  end;
+end;
+
 begin
   Randomize;
   if ParamCount = 0 then
     Halt(RunGui);
   OpenConsoleIO;
+  if HasArg('--engine') then Halt(RunEngine);
   Halt(RunGame(nil, '', ''));
 end.

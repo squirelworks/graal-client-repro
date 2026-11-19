@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <zlib.h>
 
 namespace Quattro::Shell {
 
@@ -222,7 +223,7 @@ std::string make_load_script(const ScriptDescriptor& d) {
          Net::gint5(k.hi) + "," + Net::gint5(d.crc);
 }
 
-ScriptHost::ScriptHost() : machine_(gs2::Profile::Engine600) {
+ScriptHost::ScriptHost(gs2::Profile profile) : machine_(profile) {
   player_ = std::make_shared<gs2::Var>("player");
   player_->setAcceptsAllProperties(true);
   machine_.setPlayer(player_);
@@ -347,7 +348,92 @@ void ScriptHost::load(const ScriptDescriptor& d, const std::string& body) {
     note("weapon " + d.name + " loaded");
 }
 
+std::string ScriptHost::v4_weapon_path(const std::string& name) const {
+  if (v4_cache_dir_.empty()) return {};
+  std::string safe;
+  for (char c : name) safe.push_back((c == '/' || c == '\\' || c == ':' || c == '.') ? '_' : c);
+  return v4_cache_dir_ + "/weapons/" + safe + ".code";
+}
+
+std::string ScriptHost::make_bytecode_packet(const std::string& name, std::string_view bytecode) {
+  return Net::gstring(name) + std::string(bytecode);
+}
+
+void ScriptHost::install_weapon(const gs2::VarPtr& w, const std::string& body) {
+  // A new script on the weapon restarts it: onCreated runs again.
+  std::string err;
+  if (!machine_.setScript(w, body, &err))
+    note("weapon " + w->name() + ": " + err);
+  else
+    note("weapon " + w->name() + " loaded");
+}
+
+bool ScriptHost::on_v4_message(int id, std::string_view body) {
+  switch (id) {
+    case 132: {  // weapon bytecode: str name, then the script
+      Net::Reader r(body);
+      std::string name = r.gstring();
+      if (!r.ok() || body.size() < name.size() + 2) return true;  // shorter than name + 1: dropped
+      gs2::VarPtr w = weapon(name);
+      if (!w) {
+        note("bytecode for " + name + ", which the player does not hold");
+        return true;
+      }
+      std::string code(r.rest());
+      std::string path = v4_weapon_path(name);
+      if (!path.empty()) {
+        std::error_code ec;
+        std::filesystem::create_directories(std::filesystem::path(path).parent_path(), ec);
+        std::ofstream(path, std::ios::binary) << code;
+      }
+      install_weapon(w, code);
+      return true;
+    }
+    case 133: {  // class bytecode: str name, then the script (none: an empty class)
+      Net::Reader r(body);
+      std::string name = r.gstring();
+      if (!r.ok() || name.empty()) return true;
+      std::string code(r.rest());
+      classes_[name] = code;
+      std::string err;
+      if (code.empty() || machine_.addClassScript(name, code, &err))
+        note("class " + name + " loaded");
+      else
+        note("class " + name + ": " + err);
+      return true;
+    }
+    case 193: {  // weapon CRC: GINT5 zlib CRC-32, then the name
+      if (body.size() <= 5) return true;
+      Net::Reader r(body);
+      uint32_t crc = static_cast<uint32_t>(r.gint5());
+      std::string name(r.rest());
+      gs2::VarPtr w = weapon(name);
+      // That an unheld name is ignored, as 132 does, is the rebuild's reading.
+      if (!r.ok() || !w) return true;
+      std::string path = v4_weapon_path(name), file;
+      bool have = false;
+      if (!path.empty()) {
+        std::ifstream in(path, std::ios::binary);
+        if (in) {
+          file.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+          have = true;
+        }
+      }
+      if (have && ::crc32(0L, reinterpret_cast<const Bytef*>(file.data()), static_cast<uInt>(file.size())) == crc) {
+        install_weapon(w, file);
+      } else {
+        note("weapon " + name + ": not cached, asking again");
+        if (send_) send_(Cache::kPliUpdateScript, name);
+      }
+      return true;
+    }
+    default:
+      return false;
+  }
+}
+
 bool ScriptHost::on_message(int id, std::string_view body) {
+  if (v4_scripts_ && on_v4_message(id, body)) return true;
   switch (id) {
     case 33: {  // weapon add: the name
       Net::Reader r(body);

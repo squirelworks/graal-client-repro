@@ -64,6 +64,13 @@ struct BuildProfile {
   // FrameEncoder::set_compress_always).
   bool packed_round_down = false;
   bool compress_always = false;
+  // Compiled scripts on the 3.153-5.12 path: 132 (weapon bytecode, cached
+  // as weblevels/weapons/<name>.code), 133 (class bytecode) and 193 (the
+  // weapon's CRC: load the cached copy or ask with 158). 5.24 on uses 197.
+  bool v4_scripts = false;
+  // The GS2 opcode set the client's machine runs: 42 (4.2 engine), 50 (5.0)
+  // or 600 (6.00) (client-internals/gs2-vm-from-engines.md).
+  int gs2_engine = 600;
   // The highest player prop id the build reads (2.22's parsers stop past
   // 80; the lab's 5.12 listed players' community names, prop 82).
   int last_prop = 80;

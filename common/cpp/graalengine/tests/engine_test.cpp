@@ -10,9 +10,11 @@
 #include "../../gs2/tests/assembler.hpp"
 #include "../../quattro/tests/fake_server.hpp"
 #include "../../quattro/shell/program.hpp"
+#include "../../quattro/world/npcs.hpp"
 #include "session.hpp"
 #include "showimg.hpp"
 
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -817,6 +819,73 @@ void testLoopbackSession(const char* build, const char* labEnv, const std::strin
   run("Adventure_setChat hello there");
   CHECK(pump(&game, [&] { return game.saw(2, gchar(QW::kCurChat) + gstring("hello there")); }));
 
+  // A server weapon with a GS2 script on the 3.153-5.12 path: 33 adds it,
+  // 132 (behind 100) brings its bytecode, and D raises onWeaponFired, whose
+  // triggerserver goes out as 38.
+  {
+    using gs2asm::Asm;
+    Asm w;
+    w.function("onWeaponFired", {});
+    w.op(Asm::MARKER).str("shot").str("Bow").str("gui").callName("triggerserver").op(Asm::POP);
+    w.num(0).op(Asm::RET);
+    const std::string code = gchar(132) + gstring("Bow") + w.bytes() + "\n";
+    game.send(gchar(33) + gstring("Bow") + "\n" + gchar(100) + Quattro::Net::gint3(uint32_t(code.size())) + "\n" + code);
+    CHECK(pump(&game, [&] {
+      auto wv = e.session()->program().scripts().weapon("Bow");
+      return wv && e.session()->program().scripts().machine().hasScript(wv);
+    }));
+    // Let the sword swing above end first: D is not used while it lasts.
+    const auto settle = std::chrono::steady_clock::now() + std::chrono::milliseconds(600);
+    pump(&game, [&] { return std::chrono::steady_clock::now() > settle; });
+    const std::size_t sent0 = game.got.size();
+    CHECK(e.session()->action("doD", true));
+    const bool fired = pump(&game, [&] {
+      for (std::size_t i = sent0; i < game.got.size(); ++i)
+        if (game.got[i].first == 38 && game.got[i].second.find("serverside,Bow,shot") != std::string::npos) return true;
+      return false;
+    });
+    e.session()->action("doD", false);
+    CHECK(fired);
+  }
+
+  // A server NPC (3) with a script (131): created runs message(), the NPC is
+  // drawn as a character where its props put it, and the player standing in
+  // it raises playertouchsme, whose triggeraction goes out as 38.
+  {
+    using gs2asm::Asm;
+    namespace W = Quattro::World;
+    Asm n;
+    n.function("onCreated", {});
+    n.op(Asm::MARKER).str("hello").callName("message").op(Asm::POP);
+    n.num(0).op(Asm::RET);
+    n.function("onPlayerTouchsMe", {});
+    n.op(Asm::MARKER).str("touched").num(1).num(1).callName("triggeraction").op(Asm::POP);
+    n.num(0).op(Asm::RET);
+    const auto& me = e.session()->program().me();
+    const unsigned hx = static_cast<unsigned>(std::lround(me.x * 2)), hy = static_cast<unsigned>(std::lround(me.y * 2));
+    const std::string props = Quattro::Net::gint3(5) + W::npc_prop_string(W::kNpcGani, "idle") +
+                              W::npc_prop_char(W::kNpcX, hx + 1) + W::npc_prop_char(W::kNpcY, hy) +
+                              W::npc_prop_char(W::kNpcVisFlags, 1);
+    const std::string code = gchar(131) + Quattro::Net::gint3(5) + n.bytes() + "\n";
+    const std::size_t sent0 = game.got.size();
+    game.send(gchar(3) + props + "\n" + gchar(100) + Quattro::Net::gint3(uint32_t(code.size())) + "\n" + code);
+    CHECK(pump(&game, [&] {
+      const auto& npcs = e.session()->program().npcs();
+      auto it = npcs.find(5);
+      return it != npcs.end() && it->second.message == "hello";
+    }));
+    CHECK(pump(&game, [&] {
+      for (std::size_t i = sent0; i < game.got.size(); ++i)
+        if (game.got[i].first == 38 && game.got[i].second.find("touched") != std::string::npos) return true;
+      return false;
+    }));
+    const auto& world = e.session()->program().world();
+    CHECK(world.npcs.size() == 1 && world.npcs[0].character && world.npcs[0].actor.chat == "hello");
+    // 29 takes it away.
+    game.send(gchar(29) + Quattro::Net::gint3(5) + "\n");
+    CHECK(pump(&game, [&] { return e.session()->program().npcs().empty(); }));
+  }
+
   CHECK(e.session()->haveFrame());
   CHECK(e.session()->frame().width == screenW && e.session()->frame().height == screenH);
   // With the player's own engine file (the lab run above leaves it set),
@@ -989,6 +1058,11 @@ int main() {
   testOfflineTutorial();
   testLoopbackSession("4.04r2", "GRAAL404_ENGINE", "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400");
   testLoopbackSession("4.20r8", "GRAAL420_ENGINE", "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400");
+  testLoopbackSession("4.02.11", "GRAAL40211_ENGINE", "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400");
+  testLoopbackSession("4.03r1", "GRAAL403R1_ENGINE", "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400");
+  testLoopbackSession("4.03r3", "GRAAL403R3_ENGINE", "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400");
+  testLoopbackSession("4.11", "GRAAL411_ENGINE", "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400");
+  testLoopbackSession("4.20r6", "GRAAL420R6_ENGINE", "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400");
   testLoopbackSession("5.00r7", "GRAAL500_ENGINE", "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400");
   testLoopbackSession("5.12", "GRAAL512_ENGINE", "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400,\"6.2 9200 \"");
   testGraal3DBridge();

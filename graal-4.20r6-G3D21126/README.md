@@ -22,7 +22,7 @@ This is the 0.0.1 reproduction: hit or miss.
 Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
 
 - **default:** Delphi/Pascal stand-in (no-argument / release entry on main today).
-- **faithful engine:** Split launcher + engine library — still being wired; not the release default.
+- **faithful engine:** Delphi launcher plus the rebuilt engine library: `Graal420r6 --engine` loads `common/cpp/graalengine` (wire row `4.20r6 Windows`, the 4.04r2 row with this build's token) — still being wired; not the release default (Pascal without the flag stays default).
 - **relic:** none yet. When the faithful engine is validated end-to-end and switched to default, the Pascal stand-in becomes the labeled relic/fallback and is never deleted.
 
 ## Token
@@ -108,6 +108,8 @@ README, "Seihai secure login". CI logs in once more with
 
 ## Not yet, or not known
 
+- [x] `--engine` hands off to the rebuilt GraalEngine library (setBuild `4.20r6`): the start menus from the engine file, the loopback login, level and walk, at the same depth as 4.20r8. Checked on loopback in `make -C common/cpp/graalengine test`; not yet in the lab.
+- [ ] The faithful engine reads its start menus from the engine file (`GRAAL_ENGINE_FILE`, else the install's `GraalEngine.dll`, else the exe). Whether the 4.20r6 install keeps its engine in a separate DLL or inside the exe was not checked; if its start scripts cannot be read from it, the menus need an engine image named with `GRAAL_ENGINE_FILE`.
 - [ ] A macOS build: there is no window back end on macOS yet, and macOS is
   left out of CI and releases unless asked.
 - [ ] The 24 period on a real Mac; the Mac send ids beyond what the qemu run
