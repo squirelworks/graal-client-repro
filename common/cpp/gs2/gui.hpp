@@ -182,6 +182,12 @@ class Screen {
   // own actions: moveUp2D, doA, toggleConsole and the rest), with
   // down = true on press and false on release.
   std::function<void(const std::string& command, bool down)> onEngineAction;
+  // The engine's own chat bar (5.x): Tab shows the control named ChatBar
+  // and gives it the keys, or hides it and sends an empty line; Return in
+  // it, with no onAction script, sends its text and clears it. Lines go
+  // to onChat.
+  bool nativeChat = false;
+  std::function<void(const std::string& line)> onChat;
 
  private:
   ControlPtr make(const std::string& type, const std::string& name);
@@ -193,6 +199,9 @@ class Screen {
   bool runBinding(const std::string& device, const std::string& action, bool down);
   static std::vector<Value> keyArgs(const std::string& key, int ch);
   ControlPtr keyTarget() const;
+  bool shown(const Control* c) const;
+  ControlPtr findAwake(const std::string& lname) const;  // by lower-case name, on screen  // awake, and it and its parents visible
+  bool responder_hold_ = false;        // keyTarget skips the focus
   bool fireKey(const ControlPtr& target, const std::string& event, const std::vector<Value>& args);
 
   Machine& m_;

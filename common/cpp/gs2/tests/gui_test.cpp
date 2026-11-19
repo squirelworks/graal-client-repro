@@ -268,6 +268,38 @@ static void testObjectsAndCommands() {
   actions.clear();
   CHECK(s.keyDown("up", 0) && global(m, "gamekey") == 38 && actions.size() == 1);
   CHECK(s.keyDown("s", 's') && global(m, "gamekey") == 'S');
+  // A shown ChatBar takes the keys when nothing has the focus (4.x).
+  auto chat = std::make_shared<Control>("ChatBar", "GuiTextEditCtrl");
+  chat->setNumProp("visible", 0);
+  root->add(chat);
+  s.makeFirstResponder(nullptr);
+  s.keyDown("h", 'h');
+  CHECK(chat->prop("text").empty());
+  chat->setNumProp("visible", 1);
+  s.keyDown("h", 'h');
+  s.keyDown("i", 'i');
+  CHECK(chat->prop("text") == "hi" && s.firstResponder() == chat);
+  // Tab in the bar is no edit key: the game control still gets it.
+  m.universe()->childOrCreate("gamekey")->setNumber(0);
+  s.keyDown("tab", 9);
+  CHECK(global(m, "gamekey") == 9);
+  // The engine's own chat bar (5.x): Tab opens it, Return sends and keeps
+  // it open, Tab closes it with an empty line.
+  std::vector<std::string> lines;
+  s.nativeChat = true;
+  s.onChat = [&](const std::string& l) { lines.push_back(l); };
+  chat->setNumProp("visible", 0);
+  chat->setProp("text", "");
+  s.makeFirstResponder(nullptr);
+  CHECK(s.keyDown("tab", 9) && chat->flag("visible") && s.firstResponder() == chat);
+  s.keyDown("y", 'y');
+  s.keyDown("o", 'o');
+  s.keyDown("return", 13);
+  CHECK(lines.size() == 1 && lines[0] == "yo" && chat->prop("text").empty() && chat->flag("visible"));
+  CHECK(s.keyDown("tab", 9) && !chat->flag("visible") && lines.size() == 2 && lines[1].empty());
+  CHECK(s.firstResponder() == nullptr);
+  s.nativeChat = false;
+  root->removeChild(chat.get());
   root->removeChild(game.get());
 
   // Dialogs: pushDialog takes the input; popDialog wakes nothing new.
