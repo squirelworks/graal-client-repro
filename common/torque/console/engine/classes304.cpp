@@ -199,6 +199,17 @@ void register_classes_304(Engine& e) {
     });
     return std::string();
   });
+  // A pop-up menu is a text control: its value is the text it shows
+  // (stock Torque's GuiTextCtrl script value). OptionsDlg2D.cs sets
+  // OptScreenshotMenu with setValue($pref::Video::screenShotFormat) and
+  // reads it back with getText (lab #303, 3.151: the field stayed blank).
+  e.add_function(popup, "setValue", 3, 3, "menu.setValue(text)", [](Engine&, SimObject* o, Args& a) {
+    if (o) o->set_field("text", a[2]);
+    return std::string();
+  });
+  e.add_function(popup, "getValue", 2, 2, "menu.getValue()", [](Engine&, SimObject* o, Args&) {
+    return o ? o->field("text") : std::string();
+  });
   e.add_function(popup, "findText", 3, 3, "menu.findText(text)", [](Engine&, SimObject* o, Args& a) {
     if (o) for (const auto& r : o->rows) if (lower(r.first) == lower(a[2])) return r.second;
     return std::string("-1");
