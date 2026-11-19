@@ -53,6 +53,9 @@ class Game304 {
   virtual const std::uint32_t* frame(int& width, int& height) = 0;
   // "level x y dir" for the local player.
   virtual std::string player() = 0;
+  // Sound on the system's device; off until turned on. A library without
+  // g304_set_sound stays silent.
+  virtual void set_sound(bool) {}
 };
 
 } // namespace Torque

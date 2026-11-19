@@ -23,7 +23,7 @@ struct Api {
   G304_FN(g304_connect) G304_FN(g304_offline) G304_FN(g304_offline_path) G304_FN(g304_key)
   G304_FN(g304_action)
   G304_FN(g304_say) G304_FN(g304_toall) G304_FN(g304_tick) G304_FN(g304_state)
-  G304_FN(g304_frame) G304_FN(g304_player)
+  G304_FN(g304_frame) G304_FN(g304_player) G304_FN(g304_set_sound)
 #undef G304_FN
 };
 
@@ -77,6 +77,11 @@ class PascalGame304 : public Game304 {
   }
   std::string offline_path() override { FenvGuard g; return text(api_.g304_offline_path(h_)); }
   void key(int dir, bool down) override { FenvGuard g; api_.g304_key(h_, dir, down ? 1 : 0); }
+  void set_sound(bool on) override {
+    if (!api_.g304_set_sound) return;
+    FenvGuard g;
+    api_.g304_set_sound(h_, on ? 1 : 0);
+  }
   void action(int which, bool down) override {
     FenvGuard g;
     api_.g304_action(h_, which, down ? 1 : 0);
@@ -144,6 +149,8 @@ std::unique_ptr<Game304> load_pascal_game304(const std::string& lib_path, const 
   G304_LOAD(g304_say) G304_LOAD(g304_toall) G304_LOAD(g304_tick) G304_LOAD(g304_state)
   G304_LOAD(g304_frame) G304_LOAD(g304_player)
 #undef G304_LOAD
+  // optional: older libraries have no sound switch
+  api.g304_set_sound = reinterpret_cast<decltype(api.g304_set_sound)>(symbol(lib, "g304_set_sound"));
   if (!ok) return nullptr;
   void* h = nullptr;
   {

@@ -1,5 +1,5 @@
 { NpcBridge30b: the 2.22 rebuild's NpcBridge222 over the 3.x game. What
-  differs: no sound unit (sounds are logged), no name font (the built-in
+  differs: sounds go to GSound (on in the windowed program only), no name font (the built-in
   font draws names), no ground heights (lift 0), five attributes on a
   player (3.x parses GATTRIB1-5), no movie ganis over characters, no
   status bar (showstats is kept, not drawn).
@@ -10,8 +10,7 @@
   and the level, and carries script commands into the game: hurt, items,
   warps, explosions, the player's look. The game's combat events (sword
   swings, bomb blasts, arrows) come in here too and go on to the NPCs.
-  Things the game does not model yet (signs, sound, projectiles) are
-  logged. }
+  Things the game does not model yet are logged. }
 unit NpcBridge30b;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
@@ -19,7 +18,7 @@ unit NpcBridge30b;
 interface
 
 uses
-  Classes, SysUtils, GNumText, Math, GTypes, GLevel, GSurface, GArrays, GFont, GGs1, Npc30b,
+  Classes, SysUtils, GSound, GNumText, Math, GTypes, GLevel, GSurface, GArrays, GFont, GGs1, Npc30b,
   Baddy30b, Adventure, GAni, GCompat;
 
 type
@@ -51,6 +50,8 @@ type
     procedure Warp(const Level: string; X, Y: Double); override;
     procedure LayItem(Item: Integer; X, Y: Double); override;
     procedure PlaySound(const Name: string; X, Y: Double; Looped: Boolean); override;
+    procedure StopSound(const Name: string); override;
+    function WeaponNameAt(I: Integer): string; override;
     procedure PutExplosion(Power, Radius, X, Y: Double); override;
     procedure PutBaddy(Kind: Integer; X, Y: Double; const Img: string; Power: Integer); override;
     procedure Shoot(const Kind: string; X, Y: Double; Dir: Integer); override;
@@ -369,9 +370,26 @@ begin
   FAdv.AddItem(X, Y, Item, 164);
 end;
 
+{ play / playlooped: the sound at the NPC (3.04 plays .wav files from
+  sounds/ and loops on request: torque/304-audio-ui.md); stopsound ends it }
 procedure TAdventureNpcWorld.PlaySound(const Name: string; X, Y: Double; Looped: Boolean);
 begin
   FAdv.Log('PLAY ' + Name);
+  if Name = '' then Exit;
+  if Looped then GSound.PlaySoundAt('+' + Name, X, Y)
+  else GSound.PlaySoundAt(Name, X, Y);
+end;
+
+procedure TAdventureNpcWorld.StopSound(const Name: string);
+begin
+  FAdv.Log('STOPSOUND ' + Name);
+  GSound.StopSound(Name);
+end;
+
+function TAdventureNpcWorld.WeaponNameAt(I: Integer): string;
+begin
+  if (I >= 0) and (I <= High(FAdv.Weapons)) then Result := FAdv.Weapons[I].Name
+  else Result := '';
 end;
 
 procedure TAdventureNpcWorld.PutExplosion(Power, Radius, X, Y: Double);
@@ -604,6 +622,7 @@ end;
 procedure TAdventureBaddyWorld.Sound(const Name: string; X, Y: Double);
 begin
   FAdv.Log('PLAY ' + Name);
+  GSound.PlaySoundAt(Name, X, Y);
 end;
 
 procedure TAdventureBaddyWorld.PushPlayer(KX, KY: Double);

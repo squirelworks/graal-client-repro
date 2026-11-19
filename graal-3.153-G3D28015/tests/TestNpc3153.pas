@@ -47,6 +47,7 @@ type
     procedure Warp(const Level: string; X, Y: Double); override;
     procedure LayItem(Item: Integer; X, Y: Double); override;
     procedure Send(Id: Integer; const Data: string); override;
+    function WeaponNameAt(I: Integer): string; override;
   end;
 
 constructor TTestWorld.Create;
@@ -113,6 +114,11 @@ procedure TTestWorld.LayItem(Item: Integer; X, Y: Double); begin Laid := Item; e
 procedure TTestWorld.Send(Id: Integer; const Data: string);
 begin
   Sent.Add(IntToStr(Id) + ':' + Data);
+end;
+
+function TTestWorld.WeaponNameAt(I: Integer): string;
+begin
+  if I = 1 then Result := 'Fire' else Result := '';
 end;
 
 var
@@ -688,6 +694,93 @@ begin
   end;
 end;
 
+{ server weapons: PLO_NPCWEAPONADD scripts, weaponfired on D, callweapon }
+procedure TestWeapons;
+const
+  Script = 'if (playerenters) { say2 entered; }'#$A7 +
+    'if (weaponfired && isweapon) { say2 fired #v(x) #v(y); }'#$A7 +
+    'if (playertouchsme) { say2 called; }';
+var
+  W: TTestWorld;
+  M: TNpcManager;
+  N: TNpc;
+  G: TAdventure;
+begin
+  W := TTestWorld.Create;
+  W.IsOnline := True;
+  W.PX := 10;
+  W.PY := 10;
+  M := TNpcManager.Create(W);
+  try
+    C(M.AddWeapon('Fire', 'wbow1.png', Script) <> nil, 'weapons: a server weapon is added');
+    C(W.Said.Count = 0, 'weapons: its playerenters waits for the next tick');
+    M.Tick;
+    C((W.Said.Count = 1) and (W.Said[0] = 'entered'), 'weapons: playerenters runs on the tick');
+    C(M.AddWeapon('Fire', 'x.png', 'if (playerenters) { say2 again; }') = nil,
+      'weapons: a name the player already has is ignored');
+    C((M.Weapons.Count = 1) and (M.Count = 0), 'weapons: kept apart from the level NPCs');
+    M.FireWeapon('Fire', 'weaponfired', 11.5, 12);
+    C((W.Said.Count = 2) and (W.Said[1] = 'fired 11.5 12'),
+      'weapons: D runs weaponfired, the weapon at the player''s centre');
+    N := M.Add(0, 5, 5, '', 'if (playerenters) { callweapon 1,playertouchsme; }');
+    M.Fire(N, 'playerenters');
+    C((W.Said.Count = 3) and (W.Said[2] = 'called'),
+      'weapons: callweapon runs the event on the weapon at that index');
+    M.SetScope('other.nw', '', -1, -1);
+    M.Tick;
+    C((W.Said.Count = 4) and (W.Said[3] = 'entered'), 'weapons: playerenters again on a new level');
+    M.RemoveWeapon('Fire');
+    C(M.Weapons.Count = 0, 'weapons: NPCWEAPONDEL removes it');
+  finally
+    M.Free;
+    W.Free;
+  end;
+  { the message: name, then props 0 (image) and 1 (script) }
+  G := TAdventure.Create;
+  try
+    G.Headless := True;
+    G.Receive(33, GString('Fire') + GChar(0) + GString('wbow1.png') + GChar(1) +
+      GShort(Length(Script)) + Script);
+    C((Length(G.Weapons) = 2) and (G.Weapons[1].Name = 'Fire') and (G.Weapons[1].Image = 'wbow1.png') and
+      (G.Weapons[1].Item = -1) and (G.Npcs.Weapons.Count = 1) and
+      (TNpc(G.Npcs.Weapons[0]).Script = Script), 'weapons: NPCWEAPONADD keeps the image and the script');
+    G.Receive(34, 'Fire');
+    C((Length(G.Weapons) = 1) and (G.Npcs.Weapons.Count = 0), 'weapons: NPCWEAPONDEL drops both');
+  finally
+    G.Free;
+  end;
+end;
+
+{ files the server sends: FILE, and large ones in pieces }
+procedure TestDownloads;
+const
+  { a 1 x 1 PNG }
+  Png = #$89'PNG'#13#10#$1A#10#0#0#0#13'IHDR'#0#0#0#1#0#0#0#1#8#2#0#0#0#$90'wS'#$DE +
+    #0#0#0#12'IDAT'#8#$D7'c'#$F8#$CF#$C0#0#0#3#1#1#0#$18#$DD#$8D#$B0#0#0#0#0'IEND'#$AE'B'#$60#$82;
+var
+  G: TAdventure;
+  D: string;
+begin
+  G := TAdventure.Create;
+  try
+    G.Headless := True;
+    C(G.Assets.Image('custom-head.png', 'head') = nil, 'files: a missing picture is nil');
+    G.Receive(102, GInt5(0) + GString('custom-head.png') + Png);
+    C((G.Assets.Image('custom-head.png', 'head') <> nil) and
+      (G.Assets.Image('custom-head.png', 'head').Width = 1), 'files: a FILE picture is drawn');
+    G.Receive(68, 'big.gani');
+    G.Receive(84, GInt5(12));
+    G.Receive(102, GInt5(0) + GString('big.gani') + 'GANI0001'#10);
+    G.Receive(102, GInt5(0) + GString('big.gani') + 'END'#10);
+    C(not G.Assets.Downloaded('big.gani', D), 'files: a large file waits for its end');
+    G.Receive(69, 'big.gani');
+    C(G.Assets.Downloaded('big.gani', D) and (D = 'GANI0001'#10'END'#10),
+      'files: LARGEFILESTART, SIZE, pieces, END make one file');
+  finally
+    G.Free;
+  end;
+end;
+
 procedure RunNpcTests(Check: TCheckProc; out Skipped: Integer);
 begin
   Skipped := 0;
@@ -700,6 +793,8 @@ begin
   TestNpcScope;
   TestLibrary(Skipped);
   TestInGame;
+  TestWeapons;
+  TestDownloads;
 end;
 
 end.

@@ -32,6 +32,10 @@ int g304_tick(void* h, int draw);
 int g304_state(void* h);
 const void* g304_frame(void* h, int* width, int* height);
 const char* g304_player(void* h);
+/* Optional (a library without it stays silent): 1 lets the game play its
+   sounds on the system's device (common/GSound), 0 keeps it silent. The
+   windowed program turns it on; tests and tq-play leave it off. */
+void g304_set_sound(void* h, int on);
 
 #ifdef __cplusplus
 }

@@ -136,13 +136,14 @@ README, "Seihai secure login". CI logs in once more with
 - [x] Hiding under a carried bush or stone (D), laying items (S held + A,
   `PLI_ITEMADD`) and S held + D for the next weapon
   (`client-internals/laying-items-and-hiding.md`).
-- [ ] What the spin cuts or hits offline (not read). Server weapons fired
-  with D, sound and the status bar; the water test before
-  laying, the bush's break effect.
+- [x] Server weapons fired with D (`weaponfired`, `playerenters`,
+  timeouts, `callweapon`), NPC and baddy sounds through GSound, and file
+  downloads (`WANTFILE`, `FILE`, large files, `File download:` log lines).
+- [ ] What the spin cuts or hits offline (not read), the status bar, the
+  water test before laying, the bush's break effect.
 - [x] NPCs, baddies and GS1 from the 2.22 rebuild (`Npc304`, `Baddy304`,
   `NpcBridge304`): scripts, touch and push, sword/bomb/arrow events, signs,
-  `replaceani`, baddies. NPC sounds are logged only; no name font, heights
-  or attached ganis.
+  `replaceani`, baddies. No name font, heights or attached ganis.
 - [ ] Everything else still missing from the 2.22 rebuild: chat bubbles,
   Options.
 - [ ] Which offline tutorial level the Tutorial button opens, and where: the
