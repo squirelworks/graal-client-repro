@@ -187,6 +187,8 @@ class Screen {
   // it, with no onAction script, sends its text and clears it. Lines go
   // to onChat.
   bool nativeChat = false;
+  // A press on the playfield (a GuiGraalCtrl), in its own pixels.
+  std::function<void(int x, int y, int clicks)> onGameMouse;
   std::function<void(const std::string& line)> onChat;
 
  private:

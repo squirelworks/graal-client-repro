@@ -517,6 +517,12 @@ void Program::script_input(const Draw::InputEvent& e) {
   u->childOrCreate("mousescreenx")->setNumber(e.x);
   u->childOrCreate("mousescreeny")->setNumber(e.y);
   scripts_.queue_all("MouseDown", {gs2::Value::string(e.clicks > 1 ? "double" : "left")});
+  // 4.x and 5.x tell the server too: a trigger action `leftmouse` at the
+  // clicked point (live-behaviour-404.md; v5v6-lab-play.md).
+  if (profile_.v4_scripts && props_sent_)
+    session_.connection().send(
+        38, ScriptHost::trigger_body(v.left + static_cast<double>(e.x) / Draw::kTile,
+                                     v.top + static_cast<double>(e.y) / Draw::kTile, "leftmouse"));
 }
 
 void Program::script_tick() {

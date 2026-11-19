@@ -388,6 +388,14 @@ bool Screen::mouseDown(int x, int y, int clicks) {
       }
       return true;
     }
+    if (t == "guigraalctrl" && onGameMouse) {
+      // The playfield: the press goes to the game, at the point in the
+      // playfield (its script still gets onMouseDown).
+      const Rect r = rectOf(*c);
+      onGameMouse(x - r.x, y - r.y, clicks);
+      fire(*c, "onMouseDown");
+      return true;
+    }
     if (fire(*c, "onMouseDown")) return true;
   }
   return true;

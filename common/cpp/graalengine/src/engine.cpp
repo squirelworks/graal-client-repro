@@ -296,6 +296,9 @@ void Engine::installScreen() {
   screen_->onChat = [this](const std::string& line) {
     if (session_) session_->say(line);
   };
+  screen_->onGameMouse = [this](int x, int y, int clicks) {
+    if (session_) session_->mouse(x, y, clicks);
+  };
   // GraalGui's playfield (GuiGraalCtrl) shows the session's world.
   showImg_ = std::make_unique<ShowImgPainter>(installDir());
   painter_->onSprite = [this](const std::string& file, double x, double y, double rot, double sx, double sy,

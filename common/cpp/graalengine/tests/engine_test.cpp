@@ -813,7 +813,8 @@ void testLoopbackSession(const char* build, const char* labEnv, const std::strin
     CHECK(pump(&game, [&] { return seen("listdelete 4").size() == 1; }));
     CHECK(seen("messagebox ").empty());
   } else {
-    CHECK(seen("listupdate ").empty() && seen("statusicons ").empty());
+    // 4.x: the rows go to the launcher's player list, with no status names.
+    CHECK(seen("listupdate 1").size() == 1 && seen("statusicons ").empty());
   }
 
   const std::size_t before = game.got.size();
@@ -833,6 +834,20 @@ void testLoopbackSession(const char* build, const char* labEnv, const std::strin
 
   run("Adventure_setChat hello there");
   CHECK(pump(&game, [&] { return game.saw(2, gchar(QW::kCurChat) + gstring("hello there")); }));
+  // A press on the playfield goes to the game: 4.x and 5.x send a trigger
+  // action `leftmouse` at the clicked point.
+  CHECK(e.screen() && e.screen()->onGameMouse);
+  {
+    const std::size_t sent0 = game.got.size();
+    e.screen()->onGameMouse(100, 80, 1);
+    CHECK(pump(&game, [&] {
+      for (std::size_t i = sent0; i < game.got.size(); ++i)
+        if (game.got[i].first == 38 && game.got[i].second.find("leftmouse") != std::string::npos) return true;
+      return false;
+    }));
+  }
+  // 5.x has the engine's own chat bar; 4.x's comes from its GraalGui.
+  CHECK(e.screen()->nativeChat == five);
 
   // A server weapon with a GS2 script on the 3.153-5.12 path: 33 adds it,
   // 132 (behind 100) brings its bytecode, and D raises onWeaponFired, whose
