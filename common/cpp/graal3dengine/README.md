@@ -93,8 +93,11 @@ every Graal build uses the same table. The rest is this rebuild's own.
 - [ ] Step 6 waits for the engine's TCP file downloads; the shapes and sky
   textures fetched over TCP
 - [ ] The TCP session in 3D mode ignoring level boards, warps and flags
-- [ ] Server text: weapons, `addnpc`, flags and `events` handed to the GS2
-  machine (logged only now); the client's events zipped over 49 bytes
+- [x] ~~Server text: weapons, `addnpc`, flags and `events` handed to the GS2
+  machine~~ through `graalengine_graal3DServerText` to the session's scripts
+  (`common/cpp/quattro/shell/server_text.cpp`); in 3D mode a weapon's
+  `triggerserver` goes back as an `events` line (`t weapon,<name>,<params>`)
+- [ ] The client's events zipped over 49 bytes
 - [ ] Protocol 19 (4.04r2) past the handshake: datablocks, moves, the
   stock ghost classes (never run on a real client either)
 - [ ] Movement (`movetype` and its data) and the player's own moves sent

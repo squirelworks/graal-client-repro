@@ -65,6 +65,9 @@ void G3D_CALL cbConnect(const char* host, int32_t port) {
     graalengine_logLine(("Graal3D: server text " + t.s2 + (t.s1.empty() ? "" : " for " + t.s1) + " (" +
                          std::to_string(t.data.size()) + " bytes)")
                             .c_str());
+    // Weapons, flags, events and scripts go to the session's GS2 machine.
+    graalengine_graal3DServerText(t.s1.c_str(), t.s2.c_str(), t.s3.c_str(), t.data.data(),
+                                  static_cast<int32_t>(t.data.size()));
   };
   s.link = std::make_unique<graal3d::Link>(login, cb);
   // The client's own UDP port is random (the fixed-port option is not read

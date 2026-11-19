@@ -98,6 +98,7 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
   session_.set_events(std::move(ev));
   world_.lobby_tiles = profile_.login_draws_tiles;
   world_.chest_boxes = profile_.draws_chests;
+  world_.player_chat = profile_.v4_scripts;
   me_.nickname = opt_.nickname.empty() ? "unknown" : opt_.nickname;  // the lab's 6.03r7 sent "unknown" with no nickname set
   me_.language = opt_.language;
   scripts_.set_send([this](int id, std::string_view body) { return session_.connection().send(id, body); });
@@ -108,7 +109,10 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
   };
   register_weapon_commands();
   register_script_commands();
-  if (profile_.v4_scripts) register_npc_commands();
+  if (profile_.v4_scripts) {
+    register_npc_commands();
+    scripts_.npc_id_of = [this](const gs2::Var* v) { return npc_of(v); };
+  }
   world_.player.x = 30;
   world_.player.y = 30;
   std::vector<std::string> asset_folders;
@@ -203,6 +207,10 @@ void Program::ask_for_missing() {
     for (const std::string* n : {&p.head, &p.body, &p.sword_image, &p.shield_image})
       if (!n->empty() && n->find('.') != std::string::npos && !assets_->image(*n)) want_file(*n);
   };
+  // Server NPCs' images, as the lab's real 4.04r2 asked for block.png.
+  for (const auto& [id, n] : npcs_)
+    for (const std::string* f : {&n.image, &n.head, &n.body})
+      if (!f->empty() && f->find('.') != std::string::npos && !assets_->image(*f)) want_file(*f);
   if (profile_.cold_gani_requests && !me_.gani.empty()) {
     // Prop 10 may include animation parameters, e.g. shoot,wbow1.png.
     // They remain in player state but are not part of the requested file.
@@ -381,19 +389,24 @@ bool Program::action(std::string_view command, bool down) {
       {"doQ", 0, World::kKeyD},
   };
   bool known = false;
+  for (unsigned i = 0; i < sizeof kBindings / sizeof kBindings[0]; ++i) {
+    if (command != kBindings[i].name) continue;
+    known = true;
+    action_held_ = down ? (action_held_ | (1u << i)) : (action_held_ & ~(1u << i));
+    // A press counts for the next tick even when its release comes in the
+    // same frame (the lab: a launcher that sends a typed letter as down
+    // then up at once lost every S and D).
+    if (down) action_pressed_ |= 1u << i;
+  }
   action_moves_ = action_items_ = 0;
   action_d_ = action_q_ = false;
+  const unsigned on = action_held_ | action_pressed_;
   for (unsigned i = 0; i < sizeof kBindings / sizeof kBindings[0]; ++i) {
-    if (command == kBindings[i].name) {
-      known = true;
-      action_held_ = down ? (action_held_ | (1u << i)) : (action_held_ & ~(1u << i));
-    }
-    if (action_held_ & (1u << i)) {
-      action_moves_ |= kBindings[i].move;
-      action_items_ |= kBindings[i].item;
-      if (std::string_view(kBindings[i].name) == "doD") action_d_ = true;
-      if (std::string_view(kBindings[i].name) == "doQ") action_q_ = true;
-    }
+    if (!(on & (1u << i))) continue;
+    action_moves_ |= kBindings[i].move;
+    action_items_ |= kBindings[i].item;
+    if (std::string_view(kBindings[i].name) == "doD") action_d_ = true;
+    if (std::string_view(kBindings[i].name) == "doQ") action_q_ = true;
   }
   return known;
 }
@@ -944,6 +957,10 @@ bool Program::tick() {
     if (!world_.lobby) script_input(e);
   }
   script_tick();
+  if (world_.lobby && action_pressed_) {  // no stale press when the game starts
+    action_pressed_ = 0;
+    action("", false);
+  }
   // Walking: half a tile per held arrow per tick, against the walls.
   if (!world_.lobby) {
     auto& p = me_;
@@ -969,6 +986,11 @@ bool Program::tick() {
     const bool d_pressed = armed && d_held && !weapon_keys_[0] && weapons_enabled_ && freeze_left_ <= 0;
     weapon_keys_[0] = armed && d_held;
     weapon_keys_[1] = armed && q_held;
+    // A press latched by action() has now been seen once.
+    if (action_pressed_) {
+      action_pressed_ = 0;
+      action("", false);
+    }
     if (!armed) item_list_open_ = false;
     if (item_list_open_) {
       // The list holds the game: the item key closes it, so do A, S, D.

@@ -144,6 +144,7 @@ void Program::npcs_to_world() {
     s.has_part = n.has_part;
     s.part = {n.part_x, n.part_y, n.part_w, n.part_h};
     s.character = n.character();
+    s.message = n.message;
     if (s.character) {
       s.actor.x = n.x;
       s.actor.y = n.y;

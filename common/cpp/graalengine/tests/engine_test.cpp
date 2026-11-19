@@ -643,6 +643,21 @@ void testPainter() {
   CHECK(graalengine::torqueKeyName(0x0D) == "return");
   CHECK(graalengine::torqueKeyName(0x26) == "up");
   CHECK(graalengine::torqueKeyName(0xFF).empty());
+  // Character-only events: control characters are their keys, letters their names.
+  {
+    graalengine::InputEvent ev;
+    ev.vk = 0;
+    ev.ch = 13;
+    CHECK(graalengine::ScreenControl::keyName(ev) == "return");
+    ev.ch = 9;
+    CHECK(graalengine::ScreenControl::keyName(ev) == "tab");
+    ev.ch = 8;
+    CHECK(graalengine::ScreenControl::keyName(ev) == "backspace");
+    ev.ch = 'Q';
+    CHECK(graalengine::ScreenControl::keyName(ev) == "q");
+    ev.vk = 0x26;
+    CHECK(graalengine::ScreenControl::keyName(ev) == "up");
+  }
   fs::remove_all(dir);
 }
 
@@ -846,6 +861,9 @@ void testLoopbackSession(const char* build, const char* labEnv, const std::strin
     });
     e.session()->action("doD", false);
     CHECK(fired);
+    // 193 with a CRC the cached copy does not have: the client asks with 158.
+    game.send(gchar(193) + Quattro::Net::gint5(1) + "Bow\n");
+    CHECK(pump(&game, [&] { return game.saw(158, "Bow"); }));
   }
 
   // A server NPC (3) with a script (131): created runs message(), the NPC is
@@ -876,7 +894,9 @@ void testLoopbackSession(const char* build, const char* labEnv, const std::strin
     }));
     CHECK(pump(&game, [&] {
       for (std::size_t i = sent0; i < game.got.size(); ++i)
-        if (game.got[i].first == 38 && game.got[i].second.find("touched") != std::string::npos) return true;
+        if (game.got[i].first == 38 && game.got[i].second.find("touched") != std::string::npos &&
+            game.got[i].second.rfind(Quattro::Net::gint3(5), 0) == 0)
+          return true;
       return false;
     }));
     const auto& world = e.session()->program().world();
@@ -884,6 +904,37 @@ void testLoopbackSession(const char* build, const char* labEnv, const std::strin
     // 29 takes it away.
     game.send(gchar(29) + Quattro::Net::gint3(5) + "\n");
     CHECK(pump(&game, [&] { return e.session()->program().npcs().empty(); }));
+  }
+
+  // Graal text from the 3D server: weaponscript gives a weapon its bytecode,
+  // events sets a flag and raises onAction<action> on it, and with a weapon
+  // name the text is onReceiveText.
+  {
+    using gs2asm::Asm;
+    Asm w;
+    w.function("onActiongo", {"n"});
+    w.var("went").var("n").op(Asm::ASSIGN).num(0).op(Asm::RET);
+    w.function("onReceiveText", {"type", "option", "data"});
+    w.var("got").var("data").op(Asm::ASSIGN).num(0).op(Asm::RET);
+    auto& prog = e.session()->program();
+    graalengine_graal3DServerText("", "addweapon", "-Move3D", "", 0);
+    CHECK(prog.weapons().selected() != nullptr);
+    const std::string code = w.bytes();
+    graalengine_graal3DServerText("", "weaponscript", "-Move3D", code.data(), static_cast<int32_t>(code.size()));
+    CHECK(prog.scripts().weapon("-Move3D") && prog.scripts().machine().hasScript(prog.scripts().weapon("-Move3D")));
+    const std::string ev = "s inside3d\nt weapon,-Move3D,go,7\n";
+    graalengine_graal3DServerText("", "events", "", ev.data(), static_cast<int32_t>(ev.size()));
+    graalengine_graal3DServerText("-Move3D", "msg", "x", "hello3d", 7);
+    CHECK(pump(&game, [&] {
+      auto u = prog.scripts().machine().universe();
+      return u->child("went") && u->child("got");
+    }));
+    auto u = prog.scripts().machine().universe();
+    CHECK(u->child("went") && u->child("went")->string() == "7");
+    CHECK(u->child("got") && u->child("got")->string() == "hello3d");
+    CHECK(prog.scripts().player()->child("inside3d") && prog.scripts().player()->child("inside3d")->number() == 1);
+    graalengine_graal3DServerText("", "deleteweapon", "-Move3D", "", 0);
+    CHECK(!prog.scripts().weapon("-Move3D"));
   }
 
   CHECK(e.session()->haveFrame());
@@ -925,6 +976,14 @@ void testLoopbackSession(const char* build, const char* labEnv, const std::strin
     unsetenv("GRAAL_ENGINE_FILE");
 #endif
   }
+  // The server drops the link: the warning box on both rows, and a 4.x
+  // engine goes back to its start menu (the session is gone).
+  calls.clear();
+  game.conn.close();
+  CHECK(pump(&login, [&] { return !seen("messagebox ").empty(); }));
+  CHECK((seen("messagebox ") ==
+         std::vector<std::string>{"messagebox Warning|You have been disconnected from the game server.|1"}));
+  if (!five) CHECK(e.session() == nullptr);
   shutdownGraalEngine();
   fs::remove_all(dir);
 }

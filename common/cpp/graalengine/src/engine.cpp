@@ -3,6 +3,7 @@
 #include "gui_host.hpp"
 #include "host.hpp"
 #include "session.hpp"
+#include "../../quattro/shell/program.hpp"
 #include "showimg.hpp"
 #include "../../quattro/net/profile.hpp"
 
@@ -94,7 +95,10 @@ std::function<void()> frameTimer(Engine& e, std::function<void()> session) {
   return [&e, session] {
     if (auto* m = e.machine()) m->runScripts();
     if (session) session();
-    else if (auto* s = e.session()) s->tick();
+    else if (auto* s = e.session()) {
+      s->tick();
+      e.afterSessionTick();
+    }
     // The show-images: ganis step on, emitters run one frame.
     if (auto* si = e.showImg()) si->tick();
     if (auto* sc = e.screen()) sc->advance(0.05);
@@ -223,6 +227,11 @@ void Engine::connect(const std::string& rawName, const std::string& host, int po
   l.installDir = installDir();
   l.build = build_;
   session_ = std::make_unique<Session2D>(l);
+  // In 3D mode the scripts' server triggers go over the 3D link as event
+  // lines (torque/udp-session.md §7), not as C->S 38.
+  if (mode3d_)
+    session_->program().scripts().set_event_line(
+        [](const std::string& line) { host::SendGraal3DScriptEvents(line.c_str()); });
   if (!session_->start()) log("GraalEngine: could not connect to " + name);
 }
 
@@ -260,6 +269,15 @@ void Engine::graal3DLoginStep(int step) {
   step3d_ = step;
   if (machine_) machine_->queueEvent(machine_->universe(), "onGraal3DLoginStep", {gs2::Value::number(step)});
   if (step == 6) setContentFrom(profile_ == gs2::Profile::Engine42 ? "GUIContainer3D" : "GUIContainer");
+}
+
+void Engine::graal3DServerText(const std::string& weapon, const std::string& type, const std::string& option,
+                               const std::string& data) {
+  if (!session_) {
+    log("GraalEngine: 3D text " + type + " with no session");
+    return;
+  }
+  session_->program().server_text(weapon, type, option, data);
 }
 
 void Engine::installScreen() {
@@ -303,6 +321,15 @@ void Engine::installScreen() {
       return screenControl_;
     };
   }
+}
+
+void Engine::afterSessionTick() {
+  // The lab's real 4.04r2 went back to its start menu after the disconnect
+  // box; the 5.x launcher's window is the menu, so 5.x keeps its screen.
+  if (!session_ || !session_->dropped() || session_->fiveRow()) return;
+  session_.reset();
+  mode3d_ = false;
+  setContentFrom("MainMenuGui2D");
 }
 
 void Engine::shutdown() {

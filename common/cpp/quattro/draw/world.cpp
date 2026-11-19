@@ -1,4 +1,5 @@
 #include "world.hpp"
+#include "ui_font.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -50,6 +51,47 @@ void WorldRenderer::draw(Canvas& c, const WorldState& w, const View& v,
   mark("Game_Draw_Player");
   if (!w.lobby) draw_player(c, w, v);
   mark("Game_Draw_Texts");
+  if (w.have_level) draw_texts(c, w, v);
+}
+
+// Chat and NPC messages, centred above what says them, white on a
+// one-pixel black outline (rebuild stand-in look: the original's text
+// pass is not copied out). Characters are 48 px wide; an image NPC's
+// width is its image or image part.
+void WorldRenderer::draw_texts(Canvas& c, const WorldState& w, const View& v) const {
+  auto say = [&](const std::string& s, int cx, int top) {
+    if (s.empty()) return;
+    const int x = cx - ui_text_width(s, false) / 2, y = top - kUiLineHeight;
+    for (int dx = -1; dx <= 1; ++dx)
+      for (int dy = -1; dy <= 1; ++dy)
+        if (dx || dy) ui_draw_text(c, x + dx, y + dy, s, {0, 0, 0, 255}, false);
+    ui_draw_text(c, x, y, s, {255, 255, 255, 255}, false);
+  };
+  auto at = [&](double tx, double ty, int& px, int& py) {
+    px = static_cast<int>(std::lround((tx - v.left) * kTile));
+    py = static_cast<int>(std::lround((ty - v.top) * kTile));
+  };
+  int px = 0, py = 0;
+  for (const auto& n : w.npcs) {
+    at(n.x, n.y, px, py);
+    if (n.character) {
+      if (!w.lobby) say(n.actor.chat, px + 24, py);
+      continue;
+    }
+    int width = n.has_part ? n.part.width : 32;
+    if (!n.has_part && assets_ && !n.image.empty())
+      if (const Image* img = assets_->image(n.image)) width = img->width;
+    say(n.message, px + width / 2, py);
+  }
+  if (w.lobby || !w.player_chat) return;
+  for (const auto& o : w.others) {
+    at(o.x, o.y, px, py);
+    say(o.chat, px + 24, py);
+  }
+  if (!w.player_hidden) {
+    at(w.player.x, w.player.y, px, py);
+    say(w.player.chat, px + 24, py);
+  }
 }
 
 void WorldRenderer::draw_tiles(Canvas& c, const WorldState& w, const View& v) const {

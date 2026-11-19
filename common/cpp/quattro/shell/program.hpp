@@ -97,6 +97,9 @@ class Program {
   const std::map<int, World::Player>& others() const { return others_; }
   Net::Session& session() { return session_; }
   ScriptHost& scripts() { return scripts_; }
+  // A Graal text message from the Graal3D server (shell/server_text.cpp).
+  void server_text(const std::string& weapon, const std::string& type, const std::string& option,
+                   const std::string& data);
   GuiHost& gui() { return *gui_; }
   // Replaces the wall table (tests; arrays.dat from --assets otherwise).
   void set_tile_types(const World::TileTypes& t) { tile_types_ = t; }
@@ -239,7 +242,8 @@ class Program {
   World::TileTypes tile_types_;
   World::ObjectTables object_tables_;
   World::ItemKeys item_keys_;
-  unsigned action_held_ = 0;  // bindings held by action(), one bit per binding
+  unsigned action_held_ = 0;     // bindings held by action(), one bit per binding
+  unsigned action_pressed_ = 0;  // bindings pressed since the last tick, kept for one tick
   unsigned action_moves_ = 0, action_items_ = 0;  // what they hold: walk keys, World::ItemKey bits
   bool action_d_ = false, action_q_ = false;      // doD, doQ held
   World::Effects effects_;

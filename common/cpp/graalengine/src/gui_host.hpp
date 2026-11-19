@@ -82,6 +82,9 @@ class ScreenControl : public Control {
   ScreenControl(gs2::gui::Screen& screen, gs2::gui::Painter& painter)
       : Control("GS2Screen"), screen_(screen), painter_(painter) {}
   void resize(int w, int h) override;
+  // The Torque key name of a key event, from its virtual key or, for a
+  // character-only event, from the character.
+  static std::string keyName(const InputEvent& ev);
 
  protected:
   void onRender(const graal_rect& clip) override;

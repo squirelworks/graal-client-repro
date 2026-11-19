@@ -242,21 +242,27 @@ ScriptHost::ScriptHost(gs2::Profile profile) : machine_(profile) {
   machine_.addCommand("triggerserver", "ss", [this](gs2::Machine& m, gs2::Var&, std::vector<gs2::Value>& a) {
     std::vector<std::string> f{"serverside"};
     for (size_t i = 1; i < a.size(); ++i) f.push_back(m.toString(a[i]));
-    if (send_) send_(38, trigger_body(0, 0, to_csv(f)));
+    if (event_line_) {
+      f[0] = "weapon";
+      event_line_("t " + to_csv(f));
+    } else if (send_) {
+      send_(38, trigger_body(0, 0, to_csv(f)));
+    }
     return gs2::Value::number(0);
   });
   // triggeraction(x, y, action, params...).
-  machine_.addCommand("triggeraction", "nns", [this](gs2::Machine& m, gs2::Var&, std::vector<gs2::Value>& a) {
+  machine_.addCommand("triggeraction", "nns", [this](gs2::Machine& m, gs2::Var& self, std::vector<gs2::Value>& a) {
     std::vector<std::string> f;
     for (size_t i = 2; i < a.size(); ++i) f.push_back(m.toString(a[i]));
-    if (send_) send_(38, trigger_body(m.toNumber(a[0]), m.toNumber(a[1]), to_csv(f)));
+    const int npc = npc_id_of ? npc_id_of(&self) : 0;
+    if (send_) send_(38, trigger_body(m.toNumber(a[0]), m.toNumber(a[1]), to_csv(f), static_cast<uint32_t>(std::max(npc, 0))));
     return gs2::Value::number(0);
   });
 }
 
-std::string ScriptHost::trigger_body(double x, double y, const std::string& csv) {
+std::string ScriptHost::trigger_body(double x, double y, const std::string& csv, uint32_t npc) {
   auto half = [](double v) { return static_cast<unsigned>(std::clamp(static_cast<long>(std::lround(v * 2)), 0L, 223L)); };
-  return Net::gint3(0) + Net::gchar(half(x)) + Net::gchar(half(y)) + csv;
+  return Net::gint3(npc) + Net::gchar(half(x)) + Net::gchar(half(y)) + csv;
 }
 
 void ScriptHost::queue_all(const std::string& event, std::vector<gs2::Value> args) {
@@ -357,6 +363,52 @@ std::string ScriptHost::v4_weapon_path(const std::string& name) const {
 
 std::string ScriptHost::make_bytecode_packet(const std::string& name, std::string_view bytecode) {
   return Net::gstring(name) + std::string(bytecode);
+}
+
+void ScriptHost::add_weapon(const std::string& name) {
+  if (!name.empty() && !weapon(name)) weapons_[lower(name)] = machine_.newVar(name);
+}
+
+bool ScriptHost::set_weapon_script(const std::string& name, const std::string& bytecode) {
+  add_weapon(name);
+  gs2::VarPtr w = weapon(name);
+  if (!w) return false;
+  install_weapon(w, bytecode);
+  return machine_.hasScript(w);
+}
+
+gs2::VarPtr ScriptHost::object(const std::string& name) const {
+  auto it = objects_.find(lower(name));
+  return it == objects_.end() ? nullptr : it->second;
+}
+
+bool ScriptHost::set_object_script(const std::string& name, const std::string& bytecode) {
+  if (name.empty()) return false;
+  gs2::VarPtr& o = objects_[lower(name)];
+  if (!o) {
+    o = machine_.newVar(name);
+    o->setAcceptsAllProperties(true);
+  }
+  std::string err;
+  if (!machine_.setScript(o, bytecode, &err)) {
+    note("object " + name + ": " + err);
+    return false;
+  }
+  note("object " + name + " loaded");
+  return true;
+}
+
+void ScriptHost::set_flag(const std::string& flag) {
+  // Flags read as player.<flag> (client-internals/gs1-on-5x-hud-and-flags.md).
+  size_t eq = flag.find('=');
+  std::string name = flag.substr(0, eq);
+  if (name.empty()) return;
+  if (eq == std::string::npos) player_->childOrCreate(name)->setNumber(1);
+  else player_->childOrCreate(name)->setString(flag.substr(eq + 1));
+}
+
+void ScriptHost::unset_flag(const std::string& name) {
+  if (gs2::VarPtr c = player_->child(name)) c->setNumber(0);
 }
 
 void ScriptHost::install_weapon(const gs2::VarPtr& w, const std::string& body) {

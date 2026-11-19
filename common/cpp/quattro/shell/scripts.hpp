@@ -98,6 +98,10 @@ class ScriptHost {
   std::string v4_weapon_path(const std::string& name) const;
 
   void set_send(SendFn fn) { send_ = std::move(fn); }
+  // In 3D mode the client's script events go over the Graal3D link as
+  // `events` lines (torque/udp-session.md §7): with this set, triggerserver
+  // sends `t weapon,<weapon>,<params>` through it instead of C->S 38.
+  void set_event_line(std::function<void(const std::string&)> fn) { event_line_ = std::move(fn); }
   // The cache folder for this server: <assets>/weblevels/<host>. Empty: no
   // disk cache (every 197 then asks again).
   void set_cache_dir(std::string dir) { cache_dir_ = std::move(dir); }
@@ -114,7 +118,11 @@ class ScriptHost {
   // 194 (PLO_RESETCLIENT, was CLEARWEAPONS): every weapon goes.
   void clear_weapons() { weapons_.clear(); }
   // The trigger actions as C->S 38 bodies (also for tests).
-  static std::string trigger_body(double x, double y, const std::string& csv);
+  // `npc` is the calling NPC's id (0 for a weapon); the lab's real 4.04r2
+  // sent its NPC's id there.
+  static std::string trigger_body(double x, double y, const std::string& csv, uint32_t npc = 0);
+  // The NPC id of a script object (0: not an NPC), for triggeraction.
+  std::function<int(const gs2::Var*)> npc_id_of;
   // Raises onWeaponFired on the named weapon; false when it has no script.
   bool fire(const std::string& name);
   // A key went down (Torque key name, typed character): onKeyPressed
@@ -129,6 +137,14 @@ class ScriptHost {
   void queue_all(const std::string& event, std::vector<gs2::Value> args = {});
   // The weapon whose object this is, by name ("" when it is none).
   std::string weapon_name(const gs2::Var* v) const;
+  // The Graal3D text actions (shell/server_text.cpp): a weapon by name, a
+  // weapon's or a named client object's bytecode, a player flag.
+  void add_weapon(const std::string& name);
+  bool set_weapon_script(const std::string& name, const std::string& bytecode);
+  bool set_object_script(const std::string& name, const std::string& bytecode);
+  gs2::VarPtr object(const std::string& name) const;
+  void set_flag(const std::string& flag);    // "name" or "name=value"
+  void unset_flag(const std::string& name);
   // Drops a weapon (194, 34, or its script's destroy()).
   void remove_weapon(const std::string& name);
   // Every weapon object, in name order.
@@ -146,6 +162,7 @@ class ScriptHost {
 
   gs2::Machine machine_;
   SendFn send_;
+  std::function<void(const std::string&)> event_line_;
   std::string cache_dir_;
   bool v4_scripts_ = false;
   std::string v4_cache_dir_;
@@ -154,6 +171,7 @@ class ScriptHost {
   gs2::VarPtr player_;
   std::map<std::string, gs2::VarPtr> weapons_;  // lower-cased names
   std::map<std::string, std::string> classes_;  // name -> bytecode
+  std::map<std::string, gs2::VarPtr> objects_;  // addnpc objects, lower-cased names
   std::vector<std::string> log_;
 };
 

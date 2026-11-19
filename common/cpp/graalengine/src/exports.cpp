@@ -92,6 +92,12 @@ GE_API void GE_CALL graalengine_graal3DLoginStep(int32_t step) { graalengine::en
 
 GE_API void GE_CALL graalengine_logLine(const char* line) { graalengine::engine().log(line ? line : ""); }
 
+GE_API void GE_CALL graalengine_graal3DServerText(const char* weapon, const char* type, const char* option,
+                                                 const char* data, int32_t length) {
+  graalengine::engine().graal3DServerText(weapon ? weapon : "", type ? type : "", option ? option : "",
+                                          data && length > 0 ? std::string(data, static_cast<size_t>(length)) : std::string());
+}
+
 GE_API int32_t GE_CALL isGraal3DMode(void) { return graalengine::engine().graal3DMode() ? 1 : 0; }
 
 GE_API void GE_CALL getGraalLoginInfo(char* account, int32_t accountSize, char* nickname, int32_t nicknameSize,

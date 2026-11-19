@@ -135,7 +135,10 @@ std::vector<BuildProfile> make() {
                   {84, 84},   {100, 102}, {104, 106}, {131, 134}, {150, 151}, {153, 156},
                   {165, 166}, {168, 176}, {178, 187}, {189, 191}, {193, 195}});
   r404.pli = ids({{0, 6},   {18, 19}, {23, 24}, {28, 28}, {30, 31}, {34, 35},
-                  {37, 38}, {44, 44}, {46, 47}, {157, 157}});
+                  {37, 38}, {44, 44}, {46, 47}, {157, 158}, {161, 161}});
+  // 158 asks for a weapon's bytecode after a 193 miss, 161 for a class
+  // (protocol/unknown-ids-2026-11-06.md, protocol/class-bytecode-v4.md);
+  // the lab's real 4.04r2 sent 158 and got 132 back.
   r404.answers_ping = false;
   r404.own_props = OwnProps::k4x;  // probed on Windows 4.20r8; 4.04r2 and 5.00r7 inherit it [inf]
   // The stock 4.04r2 GraalEngine.dll steps the cipher as 5.12 does:
