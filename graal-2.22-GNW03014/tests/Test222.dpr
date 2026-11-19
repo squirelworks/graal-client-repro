@@ -464,7 +464,9 @@ begin
         (LiftAt(G^, 10, 10) = 0), 'terrain: another cell, and water lifts nothing');
     end
     else
-      Check(False, 'terrain: the tutorial gmap is built in');
+      { the tutorial gmap is install data: it comes from the player's own
+        files (assets/, graal-assets/), so this part is skipped without them }
+      Inc(Skipped);
   finally
     St.Free;
   end;
@@ -1106,10 +1108,9 @@ begin
     finally
       GS.Free;
     end;
-    Check((EmbeddedCount > 50) and (EmbeddedPath('PICS1.png') <> '') and
-      FileExists(EmbeddedPath('levels/ganis/idle.gani')) and (EmbeddedPath('nothing.png') = '') and
-      (EmbeddedPath('../pics1.png') = ''),
-      'install files: carried in the program and given as files when the install lacks them');
+    Check((EmbeddedCount = 0) and (EmbeddedPath('PICS1.png') = '') and
+      (EmbeddedPath('levels/ganis/idle.gani') = '') and (EmbeddedPath('nothing.png') = ''),
+      'install files: none carried; the game files come from assets/, graal-assets/ or the built-in art');
     G.SetScreenSize(1024, 768);
     G.Tick;
     Check((G.Screen.Width = 1024) and (G.Screen.Height = 768) and (ScreenW = 1024) and

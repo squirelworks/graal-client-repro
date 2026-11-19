@@ -20,3 +20,12 @@ compiled into the rebuild by `scripts/res/make_resunit.py`
 
 The pictures and the levels are also byte for byte 2.22's, so they were in
 2.3 too, whichever of the two 2.3 looked like. The icon is 2.31's.
+
+## Now graal-delphi's own art (2026-11-19)
+
+Every picture, icon, cursor and level listed here has since been redrawn by
+`scripts/art/make_art.py` in the same name, size, format and layout
+([docs/art.md](../../docs/art.md)); the sizes and checksums above are the
+original program's. Forms keep their layout and captions, with new
+pictures inside. To use the original's own files, put them in `assets/`
+beside the program ([docs/assets.md](../../docs/assets.md), "Your own files").

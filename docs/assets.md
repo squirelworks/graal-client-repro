@@ -5,6 +5,58 @@ folder of them, `graal-assets/`, next to the rebuilt programs. This page
 says how a program finds its files, what goes in the folder, and what each
 client line's own install held.
 
+## Your own files: `assets/`
+
+The programs carry only graal-delphi's own art ([art.md](art.md)). To see
+a client with its original's art, or with anything else, put the files in
+an `assets/` folder beside the program (or beside the `--data` folder).
+They win over everything else, the built-in art included, and need no
+rebuild: restart the program.
+
+```
+<root>/
+  Graal231(.exe)
+  assets/
+    2.31/              this version's own files first (the build's label,
+      res/             as in the table below; fallbacks next: 2.22/)
+        SCREENIMG1.jpg   a resource the program carries, by its name
+        TUTORIALA1.graal
+      pics1.png          a game file, by its path as in an install
+      levels/heads/head0.png
+    res/               any version: resources by name
+      BUTTON1.bmp
+    pics1.png          any version: game files by path
+```
+
+- **Game files** (tiles, sprites, heads, bodies, ganis, levels, sounds) go
+  by their path in an install: `assets/<version>/pics1.png`, then
+  `assets/pics1.png`, then the folders listed under "Search order".
+- **What a program carries compiled in** (the start window and server
+  list art, picture buttons, the pictures inside its forms, the Training
+  and start levels: the names in each build's `res/README` or
+  `src/res/manifest.txt`) goes in a `res/` folder, by the resource's
+  name, any extension, any case: `assets/<version>/res/SCREENIMG1.jpg`,
+  then `assets/res/SCREENIMG1.jpg`. A form (`TCONNECTFRAME.dfm`,
+  `TOPTIONS.dfm`) replaces the whole form, its pictures included. The
+  1.x clients' forms are also found under the names their `res/` folder
+  uses (`ConnectFrame.dfm`).
+- The program icon and the cursors are linked into the program from
+  `src/`; they change only with a rebuild.
+
+`scripts/art/to_assets.py` fills the folder from a program you own:
+
+```
+python3 -I scripts/art/to_assets.py path/to/Graal.exe <root>/assets 2.05r2
+```
+
+writes every resource of that exe to `assets/2.05r2/res/` under the names
+the rebuild asks for. (`scripts/realres/extract_res.py` and
+`scripts/res/extract_res.py` also take resources out; point them at a
+scratch folder and copy what you want into `assets/<version>/res/`.) Never commit those
+files: `assets/` is for the player's own copy, and CI fails when a
+carried resource is not the project's art
+(`scripts/art/make_art.py --check`).
+
 ## Layout: the programs in the root
 
 ```
@@ -77,11 +129,19 @@ versions byte for byte with no extra file. The largest own folders are
 `common/GAssetDirs.pas` sets the folders; a file is taken from the first
 that has it:
 
+0. `assets/<version>/` (each version of the label in turn), then
+   `assets/`, in the program's folder and then in the `--data` folder: the
+   player's own files ("Your own files" above);
 1. the data folder (the program's folder, or `--data DIR` when given);
 2. `graal-assets/<version>/`, then each fallback version in the build's
    label;
 3. `graal-assets/common/`;
 4. else the build's built-in art (`common/builtin/`).
+
+A resource the program carries compiled in is looked for in
+`assets/<version>/res/`, then `assets/res/`, then taken from the program
+(`GAssetDirs.UserResource`; every `Res*.pas` unit and `GPeRes.OwnResource`
+ask it first).
 
 | Build | Label passed to `SetAssetRoots` | Version folders read |
 |---|---|---|

@@ -162,6 +162,8 @@ def main():
         for k in ('ConnectFrame', 'Adventure', 'Characters', 'OnlineStart', 'Options'):
             f.write('function Res%s: string;\nbegin\n  Result := Bytes(R%s, R%sLen);\nend;\n\n' % (k, k, k))
         f.write('end.\n')
+    import sys as _s; _s.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'art')); import hook_res
+    hook_res.hook_file(os.path.join(src, 'Res%s.pas' % suffix))
     print('%s: %s (%d characters from %s)' % (folder, prog, chars.count(b'\n'), how))
 
 

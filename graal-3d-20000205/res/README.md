@@ -16,3 +16,12 @@ Not taken, and why:
   `src/Graal3D.dpr`, with the form named at each place;
 - there is no VERSIONINFO in Graal3D.exe; the rebuild keeps its own;
 - the VCL's own bitmaps, cursors and strings (Delphi library parts).
+
+## Now graal-delphi's own art (2026-11-19)
+
+Every picture, icon, cursor and level listed here has since been redrawn by
+`scripts/art/make_art.py` in the same name, size, format and layout
+([docs/art.md](../../docs/art.md)); the sizes and checksums above are the
+original program's. Forms keep their layout and captions, with new
+pictures inside. To use the original's own files, put them in `assets/`
+beside the program ([docs/assets.md](../../docs/assets.md), "Your own files").

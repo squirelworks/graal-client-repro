@@ -39,6 +39,7 @@ uses
   GWindow in '../../common/GWindow.pas',
   GUiFont in '../../common/GUiFont.pas',
   GSysUiFont in '../../common/GSysUiFont.pas',
+  GAssetDirs in '../../common/GAssetDirs.pas',
   Res231 in '../src/Res231.pas',
   Dialogs231 in '../src/Dialogs231.pas',
   RealStart231 in '../src/RealStart231.pas',
@@ -1938,7 +1939,88 @@ begin
   end;
 end;
 
+{ assets/ beside the program: the player's own files win over the
+  compiled-in art (by resource name, under res/) and over everything else
+  for game files (by path), version folder first; without it the
+  compiled-in art is used. docs/assets.md, "Your own files". }
+procedure TestUserAssets;
+var
+  Dir, D: string;
+
+  procedure Put(const Rel, Body: string);
+  var
+    F: TFileStream;
+    P: string;
+  begin
+    P := Dir + StringReplace(Rel, '/', PathDelim, [rfReplaceAll]);
+    ForceDirectories(ExtractFilePath(P));
+    F := TFileStream.Create(P, fmCreate);
+    try
+      if Body <> '' then F.WriteBuffer(Body[1], Length(Body));
+    finally
+      F.Free;
+    end;
+  end;
+
+  procedure Clean(const Path: string);
+  var
+    SR: TSearchRec;
+  begin
+    if FindFirst(Path + '*', faAnyFile, SR) = 0 then
+    try
+      repeat
+        if (SR.Name = '.') or (SR.Name = '..') then Continue;
+        if (SR.Attr and faDirectory) <> 0 then
+        begin
+          Clean(Path + SR.Name + PathDelim);
+          RemoveDir(Path + SR.Name);
+        end
+        else
+          DeleteFile(Path + SR.Name);
+      until FindNext(SR) <> 0;
+    finally
+      FindClose(SR);
+    end;
+  end;
+
 begin
+  Dir := IncludeTrailingPathDelimiter(GetTempDir) + 'graal231-assets' + PathDelim;
+  Clean(Dir);
+  ForceDirectories(Dir);
+  try
+    SetAssetRootsFor(Dir, '', ClientAssetFolders);
+    Check(UserRootCount = 0, 'assets: none, no override folder');
+    Check(ResFile('SCREENIMG1', D) and (Copy(D, 1, 2) = #$FF#$D8),
+      'assets: none, the compiled-in start art');
+    Put('assets/2.31/res/SCREENIMG1.jpg', 'mine-2.31');
+    Put('assets/res/screenimg1.jpg', 'mine-any');
+    Put('assets/res/BUTTON1.bmp', 'my-button');
+    Put('assets/2.22/res/BUTTON2.bmp', 'button-of-2.22');
+    Put('assets/2.31/pics1.png', 'tiles-2.31');
+    Put('assets/pics1.png', 'tiles-any');
+    Put('assets/levels/heads/head0.png', 'my-head');
+    Put('pics1.png', 'install-tiles');
+    SetAssetRootsFor(Dir, '', ClientAssetFolders);
+    Check(UserRootCount = 3, 'assets: 2.31/, 2.22/ and assets/ itself');
+    Check(ResFile('SCREENIMG1', D) and (D = 'mine-2.31'), 'assets: the version folder first');
+    Check(ResFile('button1', D) and (D = 'my-button'), 'assets: then assets/res/, any case');
+    Check(ResFile('BUTTON2', D) and (D = 'button-of-2.22'), 'assets: a fallback version''s folder');
+    Check(ResFile('BUTTON3', D) and (Copy(D, 1, 2) = 'BM'), 'assets: anything not given stays compiled in');
+    Check(ExtractFileName(AssetPath('pics1.png')) = 'pics1.png', 'assets: a game file is found');
+    Check(Pos(PathDelim + '2.31' + PathDelim, AssetPath('pics1.png')) > 0,
+      'assets: a game file from assets/<version>/ before the install beside the program');
+    Check(Pos('assets', AssetPath('levels/heads/head0.png')) > 0, 'assets: by its path below assets/');
+    Check(AssetPath('nothing.png') = '', 'assets: nothing found, the built-in art');
+    Check(UserResource('../pics1', D) = False, 'assets: no way out of res/');
+  finally
+    Clean(Dir);
+    RemoveDir(Dir);
+    SetAssetRootsFor('', '', '');
+  end;
+end;
+
+begin
+  TestUserAssets;
   TestChestDrawn;
   TestHelpForm;
   Skipped := 0;

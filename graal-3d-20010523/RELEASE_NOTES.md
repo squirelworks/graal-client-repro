@@ -18,6 +18,8 @@ client carries a simple stand-in level and player of its own.
 
 ## What's new in v0.0.5
 
+- [x] **The pictures, icons and levels this program carries are graal-delphi's own art.** What it used to carry from the original program's resources (start and server list art, picture buttons, toolbar and dialog pictures, the icon, cursors, the Training and start levels) is redrawn in the same size, format and layout by `scripts/art/make_art.py` ([docs/art.md](../docs/art.md)). To see the original's own files, put them in `assets/` beside the program (`assets/<version>/res/SCREENIMG1.jpg`, `assets/res/TUTORIALA1.graal`, ...): they win over the compiled-in art with no rebuild ([docs/assets.md](../docs/assets.md), "Your own files").
+
 - [x] **New client.** The later Graal3D beta has a folder of its own, started from `graal-3d-20000205`. It logs in with `GR3DV003`; the start window has the beta's two buttons (Start, and Start Local for offline play) where its form puts them; packet 0 no longer loads the server's level text, as in the beta, whose world is local.
 
 ## Downloads

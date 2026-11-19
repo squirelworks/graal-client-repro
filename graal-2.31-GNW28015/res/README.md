@@ -28,3 +28,12 @@ Not taken, and why:
   application file", FileVersion 2.3.1.0;
 - the VCL's own bitmaps, cursors and strings (BBOK, CL_MP*, the
   RT_STRING tables): Delphi library parts, not Graal's.
+
+## Now graal-delphi's own art (2026-11-19)
+
+Every picture, icon, cursor and level listed here has since been redrawn by
+`scripts/art/make_art.py` in the same name, size, format and layout
+([docs/art.md](../../docs/art.md)); the sizes and checksums above are the
+original program's. Forms keep their layout and captions, with new
+pictures inside. To use the original's own files, put them in `assets/`
+beside the program ([docs/assets.md](../../docs/assets.md), "Your own files").

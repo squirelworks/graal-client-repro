@@ -67,6 +67,8 @@ def main():
         with open(os.path.join(res, fn), "rb") as f:
             files.append((base.upper(), f.read()))
     text = unit_text(build, unit, files)
+    import sys as _s; _s.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'art')); import hook_res
+    text = hook_res.hook_text(text)
     path = os.path.join(ROOT, build, "src", unit + ".pas")
     old = open(path).read() if os.path.exists(path) else ""
     if check:

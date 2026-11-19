@@ -34,17 +34,20 @@ the repro may carry some original Graal material).
   on the wire protocol, file formats and observed behaviour, and from the
   project's own lab runs. It is not copied or translated from the original
   programs. `common/torque/PROVENANCE.md` details the Torque layer.
-- **Original resources, carried.** Each build's own exe resources (icons,
-  cursors, bitmaps, dialogs and form layouts, menus, string tables,
-  version info, fonts, sounds, and the few levels and ganis an exe embeds,
-  such as the online start level) are extracted from that build's real
-  exe and compiled into its rebuild (the owner's decision D4, 2026-11-05,
-  in [HANDOFF-CURSOR.md](HANDOFF-CURSOR.md)). They sit in 65 `res/` (or
-  `src/res/`) folders, about 50 MB, plus the generated `Res*.pas` /
-  `RealRes*.pas` units that embed them (about 21 MB), and `common/GRes20x.pas`
-  for the 2.0x line. They are there for fidelity: each build should look
-  and behave like its own original, so a build never uses another
-  version's set.
+- **Original resources: their shape carried, their art replaced.** Each
+  build carries its own exe's resources (icons, cursors, bitmaps, dialogs
+  and form layouts, menus, string tables, version info, and the few levels
+  an exe embeds, such as the Training and online start levels) under the
+  original names, sizes and formats, in its `res/` (or `src/res/`) folder,
+  the generated `Res*.pas` / `RealRes*.pas` units and `common/GRes20x.pas`
+  (the owner's decision D4, 2026-11-05, in
+  [HANDOFF-CURSOR.md](HANDOFF-CURSOR.md)). Since 2026-11-19 every picture,
+  icon, cursor and level among them is graal-delphi's own art, drawn by
+  `scripts/art/make_art.py` ([docs/art.md](docs/art.md)); CI checks it.
+  The text resources (form layouts and captions, string tables, character
+  lists, the 2.22 language file) are still the originals', because the
+  code reads them; whether to rewrite them is open. A player's own
+  originals go in `assets/` beside the program (below).
 - **Not carried.** Game data (`pics1.png`, `arrays.dat`, ganis, heads,
   bodies, levels, sounds) is loaded at run time from an install you supply
   (`graal-assets/`, [docs/assets.md](docs/assets.md)). The built-in
@@ -307,8 +310,8 @@ on the Windows job, between "Build and test" and "Pack".
 [Apache License 2.0](LICENSE), the same as the Seihai server stack. Unless
 you say otherwise, a contribution you submit is licensed the same way. The
 licence covers the project's own code and the stand-in assets in this repo.
-It does not cover the original Graal resources carried in the `res/`
-folders and the units generated from them (see Provenance), and it grants
+It does not cover the original text resources still carried in the
+`res/` folders and the units generated from them (see Provenance), and it grants
 no rights to Graal's names or to any original Graal file. The licence
 decision itself is open in
 [#116](https://github.com/squirelworks/graal-client-repro/issues/116).
@@ -361,3 +364,22 @@ per folder, never mixed across versions. [docs/assets.md](docs/assets.md)
 has the search order per build, the keep/cut rule, how to build the zip
 (`scripts/assets/merge_assets.py`, `scripts/assets/needed_assets.py`) and
 what each client line's install held, from the 1998 betas on.
+
+### Your own Graal files: `assets/`
+
+The pictures and levels each program carries in its resources (start
+screens, picture buttons, glyphs, icon, cursors, Training levels) are
+graal-delphi's own art, drawn in the originals' sizes and formats by
+`scripts/art/make_art.py` ([docs/art.md](docs/art.md)). To see a
+program's original art, put its files in an `assets/` folder beside the
+program; they win over the carried art and over `graal-assets/`, with no
+rebuild:
+
+```
+python3 -I scripts/art/to_assets.py path/to/your/Graal.exe <root>/assets 2.05r2
+```
+
+That writes the exe's own resources to `assets/2.05r2/res/` (game files
+such as `pics1.png` can go in `assets/2.05r2/` or `assets/` too).
+[docs/assets.md](docs/assets.md), "Your own files", has the details. These
+files are yours: never commit them.

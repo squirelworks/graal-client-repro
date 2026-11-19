@@ -9,6 +9,10 @@
       2.22/
 
   A file is looked for in order:
+    0. assets/<version>/ (each version of the label in turn), then
+       assets/, in the program's folder and then in the --data folder:
+       the player's own files, which override everything below, the
+       built-in art included (docs/assets.md, "Your own files");
     1. the program's own folder: the program lives in the root of an
        install, laid out as the original was (levels/, sounds/, ...);
     2. graal-assets/<version>/ next to the program, then any fallback
@@ -81,6 +85,19 @@ var
   AssetFallback: function(const Rel: string): string = nil;
 { The graal-assets folder in use, or ''. }
 function AssetsFolder: string;
+
+{ The player's override of a resource the program carries compiled in
+  (a picture, form or level taken from the original program's resources,
+  by its name such as SCREENIMG1, TCONNECTFRAME or TUTORIALA1): the bytes
+  of assets/<version>/res/<Name>.<any extension>, else
+  assets/res/<Name>.<any extension>, in the program's folder, then the
+  --data folder. A Name with an extension must match the file's whole
+  name; a path before it is ignored. False when there is none; the compiled-in copy is used. }
+function UserResource(const Name: string; out Data: string): Boolean;
+{ The user override folders in use (assets/<version>/, assets/), each
+  ending in a path delimiter; for tests and the log. }
+function UserRootCount: Integer;
+function UserRoot(I: Integer): string;
 
 implementation
 
@@ -184,6 +201,135 @@ begin
   AddRootAllow(D, List);
 end;
 
+var
+  UserRoots: array of string;
+  UserRes: TStringList; { NAME=full path, first wins }
+  UserSet: Boolean = False;
+
+procedure ClearUser;
+begin
+  SetLength(UserRoots, 0);
+  FreeAndNil(UserRes);
+end;
+
+procedure AddUserRes(const Dir: string);
+var
+  SR: TSearchRec;
+  N: string;
+begin
+  if FindFirst(Dir + '*', faAnyFile, SR) = 0 then
+  try
+    repeat
+      if (SR.Attr and faDirectory) = 0 then
+      begin
+        N := UpperCase(ChangeFileExt(SR.Name, ''));
+        if UserRes.IndexOfName(N) < 0 then
+          UserRes.Add(N + '=' + Dir + SR.Name);
+        N := UpperCase(SR.Name);
+        if UserRes.IndexOfName(N) < 0 then
+          UserRes.Add(N + '=' + Dir + SR.Name);
+      end;
+    until FindNext(SR) <> 0;
+  finally
+    FindClose(SR);
+  end;
+end;
+
+{ <Dir>/assets/<version>/ for each version of the label, then
+  <Dir>/assets/: found first by AssetPath and UserResource. }
+procedure AddUser(const Dir, Version: string; Roots_: Boolean);
+var
+  A, Rest, V, R: string;
+  P, I: Integer;
+
+  procedure One(const D: string);
+  var
+    K: Integer;
+  begin
+    if not DirExists(D) then Exit;
+    for K := 0 to High(UserRoots) do
+      if UserRoots[K] = D then Exit;
+    SetLength(UserRoots, Length(UserRoots) + 1);
+    UserRoots[High(UserRoots)] := D;
+    if DirExists(D + 'res') then AddUserRes(D + 'res' + DirSlash);
+  end;
+
+begin
+  if Dir = '' then Exit;
+  A := WithTrailingSep(ExpandFileName(Dir)) + 'assets' + DirSlash;
+  if not DirExists(A) then Exit;
+  Rest := Version;
+  while Rest <> '' do
+  begin
+    P := Pos(';', Rest);
+    if P = 0 then P := Length(Rest) + 1;
+    V := Trim(Copy(Rest, 1, P - 1));
+    Delete(Rest, 1, P);
+    if V <> '' then One(A + V + DirSlash);
+  end;
+  One(A);
+  if Roots_ then
+  for I := 0 to High(UserRoots) do
+  begin
+    R := UserRoots[I];
+    if Copy(R, 1, Length(A)) = A then
+      AddRootAllow(R, nil);
+  end;
+end;
+
+{ Roots_: also search the folders for game files (AssetPath); False when
+  UserResource looks before any SetAssetRoots. }
+procedure SetUser(const ProgramDir, DataDir, Version: string; Roots_: Boolean);
+begin
+  ClearUser;
+  UserRes := TStringList.Create;
+  UserSet := True;
+  AddUser(ProgramDir, Version, Roots_);
+  if DataDir <> '' then AddUser(DataDir, Version, Roots_);
+end;
+
+function UserResource(const Name: string; out Data: string): Boolean;
+var
+  I: Integer;
+  F, N: string;
+  S: TFileStream;
+begin
+  Data := '';
+  Result := False;
+  if Name = '' then Exit;
+  if not UserSet then SetUser(ExtractFilePath(ParamStr(0)), '', '', False);
+  if (UserRes = nil) or (UserRes.Count = 0) then Exit;
+  N := StringReplace(Name, '\', '/', [rfReplaceAll]);
+  I := LastDelimiter('/', N);
+  I := UserRes.IndexOfName(UpperCase(Copy(N, I + 1, MaxInt)));
+  if I < 0 then Exit;
+  F := Copy(UserRes[I], Pos('=', UserRes[I]) + 1, MaxInt);
+  try
+    S := TFileStream.Create(F, fmOpenRead or fmShareDenyWrite);
+    try
+      SetLength(Data, S.Size);
+      if S.Size > 0 then S.ReadBuffer(Data[1], S.Size);
+      Result := True;
+    finally
+      S.Free;
+    end;
+  except
+    Data := '';
+    Result := False;
+  end;
+end;
+
+function UserRootCount: Integer;
+begin
+  if not UserSet then SetUser(ExtractFilePath(ParamStr(0)), '', '', False);
+  Result := Length(UserRoots);
+end;
+
+function UserRoot(I: Integer): string;
+begin
+  Result := UserRoots[I];
+end;
+
 procedure AddRoot(const Dir: string);
 begin
   if (Dir = '') or not DirExists(Dir) then Exit;
@@ -234,6 +380,9 @@ procedure SetAssetRootsFor(const ProgramDir, DataDir, Version: string);
 begin
   ClearRoots;
   Folder := '';
+  { the player's own files first: assets/ in the program's folder, then in
+    the --data folder }
+  SetUser(ProgramDir, DataDir, Version, True);
   AddInstall(ProgramDir, Version);
   AddInstall(DataDir, Version);
 end;
@@ -377,4 +526,5 @@ initialization
 
 finalization
   ClearRoots;
+  ClearUser;
 end.

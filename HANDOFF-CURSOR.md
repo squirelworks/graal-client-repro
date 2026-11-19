@@ -44,7 +44,9 @@ are in the README (Wire, World, Play, Harden and stress, Release).
   Squirrel's decision (D4), everything embedded in each real exe (icons,
   cursors, bitmaps, dialogs and forms, menus, string tables, version info,
   manifest, fonts, sounds) is extracted per version and wired into that
-  folder's rebuild.
+  folder's rebuild. Since 2026-11-19 the pictures and levels among them
+  are graal-delphi's own art in the originals' shape (docs/art.md); the
+  player's own originals go in `assets/` beside the program.
 - **No raw decompile material.** No code or data addresses, RVAs or file
   offsets, no Ghidra/IDA names (`FUN_`, `DAT_`, `LAB_`), no decompiled C,
   in source, comments, commit messages or PR text. Findings come from
@@ -280,6 +282,13 @@ The PC cannot build or push; code changes happen in the cloud or in Cursor.
   versions share identical resources, dedupe by hash but still ship them
   per folder. Clients without a real exe are made to look as authentic
   as possible from their nearest real siblings.
+  **Amended 2026-11-19:** the carried pictures, icons, cursors and levels
+  were redrawn as the project's own art, same names, sizes and formats
+  (`scripts/art/make_art.py`, docs/art.md); the whole-install packs were
+  removed. A player's own files in `assets/` replace them at run time
+  (`scripts/art/to_assets.py` fills it from an exe they own). Text
+  resources (forms, string tables, character lists) are unchanged; whether
+  to rewrite them is open.
 - **D5. Licence and code signing.** [#116](https://github.com/squirelworks/graal-client-repro/issues/116).
 - **D6. 5.x/6.x Login capture** against a public server (Graal_analysis #247).
 

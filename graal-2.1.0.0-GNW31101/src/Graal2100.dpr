@@ -52,7 +52,6 @@ program Graal2100;
   art, its icon and tutorial levels }
 { Delphi's linker reads only backslash paths here }
 {$IFDEF FPC}{$R res\Graal2100Res.res}{$ELSE}{$R res\Graal2100Res.res}{$ENDIF}
-{$IFDEF FPC}{$R res\Graal2100Install.res}{$ELSE}{$R res\Graal2100Install.res}{$ENDIF}
 
 uses
   SysUtils, Classes,

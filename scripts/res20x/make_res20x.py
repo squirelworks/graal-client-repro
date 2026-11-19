@@ -225,6 +225,8 @@ uses
                 ref = ids.get(h, "R" + n)
                 f.write("  %sif N = '%s' then Data := ResBytes(%s)\n" % ("" if i == 0 else "else ", n, ref))
             f.write("  else\n  begin\n    Data := '';\n    Result := False;\n  end;\nend;\n\nend.\n")
+        import sys as _s; _s.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'art')); import hook_res
+        hook_res.hook_file(os.path.join(ROOT, folder, "src", unit + ".pas"))
         with open(os.path.join(ROOT, folder, "src", prog + ".ico"), "wb") as f:
             f.write(ico)
         print(folder, len(names), "resources,", len(own), "of its own")

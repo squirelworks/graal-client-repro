@@ -9,10 +9,12 @@ or release by hand. Start with [HANDOFF-CURSOR.md](HANDOFF-CURSOR.md) and
 
 - No original Graal code. Game data (tiles, ganis, heads, bodies, levels)
   is loaded from the player's own install at run time (`graal-assets/`,
-  `docs/assets.md`). The resources embedded in each real exe (icons,
-  bitmaps, forms, string tables, version info, fonts, sounds) are
-  extracted per version and wired into that folder's rebuild (Squirrel's
-  decision, HANDOFF-CURSOR.md D4). Never another version's set.
+  `docs/assets.md`). Each folder carries its real exe's resources in
+  their original shape (names, sizes, formats, form layouts, string
+  tables), but every picture and level in them is graal-delphi's own art
+  from `scripts/art/make_art.py` (docs/art.md, decision 2026-11-19); CI
+  fails otherwise (`make_art.py --check`). The original files go in the
+  player's `assets/` folder, never in the repo. Never another version's set.
 - No raw decompile material anywhere (source, comments, commits, PR text):
   no code or data addresses, RVAs or file offsets, no `FUN_` / `DAT_` /
   `LAB_` names, no decompiled C. Write behaviour from the Graal_analysis

@@ -201,4 +201,6 @@ w('end;')
 w('')
 w('end.')
 open(OUT, 'w', newline='\n').write('\n'.join(o) + '\n')
+import sys as _s; _s.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'art')); import hook_res
+hook_res.hook_file(OUT)
 print('wrote', OUT, len(named), 'resources,', len(inst), 'install files')
