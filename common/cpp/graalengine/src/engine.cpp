@@ -290,6 +290,15 @@ void Engine::installScreen() {
     else if (session_ && session_->action(cmd, down)) return;
     else if (down) log("GraalEngine: engine action " + cmd);
   };
+  // 5.x: the 5.00r7/5.12 GraalGui makes a ChatBar but has no script for
+  // it, so the engine opens it on Tab and sends its line (the lab run 3).
+  screen_->nativeChat = !build_.empty() && build_[0] == '5';
+  screen_->onChat = [this](const std::string& line) {
+    if (session_) session_->say(line);
+  };
+  screen_->onGameMouse = [this](int x, int y, int clicks) {
+    if (session_) session_->mouse(x, y, clicks);
+  };
   // GraalGui's playfield (GuiGraalCtrl) shows the session's world.
   showImg_ = std::make_unique<ShowImgPainter>(installDir());
   painter_->onSprite = [this](const std::string& file, double x, double y, double rot, double sx, double sy,

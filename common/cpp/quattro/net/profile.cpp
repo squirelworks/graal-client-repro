@@ -47,6 +47,9 @@ std::vector<BuildProfile> make() {
   r603.plo = plo_603();
   r603.pli = pli_603();
   r603.answers_ping = true;
+  // A zlib or bz2 body steps floor(len / 4) times (read 2026-11-19 in this
+  // build's ELF; seihai-core v0.7.0). The rows copied from it keep it.
+  r603.packed_round_down = true;
   r603.hud_6x = true;  // the 6.03r7 HUD lab (draw/hud.hpp)
   r603.draws_chests = false;  // item-keys lab: only grass shows, the chest still blocks
   r603.title_is_server = true;  // the 6.03r7 frames lab: "HUD Lab 603"
@@ -145,6 +148,7 @@ std::vector<BuildProfile> make() {
   // len >> 2 for zlib and bzip2 bodies (at most 4), (len + 3) >> 2 for raw
   // ones (at most 12), both ways (read for seihai-core #41).
   r404.packed_round_down = true;
+  r404.hud_4x5x = 4;  // the 4.x/5.x engine lab, run 4 (draw/hud.hpp)
   // Graal_analysis client-internals/live-behaviour-404.md (live runs
   // 2026-10-31): after the login 23 basepackage.gupd twice and 23
   // bigmap.txt (Login only, once per run); a copy cached before the run
@@ -191,7 +195,10 @@ std::vector<BuildProfile> make() {
   r500.label = "5.00r7 Windows";
   r500.token = "G3D22067";
   r500.machine_fields = kFakeWinFields;  // win,<md5>,"",<md5> in the lab (no network card)
-  r500.packed_round_down = false;  // 5.00r7 rounds up both ways
+  // 5.00r7 is taken to round packed bodies down, as the read 4.04r2, 5.12
+  // and 6.03r7 do (seihai-core's gen-5 chain; not read for this build).
+  r500.packed_round_down = true;
+  r500.hud_4x5x = 5;  // read on 5.12; 5.00r7 is taken to draw the same
   r500.cold_gani_requests = false;
   r500.gs2_engine = 50;  // the 5.0.0.7 machine; 132, 133 and 193 as 4.x (and 140, 197)
   r500.update_packages = false;    // the same rule in the lab; not wired for 5.x here yet

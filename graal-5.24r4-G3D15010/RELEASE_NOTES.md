@@ -22,6 +22,7 @@ to the program works too.
 
 ## What's new in v0.0.5
 
+- [x] **Short compressed frames step the cipher rounded down.** A zlib or bz2 body now steps the gen-5 key len / 4 times rounded down (a raw one still rounds up), as the read 4.04r2, 5.12 and 6.03r7 do and as seihai-core v0.7.0 now expects; the old round-up dropped the link with "bad frame from the server" in loopback. This build itself has not been read for it.
 - [x] **The game runs in the Quattro program by default.** The real 5.24r4 is one C++ program (`quattro_lib`); its rebuild, `quattro-play`, now ships next to `Graal524r4`. The start screen still picks the server (or Training) and hands the game to it, as the Windows 6.03r7 folder does; `--window` with `--server` or `--level` goes there too. The password goes in the environment. With `GRAAL_PASCAL_GAME=1` or without the player, the Pascal game plays as before. Seihai secure login works in both.
 
 - [x] Quattro reads its own props as the probed 5.24r4 does (graal-client-repro#407): an id with no case (33, 50, 51, 53, 75 to 77, 83, 84 and up) is skipped with one byte and the message goes on; 82 is a string.

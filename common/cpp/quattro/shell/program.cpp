@@ -321,8 +321,9 @@ void Program::save_download(const std::string& name, const std::string& data) {
 }
 
 void Program::draw_hud() {
-  if (!profile_.hud_6x || world_.lobby) return;
+  if ((!profile_.hud_6x && !profile_.hud_4x5x) || world_.lobby) return;
   Draw::HudState s;
+  if (!profile_.hud_6x) s.style = profile_.hud_4x5x == 4 ? Draw::HudState::V4 : Draw::HudState::V5;
   s.half_hearts = me_.power;
   s.gralats = me_.rupees;
   s.bombs = me_.bombs;

@@ -47,6 +47,7 @@ struct BuildProfile {
   bool login_lobby_mode = true;   // name starting "login": no characters, HUD
   bool login_draws_tiles = false; // tiles drawn in that mode
   bool hud_6x = false;            // the built-in 6.x HUD (draw/hud.hpp)
+  int hud_4x5x = 0;               // 4 or 5: the 4.04r2 or 5.12 HUD (draw/hud.hpp); 0 none
   bool title_is_server = false;   // window title: the server name alone
   // After each login: basepackage.gupd (23, or 47 with a cached copy's
   // CRC-32), and bigmap.txt on the Login session once per run.

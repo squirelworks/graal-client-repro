@@ -388,13 +388,62 @@ bool Screen::mouseDown(int x, int y, int clicks) {
       }
       return true;
     }
+    if (t == "guigraalctrl" && onGameMouse) {
+      // The playfield: the press goes to the game, at the point in the
+      // playfield (its script still gets onMouseDown).
+      const Rect r = rectOf(*c);
+      onGameMouse(x - r.x, y - r.y, clicks);
+      fire(*c, "onMouseDown");
+      return true;
+    }
     if (fire(*c, "onMouseDown")) return true;
   }
   return true;
 }
 
+ControlPtr Screen::findAwake(const std::string& lname) const {
+  std::function<ControlPtr(const ControlPtr&)> walk = [&](const ControlPtr& c) -> ControlPtr {
+    if (!c) return nullptr;
+    if (lower(c->name()) == lname) return c;
+    for (const auto& k : c->controls())
+      if (auto f = walk(k)) return f;
+    return nullptr;
+  };
+  for (auto d = dialogs_.rbegin(); d != dialogs_.rend(); ++d)
+    if (auto f = walk(*d)) return f;
+  return walk(content_);
+}
+
+bool Screen::shown(const Control* c) const {
+  if (!c || !isAwake(c)) return false;
+  for (; c; c = c->parent())
+    if (!c->flag("visible", true)) return false;
+  return true;
+}
+
 bool Screen::keyDown(const std::string& key, int ch, const std::string& mods) {
-  if (auto r = responder_.lock(); r && isAwake(r.get()) && r->flag("visible", true)) {
+  const std::string lk = lower(key);
+  ControlPtr chat = findAwake("chatbar");
+  // The engine's own chat bar (5.x, whose GraalGui has no chat script):
+  // Tab opens it with the keys, and closes it with an empty chat line.
+  if (nativeChat && chat && lk == "tab") {
+    if (shown(chat.get())) {
+      chat->setNumProp("visible", 0);
+      if (firstResponder() == chat) makeFirstResponder(nullptr);
+      if (onChat) onChat("");
+    } else {
+      chat->setNumProp("visible", 1);
+      makeFirstResponder(chat);
+    }
+    return true;
+  }
+  // The engine looks up ChatBar before keys become game keys: a shown chat
+  // bar takes them when nothing else has the focus (the 4.x GraalGui only
+  // shows it on Tab; the lab: typing went nowhere until a click on it).
+  if (auto r = responder_.lock(); (!r || !shown(r.get())) && chat && shown(chat.get()) &&
+                                  lower(chat->type()).find("textedit") != std::string::npos)
+    makeFirstResponder(chat);
+  if (auto r = responder_.lock(); r && shown(r.get())) {
     std::string text = r->prop("text");
     std::size_t& cur = r->cursor;
     cur = std::min(cur, text.size());
@@ -413,7 +462,15 @@ bool Screen::keyDown(const std::string& key, int ch, const std::string& mods) {
     } else if (k == "end") {
       cur = text.size();
     } else if (k == "return" || k == "enter") {
-      fire(*r, "onAction");
+      // With no script for it, the chat bar's line is the player's chat,
+      // and the bar stays open (4.04r2 live, taken for 5.x).
+      if (!fire(*r, "onAction") && nativeChat && r == chat && onChat) {
+        const std::string line = text;
+        text.clear();
+        cur = 0;
+        r->setProp("text", text);
+        onChat(line);
+      }
     } else if (ch >= 32 && ch < 256 && lower(mods).find("ctrl") == std::string::npos) {
       const double max = r->numProp("maxLength", 0);
       if (max <= 0 || text.size() < static_cast<std::size_t>(max)) text.insert(cur++, 1, static_cast<char>(ch));
@@ -457,7 +514,7 @@ std::vector<Value> Screen::keyArgs(const std::string& key, int ch) {
 }
 
 ControlPtr Screen::keyTarget() const {
-  if (auto r = responder_.lock(); r && isAwake(r.get()) && r->flag("visible", true)) return r;
+  if (auto r = responder_.lock(); !responder_hold_ && r && shown(r.get())) return r;
   // With no focused control the game control has the keys (a rebuild
   // reading: the native play control takes focus when it wakes).
   std::function<ControlPtr(const ControlPtr&)> find = [&](const ControlPtr& c) -> ControlPtr {
@@ -475,6 +532,16 @@ ControlPtr Screen::keyTarget() const {
 bool Screen::fireKey(const ControlPtr& target, const std::string& event, const std::vector<Value>& args) {
   for (Control* c = target.get(); c; c = c->parent())
     if (fire(*c, event, args)) return true;
+  // A key the focused control's chain has no use for still reaches the
+  // game control (Tab in the 4.x chat bar closes it from GraalControl).
+  if (target && lower(target->type()) != "guigraalctrl") {
+    responder_hold_ = true;
+    ControlPtr game = keyTarget();
+    responder_hold_ = false;
+    if (game && game != target)
+      for (Control* c = game.get(); c; c = c->parent())
+        if (fire(*c, event, args)) return true;
+  }
   return false;
 }
 

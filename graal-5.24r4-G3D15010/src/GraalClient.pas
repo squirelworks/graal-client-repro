@@ -155,13 +155,19 @@ end;
 {$IFOPT R+}{$DEFINE RANGE_WAS_ON}{$R-}{$ENDIF}
 procedure TGen5.Apply(var Body: string; CType: Integer);
 var
-  Groups, G, J, P: Integer;
+  Groups, Present, G, J, P: Integer;
   K: Cardinal;
 begin
   if (CType and 1) <> 0 then Exit; { odd codes are not XORed }
   if CType = CompressNone then Groups := XorGroupsRaw
   else Groups := XorGroupsPacked;
-  if (Length(Body) + 3) div 4 < Groups then Groups := (Length(Body) + 3) div 4;
+  { A packed body steps Length div 4 times, rounded down; a raw one
+    rounded up. Read for 4.04r2, 5.12 and 6.03r7; this build sits between
+    them and is taken to do the same (seihai-core's gen-5 chain;
+    Graal_analysis protocol/gen5-cipher-step-5x.md has it still open). }
+  if CType = CompressNone then Present := (Length(Body) + 3) div 4
+  else Present := Length(Body) div 4;
+  if Present < Groups then Groups := Present;
   UniqueString(Body);
   for G := 0 to Groups - 1 do
   begin

@@ -3,6 +3,10 @@
 #define STB_IMAGE_STATIC
 #define STBI_ONLY_JPEG
 #define STBI_NO_STDIO
+// No thread-local flip flags: a DLL that Windows XP loads with LoadLibrary
+// gets no slot for its own thread-locals, so stb read a stray flip flag
+// there and drew JPEG/BMP/GIF pictures upside down (the XP lab, run 3).
+#define STBI_NO_THREAD_LOCALS
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 

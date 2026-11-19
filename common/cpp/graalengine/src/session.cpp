@@ -1,5 +1,7 @@
 #include "session.hpp"
 
+#include <deque>
+
 #include "engine.hpp"
 #include "host.hpp"
 #include "../../quattro/shell/program.hpp"
@@ -24,7 +26,15 @@ class EngineWindow : public QD::Window {
   QD::Key poll_key() override { return QD::Key::NoKey; }
   bool held(QD::Key) const override { return false; }
   const std::string& title() const override { return title_; }
+  // Presses on the playfield, for the program's scripts and leftmouse.
+  bool poll_input(QD::InputEvent& e) override {
+    if (input.empty()) return false;
+    e = input.front();
+    input.pop_front();
+    return true;
+  }
   Torque::Gui::Image last;
+  std::deque<QD::InputEvent> input;
 
  private:
   std::string title_;
@@ -71,11 +81,16 @@ Session2D::Session2D(Login login) : login_(std::move(login)), window_(std::make_
     dropped_ = true;
     host::OpenMessageBox("Warning", "You have been disconnected from the game server.", 1);
   };
-  if (!five_) return;
+  // The player-list rows go to the 4.x launcher too: the 4.2.0.8 launcher
+  // has the same external player-list slots (torque/4208-launcher.md), and
+  // the lab's 4.04r2 showed its player list once in the game. The 4.x
+  // login keeps its own OnServerLogin call (tick); the status names and
+  // the lister call stay 5.x's.
   program_->list_update = [](const Quattro::Shell::Program::ListRow& r) {
     host::ExternalPlayerlistUpdate(r.id, r.nick.c_str(), r.head.c_str(), r.props.c_str(), r.flags);
   };
   program_->list_delete = [](int id) { host::ExternalPlayerlistDelete(id); };
+  if (!five_) return;
   program_->logged_in = [this] {
     host::OnServerLogin(program_->session().server_name().c_str());
     host::OnServerListerConnect();
@@ -119,5 +134,14 @@ void Session2D::tick() {
 bool Session2D::action(const std::string& cmd, bool down) { return program_->action(cmd, down); }
 
 void Session2D::say(const std::string& text) { program_->say(text); }
+
+void Session2D::mouse(int x, int y, int clicks) {
+  QD::InputEvent e;
+  e.type = QD::InputEvent::MouseDown;
+  e.x = x;
+  e.y = y;
+  e.clicks = clicks;
+  window_->input.push_back(e);
+}
 
 }  // namespace graalengine

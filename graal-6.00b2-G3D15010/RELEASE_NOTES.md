@@ -22,6 +22,7 @@ to the program works too.
 
 ## What's new in v0.0.5
 
+- [x] **Short compressed frames step the cipher rounded down.** A zlib or bz2 body now steps the gen-5 key len / 4 times rounded down (a raw one still rounds up), as the read 4.04r2, 5.12 and 6.03r7 do and as seihai-core v0.7.0 expects of every gen-5 build from 4.04r2 on. Round-up only held while frame lengths happened to agree.
 - [x] **New client.** 6.00 beta 2 has a folder of its own, started from `graal-6.00b1-G3D03048` with its own token `G3D15010` (shared with 5.24r3 and 5.24r4) and the Windows login tail (`win` and four machine fields) and `win` as its system name.
 - [x] **Machine fields in the original's shape.** The login line now sends `win`, three fixed made-up MD5 hashes (of SquirrelOS, SquirrelNIC and SquirrelBIOS strings) and the quoted Windows version `"6.2 9200 "`, the shape the real client sends. Nothing is read from your machine.
 

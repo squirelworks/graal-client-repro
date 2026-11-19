@@ -226,7 +226,9 @@ void test_profiles() {
   CHECK(r500->plo.count() == 100 && r512->plo == r500->plo);
   CHECK(r512->plo.test(41) && r512->plo.test(193) && !r512->plo.test(198));
   CHECK(!r512->pli.test(39) && r512->pli.test(5) && r512->pli == r500->pli);
-  CHECK(r512->packed_round_down && r512->compress_always && !r500->packed_round_down);
+  CHECK(r512->packed_round_down && r512->compress_always && r500->packed_round_down);
+  for (const char* l : {"6.03r7 Linux", "6.03r7 Windows", "5.24r4", "6.01r1", "5.31r4"})
+    CHECK(Quattro::Net::find_profile(l) && Quattro::Net::find_profile(l)->packed_round_down);
   CHECK(r512->has_os_version && !r500->has_os_version);
   const BuildProfile* r404 = find_profile("4.04r2");
   CHECK(r404 && r404->packed_round_down && !r404->compress_always);

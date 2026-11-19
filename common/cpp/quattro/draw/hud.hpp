@@ -36,6 +36,14 @@
 namespace Quattro::Draw {
 
 struct HudState {
+  // Which client's HUD. V6: the 6.03r7 layout above. V5: the 5.12 one (the
+  // 4.x/5.x engine lab, run 4, 2026-11-19): only the gralat, bomb and arrow
+  // icons with their counters and the hearts, at the 6.x places; no tabs,
+  // no AP or MP bar. V4: the 4.04r2 one (same lab): no state.png at all,
+  // only the letters A, S and D (white, shadowed) at (17, 37), (82, 37)
+  // and (148, 34), the sword in the S slot as 6.x draws it, and the sword
+  // power in blue at (122, 36).
+  enum Style { V6, V5, V4 } style = V6;
   int half_hearts = 0;  // the player's power, in half hearts
   int gralats = 0, bombs = 0, arrows = 0;
   int ap = 50, mp = 0;
@@ -71,6 +79,7 @@ class Hud {
   static std::string counter_text(int value, bool two_digits);
 
  private:
+  void draw_v4(Torque::Gui::Canvas& c, const HudState& s) const;
   void draw_number(Torque::Gui::Canvas& c, const Torque::Gui::Image& sheet, const std::string& text,
                    int centre_x, int y) const;
   Assets* assets_;

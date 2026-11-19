@@ -46,6 +46,8 @@ class Session2D {
   // the session takes it (the four moves, doA, doS, doS2, doD and doQ).
   bool action(const std::string& cmd, bool down);
   void say(const std::string& text);
+  // A press on the playfield, in its pixels.
+  void mouse(int x, int y, int clicks);
 
   // The last world frame as ARGB, for DrawGraphics.
   const graal_texture& frame() const { return frame_; }

@@ -22,6 +22,7 @@ to the program works too.
 
 ## What's new in v0.0.5
 
+- [x] **Short compressed frames step the cipher rounded down.** A zlib or bz2 body now steps the gen-5 key len / 4 times rounded down (a raw one still rounds up), as the read 4.04r2, 5.12 and 6.03r7 do and as seihai-core v0.7.0 expects of every gen-5 build from 4.04r2 on. Round-up only held while frame lengths happened to agree.
 - [x] **Seihai secure login in the Quattro game.** With `--secure-login auto` or `required` (or `secure_login.txt`), online games no longer stay in the Pascal game: `quattro-play` sends `SEI00001` itself, checks the server's key against the same pins, and seals the account and password. Off is still the original login byte for byte.
 
 - [x] **The game runs in the Quattro program by default.** The real Windows 6.03r7 is one C++ program (`quattro_lib`); its rebuild, `quattro-play` from `common/cpp/quattro`, ships next to `Graal603w`. The start screen still picks the server (or Training) and then hands the game to it (GS2 weapons, bombs/arrows, hurt, Q list). Password goes in the environment. With `GRAAL_PASCAL_GAME=1` or without the player, the Pascal game plays as before. Seihai secure login stays Linux-only for now.

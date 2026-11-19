@@ -20,6 +20,7 @@ program works too (`graal-assets/Worlds 2013 (inferred)/`, then `graal-assets/co
 
 ## What's new in v0.0.5
 
+- [x] **Short compressed frames step the cipher rounded down.** A zlib or bz2 body now steps the gen-5 key len / 4 times rounded down (a raw one still rounds up), as the read 4.04r2, 5.12 and 6.03r7 do and as seihai-core v0.7.0 expects of every gen-5 build from 4.04r2 on. Round-up only held while frame lengths happened to agree.
 - [x] **New stand-in.** The Graal Worlds token has a folder, clearly marked inferred: the Windows 6.03r7 rebuild with the token `G3D2204D` and made-up Windows machine fields. Everything else is 6.03r7's.
 
 ## Downloads
