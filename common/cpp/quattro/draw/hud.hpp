@@ -64,7 +64,8 @@ class Hud {
   };
   static std::vector<HeartSlot> heart_slots(int half_hearts, int width, bool& small);
 
-  // The text of a counter: gralats unpadded, bombs and arrows two digits
+  // The text of a counter: gralats unpadded and only the low seven digits,
+  // bombs and arrows two digits
   // (the last two of a larger value's first two digits are kept, as the
   // lab's arrows=100 drew "10").
   static std::string counter_text(int value, bool two_digits);

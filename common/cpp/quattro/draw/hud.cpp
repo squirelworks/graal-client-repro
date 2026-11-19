@@ -61,8 +61,10 @@ std::vector<Hud::HeartSlot> Hud::heart_slots(int half_hearts, int width, bool& s
 }
 
 std::string Hud::counter_text(int value, bool two_digits) {
+  // Gralats: the 6.03r7 HUD draws only the low seven digits
+  // (999,999,999 -> 9999999, 10,000,000 -> 0; protocol/probe-results.tsv).
+  if (!two_digits) return std::to_string(std::max(0, value) % 10000000);
   std::string t = std::to_string(std::max(0, value));
-  if (!two_digits) return t;
   if (t.size() < 2) t = "0" + t;
   return t.substr(0, 2);
 }

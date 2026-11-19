@@ -22,16 +22,46 @@ latest release is in [RELEASES.md](RELEASES.md).
 > owners and are used here only to identify the software being
 > reimplemented.
 
-This repo holds no original Graal code. The code is written from notes on the wire protocol, file formats and observed
-behaviour (in graal_analysis), not copied or translated from the original
-programs. The resources embedded in each original exe (icons, cursors,
-bitmaps, dialogs and form layouts, menus, string tables, version info,
-fonts, sounds) are extracted per version and wired into that build's
-rebuild, so each one carries its own original's look; this is the owner's
-decision (2026-11-05). Game assets such as `pics1.png`, `arrays.dat`, ganis, heads and
-bodies are loaded at run time from an install you supply. Tests that need
-original data, such as the tutorial levels inside the 2.05 exe, read it
-from a local path and are skipped when it is missing.
+## Provenance
+
+What is in this repo and where it came from (owner decision 2026-11-15:
+the repro may carry some original Graal material).
+
+- **Written from notes.** The client code (the Pascal rebuilds, the
+  launchers and start screens, the C++ engine hosts, the Quattro program
+  and the GS2 VM under `common/cpp/gs2/`) is written from the behaviour
+  notes in [graal_analysis](https://github.com/squirelworks/graal_analysis)
+  on the wire protocol, file formats and observed behaviour, and from the
+  project's own lab runs. It is not copied or translated from the original
+  programs. `common/torque/PROVENANCE.md` details the Torque layer.
+- **Original resources: their shape carried, their art replaced.** Each
+  build carries its own exe's resources (icons, cursors, bitmaps, dialogs
+  and form layouts, menus, string tables, version info, and the few levels
+  an exe embeds, such as the Training and online start levels) under the
+  original names, sizes and formats, in its `res/` (or `src/res/`) folder,
+  the generated `Res*.pas` / `RealRes*.pas` units and `common/GRes20x.pas`
+  (the owner's decision D4, 2026-11-05, in
+  [HANDOFF-CURSOR.md](HANDOFF-CURSOR.md)). Since 2026-11-19 every picture,
+  icon, cursor and level among them is graal-delphi's own art, drawn by
+  `scripts/art/make_art.py` ([docs/art.md](docs/art.md)); CI checks it.
+  The text resources (form layouts and captions, string tables, character
+  lists, the 2.22 language file) are still the originals', because the
+  code reads them; whether to rewrite them is open. A player's own
+  originals go in `assets/` beside the program (below).
+- **Not carried.** Game data (`pics1.png`, `arrays.dat`, ganis, heads,
+  bodies, levels, sounds) is loaded at run time from an install you supply
+  (`graal-assets/`, [docs/assets.md](docs/assets.md)). The built-in
+  defaults in `common/builtin/` are new art drawn by
+  `scripts/builtin/make_builtin.py`, not original files. Tests that need
+  original data, such as the tutorial levels inside the 2.05 exe, read it
+  from a local path and are skipped when it is missing.
+- **List server.** Builds that fetch a server list default to the
+  community list server `listserver.graal.in`; the original hosts are
+  defunct.
+- **Third-party code.** The Torque3D string Huffman frequency table and
+  tree build (MIT) in `common/cpp/third_party/torque3d/`, with its
+  copyright notice and licence in `LICENSE.txt` there. The system zlib and
+  bzip2 libraries are linked, not vendored.
 
 ## Layout
 
@@ -279,9 +309,12 @@ on the Windows job, between "Build and test" and "Pack".
 
 [Apache License 2.0](LICENSE), the same as the Seihai server stack. Unless
 you say otherwise, a contribution you submit is licensed the same way. The
-licence covers the code and the stand-in assets in this repo; it grants no
-rights to Graal's names or to any original Graal file, none of which is
-included.
+licence covers the project's own code and the stand-in assets in this repo.
+It does not cover the original text resources still carried in the
+`res/` folders and the units generated from them (see Provenance), and it grants
+no rights to Graal's names or to any original Graal file. The licence
+decision itself is open in
+[#116](https://github.com/squirelworks/graal-client-repro/issues/116).
 
 ## Every build is a GUI program
 
