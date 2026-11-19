@@ -94,7 +94,7 @@ class X11Window : public Window {
     XSetWMNormalHints(display_, window_, hints);
     XFree(hints);
     XSelectInput(display_, window_, KeyPressMask | KeyReleaseMask | ButtonPressMask | ExposureMask |
-                                        StructureNotifyMask);
+                                        StructureNotifyMask | FocusChangeMask);
     wm_delete_ = XInternAtom(display_, "WM_DELETE_WINDOW", False);
     XSetWMProtocols(display_, window_, &wm_delete_, 1);
     Bool supported = False;
@@ -151,6 +151,18 @@ class X11Window : public Window {
         if (we.key.make) held_.insert(name); else held_.erase(name);
         if (we.key.make && n == 1 && static_cast<unsigned char>(buf[0]) >= 32 && buf[0] != 127) we.key.ascii = buf[0];
         out.push_back(we);
+      } else if (ev.type == FocusOut && ev.xfocus.mode != NotifyGrab && ev.xfocus.detail != NotifyInferior) {
+        // Keys held when the window loses focus never see their release
+        // (lab #303: the player walked on until it left the level).
+        release_held(out);
+      } else if (ev.type == FocusIn && ev.xfocus.mode != NotifyUngrab) {
+        // A release that went to another window while unfocused: drop any
+        // key still marked held that the keyboard no longer holds.
+        char keys[32];
+        XQueryKeymap(display_, keys);
+        bool any_down = false;
+        for (char k : keys) any_down = any_down || k != 0;
+        if (!any_down) release_held(out);
       } else if (ev.type == ButtonPress && ev.xbutton.button == Button1) {
         const auto now = std::chrono::steady_clock::now();
         WindowEvent we;
@@ -180,6 +192,16 @@ class X11Window : public Window {
   }
 
  private:
+  void release_held(std::vector<WindowEvent>& out) {
+    for (const std::string& k : held_) {
+      WindowEvent we;
+      we.key.key = k;
+      we.key.make = false;
+      out.push_back(we);
+    }
+    held_.clear();
+  }
+
   Display* display_ = nullptr;
   ::Window window_ = 0;
   GC gc_ = nullptr;

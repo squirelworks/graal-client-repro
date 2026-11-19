@@ -63,7 +63,7 @@ minimise. They differ only where their systems do:
   (`graal-3.04-G3D03014/src/Graal304Torque.rc`).
 - macOS: Cmd+Q and Cmd+W close the window as its close button does; the
   Option keys are Torque's `alt`.
-- All three: keys held when the window loses focus are released (Windows,
+- All three: keys held when the window loses focus are released (Linux, Windows,
   macOS), so the player does not keep walking; punctuation keys carry their
   Torque names (`comma`, `period`, ...) and type into text edits.
 
