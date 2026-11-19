@@ -56,10 +56,12 @@ or release by hand. Start with [HANDOFF-CURSOR.md](HANDOFF-CURSOR.md) and
 
 ## Fidelity work
 
-- Match each folder against **its own** real client: window flow (launcher
-  form sized to the start art with only the real title-bar buttons, then
-  the server list window, then the game window at its real size),
-  resources, behaviour. Never reuse another version's set.
+- The goal is behaviour, not looks (`docs/functional-parity.md`, owner
+  decision 2026-11-19). Match each folder against **its own** real
+  client's behaviour: wire, session flow, play, scripts, file requests,
+  and the controls it offers. Window sizes, fonts, artwork and pixel
+  matches no longer gate a release; look work already merged stays.
+  Never reuse another version's behaviour profile.
 - A folder with no real exe is modelled on the nearest real sibling on
   each side plus the Graal_analysis version profiles; its notes say which.
 - Squirrel's Windows PC is used only to run the real clients for captures

@@ -2,8 +2,9 @@
 
 Faithful rebuilds of the classic Graal clients, one per build, in the
 language they were written in: Delphi (Object Pascal). Each rebuild aims to
-behave like the original on the wire and on screen, and then gets hardened
-so it can run in large test runs.
+behave like the original, on the wire and in play, and then gets hardened
+so it can run in large test runs. Matching the original's look is not a
+goal ([docs/functional-parity.md](docs/functional-parity.md)).
 
 The findings these rebuilds are based on live in
 [graal_analysis](https://github.com/squirelworks/graal_analysis). The
@@ -200,7 +201,8 @@ steps and are required before a build counts as done.
    drawing the board, the player, other players, NPCs.
 3. **Play.** Movement and collision, items, weapons, the build's GS1 script
    engine, editors where the build had them. Checked side by side with the
-   original under Wine.
+   original under Wine, for behaviour rather than looks
+   ([docs/functional-parity.md](docs/functional-parity.md)).
 4. **Harden and stress.** A headless mode that runs the same code with no
    drawing, so one host can run many instances; profiling and optimisation
    of the tick; no leaks over long runs; survives disconnects, slow links
@@ -233,7 +235,7 @@ The last published release is v0.0.4 (2026-11-05), for the 71 clients
 that existed then. v0.0.4.1 is a development checkpoint for all 74
 ([docs/releases/v0.0.4.1.md](docs/releases/v0.0.4.1.md)); after that the
 next combined release is 0.0.5 (ROADMAP.md). The 3.x to 6.x folders
-reproduce the wire and each client's own look. The Torque engine around
+reproduce the wire and each client's behaviour. The Torque engine around
 the 3.x to early-5 clients is being rebuilt in C++ under `common/torque/`
 ([#109](https://github.com/squirelworks/graal-client-repro/issues/109),
 decision [#110](https://github.com/squirelworks/graal-client-repro/issues/110)).

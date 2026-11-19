@@ -71,6 +71,8 @@ are in the README (Wire, World, Play, Harden and stress, Release).
 - **Releases.** No tags or releases by hand. Every release is **one
   combined version for every client**, made in one action by Squirrel
   (see section 4). No per-folder releases or tags.
+- **Behaviour, not looks.** Since 2026-11-19 a rebuild is judged on
+  what it does, not how it looks (`docs/functional-parity.md`).
 - **Each folder its own resources.** Every folder is matched against its
   own real client, never another version's (2.22's set is for 2.22 only;
   the 2.05-derived copies do not stand in for a later version). Folders
