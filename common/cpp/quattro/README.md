@@ -69,10 +69,17 @@ commands. Nothing here re-implements the machine.
 | 5.00r7 Windows (the engine library's session) | `G3D22067` | `net/profile.cpp` | `graal-5.00r7-G3D22067` |
 | 5.12 Windows (the engine library's session) | `G3D14097` | `net/profile.cpp` | `graal-5.12-G3D14097` |
 | Windows 6.03r7 | `G3D0311C` | start-screen handoff (`Graal603w`) | Win32 window |
-| 5.24r4 Windows | `G3D15010` | `net/profile.cpp` (login/level/walk loopback) | `graal-5.24r4-G3D15010` |
-| 5.30r3, 5.31r4 | `G3D26090` | blocked (opcode+32 framing; Track D3) | `graal-5.31r4-G3D26090` |
+| 5.24r4 Windows | `G3D15010` | `net/profile.cpp`; start screen and CLI hand off (`Graal524r4`) | `graal-5.24r4-G3D15010` |
+| 5.30r3, 5.31r4 Windows | `G3D26090` | `net/profile.cpp`; `Graal531 --server/--level` hands off | `graal-5.31r4-G3D26090` |
 | Windows 6.00r2, 6.00r4, 6.00 betas | | later (Track D5) | |
 | 6.11r1 Mac, 6.1.1.3 | set by the connector script | later (Track D4) | |
+
+5.30r3 and 5.31r4 are the 5.24r4 row with `G3D26090`, 5.24's receive switch
+without 41 and 181 (95 ids), and no tiles in Login mode before the warp
+(Graal_analysis `protocol/v5v6-windows-unpacked.md`, `v5v6-lab-play.md`):
+the lab logged them in to GServer-v2 with the gen-5 codec and walked after
+the warp. The opcode-plus-32 lines and the length header that the folder's
+scaffold reads are that codec's; nothing there needed a framer of its own.
 
 Linux first: those two are unpacked native binaries, so their notes are the
 most complete.
@@ -98,7 +105,9 @@ attachment already queues the created event; root selection adds no event.
 - [x] Render and dispatch input through an existing `GUIContainer` root.
 - [ ] Original shell bootstrap ordering and normal default launch route.
 
-`quattro-play` uses a Win32 software window on Windows and X11 on Linux.
+`quattro-play` uses a Win32 software window on Windows, an AppKit window on
+macOS (`draw/window_cocoa.mm`, built only there, with `-framework Cocoa`)
+and X11 on Linux.
 Both feed the existing `Shell::Program`; `--headless` remains available.
 The Windows CI native-window smoke presents generated pixels and runs a
 generated offline level through Program with native movement, release,
@@ -107,6 +116,9 @@ entrypoint or establish an original build's engine identity. Folder release
 packaging and default launch routes still need separate integration.
 
 - [x] Native Windows window and input for the existing Quattro Program.
+- [x] Native macOS window and input (AppKit): the same keys, GUI events,
+  close button and focus loss as Win32; `window-test` posts AppKit events
+  and reads the frame back from the view.
 - [ ] Folder packaging and default entrypoints on the appropriate engine.
 
 ```
@@ -120,6 +132,32 @@ server is contacted. `quattro-session --list` prints the rows.
 LAB_PW=... common/cpp/quattro/build/quattro-session --build 6.03r7 \
     --connect 127.0.0.1:14900 --account NAME --password-env LAB_PW
 ```
+
+## Seihai secure login (not in the original)
+
+`net/seclogin.cpp` and `net/seccrypto.cpp` are the client side of Seihai's
+`SEI00001` login (Seihai `documentation/secure-login.md`, revision 1), the
+same protocol, modes and files as the Pascal clients' `common/GSecLogin.pas`:
+C1 (`SEI00001`, the build's token and an X25519 key) goes in the plain login
+frame where id 5 would, S1 is checked (Ed25519 signature, then the pinned
+key), and C2 seals the account, the password and the rest of the classic
+login line with ChaCha20-Poly1305 in a second plain frame; then 37 and the
+gen-5 session as usual. `off` (the default in `Shell::Options`) is the
+original login byte for byte; `auto` falls back to it, reconnecting, when the
+server refuses, closes or is silent for 5 s, unless the server's key is
+pinned; `required` never sends the password in the clear. Pins
+(`known_servers.txt`) and refused servers (`refused_servers.txt`) live in the
+same per-user folder as the start screens' (`GRAAL_SECURE_DIR`, else
+`%APPDATA%\graal-delphi` or `~/.config/graal-delphi`), so a server trusted
+in one is trusted in the other. Each 178 warp logs in to the new server the
+same way.
+
+`quattro-play` reads the player's setting (`GRAAL_SECURE_LOGIN`, else
+`secure_login.txt`) and takes `--secure-login off|auto|required` and
+`--server-key BASE64`; the start screens pass what they resolved. The
+primitives match the RFC vectors and seihai-gserver-v2's fixed C1/S1/C2
+vector byte for byte (`tests/seclogin_test.cpp`), and 5.24r4, 5.31r4 and
+6.03r7 logged in to seihai-gserver on loopback in all three modes.
 
 ## Window size
 

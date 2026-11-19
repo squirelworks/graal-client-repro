@@ -35,6 +35,10 @@
   to stdout at the end. SIGTERM / SIGINT (Ctrl+Break / Ctrl+C on Windows)
   end the run cleanly.
 
+  With no arguments the start screen hands the game to quattro-play beside
+  the program when present (common/GQuattroPlay.pas), as the real
+  5.24r4 is one Quattro exe. GRAAL_PASCAL_GAME=1 keeps the Pascal game.
+
   Exit codes, online: 0 logged in and ended cleanly, 1 error, 2 never
   logged in, 3 the link dropped after login. Offline: 0 the level parsed,
   1 it did not. 64: bad command line. }
@@ -51,7 +55,7 @@ program Graal524r4;
 {$IFDEF MSWINDOWS}{$IFDEF FPC}{$R Graal524r4.rc}{$SETPEOPTFLAGS $0140}{$ENDIF}{$ENDIF}
 
 uses
-  SysUtils, Classes,
+  SysUtils, Classes, Math,
   GTypes in '../../common/GTypes.pas',
   GZlib in '../../common/GZlib.pas',
   GSocket in '../../common/GSocket.pas',
@@ -61,6 +65,7 @@ uses
   GBzip2 in '../../common/GBzip2.pas',
   GBuiltin in '../../common/GBuiltin.pas',
   GAssetDirs in '../../common/GAssetDirs.pas',
+  GQuattroPlay in '../../common/GQuattroPlay.pas',
   GAni in '../../common/GAni.pas',
   GFont in '../../common/GFont.pas',
   GWindow in '../../common/GWindow.pas',
@@ -111,6 +116,90 @@ begin
     if ArgAt(I) = Name then Result := True;
 end;
 
+
+{ Only the windowed CLI subset with an equivalent Quattro argument is
+  handed over. Stress, diagnostic and unknown options keep their Pascal
+  implementation; in particular --frames is not a wall-clock duration. }
+function TryQuattroCli(out Code: Integer): Boolean;
+var
+  I, J, Port: Integer;
+  Name, Value, Dir, Data, Server, Exe, Password: string;
+  Online: Boolean;
+  Coordinate: Double;
+  Roots: array of string;
+  Args: TQuattroArgs;
+begin
+  Result := False;
+{$IF DEFINED(LINUX) OR DEFINED(MSWINDOWS)}
+  if not HasArg('--window') or HasArg('--headless') then Exit;
+  I := 1;
+  while I <= ArgCount do
+  begin
+    Name := ArgAt(I);
+    if Name = '--window' then Inc(I)
+    else
+    begin
+      if (Name <> '--server') and (Name <> '--account') and
+        (Name <> '--password-env') and (Name <> '--server-name') and
+        (Name <> '--level') and (Name <> '--x') and (Name <> '--y') and
+        (Name <> '--data') and (Name <> '--seconds') then Exit;
+      if I = ArgCount then Exit;
+      Value := ArgAt(I + 1);
+      if (Value = '') or (Copy(Value, 1, 2) = '--') then Exit;
+      for J := 1 to I - 1 do if ArgAt(J) = Name then Exit;
+      Inc(I, 2);
+    end;
+  end;
+  Server := Arg('--server', '');
+  Online := Server <> '';
+  if Online = (Arg('--level', '') <> '') then Exit;
+  if Online then
+  begin
+    I := Pos(':', Server);
+    if (I <= 1) or (Arg('--account', '') = '') then Exit;
+    if not TryStrToInt(Copy(Server, I + 1, MaxInt), Port) or
+      (Port < 1) or (Port > 65535) then Exit;
+    if HasArg('--x') or HasArg('--y') then Exit;
+  end
+  else if HasArg('--account') or HasArg('--password-env') or
+    HasArg('--server-name') then Exit;
+  if HasArg('--seconds') then
+    if not TryStrToInt(Arg('--seconds', ''), I) or (I <= 0) then Exit;
+  if HasArg('--x') then
+  begin
+    if (Pos(',', Arg('--x', '')) > 0) or not TryStrToFloat(Arg('--x', ''), Coordinate) then Exit;
+    if IsNan(Coordinate) or IsInfinite(Coordinate) then Exit;
+  end;
+  if HasArg('--y') then
+  begin
+    if (Pos(',', Arg('--y', '')) > 0) or not TryStrToFloat(Arg('--y', ''), Coordinate) then Exit;
+    if IsNan(Coordinate) or IsInfinite(Coordinate) then Exit;
+  end;
+  Dir := ExtractFilePath(ParamStr(0));
+  Exe := QuattroProgram(Dir, Online);
+  if Exe = '' then Exit;
+  Data := Arg('--data', Dir);
+  if DirectoryExists(IncludeTrailingPathDelimiter(Dir) + '_clients') or
+    DirectoryExists(IncludeTrailingPathDelimiter(Data) + '_clients') then Exit;
+  SetAssetRoots(Data, ClientBuildLabel);
+  SetLength(Roots, AssetRootCount);
+  for I := 0 to AssetRootCount - 1 do Roots[I] := AssetRoot(I);
+  Args := QuattroArgs(Dir, Roots, Arg('--level', ''), Arg('--x', '30'),
+    Arg('--y', '30'), Server, Arg('--account', ''),
+    Arg('--server-name', FirstServerName), '');
+  if HasArg('--seconds') then
+  begin
+    I := Length(Args);
+    SetLength(Args, I + 2);
+    Args[I] := '--seconds';
+    Args[I + 1] := Arg('--seconds', '');
+  end;
+  Password := '';
+  if Online then Password := GetEnvironmentVariable(Arg('--password-env', 'GRAAL_PW'));
+  Code := RunQuattro(Exe, ClientBuildLabel, Args, Password);
+  Result := True;
+{$ENDIF}
+end;
 
 procedure Usage;
 begin
@@ -502,14 +591,16 @@ var
   Win: TGWindow;
   G: TAdventure;
   R: TStartResult;
-  Dir, ListHost, ArrHost, Msg, Lvl, X, Y: string;
-  ListPort: Integer;
+  Dir, ListHost, ArrHost, Msg, Lvl, X, Y, Quattro: string;
+  ListPort, Code: Integer;
   Picked: Boolean;
   Fetch: TListFetch524r4;
   Info: TStartInfo;
   Who: TCharacter524r4;
   PickedName: string;
   I: Integer;
+  Roots: array of string;
+  QArgs: TQuattroArgs;
 begin
   Result := 0;
   Dir := ExtractFilePath(ParamStr(0));
@@ -586,7 +677,24 @@ begin
           GuiArgs.Add(PickedName);
         end;
         LastGameError := '';
-        if RunGame(Win, R.Password, R.Nickname) <> 0 then
+        Quattro := QuattroProgram(Dir, R.Choice = scOnline);
+        if Quattro <> '' then
+        begin
+          { the game runs in the Quattro program (common/GQuattroPlay.pas) }
+          SetLength(Roots, AssetRootCount);
+          for I := 0 to AssetRootCount - 1 do Roots[I] := AssetRoot(I);
+          if R.Choice = scTraining then
+            QArgs := QuattroArgs(Dir, Roots, Lvl, X, Y, '', '', '', '')
+          else
+            QArgs := QuattroArgs(Dir, Roots, '', '', '', R.Host + ':' + IntToStr(R.Port), R.Account,
+              PickedName, R.Nickname);
+          Code := RunQuattro(Quattro, ClientBuildLabel, QArgs, R.Password);
+          if Code <> 0 then
+            Msg := 'the game ended with code ' + IntToStr(Code)
+          else
+            Msg := '';
+        end
+        else if RunGame(Win, R.Password, R.Nickname) <> 0 then
           Msg := LastGameError
         else
           Msg := '';
@@ -599,10 +707,13 @@ begin
   end;
 end;
 
+var
+  CliCode: Integer;
 begin
   Randomize;
   if ParamCount = 0 then
     Halt(RunGui);
   OpenConsoleIO;
+  if TryQuattroCli(CliCode) then Halt(CliCode);
   Halt(RunGame(nil, '', ''));
 end.

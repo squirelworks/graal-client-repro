@@ -21,7 +21,7 @@ token and the Windows login tail change. This is the 0.0.1 reproduction: hit or 
 
 Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
 
-- **default:** With no arguments the start screen hands the game to `quattro-play` beside the program when present (same Quattro rebuild as Linux 6.03r7). Pascal is the labeled fallback (`GRAAL_PASCAL_GAME=1` or missing player). Seihai secure login (`SEI00001`) is not wired on this Windows folder yet.
+- **default:** With no arguments the start screen hands the game to `quattro-play` beside the program when present (same Quattro rebuild as Linux 6.03r7). Pascal is the labeled fallback (`GRAAL_PASCAL_GAME=1` or missing player). Seihai secure login (`SEI00001`) goes with the game: `quattro-play` does it itself, with the same pins and settings.
 - **faithful engine:** Quattro one-exe program (`quattro-play`) — now the no-arg game path when the player is shipped.
 - **relic / fallback:** Pascal without `quattro-play`, or with `GRAAL_PASCAL_GAME=1`.
 

@@ -87,6 +87,9 @@ class FrameEncoder {
   // Returns the whole frame: length bytes, then the body.
   std::string encode(std::string_view plain);
   bool login_sent() const { return !login_; }
+  // The next frame is a plain login frame again (the Seihai secure login's
+  // C2 goes in one, after C1). The cipher state is left as it is.
+  void rearm_login() { login_ = true; }
   // 5.12: the packed step rule above, and every body below the bzip2 size
   // compressed with zlib, short ones too (protocol/v5v6-windows-unpacked.md,
   // "5.12 sends even short bodies zlib-compressed").

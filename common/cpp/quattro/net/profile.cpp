@@ -102,6 +102,22 @@ std::vector<BuildProfile> make() {
   r524.own_props = OwnProps::k5x;  // probed on Windows 5.24r4
   rows.push_back(r524);
 
+  // 5.30r3 and 5.31r4 Windows (G3D26090; Graal_analysis
+  // protocol/v5v6-windows-unpacked.md and v5v6-lab-play.md). The same
+  // one-exe quattro_lib program and gen-5 codec as 5.24r4, the same "win"
+  // login line, and the same flow against GServer-v2 in the lab (login,
+  // the 178 warp, walk). The receive switch is 5.24's without 41 and 181.
+  // Unlike 5.24 (and like 6.03r7), Login mode draws no tiles, only chests
+  // and image NPCs, until the warp.
+  BuildProfile r531 = r524;
+  r531.label = "5.31r4 Windows";
+  r531.token = "G3D26090";
+  r531.login_draws_tiles = false;
+  for (int id : {165, 169, 175, 184}) r531.plo.set(static_cast<size_t>(id));
+  r531.plo.reset(41);
+  r531.plo.reset(181);
+  rows.push_back(r531);
+
   // 4.04r2 (Windows, the GraalEngine.dll session, used by
   // common/cpp/graalengine). From Graal_analysis protocol/v4x-clients.md
   // and version-profiles/4.04-4.20.toml, as graal-4.04r2-G3D17026's

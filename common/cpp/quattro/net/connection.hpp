@@ -21,6 +21,7 @@
 
 #include "gen5.hpp"
 #include "profile.hpp"
+#include "seclogin.hpp"
 #include "socket.hpp"
 
 #include <cstdint>
@@ -45,8 +46,14 @@ class Connection {
   void close();
   bool connected() const { return socket_.connected(); }
 
-  // Sends id 5 in the login frame and flushes it, then queues 37.
+  // Sends id 5 in the login frame and flushes it, then queues 37. With the
+  // Seihai secure login wanted (sec().want()), sends C1 instead and holds
+  // the rest until S1 has checked out (poll sends C2, then 37).
   void login(const std::string& account, const std::string& password, const std::string& language);
+
+  // The Seihai secure login of this link (not in any original client).
+  Sec::Session& sec() { return sec_; }
+  const Sec::Session& sec() const { return sec_; }
 
   // Queues one message. False when the build does not send `id`, when the
   // body holds a newline, or when the link is down.
@@ -65,10 +72,18 @@ class Connection {
 
   // The login line after the id byte (key, token, account, password, list).
   std::string login_line(const std::string& account, const std::string& password) const;
+  // What the login line has after the token: account, password, list.
+  std::string login_tail(const std::string& account, const std::string& password) const;
 
  private:
   void deliver(int id, std::string_view body);
   bool queue(int id, std::string_view body);
+  // While the secure login waits for S1: the first frame is plain zlib.
+  bool take_server_hello();
+
+  Sec::Session sec_;
+  std::string sec_in_;
+  std::string language_;
 
   const BuildProfile& profile_;
   Socket socket_;
@@ -99,6 +114,8 @@ class Session {
     std::function<void(const std::string& why)> connect_failed;
     std::function<void(int id, std::string_view body)> message;
     std::function<void(const std::string& why)> disconnected;
+    // Lines for the log (the secure login's notes).
+    std::function<void(const std::string& line)> note;
   };
 
   Session(const BuildProfile& profile, Events events);
@@ -119,8 +136,23 @@ class Session {
   // The key for the next connection. Tests set it; the default is random.
   std::function<uint8_t()> next_key;
 
+  // The Seihai secure login for every server of this session (warps too):
+  // the mode and, when not empty, the only server key trusted (base64).
+  void set_secure(Sec::Mode mode, const std::string& server_key = "") {
+    sec_mode_ = mode;
+    sec_key_ = server_key;
+  }
+  Sec::Mode secure_mode() const { return sec_mode_; }
+
  private:
-  bool open(const std::string& name, const std::string& host, uint16_t port);
+  bool open(const std::string& name, const std::string& host, uint16_t port, bool classic = false);
+  // After a refused, unanswered or failed secure login: fall back (auto) or
+  // stop. True when the link was handled.
+  bool check_secure();
+
+  Sec::Mode sec_mode_ = Sec::Mode::Off;
+  std::string sec_key_;
+  uint16_t server_port_ = 0;
 
   Events ev_;
   Connection conn_;

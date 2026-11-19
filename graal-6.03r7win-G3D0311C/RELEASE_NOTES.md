@@ -5,7 +5,7 @@ Pascal). The original is a Windows program from 2012; this rebuild runs on
 Linux and Windows. It is an early version: most of the game (NPCs, items,
 weapons, scripts, the scripted login screens) is not there yet.
 
-> **Major defects in fidelity.** The original is one native C++ program (the 6.x `quattro_lib` engine). The no-arg game now runs in the rebuilt Quattro player when present; the start screen and CLI fallback remain Delphi. Login GUI scripts, SEI00001 inside Quattro, and lab parity gaps remain.
+> **Major defects in fidelity.** The original is one native C++ program (the 6.x `quattro_lib` engine). The no-arg game now runs in the rebuilt Quattro player when present; the start screen and CLI fallback remain Delphi. Login GUI scripts and lab parity gaps remain.
 
 **Login token: tested against the real client.** Seen on the wire: the real Windows 6.03r7 was run in the lab and sent `G3D0311C` (graal_analysis `protocol/v5v6-windows-unpacked.md`, "Tokens"); this rebuild sends the same token.
 
@@ -21,6 +21,8 @@ heads and bodies take their place. The shared `graal-assets/` folder next
 to the program works too.
 
 ## What's new in v0.0.5
+
+- [x] **Seihai secure login in the Quattro game.** With `--secure-login auto` or `required` (or `secure_login.txt`), online games no longer stay in the Pascal game: `quattro-play` sends `SEI00001` itself, checks the server's key against the same pins, and seals the account and password. Off is still the original login byte for byte.
 
 - [x] **The game runs in the Quattro program by default.** The real Windows 6.03r7 is one C++ program (`quattro_lib`); its rebuild, `quattro-play` from `common/cpp/quattro`, ships next to `Graal603w`. The start screen still picks the server (or Training) and then hands the game to it (GS2 weapons, bombs/arrows, hurt, Q list). Password goes in the environment. With `GRAAL_PASCAL_GAME=1` or without the player, the Pascal game plays as before. Seihai secure login stays Linux-only for now.
 - [x] **New client.** 6.03r7 Windows has a folder of its own, started from `graal-6.03r7-G3D0511C` with its own token `G3D0311C` and the Windows login tail (`win` and four machine fields) and `win` as its system name.
