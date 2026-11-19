@@ -15,8 +15,10 @@ uses
   Gs26113 in '../src/Gs26113.pas',
   Level6113 in '../src/Level6113.pas',
   Sha6113 in '../src/Sha6113.pas',
+  Sha512_6113 in '../src/Sha512_6113.pas',
   Rsa6113 in '../src/Rsa6113.pas',
   SecLogin6113 in '../src/SecLogin6113.pas',
+  Curve6113 in '../src/Curve6113.pas',
   Connector6113 in '../src/Connector6113.pas',
   Lab6113 in '../src/Lab6113.pas',
   Play6113 in '../src/Play6113.pas',
@@ -568,6 +570,52 @@ begin
   Check(not AeadOpen(Key, Nonce, Aad, Box, Got), 'AEAD open rejects a flipped byte');
 end;
 
+{ X25519 (RFC 7748) and Ed25519 verify (RFC 8032), the SEI00001 handshake's
+  key exchange and server-identity check, with SHA-512 (FIPS 180-4). }
+procedure TestCurve;
+var
+  S, U, O, Pk, Msg, Sig, AlicePub, BobPub, K: string;
+begin
+  { SHA-512 }
+  Check(ToHex(Sha512('abc')) =
+    'ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a' +
+    '2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f',
+    'SHA-512 of abc');
+
+  { X25519, RFC 7748 section 5.2 }
+  S := FromHex('a546e36bf0527c9d3b16154b82465edd62144c0ac1fc5a18506a2244ba449ac4');
+  U := FromHex('e6db6867583030db3594c1a424b15f7c726624ec26b3353b10a903a6d0ab1c4c');
+  O := X25519(S, U);
+  Check(ToHex(O) = 'c3da55379de9c6908e94ea4df28d084f32eccf03491c71f754b4075577a28552',
+    'X25519 RFC 7748 vector 1');
+
+  { X25519 base point and an ECDH round trip, RFC 7748 section 6.1 }
+  AlicePub := X25519Base(FromHex('77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a'));
+  Check(ToHex(AlicePub) = '8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a',
+    'X25519 base: Alice public');
+  BobPub := X25519Base(FromHex('5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb'));
+  Check(ToHex(BobPub) = 'de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f',
+    'X25519 base: Bob public');
+  K := FromHex('4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742');
+  Check(X25519(FromHex('77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a'), BobPub) = K,
+    'X25519 ECDH: Alice computes the shared secret');
+  Check(X25519(FromHex('5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb'), AlicePub) = K,
+    'X25519 ECDH: Bob computes the same shared secret');
+
+  { Ed25519 verify, RFC 8032 section 7.1 }
+  Pk := FromHex('d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a');
+  Sig := FromHex('e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e0652249015' +
+    '55fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b');
+  Check(Ed25519Verify(Pk, '', Sig), 'Ed25519 verify RFC 8032 TEST 1');
+  Pk := FromHex('3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c');
+  Msg := FromHex('72');
+  Sig := FromHex('92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da' +
+    '085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00');
+  Check(Ed25519Verify(Pk, Msg, Sig), 'Ed25519 verify RFC 8032 TEST 2');
+  Sig[1] := Chr(Ord(Sig[1]) xor 1);
+  Check(not Ed25519Verify(Pk, Msg, Sig), 'Ed25519 rejects a flipped signature');
+end;
+
 procedure TestConfReply;
 var
   Reply, Sig, Payload, Err, Bad: string;
@@ -772,6 +820,7 @@ begin
     TestRejectHost;
     TestSha256;
     TestSecLogin;
+    TestCurve;
     TestConfReply;
     TestConnectorScript;
     TestConnectorLogin;
