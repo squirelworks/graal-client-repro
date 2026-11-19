@@ -70,6 +70,12 @@ int main() {
   require(Torque::load_dso(big, Torque::FloatOrder::big, block, error) &&
           block.global_floats[0] == 1.0 && block.function_floats[0] == -2.5,
           "explicit PPC float order failed");
+  // per-file detection: the Mac file reads big, the Linux file little,
+  // whatever the profile's fallback says
+  require(Torque::detect_dso_float_order(big, Torque::FloatOrder::little) == Torque::FloatOrder::big,
+          "big-endian floats not detected");
+  require(Torque::detect_dso_float_order(original, Torque::FloatOrder::big) == Torque::FloatOrder::little,
+          "little-endian floats not detected under a big fallback");
 
   for (std::size_t end = 0; end < original.size(); ++end)
     reject(Bytes(original.begin(), original.begin()+end), Torque::DsoErrorKind::truncated);

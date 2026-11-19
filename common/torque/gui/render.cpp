@@ -5,8 +5,10 @@
 #include "system_font.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cctype>
 #include <filesystem>
+#include <sstream>
 #include <tuple>
 
 namespace Torque::Gui {
@@ -420,6 +422,13 @@ void Renderer::draw_self(Canvas& canvas, SimObject* control, const Rect& rect) {
     draw_text_list(canvas, control, p, rect);
   } else if (cls == "guimltextctrl") {
     draw_ml_text(canvas, control, p, rect);
+  } else if (cls == "guiscrollctrl") {
+    // Stock GuiScrollCtrl fills its box when the profile is opaque (the
+    // 3.153 console sits on it: lab #303, white console text on the window
+    // parchment). The bars are not drawn yet.
+    if (p.opaque) canvas.fill_rect(rect, p.fill_color);
+  } else if (cls == "guisliderctrl") {
+    draw_slider(canvas, control, p, rect);
   } else if (cls == "guiconsole") {
     // The newest console lines that fit, bottom-aligned (rebuild policy).
     if (const GftFont* f = font(p.font_type, p.font_size)) {
@@ -642,7 +651,16 @@ void Renderer::draw_popup(Canvas& canvas, SimObject* control, const Profile& p, 
 void Renderer::draw_window(Canvas& canvas, SimObject* control, const Profile& p, const Rect& rect) {
   enum { kClose = 0, kMaximize = 6, kMinimize = 9, kTitle = 12, kLeft = 18, kRight, kBottomLeft,
          kBottom, kBottomRight, kTile };
-  const std::string path = p.has_bitmap_array ? profile_bitmap_path(control) : std::string();
+  // The window always cuts its profile bitmap into an array, whether or
+  // not the profile sets hasBitmapArray (stock Torque's GuiWindowCtrl does
+  // the same). The 3.153 layout's GuiWindowProfile sets neither that nor
+  // tile; its defaultWindow.png carries the parchment tile, and the dark
+  // red message text (GuiDarkTextProfile, 128 0 0) is only readable on it,
+  // not on the 128 0 0 fill the profile inherits (lab #303, 3.151: message
+  // boxes without body text). So the tile cell is drawn whenever the array
+  // has one; 3.04's profile asks for it with tile = 1 anyway (rebuild
+  // policy).
+  const std::string path = profile_bitmap_path(control);
   const BitmapArray* array = path.empty() ? nullptr : bitmap_array(path);
   if (cell_count(array) < 23) {
     if (p.opaque) canvas.fill_rect(rect, p.fill_color);
@@ -660,7 +678,7 @@ void Renderer::draw_window(Canvas& canvas, SimObject* control, const Profile& p,
 
   const Rect inside{rect.x + l.width, rect.y + title_h, rect.width - l.width - r.width,
                     rect.height - title_h - b.height};
-  if (c.size() > kTile && (p.tile || parse_bool(field_or(control, "tile", "0"))))
+  if (c.size() > kTile)
     canvas.tile_blit(image, c[kTile], inside);
   else if (p.opaque)
     canvas.fill_rect(inside, p.fill_color);
@@ -690,12 +708,80 @@ void Renderer::draw_window(Canvas& canvas, SimObject* control, const Profile& p,
   const std::string text = control->field("text");
   if (f && !text.empty()) {
     const int width = f->text_width(text);
-    int tx = rect.x + p.text_offset.x;
+    // Not under the title bar's left end: the 3.153 window's corner
+    // ornament is wider than its 5-pixel textOffset (lab #303, "rning").
+    int tx = std::max(rect.x + p.text_offset.x, rect.x + tl.width);
     if (p.justify == Justify::center) tx = rect.x + (rect.width - width) / 2;
     else if (p.justify == Justify::right) tx = right - p.text_offset.x - width;
     canvas.draw_text(*f, tx, rect.y + p.text_offset.y, text, p.font_color);
   }
   canvas.pop_clip();
+}
+
+// Sliders (GuiSliderProfile's defaultSlider.png in 3.04 and 3.153, five
+// cells read from the images: the track's left end, middle and right end,
+// then the thumb, normal and highlighted). The track runs the width of
+// the control, centred on its height; the thumb sits at the value within
+// the "range" field, its left edge at the minimum and its right edge at
+// the maximum. Placement is rebuild policy until a capture of the options
+// dialog exists. Without the array: a line and a framed thumb, as stock
+// Torque draws it.
+namespace {
+struct SliderRange {
+  double lo = 0, hi = 1;
+};
+SliderRange slider_range(const SimObject* control) {
+  SliderRange r;
+  std::istringstream in(control->field("range"));
+  double lo = 0, hi = 1;
+  if (in >> lo >> hi) { r.lo = lo; r.hi = hi; }
+  return r;
+}
+double slider_fraction(const SimObject* control) {
+  const SliderRange r = slider_range(control);
+  if (r.hi == r.lo) return 0;
+  return std::clamp((parse_float(control->field("value")) - r.lo) / (r.hi - r.lo), 0.0, 1.0);
+}
+}  // namespace
+
+int Renderer::slider_thumb_width(SimObject* control) {
+  const std::string path = profile_bitmap_path(control);
+  const BitmapArray* array = path.empty() ? nullptr : bitmap_array(path);
+  return cell_count(array) >= 5 ? array->cells[3].width : 8;
+}
+
+double Renderer::slider_value_at(SimObject* slider, const Rect& box, int x) {
+  const SliderRange r = slider_range(slider);
+  const int thumb = slider_thumb_width(slider);
+  const int travel = std::max(1, box.width - thumb);
+  double f = std::clamp(double(x - box.x - thumb / 2) / travel, 0.0, 1.0);
+  const int ticks = parse_int(slider->field("ticks"));
+  if (ticks > 0) f = std::round(f * (ticks + 1)) / (ticks + 1);
+  return r.lo + f * (r.hi - r.lo);
+}
+
+void Renderer::draw_slider(Canvas& canvas, SimObject* control, const Profile& p, const Rect& rect) {
+  const std::string path = profile_bitmap_path(control);
+  const BitmapArray* array = path.empty() ? nullptr : bitmap_array(path);
+  const double f = slider_fraction(control);
+  if (cell_count(array) >= 5) {
+    const Image& image = *bitmap(path);
+    const auto& c = array->cells;
+    const Rect &l = c[0], &m = c[1], &r = c[2], &thumb = c[3];
+    const int ty = rect.y + (rect.height - m.height) / 2;
+    canvas.blit(image, l, rect.x, ty);
+    canvas.stretch_blit(image, m, {rect.x + l.width, ty, rect.width - l.width - r.width, m.height});
+    canvas.blit(image, r, rect.x + rect.width - r.width, ty);
+    const int tx = rect.x + int(std::lround(f * std::max(0, rect.width - thumb.width)));
+    canvas.blit(image, thumb, tx, rect.y + (rect.height - thumb.height) / 2);
+    return;
+  }
+  const int mid = rect.y + rect.height / 2;
+  canvas.fill_rect({rect.x, mid, rect.width, 1}, p.border_color);
+  const int tx = rect.x + int(std::lround(f * std::max(0, rect.width - 8)));
+  const Rect thumb{tx, rect.y + 2, 8, std::max(1, rect.height - 4)};
+  canvas.fill_rect(thumb, p.fill_color);
+  canvas.frame_rect(thumb, p.border_color);
 }
 
 void Renderer::draw_bitmap_ctrl(Canvas& canvas, SimObject* control, const Rect& rect, bool tile) {

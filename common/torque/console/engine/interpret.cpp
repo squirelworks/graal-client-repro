@@ -138,23 +138,27 @@ std::string Engine::execute(std::shared_ptr<CodeBlock> block, std::uint32_t star
         need(at, 6);
         const std::uint32_t argc = code[at + 6];
         need(at, 6 + argc);
+        // An empty body ("function f(%a) {}") is still declared, with no
+        // code: calling it returns "". Either way the file goes on at the
+        // end of the declaration; the body-less one's lone RETURN is never
+        // run as top-level code (the 3.153 layout's default.bind2D.cs ends
+        // its functions with an empty one, before the GlobalActionMap
+        // binds: lab #303, F2 dead on 3.151).
         const bool has_body = code[at + 4] != 0;
         const std::uint32_t end = code[at + 5];
+        Function f;
+        f.name = ident(at + 1);
+        f.space = ident(at + 2);
+        f.package = ident(at + 3);
         if (has_body) {
-          Function f;
-          f.name = ident(at + 1);
-          f.space = ident(at + 2);
-          f.package = ident(at + 3);
           f.code = block;
           f.ip = at + 7 + argc;
-          for (std::uint32_t i = 0; i < argc; ++i) f.args.push_back(ident(at + 7 + i));
-          if (!f.package.empty()) package_names[lower(f.package)] = f.package;
-          auto* ns = space(f.space, true);
-          ns->layers[lower(f.package)][lower(f.name)] = f;
-          ip = end;
-        } else {
-          ip = at + 7 + argc;
         }
+        for (std::uint32_t i = 0; i < argc; ++i) f.args.push_back(ident(at + 7 + i));
+        if (!f.package.empty()) package_names[lower(f.package)] = f.package;
+        auto* ns = space(f.space, true);
+        ns->layers[lower(f.package)][lower(f.name)] = f;
+        ip = end;
         break;
       }
       case CREATE_OBJECT: {

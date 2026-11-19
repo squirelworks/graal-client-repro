@@ -401,6 +401,11 @@ void test_renderer() {
   renderer.render(tall, content);
   mouse_click(e, renderer, 1, 1, false);
   require(renderer.open_popup == 0 && popup->field("selected") == "8", "a click outside closes it unchanged");
+  // setValue on a pop-up sets the text it shows (OptionsDlg2D.cs fills
+  // OptScreenshotMenu that way; lab #303).
+  e.call_method(popup, "setValue", {"A"});
+  require(popup->field("text") == "A" && e.call_method(popup, "getText", {}) == "A",
+          "pop-up setValue shows the text");
 
   // ML text: tags are read or dropped, never drawn. "<just:right>A" puts the
   // glyph at the right edge; "<font:x>" draws nothing.
@@ -415,6 +420,27 @@ void test_renderer() {
       if (same(t.at(x, y), 255, 255, 0)) (x < 30 ? lit_left : lit_right)++;
   require(lit_left == 0 && lit_right > 0, "ML text: tags are not drawn and <just:right> aligns right");
   (void)ml;
+
+  // Slider: track cells 0 to 2 across the width, thumb (cell 3) at the
+  // value within the range; a click takes the value under the pointer,
+  // snapped to the ticks, and runs altCommand (lab #303: 3D sliders).
+  put(root / "common/ui/themes/default/slider.png", encode_png(make_array(2, 3, 2)));
+  make(e, "GuiControlProfile", "SliderProfile", profiles,
+       {{"bitmap", "./themes/default/slider"}, {"hasBitmapArray", "1"}});
+  SimObject* box = make(e, "GuiControl", "SliderGui", gui,
+                        {{"profile", "ContentProfile"}, {"position", "0 0"}, {"extent", "20 8"}});
+  SimObject* slider = make(e, "GuiSliderCtrl", "Slider", gui,
+                           {{"profile", "SliderProfile"}, {"position", "0 0"}, {"extent", "20 8"},
+                            {"range", "0 10"}, {"ticks", "9"}, {"value", "5"}}, box);
+  Canvas small(20, 8, {0, 0, 0, 255});
+  renderer.render(small, box);
+  const Image& u = small.surface();
+  require(same(u.at(0, 3), 0, 0, 100) && same(u.at(4, 3), 0, 80, 100) && same(u.at(19, 3), 0, 160, 100),
+          "slider track: left end, stretched middle, right end, got " + show(u.at(4, 3)));
+  require(same(u.at(9, 3), 20, 0, 100) && same(u.at(10, 4), 20, 0, 100) && same(u.at(8, 3), 0, 80, 100),
+          "slider thumb at the value, got " + show(u.at(9, 3)));
+  mouse_click(e, renderer, 3, 3, false);
+  require(slider->field("value") == "1", "a click sets the value snapped to the ticks, got " + slider->field("value"));
 }
 
 }  // namespace

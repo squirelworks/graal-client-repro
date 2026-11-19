@@ -705,7 +705,9 @@ bool Engine::exec_file(const std::string& path, bool no_calls) {
   } else if (files.read(script + ".dso", bytes)) {
     DsoError derr;
     std::vector<std::uint8_t> raw(bytes.begin(), bytes.end());
-    if (!load_dso(raw, float_order, dso, derr)) {
+    // per file: a Linux install of the 3.153 layout (3.151) keeps the
+    // little-endian floats the 3.153 Mac profile would misread
+    if (!load_dso(raw, detect_dso_float_order(raw, float_order), dso, derr)) {
       trace.push_back("exec " + script + ".dso: " + derr.message);
       return false;
     }
@@ -756,6 +758,7 @@ std::string Engine::invoke(const Resolved& r, Args& argv, SimObject* self, const
     }
     return fn.native(*this, self, argv);
   }
+  if (!fn.code) return {};  // declared with an empty body
   if (frames.size() >= limits.call_depth) throw ScriptError{"call depth limit"};
   return execute(fn.code, fn.ip, true, &fn, &argv, false);
 }

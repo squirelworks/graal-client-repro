@@ -23,6 +23,7 @@
 #include <iostream>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include <sys/stat.h>
@@ -245,7 +246,14 @@ int main(int argc, char** argv) {
 
   int width = 800, height = 600;
   canvas_size_304(engine, width, height);
-  auto window = Window::open("Graal 3.04 (Torque rebuild)", width, height, error);
+  // the build the game library is, for the title (lab #303: a 3.151
+  // install showed "Graal 3.04")
+  std::string build = is_3153 ? "3.153" : "3.04";
+  for (const auto& [base, name] : {std::pair<const char*, const char*>{"Game3153Lib", "3.153"},
+                                   {"Game3151Lib", "3.151"}, {"Game30bLib", "3.0beta"},
+                                   {"Game301Lib", "3.01"}, {"Game304Lib", "3.04"}})
+    if (lib.find(base) != std::string::npos) { build = name; break; }
+  auto window = Window::open("Graal " + build + " (Torque rebuild)", width, height, error);
   if (!window) {
     fail(error);
     return 1;

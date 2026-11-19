@@ -5,6 +5,7 @@
 #include "guigraal304.hpp"
 
 #include <cmath>
+#include <vector>
 
 namespace Torque {
 namespace {
@@ -123,9 +124,23 @@ std::string GuiGraal304::pref(const std::string& name) const {
   return engine_.global("$pref::Graal::" + name).str();
 }
 
+// The 3.04 and 3.153 installs name the game screen AdventureGui and the
+// menu MainMenuGui; the 3.151 install (3.153 layout, Linux) has neither:
+// its GraalGui.gui tops out at the GuiGraalCtrl Adventure itself and its
+// menu is MainMenuGui2D (Debian lab check, #303). The first name the
+// install defines wins.
 void GuiGraal304::set_content(const std::string& control) {
-  if (SimObject* canvas = engine_.find_object("Canvas"))
-    engine_.call_method(canvas, "setContent", {control});
+  SimObject* canvas = engine_.find_object("Canvas");
+  if (!canvas) return;
+  std::vector<std::string> names{control};
+  if (control == "AdventureGui") names.push_back("Adventure");
+  else if (control == "MainMenuGui") names.push_back("MainMenuGui2D");
+  for (const auto& name : names)
+    if (engine_.find_object(name)) {
+      engine_.call_method(canvas, "setContent", {name});
+      return;
+    }
+  engine_.call_method(canvas, "setContent", {control});
 }
 
 void GuiGraal304::message_box(const std::string& title, const std::string& text) {

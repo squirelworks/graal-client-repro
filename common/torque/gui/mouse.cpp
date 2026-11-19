@@ -3,6 +3,8 @@
 #include "../console/engine/engine.hpp"
 #include "profile.hpp"
 
+#include <sstream>
+
 namespace Torque::Gui {
 namespace {
 
@@ -50,6 +52,20 @@ std::string mouse_click(Engine& e, Renderer& r, int x, int y, bool double_click)
       const std::string cmd = o->field("command");
       if (!cmd.empty()) e.evaluate(cmd);
       if (e.object(o->id)) e.call_method(o, "onAction", {});
+      return label(o);
+    }
+    // A slider takes the value under the pointer (snapped to its ticks),
+    // then runs its altCommand, as a release after a drag does (rebuild
+    // policy: no drag yet).
+    if (is_control_class(e, o, "GuiSliderCtrl")) {
+      if (!active(o)) return label(o);
+      for (const auto& placed : r.layout())
+        if (placed.id == o->id) box = placed.rect;
+      std::ostringstream v;
+      v << r.slider_value_at(o, box, x);
+      o->set_field("value", v.str());
+      const std::string cmd = o->field("altCommand");
+      if (!cmd.empty()) e.evaluate(cmd);
       return label(o);
     }
     if (is_control_class(e, o, "GuiPopUpMenuCtrl")) {
