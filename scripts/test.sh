@@ -88,7 +88,8 @@ if [ -x "$PLAYER" ]; then
   "$PLAYER" --self-check --world "$WORLD" || fail graal-worlds-614-20240421 "worlds-player --self-check failed"
 fi
 # Torque FakeServer / loopback: menu to gserver login on 127.0.0.1 for the
-# 3.04 and 3.153 libraries when tq-play was built with them.
+# 3.x libraries (3.04, 3.153, 3.0beta, 3.01, 3.151) when tq-play was
+# built with them.
 run_torque_online() {
   local B=$1 LIB=$2 TOKEN=$3
   local G="$ROOT/common/torque/guigraal"
@@ -114,6 +115,9 @@ run_torque_online() {
 }
 run_torque_online graal-3.04-G3D03014 libGame304Lib.so G3D03014
 run_torque_online graal-3.153-G3D28015 libGame3153Lib.so G3D28015
+run_torque_online graal-3.0beta-G3D16053 libGame30bLib.so G3D16053
+run_torque_online graal-3.01-G3D27063 libGame301Lib.so G3D27063
+run_torque_online graal-3.151-G3D27015 libGame3151Lib.so G3D27015
 if [ "$FAIL" -ne 0 ]; then
   echo "== failed:$FAILED"
 fi
