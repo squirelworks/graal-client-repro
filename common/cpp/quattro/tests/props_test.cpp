@@ -18,6 +18,7 @@ using namespace Quattro;
 using namespace Quattro::World;
 using Net::gchar;
 using Net::gint3;
+using Net::gint5;
 using Net::gshort;
 using Net::gstring;
 
@@ -743,9 +744,78 @@ void test_item_list() {
 }
 }  // namespace
 
+// Own props as real 4.20r8, 5.24r4 and 6.03r7 read them, from injected
+// packets (Graal_analysis protocol/probe-results.tsv, 2026-11-18). Each
+// stream ends with a bombs "canary" that must land.
+void test_own_props_probed() {
+  using Net::OwnProps;
+  auto run = [](OwnProps rules, const std::string& s, Player& p) {
+    Net::Reader r(s);
+    return apply_own_props(r, p, rules);
+  };
+  const std::string canary = gchar(kBombs) + gchar(11);
+  {  // 6.03r7: 83 is five bytes and sets the gralat count prop 3 sets
+    Player p;
+    run(OwnProps::k6x, gchar(83) + gint5(1234) + canary, p);
+    CHECK(p.rupees == 1234 && p.bombs == 11);
+    run(OwnProps::k6x, gchar(83) + gint5(999999999) + gchar(kBombs) + gchar(12), p);
+    CHECK(p.rupees == 999999999 && p.bombs == 12);
+    // Over 999,999,999 is ignored, not clamped, and the rest is still read.
+    run(OwnProps::k6x, gchar(83) + gint5(1000000000) + gchar(kBombs) + gchar(13), p);
+    CHECK(p.rupees == 999999999 && p.bombs == 13);
+    run(OwnProps::k6x, gchar(83) + gint5(34359738367ULL) + gchar(kBombs) + gchar(14), p);
+    CHECK(p.rupees == 999999999 && p.bombs == 14);
+    run(OwnProps::k6x, gchar(kRupees) + gint3(4321) + gchar(kBombs) + gchar(16), p);
+    CHECK(p.rupees == 4321 && p.bombs == 16);
+  }
+  {  // 6.03r7: 77 five bytes, 78 to 80 two, 81 one, 82 a string
+    Player p;
+    std::string s = gchar(77) + gint5(123456) + gchar(kX2) + gshort(320) + gchar(kY2) + gshort(320) +
+                    gchar(kZ2) + gshort(64) + gchar(81) + gchar(1) + gchar(kCommunityName) + gstring("Probe") + canary;
+    run(OwnProps::k6x, s, p);
+    CHECK(p.x == 10 && p.y == 10 && p.z == 2 && p.community == "Probe" && p.bombs == 11);
+  }
+  {  // no case (33, 50, 51, 53, 75, 76, 84 and up): the id and one byte
+    for (int id : {33, 50, 51, 53, 75, 76, 84, 90, 200}) {
+      for (OwnProps rules : {OwnProps::k4x, OwnProps::k5x, OwnProps::k6x}) {
+        Player p;
+        run(rules, gchar(static_cast<unsigned>(id)) + gchar(1) + canary, p);
+        CHECK(p.bombs == 11);
+        CHECK(!p.gone);  // 50 and 51 do nothing on the own stream
+      }
+    }
+  }
+  {  // a longer value loses only the rest of that message
+    Player p;
+    run(OwnProps::k6x, gchar(90) + gint3(300000) + canary, p);
+    CHECK(p.bombs != 11);
+    run(OwnProps::k6x, gchar(kBombs) + gchar(21), p);
+    CHECK(p.bombs == 21);
+  }
+  {  // 4.20r8 and 5.24r4 have no case for 77 or 83; 4.20r8 none for 82
+    for (OwnProps rules : {OwnProps::k4x, OwnProps::k5x}) {
+      Player p;
+      run(rules, gchar(77) + gchar(1) + gchar(83) + gchar(1) + canary, p);
+      CHECK(p.bombs == 11 && p.rupees == 0);
+    }
+    Player p;
+    run(OwnProps::k4x, gchar(kCommunityName) + gchar(1) + canary, p);
+    CHECK(p.bombs == 11 && p.community.empty());
+    Player q;
+    run(OwnProps::k5x, gchar(kCommunityName) + gstring("x") + canary, q);
+    CHECK(q.bombs == 11 && q.community == "x");
+  }
+  {  // the profiles
+    CHECK(Net::find_profile("6.03r7 Linux")->own_props == OwnProps::k6x);
+    CHECK(Net::find_profile("5.24r4")->own_props == OwnProps::k5x);
+    CHECK(Net::find_profile("4.20r8")->own_props == OwnProps::k4x);
+  }
+}
+
 int main() {
   test_pixels2();
   test_own_props();
+  test_own_props_probed();
   test_other_props();
   test_sending();
   test_arrays_dat();

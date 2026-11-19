@@ -196,6 +196,8 @@ void test_profiles() {
   CHECK(!r603->plo.test(41));  // the start message is gone in 6.x
   CHECK(r603->plo.test(178));
   CHECK(!r603->plo.test(100) && !r603->plo.test(108));
+  // Probed: 60, 78, 81, 83 and 110 are ignored with any body and get no reply.
+  for (int id : {60, 78, 81, 83, 110}) CHECK(!r603->plo.test(static_cast<size_t>(id)));
   CHECK(handles_pre_switch(100) && handles_pre_switch(108));
   CHECK(find_profile("7.0") == nullptr);
   CHECK(find_profile("6.0") == nullptr);
