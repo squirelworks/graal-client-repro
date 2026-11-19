@@ -11,9 +11,9 @@ binary and from the Mac lab run. Where a behaviour is not in either, the
 
 Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
 
-- **default:** Delphi/Pascal stand-in (no-argument / release entry on main today).
-- **faithful engine:** Torque `graal304-torque` / `common/torque` (ships beside Pascal; not no-arg default on main) — still being wired; not the release default.
-- **relic:** none yet. When the faithful engine is validated end-to-end and switched to default, the Pascal stand-in becomes the labeled relic/fallback and is never deleted.
+- **default:** With no arguments the program starts the Torque rebuild `graal304-torque` beside it (#401).
+- **faithful engine:** Torque `graal304-torque` / `common/torque`, now the no-argument path. The Debian lab check in #303 is still to run.
+- **relic / fallback:** the Pascal stand-in, with `--pascal`, `GRAAL_PASCAL=1` / `GRAAL_PASCAL_GAME=1`, a missing `graal304-torque`, or no `DISPLAY`. Never deleted.
 
 ## Sources
 
