@@ -21,3 +21,9 @@ TUTORIALC2.bin                    364  2D535DF4  RCDATA TUTORIALC2
 TUTORIALC3.bin                    318  E778AD60  RCDATA TUTORIALC3
 Graal217.ico (src/)              2238  A30FD5C1  GROUP_ICON MAINICON
 HEADSCONFIG.txt                  1302  686A4DC5  the install's headsconfig.txt
+
+Now graal-delphi's own art (2026-11-19): every picture, icon, cursor and
+level listed here has since been redrawn by scripts/art/make_art.py in the
+same name, size, format and layout (docs/art.md); the sizes and checksums
+above are the original program's. The original's own files go in assets/
+beside the program (docs/assets.md, "Your own files").

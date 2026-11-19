@@ -20,8 +20,10 @@ function PeResourceData(const Image: string; TypeId: Integer; const Name: string
 function PeResource(const ExeFile: string; TypeId: Integer; const Name: string;
   out Data: string): Boolean;
 { The RCDATA resource Name linked into this program itself (a build's
-  src/<Program>Res.res, what scripts/res/extract_res.py pulled out of the
-  real exe), on every platform; False when there is none. }
+  src/<Program>Res.res: graal-delphi's own art in the shape of what the
+  real exe carried, scripts/art/make_art.py), on every platform; the
+  player's own copy in assets/ first (GAssetDirs.UserResource); False when
+  there is none. }
 function OwnResource(const Name: string; out Data: string): Boolean;
 
 implementation
@@ -30,7 +32,7 @@ uses
 {$IFNDEF FPC}
   Windows,
 {$ENDIF}
-  SysUtils, Classes;
+  SysUtils, Classes, GAssetDirs;
 
 function U16(const S: string; Off: Int64): Integer;
 begin
@@ -184,6 +186,8 @@ var
   P: PChar;
   N: Integer;
 begin
+  { the player's own copy in assets/ wins (docs/assets.md) }
+  if UserResource(Name, Data) then begin Result := True; Exit; end;
   Data := '';
   Result := False;
   H := System.FindResource(HINSTANCE, PChar(UpperCase(Name)), PChar(10));
@@ -204,6 +208,8 @@ var
   G: HGLOBAL;
   N: Integer;
 begin
+  { the player's own copy in assets/ wins (docs/assets.md) }
+  if UserResource(Name, Data) then begin Result := True; Exit; end;
   Data := '';
   Result := False;
   H := Windows.FindResource(HInstance, PChar(UpperCase(Name)), PChar(10));

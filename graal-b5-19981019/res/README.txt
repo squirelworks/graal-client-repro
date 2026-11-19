@@ -65,3 +65,9 @@ GROUP_CURSOR 32766                cursor-32766.cur                        326  a
 GROUP_CURSOR 32767                cursor-32767.cur                        326  1987fce0495cc563e5543d65a546c2bf
 GROUP_ICON   MAINICON             icon-MAINICON.ico                       766  bd27d03a280cafe0d1f1d97fa4dc4ad9
 STRING       (222 strings)        strings.txt                             222
+
+Now graal-delphi's own art (2026-11-19): every picture, icon, cursor and
+level listed here has since been redrawn by scripts/art/make_art.py in the
+same name, size, format and layout (docs/art.md); the sizes and checksums
+above are the original program's. The original's own files go in assets/
+beside the program (docs/assets.md, "Your own files").

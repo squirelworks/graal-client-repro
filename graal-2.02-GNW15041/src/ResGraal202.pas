@@ -16,12 +16,15 @@ function ExeResource(const Name: string; out Data: string): Boolean;
 implementation
 
 uses
+  GAssetDirs,
   SysUtils, GRes20x;
 
 function ExeResource(const Name: string; out Data: string): Boolean;
 var
   N: string;
 begin
+  { the player's own copy in assets/ wins (docs/assets.md) }
+  if UserResource(Name, Data) then begin Result := True; Exit; end;
   Result := True;
   N := UpperCase(Name);
   if N = 'BUTTON1' then Data := ResBytes(BBUTTON1_514a26a6)

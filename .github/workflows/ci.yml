@@ -77,6 +77,14 @@ jobs:
           fpc -iV
       - name: Every client has its Windows resources
         run: python3 scripts/win/make_winres.py --check
+      # The pictures and levels the programs carry are graal-delphi's own
+      # (docs/art.md); Pillow is pinned so JPEG and PNG bytes stay the same.
+      - name: The carried art is our own, and assets/ wins over it
+        run: |
+          python3 -m venv "$RUNNER_TEMP/artvenv"
+          "$RUNNER_TEMP/artvenv/bin/python" -m pip install --quiet pillow==12.3.0
+          "$RUNNER_TEMP/artvenv/bin/python" -I scripts/art/make_art.py --check
+          python3 -I scripts/art/hook_res.py --check
       - name: Build (Delphi mode)
         run: BUILD_JOBS=$(nproc) scripts/build.sh $BUILDS
       - name: Unit tests

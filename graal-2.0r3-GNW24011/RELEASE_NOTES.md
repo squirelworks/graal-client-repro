@@ -20,6 +20,8 @@ their place.
 
 ## What's new in v0.0.5
 
+- [x] **The pictures, icons and levels this program carries are graal-delphi's own art.** What it used to carry from the original program's resources (start and server list art, picture buttons, toolbar and dialog pictures, the icon, cursors, the Training and start levels) is redrawn in the same size, format and layout by `scripts/art/make_art.py` ([docs/art.md](../docs/art.md)). To see the original's own files, put them in `assets/` beside the program (`assets/<version>/res/SCREENIMG1.jpg`, `assets/res/TUTORIALA1.graal`, ...): they win over the compiled-in art with no rebuild ([docs/assets.md](../docs/assets.md), "Your own files").
+
 - [x] **Sword hits as this build judges them.** A sword tip exactly 2 tiles to the side now hits (every build from 1.21 to 2.31 includes the edge); no once-a-second limit per attacker (it arrives in 2.01); the attacker's sword power is kept raw in 6 bits, with no plus or minus 20 limit, so a negative power never heals (the limit arrives in 2.03). Read in the binaries for seihai-core #28 (#302).
 - [x] **Swamp soldiers.** The sword reaches a swamp soldier from the moment it surfaces (counter 17), as 1.21 to 2.00 do; touching it still needs counter 22 to 36 (#302).
 - [x] **Spin attack.** With the spin status (STATUS bit 0x40, from the server or the spin attack item), pressing S again while the swing still plays cuts it off and plays `spin` (13 ticks, then idle); S during the spin is ignored. Modelled on the live 2.05 and 2.22 runs. What the spin hits (a box round the player here) is not yet checked on the real client (#302).

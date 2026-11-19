@@ -20,6 +20,8 @@ their place.
 
 ## What's new in v0.0.5
 
+- [x] **The pictures, icons and levels this program carries are graal-delphi's own art.** What it used to carry from the original program's resources (start and server list art, picture buttons, toolbar and dialog pictures, the icon, cursors, the Training and start levels) is redrawn in the same size, format and layout by `scripts/art/make_art.py` ([docs/art.md](../docs/art.md)). To see the original's own files, put them in `assets/` beside the program (`assets/<version>/res/SCREENIMG1.jpg`, `assets/res/TUTORIALA1.graal`, ...): they win over the compiled-in art with no rebuild ([docs/assets.md](../docs/assets.md), "Your own files").
+
 - [x] Match the declared rev-2 model: negative sword damage heals only at AP 40 or more, while ignored healing still enters the hurt path.
 
 - [x] Suppress other-player sword judging during an online level transition, including acknowledgement and rejected boards; resume after a valid board or a failed request.

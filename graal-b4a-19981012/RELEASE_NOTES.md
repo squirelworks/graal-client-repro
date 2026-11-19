@@ -24,6 +24,10 @@ unblock the zip before you extract it: right-click it, **Properties**,
 tick **Unblock**, **OK**. Then nothing in the folder is asked about again.
 See [Windows says "Windows protected your PC"](https://github.com/squirelworks/graal-client-repro#windows-says-windows-protected-your-pc).
 
+## What's new in v0.0.5
+
+- [x] **The pictures, icons and levels this program carries are graal-delphi's own art.** What it used to carry from the original program's resources (start and server list art, picture buttons, toolbar and dialog pictures, the icon, cursors, the Training and start levels) is redrawn in the same size, format and layout by `scripts/art/make_art.py` ([docs/art.md](../docs/art.md)). To see the original's own files, put them in `assets/` beside the program (`assets/<version>/res/SCREENIMG1.jpg`, `assets/res/TUTORIALA1.graal`, ...): they win over the compiled-in art with no rebuild ([docs/assets.md](../docs/assets.md), "Your own files").
+
 ## What's new in v0.0.4.2
 
 - [x] **F1 Options window.** F1 opens "Options" from the build's own form (TOptions), with the current level's file name filled in. The other buttons close it and do nothing yet. Linux and macOS draw the form in a window of their own.

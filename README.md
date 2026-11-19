@@ -331,3 +331,22 @@ per folder, never mixed across versions. [docs/assets.md](docs/assets.md)
 has the search order per build, the keep/cut rule, how to build the zip
 (`scripts/assets/merge_assets.py`, `scripts/assets/needed_assets.py`) and
 what each client line's install held, from the 1998 betas on.
+
+### Your own Graal files: `assets/`
+
+The pictures and levels each program carries in its resources (start
+screens, picture buttons, glyphs, icon, cursors, Training levels) are
+graal-delphi's own art, drawn in the originals' sizes and formats by
+`scripts/art/make_art.py` ([docs/art.md](docs/art.md)). To see a
+program's original art, put its files in an `assets/` folder beside the
+program; they win over the carried art and over `graal-assets/`, with no
+rebuild:
+
+```
+python3 -I scripts/art/to_assets.py path/to/your/Graal.exe <root>/assets 2.05r2
+```
+
+That writes the exe's own resources to `assets/2.05r2/res/` (game files
+such as `pics1.png` can go in `assets/2.05r2/` or `assets/` too).
+[docs/assets.md](docs/assets.md), "Your own files", has the details. These
+files are yours: never commit them.

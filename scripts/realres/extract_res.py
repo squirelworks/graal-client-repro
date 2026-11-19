@@ -260,6 +260,8 @@ def write_unit(path, unit, rcdata, exe, md5, strings):
     L.append('')
     L.append('end.')
     open(path, 'w', newline='\n').write('\n'.join(L) + '\n')
+    import sys as _s; _s.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'art')); import hook_res
+    hook_res.hook_file(path)
 
 
 if __name__ == '__main__':

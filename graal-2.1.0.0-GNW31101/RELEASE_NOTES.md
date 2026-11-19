@@ -22,6 +22,8 @@ install's files come first.
 
 ## What's new in v0.0.5
 
+- [x] **The pictures, icons and levels this program carries are graal-delphi's own art.** What it used to carry from the original program's resources (start and server list art, picture buttons, toolbar and dialog pictures, the icon, cursors, the Training and start levels) is redrawn in the same size, format and layout by `scripts/art/make_art.py` ([docs/art.md](../docs/art.md)). To see the original's own files, put them in `assets/` beside the program (`assets/<version>/res/SCREENIMG1.jpg`, `assets/res/TUTORIALA1.graal`, ...): they win over the compiled-in art with no rebuild ([docs/assets.md](../docs/assets.md), "Your own files"). The whole-install pack it also carried (levels, ganis, sounds, pictures of the install) is gone: game files come from `assets/`, `graal-assets/` or the built-in art.
+
 - [x] **Public-client map receive names.** Accepts text/image pairs in
   fixed order, resolves the text before replacing either map configuration,
   and retains it on missing text. A missing image does not block the names.

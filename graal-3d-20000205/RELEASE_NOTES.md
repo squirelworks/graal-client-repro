@@ -17,6 +17,8 @@ Graal3D files next to it for the real ones.
 
 ## What's new in v0.0.5
 
+- [x] **The pictures, icons and levels this program carries are graal-delphi's own art.** What it used to carry from the original program's resources (start and server list art, picture buttons, toolbar and dialog pictures, the icon, cursors, the Training and start levels) is redrawn in the same size, format and layout by `scripts/art/make_art.py` ([docs/art.md](../docs/art.md)). To see the original's own files, put them in `assets/` beside the program (`assets/<version>/res/SCREENIMG1.jpg`, `assets/res/TUTORIALA1.graal`, ...): they win over the compiled-in art with no rebuild ([docs/assets.md](../docs/assets.md), "Your own files").
+
 - [x] **Back plane 5000.** Nothing beyond 5000 along the view is drawn, the value the real client sets on its viewport (it was 100000). The cloud ceiling now stops where that plane cuts it; a live check that no later call moves the plane is still open.
 
 ## What's new in v0.0.4.2
