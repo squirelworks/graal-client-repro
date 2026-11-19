@@ -20,7 +20,7 @@ import sys
 rows = ["GLEVNW01"] + ["BOARD 0 %d 64 0 %s" % (y, "AA" * 64) for y in range(64)]
 open(sys.argv[1], "w").write("\n".join(rows) + "\n")
 PY
-"$BUILD/graal304-torque" --root "$WORK/install" --prefs "$WORK/prefs" --game "$LIB" \
+"$BUILD/graal304-torque" --nosound --root "$WORK/install" --prefs "$WORK/prefs" --game "$LIB" \
   --steps "$HERE/smoke/steps.txt" --seconds 3 --trace "$WORK/trace.txt" --shot "$WORK/frame.bmp" \
   > "$WORK/console.txt"
 cat "$WORK/console.txt"
@@ -36,7 +36,7 @@ grep -Eq '^player offlinetutorial_b-2.graal (39|40|41)\.[0-9]+ 30\.00 3, state 8
 # setScreenMode (the Options dialog's Apply) stores the pref, and the
 # window and the canvas follow it.
 printf '0 Adventure.startOfflineMode();\n500 setScreenMode(640, 480, Default, false);\n' > "$WORK/mode.txt"
-"$BUILD/graal304-torque" --root "$WORK/install" --prefs "$WORK/prefs" --game "$LIB" \
+"$BUILD/graal304-torque" --nosound --root "$WORK/install" --prefs "$WORK/prefs" --game "$LIB" \
   --steps "$WORK/mode.txt" --seconds 2 --trace "$WORK/mode-trace.txt" --shot "$WORK/mode.bmp" > /dev/null
 grep -q '^window 640 x 480' "$WORK/mode-trace.txt" || fail "setScreenMode did not resize the window"
 [ "$(wc -c < "$WORK/mode.bmp")" -eq 921654 ] || fail "the window image is not 640 x 480 after setScreenMode"

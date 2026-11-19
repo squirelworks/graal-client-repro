@@ -137,6 +137,11 @@ type
     Home: string;
     CellX, CellY: Integer;
     Z: Integer;
+    { a server weapon (PLO_NPCWEAPONADD): its name; '' for level NPCs }
+    WeaponName: string;
+    { a new weapon's playerenters, run on the next tick: events are queued,
+      not run inside the message (gs1-event-parameters-205r2.md) }
+    WeaponPending: Boolean;
     Dirty: array[0..NpcPropLast205] of Boolean;
     constructor Create;
     destructor Destroy; override;
@@ -185,6 +190,9 @@ type
     procedure SetPlayerAni(const Gani, Params: string); virtual;
     procedure PlayerCommand(Op: Integer; const A: TGsArgs); virtual;
     procedure Send(Id: Integer; const Data: string); virtual;
+    { The name of the player's weapon I (0-based, the order of the item
+      list, built-in weapons included), '' when there is none }
+    function WeaponNameAt(I: Integer): string; virtual;
     procedure Log(const S: string); virtual;
     { After each tick's scripts: deferred work such as warps. }
     procedure Idle; virtual;
@@ -216,6 +224,9 @@ type
     { Online, NPCs of other levels and other gmap cells wait here until
       the player is there (the server sends them with the level's data). }
     Parked: TList;
+    { The server weapons (PLO_NPCWEAPONADD): script holders that are not in
+      the level, never drawn or hit, and kept across levels }
+    Weapons: TList;
     { Set by the game before each message: the level NPC messages go to
       (SETACTIVELEVEL, else the last LEVELNAME) and, on a gmap, the cell
       of the level whose data came last }
@@ -244,6 +255,15 @@ type
     { Runs one event on one NPC. }
     procedure Fire(N: TNpc; const Event: string; const Params: string = '');
     procedure FireAll(const Event: string; const Params: string = '');
+    { Server weapons. A name the player already has is ignored; a new one
+      gets playerenters (feature-specs/02-weapons-combat.md). }
+    function AddWeapon(const Name, Img, Script: string): TNpc;
+    procedure RemoveWeapon(const Name: string);
+    procedure ClearWeapons;
+    function WeaponByName(const Name: string): TNpc;
+    { Runs Event (weaponfired for D) on the named weapon, its actor moved to
+      the player's centre (PX, PY) first, as callweapon does }
+    procedure FireWeapon(const Name, Event: string; PX, PY: Double);
     { A server message. True when it was an NPC message. }
     function Receive(Id: Integer; const Data: string): Boolean;
     { One 50 ms tick: timeouts and moves. }
@@ -401,6 +421,7 @@ procedure TNpcWorld.Warp(const Level: string; X, Y: Double); begin end;
 procedure TNpcWorld.LayItem(Item: Integer; X, Y: Double); begin end;
 procedure TNpcWorld.PlaySound(const Name: string; X, Y: Double; Looped: Boolean); begin end;
 procedure TNpcWorld.StopSound(const Name: string); begin end;
+function TNpcWorld.WeaponNameAt(I: Integer): string; begin Result := ''; end;
 procedure TNpcWorld.PutBaddy(Kind: Integer; X, Y: Double; const Img: string; Power: Integer); begin end;
 procedure TNpcWorld.Shoot(const Kind: string; X, Y: Double; Dir: Integer); begin end;
 procedure TNpcWorld.PutBomb(Power: Integer; X, Y: Double); begin end;
@@ -451,6 +472,7 @@ begin
   end;
   Npcs := TList.Create;
   Parked := TList.Create;
+  Weapons := TList.Create;
   DataCellX := -1;
   DataCellY := -1;
   ScopeX := -1;
@@ -462,8 +484,10 @@ end;
 destructor TNpcManager.Destroy;
 begin
   Clear;
+  ClearWeapons;
   Npcs.Free;
   Parked.Free;
+  Weapons.Free;
   Flags.Free;
   Log.Free;
   if OwnsWorld then World.Free;
@@ -587,6 +611,9 @@ begin
   finally
     Come.Free;
   end;
+  { weapon scripts get playerenters on every level, on the next tick
+    (rebuild policy: the 2.x weapon scripts set up their level state there) }
+  for I := 0 to Weapons.Count - 1 do TNpc(Weapons[I]).WeaponPending := True;
 end;
 
 function TNpcManager.Ctx2Npc(Ctx: TGsContext): TNpc;
@@ -626,7 +653,80 @@ begin
       Fire(Npc(I), 'created');
       Fire(Npc(I), 'playerenters');
     end;
+  for I := 0 to Weapons.Count - 1 do TNpc(Weapons[I]).WeaponPending := True;
   RemoveGone;
+end;
+
+function TNpcManager.WeaponByName(const Name: string): TNpc;
+var
+  I: Integer;
+begin
+  for I := 0 to Weapons.Count - 1 do
+    if SameText(TNpc(Weapons[I]).WeaponName, Name) then
+    begin
+      Result := TNpc(Weapons[I]);
+      Exit;
+    end;
+  Result := nil;
+end;
+
+function TNpcManager.AddWeapon(const Name, Img, Script: string): TNpc;
+begin
+  Result := nil;
+  if (Name = '') or (WeaponByName(Name) <> nil) then Exit;
+  Result := TNpc.Create;
+  Result.Id := -1;
+  Result.Local := True;
+  Result.WeaponName := Name;
+  Result.Image := Img;
+  Result.Script := Script;
+  Result.X := World.PlayerX + 1.5;
+  Result.Y := World.PlayerY + 2;
+  Result.Ctx := TGsContext.Create(Self, Result);
+  if (Script <> '') and not Result.Ctx.Load(Script) then
+    Error(Result.Ctx, Result.Ctx.Script.Errors.Text);
+  Weapons.Add(Result);
+  Result.WeaponPending := True;
+end;
+
+procedure TNpcManager.RemoveWeapon(const Name: string);
+var
+  W: TNpc;
+begin
+  W := WeaponByName(Name);
+  if W = nil then Exit;
+  if W.Ctx.Running then
+  begin
+    { its own script removed it: dropped once it returns }
+    W.Gone := True;
+    Exit;
+  end;
+  Weapons.Remove(W);
+  W.Free;
+end;
+
+procedure TNpcManager.ClearWeapons;
+var
+  I: Integer;
+begin
+  for I := 0 to Weapons.Count - 1 do TNpc(Weapons[I]).Free;
+  Weapons.Clear;
+end;
+
+procedure TNpcManager.FireWeapon(const Name, Event: string; PX, PY: Double);
+var
+  W: TNpc;
+begin
+  W := WeaponByName(Name);
+  if (W = nil) or W.Gone or W.Ctx.Running then Exit;
+  W.X := PX;
+  W.Y := PY;
+  Fire(W, Event);
+  if W.Gone and not W.Ctx.Running then
+  begin
+    Weapons.Remove(W);
+    W.Free;
+  end;
 end;
 
 procedure TNpcManager.Error(Ctx: TGsContext; const Msg: string);
@@ -983,7 +1083,7 @@ begin
   N := Ctx2Npc(Ctx);
   if Name = 'visible' then Result := (N <> nil) and N.Visible
   else if Name = 'isleader' then Result := IsLeader
-  else if Name = 'isweapon' then Result := False
+  else if Name = 'isweapon' then Result := (N <> nil) and (N.WeaponName <> '')
   else if Name = 'playerismale' then Result := World.PlayerCode('gender') <> 'female'
   else if Name = 'playerisfemale' then Result := World.PlayerCode('gender') = 'female'
   else if Name = 'weaponsenabled' then Result := World.PlayerCode('weapons') <> '0'
@@ -1488,6 +1588,36 @@ begin
       end;
     end;
   end;
+  { weapon timeouts run on this client whoever leads the level }
+  for I := Weapons.Count - 1 downto 0 do
+  begin
+    if I >= Weapons.Count then Continue;
+    N := TNpc(Weapons[I]);
+    if N.Gone then Continue;
+    if N.WeaponPending then
+    begin
+      N.WeaponPending := False;
+      N.X := World.PlayerX + 1.5;
+      N.Y := World.PlayerY + 2;
+      Fire(N, 'playerenters');
+      if N.Gone then Continue;
+    end;
+    if N.Timeout <= 0 then Continue;
+    N.Timeout := N.Timeout - TickSeconds;
+    if N.Timeout <= 0.0001 then
+    begin
+      N.Timeout := 0;
+      N.X := World.PlayerX + 1.5;
+      N.Y := World.PlayerY + 2;
+      Fire(N, 'timeout');
+    end;
+  end;
+  for I := Weapons.Count - 1 downto 0 do
+    if TNpc(Weapons[I]).Gone and not TNpc(Weapons[I]).Ctx.Running then
+    begin
+      TNpc(Weapons[I]).Free;
+      Weapons.Delete(I);
+    end;
   RemoveGone;
   World.Idle;
 end;
@@ -1805,6 +1935,11 @@ begin
             M.Ctx.Run(LowerCase(A.Str[1]));
         end;
       end;
+    GsOpCallWeapon:
+      { the weapon at that index of the player's list, centred on the
+        player, gets the event (npc-library/gs1-event-parameters-205r2.md) }
+      FireWeapon(World.WeaponNameAt(Trunc(A.Num[0])), LowerCase(A.Str[1]),
+        World.PlayerX + 1.5, World.PlayerY + 2);
     GsOpHitNpc:
       begin
         I := Trunc(A.Num[0]);

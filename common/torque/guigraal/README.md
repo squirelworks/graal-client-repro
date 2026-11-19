@@ -34,7 +34,7 @@ them. Pascal remains the fallback (`--pascal`, `GRAAL_PASCAL=1` /
 built game library.
 
 `build/graal304-torque [--root INSTALL] [--prefs DIR] [--game LIB]
-[--steps FILE] [--seconds N] [--trace FILE] [--shot FILE.bmp]` is the windowed
+[--steps FILE] [--seconds N] [--trace FILE] [--shot FILE.bmp] [--nosound]` is the windowed
 program. It boots the install from its own `main.cs`
 (`host/boot304.cpp`, shared with `tq-play`), draws the canvas content and the
 pushed dialogs every 50 ms with `../gui` (`host/frame304.cpp`), and shows the
@@ -63,7 +63,7 @@ minimise. They differ only where their systems do:
   (`graal-3.04-G3D03014/src/Graal304Torque.rc`).
 - macOS: Cmd+Q and Cmd+W close the window as its close button does; the
   Option keys are Torque's `alt`.
-- All three: keys held when the window loses focus are released (Windows,
+- All three: keys held when the window loses focus are released (Linux, Windows,
   macOS), so the player does not keep walking; punctuation keys carry their
   Torque names (`comma`, `period`, ...) and type into text edits.
 
@@ -132,7 +132,7 @@ the buttons call:
 | `updateLoadLevelFields()` | the level, x and y into `LoadLevelFilenameField`, `LoadLevelXField`, `LoadLevelYField` | 304-net.md |
 | `loadLevel(file, x, y)` | offline: loads the level (from `levels/` or the root) at x, y; online: traced | 304-adventure.md |
 | `privateMessageSend`, `playerListOpenPlayer`, `playerListProfile`, `updatePlayerProfile`, `updatePlayerMuted` | traced; no PM, player list or profile in the 2D game yet | stage 5 |
-| `updateMidiVolume`, `updateMp3Volume`, `updateRadioVolume`, `updateMicroActivationLevel`, `updateGraalOptions` | traced; no sound unit yet | stage 5 |
+| `updateMidiVolume`, `updateMp3Volume`, `updateRadioVolume`, `updateMicroActivationLevel`, `updateGraalOptions` | traced; the game's sound has no volume scale yet | stage 5 |
 
 The first wake of `Adventure` writes `Graal activated!` to the console
 (304-adventure.md).
@@ -167,8 +167,13 @@ Rebuild policy, not read from the original:
   and floor items, through `doA`, `doS`, `doD`, `doQ` (stage 5, 2D parity).
 - [x] Hiding (D with a bush or stone), laying items (S held + A) and S
   held + D for the next weapon: `doS` passes S's held state too.
+- [x] Sound: the game library plays the NPC, baddy and `sounds/*.wav`
+  effects through `common/GSound` when the program turns it on
+  (`g304_set_sound`, optional in the C interface; `graal304-torque` turns
+  it on, `--nosound` keeps it off; `tq-play` and the tests never do).
+  The volume prefs are not applied yet.
 - [ ] Grab and pull, map, voice, PMs, the
-  player list and profiles, sound (stage 5, 2D parity).
+  player list and profiles (stage 5, 2D parity).
 - [x] Walking on the offline tutorial (3.04's `picso.png` row rule). Online
   levels need 2.22's `arrays.dat` beside the install (see the 3.04 README).
 - [x] Windows and macOS: Win32 and Cocoa windows, the library as

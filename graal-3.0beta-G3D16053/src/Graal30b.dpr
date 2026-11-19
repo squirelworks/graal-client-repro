@@ -3,6 +3,8 @@
   the gen-4 game link of a client type 4 (Protocol30b, GraalClient).
 
   Command line:
+    Graal30b                 # graal304-torque (Torque menus); Pascal with --pascal
+    Graal30b --pascal        # Pascal start screen
     Graal30b --server HOST:PORT --account NAME [--password-env VAR]
     Graal30b --level FILE.graal|FILE.nw|FILE.gmap [--x X --y Y]
   common options:
@@ -63,6 +65,7 @@ uses
   GraalClient in 'GraalClient.pas',
   Adventure in 'Adventure.pas',
   GStartScreen in '../../common/GStartScreen.pas',
+  GTorquePlay in '../../common/GTorquePlay.pas',
   ListServer30b in 'ListServer30b.pas',
   StartScreen30b in 'StartScreen30b.pas',
   RunMode in 'RunMode.pas';
@@ -110,7 +113,9 @@ end;
 procedure Usage;
 begin
   WriteLn('Graal ', ClientBuildLabel, ' (', ClientVersionToken, ') rebuild');
-  WriteLn('  (no arguments: the start screen, Training or the server list)');
+  WriteLn('  (no arguments: graal304-torque; Pascal start screen with --pascal');
+  WriteLn('   or GRAAL_PASCAL=1 / GRAAL_PASCAL_GAME=1)');
+  WriteLn('  --pascal         Pascal start screen (Training or the server list)');
   WriteLn('  --server HOST:PORT --account NAME [--password-env VAR]');
   WriteLn('  --level FILE [--x X --y Y]');
   WriteLn('  common: [--data DIR] [--window | --headless] [--frames N] [--seconds N]');
@@ -584,10 +589,27 @@ begin
   end;
 end;
 
+var
+  TorqueExe: string;
 begin
   Randomize;
-  if ParamCount = 0 then
+  { Interactive default: the Torque program beside this one, as for 3.04
+    and 3.153 (common/GTorquePlay.pas). Pascal is the fallback with
+    --pascal / GRAAL_PASCAL=1, when torque is missing, or with no DISPLAY
+    on Linux. CLI (--server, --level, stress) stays in Pascal. }
+  if (ParamCount = 0) or ((ParamCount = 1) and (ParamStr(1) = '--pascal')) then
+  begin
+    if ParamCount = 0 then
+    begin
+      TorqueExe := TorqueProgram(ExtractFilePath(ParamStr(0)));
+{$IFDEF LINUX}
+      if (TorqueExe <> '') and (GetEnvironmentVariable('DISPLAY') = '') then
+        TorqueExe := '';
+{$ENDIF}
+      if TorqueExe <> '' then Halt(RunTorque(TorqueExe));
+    end;
     Halt(RunGui);
+  end;
   OpenConsoleIO;
   Halt(RunGame(nil, '', ''));
 end.

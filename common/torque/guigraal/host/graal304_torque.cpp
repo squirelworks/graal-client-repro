@@ -143,7 +143,7 @@ void fail(const std::string& text) {
 
 void usage() {
   std::cerr << "usage: graal304-torque [--root INSTALL] [--prefs DIR] [--game LIB] [--steps FILE]\n"
-               "                       [--seconds N] [--trace FILE] [--shot FRAME.bmp]\n";
+               "                       [--seconds N] [--trace FILE] [--shot FRAME.bmp] [--nosound]\n";
 }
 
 } // namespace
@@ -155,6 +155,7 @@ int main(int argc, char** argv) {
   const std::string here = program_dir(argv[0]);
   unsigned seconds = 0;
   std::string root, prefs, lib, steps_path, trace_path, shot;
+  bool sound = true;
   for (int i = 1; i < argc; ++i) {
     std::string a = argv[i];
     auto next = [&]() -> std::string {
@@ -168,6 +169,7 @@ int main(int argc, char** argv) {
     else if (a == "--seconds") seconds = static_cast<unsigned>(std::stoul(next()));
     else if (a == "--trace") trace_path = next();
     else if (a == "--shot") shot = next();
+    else if (a == "--nosound") sound = false;
     else { usage(); return 2; }
   }
   auto has_main = [](const std::string& dir) { return std::ifstream(dir + "/main.cs").good(); };
@@ -234,6 +236,9 @@ int main(int argc, char** argv) {
     fail(error);
     return 1;
   }
+  // 3.04 plays .wav files from sounds/ (torque/304-audio-ui.md); the game
+  // library mixes them itself (common/GSound). --nosound keeps it silent.
+  game->set_sound(sound);
   GuiGraal304 graal(engine, std::move(game));
   if (is_install_3153(engine)) graal.register_3153();
   boot_304(engine);

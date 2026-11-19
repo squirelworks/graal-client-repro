@@ -55,14 +55,31 @@ const
 
 
 type
+  { True when the request went out }
+  TWantFile = function(const Name: string): Boolean of object;
+
   { Images and ganis from the player's install, loaded once and kept. }
   TAssets = class
   private
     FNames: TStringList;  { lower-case key -> TGSurface or TGraalAni }
+    FDownNames: TStringList; { lower-case name -> index into FDownData }
+    FDownData: array of string;
+    FAsked: TStringList;
     function FindFile(const Name: string; const Dirs: array of string): string;
+    procedure Want(const Name: string);
   public
     Dir: string;          { install folder; '' = none }
     Missing: TStringList; { names looked for and not found, once each }
+    { Online: asks the server for a file the install lacks (WANTFILE), as
+      the 2.22 rebuild does for heads, bodies, ganis and NPC images }
+    OnWant: TWantFile;
+    { A file the server sent (kept in memory for the session). Whatever
+      was looked up under that name before is looked up again. }
+    procedure AddDownload(const Name, Data: string);
+    function Downloaded(const Name: string; out Data: string): Boolean;
+    function WantedCount: Integer;
+    { asks for every name looked up and not found so far }
+    procedure WantMissing;
     constructor Create;
     destructor Destroy; override;
     { Nil when not found. Kind picks the sub-folders searched. }
@@ -221,6 +238,10 @@ type
     FWarpT0: Int64;
     FAdjacentAsked: TStringList;
     FGmapWanted: string;   { a .gmap asked for with WANTFILE }
+    { a large file coming in pieces (LARGEFILESTART .. LARGEFILEEND) }
+    FLargeName, FLargeData: string;
+    FLargeSize: Int64;
+    FSoundLevel: string;   { looped sounds stop when the level changes }
     FAccount, FPassword, FHost: string;
     FPort: Word;
     { the level that LEVELNAME named last: the data after it is its own
@@ -239,6 +260,9 @@ type
     procedure AskAdjacent;
     procedure CrossEdges;
     procedure ReceiveFile(const Data: string);
+    procedure ReceiveNpcWeapon(R: TGReader);
+    procedure ReceiveLarge(Id: Integer; const Data: string);
+    function WantFile(const Name: string): Boolean;
     procedure ServerWarp(const Data: string);
     { The player's level changed: what lived in the old one goes, and
       offline the new level's own NPCs and baddies start. }
@@ -513,7 +537,7 @@ function SpriteWalkStep(Sprite: Integer): Integer;
 implementation
 
 uses
-  GSecLogin, SysUtils, Math, GFont, NpcBridge304;
+  GSecLogin, SysUtils, Math, GFont, GSound, NpcBridge304;
 
 procedure MakeIndexSheet(Sheet: TGSurface);
 var
@@ -565,6 +589,10 @@ begin
   Missing := TStringList.Create;
   Missing.Sorted := True;
   Missing.Duplicates := dupIgnore;
+  FDownNames := TStringList.Create;
+  FDownNames.Sorted := True;
+  FAsked := TStringList.Create;
+  FAsked.Sorted := True;
 end;
 
 destructor TAssets.Destroy;
@@ -574,7 +602,91 @@ begin
   for I := 0 to FNames.Count - 1 do FNames.Objects[I].Free;
   FNames.Free;
   Missing.Free;
+  FDownNames.Free;
+  FAsked.Free;
   inherited Destroy;
+end;
+
+procedure TAssets.WantMissing;
+var
+  I: Integer;
+  L: TStringList;
+begin
+  L := TStringList.Create;
+  try
+    L.Assign(Missing);
+    for I := 0 to L.Count - 1 do Want(L[I]);
+  finally
+    L.Free;
+  end;
+end;
+
+function TAssets.WantedCount: Integer;
+begin
+  Result := FAsked.Count;
+end;
+
+procedure TAssets.Want(const Name: string);
+var
+  K: string;
+begin
+  if not Assigned(OnWant) or (Name = '') or (Name[1] = '#') then Exit;
+  { plain file names only, and not without end }
+  if (Pos('/', Name) > 0) or (Pos('\', Name) > 0) or (Pos('..', Name) > 0) or
+    (Length(Name) > 100) or (FAsked.Count >= 500) then Exit;
+  K := LowerCase(Name);
+  if FAsked.IndexOf(K) >= 0 then Exit;
+  if OnWant(Name) then FAsked.Add(K);
+end;
+
+procedure TAssets.AddDownload(const Name, Data: string);
+const
+  ImageKinds: array[0..5] of string = ('head', 'body', 'sword', 'shield', 'hat', 'weapon');
+var
+  K, B: string;
+  I: Integer;
+
+  procedure Forget(const Key: string);
+  var
+    J: Integer;
+  begin
+    J := FNames.IndexOf(Key);
+    if J >= 0 then
+    begin
+      FNames.Objects[J].Free;
+      FNames.Delete(J);
+    end;
+  end;
+
+begin
+  if Name = '' then Exit;
+  K := LowerCase(Name);
+  I := FDownNames.IndexOf(K);
+  if I >= 0 then FDownData[PtrInt(FDownNames.Objects[I])] := Data
+  else
+  begin
+    SetLength(FDownData, Length(FDownData) + 1);
+    FDownData[High(FDownData)] := Data;
+    FDownNames.AddObject(K, TObject(PtrInt(High(FDownData))));
+  end;
+  { forget what was found (or not) under this name }
+  B := K;
+  if EndsWith(B, '.gani') then SetLength(B, Length(B) - 5);
+  Forget('img:' + K);
+  for I := 0 to High(ImageKinds) do Forget('img:' + K + '|' + ImageKinds[I]);
+  Forget('ani:' + B);
+  I := Missing.IndexOf(Name);
+  if I >= 0 then Missing.Delete(I);
+end;
+
+function TAssets.Downloaded(const Name: string; out Data: string): Boolean;
+var
+  I: Integer;
+begin
+  Data := '';
+  I := FDownNames.IndexOf(LowerCase(Name));
+  Result := I >= 0;
+  if Result then Data := FDownData[PtrInt(FDownNames.Objects[I])];
 end;
 
 function TAssets.FindFile(const Name: string; const Dirs: array of string): string;
@@ -649,13 +761,23 @@ begin
     else Ok := LoadImageFile(F, S);
     if not Ok then FreeAndNil(S);
   end;
+  { a copy the server sent }
+  if (S = nil) and Downloaded(Name, D) then
+  begin
+    S := TGSurface.Create(0, 0);
+    if not LoadImageData(D, Name, S, Kind = 'body') then FreeAndNil(S);
+  end;
   { nothing on disk: the built-in default of that name, if there is one }
   if (S = nil) and BuiltinFile(Name, D) then
   begin
     S := TGSurface.Create(0, 0);
     if not LoadImageData(D, Name, S, Kind = 'body') then FreeAndNil(S);
   end;
-  if S = nil then Missing.Add(Name);
+  if S = nil then
+  begin
+    Missing.Add(Name);
+    Want(Name);
+  end;
   FNames.AddObject(Key, S);
   Result := S;
 end;
@@ -688,12 +810,21 @@ begin
       if not A.LoadFromFile(F) then FreeAndNil(A);
     end;
   end;
+  if (A = nil) and (N <> '') and Downloaded(N + '.gani', F) then
+  begin
+    A := TGraalAni.Create;
+    if not A.LoadFromString(F) then FreeAndNil(A);
+  end;
   if (A = nil) and BuiltinFile(N + '.gani', F) then
   begin
     A := TGraalAni.Create;
     if not A.LoadFromString(F) then FreeAndNil(A);
   end;
-  if A = nil then Missing.Add(N + '.gani');
+  if (A = nil) and (N <> '') then
+  begin
+    Missing.Add(N + '.gani');
+    Want(N + '.gani');
+  end;
   FNames.AddObject(Key, A);
   Result := A;
 end;
@@ -989,6 +1120,7 @@ begin
   Sheet := TGSurface.Create(0, 0);
   Arrays := TGArrays.Create;
   Assets := TAssets.Create;
+  Assets.OnWant := WantFile;
   FOthers := TList.Create;
   FTileDefs := TStringList.Create;
   FTileDefTypes := TStringList.Create;
@@ -1240,6 +1372,9 @@ begin
   SetLength(Weapons, 0);
   Selected := -1;
   FObjectLevel := '';
+  FLargeName := '';
+  FLargeData := '';
+  Npcs.ClearWeapons;
   Npcs.Clear;
   Npcs.HasNpcServer := False;
   Result := FClient.Connect(Host, Port);
@@ -2505,8 +2640,11 @@ begin
     20: Shoot(1);
     21: Shoot(2);
     22: Shoot(3);
+    -1:
+      { a server weapon: its script gets weaponfired, the weapon centred on
+        the player (as callweapon; npc-library/gs1-event-parameters-205r2.md) }
+      Npcs.FireWeapon(Weapons[Selected].Name, 'weaponfired', Player.X + 1.5, Player.Y + 2);
   end;
-  { NPC weapons run their script; that is the NPC code's part }
 end;
 
 procedure TAdventure.Shoot(Kind: Integer);
@@ -3150,6 +3288,8 @@ begin
   FSentGmapX := Player.GmapX;
   FSentGmapY := Player.GmapY;
   FPropsSent := True;
+  { pictures and ganis looked for before the session was up }
+  Assets.WantMissing;
 end;
 
 procedure TAdventure.Say(const Text: string);
@@ -3194,6 +3334,82 @@ begin
   HandleMessage(Id, Data);
 end;
 
+{ PLO_NPCWEAPONADD: str name, then NPC props: 0 image (str), 1 script
+  (GSHORT length + GS1 text, lines joined with #167). A name the player
+  already has is ignored (feature-specs/02-weapons-combat.md). }
+procedure TAdventure.ReceiveNpcWeapon(R: TGReader);
+var
+  Name, Img, Script: string;
+  P, L: Integer;
+begin
+  Name := R.ReadGString;
+  if Name = '' then Exit;
+  Img := '';
+  Script := '';
+  while not R.Eof do
+  begin
+    P := R.ReadGChar;
+    if P = 0 then Img := R.ReadGString
+    else if P = 1 then
+    begin
+      L := R.ReadGShort;
+      Script := R.ReadChars(L);
+    end
+    else
+      Break;
+    if R.Overrun then Break;
+  end;
+  Log(Format('NPCWEAPONADD %s (%s, %d bytes of script)', [Name, Img, Length(Script)]));
+  AddWeapon(Name, Img, -1);
+  Npcs.AddWeapon(Name, Img, Script);
+end;
+
+{ a file the install lacks, asked from the server once the session is up }
+function TAdventure.WantFile(const Name: string): Boolean;
+begin
+  Result := FClient.Connected and FPropsSent;
+  if not Result then Exit;
+  FClient.SendPacket(PLI_WANTFILE, Name);
+  Log('WANTFILE ' + Name);
+end;
+
+{ LARGEFILESTART (68) and LARGEFILEEND (69): rest = the file's name;
+  LARGEFILESIZE (84, which 3.04 handles): i5 size; the FILE messages
+  between carry its pieces (protocol/file-transfer.md) }
+procedure TAdventure.ReceiveLarge(Id: Integer; const Data: string);
+var
+  R: TGReader;
+begin
+  if Id = PLO_LARGEFILESTART then
+  begin
+    FLargeName := Data;
+    FLargeData := '';
+    FLargeSize := -1;
+  end
+  else if Id = PLO_LARGEFILESIZE then
+  begin
+    R := TGReader.Create(Data);
+    try
+      FLargeSize := R.ReadGInt5;
+    finally
+      R.Free;
+    end;
+    if FLargeName <> '' then
+      Log(Format('File download: %s (size: %d)...', [FLargeName, FLargeSize]));
+  end
+  else if SameText(Data, FLargeName) and (FLargeName <> '') then
+  begin
+    FLargeName := '';
+    Log(Format('FILE %s (%d bytes, large)', [Data, Length(FLargeData)]));
+    Log(Format('File download: %s (size: %d) done', [Data, Length(FLargeData)]));
+    if EndsWith(Data, '.gmap') then
+      ReceiveFile(GInt5(0) + GString(Data) + FLargeData)
+    else
+      Assets.AddDownload(Data, FLargeData);
+    FLargeData := '';
+  end;
+end;
+
 { PLO_FILE (102, behind RAWDATA): i5 mod time, c name length, name, data
   (2.22 gets file mod times; version-profiles/2.22-2.31.md). Only a .gmap
   is kept; other files are not saved yet. }
@@ -3210,7 +3426,21 @@ begin
   finally
     R.Free;
   end;
+  if (FLargeName <> '') and SameText(Name, FLargeName) then
+  begin
+    { a piece of a large file }
+    if Length(FLargeData) + Length(Body) <= 16 * 1024 * 1024 then
+      FLargeData := FLargeData + Body;
+    Exit;
+  end;
   Log(Format('FILE %s (%d bytes)', [Name, Length(Body)]));
+  { 3.04's progress line (torque/304-net.md) }
+  Log(Format('File download: %s (size: %d) done', [Name, Length(Body)]));
+  if not EndsWith(Name, '.gmap') then
+  begin
+    Assets.AddDownload(Name, Body);
+    Exit;
+  end;
   if EndsWith(Name, '.gmap') and (LowerCase(Name) = LowerCase(GmapName)) then
   begin
     FreeAndNil(Gmap);
@@ -3614,6 +3844,8 @@ begin
           Log('WARPFAILED ' + Data);
         end;
       PLO_FILE: ReceiveFile(Data);
+      PLO_LARGEFILESTART, PLO_LARGEFILEEND, PLO_LARGEFILESIZE: ReceiveLarge(Id, Data);
+      PLO_FILESENDFAILED: Log('File download: ' + Data + ' not found');
       PLO_SETACTIVELEVEL:
         begin
           FObjectLevel := Data;
@@ -3628,11 +3860,12 @@ begin
       PLO_DEFAULTWEAPON: { c item number }
         if Length(Data) >= 1 then AddDefaultWeapon(R.ReadGChar);
       PLO_NPCWEAPONADD: { name, then the weapon NPC's props (image, script) }
+        ReceiveNpcWeapon(R);
+      PLO_NPCWEAPONDEL:
         begin
-          S := R.ReadGString;
-          if S <> '' then AddWeapon(S, '', -1);
+          RemoveWeapon(Data);
+          Npcs.RemoveWeapon(Data);
         end;
-      PLO_NPCWEAPONDEL: RemoveWeapon(Data);
       PLO_ARROWADD: { s player, c x*2, c y*2, c flags, c sprite, c type + 1 }
         begin
           if Length(Data) < 7 then Exit;
@@ -3780,6 +4013,15 @@ begin
   if Moved then Npcs.PlayerMoved(Player.X, Player.Y);
   Npcs.Tick;
   Baddies.Tick;
+  { sounds: looped ones stop on a new level; the listener follows the
+    player; the mix goes to the device (silent unless turned on) }
+  if (Level <> nil) and (Level.Name <> FSoundLevel) then
+  begin
+    FSoundLevel := Level.Name;
+    StopLoopedSounds;
+  end;
+  SetListener(Player.X, Player.Y);
+  SoundTick;
   { links are tested on the player's own walk, at one point: the body's
     centre pushed ahead in the walking direction }
   if Moved then FollowLink(LinkAt(Player.X + 1.5 + AX, Player.Y + 2 + AY));

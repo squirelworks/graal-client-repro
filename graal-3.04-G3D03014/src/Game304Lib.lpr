@@ -17,7 +17,7 @@ library Game304Lib;
 
 uses
   {$IFDEF UNIX}cthreads,{$ENDIF}
-  SysUtils, Classes, Math,
+  SysUtils, Classes, Math, GSound,
   GTypes in '../../common/GTypes.pas',
   GZlib in '../../common/GZlib.pas',
   GSocket in '../../common/GSocket.pas',
@@ -436,12 +436,21 @@ begin
     G.Player.Y, G.Player.Dir], DefaultFormatSettings));
 end;
 
+{ Sound on the system's device (GSound): 1 on, 0 off. Off until the
+  windowed program turns it on; tests and tq-play never do. }
+procedure g304_set_sound(H: Pointer; On: Integer); cdecl;
+begin
+  SoundEnabled := On <> 0;
+  if not SoundEnabled then StopLoopedSounds;
+end;
+
 exports
   g304_create, g304_free, g304_set_log, g304_error, g304_set_nickname,
   g304_list_open, g304_list_poll, g304_list_status, g304_list_count,
   g304_list_field, g304_connect, g304_offline, g304_offline_path, g304_key,
   g304_action,
-  g304_say, g304_toall, g304_tick, g304_state, g304_frame, g304_player;
+  g304_say, g304_toall, g304_tick, g304_state, g304_frame, g304_player,
+  g304_set_sound;
 
 begin
   { The host is C++: no floating-point exception traps from this side. }

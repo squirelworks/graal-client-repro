@@ -9,9 +9,9 @@ is the 0.0.1 reproduction: hit or miss.
 
 Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
 
-- **default:** Delphi/Pascal stand-in (no-argument / release entry on main today).
-- **faithful engine:** Torque windowed host (shared `graal304-torque` line); boot/profile for this token still open — still being wired; not the release default.
-- **relic:** none yet. When the faithful engine is validated end-to-end and switched to default, the Pascal stand-in becomes the labeled relic/fallback and is never deleted.
+- **default:** With no arguments `Graal3151` starts the Torque program `graal304-torque` beside it, which loads this build's `Game3151Lib` (`common/GTorquePlay.pas`, as 3.04 and 3.153).
+- **faithful engine:** Torque `graal304-torque` / `common/torque`, now the no-argument path. CI runs the menu-to-login loopback for `Game3151Lib` (G3D27015); the Debian lab check in #303 is still to run.
+- **relic / fallback:** the Pascal stand-in, with `--pascal`, `GRAAL_PASCAL=1` / `GRAAL_PASCAL_GAME=1`, a missing `graal304-torque`, or no `DISPLAY`. Never deleted.
 
 ## Sources
 
