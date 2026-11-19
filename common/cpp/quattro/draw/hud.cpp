@@ -1,5 +1,7 @@
 #include "hud.hpp"
 
+#include "ui_font.hpp"
+
 #include <algorithm>
 #include <string>
 
@@ -79,11 +81,15 @@ void Hud::draw_number(Torque::Gui::Canvas& c, const Image& sheet, const std::str
 }
 
 void Hud::draw(Torque::Gui::Canvas& c, const HudState& s) const {
+  if (s.style == HudState::V4) {
+    draw_v4(c, s);
+    return;
+  }
   const Image* sheet = assets_ ? assets_->image("state.png") : nullptr;
   if (!sheet || sheet->width < 224 || sheet->height < 129) return;
   const int bits = s.show_stats;
   // Tabs: with weapons off only A (Adventure.ShowStats / WeaponsOn).
-  if (bits & HudState::kTabs) {
+  if ((bits & HudState::kTabs) && s.style == HudState::V6) {
     c.blit(*sheet, kTab, kTabX[0], kTabY);
     if (s.weapons_on) {
       c.blit(*sheet, kTab, kTabX[1], kTabY);
@@ -102,12 +108,12 @@ void Hud::draw(Torque::Gui::Canvas& c, const HudState& s) const {
       }
     }
   }
-  if ((bits & HudState::kAp) != 0) {
+  if ((bits & HudState::kAp) != 0 && s.style == HudState::V6) {
     c.blit(*sheet, kApFrame, kBarX, kApY);
     int ap = std::clamp(s.ap, 0, 100);
     if (ap) c.blit(*sheet, {kApFill.x, kApFill.y, ap, kApFill.height}, kBarX + kFillDx, kApY + kFillDy);
   }
-  if ((bits & HudState::kMp) != 0 && s.mp > 0) {
+  if ((bits & HudState::kMp) != 0 && s.mp > 0 && s.style == HudState::V6) {
     c.blit(*sheet, kMpFrame, kBarX, kMpY);
     int mp = std::min(s.mp, 100);
     c.blit(*sheet, {kMpFill.x, kMpFill.y, mp, kMpFill.height}, kBarX + kFillDx, kMpY + kFillDy);
@@ -131,6 +137,23 @@ void Hud::draw(Torque::Gui::Canvas& c, const HudState& s) const {
       Rect src = small ? (h.half ? kSmallHalfHeart : kSmallHeart) : (h.half ? kHalfHeart : kHeart);
       c.blit(*sheet, src, h.x, h.y);
     }
+  }
+}
+
+void Hud::draw_v4(Torque::Gui::Canvas& c, const HudState& s) const {
+  if (!(s.show_stats & HudState::kTabs)) return;
+  auto label = [&](int x, int y, std::string_view t, Torque::Gui::Color colour) {
+    ui_draw_text(c, x + 1, y + 1, t, {0, 0, 0, 255}, true);
+    ui_draw_text(c, x, y, t, colour, true);
+  };
+  label(17, 37, "A", {255, 255, 255, 255});
+  if (!s.weapons_on) return;
+  label(82, 37, "S", {255, 255, 255, 255});
+  label(148, 34, "D", {255, 255, 255, 255});
+  if (s.sword_power > 0) {
+    std::string name = s.sword_image.empty() ? "sword" + std::to_string(s.sword_power) + ".png" : s.sword_image;
+    if (const Image* sword = assets_ ? assets_->image(name) : nullptr) c.blit(*sword, kSwordSrc, kSwordX, kSwordY);
+    label(122, 36, std::to_string(s.sword_power), {0, 0, 255, 255});
   }
 }
 

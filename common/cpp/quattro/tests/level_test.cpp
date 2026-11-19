@@ -417,6 +417,29 @@ void test_hud() {
   CHECK(no_wep.surface().at(15 + 3, 30 + 3).b == 255);
   CHECK(no_wep.surface().at(145 + 3, 30 + 3).b == 0);
   CHECK(no_wep.surface().at(180, 45).r == 0);
+  // 5.12: icons, counters and hearts, but no tabs and no AP bar.
+  s.weapons_on = true;
+  s.style = Draw::HudState::V5;
+  Draw::Canvas v5(1024, 200);
+  hud.draw(v5, s);
+  CHECK(v5.surface().at(826 + 5, 24 + 5).r == 255);
+  CHECK(v5.surface().at(282, 48 + 3).r == 255);
+  CHECK(v5.surface().at(15 + 3, 30 + 3).b == 0);
+  CHECK(v5.surface().at(37 + 29, 71 + 2).r == 0);
+  // 4.04r2: no state.png parts; the letters and the sword with its power.
+  s.style = Draw::HudState::V4;
+  Draw::Canvas v4(640, 200);
+  hud.draw(v4, s);
+  CHECK(v4.surface().at(105 + 6, 31 + 10).r == 9);  // the sword
+  CHECK(v4.surface().at(826 % 640 + 5, 24 + 5).r == 0);
+  bool white = false, blue = false;
+  for (int y = 30; y < 60; ++y)
+    for (int x = 10; x < 160; ++x) {
+      const auto p = v4.surface().at(x, y);
+      if (p.r == 255 && p.g == 255 && p.b == 255) white = true;
+      if (p.r == 0 && p.g == 0 && p.b == 255 && x >= 120) blue = true;
+    }
+  CHECK(white && blue);
 }
 
 // GRMAP001: the LEVELNAMES grid, row-major and lowercased, and the short
