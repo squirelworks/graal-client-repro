@@ -101,6 +101,9 @@ class Renderer {
   std::uint32_t hit(int x, int y, Rect* out = nullptr) const;
   // A text list's row height for its profile's font.
   int row_height(const SimObject* list);
+  // The value a click at canvas x gives a slider drawn in `box`: its range
+  // across the track, snapped to its ticks.
+  double slider_value_at(SimObject* slider, const Rect& box, int x);
 
   // The pop-up menu whose list is open (0: none), and where that list drew
   // in the last render: rows top down, `popup_row_height` each. The mouse
@@ -127,6 +130,8 @@ class Renderer {
   void draw_bitmap_ctrl(Canvas& canvas, SimObject* control, const Rect& rect, bool tile);
   void draw_text_list(Canvas& canvas, SimObject* control, const Profile& p, const Rect& rect);
   void draw_ml_text(Canvas& canvas, SimObject* control, const Profile& p, const Rect& rect);
+  void draw_slider(Canvas& canvas, SimObject* control, const Profile& p, const Rect& rect);
+  int slider_thumb_width(SimObject* control);
   void draw_popup_list(Canvas& canvas);
   Cached* load(const std::string& path);
   void note(const std::string& line);

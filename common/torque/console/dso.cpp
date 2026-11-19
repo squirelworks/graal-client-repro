@@ -1,5 +1,7 @@
 #include "dso.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <limits>
 #include <utility>
@@ -129,5 +131,34 @@ bool load_dso(const std::vector<std::uint8_t>& bytes, FloatOrder order,
     error = failure;
     return false;
   }
+}
+
+namespace {
+int plausible_floats(const DsoBlock& b) {
+  int score = 0;
+  for (const auto* table : {&b.global_floats, &b.function_floats})
+    for (double v : *table) {
+      if (!std::isfinite(v)) { score -= 4; continue; }
+      if (v == 0) { ++score; continue; }
+      const double a = std::fabs(v);
+      if (a < 1e-6 || a > 1e9) { score -= 2; continue; }
+      // script constants: a few decimal places at most
+      const double scaled = v * 10000.0;
+      if (std::fabs(scaled - std::round(scaled)) < 1e-6 * std::max(1.0, std::fabs(scaled))) score += 2;
+    }
+  return score;
+}
+} // namespace
+
+FloatOrder detect_dso_float_order(const std::vector<std::uint8_t>& bytes, FloatOrder fallback) {
+  DsoBlock little, big;
+  DsoError e1, e2;
+  const bool ok_little = load_dso(bytes, FloatOrder::little, little, e1);
+  const bool ok_big = load_dso(bytes, FloatOrder::big, big, e2);
+  if (!ok_little || !ok_big) return fallback;
+  const int sl = plausible_floats(little), sb = plausible_floats(big);
+  if (sl > sb) return FloatOrder::little;
+  if (sb > sl) return FloatOrder::big;
+  return fallback;
 }
 } // namespace Torque

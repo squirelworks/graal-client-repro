@@ -151,6 +151,22 @@ void test_functions() {
   same(r.out(), std::string("xz\nonly\nscripts/f.cs (0): Unable to find function nothere\n"), "calls and unknown function");
 }
 
+// An empty function body is declared with hasBody 0; its lone RETURN is
+// not top-level code, so the file goes on past it (3.153 layout's
+// default.bind2D.cs: the GlobalActionMap binds follow such a function).
+void test_empty_function() {
+  Run r;
+  Block c;
+  auto end = c.function("nothing", "", "", {"%val"});
+  c.patch(end - 1, 0);
+  c.end_function(end);
+  c.w(PUSH_FRAME); c.call("nothing", {"1"}); c.w(PUSH); c.callfunc("echo"); c.w(STR_TO_NONE);
+  c.call("echo", {"after"}); c.w(STR_TO_NONE);
+  c.w(RETURN);
+  check(r.run(c, "scripts/e.cs"), "empty function file ran");
+  same(r.out(), std::string("\nafter\n"), "empty function declared, file runs past it");
+}
+
 // Packages: base, then common, then graal activated on top. Each calls
 // Parent:: first, then echoes, so the base runs first.
 void test_packages() {
@@ -442,6 +458,7 @@ int main() {
   test_branches();
   test_variables();
   test_functions();
+  test_empty_function();
   test_packages();
   test_objects();
   test_arity();
