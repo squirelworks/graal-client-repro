@@ -23,6 +23,8 @@ to the program works too (`graal-assets/6.03r7/`, then
 
 ## What's new in v0.0.5
 
+- [x] Quattro reads its own props as the probed 6.03r7 does (graal-client-repro#407): 83 is the gralat count in five bytes, applied only up to 999,999,999; 77 is five bytes and stored nowhere; 81 one byte; 82 a string; an id with no case (33, 50, 51, 53, 75, 76, 84 and up) is skipped with one byte and the rest of the message is read. The HUD draws only the low seven gralat digits. PLO 60, 78, 81, 83 and 110 stay ignored.
+
 - [x] Quattro `putleaps(kind, x, y)`: GS1 object-explosion burst (kind 0..5); bush leaves and sign shards draw; stone/swamp/ball/water leave no pieces until splash sprites are measured.
 
 - [x] Quattro `findplayer(account)`: returns the online player's GS2 object by account name (case-insensitive), or 0; self is `player`.

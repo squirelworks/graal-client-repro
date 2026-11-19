@@ -348,6 +348,10 @@ void test_hud() {
   CHECK(h[0].x == 602);  // anchored to the right edge
   CHECK(Draw::Hud::counter_text(0, false) == "0" && Draw::Hud::counter_text(1234, false) == "1234");
   CHECK(Draw::Hud::counter_text(5, true) == "05" && Draw::Hud::counter_text(100, true) == "10");
+  // 6.03r7 draws only the low seven gralat digits (probe results 2026-11-18).
+  CHECK(Draw::Hud::counter_text(999999999, false) == "9999999");
+  CHECK(Draw::Hud::counter_text(12345678, false) == "2345678");
+  CHECK(Draw::Hud::counter_text(10000000, false) == "0");
   // Drawing: a synthetic sheet, each piece its own colour.
   Draw::Assets assets;
   Draw::Image sheet(224, 145, {0, 0, 0, 0});

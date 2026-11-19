@@ -22,6 +22,8 @@ to the program works too.
 
 ## What's new in v0.0.5
 
+- [x] Quattro reads its own props as the probed 5.24r4 does (graal-client-repro#407): an id with no case (33, 50, 51, 53, 75 to 77, 83, 84 and up) is skipped with one byte and the message goes on; 82 is a string.
+
 - [x] **Quattro login + level + walk.** The `5.24r4 Windows` row in `common/cpp/quattro` (`G3D15010`, win + OS version, tiles in Login) passes loopback session and program tests: language, board, 178 warp, and a walk step. Folder start-screen handoff to `quattro-play` is still D5.
 - [x] **New client.** 5.24r4 has a folder of its own, started from `graal-6.0.1.5-G3D3007A` with its own token `G3D15010` and the Windows login tail (`win` and four machine fields) and `win` as its system name.
 - [x] **Machine fields in the original's shape.** The login line now sends `win`, three fixed made-up MD5 hashes (of SquirrelOS, SquirrelNIC and SquirrelBIOS strings) and the quoted Windows version `"6.2 9200 "`, the shape the real client sends. Nothing is read from your machine.

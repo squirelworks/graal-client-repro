@@ -49,6 +49,7 @@ type
     function EncodeFrame(const Plain: string): string; virtual;
     function DecodeFrame(const Body: string; out Plain: string): Boolean; virtual;
     procedure SplitMessages;
+    function CutAtNul(const Body: string): string;
     procedure DeliverMessage(const Msg: string);
     { Logs Why, drops the link and the receive buffers. }
     procedure Fail(const Why: string);
@@ -336,7 +337,7 @@ begin
     end;
     Inc(P, Len + 2);
     Inc(FFramesIn);
-    FInPlain := FInPlain + Body;
+    FInPlain := FInPlain + CutAtNul(Body);
     SplitMessages;
     if FInRaw = '' then Exit; { Fail cleared the buffers }
   end;
@@ -362,6 +363,31 @@ begin
   Inc(FMessagesIn);
   if Assigned(FOnMessage) then
     FOnMessage(Id, Copy(Msg, 2, MaxInt));
+end;
+
+{ The real 2.22 stops reading a frame at a NUL byte: a message with a 00
+  byte in it loses every message after it in the same frame, and the next
+  frame reads normally (Graal_analysis protocol/probe-targets-2026-11-18.md,
+  runs b222-a and b231-a). The message is kept up to the NUL [inf]. A
+  frame that carries PLO_RAWDATA before the NUL (a board or a file) is left
+  whole: file bodies hold 00 bytes and still arrive [inf]. }
+function TGraalClient.CutAtNul(const Body: string): string;
+var
+  Z, P: Integer;
+begin
+  Result := Body;
+  if FRawPending > 0 then Exit;
+  Z := Pos(#0, Body);
+  if Z = 0 then Exit;
+  P := 1;
+  while P < Z do
+  begin
+    if Ord(Body[P]) - $20 = PLO_RAWDATA then Exit;
+    while (P < Z) and (Body[P] <> #10) do Inc(P);
+    Inc(P);
+  end;
+  Result := Copy(Body, 1, Z - 1);
+  if (Result <> '') and (Result[Length(Result)] <> #10) then Result := Result + #10;
 end;
 
 procedure TGraalClient.SplitMessages;
