@@ -21,6 +21,7 @@
 #include "../world/weapons.hpp"
 #include "../world/health.hpp"
 #include "../world/item_list.hpp"
+#include "../world/npcs.hpp"
 #include "gui_host.hpp"
 #include "scripts.hpp"
 #include "weapon_api.hpp"
@@ -99,6 +100,11 @@ class Program {
   const World::FloorItems& floor_items() const { return floor_items_; }
   // The weapon list (33, 34, 43, 194) and the bombs, blasts and shots in the level.
   const World::WeaponList& weapons() const { return weapons_; }
+  const std::map<int, World::ServerNpc>& npcs() const { return npcs_; }
+  gs2::VarPtr npc_script(int id) const {
+    auto it = npc_vars_.find(id);
+    return it == npc_vars_.end() ? nullptr : it->second;
+  }
   const World::Combat& combat() const { return combat_; }
   const World::Health& health() const { return health_; }
   // The Q item list window (2.05's layout) is open.
@@ -183,6 +189,16 @@ class Program {
   void register_weapon_commands();
   // shell/weapon_api.cpp: the GS2 weapon commands and events.
   void register_script_commands();
+  // Server NPCs (3, 131, 29, 150, 151) on the 3.153-5.12 path (shell/npcs.cpp).
+  bool on_npc_message(int id, std::string_view body);
+  void register_npc_commands();
+  void npc_to_script(int id);     // the NPC's props onto its script object
+  void npcs_from_scripts();       // what the scripts changed back onto the NPCs
+  void npc_touches();             // playertouchsme as the player walks into one
+  void npcs_to_world();           // the visible ones into world_.npcs
+  void clear_level_npcs();        // ids below 1000 (a new level)
+  void drop_npc(int id);
+  int npc_of(const gs2::Var* v) const;  // the NPC whose script object this is, or 0
   void script_input(const Draw::InputEvent& e);  // onKeyPressed, onMouseDown, the say2 box
   void script_tick();                            // freeze time, hidden player, focus
   bool held_index(int i) const;                  // keydown(i): up,left,down,right,S,A,D,M,tab,Q,P
@@ -248,6 +264,9 @@ class Program {
   std::set<int> keys_down_;  // virtual-key codes held (from the window's input events)
   bool props_sent_ = false;
   ScriptHost scripts_;
+  std::map<int, World::ServerNpc> npcs_;
+  std::map<int, gs2::VarPtr> npc_vars_;  // NPCs with a script (131)
+  std::set<int> npc_touching_;            // NPCs the player stood in last tick
   // findplayer(account): other players' objects, keyed by lower-case account.
   // Self returns scripts_.player(); missing account returns 0.
   std::map<std::string, gs2::VarPtr> found_players_;

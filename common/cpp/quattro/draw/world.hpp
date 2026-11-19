@@ -62,11 +62,23 @@ struct EffectSprite {
   std::string image;  // the sheet; empty is sprites.png (bombs use bomb1.png)
 };
 
+// A server NPC as drawn: its image (or a part of it) with its top left at
+// (x, y), or, with `character`, the actor's gani step there.
+struct NpcSprite {
+  double x = 0, y = 0;  // tiles
+  std::string image;
+  bool has_part = false;
+  Rect part{0, 0, 0, 0};
+  bool character = false;
+  Actor actor;
+};
+
 struct WorldState {
   Files::Level level;
   bool have_level = false;
   Actor player;
   std::vector<Actor> others;
+  std::vector<NpcSprite> npcs;  // server NPCs, in the order they came
   bool lobby = false;        // server name starts with "login"
   bool lobby_tiles = false;  // the build draws tiles in the lobby
   bool chest_boxes = true;   // stand-in boxes for chests (6.03r7 draws none)

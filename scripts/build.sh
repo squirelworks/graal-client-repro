@@ -23,7 +23,7 @@ if [ -z "${GRAAL_BUILD_ONE:-}" ] && [ "$JOBS" -gt 1 ] && [ "$(echo $BUILDS | wc 
   PAR=""
   for B in $BUILDS; do
     case $B in
-      graal-3.04-*|graal-3.153-*|graal-3.0beta-*|graal-3.01-*|graal-3.151-*|graal-4.20r8-*|graal-4.04r2-*|graal-5.00r7-*|graal-5.12-*|graal-6.01r1-*|graal-6.03r7-*)
+      graal-3.04-*|graal-3.153-*|graal-3.0beta-*|graal-3.01-*|graal-3.151-*|graal-4.20r8-*|graal-4.04r2-*|graal-4.02.11-*|graal-4.03r1-*|graal-4.03r3-*|graal-4.11-*|graal-4.20r6-*|graal-5.00r7-*|graal-5.12-*|graal-6.01r1-*|graal-6.03r7-*)
         SERIAL="$SERIAL $B" ;;
       *) PAR="$PAR $B" ;;
     esac
@@ -194,6 +194,9 @@ for B in $BUILDS; do
   # The 4.x/5.0 engine library (common/cpp/graalengine) sits next to the
   # launcher, as GraalEngine.dll sits next to the original Graal4.exe.
   if { [ "$B" = "graal-4.04r2-G3D17026" ] || [ "$B" = "graal-4.20r8-G3D20126" ] ||
+       [ "$B" = "graal-4.02.11-G3D28095" ] || [ "$B" = "graal-4.03r1-G3D11125" ] ||
+       [ "$B" = "graal-4.03r3-G3D09125" ] || [ "$B" = "graal-4.11-G3D26076" ] ||
+       [ "$B" = "graal-4.20r6-G3D21126" ] ||
        [ "$B" = "graal-5.00r7-G3D22067" ] || [ "$B" = "graal-5.12-G3D14097" ]; } &&
      [ -f "$ROOT/common/cpp/graalengine/Makefile" ]; then
     echo "== common/cpp/graalengine"

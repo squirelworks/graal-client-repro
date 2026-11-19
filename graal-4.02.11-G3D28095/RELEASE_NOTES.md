@@ -21,6 +21,7 @@ program works too (`graal-assets/4.02.11/`, then `graal-assets/common/`).
 ## What's new in v0.0.5
 
 - [x] **New stand-in.** 4.02.11 has a folder, clearly marked inferred: the 4.20r8 rebuild with the listed token `G3D28095` and made-up Windows machine fields. Everything else is 4.20r8's.
+- [x] **Faithful engine, by flag.** `Graal40211 --engine` runs the session on the rebuilt engine library (`GraalEngineRepro.dll` / `libgraalengine.so`, shipped beside the program) under this build's wire row. The Pascal client stays the default.
 
 ## Downloads
 

@@ -132,6 +132,10 @@ std::vector<BuildProfile> make() {
   // goes as 47 (VERIFYWANTSEND) with its CRC-32.
   r404.update_packages = true;
   r404.cold_gani_requests = true;
+  // Weapons and classes as bytecode on 132, 133 and 193 (protocol/unknown-ids-2026-11-06.md,
+  // protocol/class-bytecode-v4.md), on the 4.2 engine's GS2 machine.
+  r404.v4_scripts = true;
+  r404.gs2_engine = 42;
   rows.push_back(r404);
 
   // 4.20r8 (Windows, the GraalEngine.dll session). Same gen-5 shape as
@@ -141,6 +145,22 @@ std::vector<BuildProfile> make() {
   r420.label = "4.20r8 Windows";
   r420.token = "G3D20126";
   rows.push_back(r420);
+
+  // The other 4.x Windows builds: 4.02.11, 4.03r1, 4.03r3, 4.11 and 4.20r6.
+  // All 4.x builds speak the same gen-5 wire and log in the same way
+  // (Graal_analysis protocol/v4x-clients.md, version-profiles/4.04-4.20.toml);
+  // only the token is known to differ (client-internals/version-token-catalogue.md).
+  // None of them was run in the lab: everything else is 4.04r2's [inf].
+  for (const auto& [label, token] : {std::pair{"4.02.11 Windows", "G3D28095"},
+                                     std::pair{"4.03r1 Windows", "G3D11125"},
+                                     std::pair{"4.03r3 Windows", "G3D09125"},
+                                     std::pair{"4.11 Windows", "G3D26076"},
+                                     std::pair{"4.20r6 Windows", "G3D21126"}}) {
+    BuildProfile row = r404;
+    row.label = label;
+    row.token = token;
+    rows.push_back(row);
+  }
 
   // 5.00r7 and 5.12 (Windows, the GraalEngine.dll session, used by
   // common/cpp/graalengine). Graal_analysis protocol/v5x-clients.md,
@@ -154,6 +174,7 @@ std::vector<BuildProfile> make() {
   r500.machine_fields = kFakeWinFields;  // win,<md5>,"",<md5> in the lab (no network card)
   r500.packed_round_down = false;  // 5.00r7 rounds up both ways
   r500.cold_gani_requests = false;
+  r500.gs2_engine = 50;  // the 5.0.0.7 machine; 132, 133 and 193 as 4.x (and 140, 197)
   r500.update_packages = false;    // the same rule in the lab; not wired for 5.x here yet
   // In Login mode the level, chests and image NPCs are drawn; characters
   // and the HUD are not (protocol/v5v6-lab-play.md, "The Login server mode").
