@@ -51,6 +51,9 @@ or release by hand. Start with [HANDOFF-CURSOR.md](HANDOFF-CURSOR.md) and
   `.github/workflows/release-all.yml` (Squirrel runs it). No per-folder
   tags or releases in between.
 - `RELEASES.md` lists only the latest release of each client.
+- Versions have three parts (VERSIONING.md): a respin of the combined release
+  with fixes is the next patch (v0.0.5, v0.0.6, ...), never a fourth digit.
+  0.1.0 is the focus-versions milestone (#410); the 1.0.0 bar is #411.
 
 ## Fidelity work
 
