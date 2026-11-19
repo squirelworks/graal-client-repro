@@ -129,9 +129,14 @@ begin
     ForceDirectories(Dir + '_clients');
     Run(['--window', '--level', 'missing.nw'], False);
     RemoveDir(Dir + '_clients');
+    { Quattro has the secure login too: every mode is handed over. }
     Run(['--window', '--server', ClosedTarget, '--account', 'generated',
-      '--secure-login', 'required'], False);
-    Run(['--window', '--server', ClosedTarget, '--account', 'generated'], False, 'required');
+      '--secure-login', 'required'], True);
+    Seen.LoadFromFile(Receipt);
+    Check(Seen[Seen.IndexOf('--secure-login') + 1] = 'required', 'secure mode forwarded');
+    Run(['--window', '--server', ClosedTarget, '--account', 'generated'], True, 'required');
+    Seen.LoadFromFile(Receipt);
+    Check(Seen[Seen.IndexOf('--secure-login') + 1] = 'required', 'configured secure mode forwarded');
     Run(['--window', '--server', ClosedTarget, '--account', 'generated',
       '--server-key', 'generated-invalid-key'], False);
     DeleteFile(Player);

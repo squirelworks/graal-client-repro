@@ -30,20 +30,70 @@ void Connection::close() {
   enc_.reset();
   dec_.reset();
   out_.clear();
+  sec_in_.clear();
+}
+
+std::string Connection::login_tail(const std::string& account, const std::string& password) const {
+  std::string tail = gstring(account) + gstring(password) + profile_.platform + profile_.machine_fields;
+  if (profile_.has_os_version) tail += ",\"" + profile_.os_version + "\"";
+  return tail;
 }
 
 std::string Connection::login_line(const std::string& account, const std::string& password) const {
-  std::string line = gchar(key_) + profile_.token + gstring(account) + gstring(password) + profile_.platform +
-                     profile_.machine_fields;
-  if (profile_.has_os_version) line += ",\"" + profile_.os_version + "\"";
-  return line;
+  return gchar(key_) + profile_.token + login_tail(account, password);
 }
 
 void Connection::login(const std::string& account, const std::string& password, const std::string& language) {
+  language_ = language;
+  if (sec_.want()) {
+    // Seihai secure login (not in the original): C1 in the plain login
+    // frame where id 5 would go, the same prefix (id 5 and the key byte).
+    std::string c1;
+    if (!sec_.start(gchar(5) + gchar(key_), profile_.token, "", login_tail(account, password), c1)) {
+      error_ = "secure login: " + sec_.why;
+      return;
+    }
+    out_.clear();
+    queue(static_cast<unsigned char>(c1[0]) - 32, std::string_view(c1).substr(1));
+    flush();
+    return;
+  }
   // The login message is id 5; the build's send set has 5 (PLI_BOMBDEL).
   queue(5, login_line(account, password));
   flush();
   send(37, language);
+}
+
+bool Connection::take_server_hello() {
+  // S1, or the refusal, comes in one plain zlib frame: a u16be length and
+  // the zlib stream, no compression byte, no XOR.
+  if (sec_in_.size() < 2) return true;
+  size_t len = (static_cast<unsigned char>(sec_in_[0]) << 8) | static_cast<unsigned char>(sec_in_[1]);
+  if (sec_in_.size() < 2 + len) return true;
+  std::string plain;
+  bool ok = zlib_decompress(std::string_view(sec_in_).substr(2, len), plain, 64 * 1024);
+  std::string rest = sec_in_.substr(2 + len);
+  sec_in_.clear();
+  std::string c2;
+  if (ok && sec_.answer(plain, c2)) {
+    // C2 stands in for the classic login line, in its own plain frame;
+    // then the session goes on in gen-5.
+    out_.clear();
+    enc_->rearm_login();
+    queue(static_cast<unsigned char>(c2[0]) - 32, std::string_view(c2).substr(1));
+    flush();
+    send(37, language_);
+    flush();
+    if (!rest.empty() && dec_) dec_->feed(rest);
+    return true;
+  }
+  if (!ok && sec_.awaiting()) {
+    sec_.state = Sec::State::Failed;
+    sec_.why = "the server's answer to the secure login is not a zlib frame";
+  }
+  error_ = "secure login: " + sec_.why;
+  close();
+  return false;
 }
 
 bool Connection::queue(int id, std::string_view body) {
@@ -94,6 +144,18 @@ bool Connection::poll() {
   if (!connected()) return false;
   std::string got;
   bool alive = socket_.poll(got);
+  if (!got.empty() && sec_.awaiting()) {
+    sec_in_ += got;
+    got.clear();
+    if (sec_in_.size() > 0x20000) {
+      sec_.state = Sec::State::Failed;
+      sec_.why = "the server's answer to the secure login is too long";
+      error_ = "secure login: " + sec_.why;
+      close();
+      return false;
+    }
+    if (!take_server_hello()) return false;
+  }
   if (!got.empty() && dec_) {
     dec_->feed(got);
     if (dec_->failed()) {
@@ -173,18 +235,57 @@ Session::Session(const BuildProfile& profile, Events events)
   });
 }
 
-bool Session::open(const std::string& name, const std::string& host, uint16_t port) {
+bool Session::open(const std::string& name, const std::string& host, uint16_t port, bool classic) {
   server_name_ = name;
   server_host_ = host;
-  if (ev_.connecting) ev_.connecting(name, host + ":" + std::to_string(port));
+  server_port_ = port;
+  std::string address = host + ":" + std::to_string(port);
+  if (ev_.connecting) ev_.connecting(name, address);
+  Sec::Session& sec = conn_.sec();
+  sec.reset(address);
+  sec.mode = sec_mode_;
+  sec.server_key = sec_key_;
+  sec.force_classic = classic;
+  sec.note = [this](const std::string& line) {
+    if (ev_.note) ev_.note(line);
+  };
   if (!conn_.connect(host, port, next_key())) {
     if (ev_.connect_failed) ev_.connect_failed(conn_.error());
     return false;
   }
   if (ev_.connected) ev_.connected();
   conn_.login(account_, password_, language_);
+  if (sec.state == Sec::State::Failed) {
+    // It could not even start (no random bytes): never the clear login.
+    conn_.close();
+    if (ev_.disconnected) ev_.disconnected("secure login: " + sec.why);
+    return false;
+  }
   conn_.flush();
   ++logins_;
+  return true;
+}
+
+bool Session::check_secure() {
+  Sec::Session& sec = conn_.sec();
+  if (sec.check(conn_.connected())) conn_.close();
+  if (sec.state != Sec::State::Refused && sec.state != Sec::State::NoAnswer && sec.state != Sec::State::Failed)
+    return false;
+  if (sec.state != Sec::State::Failed && Sec::may_fall_back(sec.mode, sec.server())) {
+    // auto: this server does not speak SEI00001 (graal-client-repro #148);
+    // log in the original way and skip the probe there next time.
+    if (ev_.note) ev_.note("secure login: " + sec.why + "; logging in the original way");
+    Sec::remember_refused(sec.server());
+    conn_.close();
+    sec.finish();
+    open(server_name_, server_host_, server_port_, true);
+    return true;
+  }
+  std::string why = "secure login: " + sec.why;
+  if (ev_.note) ev_.note(why);
+  conn_.close();
+  sec.finish();
+  if (ev_.disconnected) ev_.disconnected(why);
   return true;
 }
 
@@ -199,8 +300,12 @@ bool Session::start(const std::string& host, uint16_t port, const std::string& a
 
 void Session::tick() {
   if (conn_.connected() && !conn_.poll()) {
-    if (!warp_pending_ && ev_.disconnected) ev_.disconnected(conn_.error());
+    Sec::State st = conn_.sec().state;
+    bool sec_end = st == Sec::State::AwaitS1 || st == Sec::State::Refused || st == Sec::State::NoAnswer ||
+                   st == Sec::State::Failed;
+    if (!warp_pending_ && !sec_end && ev_.disconnected) ev_.disconnected(conn_.error());
   }
+  if (check_secure()) return;
   if (warp_pending_) {
     warp_pending_ = false;
     conn_.close();

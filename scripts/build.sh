@@ -239,13 +239,15 @@ for B in $BUILDS; do
       esac
     fi
   fi
-  # The 6.01r1 / 6.03r7 Linux and Windows 6.03r7 clients are one C++
+  # The 6.01r1 / 6.03r7 Linux, Windows 6.03r7, 5.24r4 and 5.31r4 clients are one C++
   # program (quattro_lib). Its rebuild, common/cpp/quattro's quattro-play,
   # sits beside the start screen, which hands the game to it
   # (common/GQuattroPlay.pas). Linux draws through Xlib; Windows through
-  # Win32. Elsewhere the start screen keeps the Pascal game.
+  # Win32; macOS through AppKit. Elsewhere the start screen keeps the
+  # Pascal game.
   if { [ "$B" = "graal-6.03r7-G3D0511C" ] || [ "$B" = "graal-6.01r1-G3D0108A" ] ||
-       [ "$B" = "graal-6.03r7win-G3D0311C" ]; } &&
+       [ "$B" = "graal-6.03r7win-G3D0311C" ] || [ "$B" = "graal-5.24r4-G3D15010" ] ||
+       [ "$B" = "graal-5.31r4-G3D26090" ]; } &&
      [ -f "$ROOT/common/cpp/quattro/Makefile" ]; then
     CXXBIN=${CXX:-g++}
     case "$(uname -s)" in
@@ -266,6 +268,12 @@ for B in $BUILDS; do
         for L in quattro-play.exe quattro-play; do
           if [ -f "$ROOT/common/cpp/quattro/build/$L" ]; then cp "$ROOT/common/cpp/quattro/build/$L" "$OUT/"; fi
         done
+        ;;
+      Darwin)
+        echo "== common/cpp/quattro"
+        make -C "$ROOT/common/cpp/quattro" build/quattro-play CXX="${CXX:-c++}" ||
+          echo "::warning::quattro-play not built; the Pascal game plays here"
+        if [ -f "$ROOT/common/cpp/quattro/build/quattro-play" ]; then cp "$ROOT/common/cpp/quattro/build/quattro-play" "$OUT/"; fi
         ;;
       *) echo "quattro-play: skipped on this host; the Pascal game plays here" ;;
     esac

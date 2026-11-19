@@ -83,16 +83,16 @@ begin
     for I := 0 to 1 do
     begin
       if I = 0 then Mode := 'auto' else Mode := 'required';
-      Route(Mode, '', True, False, Mode + ' environment keeps online login in Pascal');
+      Route(Mode, '', True, True, Mode + ' environment hands the online login to Quattro');
       Route(Mode, '', False, True, Mode + ' environment allows offline Training');
       F.Clear;
       F.Add(Mode);
       F.SaveToFile(Dir + 'secure_login.txt');
-      Route('', '', True, False, Mode + ' settings keep online login in Pascal');
+      Route('', '', True, True, Mode + ' settings hand the online login to Quattro');
       Route('', '', False, True, Mode + ' settings allow offline Training');
       DeleteFile(Dir + 'secure_login.txt');
     end;
-    Route('off', 'required', True, False, 'explicit required and server key override environment off');
+    Route('off', 'required', True, True, 'explicit required goes to Quattro, which does SEI00001');
     Route('required', 'off', True, True, 'explicit off preserves original-login route');
     Route('', '', False, False, 'Pascal override keeps Training in Pascal', True, True);
     Route('', '', True, False, 'headless game stays in Pascal', False);
@@ -102,6 +102,25 @@ begin
     DeleteFile(Exe);
     RemoveDir(Dir);
   end;
+end;
+
+{ The online arguments name the mode GSecLogin resolved, and the given
+  server key when there is one. }
+function ArgsCarrySecure: Boolean;
+var
+  A: TQuattroArgs;
+  I: Integer;
+  Mode, Key: string;
+begin
+  A := QuattroArgs('.', [], '', '', '', '127.0.0.1:14900', 'acct', 'Login', '');
+  Mode := '';
+  Key := '';
+  for I := 0 to High(A) - 1 do
+  begin
+    if A[I] = '--secure-login' then Mode := A[I + 1];
+    if A[I] = '--server-key' then Key := A[I + 1];
+  end;
+  Result := (Mode = SecModeName(ConfiguredSecMode)) and (Key = ConfiguredServerKey);
 end;
 
 procedure ChildRoute;
@@ -123,6 +142,7 @@ begin
   end;
   GotQuattro := QuattroProgram(ParamStr(2), Online) <> '';
   if GotQuattro <> WantQuattro then Halt(1);
+  if Online and not ArgsCarrySecure then Halt(3);
 end;
 {$ENDIF}
 

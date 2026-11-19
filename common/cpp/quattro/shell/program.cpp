@@ -86,6 +86,9 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
   ev.connect_failed = [this](const std::string& why) {
     if (log) log("connect failed: " + why);
   };
+  ev.note = [this](const std::string& line) {
+    if (log) log(line);
+  };
   ev.disconnected = [this](const std::string& why) {
     if (log) log("disconnected: " + why);
     unlist_all();
@@ -665,6 +668,7 @@ void Program::unlist_all() {
 bool Program::start() {
   // The lab's 5.12 deleted its own row before the first connect.
   if (list_delete) list_delete(self_list_id_);
+  session_.set_secure(opt_.secure, opt_.server_key);
   bool ok = session_.start(opt_.host, opt_.port, opt_.account, opt_.password, opt_.language, opt_.server_name);
   window_.set_title(window_title());
   return ok;

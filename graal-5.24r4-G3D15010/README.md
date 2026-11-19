@@ -23,9 +23,9 @@ Login mode too, before any server warp. This is the 0.0.1 reproduction: hit or m
 
 Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
 
-- **default:** Delphi/Pascal stand-in (no-argument / release entry on main today).
-- **faithful engine:** Quattro wire row `5.24r4 Windows` (`G3D15010`) — loopback login, level and walk proven in `common/cpp/quattro` tests. Folder handoff to `quattro-play` not the release default yet (D5).
-- **relic:** none yet. When the faithful engine is validated end-to-end and switched to default, the Pascal stand-in becomes the labeled relic/fallback and is never deleted.
+- **default:** With no arguments the start screen hands the game to `quattro-play` beside the program when present (the Quattro row `5.24r4 Windows`, `G3D15010`), and so does `--window` with `--server` or `--level`. Seihai secure login goes with it.
+- **faithful engine:** Quattro one-exe program (`quattro-play`), now the no-arg game path when the player is shipped. Logged in to seihai-gserver on loopback, classic and `SEI00001`.
+- **relic / fallback:** the Pascal game, without `quattro-play`, with `GRAAL_PASCAL_GAME=1`, or (Linux) with no display; and every CLI option Quattro has no equivalent for (stress, `--frames`, `--dump`).
 
 ## Sources
 

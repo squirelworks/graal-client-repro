@@ -8,9 +8,15 @@ unit GQuattroPlay;
   puts its player (quattro-play) beside these folders' start screens.
   The start screen still picks the server (or Training); the game then
   runs in quattro-play: GS2 weapons, bombs and arrows, being hurt, the
-  item list. On Linux it needs an X display; on Windows a Win32 window.
+  item list. On Linux it needs an X display; on Windows a Win32 window;
+  on macOS an AppKit window.
   Without the program, with GRAAL_PASCAL_GAME=1, or (Linux) with no
-  DISPLAY, the start screen plays in its own Pascal game as before. }
+  DISPLAY, the start screen plays in its own Pascal game as before.
+
+  The Seihai secure login (GSecLogin; not in any original client) goes
+  with the game: quattro-play speaks SEI00001 itself, with the same pins
+  and refused-server list, and is told the mode and any given server key
+  on its command line. }
 
 interface
 
@@ -18,8 +24,8 @@ type
   TQuattroArgs = array of string;
 
 { The quattro-play beside the program in Dir, when the game should go to
-  it; '' otherwise. Online secure logins stay in Pascal until Quattro
-  implements SEI00001. Training is allowed regardless of the setting. }
+  it; '' otherwise. Online is accepted in every secure-login mode, since
+  quattro-play implements SEI00001; it stays as a parameter for callers. }
 function QuattroProgram(const Dir: string; Online: Boolean = False): string;
 
 { Runs it and waits. Build is the profile label ('6.03r7', '6.03r7 Windows');
@@ -38,7 +44,7 @@ function QuattroArgs(const Dir: string; const Roots: array of string; const Leve
 implementation
 
 uses
-  SysUtils, GSecLogin{$IF DEFINED(LINUX) OR DEFINED(MSWINDOWS)}, Classes, Process{$ENDIF};
+  SysUtils, GSecLogin{$IF DEFINED(LINUX) OR DEFINED(MSWINDOWS) OR DEFINED(DARWIN)}, Classes, Process{$ENDIF};
 
 const
   PasswordVar = 'GRAAL_QUATTRO_PW';
@@ -48,8 +54,7 @@ var
   Base, Candidate: string;
 begin
   Result := '';
-  if Online and (ConfiguredSecMode <> smOff) then Exit;
-{$IF DEFINED(LINUX) OR DEFINED(MSWINDOWS)}
+{$IF DEFINED(LINUX) OR DEFINED(MSWINDOWS) OR DEFINED(DARWIN)}
   if GetEnvironmentVariable('GRAAL_PASCAL_GAME') = '1' then Exit;
 {$IFDEF LINUX}
   if GetEnvironmentVariable('DISPLAY') = '' then Exit;
@@ -97,6 +102,13 @@ begin
     Add('--account'); Add(Account);
     Add('--password-env'); Add(PasswordVar);
     Add('--server-name'); Add(ServerName);
+    { the player's secure-login setting, or the start screen's
+      --secure-login / --server-key, as GSecLogin resolved it }
+    Add('--secure-login'); Add(SecModeName(ConfiguredSecMode));
+    if ConfiguredServerKey <> '' then
+    begin
+      Add('--server-key'); Add(ConfiguredServerKey);
+    end;
     if Nickname <> '' then
     begin
       Add('--nickname'); Add(Nickname);
@@ -114,14 +126,14 @@ end;
 
 function RunQuattro(const Exe, Build: string; const Args: array of string;
   const Password: string): Integer;
-{$IF DEFINED(LINUX) OR DEFINED(MSWINDOWS)}
+{$IF DEFINED(LINUX) OR DEFINED(MSWINDOWS) OR DEFINED(DARWIN)}
 var
   P: TProcess;
   I: Integer;
 {$ENDIF}
 begin
   Result := -1;
-{$IF DEFINED(LINUX) OR DEFINED(MSWINDOWS)}
+{$IF DEFINED(LINUX) OR DEFINED(MSWINDOWS) OR DEFINED(DARWIN)}
   P := TProcess.Create(nil);
   try
     P.Executable := Exe;

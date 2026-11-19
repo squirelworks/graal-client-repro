@@ -3,8 +3,8 @@
 The late-5 client, as far as the 5.30r3 and 5.31r4 images agree. Both are
 one executable. FileVersion is `5.303` and `5.314`. The company string is
 Linux Cyberjoueurs. The engine name in the image is `quattro_lib`. Torque
-class names are absent. This folder does not build a player and does not
-speak to a server.
+class names are absent. The Pascal program does not
+speak to a server itself; it hands the game to the Quattro program.
 
 No eight-character token is stored in either image. The login line sends
 `G3D26090`, the documented token for 5.30r3 and 5.31r4, so the folder
@@ -20,9 +20,9 @@ load those DLLs.
 
 Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
 
-- **default:** Delphi/Pascal stand-in (no-argument / release entry on main today).
-- **faithful engine:** Quattro one-exe program (scaffold) — still being wired; not the release default.
-- **relic:** none yet. When the faithful engine is validated end-to-end and switched to default, the Pascal stand-in becomes the labeled relic/fallback and is never deleted.
+- **default:** the Quattro program. `Graal531 --server HOST:PORT --account NAME` or `Graal531 --level FILE` hands the game to the `quattro-play` beside it (row `5.31r4 Windows`, `G3D26090`). There is no start screen yet, so a no-argument start still exits 0.
+- **faithful engine:** Quattro one-exe program (`quattro-play`): login, the 178 warp, level and walk in the program tests, and logged in to seihai-gserver on loopback, classic and Seihai secure login (`SEI00001`).
+- **relic / fallback:** the Pascal scaffold (`Late531`, `--show`), which names the cut and opens no socket. It is kept, never deleted.
 
 ## What was read
 
@@ -50,28 +50,37 @@ Where a layout was not recovered, the unit leaves it unwritten.
 | `src/Graal531.dpr` | the shell: no arguments exits 0; `--show` prints the cut and the token |
 | `tests/TestLate531.dpr` | the cut, the login token, the newline rule, the flush order, and the length header |
 
-## Quattro blockers (login / level / walk)
+## On Quattro
 
-5.30r3 and 5.31r4 share this folder. Quattro (`common/cpp/quattro`) cannot
-yet run them as a game session. Blockers, from the cut in `Late531.pas`:
+5.30r3 and 5.31r4 share this folder, and Quattro (`common/cpp/quattro`)
+runs them as a game session. The framing the scaffold reads (opcode plus
+32, the body and a newline; the 2-byte length and its long form) is the
+gen-5 codec's, and the lab decoded every frame of these builds with the
+gen-5 cipher and compression byte (Graal_analysis
+`protocol/v5v6-windows-unpacked.md`, "Cipher and framing"), then logged
+them in to GServer-v2 and walked after the warp (`v5v6-lab-play.md`). So
+the row is 5.24r4's with:
 
-- Outbound framing is opcode **plus 32**, then body and newline — not the
-  gen-5 Quattro session framer used for 5.24 / 6.x.
-- No recovered client→server id list; two internal opcodes skip the newline
-  check but their length-wrap bytes are open.
-- No cipher / compression strip inside a frame; inbound is raw length headers.
-- No server→client switch, no property ids, no window or player.
+- the token `G3D26090`;
+- the receive switch 5.24's without 41 and 181 (95 ids);
+- no tiles in Login mode before the 178 warp, only chests and image NPCs.
 
-Until those land (Track D3), this folder stays a scaffolding shell
-(`ScaffoldOnly`): `--show` prints the cut; nothing connects.
+`Graal531` passes `--server`, `--account`, `--password-env` (default
+`GRAAL_PW`, handed over in the environment), `--server-name`, `--level`,
+`--x`, `--y`, `--data` and `--seconds` on to `quattro-play --build 5.31r4`,
+and the Seihai secure login follows the player's setting. Without
+`quattro-play` (or on Linux without a display) it exits 69. The Pascal
+side stays `ScaffoldOnly`, so `scripts/loopback.sh` still skips it.
 
 ## Not yet
 
 - [x] ~~A login token, once one is recovered. Do not invent an eight-character literal~~ The login line sends `G3D26090` for 5.30r3 and 5.31r4. The images store no literal.
-- [ ] Quattro login + level + walk (blocked: framing / id sets / cipher above)
+- [x] ~~Quattro login + level + walk~~ through `quattro-play` (above)
 - [ ] Numeric client-to-server opcodes. None were recovered as a fixed list
 - [ ] The length-wrap bytes for the two internal opcodes
 - [ ] The byte pattern that produces "illegal data (2)"
 - [ ] Cipher or compression bytes inside a frame
 - [ ] The local server-to-client switch, and any property id
-- [ ] A window, a player, or a server connection
+- [x] ~~A window, a player, or a server connection~~ in `quattro-play`
+- [ ] A start screen, so a no-argument start plays
+- [ ] A side-by-side run against the real 5.31r4 (it needs the clock set back)

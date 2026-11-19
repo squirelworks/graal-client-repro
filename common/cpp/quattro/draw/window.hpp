@@ -1,7 +1,8 @@
 // The program's window. The original presents through OpenGL in a
 // TWindow (Linux: X11 with Xcursor and XF86VidMode). The rebuild presents
-// its software frame with plain Xlib on Linux, and has a headless window
-// for tests and lab runs that only keeps the last frame.
+// its software frame with plain Xlib on Linux, GDI on Windows and AppKit on
+// macOS, and has a headless window for tests and lab runs that only keeps
+// the last frame.
 #pragma once
 
 #include "../../../torque/gui/image.hpp"
@@ -69,8 +70,20 @@ class HeadlessWindow : public Window {
 // program was built without X11).
 std::unique_ptr<Window> open_x11_window(int w, int h, const std::string& title);
 
-// The platform window: Win32 on Windows, X11 where available on Unix.
-// Returns nullptr if the native window cannot be created.
+// A Cocoa window on macOS (draw/window_cocoa.mm), or nullptr. Built only
+// with QUATTRO_COCOA. The other two are for the window test.
+std::unique_ptr<Window> open_cocoa_window(int w, int h, const std::string& title);
+bool cocoa_shown_pixel(Window& w, int x, int y, unsigned char rgb[3]);
+long cocoa_window_number(Window& w);
+// Window test only: post a key (macOS virtual key code, its characters) to
+// the window's queue, close it, or take its focus away.
+void cocoa_post_key(Window& w, unsigned short code, const std::string& chars, bool down, bool repeat = false);
+void cocoa_post_close(Window& w);
+void cocoa_post_resign(Window& w);
+
+// The platform window: Win32 on Windows, Cocoa on macOS, X11 where
+// available on other Unix systems. Returns nullptr if the native window
+// cannot be created.
 std::unique_ptr<Window> open_window(int w, int h, const std::string& title);
 
 }  // namespace Quattro::Draw

@@ -8,7 +8,9 @@
 //
 // The 6.01r1 and 6.03r7 folders ship it beside their start screen, which
 // hands the picked server (or Training) to it with --server-name,
-// --nickname and --asset-root.
+// --nickname and --asset-root. Online, the Seihai secure login follows the
+// player's setting (GRAAL_SECURE_LOGIN or secure_login.txt) unless
+// --secure-login and --server-key say otherwise.
 #include "../shell/program.hpp"
 
 #include <chrono>
@@ -23,6 +25,7 @@ int usage() {
   std::fprintf(stderr,
                "usage: quattro-play --build LABEL --connect HOST:PORT --account NAME --password-env VAR\n"
                "                    [--server-name NAME] [--nickname NICK]\n"
+               "                    [--secure-login off|auto|required] [--server-key BASE64]\n"
                "       quattro-play --build LABEL --offline LEVEL [--x X --y Y]\n"
                "  both: [--assets DIR] [--asset-root DIR]... [--download-files] [--program FILE]\n"
                "        [--size WxH] [--headless] [--seconds N] [--shot FILE.png]\n");
@@ -32,6 +35,8 @@ int usage() {
 
 int main(int argc, char** argv) {
   Shell::Options opt;
+  // The player's own setting, shared with the start screens (GSecLogin).
+  opt.secure = Net::Sec::configured_mode();
   std::string target, pw_env, shot, offline;
   double start_x = 30, start_y = 30;
   bool headless = false, sized = false;
@@ -49,6 +54,13 @@ int main(int argc, char** argv) {
     else if (a == "--download-files") opt.download_files = true;
     else if (a == "--server-name") opt.server_name = next();
     else if (a == "--nickname") opt.nickname = next();
+    else if (a == "--secure-login") {
+      if (!Net::Sec::parse_mode(next(), opt.secure)) return usage();
+    } else if (a == "--server-key") {
+      opt.server_key = next();
+      std::string k;
+      if (!Net::Sec::decode_key(opt.server_key, k)) return usage();
+    }
     else if (a == "--offline") offline = next();
     else if (a == "--x") start_x = std::atof(next().c_str());
     else if (a == "--y") start_y = std::atof(next().c_str());
