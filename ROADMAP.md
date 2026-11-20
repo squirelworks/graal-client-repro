@@ -24,11 +24,13 @@ from that older set remains open (licence done; signing still on hold).
   published as a release; v0.0.4.2 replaced it.
 - **v0.0.4.2**: combined release of all 80 clients (2026-11-13), the first
   release of 5.31r4, 6.1.1.3 and the seven Worlds builds.
+- **v0.0.5**: combined release of every client (2026-11-20), with macOS
+  zips where the cross-build succeeds. Each folder's "What's new in
+  v0.0.5" says what changed.
 
-v0.0.4.2 is the last published release ([RELEASES.md](RELEASES.md)). The
-next release is 0.0.5, cut when its checklist below is far enough along
-that the folders' "What's new in v0.0.5" notes describe a release worth
-downloading; until then work lands on `main` without a release.
+v0.0.5 is the last published release ([RELEASES.md](RELEASES.md)). The
+next release is 0.0.6; its backlog is the unticked list below. Until it
+is cut, work lands on `main` without a release.
 
 ## Done
 
@@ -164,9 +166,10 @@ and 6.036 have tokens or version strings only, no exe, so they wait for
 one. Android vx APKs have no folder yet (research only; not an open issue
 here).
 
-## 0.0.5
+## 0.0.6
 
-Per-client backlog and the live epics above. Tick folder README / release
+Carried over from 0.0.5, which was released on 2026-11-20 with these
+still open. Per-client backlog and the live epics above. Tick folder README / release
 notes items in the PR that does the fix.
 
 - [ ] The `Not yet` list in each folder's `RELEASE_NOTES.md` and README:
@@ -178,7 +181,10 @@ notes items in the PR that does the fix.
 - [ ] Quattro fidelity and GS2 builtins (#305), including #398
 - [ ] Side builds and Seihai extras (#306)
 - [ ] Release / platform gates (#307)
-- [ ] Focus versions end to end (#373 / #194)
+- [ ] Focus versions end to end (#373 / #194); 6.03r7 gaps in #430
+- [ ] The 6.1x project connector cipher end to end (#429)
+- [ ] Engine defaults for the 4.x, 5.0/5.12 and remaining 6.x folders
+  (#403; 10 of the 36 3.x-6.x folders start their engine by default)
 
 During each folder's PR, also tick or remove items in that folder's
 README "Not yet" list that are already done (the lists were turned into

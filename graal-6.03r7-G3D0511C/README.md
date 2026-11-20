@@ -18,9 +18,9 @@ The Windows 6.03r7 is the same release with its own token (`G3D0311C`) and
 
 Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
 
-- **default:** Delphi/Pascal stand-in (no-argument / release entry on main today).
-- **faithful engine:** Quattro `quattro-play` sibling path — still being wired; not the release default.
-- **relic:** none yet. When the faithful engine is validated end-to-end and switched to default, the Pascal stand-in becomes the labeled relic/fallback and is never deleted.
+- **default:** With no arguments the start screen hands the game to `quattro-play` beside the program when present (the same Quattro rebuild as Windows 6.03r7); `scripts/build.sh` ships it in the Linux zip. Pascal is the labeled fallback (`GRAAL_PASCAL_GAME=1`, a missing player, or no display).
+- **faithful engine:** Quattro one-exe program (`quattro-play`), now the no-arg game path when the player is shipped.
+- **relic / fallback:** Pascal without `quattro-play`, or with `GRAAL_PASCAL_GAME=1`. Never deleted. The end-to-end lab of 2026-11-20 (`docs/e2e-lab-2026-11-20.md`) ran this path on both lab servers.
 
 ## Sources
 
