@@ -352,6 +352,7 @@ Draw::Actor Program::actor_for(int id, const World::Player& p) {
   // A gani plays from the tick it was set.
   auto& start = gani_start_[id];
   if (start.first != a.gani) start = {a.gani, frame_};
+  ganis_loaded_.insert(lower_name(a.gani.substr(0, a.gani.find(','))));
   a.ani_tick = frame_ - start.second;
   return a;
 }
@@ -584,6 +585,60 @@ bool Program::start_offline(const std::string& file, double x, double y, const s
   // The 2.x Training starts in the centre cell (b-2 of 3 x 3).
   std::string first = part.empty() ? gmap_.at(gmap_.width / 2, gmap_.height / 2) : part;
   return !first.empty() && load_offline_level(first);
+}
+
+void Program::load_gani(std::string_view body) {
+  // GSTRING name (case-insensitive; "kick.gani" is another gani), then a
+  // list of header lines, comma separated, each quoted or not. The
+  // newest value wins; unknown keywords are ignored; a NUL ends a line.
+  Net::Reader r(body);
+  std::string name = lower_name(r.gstring());
+  if (!r.ok() || name.empty()) return;
+  std::string rest = r.rest();
+  if (!ganis_loaded_.count(name)) {
+    // Not loaded yet: the client loads it now and the file's own header
+    // replaces this list, so the list is lost (lab, both rounds).
+    ganis_loaded_.insert(name);
+    return;
+  }
+  const Files::Gani* cur = assets_->gani(name);
+  if (!cur) return;
+  Files::Gani g = *cur;
+  std::vector<std::string> lines;
+  std::string item;
+  bool quoted = false;
+  for (char c : rest) {
+    if (c == '"') quoted = !quoted;
+    else if (c == ',' && !quoted) lines.push_back(std::move(item)), item.clear();
+    else item.push_back(c);
+  }
+  lines.push_back(std::move(item));
+  bool changed = false;
+  for (std::string line : lines) {
+    if (auto z = line.find('\0'); z != std::string::npos) line.resize(z);
+    const auto sp = line.find(' ');
+    const std::string key = lower_name(line.substr(0, sp));
+    const std::string value = sp == std::string::npos ? std::string() : line.substr(sp + 1);
+    if (key == "setbackto") g.set_back_to = value, changed = true;
+    else if (key == "loop") g.loop = true, changed = true;
+    else if (key == "continuous") g.continuous = true, changed = true;
+    else if (key == "singledirection") g.single_direction = true, changed = true;
+    // DEFAULT* lines had no visible effect in the lab; others are ignored.
+  }
+  if (changed) assets_->put_gani(name, std::move(g));
+}
+
+void Program::gani_fall_back(World::Player& p) {
+  // Only while nothing of the client's own drives the gani (the item keys,
+  // hurt and death set theirs back themselves).
+  if (item_keys_.busy() || health_.hurting() || health_.dead() || p.gani.empty()) return;
+  const std::string base = p.gani.substr(0, p.gani.find(','));
+  const Files::Gani* g = assets_->gani(base);
+  if (!g || g->loop || g->set_back_to.empty()) return;
+  auto it = gani_start_.find(-1);
+  if (it == gani_start_.end() || it->second.first != p.gani) return;
+  if (frame_ - it->second.second < g->total_ticks()) return;
+  p.gani = g->set_back_to;
 }
 
 void Program::send_enter_level() {
@@ -893,6 +948,9 @@ void Program::on_message(int id, std::string_view body) {
     case 30:  // PLO_FILESENDFAILED: name (it stays asked, so it is not asked again)
       if (log) log("the server has no " + std::string(body));
       break;
+    case 195:  // PLO_LOADGANI: name, then header lines
+      load_gani(body);
+      break;
     case 111:  // creationtime.dat: the whole body, byte for byte (6.03r7)
       creation_time_ = std::string(body);
       if (!opt_.assets.empty()) {
@@ -1064,6 +1122,7 @@ bool Program::tick() {
       if (props_sent_) session_.connection().send(pk.id, pk.body);
     }
     if (!action.empty() && props_sent_) session_.connection().send(38, action);
+    gani_fall_back(p);
     if (props_sent_) {
       std::string moved = mover_.diff(p);
       if (!moved.empty()) session_.connection().send(2, moved);

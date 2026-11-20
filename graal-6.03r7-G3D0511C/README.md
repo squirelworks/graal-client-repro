@@ -148,7 +148,11 @@ README, "Seihai secure login". CI logs in once more with
 - [x] ~~The Login server's scripted GUI and GS2: 140 and 197 (scripts and the
   `GRESCR01` cache) and 190~~ run in `quattro-play`'s script host
   (common/cpp/quattro, `shell/scripts`).
-- [ ] 195 (gani scripts) is accepted and ignored.
+- [x] ~~195 (gani scripts) is accepted and ignored.~~ In `quattro-play`
+  195's header lines (`SETBACKTO`, `LOOP`, `CONTINUOUS`, `SINGLEDIRECTION`)
+  change a gani already shown, the newest winning; for a gani not loaded
+  yet they are lost, as in the lab. A non-looping gani with a `SETBACKTO`
+  falls back once it has played, and the client sends the new gani.
 - [x] ~~111 (`creationtime.dat`) and 198~~: in `quattro-play` 111's body
   replaces `creationtime.dat` in the install folder byte for byte, and
   198's value is stored, as the original does.
