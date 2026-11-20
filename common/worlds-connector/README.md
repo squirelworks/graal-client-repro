@@ -60,7 +60,8 @@ for `7.0.1.7.5.0` is not recorded here.
 
 - `SEIWRLD1` is a placeholder. No game server accepts it until
   `seihai-gserver-v2` handles it, and the session cipher and key in
-  `setEncryptionOut` are still pending.
+  `setEncryptionOut` are still pending (chosen, not built:
+  `../../graal-6.1.1.3-GNP1905C/connector/CIPHER.md`).
 - Whether the live token is a single value for all Worlds builds, or the
   server returns a version-keyed value from the `User-Agent`, is **not**
   confirmed. The client bakes no token and its connector config is shared,

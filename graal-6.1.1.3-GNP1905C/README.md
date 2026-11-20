@@ -228,7 +228,8 @@ numbers the note names. It does not execute any opcode.
 - [ ] TODO(seihai-gserver-v2): `SEI00001` handling on the game server.
   Until it lands, the connector login stops after the hello.
 - [ ] The project's `conf.gs` payload cipher and the session cipher that
-  `setEncryptionOut` selects.
+  `setEncryptionOut` selects: chosen (RC4 per direction with `0xfc` key
+  exchange, clear signed payload; `connector/CIPHER.md`), not built yet.
 - [ ] UDP bind. The image can open a datagram socket from script. This
   connect path does not, and the bind method is not implemented.
 - [ ] AES, RC4, and the generation-5 XOR mix. The mix width (12 dwords, or

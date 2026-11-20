@@ -53,7 +53,9 @@ host and it does not borrow another version's token.
 - [ ] The `setprotocol` template on the clear-hello path. The connector
   path uses `EILLLT`, from the connector script.
 - [ ] `SEI00001` on the game server (seihai-gserver-v2), the project's
-  `conf.gs` payload cipher, and the session cipher.
+  `conf.gs` payload cipher, and the session cipher. The ciphers are
+  chosen (`connector/CIPHER.md`: RC4 per direction with `0xfc` key
+  exchange, clear signed payload) but not built.
 - [ ] Property value widths. The four setters store the string. The id
   prefix is id plus 32. The bytes after that prefix were not recovered.
 - [ ] GS2 opcode bodies, the builtin table, and where the `GRESCR01` CRC

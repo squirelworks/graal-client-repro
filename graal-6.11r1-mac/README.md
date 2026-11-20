@@ -81,7 +81,7 @@ gserver login.
 
 - [x] Connector login: `conf.gs`, retries, project-key signature check, then the connector script with `EILLLT` and `SEI00001`.
 - [ ] TODO(seihai-gserver-v2): `SEI00001` on the game server. Until then the login stops after the hello.
-- [ ] The project's `conf.gs` payload cipher and the session cipher.
+- [ ] The project's `conf.gs` payload cipher and the session cipher: chosen (`../graal-6.1.1.3-GNP1905C/connector/CIPHER.md`), not built yet.
 - [ ] The HTTPS step before plain HTTP (TLS 1.2, compiled-in certificate bundle). Not needed by this project's connector.
 - [ ] The `p=` client description. Not needed by this project's connector.
 - [ ] `con.png` and `con.gs`, which the real client asks for before `conf.gs`.

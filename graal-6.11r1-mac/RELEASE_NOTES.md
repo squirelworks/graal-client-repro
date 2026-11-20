@@ -28,7 +28,7 @@ Pascal. It shares the 6.1.1.3 folder's framer and connector units.
 ## Not yet
 
 - [ ] `SEI00001` on the game server (seihai-gserver-v2).
-- [ ] The `conf.gs` payload cipher and the session cipher.
+- [ ] The `conf.gs` payload cipher and the session cipher: chosen (`../graal-6.1.1.3-GNP1905C/connector/CIPHER.md`), not built yet.
 - [ ] The HTTPS step, the `p=` blob, `con.png` and `con.gs`.
 - [ ] The rest of the connector script surface and GS2.
 - [ ] OpenGL and the real window size.
