@@ -17,6 +17,7 @@ uses
   Sha6113 in '../src/Sha6113.pas',
   Rsa6113 in '../src/Rsa6113.pas',
   Rc46113 in '../src/Rc46113.pas',
+  Cipher6113 in '../src/Cipher6113.pas',
   GTypes in '../../common/GTypes.pas',
   GSecCrypto in '../../common/GSecCrypto.pas',
   GSecLogin in '../../common/GSecLogin.pas',
@@ -291,6 +292,54 @@ begin
   finally
     A.Free;
     P.Free;
+  end;
+end;
+
+procedure TestKeyFrames;
+var
+  Server: TRc4;
+  P: TProtocol;
+  Counter, Used, CType: Integer;
+  Pad, Key, IV, Plain, Block, Frame, Got, Inner, Wire: string;
+  I: Integer;
+begin
+  Plain := BuildServerKeyPlain(KeyTypeRc4, 'sixteen-byte-key', '');
+  Check(Plain = #1#48'sixteen-byte-key'#32, 'the server key plain is type, len+32, key, len+32, IV');
+  Check(ParseServerKeyPlain(Plain, CType, Key, IV) and (CType = 1) and
+    (Key = 'sixteen-byte-key') and (IV = ''), 'the server key plain parses back');
+  Check(not ParseServerKeyPlain(#1#60'short', CType, Key, IV), 'a key past the end is refused');
+  Check(not ParseServerKeyPlain(Plain + 'x', CType, Key, IV), 'bytes after the IV are refused');
+
+  Block := StringOfChar('B', 256);
+  Counter := 1;
+  Frame := BuildKeyFrame(Counter, Block);
+  Check((Counter = 3) and (Copy(Frame, 1, 2) = #1#2) and (Frame[6] = #$fd) and
+    (((Ord(Frame[3]) shl 16) or (Ord(Frame[4]) shl 8) or Ord(Frame[5])) = Length(Frame)),
+    'the key frame is a clear 0xfd, E 1, counter 2, LLL the whole packet');
+  Check(ZDecompress(Copy(Frame, 7, MaxInt), Inner) and (Length(Inner) = 262) and
+    (Copy(Inner, 1, 6) = #0#1#0#1#6#$fc), 'it inflates to the 262-byte 0xfc, counter 1');
+  Check(ReadKeyFrame(Frame + 'rest', Got, Used) and (Got = Block) and (Used = Length(Frame)),
+    'a key frame reads back from the front of the stream');
+  Check(not ReadKeyFrame(Copy(Frame, 1, Length(Frame) - 1), Got, Used), 'a cut key frame is not read');
+
+  { The server side end to end: key plain, type-2 wrap to the parse key,
+    frame, then the stream under the new key. }
+  Pad := '';
+  for I := 1 to 256 do Pad := Pad + Chr((I * 11) and 255);
+  Block := RsaWrapType2(TestN, BuildServerKeyPlain(KeyTypeRc4, 'server-session-k', ''), Pad);
+  Counter := 1;
+  Server := TRc4.Create('server-session-k');
+  P := TProtocol.Create;
+  try
+    Wire := BuildKeyFrame(Counter, Block) + Server.Crypt('first bundle');
+    Check(ReadKeyFrame(Wire, Got, Used) and RsaUnwrapType2(TestN, TestD, Got, Plain) and
+      ParseServerKeyPlain(Plain, CType, Key, IV) and P.SetEncryptionIn(CType, Key),
+      'the client unwraps the server key frame with the parse key and re-keys');
+    Check(P.DecryptIn(Copy(Wire, Used + 1, MaxInt)) = 'first bundle',
+      'the bytes after the key frame decrypt under the server key');
+  finally
+    P.Free;
+    Server.Free;
   end;
 end;
 
@@ -954,6 +1003,7 @@ begin
     TestCompression;
     TestCipherChoice;
     TestSessionCipher;
+    TestKeyFrames;
     TestProps;
     TestGs2;
     TestLevelAndCollision;

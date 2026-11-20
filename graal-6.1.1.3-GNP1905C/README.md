@@ -210,7 +210,10 @@ the bytes read, for the server's `0xfc`; type 2 (AES) is refused.
 `setencryptionout("AES")`, and `"RC4"` with no key, record the name and do
 not transform bytes. Any other name clears back to the LCG default.
 `Rsa6113` also wraps and unwraps a session key in a PKCS #1 v1.5 type-2
-block (RFC 8017), checked against a throwaway test key pair.
+block (RFC 8017), checked against a throwaway test key pair. `Cipher6113`
+builds and reads the key frame (a clear `0xfd`, zlib, wrapping the `0xfc`
+with the 256-byte block, counters 1 and 2) and the server's key plaintext
+(type, then key and IV after a length byte plus 32).
 Generation-5 numbered sends are refused. Ids 93 and 163 would need the
 id-50 prefix; the byte order of that prefix was not recovered.
 

@@ -79,8 +79,11 @@ code (see "Status" below); the signed scripts still say `SEI-PENDING`.
 - Built in the 6.1.1.3 client, with tests: `Rc46113` (RC4),
   `Frame6113.SetEncryptionOut("RC4", key)` encrypting every later byte,
   `SetEncryptionIn` and `DecryptIn` for the server's key, and
-  `RsaWrapType2` / `RsaUnwrapType2` in `Rsa6113` for the key blocks.
+  `RsaWrapType2` / `RsaUnwrapType2` in `Rsa6113` for the key blocks, and
+  `Cipher6113` for the `0xfd`/`0xfc` key frame and the server's key
+  plaintext. A test runs the server's side end to end: wrap, frame, read,
+  unwrap, re-key, decrypt.
 - Not done: a project script that sends the key frame, re-signed with
-  `SEI_CONNECTOR_KEY` (only the key holder can do that); the incoming
-  `0xfc` handler on the socket; the server side; the 6.11r1 Mac and
+  `SEI_CONNECTOR_KEY` (only the key holder can do that); calling the
+  key-frame reader from the socket loop; the server side; the 6.11r1 Mac and
   Worlds scaffolds.

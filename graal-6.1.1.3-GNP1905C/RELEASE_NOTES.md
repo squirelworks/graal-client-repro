@@ -41,7 +41,8 @@ host and it does not borrow another version's token.
   It was 128 too high before.
 - The project session cipher as library code: RC4 out after
   `setEncryptionOut("RC4", key)`, RC4 in after an incoming RC4 key, and a
-  PKCS #1 v1.5 type-2 key wrap and unwrap (`Rc46113`, `Rsa6113`), with
+  PKCS #1 v1.5 type-2 key wrap and unwrap (`Rc46113`, `Rsa6113`), and the
+  `0xfd`/`0xfc` key frames (`Cipher6113`), with
   known-answer and round-trip tests. Not on the wire yet: the signed
   project script still selects no cipher.
 - `--lab` is a labeled lab-only fixture: one other entity, its properties,
