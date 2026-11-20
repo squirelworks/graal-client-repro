@@ -22,6 +22,8 @@ to the program works too.
 
 ## What's new in v0.0.5
 
+- [x] Quattro never opens a file a server names after a Windows device (`con.png`, `nul.gani`, `com1.png` ...) or with a stream or drive part: it used to look such a player body up in the install, and Windows opened the console device and waited on it.
+
 - [x] **Short compressed frames step the cipher rounded down.** A zlib or bz2 body now steps the gen-5 key len / 4 times rounded down (a raw one still rounds up), as the read 4.04r2, 5.12 and 6.03r7 do and as seihai-core v0.7.0 expects of every gen-5 build from 4.04r2 on. Round-up only held while frame lengths happened to agree.
 - [x] **Seihai secure login in the Quattro game.** With `--secure-login auto` or `required` (or `secure_login.txt`), online games no longer stay in the Pascal game: `quattro-play` sends `SEI00001` itself, checks the server's key against the same pins, and seals the account and password. Off is still the original login byte for byte.
 

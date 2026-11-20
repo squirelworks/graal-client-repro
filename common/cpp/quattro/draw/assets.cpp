@@ -12,11 +12,23 @@ std::string lower(std::string s) {
   for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
   return s;
 }
-bool safe(const std::string& n) {
-  return !n.empty() && n.find('/') == std::string::npos && n.find('\\') == std::string::npos &&
-         n.find("..") == std::string::npos;
-}
 }  // namespace
+
+bool safe_file_name(const std::string& name) {
+  if (name.empty() || name.size() > 128 || name.find("..") != std::string::npos) return false;
+  for (unsigned char c : name)
+    if (c < 32 || c == '/' || c == '\\' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' ||
+        c == '>' || c == '|')
+      return false;
+  std::string base = lower(name.substr(0, name.find('.')));
+  while (!base.empty() && base.back() == ' ') base.pop_back();
+  for (const char* dev : {"con", "prn", "aux", "nul"})
+    if (base == dev) return false;
+  if (base.size() == 4 && (base.compare(0, 3, "com") == 0 || base.compare(0, 3, "lpt") == 0) && base[3] >= '0' &&
+      base[3] <= '9')
+    return false;
+  return true;
+}
 
 std::vector<std::string> asset_dirs(const std::string& root) {
   std::vector<std::string> out;
@@ -30,7 +42,7 @@ std::vector<std::string> asset_dirs(const std::string& root) {
 }
 
 bool Assets::read(const std::string& name, std::vector<std::uint8_t>& out) const {
-  if (!safe(name)) return false;
+  if (!safe_file_name(name)) return false;
   std::string err;
   for (const auto& d : dirs_)
     if (Torque::Gui::read_file(d + "/" + name, out, err)) return true;
@@ -67,7 +79,7 @@ const Files::Gani* Assets::gani(const std::string& name) {
 }
 
 bool Assets::missing_gani_file(const std::string& basename) const {
-  if (!safe(basename)) return false;
+  if (!safe_file_name(basename + ".gani")) return false;
   for (const auto& d : dirs_) {
     std::error_code ec;
     if (std::filesystem::exists(d + "/" + basename + ".gani", ec) || ec) return false;
