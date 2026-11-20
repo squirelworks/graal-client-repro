@@ -203,8 +203,14 @@ script sets. A test template of six
 bytes with a 273-byte body writes `L` as 279. That is the size check from
 the hello note. It is not the captured header `01 02 00 01 17 fd`.
 
-`setencryptionout("AES")` and `setencryptionout("RC4")` record the name and
-do not transform bytes. Any other name clears back to the LCG default.
+`setencryptionout("RC4", key)` with a key RC4-encrypts every byte sent
+after it (`Rc46113`, plain RC4 with no bytes dropped, as
+`connector/CIPHER.md` chose). `SetEncryptionIn(1, key)` does the same for
+the bytes read, for the server's `0xfc`; type 2 (AES) is refused.
+`setencryptionout("AES")`, and `"RC4"` with no key, record the name and do
+not transform bytes. Any other name clears back to the LCG default.
+`Rsa6113` also wraps and unwraps a session key in a PKCS #1 v1.5 type-2
+block (RFC 8017), checked against a throwaway test key pair.
 Generation-5 numbered sends are refused. Ids 93 and 163 would need the
 id-50 prefix; the byte order of that prefix was not recovered.
 
@@ -227,12 +233,15 @@ numbers the note names. It does not execute any opcode.
   above reads only the three connector calls.
 - [ ] TODO(seihai-gserver-v2): `SEI00001` handling on the game server.
   Until it lands, the connector login stops after the hello.
-- [ ] The project's `conf.gs` payload cipher and the session cipher that
-  `setEncryptionOut` selects: chosen (RC4 per direction with `0xfc` key
-  exchange, clear signed payload; `connector/CIPHER.md`), not built yet.
+- [ ] The project's session cipher end to end. Chosen (RC4 per direction
+  with `0xfc` key exchange, clear signed payload; `connector/CIPHER.md`)
+  and built as library code (RC4 both ways, type-2 key wrap), but the
+  signed project script still calls `SEI-PENDING`. It needs a script that
+  sends the key frame, re-signed with the project key, and the server side
+  in seihai-gserver-v2.
 - [ ] UDP bind. The image can open a datagram socket from script. This
   connect path does not, and the bind method is not implemented.
-- [ ] AES, RC4, and the generation-5 XOR mix. The mix width (12 dwords, or
+- [ ] AES and the generation-5 XOR mix. The mix width (12 dwords, or
   4 on a compressed frame) is described; which bytes of the LCG word are
   applied was not pinned down against the two step formulas, so it is not
   applied.

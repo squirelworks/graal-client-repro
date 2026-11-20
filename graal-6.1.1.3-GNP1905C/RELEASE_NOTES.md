@@ -39,6 +39,11 @@ host and it does not borrow another version's token.
   the server's catalogue gives it a version id.
 - The generation-5 seed is the one `protocol/unpacked-6113-wire.md` gives.
   It was 128 too high before.
+- The project session cipher as library code: RC4 out after
+  `setEncryptionOut("RC4", key)`, RC4 in after an incoming RC4 key, and a
+  PKCS #1 v1.5 type-2 key wrap and unwrap (`Rc46113`, `Rsa6113`), with
+  known-answer and round-trip tests. Not on the wire yet: the signed
+  project script still selects no cipher.
 - `--lab` is a labeled lab-only fixture: one other entity, its properties,
   and a movement round trip. It is not 6.1.1.3 ciphertext and not v7.
 
@@ -55,7 +60,8 @@ host and it does not borrow another version's token.
 - [ ] `SEI00001` on the game server (seihai-gserver-v2), the project's
   `conf.gs` payload cipher, and the session cipher. The ciphers are
   chosen (`connector/CIPHER.md`: RC4 per direction with `0xfc` key
-  exchange, clear signed payload) but not built.
+  exchange, clear signed payload). The cipher is built as library code;
+  the re-signed script and the server side are not.
 - [ ] Property value widths. The four setters store the string. The id
   prefix is id plus 32. The bytes after that prefix were not recovered.
 - [ ] GS2 opcode bodies, the builtin table, and where the `GRESCR01` CRC

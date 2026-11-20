@@ -16,6 +16,7 @@ uses
   Level6113 in '../src/Level6113.pas',
   Sha6113 in '../src/Sha6113.pas',
   Rsa6113 in '../src/Rsa6113.pas',
+  Rc46113 in '../src/Rc46113.pas',
   GTypes in '../../common/GTypes.pas',
   GSecCrypto in '../../common/GSecCrypto.pas',
   GSecLogin in '../../common/GSecLogin.pas',
@@ -189,6 +190,106 @@ begin
     Check(P.LcgState <> Q.LcgState, 'the hello note adds the key; the wire note adds 1');
   finally
     Q.Free;
+    P.Free;
+  end;
+end;
+
+const
+  { A throwaway RSA-2048 pair made for these tests only. }
+  TestN =
+    'a166a428a9803f30f36ccb00dc8e4875054dba0be5fcc10ad5e0095615663c66' +
+    '0a1d4d260553b6306fd01a9bded5329ae83cc153b762f4c4e5e900f88c301149' +
+    'd16239e250652a2916f272d517affeea4d04d53c49172ceae531e5a30fd2ae21' +
+    '1dbc35802498a00bc611b044d5eaf97342e2f15e9d55e6a4cb5127d99f1b5b32' +
+    'b26e792de55e70599356d49262d35b8c355e59f0633503d037290ee153ae4f1b' +
+    '08e57c141d4740eec4cc5c064d310d8d1dc3d207646990297cef0ea8b1da7ce9' +
+    'd85f4fd08fb69ace36ff84cb8120e205b433fae5ebd93068f42cce9a01b23773' +
+    '0fa290e48e3ef20cb83188354eca5defadb2c864c4bb1d5aa20a31fa7e75150d';
+  TestD =
+    '2b9873e2dfd5da3bb8a4bc38a15a754bd680e62dec9356f93c47e57db10e0a66' +
+    '6d78f8abba68a01f793436dbbf56caf278a4607be25f024a64e788f199bc2a0f' +
+    '4c5541d95569ddf77751499f3164c2703b198117658eb2fd47a730a5d8d24962' +
+    '7c8ba7cfd312beb82f69fbb8bc2759f5be2d5a90f9e288081f3aee8ea3a15a02' +
+    '6bc2372f3fbdcddb70d50268ca68f640ca74710bcaa0a12b555c9f7ab3a0d0b9' +
+    '91a0e3a3f181aa5fb013a0596e1a1bc26860cd04accb712922a69ef0f6691618' +
+    'b3a8b5eb4ccd93f77abde09711146b457850ae7efeb48f3bc3ec0037c88e66a2' +
+    'fe4379375534b0b3ac063ce26c718136740419d0d6e674f7dd5fa263e957b6e9';
+
+function HexOf(const S: string): string;
+var
+  I: Integer;
+begin
+  Result := '';
+  for I := 1 to Length(S) do Result := Result + LowerCase(IntToHex(Ord(S[I]), 2));
+end;
+
+procedure TestSessionCipher;
+var
+  A, B: TRc4;
+  P: TProtocol;
+  Key, Pad, Block, Msg, Wire, Body: string;
+  I: Integer;
+begin
+  A := TRc4.Create('Key');
+  try
+    Check(HexOf(A.Crypt('Plaintext')) = 'bbf316e8d940af0ad3', 'RC4 matches the Key/Plaintext vector');
+  finally
+    A.Free;
+  end;
+  A := TRc4.Create('Secret');
+  B := TRc4.Create('Secret');
+  try
+    Check(HexOf(A.Crypt('Attack at dawn')) = '45a01f645fc35b383552544b9bf5', 'RC4 matches the Secret vector');
+    Wire := B.Crypt('Attack');
+    Wire := Wire + B.Crypt(' at dawn');
+    Check(HexOf(Wire) = '45a01f645fc35b383552544b9bf5', 'RC4 goes on across calls');
+  finally
+    B.Free;
+    A.Free;
+  end;
+
+  Key := '';
+  for I := 1 to 16 do Key := Key + Chr(I * 13);
+  Pad := '';
+  for I := 1 to 256 do Pad := Pad + Chr((I * 7) and 255);
+  Block := RsaWrapType2(TestN, Key, Pad);
+  Check(Length(Block) = 256, 'a type-2 key block is 256 bytes');
+  Check(RsaUnwrapType2(TestN, TestD, Block, Msg) and (Msg = Key),
+    'the private key unwraps the session key');
+  Block[100] := Chr(Ord(Block[100]) xor 1);
+  Check(not RsaUnwrapType2(TestN, TestD, Block, Msg), 'a changed block does not unwrap');
+  Check(RsaWrapType2(TestN, StringOfChar('x', 246), Pad) = '', 'a key past 245 bytes is refused');
+
+  P := TProtocol.Create;
+  A := TRc4.Create(Key);
+  try
+    P.SetEncryptionOut('RC4', Key, '');
+    Check((P.Enc = eoRc4) and (P.EncName = 'RC4'), 'RC4 with a key is applied');
+    Check(P.SendRaw('GNP1905C', Wire) and (Wire = A.Crypt('GNP1905C')),
+      'the wire after the key frame is RC4 of the plain bytes');
+    Check(P.SendRaw('GNP1905C', Body) and (Body = A.Crypt('GNP1905C')) and (Body <> Wire),
+      'the key stream goes on across sends');
+    P.SetEncryptionOut('RC4', '', '');
+    Check(P.Enc = eoNamedUnused, 'RC4 with no key is named and not applied');
+    Check(P.SendRaw('GNP1905C', Wire) and (Wire = 'GNP1905C'), 'and the wire is plain again');
+  finally
+    A.Free;
+    P.Free;
+  end;
+
+  P := TProtocol.Create;
+  A := TRc4.Create('server-to-client');
+  try
+    Check(P.DecryptIn('abc') = 'abc', 'incoming bytes are plain before a key');
+    Check(not P.SetEncryptionIn(2, 'k'), 'an incoming AES key is refused');
+    Check(P.SetEncryptionIn(1, 'server-to-client'), 'an incoming RC4 key is taken');
+    Wire := A.Crypt('hello, client');
+    Body := P.DecryptIn(Copy(Wire, 1, 5));
+    Body := Body + P.DecryptIn(Copy(Wire, 6, MaxInt));
+    Check(Body = 'hello, client',
+      'incoming RC4 decrypts across reads');
+  finally
+    A.Free;
     P.Free;
   end;
 end;
@@ -852,6 +953,7 @@ begin
     TestHeaderOrder;
     TestCompression;
     TestCipherChoice;
+    TestSessionCipher;
     TestProps;
     TestGs2;
     TestLevelAndCollision;

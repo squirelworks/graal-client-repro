@@ -4,8 +4,8 @@ The project's own connector (`SEI00001`, and `SEIWRLD1` for the Worlds
 builds) left two choices open: how the signed `conf.gs` payload is
 encrypted, and which session cipher `setEncryptionOut` selects. This note
 records the choice and why. It applies to the 6.1.1.3, 6.11r1 Mac and
-shared Worlds scaffolds. Nothing here is implemented yet; the scaffolds
-still say `SEI-PENDING`.
+shared Worlds scaffolds. The 6.1.1.3 client has the cipher as library
+code (see "Status" below); the signed scripts still say `SEI-PENDING`.
 
 ## Decision
 
@@ -73,3 +73,14 @@ still say `SEI-PENDING`.
   own `0xfc`.
 - The project key pairs (signing, server, parse) stay outside the repo,
   as the signing key already does (`SEI_CONNECTOR_KEY`).
+
+## Status (2026-11-20)
+
+- Built in the 6.1.1.3 client, with tests: `Rc46113` (RC4),
+  `Frame6113.SetEncryptionOut("RC4", key)` encrypting every later byte,
+  `SetEncryptionIn` and `DecryptIn` for the server's key, and
+  `RsaWrapType2` / `RsaUnwrapType2` in `Rsa6113` for the key blocks.
+- Not done: a project script that sends the key frame, re-signed with
+  `SEI_CONNECTOR_KEY` (only the key holder can do that); the incoming
+  `0xfc` handler on the socket; the server side; the 6.11r1 Mac and
+  Worlds scaffolds.

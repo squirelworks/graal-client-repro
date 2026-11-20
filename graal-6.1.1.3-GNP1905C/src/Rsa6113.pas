@@ -27,6 +27,23 @@ function RsaVerifyBareSha256(const ModulusHex, Signature, Digest: string;
 { The 256-byte block s^e mod n, for tests. Empty on a bad modulus. }
 function RsaPublicOp(const ModulusHex, Block: string): string;
 
+{ The 256-byte block b^x mod n for any exponent x (hex, most significant
+  first): the private operation, with x the private exponent. Empty on a
+  bad modulus, exponent or block. }
+function RsaModExp(const ModulusHex, ExpHex, Block: string): string;
+
+{ The 6.11 key frames (protocol/connector-script.md section 4c): Msg in a
+  PKCS #1 v1.5 type-2 block (RFC 8017 section 7.2), raised to 65537 mod
+  the given modulus. Pad gives the padding bytes; a zero byte in it is
+  taken as 1, and it must hold at least 253 - Length(Msg) bytes. Empty
+  when Msg is longer than 245 bytes or the modulus is bad. }
+function RsaWrapType2(const ModulusHex, Msg, Pad: string): string;
+
+{ Undo RsaWrapType2 with the private exponent. False when the block does
+  not unpad as type 2. }
+function RsaUnwrapType2(const ModulusHex, PrivExpHex, Block: string;
+  out Msg: string): Boolean;
+
 implementation
 
 const
@@ -189,6 +206,73 @@ begin
   end;
   BigMulMod(M, S, N, T);
   Result := BigToBytes(T);
+end;
+
+function RsaModExp(const ModulusHex, ExpHex, Block: string): string;
+var
+  NBytes, XBytes: string;
+  N, B, X, R, T: TBig;
+  Bit: Integer;
+  Started: Boolean;
+begin
+  Result := '';
+  if not HexToBytes(ModulusHex, NBytes) or (Length(NBytes) <> RsaBytes) then Exit;
+  if not HexToBytes(ExpHex, XBytes) or (Length(XBytes) = 0) or (Length(XBytes) > RsaBytes) then Exit;
+  while Length(XBytes) < RsaBytes do XBytes := #0 + XBytes;
+  if not BigFromBytes(NBytes, N) or not BigFromBytes(Block, B) or not BigFromBytes(XBytes, X) then Exit;
+  if BigCmp(B, N) >= 0 then Exit;
+  { Square and multiply, most significant bit first. }
+  BigZero(R);
+  R[0] := 1;
+  Started := False;
+  for Bit := RsaBytes * 8 - 1 downto 0 do
+  begin
+    if Started then
+    begin
+      BigMulMod(R, R, N, T);
+      R := T;
+    end;
+    if (X[Bit div 32] shr (Bit mod 32)) and 1 = 1 then
+    begin
+      BigMulMod(R, B, N, T);
+      R := T;
+      Started := True;
+    end;
+  end;
+  Result := BigToBytes(R);
+end;
+
+function RsaWrapType2(const ModulusHex, Msg, Pad: string): string;
+var
+  EM: string;
+  PadLen, I: Integer;
+begin
+  Result := '';
+  PadLen := RsaBytes - 3 - Length(Msg);
+  if (PadLen < 8) or (Length(Pad) < PadLen) then Exit;
+  EM := #0#2;
+  for I := 1 to PadLen do
+    if Pad[I] = #0 then EM := EM + #1 else EM := EM + Pad[I];
+  EM := EM + #0 + Msg;
+  Result := RsaPublicOp(ModulusHex, EM);
+end;
+
+function RsaUnwrapType2(const ModulusHex, PrivExpHex, Block: string;
+  out Msg: string): Boolean;
+var
+  EM: string;
+  I: Integer;
+begin
+  Result := False;
+  Msg := '';
+  if Length(Block) <> RsaBytes then Exit;
+  EM := RsaModExp(ModulusHex, PrivExpHex, Block);
+  if (Length(EM) <> RsaBytes) or (EM[1] <> #0) or (EM[2] <> #2) then Exit;
+  I := 3;
+  while (I <= RsaBytes) and (EM[I] <> #0) do Inc(I);
+  if (I > RsaBytes) or (I - 3 < 8) then Exit;
+  Msg := Copy(EM, I + 1, MaxInt);
+  Result := True;
 end;
 
 function RsaVerifyBareSha256(const ModulusHex, Signature, Digest: string;
