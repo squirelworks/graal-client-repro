@@ -70,7 +70,10 @@ void Program::npc_to_script(int id) {
 }
 
 void Program::npcs_from_scripts() {
-  for (const auto& [id, var] : npc_vars_) {
+  for (const auto& entry : npc_vars_) {
+    // Not a structured binding: a lambda cannot capture one before C++20.
+    const auto& id = entry.first;
+    const auto& var = entry.second;
     auto nit = npcs_.find(id);
     if (nit == npcs_.end()) continue;
     World::ServerNpc& n = nit->second;
