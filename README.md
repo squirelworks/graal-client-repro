@@ -130,8 +130,11 @@ files are yours: never commit them.
 
 ```
 # Linux
+git clone https://github.com/squirelworks/graal-client-repro
+cd graal-client-repro
 sudo apt-get install fp-compiler fp-units-base fp-units-fcl libx11-dev
-scripts/build.sh
+scripts/build.sh                          # every build, into build/<folder>/
+scripts/build.sh graal-2.05r2-GNW03081    # just one (BUILD_JOBS=4 builds four at a time)
 scripts/test.sh
 
 # Windows: install Free Pascal (e.g. `choco install freepascal`), put its
@@ -152,6 +155,48 @@ GRAAL_PW=... build/graal-2.05r2-GNW03081/Graal205 --server 127.0.0.1:14802 --acc
 # acceptance: log into seihai-gserver on loopback
 scripts/loopback.sh path/to/seihai-gserver/target/release/seihai-gserver
 ```
+
+## Command-line options
+
+Started with no arguments, a client shows its start screen. The flags below
+are the ones the 2.x Pascal builds share; run a build with any flag but no
+`--server` or `--level` and it prints its own list, and the build's folder
+README covers anything extra it takes (`--server-name`, `--head`, `--nick`
+and so on in some builds). The Java and Game Boy clients have their own
+READMEs.
+
+What to run:
+
+| Option | What it does |
+| --- | --- |
+| `--server HOST:PORT --account NAME` | Log into a server. |
+| `--password-env VAR` | Read the password from this environment variable (default `GRAAL_PW`). |
+| `--secure-login off\|auto\|required` | Whether to use seihai's secure login; `secure_login.txt` next to the program sets the same thing. |
+| `--server-key KEY` | Pin the server's public key for secure login. |
+| `--level FILE` | Play a level offline. `--x X --y Y` sets the start tile; 2.22 also takes `--cell CX,CY` for big maps. |
+| `--editor` | Open the level editor first, in builds that have one. |
+
+Common to both:
+
+| Option | What it does |
+| --- | --- |
+| `--data DIR` | Your Graal install folder, for the real art, sounds and levels. Without it the build uses its stand-ins. |
+| `--window` / `--headless` | Draw to a window (X11 on Linux, GDI on Windows), or draw nothing. |
+| `--frames N` / `--seconds N` | Stop after N frames or N seconds. `--frames 0` runs until stopped. |
+| `--keys SCRIPT` | Play a key script: a comma list of `up`, `left`, `down`, `right`, `a`, `s`, `d`, `q`, each optionally `NAME*N` to hold it for N 50 ms ticks. |
+| `--walk script\|idle\|random` | How the player moves in an unattended run; `--walk-ms N` is the step time (default 100). |
+| `--seed N` | Seed for `--walk random`. |
+| `--link-every N` | Every N seconds, walk to the nearest level link. |
+| `--nodelay` | Turn on TCP_NODELAY. |
+| `--stats-every N` | Write a JSON stats line every N seconds. |
+| `--dump FRAME.bmp` | Save a frame as a bitmap. |
+| `--sheet FILE` | Use this tile sheet. |
+| `--nosound` | No sound. |
+
+A run prints a JSON summary when it ends and exits with 0 on a clean finish,
+1 on an error, 2 if it never logged in, 3 if the server dropped it and 64 for
+a bad command line. The 2.05r2 README's stress-run section shows these flags
+used together.
 
 ## How the repository is organised
 
