@@ -10,6 +10,11 @@ names of that folder's zips, and the folder's "What's new in <version>"
 section. RELEASE, if set, names the release in the header when it is not
 the version itself (v0.0.3r1 holds the v0.0.3 zips). Folders come in RELEASES.md's order (by era, oldest first), any
 it does not list after them.
+
+GitHub refuses release notes over 125,000 characters. When the full text
+would pass LIMIT, each folder gets one line instead: its title, a link to
+its "What's new" section in its RELEASE_NOTES.md at the tag, and how many
+zips it has (GitHub lists the zips under Assets anyway).
 """
 import os
 import re
@@ -17,6 +22,7 @@ import sys
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')
 REPO = 'https://github.com/squirelworks/graal-client-repro'
+LIMIT = 120000  # GitHub's cap is 125,000; keep a margin
 
 HEADER = """Every Graal client rebuilt in graal-delphi, released together at {release}. \
 Each client's zip is attached below and named after its folder: \
@@ -49,7 +55,37 @@ def section(text, version):
     return m.group(1).strip() if m else ''
 
 
+def anchor(heading):
+    """GitHub's anchor for a Markdown heading."""
+    a = re.sub(r'[^\w\- ]', '', heading.strip().lower())
+    return a.replace(' ', '-')
+
+
+def compact(version, folders, zips):
+    out = [HEADER.format(version=version, release=os.environ.get('RELEASE') or version, repo=REPO),
+           "Each client's changes are in its folder's RELEASE_NOTES.md (the notes "
+           "for every client together are too long for one GitHub release).\n"]
+    frag = anchor(f"What's new in {version}")
+    for f in folders:
+        with open(os.path.join(ROOT, f, 'RELEASE_NOTES.md'), encoding='utf-8') as fh:
+            text = fh.read()
+        title = text.split('\n', 1)[0].lstrip('# ').strip()
+        n = len([z for z in zips if z.startswith(f'{f}-{version}')])
+        line = f'- **{title}** (`{f}`)'
+        if section(text, version):
+            line += f': [what\'s new]({REPO}/blob/{version}/{f}/RELEASE_NOTES.md#{frag})'
+        if n:
+            line += f', {n} zip' + ('s' if n != 1 else '')
+        out.append(line)
+    return '\n'.join(out) + '\n'
+
+
 def notes(version, folders, zips):
+    full = full_notes(version, folders, zips)
+    return full if len(full) <= LIMIT else compact(version, folders, zips)
+
+
+def full_notes(version, folders, zips):
     out = [HEADER.format(version=version, release=os.environ.get('RELEASE') or version, repo=REPO)]
     for f in folders:
         with open(os.path.join(ROOT, f, 'RELEASE_NOTES.md'), encoding='utf-8') as fh:
