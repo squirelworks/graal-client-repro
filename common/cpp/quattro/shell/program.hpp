@@ -297,6 +297,11 @@ class Program {
   std::set<int> keys_down_;  // virtual-key codes held (from the window's input events)
   bool props_sent_ = false;
   bool enter_level_pending_ = false;
+  // 5.24 on: the own chat clears itself 3 s after it was set (lab: 2.97
+  // to 2.99 s after the server set it, prop 12 sent empty).
+  std::string own_chat_seen_;
+  int own_chat_since_ = 0;
+  void clear_own_chat();
   bool link_warp_pending_ = false;  // a LEVELWARP is out; no second until the server answers
   int link_warps_sent_ = 0;
   std::string link_dest_;  // the pending warp's level and arrival

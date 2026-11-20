@@ -83,6 +83,10 @@ void WorldRenderer::draw_texts(Canvas& c, const WorldState& w, const View& v) co
       if (const Image* img = assets_->image(n.image)) width = img->width;
     say(n.message, px + width / 2, py);
   }
+  if (!w.lobby && w.v6_texts) {
+    draw_v6_texts(c, w, v);
+    return;
+  }
   if (w.lobby || !w.player_chat) return;
   for (const auto& o : w.others) {
     at(o.x, o.y, px, py);
@@ -92,6 +96,92 @@ void WorldRenderer::draw_texts(Canvas& c, const WorldState& w, const View& v) co
     at(w.player.x, w.player.y, px, py);
     say(w.player.chat, px + 24, py);
   }
+}
+
+Color nick_colour(int ap) {
+  // The ramp's anchors are from the 6.03 reading; the steps between them
+  // are the rebuild's straight lines.
+  auto mix = [](Color a, Color b, int i, int n) {
+    auto m = [&](uint8_t x, uint8_t y) { return static_cast<uint8_t>(x + (y - x) * i / std::max(1, n)); };
+    return Color{m(a.r, b.r), m(a.g, b.g), m(a.b, b.b), 255};
+  };
+  if (ap <= 0) return {64, 0, 0, 255};
+  if (ap <= 26) return mix({128, 0, 0, 255}, {255, 0, 0, 255}, ap - 1, 25);
+  if (ap <= 49) return mix({255, 0, 0, 255}, {255, 255, 255, 255}, ap - 27, 22);
+  if (ap <= 55) return {255, 255, 255, 255};
+  if (ap <= 70) return mix({160, 255, 160, 255}, {0, 255, 192, 255}, ap - 56, 14);
+  if (ap <= 99) return mix({0, 255, 255, 255}, {0, 0, 255, 255}, ap - 71, 28);
+  return {224, 196, 0, 255};
+}
+
+std::vector<std::string> wrap_chat(const std::string& text, int width) {
+  if (text.size() < 11) return {text};
+  std::vector<std::string> lines;
+  std::string line;
+  size_t i = 0;
+  while (i < text.size()) {
+    // The next word, up to and with its break character.
+    size_t j = i;
+    while (j < text.size() && std::string_view(" .,;+-?!").find(text[j]) == std::string_view::npos) ++j;
+    if (j < text.size()) ++j;
+    const std::string word = text.substr(i, j - i);
+    if (!line.empty() && ui_text_width(line + word, false) > width) {
+      lines.push_back(line);
+      line.clear();
+    }
+    line += word;
+    i = j;
+  }
+  if (!line.empty()) lines.push_back(line);
+  return lines;
+}
+
+// 6.x: white chat centred at x + 1.5, its bottom line at y - 1, lines
+// stacked upward and kept on screen; the nickname at x + 1.5, y + 2.5.
+// Every text has a (1, 1) shadow: blue-only for bright text, light for
+// dark. "showap" shows the AP number instead. The font is the rebuild's
+// stand-in (6.03 uses Tempus Sans ITC 24).
+void WorldRenderer::draw_v6_texts(Canvas& c, const WorldState& w, const View& v) const {
+  const int cw = c.clip().width > 0 ? c.clip().width : c.width();
+  auto put = [&](const std::string& s, int cx, int top, Color col) {
+    if (s.empty()) return;
+    int x = cx - ui_text_width(s, false) / 2;
+    x = std::max(0, std::min(x, cw - ui_text_width(s, false)));
+    const bool bright = col.r > 224 || col.g > 224;
+    const Color shadow = bright ? Color{0, 0, col.b, 255} : Color{224, 224, 224, 255};
+    ui_draw_text(c, x + 1, top + 1, s, shadow, false);
+    ui_draw_text(c, x, top, s, col, false);
+  };
+  auto at = [&](double tx, double ty, int& px, int& py) {
+    px = static_cast<int>(std::lround((tx - v.left) * kTile));
+    py = static_cast<int>(std::lround((ty - v.top) * kTile));
+  };
+  auto actor_texts = [&](const Actor& a) {
+    int px = 0, py = 0;
+    at(a.x + 1.5, a.y, px, py);
+    const std::string chat = a.chat == "showap" ? std::to_string(a.ap) : a.chat;
+    const auto lines = wrap_chat(chat, cw);
+    int top = py - kTile - kUiLineHeight * static_cast<int>(lines.size());
+    for (const auto& l : lines) {
+      put(l, px, std::max(0, top), {255, 255, 255, 255});
+      top += kUiLineHeight;
+    }
+    put(a.nick, px, py + static_cast<int>(std::lround(2.5 * kTile)), nick_colour(a.ap));
+  };
+  for (const auto& n : w.npcs) {
+    int px = 0, py = 0;
+    at(n.x, n.y, px, py);
+    if (n.character) {
+      actor_texts(n.actor);
+      continue;
+    }
+    int width = n.has_part ? n.part.width : 32;
+    if (!n.has_part && assets_ && !n.image.empty())
+      if (const Image* img = assets_->image(n.image)) width = img->width;
+    put(n.message, px + width / 2, py - kUiLineHeight, {255, 255, 255, 255});
+  }
+  for (const auto& o : w.others) actor_texts(o);
+  if (!w.player_hidden) actor_texts(w.player);
 }
 
 void WorldRenderer::draw_tiles(Canvas& c, const WorldState& w, const View& v) const {

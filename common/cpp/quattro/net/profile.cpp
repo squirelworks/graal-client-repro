@@ -58,6 +58,13 @@ std::vector<BuildProfile> make() {
   r603.carry_sprite_after = 6;
   r603.carry_still_after = 8;
   r603.escape_menu = true;
+  // After each login basepackage.gupd twice (23 cold, 47 cached), as
+  // 5.24r4, 5.30r3 and 6.03r7 do (protocol/file-transfer.md, "What 5.x
+  // asks for at login"), then the chat font (arial.ttf, the #373
+  // end-to-end lab's real 6.03r7). No bigmap.txt was seen from 6.x.
+  r603.update_packages = true;
+  r603.asks_bigmap = false;
+  r603.login_wants = {"arial.ttf"};
   r603.own_props = OwnProps::k6x;  // probed on Linux 6.03r7; 6.03r7 Windows and 6.01r1 inherit it [inf]
   rows.push_back(r603);
 

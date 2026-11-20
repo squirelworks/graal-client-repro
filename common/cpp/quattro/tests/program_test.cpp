@@ -534,6 +534,37 @@ void test_update_packages() {
     CHECK(run(p, &login, nullptr, [&] { return count(login, 47, "!MCt'basepackage.gupd") == 2; }));
     CHECK(count(login, 23, "basepackage.gupd") == 0);
   }
+  {
+    // 6.03r7: basepackage.gupd twice, then the chat font when no folder
+    // has it, and no bigmap.txt.
+    const Net::BuildProfile* p6 = Net::find_profile("6.03r7");
+    CHECK(p6 && p6->update_packages && !p6->asks_bigmap);
+    if (!p6) return;
+    const fs::path r6 = root / "six";
+    fs::create_directories(r6);
+    for (bool have_font : {false, true}) {
+      if (have_font) {
+        fs::create_directories(r6 / "levels/fonts");
+        std::ofstream(r6 / "levels/fonts/arial.ttf") << "x";
+      }
+      FakeServer login;
+      CHECK(login.start());
+      Shell::Options opt;
+      opt.host = "127.0.0.1";
+      opt.port = login.port();
+      opt.server_name = "Login Lab 603";
+      opt.assets = r6.string();
+      opt.download_files = true;
+      Draw::HeadlessWindow win;
+      Shell::Program p(*p6, opt, win);
+      CHECK(p.start());
+      CHECK(login.conn.accept_from(login.listener));
+      CHECK(run(p, &login, nullptr, [&] { return count(login, 23, "basepackage.gupd") == 2; }));
+      for (int i = 0; i < 5; ++i) p.tick(), login.pump();
+      CHECK(count(login, 23, "arial.ttf") == (have_font ? 0 : 1));
+      CHECK(count(login, 23, "bigmap.txt") == 0);
+    }
+  }
   fs::remove_all(root);
 }
 
@@ -1573,6 +1604,22 @@ void test_program_603_level_link() {
   win.keys.insert(Draw::Key::Left);
   CHECK(run(p, &game, nullptr, [&] { return p.link_warps_sent() == 2; }));
   win.keys.clear();
+  // The own chat clears itself 3 s (60 ticks) after it was set, and the
+  // client says so with an empty prop 12 (lab: 2.97 to 2.99 s).
+  game.send(gchar(9) + gchar(World::kCurChat) + Net::gstring("hello") + "\n");
+  CHECK(run(p, &game, nullptr, [&] { return p.me().chat == "hello"; }));
+  const std::string cleared = gchar(World::kCurChat) + Net::gstring("");
+  const size_t chat_from = game.got.size();
+  auto cleared_sent = [&] {
+    for (size_t i = chat_from; i < game.got.size(); ++i)
+      if (game.got[i].first == 2 && game.got[i].second.find(cleared) != std::string::npos) return true;
+    return false;
+  };
+  for (int i = 0; i < 50; ++i) p.tick(), game.pump();
+  CHECK(p.me().chat == "hello" && !cleared_sent());
+  for (int i = 0; i < 15; ++i) p.tick(), game.pump();
+  CHECK(run(p, &game, nullptr, cleared_sent));
+  CHECK(p.me().chat.empty());
 }
 
 int main() {

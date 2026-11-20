@@ -169,6 +169,49 @@ void test_world_passes() {
   CHECK(f.left == 31.5 - 40 && f.top == 0);  // 1024 high fits: clamped
 }
 
+// 5.24 on: white chat with a blue shadow above the head, the nickname in
+// its AP colour under the feet, "showap" as the AP number.
+void test_v6_texts() {
+  CHECK((Draw::nick_colour(0) == Draw::Color{64, 0, 0, 255}));
+  CHECK((Draw::nick_colour(50) == Draw::Color{255, 255, 255, 255}));
+  CHECK((Draw::nick_colour(100) == Draw::Color{224, 196, 0, 255}));
+  CHECK(Draw::nick_colour(99).b == 255 && Draw::nick_colour(99).r == 0);
+  CHECK(Draw::nick_colour(20).r > Draw::nick_colour(5).r && Draw::nick_colour(20).g == 0);
+  CHECK(Draw::wrap_chat("short", 10).size() == 1);
+  const auto lines = Draw::wrap_chat("hello there, how are you today", 60);
+  CHECK(lines.size() > 1);
+  std::string joined;
+  for (const auto& l : lines) joined += l;
+  CHECK(joined == "hello there, how are you today");
+
+  Draw::WorldState w;
+  w.level.layers.push_back({});
+  w.have_level = true;
+  w.v6_texts = true;
+  w.player.x = 4;
+  w.player.y = 4;
+  w.player.chat = "hi";
+  w.player.nick = "Kay";
+  w.player.ap = 100;
+  Draw::Canvas c(320, 240);
+  Draw::WorldRenderer r;
+  r.draw(c, w, Draw::View{});
+  auto count = [&](int x0, int y0, int x1, int y1, Draw::Color col) {
+    int n = 0;
+    for (int y = y0; y < y1; ++y)
+      for (int x = x0; x < x1; ++x) n += c.surface().at(x, y) == col;
+    return n;
+  };
+  // Chat: rows above y - 1 (tile 3); nickname: rows from y + 2.5 (pixel 104).
+  CHECK(count(40, 16, 120, 48, {255, 255, 255, 255}) > 0);
+  CHECK(count(40, 16, 120, 48, {0, 0, 255, 255}) > 0);
+  CHECK(count(40, 104, 120, 124, {224, 196, 0, 255}) > 0);
+  // The 4.x look has no nickname.
+  w.v6_texts = false;
+  r.draw(c, w, Draw::View{});
+  CHECK(count(40, 104, 120, 124, {224, 196, 0, 255}) == 0);
+}
+
 }  // namespace
 
 
@@ -483,6 +526,7 @@ void test_nw() {
 }
 
 int main() {
+  test_v6_texts();
   test_nw();
   test_grv103();
   test_runs();
