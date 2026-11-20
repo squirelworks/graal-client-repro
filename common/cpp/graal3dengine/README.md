@@ -29,6 +29,7 @@ the connect to login step 6:
 | `src/link.*` mission start | `MissionStartPhase1` → step 2 and `MissionStartPhase1Ack`; `MissionStartPhase2` → steps 3, 4 and `MissionStartPhase2Ack`; the first control object after phase 2 → steps 5 and 6 | §7, `torque/4208-g3d.md`, `torque/5007-g3d.md` |
 | `src/world.*` | Ghost creates, updates and deletes; `GameObject` (all thirteen sections), `Camera`, `Sun`, `Sky` (name, material list, fog colour); any other class skipped by its length | §8 |
 | client game section | First person, the control object's position and ghost, its shape, transform and flags sent back once, then an empty update | §6 |
+| `src/link.*` movement | A movetype (`interpolate`, `list`, `rigid`) and movement data on the control object move the player: `list` jumps onto each position, `interpolate` and `rigid` glide to each target; the position sent in every packet is where the object has got to. `interpolate` and `list` send their shape, transform, movetype and flags once when the movement object is made; then `interpolate` sends its movement data and `list` its transform in every update, and `rigid` sends no object section | `protocol/lab-appe-gwentea2-2026-11-20d.md` (E#505, real 5.12) |
 | `src/exports.cpp` | `loadGraal3DEngine` registers `ConnectTo3DServer`, `RemoveGraal3DConnection`, `SendGraal3DScriptEvent(s)`, `RemoveGraal3DMissionGroup` on the engine, clears the launcher's `StartGraal3D` and initialises the engine again; `runGraal3DEngine` is one frame of the link on a UDP socket; `endGraal3DEngine` sends the disconnect | `graal3d/torque-engine-4x.md`, `torque/5007-g3d.md` |
 
 The engine library's half (`../graalengine`): a `3 ` server with these
@@ -80,6 +81,11 @@ every Graal build uses the same table. The rest is this rebuild's own.
   the engine's objects itself.
 - Resend and keep-alive timing (500 ms, 1 s); the connect sequence is
   taken from the clock.
+- How fast `interpolate` and `rigid` glide (over the time between the
+  last two targets, 1 s for the first), and what the echoed movement data
+  holds (the server's data with the object's current position). The lab
+  saw a 0.25 to 0.5 unit lag with a target 0.5 units further each second;
+  this rule gives the same.
 
 ## Not yet
 
@@ -100,6 +106,10 @@ every Graal build uses the same table. The rest is this rebuild's own.
 - [ ] The client's events zipped over 49 bytes
 - [ ] Protocol 19 (4.04r2) past the handshake: datablocks, moves, the
   stock ghost classes (never run on a real client either)
-- [ ] Movement (`movetype` and its data) and the player's own moves sent
-  back; `TerrainChunkEvent` and the `levels3d/heights` cache
+- [x] ~~Movement (`movetype` and its data) on the control object, and what
+  the client sends back~~ (E#505, real 5.12 in the lab; the glide time,
+  the gap between the last two targets, is the rebuild's own)
+- [ ] Movement of other objects (only the control object moves); keyboard
+  input together with a movetype (not run on the real client either)
+- [ ] `TerrainChunkEvent` and the `levels3d/heights` cache
 - [ ] The `fixedudpport` option (14899) for the client's UDP port

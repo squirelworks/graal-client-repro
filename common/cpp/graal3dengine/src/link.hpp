@@ -76,6 +76,11 @@ class Link {
   const GhostTable& ghosts() const { return ghosts_; }
   int controlGhost() const { return controlGhost_; }
   uint32_t serverTime() const { return serverTime_; }
+  // Where the control object is: while it has a movement object, where
+  // its movement has taken it; otherwise its transform's position.
+  Vec3 controlPosition() const;
+  // The movetype of the control object's movement object ("" for none).
+  const std::string& controlMovetype() const { return move_.type; }
   // The class table from the connect accept: server id -> name, by type.
   const std::map<int, std::string>& objectClasses() const { return objectClasses_; }
   const std::map<int, std::string>& eventClasses() const { return eventClasses_; }
@@ -137,6 +142,8 @@ class Link {
   void queueEvent(const std::string& className, BitWriter payload);
   void notify(uint32_t highestAck, uint32_t mask, int maskBits);
   void bigDataDone(int transfer);
+  void updateOwnMovement();
+  void advanceOwnMovement();
 
   LinkLogin login_;
   Callbacks cb_;
@@ -173,6 +180,24 @@ class Link {
   GhostTable ghosts_;
   int controlGhost_ = -1;
   bool sendOwnState_ = false;
+
+  // The control object's movement object (E#505): a server moves the
+  // player by giving its control object a movetype and movement data; the
+  // client moves the object itself and reports where it is. `list` jumps
+  // onto each position; `interpolate` and `rigid` glide to each target.
+  // The glide time is the rebuild's own: the time between the last two
+  // targets (1 s for the first), which gives the 0.25 to 0.5 unit lag the
+  // lab saw with a target 0.5 units further each second.
+  struct OwnMovement {
+    int ghost = -1;
+    std::string type;
+    uint32_t serial = 0;
+    Vec3 from, to, current;
+    uint32_t startMs = 0, lastTargetMs = 0, durationMs = 1000;
+    bool haveTarget = false;
+    bool announce = false;  // sections 3, 5, 6 and 13 once
+  };
+  OwnMovement move_;
   uint32_t serverTime_ = 0;
   std::vector<std::string> commands_;
 };

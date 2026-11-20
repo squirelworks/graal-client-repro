@@ -275,10 +275,13 @@ void Link::onDataPacket(BitReader& r, uint32_t now) {
     }
   }
   if (state_ != State::Connected) return;
+  const bool announceBefore = move_.announce;
+  updateOwnMovement();
   // Every server data packet is answered at once: with our data packet
   // when we have something to say, else with an ack (§4, lab).
   const bool newControl = static_cast<size_t>(controlGhost_ + 1) != controlBefore;
-  if (!outEvents_.empty() || newControl) sendDataPacket();
+  const bool newMovement = move_.announce && !announceBefore;
+  if (!outEvents_.empty() || newControl || newMovement) sendDataPacket();
   else sendAckPacket(kAck);
 }
 
@@ -497,9 +500,11 @@ void Link::writeClientGameSection(BitWriter& w) {
   w.flag(true);  // first person
   const auto it = ghosts_.find(controlGhost_);
   const GameObjectState* o = controlGhost_ >= 0 && it != ghosts_.end() ? &it->second.object : nullptr;
-  w.f32(o ? o->position.x : 0);
-  w.f32(o ? o->position.y : 0);
-  w.f32(o ? o->position.z : 0);
+  advanceOwnMovement();
+  const Vec3 at = controlPosition();
+  w.f32(at.x);
+  w.f32(at.y);
+  w.f32(at.z);
   if (w.flag(o != nullptr)) w.bits(static_cast<uint32_t>(controlGhost_), 12);
   if (login_.protocol == 19) {
     // Stock TGE: the client sends moves (none).
@@ -512,7 +517,22 @@ void Link::writeClientGameSection(BitWriter& w) {
     if (back.angle == 0) back.axis = {1, 0, 0};
     // The first packet after the control object carries its shape,
     // transform and flags back; later ones an empty update.
-    writeGameObjectUpdate(w, back, sendOwnState_ ? ((1u << 2) | (1u << 4) | (1u << 12)) : 0);
+    uint32_t sections = sendOwnState_ ? ((1u << 2) | (1u << 4) | (1u << 12)) : 0;
+    if (!move_.type.empty()) {
+      // With a movement object the object is where its movement took it.
+      back.position = at;
+      back.movement.position = at;
+      back.movement.list.clear();
+      // interpolate and list send their shape, transform, movetype and
+      // flags once when the movement object is made; then interpolate
+      // echoes its movement data in every update and list its transform.
+      // rigid sends no object section (E#505).
+      if (move_.announce) sections |= (1u << 2) | (1u << 4) | (1u << 5) | (1u << 12);
+      if (move_.type == "interpolate" && back.hasMovementData) sections |= 1u << 6;
+      if (move_.type == "list") sections |= 1u << 4;
+      move_.announce = false;
+    }
+    writeGameObjectUpdate(w, back, sections);
     sendOwnState_ = false;
   }
   w.flag(false);  // field of view
@@ -648,11 +668,66 @@ void Link::tick(uint32_t now) {
         fail("The 3D server connection has timed out");
         return;
       }
+      advanceOwnMovement();
       if (!outEvents_.empty() || now - lastSend_ >= kKeepAliveMs) sendDataPacket();
       return;
     default:
       return;
   }
+}
+
+// ---- The control object's movement (E#505) ---------------------------
+
+Vec3 Link::controlPosition() const {
+  if (!move_.type.empty() && move_.ghost == controlGhost_) return move_.current;
+  const auto it = ghosts_.find(controlGhost_);
+  if (controlGhost_ < 0 || it == ghosts_.end()) return Vec3();
+  return it->second.object.position;
+}
+
+void Link::updateOwnMovement() {
+  const auto it = ghosts_.find(controlGhost_);
+  if (controlGhost_ < 0 || it == ghosts_.end()) {
+    move_ = OwnMovement();
+    return;
+  }
+  const GameObjectState& o = it->second.object;
+  const std::string type = o.hasMovement ? o.movetype : std::string();
+  if (type != move_.type || controlGhost_ != move_.ghost) {
+    OwnMovement m;
+    m.ghost = controlGhost_;
+    m.type = type;
+    m.current = move_.ghost == controlGhost_ && !move_.type.empty() ? move_.current : o.position;
+    m.announce = type == "interpolate" || type == "list";
+    move_ = m;
+    if (!type.empty()) log("Graal3D: control object movetype " + type);
+  }
+  if (type.empty() || !o.hasMovementData || o.movementSerial == move_.serial) return;
+  move_.serial = o.movementSerial;
+  advanceOwnMovement();
+  const Vec3 target = o.movement.position;
+  if (type == "list") {
+    move_.current = move_.from = move_.to = target;
+  } else {
+    if (move_.haveTarget) {
+      const uint32_t gap = now_ - move_.lastTargetMs;
+      move_.durationMs = std::min<uint32_t>(2000, std::max<uint32_t>(50, gap));
+    }
+    move_.from = move_.current;
+    move_.to = target;
+    move_.startMs = now_;
+  }
+  move_.lastTargetMs = now_;
+  move_.haveTarget = true;
+}
+
+void Link::advanceOwnMovement() {
+  if (move_.type.empty() || move_.type == "list" || !move_.haveTarget) return;
+  const uint32_t elapsed = now_ - move_.startMs;
+  const float t = elapsed >= move_.durationMs ? 1.0f : static_cast<float>(elapsed) / static_cast<float>(move_.durationMs);
+  move_.current.x = move_.from.x + (move_.to.x - move_.from.x) * t;
+  move_.current.y = move_.from.y + (move_.to.y - move_.from.y) * t;
+  move_.current.z = move_.from.z + (move_.to.z - move_.from.z) * t;
 }
 
 }  // namespace graal3d
