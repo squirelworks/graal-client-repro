@@ -1434,6 +1434,7 @@ void test_program_603_level_entry() {
   CHECK(p.creation_time() == stamp);
   std::ifstream f(dir / "creationtime.dat", std::ios::binary);
   std::string disk((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+  f.close();  // Windows will not remove an open file
   CHECK(disk == stamp);
   CHECK(p.server_value_198() == 123456);
   CHECK(p.file_redirects().count("logo.png") == 1 &&

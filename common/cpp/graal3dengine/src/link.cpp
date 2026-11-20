@@ -491,8 +491,10 @@ void Link::writeHeader(BitWriter& w, int type) {
 void Link::sendAckPacket(int type) {
   BitWriter w;
   writeHeader(w, type);
+  // An ack-only packet does not count as the keep-alive: the client still
+  // sends its data packet (position and update) each second when the
+  // server's own packets are answered with acks (lab, E#505 rerun).
   out_.push_back(w.bytes());
-  lastSend_ = now_;
 }
 
 void Link::writeClientGameSection(BitWriter& w) {
@@ -527,6 +529,9 @@ void Link::writeClientGameSection(BitWriter& w) {
       // flags once when the movement object is made; then interpolate
       // echoes its movement data in every update and list its transform.
       // rigid sends no object section (E#505).
+      // rigid: not even the first shape, transform and flags (the real
+      // 5.12 sent no object section at all with rigid).
+      if (move_.type == "rigid") sections = 0;
       if (move_.announce) sections |= (1u << 2) | (1u << 4) | (1u << 5) | (1u << 12);
       if (move_.type == "interpolate" && back.hasMovementData) sections |= 1u << 6;
       if (move_.type == "list") sections |= 1u << 4;

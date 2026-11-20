@@ -397,7 +397,8 @@ void testMovetypes() {
     link.takeOutgoing();
     link.tick(t + 500);
     CHECK(near(link.controlPosition().y, 10.75f));
-    t += 1000;
+    link.takeOutgoing();  // perhaps a keep-alive mid-glide
+    t += 1600;
     link.tick(t);
     out = link.takeOutgoing();
     CHECK(out.size() == 1);
@@ -406,6 +407,24 @@ void testMovetypes() {
     CHECK(p.ownSections == kSec(7));
     CHECK(seen.hasMovementData && near(seen.movement.position.y, 11));
     CHECK(seen.movement.rotation[0] == 127 && seen.movement.rotation[3] == 255);
+
+    // The server's packets each 400 ms are answered with acks, and the
+    // client still sends its data packet (position and movement data)
+    // each second (the first lab run of the rebuild stopped here).
+    int data = 0;
+    for (int i = 0; i < 10; ++i) {
+      t += 400;
+      o.movement.position.y += 0.2f;
+      link.receive(serverControlUpdate(seq++, link.sentDataPackets(), o, kSec(7)), t);
+      link.tick(t);
+      for (const auto& d : link.takeOutgoing()) {
+        auto q = readClientPacket(d, link.eventClasses(), &seen);
+        if (q.type != 0) continue;
+        ++data;
+        CHECK(q.ownSections == kSec(7));
+      }
+    }
+    CHECK(data >= 3);
   }
 
   // list: the client jumps onto each position and echoes its transform.

@@ -227,6 +227,15 @@ void Engine::connect(const std::string& rawName, const std::string& host, int po
   l.installDir = installDir();
   l.build = build_;
   session_ = std::make_unique<Session2D>(l);
+  // A 178 warp to a `3 ` server leaves the 2D session for the 3D path.
+  session_->program().session().take_warp = [this](const Quattro::Net::ServerWarp& w) {
+    if (w.name.size() < 2 || w.name[0] != '3' || w.name[1] != ' ') return false;
+    warp3dPending_ = true;
+    warp3dName_ = w.name;
+    warp3dHost_ = w.host;
+    warp3dPort_ = w.port;
+    return true;
+  };
   // In 3D mode the scripts' server triggers go over the 3D link as event
   // lines (torque/udp-session.md §7), not as C->S 38.
   if (mode3d_)
@@ -333,6 +342,15 @@ void Engine::installScreen() {
 }
 
 void Engine::afterSessionTick() {
+  // A lobby warp to a `3 ` server: the real 5.12 enters 3D through it
+  // (torque/lab-2026-11-12-udp-trace.md), so it goes through connect()
+  // like a server picked from the list.
+  if (warp3dPending_) {
+    warp3dPending_ = false;
+    session_.reset();
+    connect(warp3dName_, warp3dHost_, warp3dPort_);
+    return;
+  }
   // The lab's real 4.04r2 went back to its start menu after the disconnect
   // box; the 5.x launcher's window is the menu, so 5.x keeps its screen.
   if (!session_ || !session_->dropped() || session_->fiveRow()) return;
