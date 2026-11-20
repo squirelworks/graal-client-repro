@@ -352,6 +352,7 @@ Draw::Actor Program::actor_for(int id, const World::Player& p) {
   // A gani plays from the tick it was set.
   auto& start = gani_start_[id];
   if (start.first != a.gani) start = {a.gani, frame_};
+  ganis_loaded_.insert(lower_name(a.gani.substr(0, a.gani.find(','))));
   a.ani_tick = frame_ - start.second;
   return a;
 }
@@ -586,6 +587,102 @@ bool Program::start_offline(const std::string& file, double x, double y, const s
   return !first.empty() && load_offline_level(first);
 }
 
+void Program::load_gani(std::string_view body) {
+  // GSTRING name (case-insensitive; "kick.gani" is another gani), then a
+  // list of header lines, comma separated, each quoted or not. The
+  // newest value wins; unknown keywords are ignored; a NUL ends a line.
+  Net::Reader r(body);
+  std::string name = lower_name(r.gstring());
+  if (!r.ok() || name.empty()) return;
+  std::string rest = r.rest();
+  if (!ganis_loaded_.count(name)) {
+    // Not loaded yet: the client loads it now and the file's own header
+    // replaces this list, so the list is lost (lab, both rounds).
+    ganis_loaded_.insert(name);
+    return;
+  }
+  const Files::Gani* cur = assets_->gani(name);
+  if (!cur) return;
+  Files::Gani g = *cur;
+  std::vector<std::string> lines;
+  std::string item;
+  bool quoted = false;
+  for (char c : rest) {
+    if (c == '"') quoted = !quoted;
+    else if (c == ',' && !quoted) lines.push_back(std::move(item)), item.clear();
+    else item.push_back(c);
+  }
+  lines.push_back(std::move(item));
+  bool changed = false;
+  for (std::string line : lines) {
+    if (auto z = line.find('\0'); z != std::string::npos) line.resize(z);
+    const auto sp = line.find(' ');
+    const std::string key = lower_name(line.substr(0, sp));
+    const std::string value = sp == std::string::npos ? std::string() : line.substr(sp + 1);
+    if (key == "setbackto") g.set_back_to = value, changed = true;
+    else if (key == "loop") g.loop = true, changed = true;
+    else if (key == "continuous") g.continuous = true, changed = true;
+    else if (key == "singledirection") g.single_direction = true, changed = true;
+    // DEFAULT* lines had no visible effect in the lab; others are ignored.
+  }
+  if (changed) assets_->put_gani(name, std::move(g));
+}
+
+void Program::gani_fall_back(World::Player& p) {
+  // Only while nothing of the client's own drives the gani (the item keys,
+  // hurt and death set theirs back themselves).
+  if (item_keys_.busy() || health_.hurting() || health_.dead() || p.gani.empty()) return;
+  const std::string base = p.gani.substr(0, p.gani.find(','));
+  const Files::Gani* g = assets_->gani(base);
+  if (!g || g->loop || g->set_back_to.empty()) return;
+  auto it = gani_start_.find(-1);
+  if (it == gani_start_.end() || it->second.first != p.gani) return;
+  if (frame_ - it->second.second < g->total_ticks()) return;
+  p.gani = g->set_back_to;
+}
+
+// Links are tested on the player's own walk, at one point: the body's
+// centre (x + 1.5, y + 2) pushed 1.25 tiles ahead along the walk (the
+// 2.05 lab measured 1 to 1.5 ahead; Graal_analysis
+// protocol/link-test-2026-11-04.md). Online the client asks with
+// LEVELWARP (0: x*2, y*2, level) and waits for the server's answer;
+// offline it loads the level itself. "playerx"/"playery" (or a negative
+// number) keep the player's coordinate.
+void Program::follow_link(double dx, double dy) {
+  if (world_.lobby || !world_.have_level || (!offline_ && (!props_sent_ || link_warp_pending_))) return;
+  constexpr double kAhead = 1.25;
+  const double px = me_.x + 1.5 + (dx > 0 ? kAhead : dx < 0 ? -kAhead : 0.0);
+  const double py = me_.y + 2.0 + (dy > 0 ? kAhead : dy < 0 ? -kAhead : 0.0);
+  const Files::Link* hit = nullptr;
+  for (const auto& l : world_.level.links)
+    if (px >= l.x && px < l.x + l.w && py >= l.y && py < l.y + l.h) {
+      hit = &l;
+      break;
+    }
+  if (!hit || hit->dest.empty()) return;
+  auto arrival = [](const std::string& v, double keep) {
+    if (v.empty() || lower_name(v).compare(0, 6, "player") == 0) return keep;
+    char* end = nullptr;
+    const double n = std::strtod(v.c_str(), &end);
+    return end != v.c_str() && n >= 0 ? n : keep;
+  };
+  const double nx = arrival(hit->newx, me_.x), ny = arrival(hit->newy, me_.y);
+  const std::string dest = hit->dest;
+  if (offline_) {
+    if (!load_offline_level(dest)) return;
+    me_.x = nx;
+    me_.y = ny;
+    return;
+  }
+  auto half = [](double v) { return static_cast<int>(std::lround(std::max(0.0, std::min(v * 2, 223.0)))); };
+  session_.connection().send(0, Net::gchar(half(nx)) + Net::gchar(half(ny)) + dest);
+  link_warp_pending_ = true;
+  link_dest_ = dest;
+  link_x_ = nx;
+  link_y_ = ny;
+  ++link_warps_sent_;
+}
+
 void Program::send_enter_level() {
   if (!enter_level_pending_ || offline_) return;
   enter_level_pending_ = false;
@@ -737,8 +834,18 @@ void Program::on_message(int id, std::string_view body) {
     case 6:  // PLO_LEVELNAME
       // The same name again after its board (a Seihai gserver sends it
       // once more with the level's props) keeps the board.
-      if (world_.have_level && body == level_name_) break;
+      // So does a repeat before the board (gs2emu can send 6 twice for
+      // one link): one entry, one 46.
+      if (!level_name_.empty() && body == level_name_) break;
       level_name_ = std::string(body);
+      if (link_warp_pending_ && lower_name(level_name_) == lower_name(link_dest_)) {
+        // The server answers a LEVELWARP with the level alone (no 14,
+        // lab 2026-11-20): the client puts itself at the link's arrival.
+        me_.x = link_x_;
+        me_.y = link_y_;
+        mover_.reset(me_);
+      }
+      link_warp_pending_ = false;
       world_.level = Files::Level{};
       world_.have_level = false;
       item_keys_.new_level();
@@ -845,6 +952,9 @@ void Program::on_message(int id, std::string_view body) {
       }
       break;
     }
+    case 15:  // PLO_WARPFAILED: the level asked for is not there
+      link_warp_pending_ = false;
+      break;
     case 14:    // PLO_PLAYERWARP: c x*2, c y*2, level
     case 49: {  // PLO_PLAYERWARP2: c x*2, c y*2, c z, c gmap x, c gmap y, level
       me_.x = r.gchar() / 2.0;
@@ -855,6 +965,7 @@ void Program::on_message(int id, std::string_view body) {
         me_.gmap_y = static_cast<int>(r.gchar());
       }
       me_.level = r.rest();
+      link_warp_pending_ = false;
       others_.clear();
       mover_.reset(me_);
       break;
@@ -892,6 +1003,9 @@ void Program::on_message(int id, std::string_view body) {
       break;
     case 30:  // PLO_FILESENDFAILED: name (it stays asked, so it is not asked again)
       if (log) log("the server has no " + std::string(body));
+      break;
+    case 195:  // PLO_LOADGANI: name, then header lines
+      load_gani(body);
       break;
     case 111:  // creationtime.dat: the whole body, byte for byte (6.03r7)
       creation_time_ = std::string(body);
@@ -1053,9 +1167,11 @@ bool Program::tick() {
       for (const auto& pk : sent) session_.connection().send(pk.id, pk.body);
       if (!sent.empty()) mover_.gani_sent(p);
     }
+    const double walk_x = p.x, walk_y = p.y;
     std::string action =
         walker_.tick(p, item_keys_.busy() ? 0u : keys, world_.level, tile_types_, item_keys_.carrying());
     if (offline_) cross_gmap_edge();
+    if (p.x != walk_x || p.y != walk_y) follow_link(p.x - walk_x, p.y - walk_y);
     for (const auto& pk : item_keys_.touch_chests(p, item_keys_.busy() ? 0u : keys, world_.level)) {
       Net::Reader cr(pk.body);
       int cx = static_cast<int>(cr.gchar()), cy = static_cast<int>(cr.gchar());
@@ -1064,7 +1180,11 @@ bool Program::tick() {
       if (props_sent_) session_.connection().send(pk.id, pk.body);
     }
     if (!action.empty() && props_sent_) session_.connection().send(38, action);
-    if (props_sent_) {
+    gani_fall_back(p);
+    // While a link warp is out the walk is not sent: the server would
+    // take the old x for the new level (a blip at the far edge, lab
+    // 2026-11-20). The arrival is the next position it hears.
+    if (props_sent_ && !link_warp_pending_) {
       std::string moved = mover_.diff(p);
       if (!moved.empty()) session_.connection().send(2, moved);
     }

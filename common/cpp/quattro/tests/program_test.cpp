@@ -1443,12 +1443,146 @@ void test_program_603_level_entry() {
   std::filesystem::remove_all(dir);
 }
 
+// PLO 195: header lines for a gani already shown take effect (the newest
+// wins); for one not loaded yet they are lost. A non-looping gani with a
+// SETBACKTO falls back once it has played, and the client says so.
+void test_program_603_load_gani() {
+  const Net::BuildProfile* prof = Net::find_profile("6.03r7");
+  CHECK(prof != nullptr);
+  if (!prof) return;
+  FakeServer game;
+  CHECK(game.start());
+  const auto dir = std::filesystem::temp_directory_path() / "quattro-603-gani";
+  std::filesystem::remove_all(dir);
+  std::filesystem::create_directories(dir);
+  const std::string gani = "GANI0001\nSPRITE 0 body.png 0 0 32 32\nSINGLEDIRECTION\nANI\n0 0 0\n0 0 0\nANIEND\n";
+  for (const char* name : {"kick.gani", "slash.gani"}) {
+    std::ofstream f(dir / name, std::ios::binary);
+    f << gani;
+  }
+
+  Shell::Options opt;
+  opt.host = "127.0.0.1";
+  opt.port = game.port();
+  opt.account = "guest";
+  opt.password = "pw";
+  opt.server_name = "Lab Server";
+  opt.assets = dir.string();
+  Draw::HeadlessWindow win;
+  Shell::Program p(*prof, opt, win);
+  CHECK(p.start());
+  CHECK(game.conn.accept_from(game.listener));
+  CHECK(run(p, &game, nullptr, [&] { return game.saw(37, "English"); }));
+  game.send(send_level("onlinestartlocal.nw", 7));
+  CHECK(run(p, &game, nullptr, [&] { return p.world().have_level; }));
+  game.send(gchar(9) + gchar(World::kX2) + Net::gshort(World::to_pixels2(20)) + gchar(World::kY2) +
+            Net::gshort(World::to_pixels2(22)) + "\n");
+  CHECK(run(p, &game, nullptr, [&] { return !p.world().lobby; }));
+
+  // Not shown yet: the list is lost, and slash plays on.
+  game.send(gchar(195) + Net::gstring("slash") + "\"SETBACKTO idle\"\n");
+  game.send(gchar(9) + gchar(World::kGani) + Net::gstring("slash") + "\n");
+  CHECK(run(p, &game, nullptr, [&] { return p.me().gani == "slash"; }));
+  for (int i = 0; i < 40; ++i) p.tick(), game.pump();
+  CHECK(p.me().gani == "slash");
+  const Files::Gani* slash = p.assets().gani("slash");
+  CHECK(slash && slash->set_back_to.empty());
+
+  // Shown: the newest SETBACKTO wins, unknown lines are ignored, and the
+  // player falls back to it once kick has played.
+  game.send(gchar(9) + gchar(World::kGani) + Net::gstring("kick") + "\n");
+  CHECK(run(p, &game, nullptr, [&] { return p.me().gani == "kick"; }));
+  const size_t before = game.got.size();
+  game.send(gchar(195) + Net::gstring("KICK") + "\"SETBACKTO walk\",BOGUS 1,\"SETBACKTO idle\"\n");
+  CHECK(run(p, &game, nullptr, [&] { return p.me().gani == "idle"; }));
+  const Files::Gani* kick = p.assets().gani("kick");
+  CHECK(kick && kick->set_back_to == "idle" && !kick->loop);
+  auto told = [&] {
+    for (size_t i = before; i < game.got.size(); ++i)
+      if (game.got[i].first == 2 && game.got[i].second.find(gchar(World::kGani) + Net::gstring("idle")) != std::string::npos)
+        return true;
+    return false;
+  };
+  CHECK(run(p, &game, nullptr, told));
+
+  // An empty SETBACKTO means no fallback; LOOP sticks.
+  game.send(gchar(195) + Net::gstring("kick") + "\"SETBACKTO \",LOOP\n");
+  game.send(gchar(9) + gchar(World::kGani) + Net::gstring("kick") + "\n");
+  CHECK(run(p, &game, nullptr, [&] { return p.me().gani == "kick"; }));
+  for (int i = 0; i < 40; ++i) p.tick(), game.pump();
+  CHECK(p.me().gani == "kick");
+  kick = p.assets().gani("kick");
+  CHECK(kick && kick->loop && kick->set_back_to.empty());
+  std::filesystem::remove_all(dir);
+}
+
+// A level link the server leaves to the client: walking onto it sends
+// one LEVELWARP (0) with the arrival and the level, then no more until
+// the server answers.
+void test_program_603_level_link() {
+  const Net::BuildProfile* prof = Net::find_profile("6.03r7");
+  CHECK(prof != nullptr);
+  if (!prof) return;
+  FakeServer game;
+  CHECK(game.start());
+  Shell::Options opt;
+  opt.host = "127.0.0.1";
+  opt.port = game.port();
+  opt.account = "guest";
+  opt.password = "pw";
+  opt.server_name = "Lab Server";
+  HeldWindow win;
+  Shell::Program p(*prof, opt, win);
+  CHECK(p.start());
+  CHECK(game.conn.accept_from(game.listener));
+  CHECK(run(p, &game, nullptr, [&] { return game.saw(37, "English"); }));
+  game.send(send_level("issho_a.nw", 7));
+  game.send(gchar(1) + "issho_b.nw 40 0 1 64 2 playery\n");
+  CHECK(run(p, &game, nullptr, [&] { return p.world().have_level; }));
+  game.send(gchar(9) + gchar(World::kX2) + Net::gshort(World::to_pixels2(30)) + gchar(World::kY2) +
+            Net::gshort(World::to_pixels2(40)) + "\n");
+  CHECK(run(p, &game, nullptr, [&] { return !p.world().lobby && p.me().x == 30; }));
+  win.keys.insert(Draw::Key::Right);
+  CHECK(run(p, &game, nullptr, [&] { return p.link_warps_sent() == 1; }));
+  // Centre x + 1.5 plus 1.25 ahead reaches column 40 from x 37.25 on.
+  CHECK(p.me().x >= 37.25 && p.me().x < 38);
+  CHECK(run(p, &game, nullptr, [&] { return game.saw(0, gchar(4) + gchar(80) + "issho_b.nw"); }));
+  const size_t after_warp = game.got.size();
+  for (int i = 0; i < 20; ++i) p.tick(), game.pump();
+  CHECK(p.link_warps_sent() == 1);
+  for (size_t i = after_warp; i < game.got.size(); ++i)
+    CHECK(game.got[i].first != 2 || game.got[i].second.find(gchar(World::kX2)) == std::string::npos);
+  win.keys.clear();
+  // The server answers with the level alone, twice (as gs2emu did): the
+  // client puts itself at the arrival and sends 46 once.
+  const double y_before = p.me().y;
+  auto count46 = [&] {
+    int n = 0;
+    for (auto& [id, b] : game.got) n += id == 46;
+    return n;
+  };
+  const int entries = count46();
+  game.send(gchar(6) + "issho_b.nw\n");
+  game.send(send_level("issho_b.nw", 7));
+  game.send(gchar(1) + "issho_a.nw 0 0 1 64 37 playery\n");
+  CHECK(run(p, &game, nullptr, [&] { return p.world().have_level && p.level_name() == "issho_b.nw"; }));
+  for (int i = 0; i < 5; ++i) p.tick(), game.pump();
+  CHECK(p.me().x == 2 && p.me().y == y_before);
+  CHECK(count46() == entries + 1);
+  // A second link on the new level fires again.
+  win.keys.insert(Draw::Key::Left);
+  CHECK(run(p, &game, nullptr, [&] { return p.link_warps_sent() == 2; }));
+  win.keys.clear();
+}
+
 int main() {
   test_script_native_bounds();
   test_program();
   test_program_524();
   test_program_531();
   test_program_603_level_entry();
+  test_program_603_load_gani();
+  test_program_603_level_link();
   test_offline();
   test_update_packages();
   test_downloads();

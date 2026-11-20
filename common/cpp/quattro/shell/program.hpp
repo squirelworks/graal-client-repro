@@ -182,6 +182,7 @@ class Program {
   // The link to a server dropped (not a warp the program followed).
   std::function<void(const std::string& why)> disconnected;
   const std::map<int, ListRow>& player_list() const { return listed_; }
+  int link_warps_sent() const { return link_warps_sent_; }  // LEVELWARPs asked for by walking onto a link
 
  private:
   void on_message(int id, std::string_view body);
@@ -193,6 +194,12 @@ class Program {
   // PLI_ENTERLEVEL (46, `c 1`) on each level entry, before the first props
   // of the new level, for the builds that send it.
   void send_enter_level();
+  // PLO_LOADGANI (195): header lines for a named gani (Graal_analysis
+  // protocol/probe-targets-2026-11-18.md, "PLO_LOADGANI (195)").
+  void load_gani(std::string_view body);
+  // A finished, non-looping gani of the player's own falls back to its
+  // SETBACKTO, which goes to the server as prop 10.
+  void gani_fall_back(World::Player& p);
   std::string window_title() const;
   Draw::Actor actor_for(int id, const World::Player& p);
   // A list 24 sprite's rect on sprites.png; width 0 when there is none.
@@ -290,6 +297,13 @@ class Program {
   std::set<int> keys_down_;  // virtual-key codes held (from the window's input events)
   bool props_sent_ = false;
   bool enter_level_pending_ = false;
+  bool link_warp_pending_ = false;  // a LEVELWARP is out; no second until the server answers
+  int link_warps_sent_ = 0;
+  std::string link_dest_;  // the pending warp's level and arrival
+  double link_x_ = 0, link_y_ = 0;
+  // Walked by (dx, dy): onto a level link, ask for it (online) or load it (offline).
+  void follow_link(double dx, double dy);
+  std::set<std::string> ganis_loaded_;  // lower-case gani names shown this run
   std::string creation_time_;
   uint64_t value_198_ = 0;
   std::map<std::string, FileRedirect> file_redirects_;

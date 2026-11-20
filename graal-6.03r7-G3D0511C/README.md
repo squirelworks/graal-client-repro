@@ -32,6 +32,7 @@ from decompiled code:
 | Token, login line, framing, ids both ways | `protocol/v6x-clients.md` |
 | Ids in table form | `version-profiles/5.00-6.03.toml` |
 | Login mode, server warp, play (Windows 6.03r7 in the lab) | `protocol/v5v6-lab-play.md` |
+| The rebuild end to end through the Seihai suite (2026-11-20) | [docs/e2e-lab-2026-11-20.md](docs/e2e-lab-2026-11-20.md) (this repo) |
 | Everything carried over | `../graal-5.00r7-G3D22067/README.md`, `../graal-3.153-G3D28015/README.md` |
 
 ## What differs from the 5.00r7 rebuild
@@ -148,14 +149,21 @@ README, "Seihai secure login". CI logs in once more with
 - [x] ~~The Login server's scripted GUI and GS2: 140 and 197 (scripts and the
   `GRESCR01` cache) and 190~~ run in `quattro-play`'s script host
   (common/cpp/quattro, `shell/scripts`).
-- [ ] 195 (gani scripts) is accepted and ignored.
+- [x] ~~195 (gani scripts) is accepted and ignored.~~ In `quattro-play`
+  195's header lines (`SETBACKTO`, `LOOP`, `CONTINUOUS`, `SINGLEDIRECTION`)
+  change a gani already shown, the newest winning; for a gani not loaded
+  yet they are lost, as in the lab. A non-looping gani with a `SETBACKTO`
+  falls back once it has played, and the client sends the new gani.
 - [x] ~~111 (`creationtime.dat`) and 198~~: in `quattro-play` 111's body
   replaces `creationtime.dat` in the install folder byte for byte, and
   198's value is stored, as the original does.
 - [ ] 109 (a file redirect to a URL) is kept but not fetched.
 - [x] ~~46 (ENTERLEVEL) on level entry and 162 (the ping answer)~~:
-  `quattro-play` sends 46 (`c 1`) before the first props of each level and
-  answers 108 with 162.
+  `quattro-play` sends 46 (`c 1`) with each level (before the first props
+  when the level comes first, right after them when the server sends the
+  props first) and answers 108 with 162.
+- [x] ~~Level links~~: `quattro-play` follows a level link itself with
+  `LEVELWARP` (0), so a server that leaves links to the client works.
 - [ ] The base-file requests and the keep-alive 24 are not sent (whether
   6.x sends 24 as a keep-alive is not settled).
 - [x] ~~`GR-V1.05` levels~~ (common/cpp/quattro `files/level`).
