@@ -139,6 +139,19 @@ class Program {
   const std::string& shoot_params() const { return shoot_params_; }
   Draw::Assets& assets() { return *assets_; }
   const std::string& level_name() const { return level_name_; }
+  // 6.03r7's PLO 111: the body as sent, kept byte for byte; with an
+  // assets folder it also replaces <assets>/creationtime.dat
+  // (Graal_analysis protocol/v6x-clients.md).
+  const std::string& creation_time() const { return creation_time_; }
+  // PLO 198: one GINT5 the server sets; nothing reads it back.
+  uint64_t server_value_198() const { return value_198_; }
+  // PLO 109: a file the server redirects to a URL (GINT5 time, name,
+  // URL). Kept only: the HTTP fetch is not rebuilt.
+  struct FileRedirect {
+    uint64_t time = 0;
+    std::string url;
+  };
+  const std::map<std::string, FileRedirect>& file_redirects() const { return file_redirects_; }
   // Files asked for with C->S 23, lower case.
   const std::set<std::string>& asked() const { return asked_; }
   // Where this server's basepackage.gupd is kept under the assets folder
@@ -177,6 +190,9 @@ class Program {
   void read_level_script();
   void pick_tile_sheet();
   void cross_gmap_edge();
+  // PLI_ENTERLEVEL (46, `c 1`) on each level entry, before the first props
+  // of the new level, for the builds that send it.
+  void send_enter_level();
   std::string window_title() const;
   Draw::Actor actor_for(int id, const World::Player& p);
   // A list 24 sprite's rect on sprites.png; width 0 when there is none.
@@ -273,6 +289,10 @@ class Program {
   std::string shoot_params_;
   std::set<int> keys_down_;  // virtual-key codes held (from the window's input events)
   bool props_sent_ = false;
+  bool enter_level_pending_ = false;
+  std::string creation_time_;
+  uint64_t value_198_ = 0;
+  std::map<std::string, FileRedirect> file_redirects_;
   ScriptHost scripts_;
   std::map<int, World::ServerNpc> npcs_;
   std::map<int, gs2::VarPtr> npc_vars_;  // NPCs with a script (131)

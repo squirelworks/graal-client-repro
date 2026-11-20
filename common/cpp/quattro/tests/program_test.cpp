@@ -1370,6 +1370,76 @@ void test_program_531() {
   }
   win.keys.clear();
   CHECK(p.me().x > x0);
+  // 46 is unread for 5.x: the rebuild does not send it.
+  for (auto& [id, b] : game.got) CHECK(id != 46);
+}
+
+// 6.03r7's level entry and the general handlers it added over 6.00:
+// 46 (`c 1`) before the first props of each level, 111 kept as
+// creationtime.dat, 198 stored, 109 kept as a redirect (Graal_analysis
+// protocol/v6x-clients.md, protocol/enterlevel-focus-builds.md).
+void test_program_603_level_entry() {
+  const Net::BuildProfile* prof = Net::find_profile("6.03r7");
+  CHECK(prof && prof->sends_enter_level);
+  if (!prof) return;
+  FakeServer game;
+  CHECK(game.start());
+  const auto dir = std::filesystem::temp_directory_path() / "quattro-603-entry";
+  std::filesystem::remove_all(dir);
+  std::filesystem::create_directories(dir);
+
+  Shell::Options opt;
+  opt.host = "127.0.0.1";
+  opt.port = game.port();
+  opt.account = "guest";
+  opt.password = "pw";
+  opt.assets = dir.string();
+  Draw::HeadlessWindow win;
+  Shell::Program p(*prof, opt, win);
+  CHECK(p.start());
+  CHECK(game.conn.accept_from(game.listener));
+  CHECK(run(p, &game, nullptr, [&] { return game.saw(37, "English"); }));
+  game.send(send_level("onlinestartlocal.nw", 7));
+  CHECK(run(p, &game, nullptr, [&] { return p.world().have_level; }));
+  for (int i = 0; i < 5; ++i) {
+    p.tick();
+    game.pump();
+  }
+  for (auto& [id, b] : game.got) CHECK(id != 46);  // held until the props go
+  game.send(gchar(9) + gchar(World::kX2) + Net::gshort(World::to_pixels2(20)) + gchar(World::kY2) +
+            Net::gshort(World::to_pixels2(22)) + "\n");
+  auto index_of = [&](int want, size_t from) {
+    for (size_t i = from; i < game.got.size(); ++i)
+      if (game.got[i].first == want) return static_cast<int>(i);
+    return -1;
+  };
+  CHECK(run(p, &game, nullptr, [&] { return index_of(2, 0) >= 0; }));
+  const int enter = index_of(46, 0), props = index_of(2, 0);
+  CHECK(enter >= 0 && enter < props);
+  CHECK(enter >= 0 && game.got[static_cast<size_t>(enter)].second == gchar(1));
+
+  // A new level: 46 again at once.
+  const size_t before = game.got.size();
+  game.send(send_level("other.nw", 3));
+  CHECK(run(p, &game, nullptr, [&] { return index_of(46, before) >= 0; }));
+  int count = 0;
+  for (auto& [id, b] : game.got) count += id == 46;
+  CHECK(count == 2);
+
+  // 111, 198 and 109.
+  const std::string stamp = std::string("2026-11-20 \x01\x7f", 13);
+  game.send(gchar(111) + stamp + "\n" + gchar(198) + Net::gint5(123456) + "\n" + gchar(109) + Net::gint5(42) +
+            Net::gstring("logo.png") + Net::gstring("http://127.0.0.1/logo.png") + "\n");
+  CHECK(run(p, &game, nullptr, [&] { return !p.file_redirects().empty(); }));
+  CHECK(p.creation_time() == stamp);
+  std::ifstream f(dir / "creationtime.dat", std::ios::binary);
+  std::string disk((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+  CHECK(disk == stamp);
+  CHECK(p.server_value_198() == 123456);
+  CHECK(p.file_redirects().count("logo.png") == 1 &&
+        p.file_redirects().at("logo.png").url == "http://127.0.0.1/logo.png" &&
+        p.file_redirects().at("logo.png").time == 42);
+  std::filesystem::remove_all(dir);
 }
 
 int main() {
@@ -1377,6 +1447,7 @@ int main() {
   test_program();
   test_program_524();
   test_program_531();
+  test_program_603_level_entry();
   test_offline();
   test_update_packages();
   test_downloads();

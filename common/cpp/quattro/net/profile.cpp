@@ -47,6 +47,7 @@ std::vector<BuildProfile> make() {
   r603.plo = plo_603();
   r603.pli = pli_603();
   r603.answers_ping = true;
+  r603.sends_enter_level = true;
   // A zlib or bz2 body steps floor(len / 4) times (read 2026-11-19 in this
   // build's ELF; seihai-core v0.7.0). The rows copied from it keep it.
   r603.packed_round_down = true;
@@ -94,6 +95,7 @@ std::vector<BuildProfile> make() {
   r524.has_os_version = true;
   r524.os_version = "6.2 9200 ";
   r524.answers_ping = false;
+  r524.sends_enter_level = false;  // unread for 5.x
   r524.login_draws_tiles = true;
   r524.hud_6x = false;
   r524.draws_chests = true;

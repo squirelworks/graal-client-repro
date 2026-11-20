@@ -44,6 +44,10 @@ struct BuildProfile {
   // Client -> server ids the build sends. Sending any other id is refused.
   std::bitset<256> pli;
   bool answers_ping = false;      // PLO 108 sub 0 -> PLI 162
+  // PLI_ENTERLEVEL (46, `c 1`) on each level entry, as 2.31 does: in the
+  // 6.03r7 and 6.01r1 send sets (Graal_analysis protocol/v6x-clients.md,
+  // protocol/enterlevel-focus-builds.md). Unread for 4.x and 5.x.
+  bool sends_enter_level = false;
   bool login_lobby_mode = true;   // name starting "login": no characters, HUD
   bool login_draws_tiles = false; // tiles drawn in that mode
   bool hud_6x = false;            // the built-in 6.x HUD (draw/hud.hpp)
