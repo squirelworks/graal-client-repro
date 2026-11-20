@@ -1,20 +1,15 @@
-# graal-delphi
+# graal-client-repro
 
-Faithful rebuilds of the classic Graal clients, one per build, in the
-language they were written in: Delphi (Object Pascal). Each rebuild aims to
-behave like the original, on the wire and in play, and then gets hardened
-so it can run in large test runs. Matching the original's look is not a
-goal ([docs/functional-parity.md](docs/functional-parity.md)).
+Faithful rebuilds of the classic Graal clients, one per build, in the language
+they were written in: Delphi (Object Pascal). The rebuilt programs carry the
+name graal-delphi. Each rebuild aims to behave like the original, on the wire
+and in play, and is then hardened so it can run in large test runs. Matching
+the original's look is not a goal ([docs/functional-parity.md](docs/functional-parity.md)).
 
-The findings these rebuilds are based on live in
-[graal_analysis](https://github.com/squirelworks/graal_analysis). The
-servers they are tested against are the Seihai stack, mainly
+The findings these rebuilds are based on are in
+[Graal_analysis](https://github.com/squirelworks/Graal_analysis). They are tested
+against the Seihai server stack, mainly
 [seihai-gserver](https://github.com/squirelworks/seihai-gserver).
-
-**Working on this repo?** Start with [HANDOFF-CURSOR.md](HANDOFF-CURSOR.md)
-(state, rules, what is on hold), [AGENTS.md](AGENTS.md) (binding rules) and
-[ROADMAP.md](ROADMAP.md) (what is next, as checklists). Every client's
-latest release is in [RELEASES.md](RELEASES.md).
 
 > **Not affiliated.** graal-delphi is an independent fan project. It is not
 > affiliated with, endorsed by, or connected to GraalOnline or
@@ -23,302 +18,31 @@ latest release is in [RELEASES.md](RELEASES.md).
 > owners and are used here only to identify the software being
 > reimplemented.
 
-## Provenance
-
-What is in this repo and where it came from (owner decision 2026-11-15:
-the repro may carry some original Graal material).
-
-- **Written from notes.** The client code (the Pascal rebuilds, the
-  launchers and start screens, the C++ engine hosts, the Quattro program
-  and the GS2 VM under `common/cpp/gs2/`) is written from the behaviour
-  notes in [graal_analysis](https://github.com/squirelworks/graal_analysis)
-  on the wire protocol, file formats and observed behaviour, and from the
-  project's own lab runs. It is not copied or translated from the original
-  programs. `common/torque/PROVENANCE.md` details the Torque layer.
-- **Original resources: their shape carried, their art replaced.** Each
-  build carries its own exe's resources (icons, cursors, bitmaps, dialogs
-  and form layouts, menus, string tables, version info, and the few levels
-  an exe embeds, such as the Training and online start levels) under the
-  original names, sizes and formats, in its `res/` (or `src/res/`) folder,
-  the generated `Res*.pas` / `RealRes*.pas` units and `common/GRes20x.pas`
-  (the owner's decision D4, 2026-11-05, in
-  [HANDOFF-CURSOR.md](HANDOFF-CURSOR.md)). Since 2026-11-19 every picture,
-  icon, cursor and level among them is graal-delphi's own art, drawn by
-  `scripts/art/make_art.py` ([docs/art.md](docs/art.md)); CI checks it.
-  The text resources (form layouts and captions, string tables, character
-  lists, the 2.22 language file) are still the originals', because the
-  code reads them; whether to rewrite them is open. A player's own
-  originals go in `assets/` beside the program (below).
-- **Not carried.** Game data (`pics1.png`, `arrays.dat`, ganis, heads,
-  bodies, levels, sounds) is loaded at run time from an install you supply
-  (`graal-assets/`, [docs/assets.md](docs/assets.md)). The built-in
-  defaults in `common/builtin/` are new art drawn by
-  `scripts/builtin/make_builtin.py`, not original files. Tests that need
-  original data, such as the tutorial levels inside the 2.05 exe, read it
-  from a local path and are skipped when it is missing.
-- **List server.** Builds that fetch a server list default to the
-  community list server `listserver.graal.in`; the original hosts are
-  defunct.
-- **Third-party code.** The Torque3D string Huffman frequency table and
-  tree build (MIT) in `common/cpp/third_party/torque3d/`, with its
-  copyright notice and licence in `LICENSE.txt` there. The system zlib and
-  bzip2 libraries are linked, not vendored.
-
-## Layout
-
-```
-common/                     code that is the same across builds
-  GTypes.pas                GCHAR / GSHORT / GINT3..5 / GSTRING, message reader
-  GZlib.pas                 zlib in and out of string buffers
-  GBzip2.pas                bzip2 in and out of string buffers (gen 5, 2.22 on)
-  GSocket.pas               non-blocking TCP, polled from the game tick
-  GLevel.pas                64x64 level: GR-V1.0x, Z3-V1.0x, GLEVNW01, board packet, GR-V writer
-  GSurface.pas              32-bit software surface, tile sheet blit, BMP/PNG/GIF/JPEG loading, palette recolour
-  GArrays.pas               arrays.dat tile types (what blocks)
-  GAni.pas                  GANI0001 animations
-  GWindow.pas               a window, keyboard, mouse and typed text (X11 / Win32 GDI)
-  GFont.pas                 an original 5x7 font for the window
-  GStartScreen.pas          the start screen and server list every build opens with
-  GGs1.pas                  the GS1 script language (shared interpreter)
-  GBuiltin.pas              built-in original assets, compiled in (generated)
-  GAssetDirs.pas            where a build finds the player's own Graal files (graal-assets/)
-  builtin/                  those assets as files (scripts/builtin/make_builtin.py)
-  win/                      the Windows manifest every client compiles in
-graal-<version>-<token>/    one folder per build (76, from graal-b1-19980906 to
-                            graal-worlds-7.0.1.7.5.0-20260403); four shown here
-javagraal-2000/, zelda-online1-Z3V102/, zelda-online2-Z3V103/   the Java clients
-graalgb-1.10/               the Game Boy Color demo
-graal-2.05-GNW03081/        Graal 2.05
-  src/                      the client (Graal205.dpr and its units)
-  tests/                    Test205.dpr
-graal-2.05r2-GNW03081/      Graal 2.05 rev 2
-  src/                      the client (Graal205.dpr and its units)
-  tests/                    Test205.dpr
-graal-2.17.1-GNW22122/      Graal 2.17.1
-  src/                      the client (Graal217.dpr and its units)
-  tests/                    Test217.dpr
-graal-2.22-GNW03014/        Graal 2.22
-  src/                      the client (Graal222.dpr and its units)
-  tests/                    Test222.dpr
-HANDOFF-CURSOR.md           state, rules, on-hold work and open decisions
-AGENTS.md                   binding rules for agents (and .cursor/rules/)
-ROADMAP.md                  the project checklist
-scripts/
-  build.sh                  build every rebuild and its tests
-  test.sh                   run every test program
-  builtin/                  draws the built-in assets and writes GBuiltin.pas / GFont.pas
-  assets/merge_assets.py    merges per-version sets of original files into one graal-assets/
-  assets/needed_assets.py   cuts it to the files the clients open and zips it (docs/assets.md)
-  loopback.sh               log a rebuild into seihai-gserver (acceptance check)
-  win/make_winres.py        gives each client its src/<Program>.rc (version info, manifest)
-```
-
-### Folder naming rule
-
-Each build gets one folder named
-
-```
-graal-<version>-<token>
-```
-
-- `<version>` is the build as players knew it, lower case, no spaces:
-  `2.05r2` for "2.05 rev 2", `2.17.1`, `2.22`, `2.31`.
-- `<token>` is the 8-character version token that build sends in its login
-  line, exactly as on the wire (`GNW03081` for 2.05 rev 2). It is the id the
-  server sees, so it is the id the folder carries. The token comes from the
-  binary or a capture, never from memory; graal_analysis
-  `client-internals/version-tokens.md` lists the known ones.
-
-Several builds can share a token (2.05, 2.05 rev 1 and 2.05 rev 2 all send
-`GNW03081`). The version part keeps their folders apart.
-
-### What goes in `common/`
-
-A unit moves to `common/` only when it is byte-for-byte the same behaviour
-in every build that uses it (the G types, zlib, the GR-V board code). Anything
-a build changed, even slightly (packet ids, prop encodings, the cipher, the
-login line), stays in that build's folder. When a later build differs from a
-common unit, it gets its own copy in its folder rather than a flag in
-`common/`.
-
-The GS1 language (`GGs1.pas`) is shared under that rule: it holds only the
-language (parsing, statements, expressions, the command table), and what
-each command does lives in the build's own NPC host (`Npc205`, `Npc217`,
-...). A build uses it until it is found to read GS1 differently; then it
-takes its own copy, as for any other unit. The NPC, baddy, sound, map and
-editor units stay per build.
-
-## Toolchain
-
-- **Free Pascal 3.2** in Delphi mode (`-Mdelphi`) is the build used here and
-  in CI, on Linux, Windows and macOS.
-- **Delphi**: the units avoid anything newer than Delphi 5 (no generics, no
-  inline variables, `string` used as a byte buffer as in 2001-era code), and
-  take the Delphi path under `{$IFNDEF FPC}` (WinSock, the Borland `ZLib`
-  unit). 2.05 itself was built with Delphi 4 or 5 and DelphiX. A Delphi 5
-  or 7 build has not been tried yet; it is the next toolchain check.
-- DelphiX (DirectDraw) does not build outside Windows or under Free Pascal,
-  so the rebuilds draw into a software surface (`GSurface`) and a front end
-  shows it: a window (`--window`), or a `.bmp` (`--dump`). The window is
-  X11 on Linux and GDI on Windows; macOS has none yet, so there the client
-  runs headless or with `--dump`.
-
-## Build, test, run
-
-```
-# Linux
-sudo apt-get install fp-compiler fp-units-base fp-units-fcl libx11-dev
-scripts/build.sh
-scripts/test.sh
-
-# Windows: install Free Pascal (e.g. `choco install freepascal`), put its
-# bin\i386-win32 folder on PATH, then run the same scripts from Git Bash.
-# build.sh hands the compiler native paths through cygpath.
-
-# macOS
-brew install fpc
-scripts/build.sh
-scripts/test.sh
-
-# offline: walk around a level in a window, with assets from your own install
-build/graal-2.05r2-GNW03081/Graal205 --level some.graal --data path/to/graal --window
-
-# online: log into a server (password from an environment variable)
-GRAAL_PW=... build/graal-2.05r2-GNW03081/Graal205 --server 127.0.0.1:14802 --account test1 --dump frame.bmp
-
-# acceptance: log into seihai-gserver on loopback
-scripts/loopback.sh path/to/seihai-gserver/target/release/seihai-gserver
-```
-
-## Roadmap for each build
-
-Every build goes through the same phases. Phases 4 and 5 are the finishing
-steps and are required before a build counts as done.
-
-1. **Wire.** Framing, cipher, login line, the receive dispatcher. Checked
-   against real captures of the original client.
-2. **World.** Level loading (files and server packets), the frame loop,
-   drawing the board, the player, other players, NPCs.
-3. **Play.** Movement and collision, items, weapons, the build's GS1 script
-   engine, editors where the build had them. Checked side by side with the
-   original under Wine, for behaviour rather than looks
-   ([docs/functional-parity.md](docs/functional-parity.md)).
-4. **Harden and stress.** A headless mode that runs the same code with no
-   drawing, so one host can run many instances; profiling and optimisation
-   of the tick; no leaks over long runs; survives disconnects, slow links
-   and malformed or hostile packets without crashing; fuzzed receive path.
-   The build then joins the Seihai 1000-player stress runs as one of the
-   client mixes.
-5. **Release.** Once phase 4 is merged, the build gets its own GitHub
-   release, versioned so it can be recompiled and released again as more
-   is learned about it. The tag is the folder name and the version
-   (`graal-2.05r2-GNW03081-v0.0.1`). The release text is the folder's
-   `RELEASE_NOTES.md`, and it carries the built Linux, Windows and macOS
-   binaries. `.github/workflows/release.yml` (run from the Actions tab with
-   the folder name and version, or by pushing the tag) builds that one
-   folder and makes a draft release; Squirrel reviews it and presses
-   Publish.
-
 ## Status
 
-80 client folders: 76 Graal builds from the 1998 betas to the seven Worlds
-builds (548 to 7.0.1.7.5.0), the three Java clients and the Game Boy Color
-demo. The Graal builds are
-Object Pascal rebuilds, except that 3.04 and 4.20r8 also carry C++ boot
-hosts (`common/torque/host304`, `host4208`) and Worlds 614 is a portable
-C# stand-in for a Unity player. The other six Worlds builds are scaffolds. Several real builds have no folder yet
-(ROADMAP.md, "Builds with no folder"). Each folder's README has what works and a
-"Not yet" checklist; [RELEASES.md](RELEASES.md) has each client's latest
-release and level; [ROADMAP.md](ROADMAP.md) has the project checklist.
+There are 80 client folders: 76 Graal builds, from the 1998 betas to the seven
+Worlds builds (548 to 7.0.1.7.5.0), plus the three Java clients and the Game Boy
+Color demo. The Graal builds are Object Pascal rebuilds, except that 3.04 and
+4.20r8 also carry C++ boot hosts (`common/torque/host304`, `host4208`) and Worlds
+614 is a portable C# stand-in for a Unity player. The other six Worlds builds are
+only scaffolds so far, and several real builds have no folder yet (see
+"Builds with no folder" in [ROADMAP.md](ROADMAP.md)).
 
-The last published release is v0.0.4 (2026-11-05), for the 71 clients
-that existed then. v0.0.4.1 is a development checkpoint for all 74
-([docs/releases/v0.0.4.1.md](docs/releases/v0.0.4.1.md)); after that the
-next combined release is 0.0.5 (ROADMAP.md). The 3.x to 6.x folders
-reproduce the wire and each client's behaviour. The Torque engine around
-the 3.x to early-5 clients is being rebuilt in C++ under `common/torque/`
-([#109](https://github.com/squirelworks/graal-client-repro/issues/109),
-decision [#110](https://github.com/squirelworks/graal-client-repro/issues/110)).
+The 3.x to 6.x folders reproduce the wire protocol and each client's behaviour.
+The Torque engine around the 3.x to early 5.x clients is being rebuilt in C++
+under `common/torque/`
+([#109](https://github.com/squirelworks/graal-client-repro/issues/109)).
 
-## Windows says "Windows protected your PC"
+Each build folder's README says what works and has a "Not yet" checklist.
+The latest combined release is
+[v0.0.4.2](https://github.com/squirelworks/graal-client-repro/releases/tag/v0.0.4.2)
+(2026-11-13); the next one planned is 0.0.5.
 
-The Windows exes are not code-signed yet, so the first time you start one
-that came from a download, Microsoft Defender SmartScreen shows a blue
-**"Windows protected your PC"** box with *Publisher: Unknown publisher*.
-That is a reputation check, not a virus finding: SmartScreen stops any
-downloaded program that is unsigned and that it has not seen many people
-run. Any of these gets past it:
+## Download and run
 
-- **Run it once anyway.** Click **More info**, then **Run anyway**.
-  Windows remembers that exe and does not ask again.
-- **Unblock the zip before extracting it.** A browser marks every
-  download as "from the internet" (the Mark of the Web), and Explorer
-  copies that mark onto every file it extracts. Right-click the zip,
-  **Properties**, tick **Unblock** at the bottom, **OK**, then extract.
-  Nothing in the folder is asked about again.
-- **Unblock a folder you already extracted**, in PowerShell:
-
-  ```powershell
-  Get-ChildItem -Recurse .\graal-2.22-GNW03014-v0.0.1-windows | Unblock-File
-  ```
-
-If Defender itself reports a threat (a red box, or the file vanishes)
-that is a different thing: please open an issue with the name it gives.
-
-### What the builds already do about it
-
-Every Windows client carries a version block (product `graal-delphi`,
-company `squirelworks`, the release version, a description naming the
-build) and an application manifest (`common/win/graal-delphi.manifest`:
-runs as the user, never asks for admin, declares Windows 7 to 11). They
-set the DEP and ASLR flags, are not packed or compressed, and the zips
-hold only the client, no test programs. That makes them look like an
-ordinary program to SmartScreen and to antivirus heuristics, but it does
-not remove the "Unknown publisher" box. Only a code signature does.
-
-A new build folder gets its `src/<Program>.rc` and the `{$R}` line from
-`python3 scripts/win/make_winres.py`; CI fails until it has them.
-
-### Signing (what it would take)
-
-SmartScreen only trusts a publisher, and a publisher is a code-signing
-certificate from a certificate authority Windows trusts. A self-signed
-certificate does nothing for anyone else's PC. The options:
-
-- **Azure Trusted Signing** (Microsoft's own signing service, about
-  US$10 a month). Individual developers can sign up (when last checked,
-  only in the US and Canada) if they can pass
-  Microsoft's identity check; it needs an Azure subscription, a Trusted
-  Signing account, an identity validation, and a certificate profile.
-  The release workflow would then sign each exe with Microsoft's
-  `trusted-signing-action` before packing, using three repository
-  secrets for an Azure app registration. Signed files build SmartScreen
-  reputation quickly, often from the first release.
-- **A standard (OV) code-signing certificate** from a CA such as
-  Sectigo, DigiCert or SSL.com, roughly US$200 to 500 a year. Since 2023
-  the key must live on a hardware token or in the CA's cloud signing
-  service, so CI signs through the CA's cloud tool. OV certificates
-  still start with no reputation: the box keeps showing until enough
-  people have run the signed files.
-- **SignPath Foundation** signs open-source projects for free, but the
-  repository needs an OSI licence first (it has one now: Apache-2.0, see
-  Licence below).
-
-Whichever is chosen, the signing step goes in `.github/workflows/release.yml`
-on the Windows job, between "Build and test" and "Pack".
-
-## Licence
-
-[Apache License 2.0](LICENSE), the same as the Seihai server stack. Unless
-you say otherwise, a contribution you submit is licensed the same way. The
-licence covers the project's own code and the stand-in assets in this repo.
-It does not cover the original text resources still carried in the
-`res/` folders and the units generated from them (see Provenance), and it grants
-no rights to Graal's names or to any original Graal file. The licence
-decision itself is open in
-[#116](https://github.com/squirelworks/graal-client-repro/issues/116).
-
-## Every build is a GUI program
+Each client's latest release, for Linux, Windows and macOS, is listed in
+[RELEASES.md](RELEASES.md) and on the
+[Releases page](https://github.com/squirelworks/graal-client-repro/releases).
 
 Each build opens a window with the start screen when started with no
 arguments, as the original clients did: Training for the offline levels,
@@ -329,16 +53,16 @@ carries stand-in assets in `common/builtin/`, all new art drawn by
 with nothing next to it; files from a real install next to the program,
 or under `--data`, replace them.
 
-A build plugs into `common/GStartScreen.pas` with:
+The Windows programs are not code-signed yet, so the first time you start one
+from a download, Microsoft Defender SmartScreen shows a blue **"Windows protected
+your PC"** box. Click **More info**, then **Run anyway**; or, before extracting,
+right-click the zip, choose **Properties**, tick **Unblock** and press **OK**.
+[docs/windows-smartscreen.md](docs/windows-smartscreen.md) explains why it
+happens and what the builds already do about it. If Defender reports an actual
+threat (a red box, or the file disappears), please open an issue with the name
+it gives.
 
-- a `TListFetch` subclass for its listserver step (2.05: plain zlib, id 0
-  `newmain`);
-- a `TStartInfo`: the title lines, the background images to look for next
-  to the program, and a callback that draws the character;
-- its own front end, which picks the Training level and runs the game
-  (see `RunGui` in `graal-2.05r2-GNW03081/src/Graal205.dpr`).
-
-## One assets folder for every build
+## Your Graal files
 
 The original Graal files never go in this repository. Every rebuilt
 program sits at the top of one folder (the root), and the player's
@@ -367,7 +91,7 @@ has the search order per build, the keep/cut rule, how to build the zip
 (`scripts/assets/merge_assets.py`, `scripts/assets/needed_assets.py`) and
 what each client line's install held, from the 1998 betas on.
 
-### Your own Graal files: `assets/`
+### Original art: `assets/`
 
 The pictures and levels each program carries in its resources (start
 screens, picture buttons, glyphs, icon, cursors, Training levels) are
@@ -385,3 +109,112 @@ That writes the exe's own resources to `assets/2.05r2/res/` (game files
 such as `pics1.png` can go in `assets/2.05r2/` or `assets/` too).
 [docs/assets.md](docs/assets.md), "Your own files", has the details. These
 files are yours: never commit them.
+## Building from source
+
+### Toolchain
+
+- **Free Pascal 3.2** in Delphi mode (`-Mdelphi`) is the build used here and
+  in CI, on Linux, Windows and macOS.
+- **Delphi**: the units avoid anything newer than Delphi 5 (no generics, no
+  inline variables, `string` used as a byte buffer as in 2001-era code), and
+  take the Delphi path under `{$IFNDEF FPC}` (WinSock, the Borland `ZLib`
+  unit). 2.05 itself was built with Delphi 4 or 5 and DelphiX. A Delphi 5
+  or 7 build has not been tried yet; it is the next toolchain check.
+- DelphiX (DirectDraw) does not build outside Windows or under Free Pascal,
+  so the rebuilds draw into a software surface (`GSurface`) and a front end
+  shows it: a window (`--window`), or a `.bmp` (`--dump`). The window is
+  X11 on Linux and GDI on Windows; macOS has none yet, so there the client
+  runs headless or with `--dump`.
+
+### Build, test, run
+
+```
+# Linux
+sudo apt-get install fp-compiler fp-units-base fp-units-fcl libx11-dev
+scripts/build.sh
+scripts/test.sh
+
+# Windows: install Free Pascal (e.g. `choco install freepascal`), put its
+# bin\i386-win32 folder on PATH, then run the same scripts from Git Bash.
+# build.sh hands the compiler native paths through cygpath.
+
+# macOS
+brew install fpc
+scripts/build.sh
+scripts/test.sh
+
+# offline: walk around a level in a window, with assets from your own install
+build/graal-2.05r2-GNW03081/Graal205 --level some.graal --data path/to/graal --window
+
+# online: log into a server (password from an environment variable)
+GRAAL_PW=... build/graal-2.05r2-GNW03081/Graal205 --server 127.0.0.1:14802 --account test1 --dump frame.bmp
+
+# acceptance: log into seihai-gserver on loopback
+scripts/loopback.sh path/to/seihai-gserver/target/release/seihai-gserver
+```
+
+## How the repository is organised
+
+`common/` holds the code that is the same in every build, and each build has its
+own folder named `graal-<version>-<token>`, such as `graal-2.05r2-GNW03081/`.
+Every build goes through the same five phases, from the wire protocol to a
+release. The full layout, the folder naming rule, what may go in `common/`, how
+a build plugs into the shared start screen and the phases are in
+[docs/repo-layout.md](docs/repo-layout.md).
+
+## Contributing
+
+Read [AGENTS.md](AGENTS.md) for the project rules, [ROADMAP.md](ROADMAP.md) for
+what is next, and [HANDOFF-CURSOR.md](HANDOFF-CURSOR.md) for the current state,
+work on hold and open decisions.
+
+## Provenance
+
+What is in this repo and where it came from. The project may carry some
+original Graal material, as described here.
+
+- **Written from notes.** The client code (the Pascal rebuilds, the
+  launchers and start screens, the C++ engine hosts, the Quattro program
+  and the GS2 VM under `common/cpp/gs2/`) is written from the behaviour
+  notes in [graal_analysis](https://github.com/squirelworks/graal_analysis)
+  on the wire protocol, file formats and observed behaviour, and from the
+  project's own lab runs. It is not copied or translated from the original
+  programs. `common/torque/PROVENANCE.md` details the Torque layer.
+- **Original resources: their shape carried, their art replaced.** Each
+  build carries its own exe's resources (icons, cursors, bitmaps, dialogs
+  and form layouts, menus, string tables, version info, and the few levels
+  an exe embeds, such as the Training and online start levels) under the
+  original names, sizes and formats, in its `res/` (or `src/res/`) folder,
+  the generated `Res*.pas` / `RealRes*.pas` units and `common/GRes20x.pas`.
+  Since 2026-11-19 every picture,
+  icon, cursor and level among them is graal-delphi's own art, drawn by
+  `scripts/art/make_art.py` ([docs/art.md](docs/art.md)); CI checks it.
+  The text resources (form layouts and captions, string tables, character
+  lists, the 2.22 language file) are still the originals', because the
+  code reads them; whether to rewrite them is open. A player's own
+  originals go in `assets/` beside the program (see [Your Graal files](#your-graal-files)).
+- **Not carried.** Game data (`pics1.png`, `arrays.dat`, ganis, heads,
+  bodies, levels, sounds) is loaded at run time from an install you supply
+  (`graal-assets/`, [docs/assets.md](docs/assets.md)). The built-in
+  defaults in `common/builtin/` are new art drawn by
+  `scripts/builtin/make_builtin.py`, not original files. Tests that need
+  original data, such as the tutorial levels inside the 2.05 exe, read it
+  from a local path and are skipped when it is missing.
+- **List server.** Builds that fetch a server list default to the
+  community list server `listserver.graal.in`; the original hosts are
+  defunct.
+- **Third-party code.** The Torque3D string Huffman frequency table and
+  tree build (MIT) in `common/cpp/third_party/torque3d/`, with its
+  copyright notice and licence in `LICENSE.txt` there. The system zlib and
+  bzip2 libraries are linked, not vendored.
+
+## Licence
+
+[Apache License 2.0](LICENSE), the same as the Seihai server stack. Unless
+you say otherwise, a contribution you submit is licensed the same way. The
+licence covers the project's own code and the stand-in assets in this repo.
+It does not cover the original text resources still carried in the
+`res/` folders and the units generated from them (see Provenance), and it grants
+no rights to Graal's names or to any original Graal file. The licence
+decision itself is open in
+[#116](https://github.com/squirelworks/graal-client-repro/issues/116).
