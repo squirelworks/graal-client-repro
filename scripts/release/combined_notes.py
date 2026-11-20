@@ -8,8 +8,9 @@ version (v0.0.4). Its text is a short common header, then one section per
 folder named: the first heading of the folder's RELEASE_NOTES.md, the
 names of that folder's zips, and the folder's "What's new in <version>"
 section. RELEASE, if set, names the release in the header when it is not
-the version itself (v0.0.3r1 holds the v0.0.3 zips). Folders come in RELEASES.md's order (by era, oldest first), any
-it does not list after them.
+the version itself (v0.0.3r1 holds the v0.0.3 zips). Folders come in build
+date order, oldest first (build_date), which also puts them in version
+order. Each folder is labelled with how faithful its rebuild is (track).
 
 GitHub refuses release notes over 125,000 characters. When the full text
 would pass LIMIT, each folder gets one line instead: its title, a link to
@@ -45,7 +46,89 @@ is SmartScreen meeting an unsigned program. Click **More info**, then \
 [the README]({repo}#windows-says-windows-protected-your-pc).
 
 ## The clients
+
+Oldest build first. Each client says how faithful its rebuild is: \
+**faithful engine** means the program starts a rebuild of the original's own \
+engine (Torque for early 3.x, Quattro for late 5.x and 6.x); **like the \
+original** means the original was written in that language too (Delphi up \
+to 2.31, Java, C); **Delphi stand-in** means a Delphi program plays the \
+build until its engine is finished \
+([docs/engine-repro-policy.md]({repo}/blob/main/docs/engine-repro-policy.md)).
 """
+
+
+# Build dates for folders whose name carries neither a date nor a dated
+# token. Sources: Graal_analysis client-internals/build-catalogue.md (link
+# or disk-set date); where only the year or month is known, the first of it.
+BUILD_DATES = {
+    'graal-1.21-GSERV007': '1999-05-10',
+    'graal-1.25-GSERV009': '1999-08-07',
+    'graal-1.27-GSERV011': '1999-10-23',
+    'graal-1.28b2-GSERV013': '1999-11-23',
+    'graal-1.3test-GSERV014': '1999-11-29',
+    'graal-1.31-GSERV016': '1999-12-07',
+    'graal-1.32-GSERV018': '2000-01-12',
+    'graal-39ster-1.00': '2014-04-01',
+    'graalgb-1.10': '1999-12-01',
+    'javagraal-2000': '2000-07-01',
+    'zelda-online1-Z3V102': '1998-05-01',
+    'zelda-online2-Z3V103': '1998-07-01',
+    # No build stamp; the connector token GNP1905C is not a build date.
+    # Placed after 6.03r7 (November 2012), the last stamped 6.0x build.
+    'graal-6.1.1.3-GNP1905C': '2012-12-01',
+    'graal-6.11r1-mac': '2012-12-02',
+}
+
+
+def build_date(folder):
+    """'YYYY-MM-DD' for a folder: BUILD_DATES, else the YYYYMMDD date in
+    its name, else the date stamp of its token (DDMMY; Y is the last digit
+    of the year up to 2009 and a hex digit from 2010, Graal_analysis
+    protocol/login-tokens-3x-7x.md; a G3D 0 is 2010), else '9999' (last)."""
+    if folder in BUILD_DATES:
+        return BUILD_DATES[folder]
+    m = re.search(r'-((?:19|20)\d\d)(\d\d)(\d\d)(?:-|$)', folder)
+    if m:
+        return '-'.join(m.groups())
+    m = re.search(r'-(GNW|G2N|G3D)(\d\d)(\d\d)([0-9A-F])$', folder)
+    if m:
+        kind, day, month, y = m.groups()
+        year = 2000 + int(y, 16)
+        if kind == 'G3D' and y == '0':
+            year = 2010
+        return f'{year}-{month}-{day}'
+    return '9999'
+
+
+def version_key(folder):
+    """Numbers in the folder's version part, to break ties between folders
+    with the same date (2.05, 2.05r1, 2.05r2)."""
+    return [int(n) for n in re.findall(r'\d+', folder.split('-')[1])] if '-' in folder else []
+
+
+ORIGINAL_DELPHI = re.compile(r'^graal-(b\d|1\.|2\.|nm|nwb|x-|3d-)')
+
+
+def track(folder):
+    """How faithful the rebuild is: the folder README's Repro tracks
+    default, else the language the original was written in."""
+    try:
+        with open(os.path.join(ROOT, folder, 'README.md'), encoding='utf-8') as fh:
+            readme = fh.read()
+    except OSError:
+        readme = ''
+    m = re.search(r'^- \*\*default:\*\*(.*)$', readme, re.M)
+    if m:
+        if 'stand-in' in m.group(1):
+            return 'Delphi stand-in (its engine is still being wired)'
+        return 'faithful engine'
+    if folder.startswith(('zelda-online', 'javagraal')):
+        return 'Java, like the original'
+    if folder.startswith('graalgb'):
+        return 'C (GBDK), like the original'
+    if ORIGINAL_DELPHI.match(folder):
+        return 'Delphi, like the original'
+    return 'Delphi stand-in'
 
 
 def section(text, version):
@@ -71,7 +154,7 @@ def compact(version, folders, zips):
             text = fh.read()
         title = text.split('\n', 1)[0].lstrip('# ').strip()
         n = len([z for z in zips if z.startswith(f'{f}-{version}')])
-        line = f'- **{title}** (`{f}`)'
+        line = f'- **{title}** (`{f}`, {build_date(f)}), {track(f)}'
         if section(text, version):
             line += f': [what\'s new]({REPO}/blob/{version}/{f}/RELEASE_NOTES.md#{frag})'
         if n:
@@ -92,6 +175,7 @@ def full_notes(version, folders, zips):
             text = fh.read()
         title = text.split('\n', 1)[0].lstrip('# ').strip()
         out.append(f'### {title} (`{f}`)\n')
+        out.append(f'Built {build_date(f)}. Rebuild: {track(f)}.\n')
         mine = [z for z in zips if z.startswith(f'{f}-{version}')]
         if mine:
             out.append('Download: ' + ', '.join(f'`{z}`' for z in sorted(mine)) + '\n')
@@ -106,13 +190,7 @@ def main():
         print(__doc__.strip(), file=sys.stderr)
         return 2
     version, folders = sys.argv[1], sys.argv[2:]
-    try:
-        with open(os.path.join(ROOT, 'RELEASES.md'), encoding='utf-8') as fh:
-            table = fh.read()
-    except OSError:
-        table = ''
-    pos = {f: table.find(f'[`{f}`]') for f in folders}
-    folders.sort(key=lambda f: (pos[f] < 0, pos[f]))
+    folders.sort(key=lambda f: (build_date(f), version_key(f), f))
     # ZIPS: the release's zip file names, space-separated (optional)
     zips = [os.path.basename(z) for z in os.environ.get('ZIPS', '').split()]
     sys.stdout.write(notes(version, folders, zips))
