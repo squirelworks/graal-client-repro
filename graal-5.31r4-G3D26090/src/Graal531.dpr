@@ -11,7 +11,10 @@
   graal-5.31r4-G3D26090.
 
   Command line:
-    Graal531            exit 0
+    Graal531            the start screen (common/GStartScreen.pas): Training
+                        or a server from the listserver, played in
+                        quattro-play; back to the start screen when the
+                        game ends. With no display it exits 64.
     Graal531 --show     print the two file versions, the engine, the port,
                         and the token the login line sends
     Graal531 --server HOST:PORT --account NAME [--password-env VAR]
@@ -32,16 +35,38 @@ program Graal531;
   in the Windows build flags). }
 {$IFDEF MSWINDOWS}{$IFDEF FPC}{$R Graal531.rc}{$SETPEOPTFLAGS $0140}{$ENDIF}{$ENDIF}
 
+{ The start screen borrows 5.24r4's list step and character drawing: 5.31r4
+  reaches its servers through the same Login server, which the rebuild
+  replaces with a Seihai listserver (ListServer524r4). }
 uses
-  SysUtils,
+  SysUtils, Classes,
+  GTypes in '../../common/GTypes.pas',
+  GZlib in '../../common/GZlib.pas',
+  GSocket in '../../common/GSocket.pas',
+  GLevel in '../../common/GLevel.pas',
+  GSurface in '../../common/GSurface.pas',
+  GArrays in '../../common/GArrays.pas',
+  GBzip2 in '../../common/GBzip2.pas',
+  GBuiltin in '../../common/GBuiltin.pas',
   GAssetDirs in '../../common/GAssetDirs.pas',
   GQuattroPlay in '../../common/GQuattroPlay.pas',
+  GAni in '../../common/GAni.pas',
+  GFont in '../../common/GFont.pas',
+  GWindow in '../../common/GWindow.pas',
+  GStartScreen in '../../common/GStartScreen.pas',
+  Protocol524r4 in '../../graal-5.24r4-G3D15010/src/Protocol524r4.pas',
+  GraalClient in '../../graal-5.24r4-G3D15010/src/GraalClient.pas',
+  Adventure in '../../graal-5.24r4-G3D15010/src/Adventure.pas',
+  ListServer524r4 in '../../graal-5.24r4-G3D15010/src/ListServer524r4.pas',
+  StartScreen524r4 in '../../graal-5.24r4-G3D15010/src/StartScreen524r4.pas',
+  RunMode in '../../graal-5.24r4-G3D15010/src/RunMode.pas',
   Late531 in 'Late531.pas';
 
 const
   { the quattro-play row (common/cpp/quattro/net/profile.cpp) }
   QuattroBuild = '5.31r4';
-  FirstServerName = 'Login';
+  { the name 5.31r4 gives the first server it reaches, as 5.24r4 does }
+  FirstServerName531 = 'Login';
 
 function Arg(const Name, Default: string): string;
 var
@@ -136,7 +161,7 @@ begin
   SetLength(Roots, AssetRootCount);
   for I := 0 to AssetRootCount - 1 do Roots[I] := AssetRoot(I);
   Args := QuattroArgs(Dir, Roots, Arg('--level', ''), Arg('--x', '30'), Arg('--y', '30'),
-    Server, Arg('--account', ''), Arg('--server-name', FirstServerName), '');
+    Server, Arg('--account', ''), Arg('--server-name', FirstServerName531), '');
   if HasArg('--seconds') then
   begin
     I := Length(Args);
@@ -150,8 +175,109 @@ begin
   if Result < 0 then Result := 69;
 end;
 
+{ Training's level: the install's offline tutorial, else its start.nw. }
+procedure TrainingLevel(const Dir: string; out Path, X, Y: string);
 begin
-  if ParamCount = 0 then Exit;
+  X := '30';
+  Y := '30';
+  Path := FirstFileIn(Dir, 'levels/offlinetutorial_b-2.nw;levels/offlinetutorial_b-2.graal;' +
+    'offlinetutorial_b-2.nw;offlinetutorial_b-2.graal');
+  if Path = '' then Path := InstallPath(Dir, 'start.nw');
+end;
+
+{ No arguments: the start screen, then the game it picks in quattro-play,
+  and back to the start screen when the game ends. }
+function RunGui: Integer;
+var
+  Win: TGWindow;
+  G: TAdventure;
+  R: TStartResult;
+  Dir, ListHost, Msg, Lvl, X, Y, Exe, PickedName: string;
+  ListPort, Code, I: Integer;
+  Picked: Boolean;
+  Fetch: TListFetch524r4;
+  Info: TStartInfo;
+  Who: TCharacter524r4;
+  Roots: array of string;
+  Args: TQuattroArgs;
+begin
+  Result := 0;
+  Dir := ExtractFilePath(ParamStr(0));
+  Win := TGWindow.Create('Graal ' + BuildLabel531 + ' (' + Late531.ClientVersionToken + ')', ScreenW, ScreenH);
+  try
+    if not Win.Ok then
+    begin
+      OpenConsoleIO;
+      try
+        WriteLn(ErrOutput, 'no display for the start screen; run with --server or --level');
+      except
+        on EInOutError do ;
+      end;
+      Result := 64;
+      Exit;
+    end;
+    InstallStopHandlers;
+    ReadListServer(Dir, DefaultListHost, DefaultListPort, ListHost, ListPort);
+    FillChar(R, SizeOf(R), 0);
+    Msg := '';
+    repeat
+      Win.TakeChars;
+      G := TAdventure.Create;
+      Fetch := TListFetch524r4.Create;
+      Who := TCharacter524r4.Create;
+      try
+        G.UseInstall(Dir);
+        Who.G := G;
+        Info.Title := 'graal-delphi';
+        Info.Subtitle := '5.31r4 rebuilt';
+        Info.DrawCharacter := Who.Draw;
+        Info.StopRequested := StopRequested;
+        Picked := RunStartScreen(Win, G.Screen, Fetch, Info, Dir, ListHost, ListPort, Msg, R);
+        PickedName := FirstServerName531;
+        if Picked and (R.Choice = scOnline) then
+          for I := 0 to High(Fetch.Servers) do
+            if (Fetch.Servers[I].Host = R.Host) and (Fetch.Servers[I].Port = R.Port) then
+            begin
+              PickedName := ServerDisplayName(Fetch.Servers[I].Name);
+              Break;
+            end;
+      finally
+        Who.Free;
+        Fetch.Free;
+        G.Free;
+      end;
+      if not Picked or Win.Closed or StopRequested then Exit;
+      Exe := QuattroProgram(Dir, R.Choice = scOnline);
+      if Exe = '' then
+      begin
+        Msg := 'no quattro-play beside the program';
+        Continue;
+      end;
+      SetAssetRoots(Dir, QuattroBuild);
+      SetLength(Roots, AssetRootCount);
+      for I := 0 to AssetRootCount - 1 do Roots[I] := AssetRoot(I);
+      if R.Choice = scTraining then
+      begin
+        TrainingLevel(Dir, Lvl, X, Y);
+        Args := QuattroArgs(Dir, Roots, Lvl, X, Y, '', '', '', '');
+      end
+      else
+        Args := QuattroArgs(Dir, Roots, '', '', '', R.Host + ':' + IntToStr(R.Port), R.Account,
+          PickedName, R.Nickname);
+      Code := RunQuattro(Exe, QuattroBuild, Args, R.Password);
+      if Code <> 0 then
+        Msg := 'the game ended with code ' + IntToStr(Code)
+      else
+        Msg := '';
+    until Win.Closed or StopRequested;
+  finally
+    Win.Free;
+  end;
+end;
+
+begin
+  if ParamCount = 0 then Halt(RunGui);
+  OpenConsoleIO;
   if (ParamCount = 1) and (ParamStr(1) = '--show') then
   begin
     WriteLn(FileVersion530, ' ', BuildLabel530);
@@ -161,7 +287,7 @@ begin
     WriteLn('processes=', ProcessCount);
     WriteLn('port=', BakedLoginPort);
     WriteLn('stored=', TokenLiteral);
-    WriteLn('sends=', ClientVersionToken);
+    WriteLn('sends=', Late531.ClientVersionToken);
     Exit;
   end;
   Halt(RunGame);

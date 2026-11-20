@@ -13,7 +13,9 @@ exits. It does not play the game.
 
 ## What's new in v0.0.5
 
-- [x] **Plays in the Quattro program.** `quattro-play`, the rebuild of the one C++ program 5.31r4 is, now ships next to `Graal531` with a `5.31r4` row: `G3D26090`, gen-5, 5.24's receive switch without 41 and 181, no tiles before the warp. `Graal531 --server HOST:PORT --account NAME` (password from `GRAAL_PW`) or `--level FILE` plays there. Seihai secure login works too. A no-argument start still exits: there is no start screen yet.
+- [x] **A start screen.** `Graal531` with no arguments opens the start screen 5.24r4 uses (nick name, character, Training, and the server list from a Seihai listserver, since the Login server's scripted list is not rebuilt). Training and the picked server play in `quattro-play`, and the start screen comes back when the game ends. With no display it exits 64.
+
+- [x] **Plays in the Quattro program.** `quattro-play`, the rebuild of the one C++ program 5.31r4 is, now ships next to `Graal531` with a `5.31r4` row: `G3D26090`, gen-5, 5.24's receive switch without 41 and 181, no tiles before the warp. `Graal531 --server HOST:PORT --account NAME` (password from `GRAAL_PW`) or `--level FILE` plays there. Seihai secure login works too.
 
 - [x] **Machine fields in the original's shape.** The login line now sends `win`, three fixed made-up MD5 hashes (of SquirrelOS, SquirrelNIC and SquirrelBIOS strings) and the quoted Windows version `"6.2 9200 "`, the shape the real client sends. Nothing is read from your machine.
 
