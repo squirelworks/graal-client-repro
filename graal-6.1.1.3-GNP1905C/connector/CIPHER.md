@@ -71,8 +71,10 @@ code (see "Status" below); the signed scripts still say `SEI-PENDING`.
 - seihai-gserver-v2 (and later the Rust gserver): accept `SEI00001`,
   read the client's `0xfc` with the project private key, and send their
   own `0xfc`.
-- The project key pairs (signing, server, parse) stay outside the repo,
-  as the signing key already does (`SEI_CONNECTOR_KEY`).
+- The project's key pairs (signing, server, parse) are open lab keys in
+  the repo, as the signing key now is (`common/connector-lab-key`). The
+  project is open source, so they authenticate nothing; an operator who
+  needs a secret makes their own pairs and keeps them.
 
 ## Status (2026-11-20)
 
@@ -83,7 +85,8 @@ code (see "Status" below); the signed scripts still say `SEI-PENDING`.
   `Cipher6113` for the `0xfd`/`0xfc` key frame and the server's key
   plaintext. A test runs the server's side end to end: wrap, frame, read,
   unwrap, re-key, decrypt.
-- Not done: a project script that sends the key frame, re-signed with
-  `SEI_CONNECTOR_KEY` (only the key holder can do that); calling the
+- The signing key is now an open lab key (2026-11-20), so re-signing the
+  script needs no secret.
+- Not done: a project script that sends the key frame; calling the
   key-frame reader from the socket loop; the server side; the 6.11r1 Mac and
   Worlds scaffolds.

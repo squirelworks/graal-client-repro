@@ -82,6 +82,7 @@ begin
   WriteLn('  --lab-serve PORT [--seconds N]');
   WriteLn('  --server 127.0.0.1:PORT --connector 127.0.0.1:PORT   connector login (SEI00001, not yet usable)');
   WriteLn('  --connector-serve PORT --conf FILE [--seconds N]     lab conf.gs responder');
+  WriteLn('  --connector-key FILE    trust this operator modulus (hex) instead of the open lab key');
   WriteLn('  --password-env VAR   accepted, never sent or logged');
 end;
 
@@ -322,7 +323,7 @@ var
   Session: TSession;
   Surf: TGSurface;
   Win: TGWindow;
-  LevelPath, Keys, DumpPath, Server, PwName, Pw, CtrlText, CtrlLine: string;
+  LevelPath, Keys, DumpPath, Server, PwName, Pw, CtrlText, CtrlLine, KeyErr: string;
   Port, ConnPort: Integer;
   Frames, I, KeyN, Dir, Seconds, CtrlAt: Integer;
   Dirs: array[0..4095] of Integer;
@@ -363,6 +364,13 @@ begin
     end;
     Halt(Serve(Word(Port), Seconds));
   end;
+
+  if HasArg('--connector-key') then
+    if not LoadConnectorKey(Arg('--connector-key', ''), KeyErr) then
+    begin
+      LogLine('error: ' + KeyErr);
+      Halt(64);
+    end;
 
   { Headless unless --window. The loopback and stress scripts do not pass
     --window. A failed --window is reported and is not treated as a run. }

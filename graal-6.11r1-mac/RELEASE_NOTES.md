@@ -9,6 +9,14 @@ Pascal. It shares the 6.1.1.3 folder's framer and connector units.
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").
 
+## What's new in v0.0.5
+
+- [x] **An open lab signing key.** The connector key the client trusts is
+  now public in `common/connector-lab-key`, so anyone can rebuild the
+  signed `conf.gs`. `--connector-key FILE` trusts a server operator's own
+  key instead. The shipped `sei00001-conf.gs` is re-signed with the lab
+  key.
+
 ## What's new in v0.0.4.2
 
 - Connector login, the only login 6.11 has. It does `GET /conf.gs` with

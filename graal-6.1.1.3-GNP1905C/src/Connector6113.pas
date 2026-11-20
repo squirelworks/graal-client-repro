@@ -12,7 +12,8 @@
 
   This unit is that pipeline with three differences from a stock client:
 
-  - The public key is this project's own (SeiPublicModulusHex), not the
+  - The public key is this project's open lab key (SeiPublicModulusHex),
+    or one an operator gives with --connector-key, not the stock
     operator's. A stock connector reply does not verify against it, and a
     reply signed for this key is never accepted by a stock client.
   - The token in the project's connector script is the placeholder
@@ -53,18 +54,20 @@ const
   { The header template the 6.11 connector script sets. }
   ConnectorTemplate = 'EILLLT';
 
-  { This project's own connector signing key (RSA-2048, e = 65537). Public
-    half only. The private half is held by the project owner, outside the
-    repo, and signs the project's conf.gs replies. }
+  { The project's open lab signing key (RSA-2048, e = 65537), the default
+    trust anchor. Both halves are public in common/connector-lab-key, so a
+    signature under it shows only that the script arrived unchanged, not
+    who wrote it. --connector-key FILE trusts a server operator's key
+    instead. }
   SeiPublicModulusHex =
-    '876470239A4C64545BCCDA0B2739B87970C94F7106022685B95DC51CD7898253' +
-    '604E54A150E452FC99122A488E7D0B139BBF60566CAADD2438A72AABD68E2011' +
-    '07FA6712A14738414BC7C1E09106DD430255AF19D5F54CE1FC0DD8704CD13157' +
-    '6B9E5B1FDEA6D7A150C0E100A7A3FA5A2E452D010FEB1B30AC65C0BDF7466E96' +
-    'C9FA24090E5CEB67D2FD81B9578E5B6ED38EDC861E527047BAE2CFD3E717C052' +
-    '9014369FEC58A5D74282A02AEFDB542AA6AA74289F236FB9959E798E782FD5C5' +
-    '9D068D293BA9EA24E29A20A0F03B8BC30C11497B35C1C2E191568AF3788B24DF' +
-    '5E2ECE8D30649335FC671A89CC5DCCC26A7C1195F3DB9D499FBD3CCE64557DE5';
+    'CAAF704D5D19A024335740AB2F9B844E12B9134EA9049ABEA6C3491E663F4230' +
+    '97FC6F85F70C8E224D00532B784D3999D6E5007442F88CBDA81ECF8C2CC64053' +
+    'A604A842CAB8CD90B51D4BE2CA18351370FD977CBD7CE6A9A6BD4FF3F07C1CCC' +
+    '4868C1EA259AFFC21E70DE8FCE23008FD67478E4500B5F490C9009678A62AD8C' +
+    '8DB7D74B49055A701FBCB3FCBEFC501A8D03CA7BC3B54ADB4E482A106A3AB877' +
+    'AB703A413755934B892752C1F1F3B2E934B739688D0A78DED083086E652EB861' +
+    'A89CB8A449A982BC2DBE6B36FDFE1F48A1E196ADAC3D81BA0FA0BD5B01247D4A' +
+    '7D98EE6494411C30AF6001EB267686A5D512D3DDE13833290972266B05D8D763';
 
   { TODO(seihai-gserver-v2): the project's payload cipher is not chosen.
     While this is True the verified payload is read as clear script text. }
@@ -99,6 +102,16 @@ function BuildConfReply(const Signature, Payload: string): string;
 { The signature check. Runs before anything is decrypted or executed. }
 function VerifyConfReply(const Signature, Payload: string; out Err: string): Boolean;
 
+var
+  { The modulus VerifyConfReply checks against: the lab key unless
+    LoadConnectorKey read another. }
+  ConnectorModulusHex: string;
+
+{ Trust a server operator's key instead of the lab key. The file holds the
+  RSA-2048 modulus in hex, as `openssl rsa -pubin -noout -modulus` prints
+  it (a leading "Modulus=" is allowed). The exponent must be 65537. }
+function LoadConnectorKey(const Path: string; out Err: string): Boolean;
+
 { Pending cipher: returns the payload unchanged. }
 function DecryptConfPayload(const Payload: string; out Script, Err: string): Boolean;
 
@@ -123,7 +136,7 @@ function FetchConfReply(Port: Word; TimeoutMs: Integer; Idle: TIdleProc;
 implementation
 
 uses
-  SysUtils, GSocket, Sha6113, Rsa6113;
+  SysUtils, Classes, GSocket, Sha6113, Rsa6113;
 
 function U32BE(N: Cardinal): string;
 begin
@@ -179,7 +192,43 @@ end;
 
 function VerifyConfReply(const Signature, Payload: string; out Err: string): Boolean;
 begin
-  Result := RsaVerifyBareSha256(SeiPublicModulusHex, Signature, Sha256(Payload), Err);
+  Result := RsaVerifyBareSha256(ConnectorModulusHex, Signature, Sha256(Payload), Err);
+end;
+
+function LoadConnectorKey(const Path: string; out Err: string): Boolean;
+var
+  L: TStringList;
+  Hex: string;
+  I: Integer;
+begin
+  Result := False;
+  Err := '';
+  if not FileExists(Path) then
+  begin
+    Err := 'connector key file not found: ' + Path;
+    Exit;
+  end;
+  L := TStringList.Create;
+  try
+    L.LoadFromFile(Path);
+    Hex := UpperCase(Trim(L.Text));
+  finally
+    L.Free;
+  end;
+  if Copy(Hex, 1, 8) = 'MODULUS=' then Delete(Hex, 1, 8);
+  if Length(Hex) <> 512 then
+  begin
+    Err := 'connector key must be a 2048-bit modulus in hex (512 digits)';
+    Exit;
+  end;
+  for I := 1 to Length(Hex) do
+    if not (Hex[I] in ['0'..'9', 'A'..'F']) then
+    begin
+      Err := 'connector key holds a character that is not hex';
+      Exit;
+    end;
+  ConnectorModulusHex := Hex;
+  Result := True;
 end;
 
 function DecryptConfPayload(const Payload: string; out Script, Err: string): Boolean;
@@ -471,4 +520,6 @@ begin
   Result := True;
 end;
 
+initialization
+  ConnectorModulusHex := SeiPublicModulusHex;
 end.

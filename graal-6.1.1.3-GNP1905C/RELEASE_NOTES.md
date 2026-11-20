@@ -10,6 +10,20 @@ host and it does not borrow another version's token.
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").
 
+## What's new in v0.0.5
+
+- [x] **The project session cipher, as library code.** RC4 out after
+  `setEncryptionOut("RC4", key)`, RC4 in after an incoming RC4 key, a
+  PKCS #1 v1.5 type-2 key wrap and unwrap (`Rc46113`, `Rsa6113`), and the
+  `0xfd`/`0xfc` key frames (`Cipher6113`), with known-answer and
+  round-trip tests. Not on the wire yet: the project script still selects
+  no cipher (`connector/CIPHER.md`).
+- [x] **An open lab signing key.** The connector key the client trusts is
+  now public in `common/connector-lab-key`, so anyone can rebuild the
+  signed `conf.gs`. `--connector-key FILE` trusts a server operator's own
+  key instead. The shipped `sei00001-conf.gs` is re-signed with the lab
+  key.
+
 ## What's new in v0.0.4.2
 
 - A window (when `--window` can open one), a software camera, a local
@@ -39,12 +53,6 @@ host and it does not borrow another version's token.
   the server's catalogue gives it a version id.
 - The generation-5 seed is the one `protocol/unpacked-6113-wire.md` gives.
   It was 128 too high before.
-- The project session cipher as library code: RC4 out after
-  `setEncryptionOut("RC4", key)`, RC4 in after an incoming RC4 key, and a
-  PKCS #1 v1.5 type-2 key wrap and unwrap (`Rc46113`, `Rsa6113`), and the
-  `0xfd`/`0xfc` key frames (`Cipher6113`), with
-  known-answer and round-trip tests. Not on the wire yet: the signed
-  project script still selects no cipher.
 - `--lab` is a labeled lab-only fixture: one other entity, its properties,
   and a movement round trip. It is not 6.1.1.3 ciphertext and not v7.
 

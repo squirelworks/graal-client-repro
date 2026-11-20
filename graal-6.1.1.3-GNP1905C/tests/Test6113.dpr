@@ -729,6 +729,49 @@ begin
   end;
 end;
 
+procedure TestConnectorKey;
+const
+  Cands: array[0..2] of string = ('common/connector-lab-key/lab-signing-key.modulus',
+    '../common/connector-lab-key/lab-signing-key.modulus',
+    '../../common/connector-lab-key/lab-signing-key.modulus');
+var
+  Reply, Sig, Payload, Err, Tmp, LabFile: string;
+  L: TStringList;
+  I: Integer;
+begin
+  LabFile := '';
+  for I := 0 to High(Cands) do
+    if (LabFile = '') and FileExists(Cands[I]) then LabFile := Cands[I];
+  Check(LabFile <> '', 'the open lab key modulus is in the repo');
+  Check(ConnectorModulusHex = SeiPublicModulusHex, 'the lab key is trusted by default');
+  Reply := LoadConf;
+  Check(ParseConfReply(Reply, Sig, Payload, Err) and VerifyConfReply(Sig, Payload, Err),
+    'the shipped conf.gs verifies under the lab key');
+  if LabFile <> '' then
+  begin
+    Check(LoadConnectorKey(LabFile, Err) and (ConnectorModulusHex = SeiPublicModulusHex),
+      'the lab key file is the compiled-in key: ' + Err);
+  end;
+  Tmp := GetTempDir + 'sei-operator-key.txt';
+  L := TStringList.Create;
+  try
+    L.Text := 'Modulus=' + StringOfChar('D', 512);
+    L.SaveToFile(Tmp);
+    Check(LoadConnectorKey(Tmp, Err) and (ConnectorModulusHex = StringOfChar('D', 512)),
+      'an operator key file in openssl -modulus form loads');
+    Check(not VerifyConfReply(Sig, Payload, Err), 'the lab-signed conf.gs fails under another key');
+    L.Text := 'ABCD';
+    L.SaveToFile(Tmp);
+    Check(not LoadConnectorKey(Tmp, Err) and (ConnectorModulusHex = StringOfChar('D', 512)),
+      'a short key file is refused and changes nothing');
+    Check(not LoadConnectorKey(Tmp + '.missing', Err), 'a missing key file is refused');
+  finally
+    L.Free;
+    DeleteFile(Tmp);
+    ConnectorModulusHex := SeiPublicModulusHex;
+  end;
+end;
+
 procedure TestConnectorRefusesTamper;
 var
   Con: TLabConnector;
@@ -1018,6 +1061,7 @@ begin
     TestConnectorScript;
     TestConnectorLogin;
     TestConnectorRefusesTamper;
+    TestConnectorKey;
   finally
     SessionLog := nil;
     Logs.Free;

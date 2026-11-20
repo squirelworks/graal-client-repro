@@ -1,14 +1,17 @@
 #!/bin/sh
-# Sign a connector script into a conf.gs reply for the project key.
-#   SEI_CONNECTOR_KEY=/path/outside/the/repo/private.pem \
+# Sign a connector script into a conf.gs reply.
+#   [SEI_CONNECTOR_KEY=/path/to/private.pem] \
 #     sh make-conf.sh sei00001-connector.gs sei00001-conf.gs
-# The private key never goes in the repo. The reply is:
+# With no SEI_CONNECTOR_KEY it signs with the open lab key in
+# common/connector-lab-key, which the clients trust by default. An
+# operator signing with their own key keeps that key out of the repo and
+# starts the clients with --connector-key. The reply is:
 #   u32be(256) signature u32be(N) payload
 # where signature is RSA-2048 PKCS #1 v1.5 type 1 over the bare SHA-256
 # digest of payload (no DigestInfo). The payload cipher is pending, so the
 # payload is the script text as is.
 set -eu
-: "${SEI_CONNECTOR_KEY:?set SEI_CONNECTOR_KEY to the private key path}"
+: "${SEI_CONNECTOR_KEY:=$(dirname "$0")/../../common/connector-lab-key/lab-signing-key.pem}"
 IN=$1
 OUT=$2
 TMP=$(mktemp -d)
