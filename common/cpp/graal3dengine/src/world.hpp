@@ -7,11 +7,28 @@
 #include <array>
 #include <map>
 #include <string>
+#include <vector>
 
 namespace graal3d {
 
 struct Vec3 {
   float x = 0, y = 0, z = 0;
+};
+
+// Section 7, the movement data of an object whose movetype made a
+// movement object (torque/udp-session.md §8; the lab run of
+// protocol/lab-appe-gwentea2-2026-11-20d.md, E#505). `interpolate` and
+// `rigid` carry one target: a position (3 x f32), a rotation (4 x 8 bits;
+// the lab server's identity rotation is 127, 127, 127, 255), six 9-bit
+// vector parts and a flag. `list` carries entries of 8 x 32 bits; the
+// first three are the position (f32), the other five were zeros in the
+// lab and are kept as read.
+struct MovementData {
+  Vec3 position;
+  uint8_t rotation[4] = {127, 127, 127, 255};
+  uint16_t vectors[6] = {0, 0, 0, 0, 0, 0};
+  bool flag = false;
+  std::vector<std::array<uint32_t, 8>> list;
 };
 
 // The thirteen sections of a GameObject update, kept as the last values
@@ -24,6 +41,9 @@ struct GameObjectState {
   float angle = 0;
   std::string movetype;
   bool hasMovement = false;  // movetype interpolate, list or rigid
+  MovementData movement;     // section 7, the last one read
+  bool hasMovementData = false;
+  uint32_t movementSerial = 0;  // counts the section 7 payloads read
   std::string chat, scriptClasses;
   std::array<std::string, 8> attr;
   std::string nickname;
@@ -33,9 +53,11 @@ struct GameObjectState {
 };
 
 // Reads one GameObject update into `o` (the section flags, then each
-// payload that is present). False when the stream ran out.
-bool readGameObjectUpdate(BitReader& r, GameObjectState& o);
+// payload that is present). False when the stream ran out. `sections`,
+// when given, gets the sections the update carried (bit 0 = section 1).
+bool readGameObjectUpdate(BitReader& r, GameObjectState& o, uint32_t* sections = nullptr);
 // Writes the sections of `o` named by `sections` (bit 0 = section 1).
+// Section 7 goes out only while `o` has a movement object and data.
 void writeGameObjectUpdate(BitWriter& w, const GameObjectState& o, uint32_t sections);
 
 struct CameraState {
@@ -64,6 +86,9 @@ struct SkyState {
   bool init = false;
 };
 bool readSkyUpdate(BitReader& r, SkyState& s);
+
+// The position a `list` entry carries (its first three values as f32).
+Vec3 listEntryPosition(const std::array<uint32_t, 8>& entry);
 
 // One ghost: its class (by name) and the state of the classes this
 // rebuild reads. Others are kept by class name only.

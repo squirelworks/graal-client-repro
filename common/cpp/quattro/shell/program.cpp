@@ -586,6 +586,12 @@ bool Program::start_offline(const std::string& file, double x, double y, const s
   return !first.empty() && load_offline_level(first);
 }
 
+void Program::send_enter_level() {
+  if (!enter_level_pending_ || offline_) return;
+  enter_level_pending_ = false;
+  if (profile_.sends_enter_level) session_.connection().send(46, Net::gchar(1));
+}
+
 void Program::cross_gmap_edge() {
   int gx = 0, gy = 0;
   if (!have_gmap_ || !gmap_.find(level_name_, gx, gy)) return;
@@ -745,6 +751,10 @@ void Program::on_message(int id, std::string_view body) {
       if (profile_.v4_scripts) clear_level_npcs();
       load_local_level(level_name_);
       scripts_.queue_all("PlayerEnters");
+      // 46 goes before the new level's first props: now when the client
+      // is already sending props, else just before its initial props.
+      enter_level_pending_ = true;
+      if (props_sent_) send_enter_level();
       break;
     case 7: {  // PLO_BOARDMODIFY: x, y, w, h, then the tiles row by row
       int x = static_cast<int>(r.gchar()), y = static_cast<int>(r.gchar());
@@ -798,6 +808,7 @@ void Program::on_message(int id, std::string_view body) {
       World::apply_own_props(r, me_, profile_.own_props, profile_.last_prop);
       if (!props_sent_) {
         // Logged in: the client's own props, then only what moves.
+        send_enter_level();
         session_.connection().send(2, World::initial_props(me_, profile_.platform));
         mover_.reset(me_);
         props_sent_ = true;
@@ -882,8 +893,30 @@ void Program::on_message(int id, std::string_view body) {
     case 30:  // PLO_FILESENDFAILED: name (it stays asked, so it is not asked again)
       if (log) log("the server has no " + std::string(body));
       break;
+    case 111:  // creationtime.dat: the whole body, byte for byte (6.03r7)
+      creation_time_ = std::string(body);
+      if (!opt_.assets.empty()) {
+        std::ofstream f(std::filesystem::path(opt_.assets) / "creationtime.dat", std::ios::binary | std::ios::trunc);
+        f.write(creation_time_.data(), static_cast<std::streamsize>(creation_time_.size()));
+        if (!f && log) log("could not write creationtime.dat");
+      }
+      break;
+    case 198: {  // GINT5, stored on the connection
+      const uint64_t v = r.gint5();
+      if (r.ok()) value_198_ = v;
+      break;
+    }
+    case 109: {  // GINT5 time, GCHAR-length file name, GCHAR-length URL
+      FileRedirect fr;
+      fr.time = r.gint5();
+      std::string name = r.gstring();
+      fr.url = r.gstring();
+      if (r.ok() && !name.empty()) file_redirects_[name] = fr;
+      break;
+    }
     case 178:  // the session follows the warp; the title follows the name
       props_sent_ = false;
+      enter_level_pending_ = false;
       others_.clear();
       unlist_all();  // the next server names its own players
       break;

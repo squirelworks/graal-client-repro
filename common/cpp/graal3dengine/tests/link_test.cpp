@@ -8,9 +8,11 @@
 #include "world.hpp"
 #include "vectors.hpp"
 
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -45,11 +47,17 @@ struct ClientPacket {
   int seq = -1, ack = -1, type = -1;
   bool firstPerson = false, hasControl = false, ownState = false;
   int controlGhost = -1;
+  Vec3 position;
   GameObjectState own;
+  uint32_t ownSections = 0;
   std::vector<std::pair<int, std::string>> commands;  // class id, command name
 };
 
-ClientPacket readClientPacket(const std::string& bytes, const std::map<int, std::string>& events) {
+// `seen`, when given, is the server's copy of the client's object: it
+// keeps the movetype from one packet to the next, which decides whether
+// section 7 is there.
+ClientPacket readClientPacket(const std::string& bytes, const std::map<int, std::string>& events,
+                              GameObjectState* seen = nullptr) {
   ClientPacket p;
   BitReader r(bytes);
   if (!r.flag()) return p;
@@ -63,11 +71,15 @@ ClientPacket readClientPacket(const std::string& bytes, const std::map<int, std:
   if (r.flag()) r.bits(20);
   if (r.flag()) r.bits(20);
   p.firstPerson = r.flag();
-  r.f32();
-  r.f32();
-  r.f32();
+  p.position.x = r.f32();
+  p.position.y = r.f32();
+  p.position.z = r.f32();
   if ((p.hasControl = r.flag())) p.controlGhost = static_cast<int>(r.bits(12));
-  if ((p.ownState = r.flag())) readGameObjectUpdate(r, p.own);
+  if ((p.ownState = r.flag())) {
+    GameObjectState& o = seen ? *seen : p.own;
+    readGameObjectUpdate(r, o, &p.ownSections);
+    p.own = o;
+  }
   if (r.flag()) r.bits(8);
   while (r.flag()) {
     r.bits(12);
@@ -303,6 +315,199 @@ void testServerSession() {
   CHECK(phase1);
 }
 
+// Runs the recorded session of testServerSession up to the server's
+// seq 5: the link has control object 1, has sent 5 data packets and has
+// received 5.
+void runSession(Link& link, uint32_t& t) {
+  link.start(t);
+  link.receive(challengeResponse(), ++t);
+  link.receive(fromHex(kAcceptFull), ++t);
+  for (int i = 0; i < 4; ++i) link.receive(fromHex(kServer[i]), ++t);
+  t += Link::kKeepAliveMs;
+  link.tick(t);
+  link.receive(fromHex(kServer[4]), ++t);
+  link.takeOutgoing();
+}
+
+// A server data packet whose game section updates control object 1 with
+// `sections` of `o`, and nothing else.
+std::string serverControlUpdate(uint32_t seq, uint32_t ack, const GameObjectState& o, uint32_t sections) {
+  BitWriter w;
+  w.flag(true);
+  w.bits(0, 1);
+  w.bits(seq & 0x1FF, 9);
+  w.bits(ack & 0x1FF, 9);
+  w.bits(0, 2);
+  w.bits(1, 3);
+  w.bits(0x01, 8);
+  w.flag(false);  // current rate
+  w.flag(false);  // max rate
+  w.flag(true);   // control object
+  w.flag(true);
+  w.u32(1000 + seq);
+  w.bits(1, 12);
+  writeGameObjectUpdate(w, o, sections);
+  w.flag(false);  // camera
+  w.flag(false);  // fov
+  w.flag(false);  // unguaranteed
+  w.flag(false);  // guaranteed
+  w.flag(false);  // ghosts
+  return w.bytes();
+}
+
+constexpr uint32_t kSec(int n) { return 1u << (n - 1); }
+
+void testMovetypes() {
+  // E#505 (protocol/lab-appe-gwentea2-2026-11-20d.md): a server moves the
+  // player with a movetype and movement data on its control object.
+  const uint32_t announce = kSec(3) | kSec(5) | kSec(6) | kSec(13);
+
+  // interpolate: the client glides to each target, makes its shape,
+  // transform, movetype and flags known once, and echoes its movement
+  // data in every update.
+  {
+    LinkLogin login;
+    Link link(login, {});
+    uint32_t t = 0;
+    runSession(link, t);
+    GameObjectState seen;
+    GameObjectState o;
+    o.movetype = "interpolate";
+    o.hasMovement = true;
+    o.hasMovementData = true;
+    o.movement.position = {0, 10, 1};
+    uint32_t seq = 6;
+    link.receive(serverControlUpdate(seq++, link.sentDataPackets(), o, kSec(6) | kSec(7)), ++t);
+    CHECK(link.controlMovetype() == "interpolate");
+    auto out = link.takeOutgoing();
+    CHECK(out.size() == 1);
+    auto p = readClientPacket(out[0], link.eventClasses(), &seen);
+    CHECK(p.type == 0 && p.ownState);
+    CHECK(p.ownSections == (announce | kSec(7)));
+    CHECK(seen.movetype == "interpolate" && seen.shape == "labcube.3ds" && seen.flags == 0x48);
+
+    // Targets 0.5 units apart each second: halfway through a glide the
+    // client is 0.25 behind.
+    t += 1000;
+    o.movement.position = {0, 10.5f, 1};
+    link.receive(serverControlUpdate(seq++, link.sentDataPackets(), o, kSec(7)), t);
+    t += 1000;
+    o.movement.position = {0, 11, 1};
+    link.receive(serverControlUpdate(seq++, link.sentDataPackets(), o, kSec(7)), t);
+    link.takeOutgoing();
+    link.tick(t + 500);
+    CHECK(near(link.controlPosition().y, 10.75f));
+    link.takeOutgoing();  // perhaps a keep-alive mid-glide
+    t += 1600;
+    link.tick(t);
+    out = link.takeOutgoing();
+    CHECK(out.size() == 1);
+    p = readClientPacket(out[0], link.eventClasses(), &seen);
+    CHECK(near(p.position.y, 11) && near(p.position.z, 1));
+    CHECK(p.ownSections == kSec(7));
+    CHECK(seen.hasMovementData && near(seen.movement.position.y, 11));
+    CHECK(seen.movement.rotation[0] == 127 && seen.movement.rotation[3] == 255);
+
+    // The server's packets each 400 ms are answered with acks, and the
+    // client still sends its data packet (position and movement data)
+    // each second (the first lab run of the rebuild stopped here).
+    int data = 0;
+    for (int i = 0; i < 10; ++i) {
+      t += 400;
+      o.movement.position.y += 0.2f;
+      link.receive(serverControlUpdate(seq++, link.sentDataPackets(), o, kSec(7)), t);
+      link.tick(t);
+      for (const auto& d : link.takeOutgoing()) {
+        auto q = readClientPacket(d, link.eventClasses(), &seen);
+        if (q.type != 0) continue;
+        ++data;
+        CHECK(q.ownSections == kSec(7));
+      }
+    }
+    CHECK(data >= 3);
+  }
+
+  // list: the client jumps onto each position and echoes its transform.
+  {
+    LinkLogin login;
+    Link link(login, {});
+    uint32_t t = 0;
+    runSession(link, t);
+    GameObjectState seen;
+    GameObjectState o;
+    o.movetype = "list";
+    o.hasMovement = true;
+    o.hasMovementData = true;
+    o.movement.position = {3, 25, 5};
+    link.receive(serverControlUpdate(6, link.sentDataPackets(), o, kSec(6) | kSec(7)), ++t);
+    CHECK(link.controlMovetype() == "list");
+    CHECK(near(link.controlPosition().y, 25) && near(link.controlPosition().x, 3));
+    auto out = link.takeOutgoing();
+    CHECK(out.size() == 1);
+    auto p = readClientPacket(out[0], link.eventClasses(), &seen);
+    CHECK(p.ownSections == announce);
+    CHECK(near(seen.position.y, 25) && near(seen.position.z, 5));
+    t += Link::kKeepAliveMs;
+    link.tick(t);
+    out = link.takeOutgoing();
+    CHECK(out.size() == 1);
+    p = readClientPacket(out[0], link.eventClasses(), &seen);
+    CHECK(p.ownSections == kSec(5));
+    CHECK(near(p.position.y, 25));
+  }
+
+  // rigid: the client follows with the same glide but echoes no section.
+  {
+    LinkLogin login;
+    Link link(login, {});
+    uint32_t t = 0;
+    runSession(link, t);
+    GameObjectState seen;
+    GameObjectState o;
+    o.movetype = "rigid";
+    o.hasMovement = true;
+    o.hasMovementData = true;
+    o.movement.position = {0, 0, 1};
+    link.receive(serverControlUpdate(6, link.sentDataPackets(), o, kSec(6) | kSec(7)), ++t);
+    CHECK(link.controlMovetype() == "rigid");
+    auto out = link.takeOutgoing();
+    CHECK(out.size() == 1 && out[0].size() == 5);  // only an ack
+    t += 1000;
+    o.movement.position = {0, 4, 1};
+    link.receive(serverControlUpdate(7, link.sentDataPackets(), o, kSec(7)), t);
+    link.takeOutgoing();
+    link.tick(t + 1000);
+    out = link.takeOutgoing();
+    CHECK(out.size() == 1);
+    auto p = readClientPacket(out[0], link.eventClasses(), &seen);
+    CHECK(p.ownState && p.ownSections == 0);
+    CHECK(near(p.position.y, 4));
+  }
+
+  // The movement data round-trips through the writer and reader.
+  {
+    GameObjectState a;
+    a.movetype = "list";
+    a.hasMovement = true;
+    a.hasMovementData = true;
+    std::array<uint32_t, 8> e{};
+    float f = 7.5f;
+    std::memcpy(&e[1], &f, 4);
+    e[7] = 0xDEADBEEF;
+    a.movement.list = {e, e};
+    BitWriter w;
+    writeGameObjectUpdate(w, a, kSec(6) | kSec(7));
+    BitReader r(w.bytes());
+    GameObjectState b;
+    uint32_t got = 0;
+    CHECK(readGameObjectUpdate(r, b, &got));
+    CHECK(got == (kSec(6) | kSec(7)));
+    CHECK(b.movement.list.size() == 2 && b.movement.list[1][7] == 0xDEADBEEF);
+    CHECK(near(b.movement.position.y, 7.5f));
+    CHECK(b.movementSerial == 1);
+  }
+}
+
 void testLostEventIsResent() {
   // The server's first packet does not ack our ack-carrying packet: the
   // event goes out again in the next data packet.
@@ -448,6 +653,7 @@ int main() {
   testAcceptsAndFirstPackets();
   testPayloads();
   testServerSession();
+  testMovetypes();
   testLostEventIsResent();
   testTimeouts();
   testProtocols();

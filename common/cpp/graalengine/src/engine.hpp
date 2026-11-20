@@ -168,6 +168,11 @@ class Engine {
   Connector connect_;
   std::function<void()> timer_;
   Target target_;
+  // A 178 warp to a `3 ` server, taken from the session and connected on
+  // the next frame through connect(), where the 3D path starts.
+  bool warp3dPending_ = false;
+  std::string warp3dName_, warp3dHost_;
+  int warp3dPort_ = 0;
   bool offlineRequested_ = false;
   bool mode3d_ = false;
   int step3d_ = 0;

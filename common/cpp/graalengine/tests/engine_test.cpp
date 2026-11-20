@@ -14,6 +14,7 @@
 #include "session.hpp"
 #include "showimg.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -1116,6 +1117,47 @@ void testGraal3DBridge() {
   reset();
 }
 
+// A lobby warp (178) to a `3 ` server goes through connectToGraalServer's
+// 3D path, as the real 5.12 enters 3D through it: with no 3D library
+// loaded, StartGraal3D is asked for and no 2D login goes to that server.
+void testWarpTo3D() {
+  using QuattroTest::FakeServer;
+  using Quattro::Net::gchar;
+  reset();
+  installRecorder();
+  CHECK(graalengine_setBuild("5.12") == 1);
+  CHECK(graal_engineInitialize("/nowhere/Graal.exe") == 1);
+  loadGraalGui();
+  auto& e = graalengine::engine();
+  FakeServer login, game;
+  {
+    const auto* row = Quattro::Net::find_profile(e.build());
+    login.round_down = game.round_down = row && row->packed_round_down;
+  }
+  CHECK(login.start() && game.start());
+  auto pump = [&](FakeServer* s, auto done) {
+    auto end = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    while (std::chrono::steady_clock::now() < end) {
+      renderGraalCanvas();
+      if (s->conn.connected()) s->pump();
+      if (done()) return true;
+      std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    return false;
+  };
+  connectToGraalServer("Login", "127.0.0.1", login.port());
+  CHECK(e.session() != nullptr);
+  if (!e.session()) return;
+  CHECK(login.conn.accept_from(login.listener));
+  CHECK(pump(&login, [&] { return login.saw(37, "English"); }));
+  calls.clear();
+  login.send(gchar(178) + "0,3 Lab 3D,127.0.0.1," + std::to_string(game.port()) + "\n");
+  CHECK(pump(&login, [&] { return std::find(calls.begin(), calls.end(), "start3d") != calls.end(); }));
+  CHECK(e.lastTarget().name == "Lab 3D");
+  CHECK(isGraal3DMode() == 0);
+  reset();
+}
+
 int main() {
   testSlotList();
   testEmptyTable();
@@ -1140,6 +1182,7 @@ int main() {
   testLoopbackSession("5.00r7", "GRAAL500_ENGINE", "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400");
   testLoopbackSession("5.12", "GRAAL512_ENGINE", "win,c2482de76c59ac3c4ce0b7e065a2d09c,3c639304427ab3b3c6439a39c31c9df5,217767adb74e936b5ee209ed65ecc400,\"6.2 9200 \"");
   testGraal3DBridge();
+  testWarpTo3D();
   CHECK(graalengine_setBuild("9.99") == 0);
   if (failures) {
     std::fprintf(stderr, "%d check(s) failed\n", failures);

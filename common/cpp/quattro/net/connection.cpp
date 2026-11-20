@@ -309,6 +309,7 @@ void Session::tick() {
   if (warp_pending_) {
     warp_pending_ = false;
     conn_.close();
+    if (take_warp && take_warp(warp_)) return;
     open(warp_.name, warp_.host, warp_.port);
     return;
   }

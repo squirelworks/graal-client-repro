@@ -145,13 +145,21 @@ README, "Seihai secure login". CI logs in once more with
 
 ## Not yet, or not known
 
-- [ ] The Login server's scripted GUI and GS2: 140 and 197 (scripts and the
-  `GRESCR01` cache), 195 (gani scripts) and 190 are accepted and ignored.
-- [ ] 109 (probably a file redirect), 111 (`creationtime.dat`) and 198 are
-  accepted and ignored; the rebuild writes no `creationtime.dat`.
-- [ ] 46 (ENTERLEVEL) on level entry, 162 (the ping answer), the base-file
-  requests and the keep-alive 24 are not sent.
-- [ ] `GR-V1.05` levels and `GRPKG001` update packages.
+- [x] ~~The Login server's scripted GUI and GS2: 140 and 197 (scripts and the
+  `GRESCR01` cache) and 190~~ run in `quattro-play`'s script host
+  (common/cpp/quattro, `shell/scripts`).
+- [ ] 195 (gani scripts) is accepted and ignored.
+- [x] ~~111 (`creationtime.dat`) and 198~~: in `quattro-play` 111's body
+  replaces `creationtime.dat` in the install folder byte for byte, and
+  198's value is stored, as the original does.
+- [ ] 109 (a file redirect to a URL) is kept but not fetched.
+- [x] ~~46 (ENTERLEVEL) on level entry and 162 (the ping answer)~~:
+  `quattro-play` sends 46 (`c 1`) before the first props of each level and
+  answers 108 with 162.
+- [ ] The base-file requests and the keep-alive 24 are not sent (whether
+  6.x sends 24 as a keep-alive is not settled).
+- [x] ~~`GR-V1.05` levels~~ (common/cpp/quattro `files/level`).
+- [ ] `GRPKG001` update packages.
 - [ ] The chat font (Tempus Sans ITC 24) and nickname colours by AP.
 - [ ] Whether 6.03r7 plays offline at all is not traced; Training keeps 3.153's.
 - [ ] No side-by-side run against the real 6.03r7; that is 0.0.2 work.

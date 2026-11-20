@@ -133,6 +133,11 @@ class Session {
   Connection& connection() { return conn_; }
   int logins() const { return logins_; }
 
+  // Asked before a 178 warp is followed. Returning true takes the warp
+  // away from the session: the link is closed and the caller connects
+  // (the 4.x/5.x engine library sends a `3 ` server to its 3D path).
+  std::function<bool(const ServerWarp&)> take_warp;
+
   // The key for the next connection. Tests set it; the default is random.
   std::function<uint8_t()> next_key;
 
