@@ -677,6 +677,9 @@ void Program::follow_link(double dx, double dy) {
   auto half = [](double v) { return static_cast<int>(std::lround(std::max(0.0, std::min(v * 2, 223.0)))); };
   session_.connection().send(0, Net::gchar(half(nx)) + Net::gchar(half(ny)) + dest);
   link_warp_pending_ = true;
+  link_dest_ = dest;
+  link_x_ = nx;
+  link_y_ = ny;
   ++link_warps_sent_;
 }
 
@@ -831,8 +834,17 @@ void Program::on_message(int id, std::string_view body) {
     case 6:  // PLO_LEVELNAME
       // The same name again after its board (a Seihai gserver sends it
       // once more with the level's props) keeps the board.
-      if (world_.have_level && body == level_name_) break;
+      // So does a repeat before the board (gs2emu can send 6 twice for
+      // one link): one entry, one 46.
+      if (!level_name_.empty() && body == level_name_) break;
       level_name_ = std::string(body);
+      if (link_warp_pending_ && lower_name(level_name_) == lower_name(link_dest_)) {
+        // The server answers a LEVELWARP with the level alone (no 14,
+        // lab 2026-11-20): the client puts itself at the link's arrival.
+        me_.x = link_x_;
+        me_.y = link_y_;
+        mover_.reset(me_);
+      }
       link_warp_pending_ = false;
       world_.level = Files::Level{};
       world_.have_level = false;

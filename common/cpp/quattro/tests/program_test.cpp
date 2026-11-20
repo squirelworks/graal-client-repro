@@ -1550,11 +1550,23 @@ void test_program_603_level_link() {
   for (int i = 0; i < 20; ++i) p.tick(), game.pump();
   CHECK(p.link_warps_sent() == 1);
   win.keys.clear();
-  // The server warps; a second link on the new level fires again.
-  game.send(gchar(14) + gchar(4) + gchar(80) + "issho_b.nw\n");
+  // The server answers with the level alone, twice (as gs2emu did): the
+  // client puts itself at the arrival and sends 46 once.
+  const double y_before = p.me().y;
+  auto count46 = [&] {
+    int n = 0;
+    for (auto& [id, b] : game.got) n += id == 46;
+    return n;
+  };
+  const int entries = count46();
+  game.send(gchar(6) + "issho_b.nw\n");
   game.send(send_level("issho_b.nw", 7));
   game.send(gchar(1) + "issho_a.nw 0 0 1 64 37 playery\n");
-  CHECK(run(p, &game, nullptr, [&] { return p.world().have_level && p.me().x == 2; }));
+  CHECK(run(p, &game, nullptr, [&] { return p.world().have_level && p.level_name() == "issho_b.nw"; }));
+  for (int i = 0; i < 5; ++i) p.tick(), game.pump();
+  CHECK(p.me().x == 2 && p.me().y == y_before);
+  CHECK(count46() == entries + 1);
+  // A second link on the new level fires again.
   win.keys.insert(Draw::Key::Left);
   CHECK(run(p, &game, nullptr, [&] { return p.link_warps_sent() == 2; }));
   win.keys.clear();

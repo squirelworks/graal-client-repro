@@ -299,6 +299,8 @@ class Program {
   bool enter_level_pending_ = false;
   bool link_warp_pending_ = false;  // a LEVELWARP is out; no second until the server answers
   int link_warps_sent_ = 0;
+  std::string link_dest_;  // the pending warp's level and arrival
+  double link_x_ = 0, link_y_ = 0;
   // Walked by (dx, dy): onto a level link, ask for it (online) or load it (offline).
   void follow_link(double dx, double dy);
   std::set<std::string> ganis_loaded_;  // lower-case gani names shown this run
