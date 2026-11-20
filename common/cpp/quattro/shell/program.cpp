@@ -42,26 +42,6 @@ std::string find_below(const std::string& root, const std::string& name) {
   return {};
 }
 
-// A file name the program may ask for and save in the downloads folder:
-// a plain name of at most 128 characters, with no folder, drive or stream
-// part (no '/', '\\', ':', ".."), no control characters, and not a Windows
-// device name (con, nul, com1 ... with any extension).
-bool safe_file_name(const std::string& name) {
-  if (name.empty() || name.size() > 128 || name.find("..") != std::string::npos) return false;
-  for (unsigned char c : name)
-    if (c < 32 || c == '/' || c == '\\' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' ||
-        c == '>' || c == '|')
-      return false;
-  std::string base = lower_name(name.substr(0, name.find('.')));
-  while (!base.empty() && base.back() == ' ') base.pop_back();
-  for (const char* dev : {"con", "prn", "aux", "nul"})
-    if (base == dev) return false;
-  if (base.size() == 4 && (base.compare(0, 3, "com") == 0 || base.compare(0, 3, "lpt") == 0) && base[3] >= '0' &&
-      base[3] <= '9')
-    return false;
-  return true;
-}
-
 // The build's label without the platform ("6.03r7").
 std::string short_label(const std::string& label) { return label.substr(0, label.find(' ')); }
 
@@ -190,7 +170,7 @@ bool Program::load_tile_sheet() {
 }
 
 void Program::want_file(const std::string& name) {
-  if (!safe_file_name(name)) return;
+  if (!Draw::safe_file_name(name)) return;
   if (!asked_.insert(lower_name(name)).second) return;
   session_.connection().send(23, name);  // PLI_WANTFILE
   if (log) log("asking for " + name);
@@ -216,7 +196,7 @@ void Program::ask_for_missing() {
     // They remain in player state but are not part of the requested file.
     std::string name = lower_name(me_.gani.substr(0, me_.gani.find(',')));
     if (name.size() > 5 && name.substr(name.size() - 5) == ".gani") name.resize(name.size() - 5);
-    if (safe_file_name(name + ".gani") && !assets_->gani(name) && assets_->missing_gani_file(name) &&
+    if (Draw::safe_file_name(name + ".gani") && !assets_->gani(name) && assets_->missing_gani_file(name) &&
         gani_requests_.insert(name).second) {
       asked_.insert(name + ".gani");
       session_.connection().send(23, name + ".gani");
@@ -279,7 +259,7 @@ void Program::ask_update_packages() {
 }
 
 bool Program::wanted(const std::string& name) const {
-  return opt_.download_files && safe_file_name(name) && asked_.count(lower_name(name)) != 0 &&
+  return opt_.download_files && Draw::safe_file_name(name) && asked_.count(lower_name(name)) != 0 &&
          refused_.count(lower_name(name)) == 0;
 }
 
@@ -546,7 +526,7 @@ void Program::pick_tile_sheet() {
       break;
     }
   auto it = sheets_.find(image);
-  if (it == sheets_.end() && !image.empty() && !opt_.assets.empty()) {
+  if (it == sheets_.end() && Draw::safe_file_name(image) && !opt_.assets.empty()) {
     std::vector<std::uint8_t> bytes;
     std::string err;
     Draw::Image sheet;
@@ -676,7 +656,7 @@ bool Program::start() {
 }
 
 void Program::load_local_level(const std::string& name) {
-  if (opt_.assets.empty()) return;
+  if (opt_.assets.empty() || !Draw::safe_file_name(name)) return;
   std::string data, err;
   for (const std::string& dir : {opt_.assets + "/levels/", opt_.assets + "/"}) {
     if (!read_file(dir + name, data)) continue;

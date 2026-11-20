@@ -20,7 +20,7 @@ load those DLLs.
 
 Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
 
-- **default:** the Quattro program. `Graal531 --server HOST:PORT --account NAME` or `Graal531 --level FILE` hands the game to the `quattro-play` beside it (row `5.31r4 Windows`, `G3D26090`). There is no start screen yet, so a no-argument start still exits 0.
+- **default:** the Quattro program. `Graal531 --server HOST:PORT --account NAME` or `Graal531 --level FILE` hands the game to the `quattro-play` beside it (row `5.31r4 Windows`, `G3D26090`). With no arguments it opens the start screen (5.24r4's list step and character, on `common/GStartScreen.pas`), and Training or the picked server plays in `quattro-play`.
 - **faithful engine:** Quattro one-exe program (`quattro-play`): login, the 178 warp, level and walk in the program tests, and logged in to seihai-gserver on loopback, classic and Seihai secure login (`SEI00001`).
 - **relic / fallback:** the Pascal scaffold (`Late531`, `--show`), which names the cut and opens no socket. It is kept, never deleted.
 
@@ -47,7 +47,7 @@ Where a layout was not recovered, the unit leaves it unwritten.
 | Unit | What it does |
 |---|---|
 | `src/Late531.pas` | the cut, the login line, the outbound line, and the inbound length header |
-| `src/Graal531.dpr` | the shell: no arguments exits 0; `--show` prints the cut and the token |
+| `src/Graal531.dpr` | the shell: no arguments opens the start screen (64 with no display); `--show` prints the cut and the token |
 | `tests/TestLate531.dpr` | the cut, the login token, the newline rule, the flush order, and the length header |
 
 ## On Quattro
@@ -82,5 +82,5 @@ side stays `ScaffoldOnly`, so `scripts/loopback.sh` still skips it.
 - [ ] Cipher or compression bytes inside a frame
 - [ ] The local server-to-client switch, and any property id
 - [x] ~~A window, a player, or a server connection~~ in `quattro-play`
-- [ ] A start screen, so a no-argument start plays
+- [x] ~~A start screen, so a no-argument start plays~~ Training and the server list, played in `quattro-play`
 - [ ] A side-by-side run against the real 5.31r4 (it needs the clock set back)

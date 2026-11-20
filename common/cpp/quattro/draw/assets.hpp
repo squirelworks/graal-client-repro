@@ -50,4 +50,10 @@ class Assets {
 // The folders a Graal install keeps these in, under `root`.
 std::vector<std::string> asset_dirs(const std::string& root);
 
+// A plain file name a server may name: at most 128 characters, with no
+// folder, drive or stream part (no '/', '\\', ':', ".."), no control or
+// wildcard characters, and not a Windows device name (con, nul, com1 ...
+// with any extension), which Windows would open as the device.
+bool safe_file_name(const std::string& name);
+
 }  // namespace Quattro::Draw
