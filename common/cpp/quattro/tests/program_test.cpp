@@ -1516,6 +1516,50 @@ void test_program_603_load_gani() {
   std::filesystem::remove_all(dir);
 }
 
+// A level link the server leaves to the client: walking onto it sends
+// one LEVELWARP (0) with the arrival and the level, then no more until
+// the server answers.
+void test_program_603_level_link() {
+  const Net::BuildProfile* prof = Net::find_profile("6.03r7");
+  CHECK(prof != nullptr);
+  if (!prof) return;
+  FakeServer game;
+  CHECK(game.start());
+  Shell::Options opt;
+  opt.host = "127.0.0.1";
+  opt.port = game.port();
+  opt.account = "guest";
+  opt.password = "pw";
+  opt.server_name = "Lab Server";
+  HeldWindow win;
+  Shell::Program p(*prof, opt, win);
+  CHECK(p.start());
+  CHECK(game.conn.accept_from(game.listener));
+  CHECK(run(p, &game, nullptr, [&] { return game.saw(37, "English"); }));
+  game.send(send_level("issho_a.nw", 7));
+  game.send(gchar(1) + "issho_b.nw 40 0 1 64 2 playery\n");
+  CHECK(run(p, &game, nullptr, [&] { return p.world().have_level; }));
+  game.send(gchar(9) + gchar(World::kX2) + Net::gshort(World::to_pixels2(30)) + gchar(World::kY2) +
+            Net::gshort(World::to_pixels2(40)) + "\n");
+  CHECK(run(p, &game, nullptr, [&] { return !p.world().lobby && p.me().x == 30; }));
+  win.keys.insert(Draw::Key::Right);
+  CHECK(run(p, &game, nullptr, [&] { return p.link_warps_sent() == 1; }));
+  // Centre x + 1.5 plus 1.25 ahead reaches column 40 from x 37.25 on.
+  CHECK(p.me().x >= 37.25 && p.me().x < 38);
+  CHECK(run(p, &game, nullptr, [&] { return game.saw(0, gchar(4) + gchar(80) + "issho_b.nw"); }));
+  for (int i = 0; i < 20; ++i) p.tick(), game.pump();
+  CHECK(p.link_warps_sent() == 1);
+  win.keys.clear();
+  // The server warps; a second link on the new level fires again.
+  game.send(gchar(14) + gchar(4) + gchar(80) + "issho_b.nw\n");
+  game.send(send_level("issho_b.nw", 7));
+  game.send(gchar(1) + "issho_a.nw 0 0 1 64 37 playery\n");
+  CHECK(run(p, &game, nullptr, [&] { return p.world().have_level && p.me().x == 2; }));
+  win.keys.insert(Draw::Key::Left);
+  CHECK(run(p, &game, nullptr, [&] { return p.link_warps_sent() == 2; }));
+  win.keys.clear();
+}
+
 int main() {
   test_script_native_bounds();
   test_program();
@@ -1523,6 +1567,7 @@ int main() {
   test_program_531();
   test_program_603_level_entry();
   test_program_603_load_gani();
+  test_program_603_level_link();
   test_offline();
   test_update_packages();
   test_downloads();

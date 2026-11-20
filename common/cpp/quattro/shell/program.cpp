@@ -641,6 +641,45 @@ void Program::gani_fall_back(World::Player& p) {
   p.gani = g->set_back_to;
 }
 
+// Links are tested on the player's own walk, at one point: the body's
+// centre (x + 1.5, y + 2) pushed 1.25 tiles ahead along the walk (the
+// 2.05 lab measured 1 to 1.5 ahead; Graal_analysis
+// protocol/link-test-2026-11-04.md). Online the client asks with
+// LEVELWARP (0: x*2, y*2, level) and waits for the server's answer;
+// offline it loads the level itself. "playerx"/"playery" (or a negative
+// number) keep the player's coordinate.
+void Program::follow_link(double dx, double dy) {
+  if (world_.lobby || !world_.have_level || (!offline_ && (!props_sent_ || link_warp_pending_))) return;
+  constexpr double kAhead = 1.25;
+  const double px = me_.x + 1.5 + (dx > 0 ? kAhead : dx < 0 ? -kAhead : 0.0);
+  const double py = me_.y + 2.0 + (dy > 0 ? kAhead : dy < 0 ? -kAhead : 0.0);
+  const Files::Link* hit = nullptr;
+  for (const auto& l : world_.level.links)
+    if (px >= l.x && px < l.x + l.w && py >= l.y && py < l.y + l.h) {
+      hit = &l;
+      break;
+    }
+  if (!hit || hit->dest.empty()) return;
+  auto arrival = [](const std::string& v, double keep) {
+    if (v.empty() || lower_name(v).compare(0, 6, "player") == 0) return keep;
+    char* end = nullptr;
+    const double n = std::strtod(v.c_str(), &end);
+    return end != v.c_str() && n >= 0 ? n : keep;
+  };
+  const double nx = arrival(hit->newx, me_.x), ny = arrival(hit->newy, me_.y);
+  const std::string dest = hit->dest;
+  if (offline_) {
+    if (!load_offline_level(dest)) return;
+    me_.x = nx;
+    me_.y = ny;
+    return;
+  }
+  auto half = [](double v) { return static_cast<int>(std::lround(std::max(0.0, std::min(v * 2, 223.0)))); };
+  session_.connection().send(0, Net::gchar(half(nx)) + Net::gchar(half(ny)) + dest);
+  link_warp_pending_ = true;
+  ++link_warps_sent_;
+}
+
 void Program::send_enter_level() {
   if (!enter_level_pending_ || offline_) return;
   enter_level_pending_ = false;
@@ -794,6 +833,7 @@ void Program::on_message(int id, std::string_view body) {
       // once more with the level's props) keeps the board.
       if (world_.have_level && body == level_name_) break;
       level_name_ = std::string(body);
+      link_warp_pending_ = false;
       world_.level = Files::Level{};
       world_.have_level = false;
       item_keys_.new_level();
@@ -900,6 +940,9 @@ void Program::on_message(int id, std::string_view body) {
       }
       break;
     }
+    case 15:  // PLO_WARPFAILED: the level asked for is not there
+      link_warp_pending_ = false;
+      break;
     case 14:    // PLO_PLAYERWARP: c x*2, c y*2, level
     case 49: {  // PLO_PLAYERWARP2: c x*2, c y*2, c z, c gmap x, c gmap y, level
       me_.x = r.gchar() / 2.0;
@@ -910,6 +953,7 @@ void Program::on_message(int id, std::string_view body) {
         me_.gmap_y = static_cast<int>(r.gchar());
       }
       me_.level = r.rest();
+      link_warp_pending_ = false;
       others_.clear();
       mover_.reset(me_);
       break;
@@ -1111,9 +1155,11 @@ bool Program::tick() {
       for (const auto& pk : sent) session_.connection().send(pk.id, pk.body);
       if (!sent.empty()) mover_.gani_sent(p);
     }
+    const double walk_x = p.x, walk_y = p.y;
     std::string action =
         walker_.tick(p, item_keys_.busy() ? 0u : keys, world_.level, tile_types_, item_keys_.carrying());
     if (offline_) cross_gmap_edge();
+    if (p.x != walk_x || p.y != walk_y) follow_link(p.x - walk_x, p.y - walk_y);
     for (const auto& pk : item_keys_.touch_chests(p, item_keys_.busy() ? 0u : keys, world_.level)) {
       Net::Reader cr(pk.body);
       int cx = static_cast<int>(cr.gchar()), cy = static_cast<int>(cr.gchar());

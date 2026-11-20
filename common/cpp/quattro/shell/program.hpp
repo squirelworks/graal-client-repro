@@ -182,6 +182,7 @@ class Program {
   // The link to a server dropped (not a warp the program followed).
   std::function<void(const std::string& why)> disconnected;
   const std::map<int, ListRow>& player_list() const { return listed_; }
+  int link_warps_sent() const { return link_warps_sent_; }  // LEVELWARPs asked for by walking onto a link
 
  private:
   void on_message(int id, std::string_view body);
@@ -296,6 +297,10 @@ class Program {
   std::set<int> keys_down_;  // virtual-key codes held (from the window's input events)
   bool props_sent_ = false;
   bool enter_level_pending_ = false;
+  bool link_warp_pending_ = false;  // a LEVELWARP is out; no second until the server answers
+  int link_warps_sent_ = 0;
+  // Walked by (dx, dy): onto a level link, ask for it (online) or load it (offline).
+  void follow_link(double dx, double dy);
   std::set<std::string> ganis_loaded_;  // lower-case gani names shown this run
   std::string creation_time_;
   uint64_t value_198_ = 0;
