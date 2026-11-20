@@ -1547,8 +1547,11 @@ void test_program_603_level_link() {
   // Centre x + 1.5 plus 1.25 ahead reaches column 40 from x 37.25 on.
   CHECK(p.me().x >= 37.25 && p.me().x < 38);
   CHECK(run(p, &game, nullptr, [&] { return game.saw(0, gchar(4) + gchar(80) + "issho_b.nw"); }));
+  const size_t after_warp = game.got.size();
   for (int i = 0; i < 20; ++i) p.tick(), game.pump();
   CHECK(p.link_warps_sent() == 1);
+  for (size_t i = after_warp; i < game.got.size(); ++i)
+    CHECK(game.got[i].first != 2 || game.got[i].second.find(gchar(World::kX2)) == std::string::npos);
   win.keys.clear();
   // The server answers with the level alone, twice (as gs2emu did): the
   // client puts itself at the arrival and sends 46 once.

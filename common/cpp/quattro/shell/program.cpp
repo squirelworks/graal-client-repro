@@ -1181,7 +1181,10 @@ bool Program::tick() {
     }
     if (!action.empty() && props_sent_) session_.connection().send(38, action);
     gani_fall_back(p);
-    if (props_sent_) {
+    // While a link warp is out the walk is not sent: the server would
+    // take the old x for the new level (a blip at the far edge, lab
+    // 2026-11-20). The arrival is the next position it hears.
+    if (props_sent_ && !link_warp_pending_) {
       std::string moved = mover_.diff(p);
       if (!moved.empty()) session_.connection().send(2, moved);
     }
