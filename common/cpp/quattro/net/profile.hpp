@@ -56,6 +56,9 @@ struct BuildProfile {
   // After each login: basepackage.gupd (23, or 47 with a cached copy's
   // CRC-32), and bigmap.txt on the Login session once per run.
   bool update_packages = false;
+  bool asks_bigmap = true;  // with update_packages: bigmap.txt on the Login session (4.04r2)
+  // With update_packages: files asked for with 23 after basepackage.gupd.
+  std::vector<std::string> login_wants;
   bool cold_gani_requests = false; // measured cold-cache pair only for 4.04r2
   int carry_sprite_after = 4, carry_still_after = 6; // legacy rebuild timing unless measured
   bool escape_menu = false; // measured only for Linux 6.03r7 without a scripted GUI

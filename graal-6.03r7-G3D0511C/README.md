@@ -18,9 +18,9 @@ The Windows 6.03r7 is the same release with its own token (`G3D0311C`) and
 
 Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
 
-- **default:** Delphi/Pascal stand-in (no-argument / release entry on main today).
-- **faithful engine:** Quattro `quattro-play` sibling path — still being wired; not the release default.
-- **relic:** none yet. When the faithful engine is validated end-to-end and switched to default, the Pascal stand-in becomes the labeled relic/fallback and is never deleted.
+- **default:** With no arguments the start screen hands the game to `quattro-play` beside the program when present (the same Quattro rebuild as Windows 6.03r7); `scripts/build.sh` ships it in the Linux zip. Pascal is the labeled fallback (`GRAAL_PASCAL_GAME=1`, a missing player, or no display).
+- **faithful engine:** Quattro one-exe program (`quattro-play`), now the no-arg game path when the player is shipped.
+- **relic / fallback:** Pascal without `quattro-play`, or with `GRAAL_PASCAL_GAME=1`. Never deleted. The end-to-end lab of 2026-11-20 (`docs/e2e-lab-2026-11-20.md`) ran this path on both lab servers.
 
 ## Sources
 
@@ -164,11 +164,19 @@ README, "Seihai secure login". CI logs in once more with
   props first) and answers 108 with 162.
 - [x] ~~Level links~~: `quattro-play` follows a level link itself with
   `LEVELWARP` (0), so a server that leaves links to the client works.
-- [ ] The base-file requests and the keep-alive 24 are not sent (whether
-  6.x sends 24 as a keep-alive is not settled).
+- [x] ~~The base-file requests~~: with `--download-files`, `quattro-play`
+  asks for `basepackage.gupd` twice after each login (23, or 47 with a
+  copy cached before the run), then `arial.ttf` when no folder has it.
+- [ ] The keep-alive 24 is not sent (whether 6.x sends 24 as a keep-alive
+  is not settled).
 - [x] ~~`GR-V1.05` levels~~ (common/cpp/quattro `files/level`).
 - [ ] `GRPKG001` update packages.
-- [ ] The chat font (Tempus Sans ITC 24) and nickname colours by AP.
+- [x] ~~Nickname colours by AP~~ and the 6.x chat look: white chat with
+  a blue (1, 1) shadow above the head, word-wrapped upward from 11
+  characters; the nickname under the feet in its AP colour; `showap`; the
+  own chat cleared after 3 s with an empty prop 12.
+- [ ] The chat font itself (Tempus Sans ITC 24): drawn in the built-in
+  stand-in face.
 - [ ] Whether 6.03r7 plays offline at all is not traced; Training keeps 3.153's.
 - [ ] No side-by-side run against the real 6.03r7; that is 0.0.2 work.
 - [ ] Everything still missing from the 5.00r7 rebuild.

@@ -64,3 +64,6 @@ its release default actually moved and the Pascal track is labeled relic.
 Public notes use placeholders only for accounts, hosts, ports, install
 roots, and lab machine names. No third-party private dumps, no raw
 decompile material, and no secrets in this doc or in folder README lines.
+
+The step-by-step guide (e2e lab, order of work, how to switch a folder) is
+[ENGINE-HANDOFF.md](ENGINE-HANDOFF.md).

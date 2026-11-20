@@ -1,10 +1,10 @@
 # graal-delphi releases
 
-One row per client: what it is, the folder, the login token, the original program it was rebuilt from, how far it has got, and where to download it. Each of the 80 clients is listed once, with its most up-to-date release, grouped by era, oldest first. Nine folders were added after v0.0.4 (5.31r4, 6.1.1.3 and the seven Worlds builds); they show "not released yet" until the next combined release fills their row. Older releases are on the [releases page](https://github.com/squirelworks/graal-client-repro/releases).
+One row per client: what it is, the folder, the login token, the original program it was rebuilt from, how far it has got, and where to download it. Each of the 80 clients is listed once, with its most up-to-date release, grouped by era, oldest first. The nine folders added after v0.0.4 (5.31r4, 6.1.1.3 and the seven Worlds builds) were first released in v0.0.4.2. Older releases are on the [releases page](https://github.com/squirelworks/graal-client-repro/releases).
 
 This is a snapshot taken from the GitHub releases API on 2026-11-13. It is not updated on every release; the releases page is always current.
 
-**Level** is the newest release of that client. 0.0.1 is the first rebuild (plays, logs in, walks; not yet compared action by action with the original). 0.0.1.1 is a 0.0.1 rebuilt with a fix. 0.0.2 has been checked side by side with the original. 0.0.3: every client released together; see its release notes. 0.0.4: every client released together; see its release notes. 0.0.4.2: every client released together; see its release notes.
+**Level** is the newest release of that client. 0.0.1 is the first rebuild (plays, logs in, walks; not yet compared action by action with the original). 0.0.1.1 is a 0.0.1 rebuilt with a fix. 0.0.2 has been checked side by side with the original. 0.0.3: every client released together; see its release notes. 0.0.4: every client released together; see its release notes. 0.0.4.2: every client released together, the nine newer folders for the first time; see its release notes. (v0.0.4.1 was tagged as a development checkpoint but never published as a release; v0.0.4.2 replaced it.)
 
 Downloads hold no original Graal files. Put the program in a folder with your own install, or next to `graal-assets/` (see [docs/assets.md](docs/assets.md)).
 

@@ -35,8 +35,8 @@ under `common/torque/`
 
 Each build folder's README says what works and has a "Not yet" checklist.
 The latest combined release is
-[v0.0.4.2](https://github.com/squirelworks/graal-client-repro/releases/tag/v0.0.4.2)
-(2026-11-13); the next one planned is 0.0.5.
+[v0.0.5](https://github.com/squirelworks/graal-client-repro/releases/tag/v0.0.5)
+(2026-11-20), with macOS zips where the cross-build succeeds.
 
 ## Download and run
 

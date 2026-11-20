@@ -10,6 +10,20 @@ host and it does not borrow another version's token.
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").
 
+## What's new in v0.0.5
+
+- [x] **The project session cipher, as library code.** RC4 out after
+  `setEncryptionOut("RC4", key)`, RC4 in after an incoming RC4 key, a
+  PKCS #1 v1.5 type-2 key wrap and unwrap (`Rc46113`, `Rsa6113`), and the
+  `0xfd`/`0xfc` key frames (`Cipher6113`), with known-answer and
+  round-trip tests. Not on the wire yet: the project script still selects
+  no cipher (`connector/CIPHER.md`).
+- [x] **An open lab signing key.** The connector key the client trusts is
+  now public in `common/connector-lab-key`, so anyone can rebuild the
+  signed `conf.gs`. `--connector-key FILE` trusts a server operator's own
+  key instead. The shipped `sei00001-conf.gs` is re-signed with the lab
+  key.
+
 ## What's new in v0.0.4.2
 
 - A window (when `--window` can open one), a software camera, a local
@@ -53,7 +67,10 @@ host and it does not borrow another version's token.
 - [ ] The `setprotocol` template on the clear-hello path. The connector
   path uses `EILLLT`, from the connector script.
 - [ ] `SEI00001` on the game server (seihai-gserver-v2), the project's
-  `conf.gs` payload cipher, and the session cipher.
+  `conf.gs` payload cipher, and the session cipher. The ciphers are
+  chosen (`connector/CIPHER.md`: RC4 per direction with `0xfc` key
+  exchange, clear signed payload). The cipher is built as library code;
+  the re-signed script and the server side are not.
 - [ ] Property value widths. The four setters store the string. The id
   prefix is id plus 32. The bytes after that prefix were not recovered.
 - [ ] GS2 opcode bodies, the builtin table, and where the `GRESCR01` CRC

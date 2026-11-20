@@ -14,11 +14,11 @@ the reply container is the same.
 - `make-conf.sh`: signs the script into a `conf.gs` reply, byte-for-byte
   the 6.11 container: `u32be(256)`, the RSA-2048 PKCS#1 v1.5 signature
   over the bare SHA-256 digest of the payload, `u32be(N)`, the payload.
-  It reads the private key from `SEI_CONNECTOR_KEY`, a path outside the
-  repo; the key is never committed. The matching public modulus is the
-  same project key the 6.11 scaffold names (`SeiPublicModulusHex` in
-  `graal-6.1.1.3-GNP1905C/src/Connector6111.pas`). The signed
-  `seiwrld1-conf.gs` is not committed here; rebuild it with the key.
+  With no `SEI_CONNECTOR_KEY` it signs with the open lab key in
+  `common/connector-lab-key` (public on purpose), the key the 6.11
+  scaffolds trust by default (`SeiPublicModulusHex` in
+  `graal-6.1.1.3-GNP1905C/src/Connector6113.pas`). The signed
+  `seiwrld1-conf.gs` is not committed here; `sh make-conf.sh` rebuilds it.
 
 ## Why one shared scaffold
 
@@ -60,7 +60,8 @@ for `7.0.1.7.5.0` is not recorded here.
 
 - `SEIWRLD1` is a placeholder. No game server accepts it until
   `seihai-gserver-v2` handles it, and the session cipher and key in
-  `setEncryptionOut` are still pending.
+  `setEncryptionOut` are still pending (chosen, not built:
+  `../../graal-6.1.1.3-GNP1905C/connector/CIPHER.md`).
 - Whether the live token is a single value for all Worlds builds, or the
   server returns a version-keyed value from the `User-Agent`, is **not**
   confirmed. The client bakes no token and its connector config is shared,

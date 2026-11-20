@@ -35,6 +35,8 @@ constexpr int kTile = 16;
 struct Actor {
   double x = 0, y = 0;  // tiles
   std::string chat;
+  std::string nick;  // drawn under the feet in the 5.x/6.x text style
+  int ap = 50;       // alignment points: the nickname's colour there
   // What the gani draws with. Empty names fall back to the gani's own
   // defaults, then to head0.png, body.png, sword1.png and shield1.png.
   std::string gani = "idle";
@@ -81,6 +83,11 @@ struct WorldState {
   std::vector<Actor> others;
   std::vector<NpcSprite> npcs;  // server NPCs, in the order they came
   bool player_chat = false;     // draw the players' chat above them (4.x/5.x rows)
+  // The 5.24 to 6.x text style (Graal_analysis protocol/v6x-clients.md,
+  // "Chat and nickname drawing"): white chat with a blue (1, 1) shadow,
+  // wrapped upward from 11 characters, and the nickname under the feet in
+  // its AP colour.
+  bool v6_texts = false;
   bool lobby = false;        // server name starts with "login"
   bool lobby_tiles = false;  // the build draws tiles in the lobby
   bool chest_boxes = true;   // stand-in boxes for chests (6.03r7 draws none)
@@ -98,6 +105,12 @@ struct View {
 // Centres the view on the player, clamped to the level when the view fits
 // in it.
 View follow(const WorldState& w, int canvas_w, int canvas_h);
+
+// The 6.x nickname colour for `ap` alignment points.
+Color nick_colour(int ap);
+// The 6.x chat lines for `text` at most `width` pixels wide: one line
+// under 11 characters, else word-wrapped after one of " .,;+-?!".
+std::vector<std::string> wrap_chat(const std::string& text, int width);
 
 // Pass names in the order they run, for tests and the profiler.
 const std::vector<std::string>& pass_order();
@@ -127,6 +140,7 @@ class WorldRenderer {
   void draw_objects(Canvas& c, const WorldState& w, const View& v) const;
   void draw_player(Canvas& c, const WorldState& w, const View& v) const;
   void draw_texts(Canvas& c, const WorldState& w, const View& v) const;
+  void draw_v6_texts(Canvas& c, const WorldState& w, const View& v) const;
   Image sheet_;
   Assets* assets_ = nullptr;
 };

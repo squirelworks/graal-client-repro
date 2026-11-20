@@ -122,14 +122,17 @@ then `sendRaw` with the eight-byte token, then `setEncryptionOut`
 |---|---|---|
 | GET `conf.gs` | `Connector6113.FetchConfReply` | Plain `GET /conf.gs HTTP/1.0` to loopback. No HTTPS step and no `p=` blob |
 | Split the reply | `ParseConfReply` | u32 length, 256-byte signature, u32 length, payload. This project writes the lengths big-endian |
-| Signature first | `VerifyConfReply`, `Rsa6113`, `Sha6113` | PKCS #1 v1.5 type 1 over the bare digest, no DigestInfo, e = 65537. Checked against **this project's own public key**, not the operator's |
+| Signature first | `VerifyConfReply`, `Rsa6113`, `Sha6113` | PKCS #1 v1.5 type 1 over the bare digest, no DigestInfo, e = 65537. Checked against the open lab key (`common/connector-lab-key`), or the operator's key given with `--connector-key FILE` |
 | Decrypt | `DecryptConfPayload` | Pending. The project's payload cipher is not chosen, so the payload is read as clear |
 | Run the script | `ParseConnectorScript`, `RunConnectorSteps` | Only `setProtocol`, `sendRaw`, `setEncryptionOut`, optionally inside `onCreated`. Anything else is refused |
 | Token | `SeiToken` in `Connector6113` | **`SEI00001`, a placeholder.** `SeiTokenUsable = False` |
 
 The project script is `connector/sei00001-connector.gs`, signed into
-`connector/sei00001-conf.gs` by `connector/make-conf.sh`. The private key
-is not in the repo. `setEncryptionOut` is called with the name
+`connector/sei00001-conf.gs` by `connector/make-conf.sh` with the open
+lab key. That key is public on purpose: the project is open source, so a
+signature under it shows only that the script arrived unchanged. A server
+operator who wants their own trust anchor signs with their key and starts
+the client with `--connector-key FILE` (the modulus in hex). `setEncryptionOut` is called with the name
 `SEI-PENDING`, which selects no cipher; the session cipher and key are
 not chosen.
 
@@ -137,7 +140,7 @@ not chosen.
 handling lands in seihai-gserver-v2. Until then the client stops after
 the hello (`stopped after SEI00001 hello`, summary `"end":"sei-pending"`)
 and counts later server bytes without decoding them. A stock 6.11 reply
-does not verify against the project key, and a stock client does not
+does not verify against the lab key, and a stock client does not
 accept a reply signed for it.
 
 ```
@@ -203,8 +206,17 @@ script sets. A test template of six
 bytes with a 273-byte body writes `L` as 279. That is the size check from
 the hello note. It is not the captured header `01 02 00 01 17 fd`.
 
-`setencryptionout("AES")` and `setencryptionout("RC4")` record the name and
-do not transform bytes. Any other name clears back to the LCG default.
+`setencryptionout("RC4", key)` with a key RC4-encrypts every byte sent
+after it (`Rc46113`, plain RC4 with no bytes dropped, as
+`connector/CIPHER.md` chose). `SetEncryptionIn(1, key)` does the same for
+the bytes read, for the server's `0xfc`; type 2 (AES) is refused.
+`setencryptionout("AES")`, and `"RC4"` with no key, record the name and do
+not transform bytes. Any other name clears back to the LCG default.
+`Rsa6113` also wraps and unwraps a session key in a PKCS #1 v1.5 type-2
+block (RFC 8017), checked against a throwaway test key pair. `Cipher6113`
+builds and reads the key frame (a clear `0xfd`, zlib, wrapping the `0xfc`
+with the 256-byte block, counters 1 and 2) and the server's key plaintext
+(type, then key and IV after a length byte plus 32).
 Generation-5 numbered sends are refused. Ids 93 and 163 would need the
 id-50 prefix; the byte order of that prefix was not recovered.
 
@@ -227,11 +239,15 @@ numbers the note names. It does not execute any opcode.
   above reads only the three connector calls.
 - [ ] TODO(seihai-gserver-v2): `SEI00001` handling on the game server.
   Until it lands, the connector login stops after the hello.
-- [ ] The project's `conf.gs` payload cipher and the session cipher that
-  `setEncryptionOut` selects.
+- [ ] The project's session cipher end to end. Chosen (RC4 per direction
+  with `0xfc` key exchange, clear signed payload; `connector/CIPHER.md`)
+  and built as library code (RC4 both ways, type-2 key wrap), but the
+  signed project script still calls `SEI-PENDING`. It needs a script that
+  sends the key frame (signed with the open lab key), and the server side
+  in seihai-gserver-v2.
 - [ ] UDP bind. The image can open a datagram socket from script. This
   connect path does not, and the bind method is not implemented.
-- [ ] AES, RC4, and the generation-5 XOR mix. The mix width (12 dwords, or
+- [ ] AES and the generation-5 XOR mix. The mix width (12 dwords, or
   4 on a compressed frame) is described; which bytes of the LCG word are
   applied was not pinned down against the two step formulas, so it is not
   applied.

@@ -27,7 +27,7 @@ Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
 | No compiled-in token and no clear-hello path. Login always goes through a connector | `protocol/v6x-clients.md` "6.11 Mac: the connector" | `--server` needs `--connector`. `ConnectorOnly = True` |
 | `GET /conf.gs` over plain HTTP/1.0 with `User-Agent: Graal/6.111` and `Connection: Keep-Alive` | same, "The connector request in a lab run" | Same request line and headers, to loopback, with no `Host` name and no `p=` blob |
 | One try plus up to two retries, the retries on a second connector (`con` then `con2`). After three failures: "Couldn't connect to the server" | same | `--connector A,B`: try A, then B twice, then that warning |
-| The reply is a signature (RSA-2048 over the bare SHA-256 digest) and a payload. The signature is checked before anything runs | `protocol/v6-login-token-explained.md` | `Rsa6111`, `Sha6111`, checked against **this project's own public key** |
+| The reply is a signature (RSA-2048 over the bare SHA-256 digest) and a payload. The signature is checked before anything runs | `protocol/v6-login-token-explained.md` | `Rsa6111`, `Sha6111`, checked against the open lab key (`common/connector-lab-key`), or an operator key given with `--connector-key FILE` |
 | The connector script calls `setProtocol("EILLLT")`, `sendRaw(token)`, `setEncryptionOut(...)`, with no wait between them | same | `Connector6111.RunConnectorSteps` |
 | The generation-5 framer is the default until `setprotocol`. Seed and multiplier shared with 6.00 to 6.03 | `protocol/v6x-clients.md` "Cipher and framing", "What the script controls" | `Frame6111`, copied from the 6.1.1.3 folder. The seed is the one the notes give |
 | `tclient_set*` property setters | same | `Props6111` stores one string per setter. No 6.11 id table was read, so none is copied |
@@ -81,7 +81,7 @@ gserver login.
 
 - [x] Connector login: `conf.gs`, retries, project-key signature check, then the connector script with `EILLLT` and `SEI00001`.
 - [ ] TODO(seihai-gserver-v2): `SEI00001` on the game server. Until then the login stops after the hello.
-- [ ] The project's `conf.gs` payload cipher and the session cipher.
+- [ ] The project's `conf.gs` payload cipher and the session cipher: chosen (`../graal-6.1.1.3-GNP1905C/connector/CIPHER.md`), not built yet.
 - [ ] The HTTPS step before plain HTTP (TLS 1.2, compiled-in certificate bundle). Not needed by this project's connector.
 - [ ] The `p=` client description. Not needed by this project's connector.
 - [ ] `con.png` and `con.gs`, which the real client asks for before `conf.gs`.

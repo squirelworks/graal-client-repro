@@ -17,6 +17,10 @@ Put the program in the folder of a 39ster install you own, or point it at
 one with `--data DIR`, or keep the install's files in
 `graal-assets/39ster/` next to it.
 
+## What's new in v0.0.5
+
+- Rebuilt and released together with every other client; no changes to this client since v0.0.4.2.
+
 ## What's new in v0.0.4.2
 
 - [x] **New client.** 39ster's client joins the set as its own profile

@@ -12,9 +12,10 @@
   provisional adapter:
     zlib and bzip2 go through the repo units. The bzip2 block-size digit
     is set to 5. The bit stream is not libbzip2.
+    setencryptionout with RC4 and a key applies plain RC4 to every later
+    byte, headers included; a server key frame sets RC4 in (Cipher6113).
   lab-only fixture:
-    none. This unit does not invent a session cipher, a template, or the
-    id-50 byte order.
+    none. This unit does not invent a template or the id-50 byte order.
 
   Sources: protocol/v6113-hello.md, protocol/v6-repro-facts.md,
   protocol/unpacked-6113-wire.md, protocol/v6113-pli.md. }
@@ -23,6 +24,8 @@ unit Frame6113;
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
 
 interface
+
+uses Rc46113;
 
 const
   { Observed on the wire. Not a string in the image. }
@@ -44,7 +47,7 @@ const
   BzipBlockBytes = 500000;
 
 type
-  TEncOut = (eoDefaultLcg, eoNamedUnused, eoCleared);
+  TEncOut = (eoDefaultLcg, eoNamedUnused, eoCleared, eoRc4);
 
   TField = record
     At: Integer; { 0-based index in the header, -1 if the letter is absent }
@@ -66,7 +69,15 @@ type
     EncName: string;
     Buffered: Integer;
     Flushes: Integer;
+    { RC4 out once setEncryptionOut names RC4 with a key; RC4 in once a
+      server key frame set one (Cipher6113). nil while clear. }
+    RcOut, RcIn: TRc4;
     constructor Create;
+    destructor Destroy; override;
+    { The server's key frame chose the incoming cipher: 1 is RC4. }
+    function SetEncryptionIn(CipherType: Integer; const Key: string): Boolean;
+    { Bytes as they came from the server, deciphered when a key is set. }
+    function DecryptIn(const Data: string): string;
     procedure SetProtocol(const Template: string);
     function HasL: Boolean;
     function HasT: Boolean;
@@ -80,6 +91,7 @@ type
   end;
 
 function HeaderPlusBody(HeaderLen, BodyLen: Integer): Integer;
+procedure FreeAndNilRc(var R: TRc4);
 
 implementation
 
@@ -90,6 +102,12 @@ uses
 function HeaderPlusBody(HeaderLen, BodyLen: Integer): Integer;
 begin
   Result := HeaderLen + BodyLen;
+end;
+
+procedure FreeAndNilRc(var R: TRc4);
+begin
+  R.Free;
+  R := nil;
 end;
 
 function BlankField: TField;
@@ -127,6 +145,26 @@ begin
   Result := BZ2Compress(Data);
   if (Length(Result) >= 4) and (Copy(Result, 1, 3) = 'BZh') then
     Result[4] := '5';
+end;
+
+destructor TProtocol.Destroy;
+begin
+  RcOut.Free;
+  RcIn.Free;
+  inherited Destroy;
+end;
+
+function TProtocol.SetEncryptionIn(CipherType: Integer; const Key: string): Boolean;
+begin
+  Result := (CipherType = 1) and (Key <> '');
+  if not Result then Exit;
+  RcIn.Free;
+  RcIn := TRc4.Create(Key);
+end;
+
+function TProtocol.DecryptIn(const Data: string): string;
+begin
+  if RcIn <> nil then Result := RcIn.Crypt(Data) else Result := Data;
 end;
 
 constructor TProtocol.Create;
@@ -194,6 +232,7 @@ function TProtocol.SendRaw(const Data: string; out Wire: string): Boolean;
 begin
   { id -1: the caller's bytes, no header, no new counter value. }
   Wire := Data;
+  if RcOut <> nil then Wire := RcOut.Crypt(Wire);
   if OnGen5 then
   begin
     Inc(Buffered, Length(Data));
@@ -299,6 +338,8 @@ begin
     Poke(Header, FE.At, FE.Width, Ev);
   Poke(Header, FL.At, FL.Width, Total);
   Wire := Header + OutBody;
+  { RC4 covers the header too (protocol/v611-outgoing-cipher.md). }
+  if RcOut <> nil then Wire := RcOut.Crypt(Wire);
   Result := True;
 end;
 
@@ -314,10 +355,18 @@ end;
 
 procedure TProtocol.SetEncryptionOut(const Name, Key, IV: string);
 begin
-  { The key and the initial value are the caller's. No session in the notes
-    shows which pair was used, so neither value is stored or applied. }
-  if (Length(Key) < 0) or (Length(IV) < 0) then Exit;
-  if (Name = 'AES') or (Name = 'RC4') then
+  { RC4 with a key is applied from the next byte on: plain RC4, no IV,
+    as the 6.11 clients do after their key frame. AES, and RC4 with no
+    key, are named and not applied (no AES session was seen). }
+  if Length(IV) < 0 then Exit;
+  FreeAndNilRc(RcOut);
+  if (Name = 'RC4') and (Key <> '') then
+  begin
+    RcOut := TRc4.Create(Key);
+    Enc := eoRc4;
+    EncName := Name;
+  end
+  else if (Name = 'AES') or (Name = 'RC4') then
   begin
     Enc := eoNamedUnused;
     EncName := Name;

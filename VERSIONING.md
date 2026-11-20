@@ -6,7 +6,7 @@ same in every Seihai repo.
 
 ## This repo
 
-- **Current version:** 0.0.4.2.
+- **Current version:** 0.0.5.
 - **Where the version lives:** the combined release's tag (`vX.Y.Z`), given to `release-all.yml` as its input. Every client is released together at one version (AGENTS.md).
 - **Public surface** (the things a version number makes promises about):
   - how each client behaves compared with its original;

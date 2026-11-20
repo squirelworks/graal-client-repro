@@ -79,6 +79,7 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
   world_.lobby_tiles = profile_.login_draws_tiles;
   world_.chest_boxes = profile_.draws_chests;
   world_.player_chat = profile_.v4_scripts;
+  world_.v6_texts = !profile_.v4_scripts;  // 5.24 on: the 6.x text style
   me_.nickname = opt_.nickname.empty() ? "unknown" : opt_.nickname;  // the lab's 6.03r7 sent "unknown" with no nickname set
   me_.language = opt_.language;
   scripts_.set_send([this](int id, std::string_view body) { return session_.connection().send(id, body); });
@@ -254,8 +255,19 @@ void Program::ask_update_packages() {
   }
   asked_.insert("basepackage.gupd");
   for (int i = 0; i < 2; ++i) session_.connection().send(id, body);
-  // bigmap.txt once per run, on the Login session only.
-  if (is_login_name(session_.server_name())) want_file("bigmap.txt");
+  // bigmap.txt once per run, on the Login session only (4.04r2).
+  if (profile_.asks_bigmap && is_login_name(session_.server_name())) want_file("bigmap.txt");
+  for (const auto& f : profile_.login_wants) {
+    // Only a file no folder has: the install's fonts folder, or one kept
+    // from an earlier run.
+    bool have = false;
+    for (const auto& root : roots())
+      for (const char* sub : {"/levels/fonts/", "/fonts/", "/levels/images/downloads/", "/"}) {
+        std::error_code ec;
+        have = have || std::filesystem::exists(root + sub + f, ec);
+      }
+    if (!have) want_file(f);
+  }
 }
 
 bool Program::wanted(const std::string& name) const {
@@ -331,6 +343,8 @@ Draw::Actor Program::actor_for(int id, const World::Player& p) {
   a.x = p.x;
   a.y = p.y;
   a.chat = p.chat;
+  a.nick = p.nickname;
+  a.ap = p.ap;
   a.gani = p.gani.empty() ? "idle" : p.gani;
   // replaceani matches the gani base name (before comma params).
   {
@@ -681,6 +695,19 @@ void Program::follow_link(double dx, double dy) {
   link_x_ = nx;
   link_y_ = ny;
   ++link_warps_sent_;
+}
+
+void Program::clear_own_chat() {
+  if (profile_.v4_scripts || offline_) return;
+  if (me_.chat != own_chat_seen_) {
+    own_chat_seen_ = me_.chat;
+    own_chat_since_ = frame_;
+    return;
+  }
+  if (me_.chat.empty() || frame_ - own_chat_since_ < 60) return;  // 60 ticks of 50 ms
+  me_.chat.clear();
+  own_chat_seen_.clear();
+  if (props_sent_) session_.connection().send(2, Net::gchar(World::kCurChat) + Net::gstring(""));
 }
 
 void Program::send_enter_level() {
@@ -1181,6 +1208,7 @@ bool Program::tick() {
     }
     if (!action.empty() && props_sent_) session_.connection().send(38, action);
     gani_fall_back(p);
+    clear_own_chat();
     // While a link warp is out the walk is not sent: the server would
     // take the old x for the new level (a blip at the far edge, lab
     // 2026-11-20). The arrival is the next position it hears.

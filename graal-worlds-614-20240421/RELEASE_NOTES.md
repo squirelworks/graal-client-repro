@@ -11,6 +11,10 @@ Unity player was not built.
 > affiliated with, endorsed by, or connected to Graal Online, Cyberjoueurs,
 > or Stéphane Portha ("unixmad").
 
+## What's new in v0.0.5
+
+- Rebuilt and released together with every other client; no changes to this client since v0.0.4.2.
+
 ## What's new in v0.0.4.2
 
 - The folder is now `graal-worlds-614-20240421`, named for the build

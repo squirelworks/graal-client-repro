@@ -2,7 +2,7 @@
 
 Where graal-delphi stands and what comes next, as task lists: tick an item
 in the PR that does it. Per-folder detail lives in each folder's README
-("Not yet") and in the issues linked here. Updated 2026-11-16.
+("Not yet") and in the issues linked here. Updated 2026-11-20.
 
 The Nov 2026 issue sweep closed the old per-slice trackers and folded their
 open work into a short set of live epics. Closed issue numbers are not
@@ -19,13 +19,18 @@ from that older set remains open (licence done; signing still on hold).
   (docs/functional-parity.md).
 - **v0.0.3, v0.0.4**: combined releases of all 71 clients that existed
   then; each client's notes say what was matched and what was not.
-- **v0.0.4.1**: development checkpoint for all 74 clients
-  ([docs/releases/v0.0.4.1.md](docs/releases/v0.0.4.1.md)). Not a
-  fidelity release.
+- **v0.0.4.1**: development checkpoint
+  ([docs/releases/v0.0.4.1.md](docs/releases/v0.0.4.1.md)). Tagged, never
+  published as a release; v0.0.4.2 replaced it.
+- **v0.0.4.2**: combined release of all 80 clients (2026-11-13), the first
+  release of 5.31r4, 6.1.1.3 and the seven Worlds builds.
+- **v0.0.5**: combined release of every client (2026-11-20), with macOS
+  zips where the cross-build succeeds. Each folder's "What's new in
+  v0.0.5" says what changed.
 
-v0.0.4 is the last published release ([RELEASES.md](RELEASES.md)). The
-folders added after it (5.31r4, 6.1.1.3 and the seven Worlds builds) have
-no release yet. v0.0.4.1 is being cut; the next release after it is 0.0.5.
+v0.0.5 is the last published release ([RELEASES.md](RELEASES.md)). The
+next release is 0.0.6; its backlog is the unticked list below. Until it
+is cut, work lands on `main` without a release.
 
 ## Done
 
@@ -85,12 +90,12 @@ Open tracking issues only. Detail and checklists live on each issue.
 - [ ] [#282](https://github.com/squirelworks/graal-client-repro/issues/282)
   v7 Worlds: from the C# stand-in to a working reproduction
 
-## Release v0.0.4.1
+## Release v0.0.4.1 / v0.0.4.2
 
 - [x] release-all restores the Worlds player (the job's `VERSION` was read
   by MSBuild as the package version, runs 8 and 9 failed; #189)
-- [ ] Run release-all for v0.0.4.1 and check the Linux and Windows results
-  before publishing (Squirrel)
+- [x] ~~Run release-all for v0.0.4.1~~: superseded. v0.0.4.1 stayed a tag;
+  the combined release went out as v0.0.4.2 on 2026-11-13.
 
 ## Torque reconstruction (active → #303)
 
@@ -161,9 +166,10 @@ and 6.036 have tokens or version strings only, no exe, so they wait for
 one. Android vx APKs have no folder yet (research only; not an open issue
 here).
 
-## 0.0.5
+## 0.0.6
 
-Per-client backlog and the live epics above. Tick folder README / release
+Carried over from 0.0.5, which was released on 2026-11-20 with these
+still open. Per-client backlog and the live epics above. Tick folder README / release
 notes items in the PR that does the fix.
 
 - [ ] The `Not yet` list in each folder's `RELEASE_NOTES.md` and README:
@@ -175,7 +181,10 @@ notes items in the PR that does the fix.
 - [ ] Quattro fidelity and GS2 builtins (#305), including #398
 - [ ] Side builds and Seihai extras (#306)
 - [ ] Release / platform gates (#307)
-- [ ] Focus versions end to end (#373 / #194)
+- [ ] Focus versions end to end (#373 / #194); 6.03r7 gaps in #430
+- [ ] The 6.1x project connector cipher end to end (#429)
+- [ ] Engine defaults for the 4.x, 5.0/5.12 and remaining 6.x folders
+  (#403; 10 of the 36 3.x-6.x folders start their engine by default)
 
 During each folder's PR, also tick or remove items in that folder's
 README "Not yet" list that are already done (the lists were turned into
