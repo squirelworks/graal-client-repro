@@ -38,3 +38,20 @@ The private key here is listed as ignored for GitHub secret scanning
 (`.github/secret_scanning.yml`), gitleaks (`.gitleaks.toml`) and trufflehog
 (`.trufflehogignore`, passed with `--exclude-paths`), so it does not raise
 alerts. Do not add an operator key to those lists.
+
+## Project transport fixtures
+
+`lab-server-key.pub.pem` and `lab-parse-key.pub.pem` are intentional public
+RSA-2048 SPKI keys, with exponent 65537; matching `.modulus` files contain
+`Modulus=` followed by 512 big-endian hex digits. The new private server and
+parse keys are runtime-only and are not committed. These public fixtures do
+not establish operator identity. The existing open signing fixture is unchanged.
+
+For a fresh isolated lab, generate two runtime RSA pairs outside the checkout.
+Configure the server with its private PKCS#1 PEM and the parse public SPKI PEM.
+Replace the public modulus strings in the project connector script to match
+those runtime pairs and re-sign the script with `make-conf.sh`. The client
+receives the parse private exponent as `SEI6113_PARSE_PRIVATE_EXPONENT` (hex,
+big-endian); it is bound to the script's `parsePrivateExponent` variable.
+Never put private exponents, runtime scripts containing them or private PEMs
+in Git. A missing runtime parse exponent fails before any script socket write.

@@ -5,7 +5,7 @@ builds) left two choices open: how the signed `conf.gs` payload is
 encrypted, and which session cipher `setEncryptionOut` selects. This note
 records the choice and why. It applies to the 6.1.1.3, 6.11r1 Mac and
 shared Worlds scaffolds. The 6.1.1.3 client has the cipher as library
-code (see "Status" below); the signed scripts still say `SEI-PENDING`.
+code and a project-only script/socket adapter (see "Status" below).
 
 ## Decision
 
@@ -20,7 +20,8 @@ code (see "Status" below); the signed scripts still say `SEI-PENDING`.
      in one clear `0xfd` wrapping a `0xfc`: cipher type 1 (RC4), the
      length-prefixed key and an empty IV, RSA-wrapped (PKCS #1 v1.5
      type 2) to the parse key the script hands the client with
-     `setEncryptionParseKey`.
+     `setEncryptionParseKey`. The private exponent is a runtime binding,
+     not embedded in the shipped script.
    - Plain RC4, no bytes dropped, headers encrypted, as the stock
      stream is.
 2. **`conf.gs` payload: clear.** The reply keeps the stock container
@@ -71,12 +72,12 @@ code (see "Status" below); the signed scripts still say `SEI-PENDING`.
 - seihai-gserver-v2 (and later the Rust gserver): accept `SEI00001`,
   read the client's `0xfc` with the project private key, and send their
   own `0xfc`.
-- The project's key pairs (signing, server, parse) are open lab keys in
-  the repo, as the signing key now is (`common/connector-lab-key`). The
-  project is open source, so they authenticate nothing; an operator who
-  needs a secret makes their own pairs and keeps them.
+- The signing fixture stays intentionally public. Server and parse public
+  SPKI/modulus fixtures are committed; their new private PEMs and parse
+  exponents are runtime-only outside the checkout. Operators keep their own
+  pairs outside Git. See `common/connector-lab-key/README.md`.
 
-## Status (2026-11-20)
+## Status (2026-11-21)
 
 - Built in the 6.1.1.3 client, with tests: `Rc46113` (RC4),
   `Frame6113.SetEncryptionOut("RC4", key)` encrypting every later byte,
@@ -87,6 +88,20 @@ code (see "Status" below); the signed scripts still say `SEI-PENDING`.
   unwrap, re-key, decrypt.
 - The signing key is now an open lab key (2026-11-20), so re-signing the
   script needs no secret.
-- Not done: a project script that sends the key frame; calling the
-  key-frame reader from the socket loop; the server side; the 6.11r1 Mac and
-  Worlds scaffolds.
+- The 6.1.1.3 signed project script now generates a fresh 16-byte key using
+  OS entropy, wraps it to the server public modulus, emits the whole clear
+  nested key frame, then enables outgoing RC4. `sendKeyFrame` is this
+  rebuild's bounded project helper, not a recovered stock script API.
+- `Project6113` buffers partial clear key replies and switches incoming RC4
+  exactly after that outer packet, including coalesced ciphertext. Reconnect
+  drops both streams and pending bytes. Wrong type/key length/IV/header fails
+  closed; the socket waits at most 30 seconds for a key.
+- `setEncryptionParseKey(N, parsePrivateExponent)` gets its private exponent
+  from runtime configuration. The shipped script contains no new private key.
+- Raw eight-byte `SEI00001` selects this project route before classic framing.
+  The existing classic-framed X25519/Ed25519 secure login remains separate.
+  Failed parsing must never downgrade or fall back between these routes.
+- Not done: authenticated account/game admission, message dispatch after the
+  decrypted transport buffer, original-client interoperability, VM end-to-end
+  acceptance, and the 6.11r1 Mac and Worlds adapters. The companion GPL server
+  is a separate opt-in implementation; key exchange is not a playable login.

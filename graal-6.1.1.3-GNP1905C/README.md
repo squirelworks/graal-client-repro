@@ -106,50 +106,31 @@ keys or `--keys` move by 4 pixels when the destination does not overlap a
 Without `--window` the same frames are computed and can be written with
 `--dump`. A dump is not the window.
 
-## Connector login (SEI00001 scaffold, not yet usable)
+## Project connector transport
 
-The 6.11 desktop client does not hold its token. It fetches `conf.gs`
-from a connector, checks the reply's RSA-2048 signature over the bare
-SHA-256 digest of the payload, and only then decrypts and runs the
-payload as the connector script. That script calls `setProtocol("EILLLT")`,
-then `sendRaw` with the eight-byte token, then `setEncryptionOut`
-(Graal_analysis `protocol/v6-login-token-explained.md`,
-`protocol/v6x-clients.md`).
+`--connector` fetches and verifies the signed clear `conf.gs` before running
+its bounded project script. `SeiConnectorScript` is byte-equal to the shipped
+script. The script sets EILLLT, sends raw `SEI00001`, generates a fresh 16-byte
+key using OS entropy, wraps it to the project server public key, sends the
+whole clear nested key frame, then enables outgoing RC4. A separate server
+key reply enables incoming RC4 exactly after its clear outer frame, including
+fragmented or coalesced reads. Reconnect discards both streams and pending bytes.
 
-`--connector 127.0.0.1:PORT` runs that pipeline, clean-room:
+Set `SEI6113_PARSE_PRIVATE_EXPONENT` to the big-endian hex exponent for the
+runtime parse private key matching the script's public modulus. No new private
+key is in Git; setup is described in `common/connector-lab-key/README.md`.
+The shipped script is re-signable with the existing intentional public signing
+fixture and is not accepted by stock clients. Operators can use their own
+signing key through `--connector-key` as before.
 
-| Step | Unit | What this folder does |
-|---|---|---|
-| GET `conf.gs` | `Connector6113.FetchConfReply` | Plain `GET /conf.gs HTTP/1.0` to loopback. No HTTPS step and no `p=` blob |
-| Split the reply | `ParseConfReply` | u32 length, 256-byte signature, u32 length, payload. This project writes the lengths big-endian |
-| Signature first | `VerifyConfReply`, `Rsa6113`, `Sha6113` | PKCS #1 v1.5 type 1 over the bare digest, no DigestInfo, e = 65537. Checked against the open lab key (`common/connector-lab-key`), or the operator's key given with `--connector-key FILE` |
-| Decrypt | `DecryptConfPayload` | Pending. The project's payload cipher is not chosen, so the payload is read as clear |
-| Run the script | `ParseConnectorScript`, `RunConnectorSteps` | Only `setProtocol`, `sendRaw`, `setEncryptionOut`, optionally inside `onCreated`. Anything else is refused |
-| Token | `SeiToken` in `Connector6113` | **`SEI00001`, a placeholder.** `SeiTokenUsable = False` |
-
-The project script is `connector/sei00001-connector.gs`, signed into
-`connector/sei00001-conf.gs` by `connector/make-conf.sh` with the open
-lab key. That key is public on purpose: the project is open source, so a
-signature under it shows only that the script arrived unchanged. A server
-operator who wants their own trust anchor signs with their key and starts
-the client with `--connector-key FILE` (the modulus in hex). `setEncryptionOut` is called with the name
-`SEI-PENDING`, which selects no cipher; the session cipher and key are
-not chosen.
-
-**Not yet usable.** No game server accepts `SEI00001` until the matching
-handling lands in seihai-gserver-v2. Until then the client stops after
-the hello (`stopped after SEI00001 hello`, summary `"end":"sei-pending"`)
-and counts later server bytes without decoding them. A stock 6.11 reply
-does not verify against the lab key, and a stock client does not
-accept a reply signed for it.
-
-```
-build/graal-6.1.1.3-GNP1905C/Graal6113 --connector-serve 14901 \
-  --conf graal-6.1.1.3-GNP1905C/connector/sei00001-conf.gs --seconds 20
-build/graal-6.1.1.3-GNP1905C/Graal6113 --lab-serve 14900 --seconds 20
-build/graal-6.1.1.3-GNP1905C/Graal6113 \
-  --server 127.0.0.1:14900 --connector 127.0.0.1:14901 --frames 4
-```
+States distinguish `project-key-pending` from `project-transport`. A 30-second
+key timeout or invalid key reply fails closed. This is key exchange and a
+bounded decrypted transport buffer only: **no authenticated account/game
+admission or gameplay message dispatch is implemented**. The raw route is
+separate from classic-framed SEI00001 secure login. See `connector/CIPHER.md`
+for exact keys, framing, runtime setup and evidence limits. Offline checks run
+with `Test6113 --offline`; listener-based integration fixtures remain CI-only
+on developer hosts.
 
 Without `--connector` the client still sends the clear `GNP1905C` hello
 described below, and `scripts/loopback.sh` still checks that path.
@@ -157,7 +138,7 @@ described below, and `scripts/loopback.sh` still checks that path.
 ## SEI00001 secure login
 
 Separate from the `conf.gs` scaffold above (which sends `SEI00001` only as a
-placeholder token), the Seihai **secure login** (`SEI00001`,
+raw project token), the Seihai **secure login** (`SEI00001`,
 `seihai/documentation/secure-login.md`, not part of any Graal build) lets a
 rebuild log in to a Seihai server without sending the account and password in
 the clear: C1 (a fresh X25519 key), S1 (the server's keys and an Ed25519
@@ -236,15 +217,11 @@ numbers the note names. It does not execute any opcode.
 - [ ] File transfer, `basepackage.gupd` requests, `creationtime.dat`.
 - [ ] The script connector as a GS2 object (`StartScript_Connector` /
   `StartScript_Fail`, `scriptip` and the SSL fields). The connector login
-  above reads only the three connector calls.
-- [ ] TODO(seihai-gserver-v2): `SEI00001` handling on the game server.
-  Until it lands, the connector login stops after the hello.
-- [ ] The project's session cipher end to end. Chosen (RC4 per direction
-  with `0xfc` key exchange, clear signed payload; `connector/CIPHER.md`)
-  and built as library code (RC4 both ways, type-2 key wrap), but the
-  signed project script still calls `SEI-PENDING`. It needs a script that
-  sends the key frame (signed with the open lab key), and the server side
-  in seihai-gserver-v2.
+  above reads only the bounded project calls and simple variable assignments.
+- [x] Project script and incremental RSA/RC4 socket transport, with offline
+  boundary/reset tests. This does not implement authenticated game admission.
+- [ ] Project account/game protocol and VM interoperability with the separate
+  opt-in GPL server, plus stock-client interoperability.
 - [ ] UDP bind. The image can open a datagram socket from script. This
   connect path does not, and the bind method is not implemented.
 - [ ] AES and the generation-5 XOR mix. The mix width (12 dwords, or

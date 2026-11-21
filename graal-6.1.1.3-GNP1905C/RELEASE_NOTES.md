@@ -12,12 +12,18 @@ host and it does not borrow another version's token.
 
 ## What's new in v0.0.5
 
+- [x] Project-only connector key exchange: signed script, fresh OS-generated
+  RSA-wrapped RC4 key, incremental server-key receive, exact clear/cipher cut
+  and reconnect reset. New private keys remain runtime-only. Account/game
+  admission and VM interoperability remain open; original clear hello and
+  classic secure login stay separate.
+
 - [x] **The project session cipher, as library code.** RC4 out after
   `setEncryptionOut("RC4", key)`, RC4 in after an incoming RC4 key, a
   PKCS #1 v1.5 type-2 key wrap and unwrap (`Rc46113`, `Rsa6113`), and the
   `0xfd`/`0xfc` key frames (`Cipher6113`), with known-answer and
-  round-trip tests. Not on the wire yet: the project script still selects
-  no cipher (`connector/CIPHER.md`).
+  round-trip tests. The project adapter now wires these primitives into
+  its script/socket route (`connector/CIPHER.md`); account admission is open.
 - [x] **An open lab signing key.** The connector key the client trusts is
   now public in `common/connector-lab-key`, so anyone can rebuild the
   signed `conf.gs`. `--connector-key FILE` trusts a server operator's own
@@ -36,8 +42,8 @@ host and it does not borrow another version's token.
   its RSA-2048 signature over the bare SHA-256 digest with the project's
   own public key before anything runs, then run the connector script:
   `setProtocol("EILLLT")`, `sendRaw`, `setEncryptionOut`. The project
-  script's token is the placeholder `SEI00001`. **Not yet usable**: the
-  client stops after the hello until seihai-gserver-v2 handles `SEI00001`.
+  script's raw token is `SEI00001`. Account/game admission is unavailable; the
+  project adapter now exchanges keys separately from classic secure login.
   `--connector-serve` serves a signed `conf.gs` on loopback for testing.
 - SEI00001 secure login, message layer (`Secure6113`): the shared
   `common/GSecLogin` handshake with this build's inner token (`GNP1905C`)

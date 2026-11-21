@@ -18,6 +18,7 @@ uses
   Rsa6113 in '../src/Rsa6113.pas',
   Rc46113 in '../src/Rc46113.pas',
   Cipher6113 in '../src/Cipher6113.pas',
+  Project6113 in '../src/Project6113.pas',
   GTypes in '../../common/GTypes.pas',
   GSecCrypto in '../../common/GSecCrypto.pas',
   GSecLogin in '../../common/GSecLogin.pas',
@@ -343,6 +344,84 @@ begin
   end;
 end;
 
+function ProjectOuter(const Z: string): string;
+var N: Integer;
+begin
+  N := 6 + Length(Z);
+  Result := #1#2 + Chr(N shr 16) + Chr((N shr 8) and 255) + Chr(N and 255) + #$fd + Z;
+end;
+
+procedure TestProjectCipher;
+var
+  P: TProtocol;
+  C: TProjectCipher;
+  Server: TRc4;
+  Pad, Block, Frame, Wire, Plain, Err, Acc, Z, Inner: string;
+  Counter, I: Integer;
+  procedure RejectCompressed(const Data, Why: string);
+  begin
+    C.Reset; C.SetParseKey(TestN, TestD);
+    Check(not C.Feed(ProjectOuter(Data), Plain, Err), Why);
+    Check(not C.Feed(Frame, Plain, Err), 'malformed compression failure is sticky');
+  end;
+begin
+  Pad := StringOfChar('P', 237);
+  Block := RsaWrapType2(TestN, BuildServerKeyPlain(1, '0123456789abcdef', ''), Pad);
+  Counter := 1; Frame := BuildKeyFrame(Counter, Block);
+  P := TProtocol.Create; C := TProjectCipher.Create(P);
+  Server := TRc4.Create('0123456789abcdef');
+  try
+    C.SetParseKey(TestN, TestD);
+    Wire := Frame + Server.Crypt('first payload');
+    Acc := '';
+    for I := 1 to Length(Frame) - 1 do
+    begin
+      Check(C.Feed(Wire[I], Plain, Err) and (Plain = '') and not C.Ready,
+        'partial clear key byte does not advance RC4');
+    end;
+    Check(C.Feed(Copy(Wire, Length(Frame), MaxInt), Plain, Err) and C.Ready and
+      (Plain = 'first payload'), 'last clear byte plus coalesced ciphertext switches at exact boundary');
+    Wire := Server.Crypt('next fragmented payload');
+    for I := 1 to Length(Wire) do
+    begin
+      Check(C.Feed(Wire[I], Plain, Err), 'RC4 accepts byte-granular later reads');
+      Acc := Acc + Plain;
+    end;
+    Check(Acc = 'next fragmented payload', 'RC4 state continues exactly once per byte');
+    P.SetEncryptionOut('RC4', 'client-key-12345', '');
+    C.Reset;
+    Check(not C.Ready and (P.RcIn = nil) and (P.RcOut = nil) and (P.Counter = 1),
+      'reconnect reset drops both streams and partial key state');
+    C.SetParseKey(TestN, TestD);
+    Check(C.Feed(Copy(Frame, 1, 5), Plain, Err), 'partial header buffered before reset');
+    C.Reset; C.SetParseKey(TestN, TestD);
+    Check(C.Feed(Frame, Plain, Err) and C.Ready and (Plain = ''),
+      'fresh complete frame succeeds after discarded partial prefix');
+    C.Reset; C.SetParseKey(TestN, TestD);
+    Wire := Frame; Wire[1] := #0;
+    Check(not C.Feed(Wire, Plain, Err), 'wrong clear header is rejected without protocol fallback');
+    Check(not C.Feed(Frame, Plain, Err), 'failed key parse remains closed until reset');
+    C.Reset; C.SetParseKey(TestN, TestD);
+    Counter := 1;
+    Block := RsaWrapType2(TestN, BuildServerKeyPlain(2, '0123456789abcdef', ''), Pad);
+    Check(not C.Feed(BuildKeyFrame(Counter, Block), Plain, Err), 'AES key reply is refused in RC4 project mode');
+    C.Reset; C.SetParseKey(TestN, TestD);
+    Counter := 1;
+    Block := RsaWrapType2(TestN, BuildServerKeyPlain(1, 'short', ''), Pad);
+    Check(not C.Feed(BuildKeyFrame(Counter, Block), Plain, Err), 'wrong-length session key is refused');
+    Z := Copy(Frame, 7, MaxInt);
+    Check(ZDecompress(Z, Inner), 'valid key fixture inflates for malformed variants');
+    RejectCompressed(Z + 'x', 'trailing compressed garbage inside declared outer length is refused');
+    RejectCompressed(Z + Z, 'concatenated zlib streams inside key frame are refused');
+    RejectCompressed(ZCompress(Inner + 'x'), '263-byte inflated key body is refused');
+    RejectCompressed(ZCompress(StringOfChar('A', 100000)), 'large expansion stops at fixed key-body budget');
+    RejectCompressed(Copy(Z, 1, Length(Z) - 1), 'truncated compressed key body is refused');
+    RejectCompressed(#120#187#0#0#0#0 + Copy(Z, 3, MaxInt), 'dictionary-requiring stream is refused');
+    Z[Length(Z)] := Chr(Ord(Z[Length(Z)]) xor 1);
+    RejectCompressed(Z, 'invalid Adler checksum is refused');
+  finally Server.Free; C.Free; P.Free; end;
+end;
+
 procedure TestProps;
 var
   Bag: TPropBag;
@@ -646,6 +725,53 @@ begin
     'BuildConfReply writes big-endian lengths');
 end;
 
+type
+  TConnectorRecorder = class
+    Wire: string;
+    Writes: Integer;
+    function Send(const Data: string): Boolean;
+  end;
+function TConnectorRecorder.Send(const Data: string): Boolean;
+begin Wire := Wire + Data; Inc(Writes); Result := True; end;
+
+procedure TestProjectOutgoing;
+var
+  Steps: TConnectorSteps;
+  P, Clear: TProtocol;
+  Recorder: TConnectorRecorder;
+  Peer: TRc4;
+  Err, Token, Block, Key, PriorKey, Wire, Expected: string;
+  Used, Run: Integer;
+begin
+  Check(ParseConnectorScript(SeiConnectorScript, Steps, Err), 'project script parses for outgoing boundary test');
+  Steps[3].Args[1] := TestN; { existing test RSA pair, not a new committed private key }
+  PriorKey := '';
+  for Run := 1 to 2 do
+  begin
+    P := TProtocol.Create; Clear := TProtocol.Create;
+    Recorder := TConnectorRecorder.Create;
+    try
+      Check(RunConnectorSteps(Steps, P, Recorder.Send, Token, Err, nil, TestD),
+        'project script sends hello and complete clear key frame');
+      Check((Recorder.Writes = 2) and (Copy(Recorder.Wire, 1, 8) = 'SEI00001'),
+        'raw token precedes exactly one clear key-frame write');
+      Check(ReadKeyFrame(Copy(Recorder.Wire, 9, MaxInt), Block, Used) and
+        (Used = Length(Recorder.Wire) - 8), 'clear prefix has no encrypted or trailing bytes');
+      Check(RsaUnwrapType2(TestN, TestD, Block, Key) and (Length(Key) = 16),
+        'client RSA block contains exactly its fresh 16-byte key');
+      if Run = 2 then Check(Key <> PriorKey, 'independent sessions generate different OS-random keys');
+      PriorKey := Key;
+      Peer := TRc4.Create(Key);
+      try
+        Clear.SetProtocol('EILLLT'); Clear.Counter := 3;
+        Check(Clear.SendData(7, 'body', Expected, Err) and P.SendData(7, 'body', Wire, Err) and
+          (Peer.Crypt(Wire) = Expected), 'first post-prefix frame encrypts header and body with stream byte zero');
+      finally Peer.Free; end;
+      Check(Steps[3].Args[0] = 'key', 'execution never rewrites parsed variable arguments');
+    finally Recorder.Free; Clear.Free; P.Free; end;
+  end;
+end;
+
 procedure TestConnectorScript;
 var
   Steps: TConnectorSteps;
@@ -655,21 +781,21 @@ begin
   Check(SeiToken = 'SEI00001', 'the scaffold token is SEI00001');
   Check(not SeiTokenUsable, 'SEI00001 is marked not yet usable');
   Check(ParseConnectorScript(SeiConnectorScript, Steps, Err), 'the project script parses: ' + Err);
-  Check((Length(Steps) = 3) and (Steps[0].Call = ccSetProtocol) and
-    (Steps[1].Call = ccSendRaw) and (Steps[2].Call = ccSetEncryptionOut),
-    'order is setProtocol, sendRaw, setEncryptionOut');
+  Check((Length(Steps) = 7) and (Steps[0].Call = ccSetProtocol) and
+    (Steps[1].Call = ccSendRaw) and (Steps[4].Call = ccSendKeyFrame),
+    'project script emits clear key frame before selecting RC4');
   Check(Steps[0].Args[0] = 'EILLLT', 'the template is EILLLT');
   Check(Steps[1].Args[0] = SeiToken, 'sendRaw carries SEI00001');
   P := TProtocol.Create;
   try
-    Check(RunConnectorSteps(Steps, P, nil, Token, Err), 'the steps run: ' + Err);
+    Check(RunConnectorSteps(Steps, P, nil, Token, Err, nil, '01'), 'the steps run: ' + Err);
     Check(Token = 'SEI00001', 'the token step reports SEI00001');
     Check(not P.OnGen5 and (P.HeaderLen = 6), 'EILLLT leaves generation-5 for a six-byte header');
     Check((P.FE.At = 0) and (P.FE.Width = 1) and (P.FI.At = 1) and (P.FI.Width = 1) and
       (P.FL.At = 2) and (P.FL.Width = 3) and (P.FT.At = 5) and (P.FT.Width = 1),
       'EILLLT is E at 0, I at 1, LLL at 2, T at 5');
-    Check(P.Counter = 1, 'sendRaw did not advance the counter');
-    Check(P.Enc = eoCleared, 'the pending setEncryptionOut name selects no cipher');
+    Check(P.Counter = 3, 'inner and outer key frames advance the counter twice');
+    Check(P.Enc = eoRc4, 'project outgoing RC4 selected after clear key frame');
   finally
     P.Free;
   end;
@@ -703,24 +829,25 @@ begin
     Check(Con.Listen(0) and Srv.Listen(0), 'connector and game listeners on 127.0.0.1');
     ConnUnderTest := Con;
     S.ConnectorIdle := PumpConnector;
+    S.ParsePrivateExponent := '01'; { fixture records key exchange; no reply/decrypt here }
     Check(S.ConnectViaConnector(Con.Port, Srv.Port), 'connector login runs: ' + S.Err);
     Check(Con.Requests = 1, 'one conf.gs request');
     Check(Pos('GET /conf.gs HTTP/1.0', Con.LastRequest) = 1, 'plain GET /conf.gs, no p= blob');
-    Check(S.Phase = phSeiPending, 'the client stops after the SEI00001 hello');
+    Check(S.Phase = phProjectKey, 'project waits for server key without claiming account admission');
     Check(S.ConnectorToken = 'SEI00001', 'the token came from the connector script');
-    Check(S.ConnectorSteps = 3, 'three connector steps ran');
+    Check(S.ConnectorSteps = 7, 'seven project connector steps ran');
     Check(S.UdpOpens = 0, 'the connector path opens no datagram socket');
     for I := 1 to 50 do
     begin
       Srv.Pump;
-      if Srv.GotHello then Break;
+      if Srv.GotHello and (Length(Srv.AfterSei) > 6) then Break;
       Sleep(5);
     end;
     Check(Srv.GotHello and (Srv.Hello = 'SEI00001'), 'the game side saw SEI00001 first');
-    Check(Srv.AfterSei = '', 'nothing follows the hello yet');
-    Check(Pos('not yet usable', Logs.Text) > 0, 'the log says SEI00001 is not yet usable');
+    Check(Length(Srv.AfterSei) > 6, 'a clear nested key frame follows the raw hello');
+    Check(Pos('no account admission', Logs.Text) > 0, 'key exchange does not claim account admission');
     Check(Pos('signature verified', Logs.Text) > 0, 'the log shows the signature check');
-    Check(S.EndToken = 'sei-pending', 'the summary ends sei-pending');
+    Check(S.EndToken = 'project-key-pending', 'the summary identifies pending project key');
   finally
     ConnUnderTest := nil;
     S.Free;
@@ -1047,20 +1174,22 @@ begin
     TestCipherChoice;
     TestSessionCipher;
     TestKeyFrames;
+    TestProjectCipher;
     TestProps;
     TestGs2;
     TestLevelAndCollision;
     TestYardFile;
-    TestClearStop;
-    TestLabRoundTrip;
+    if ParamStr(1) <> '--offline' then
+    begin TestClearStop; TestLabRoundTrip; end;
     TestRejectHost;
     TestSha256;
     TestSecure6113;
-    TestSecureNet;
+    if ParamStr(1) <> '--offline' then TestSecureNet;
     TestConfReply;
     TestConnectorScript;
-    TestConnectorLogin;
-    TestConnectorRefusesTamper;
+    TestProjectOutgoing;
+    if ParamStr(1) <> '--offline' then
+    begin TestConnectorLogin; TestConnectorRefusesTamper; end;
     TestConnectorKey;
   finally
     SessionLog := nil;

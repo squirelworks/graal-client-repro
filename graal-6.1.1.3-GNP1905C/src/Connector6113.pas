@@ -16,12 +16,11 @@
     or one an operator gives with --connector-key, not the stock
     operator's. A stock connector reply does not verify against it, and a
     reply signed for this key is never accepted by a stock client.
-  - The token in the project's connector script is the placeholder
-    SEI00001 (SeiToken). It is NOT YET USABLE: no game server accepts it
-    until the SEI00001 handling lands on the seihai-gserver-v2 side.
-  - The payload cipher and the outgoing session cipher are not chosen yet.
-    The payload is taken as clear text, and setEncryptionOut is recorded
-    by name only, as Frame6113 already does.
+  - The project raw SEI00001 route exchanges fresh RSA-wrapped RC4 keys.
+    This is project transport only, not stock interoperability or account
+    admission; original GNP1905C and classic secure login remain separate.
+  - The verified project payload is clear by design. Its parse private
+    exponent is supplied at runtime, never embedded in the shipped script.
 
   The pieces are separate so the token step is easy to find:
   ParseConfReply, VerifyConfReply, DecryptConfPayload, ParseConnectorScript,
@@ -36,20 +35,13 @@ unit Connector6113;
 interface
 
 uses
-  Frame6113;
+  Frame6113, Project6113;
 
 const
-  { ---------------------------------------------------------------------
-    SEI00001 SCAFFOLD. NOT YET USABLE.
-    TODO(seihai-gserver-v2): the game server has no SEI00001 handling yet.
-    Until it does, a login that sends this token stops after the hello.
-    When the gserver-v2 side lands, flip SeiTokenUsable and continue the
-    session after the hello instead of stopping.
-    --------------------------------------------------------------------- }
+  { Account/game admission remains unavailable; key exchange is separate. }
   SeiToken = 'SEI00001';
   SeiTokenUsable = False;
-  SeiPendingNote = 'SEI00001 is a placeholder token; not yet usable until ' +
-    'seihai-gserver-v2 handles it';
+  SeiPendingNote = 'project transport does not implement account admission';
 
   { The header template the 6.11 connector script sets. }
   ConnectorTemplate = 'EILLLT';
@@ -69,19 +61,21 @@ const
     'A89CB8A449A982BC2DBE6B36FDFE1F48A1E196ADAC3D81BA0FA0BD5B01247D4A' +
     '7D98EE6494411C30AF6001EB267686A5D512D3DDE13833290972266B05D8D763';
 
-  { TODO(seihai-gserver-v2): the project's payload cipher is not chosen.
-    While this is True the verified payload is read as clear script text. }
+  { Compatibility name: verified project scripts are deliberately clear. }
   PayloadCipherPending = True;
 
   ConfPath = '/conf.gs';
   MaxConfBytes = 1 shl 20;
 
 type
-  TConnectorCall = (ccSetProtocol, ccSendRaw, ccSetEncryptionOut);
+  TConnectorCall = (ccSetProtocol, ccSendRaw, ccSetEncryptionOut,
+    ccGenerateKey, ccRsaEncrypt, ccSendKeyFrame, ccSetParseKey);
 
   TConnectorStep = record
     Call: TConnectorCall;
     Args: array of string;
+    Variables: array of Boolean;
+    Target: string;
   end;
 
   TConnectorSteps = array of TConnectorStep;
@@ -112,20 +106,20 @@ var
   it (a leading "Modulus=" is allowed). The exponent must be 65537. }
 function LoadConnectorKey(const Path: string; out Err: string): Boolean;
 
-{ Pending cipher: returns the payload unchanged. }
+{ Project choice: returns the verified clear payload unchanged. }
 function DecryptConfPayload(const Payload: string; out Script, Err: string): Boolean;
 
-{ Reads only the three connector calls, optionally inside one
-  onCreated function body. Anything else is refused. }
+{ Reads the bounded project connector calls, simple assignments and named
+  variables, optionally inside onCreated. General script execution is refused. }
 function ParseConnectorScript(const Script: string; out Steps: TConnectorSteps;
   out Err: string): Boolean;
 
 { Applies the steps to Proto in order. sendRaw bytes go to Sink. Token
   receives the last sendRaw argument. }
 function RunConnectorSteps(const Steps: TConnectorSteps; Proto: TProtocol;
-  Sink: TRawSink; out Token, Err: string): Boolean;
+  Sink: TRawSink; out Token, Err: string; Project: TProjectCipher = nil; const ParsePrivateExponent: string = ''): Boolean;
 
-{ The project's connector script, with the SEI00001 placeholder. }
+{ The signed project transport script, with a runtime parse-key binding. }
 function SeiConnectorScript: string;
 
 { GET conf.gs from 127.0.0.1:Port over plain HTTP/1.0. No p= blob and no
@@ -136,7 +130,7 @@ function FetchConfReply(Port: Word; TimeoutMs: Integer; Idle: TIdleProc;
 implementation
 
 uses
-  SysUtils, Classes, GSocket, Sha6113, Rsa6113;
+  SysUtils, Classes, GSocket, Sha6113, Rsa6113, Cipher6113, GSecCrypto;
 
 function U32BE(N: Cardinal): string;
 begin
@@ -192,7 +186,7 @@ end;
 
 function VerifyConfReply(const Signature, Payload: string; out Err: string): Boolean;
 begin
-  Result := RsaVerifyBareSha256(ConnectorModulusHex, Signature, Sha256(Payload), Err);
+  Result := RsaVerifyBareSha256(ConnectorModulusHex, Signature, Sha6113.Sha256(Payload), Err);
 end;
 
 function LoadConnectorKey(const Path: string; out Err: string): Boolean;
@@ -244,15 +238,15 @@ function SeiConnectorScript: string;
 begin
   Result :=
     'function onCreated() {' + #10 +
-    '  setProtocol("' + ConnectorTemplate + '");' + #10 +
-    '  // TODO(seihai-gserver-v2): placeholder token, not yet usable' + #10 +
-    '  sendRaw("' + SeiToken + '");' + #10 +
-    '  // TODO(seihai-gserver-v2): session cipher and key not chosen' + #10 +
-    '  setEncryptionOut("SEI-PENDING", "", "");' + #10 +
+    '  setProtocol("EILLLT");' + #10 +
+    '  sendRaw("SEI00001");' + #10 +
+    '  key = generate16ByteKey();' + #10 +
+    '  wrapped = rsa_encrypt(key, "B07DB79C65109A9C9B2AB5445C8FD5BF861B43DC825E4613F4AA2C115B30031534811DF985DC3AEA7E833FA53F4D94CADF5438589D321BF7D4B25EC452B6426561A4025291CDB0B90C7EF02810CBC4E3261853F69CFF88B103CD9314D170F7FD0A824070DF7650BD1B0F68385444D92FD847F2299AF086CE1FB8585704528BB45DDABD6CA3B201595A99FBD9CBFF76715F0D6E4FBC3393EDD38E97128E7501218D47540FDE293788DD67CC38B6D5EDD505E2C7BC979D02DE1553D780169A2113344FA78FBCDACF46904FAAA905865A2D6653F47AE4D9E3E5CC23236A0032F40CDE03343DA694C3B3627FCF2ECA83F98D263C14AAD4BFB027B3BE49F1BD87395D");' + #10 +
+    '  sendKeyFrame(wrapped);' + #10 +
+    '  setEncryptionOut("RC4", key, "");' + #10 +
+    '  setEncryptionParseKey("EAD52851824753784B0C94BC3F96892320DF885D0FDF09C3DB894BE1673FE7E4C3634ED93AA1F5EEB288F9872E7F4B148C68B3C1FE83CF0215EF481A9DDCE18A40483C996BB09E22D5E3E6649629C7D50B16F94D470D281F7C8E9358CC2669B361C86E5BF339309D20BEBA205A0FC211C3B709813E499DFB9ADC48662D3D236DECE9421A1BA07B4B0E85478AD7678728091ED344BE9686209B3F758CCF359C19C2037AE4A028E93B69E4F6735CC2A58F233C1BCD1EE8DBD00A491D3FD56D34819A14A60B4A4E5C571B7B33028408A7B72D7705818A6769BF699477F3390D2F79E920808132AEAFB66BE6392723DC9DC8062E539E06C8DC9CD65B1B9DB723A289", parsePrivateExponent);' + #10 +
     '}' + #10;
 end;
-
-{ ---- connector script reader ---- }
 
 type
   TScan = record
@@ -355,7 +349,19 @@ begin
       Inc(Depth);
       Continue;
     end;
-    if Name = 'setProtocol' then Step.Call := ccSetProtocol
+    Step.Target := '';
+    if TakeChar(T, '=') then
+    begin
+      Step.Target := Name;
+      Name := TakeIdent(T);
+      if (Name <> 'generate16ByteKey') and (Name <> 'rsa_encrypt') then
+      begin Err := 'unsupported connector assignment'; Exit; end;
+    end;
+    if Name = 'generate16ByteKey' then Step.Call := ccGenerateKey
+    else if Name = 'rsa_encrypt' then Step.Call := ccRsaEncrypt
+    else if Name = 'sendKeyFrame' then Step.Call := ccSendKeyFrame
+    else if Name = 'setEncryptionParseKey' then Step.Call := ccSetParseKey
+    else if Name = 'setProtocol' then Step.Call := ccSetProtocol
     else if Name = 'sendRaw' then Step.Call := ccSendRaw
     else if Name = 'setEncryptionOut' then Step.Call := ccSetEncryptionOut
     else
@@ -364,6 +370,7 @@ begin
       Exit;
     end;
     SetLength(Step.Args, 0);
+    SetLength(Step.Variables, 0);
     if not TakeChar(T, '(') then
     begin
       Err := Name + ': expected (';
@@ -372,13 +379,16 @@ begin
     if not TakeChar(T, ')') then
     begin
       repeat
-        if not TakeString(T, Arg) then
-        begin
-          Err := Name + ': arguments must be string literals';
-          Exit;
-        end;
         N := Length(Step.Args);
         SetLength(Step.Args, N + 1);
+        SetLength(Step.Variables, N + 1);
+        Step.Variables[N] := not TakeString(T, Arg);
+        if Step.Variables[N] then
+        begin
+          Arg := TakeIdent(T);
+          if (Arg = '') or not (Step.Call in [ccRsaEncrypt, ccSendKeyFrame, ccSetEncryptionOut, ccSetParseKey]) then
+          begin Err := Name + ': unsupported variable argument'; Exit; end;
+        end;
         Step.Args[N] := Arg;
       until not TakeChar(T, ',');
       if not TakeChar(T, ')') then
@@ -400,6 +410,11 @@ begin
       Err := 'setEncryptionOut takes a name and an optional key and initial value';
       Exit;
     end;
+    if ((Step.Call = ccGenerateKey) and ((Step.Target = '') or (Length(Step.Args) <> 0))) or
+      ((Step.Call = ccRsaEncrypt) and ((Step.Target = '') or (Length(Step.Args) <> 2))) or
+      ((Step.Call = ccSendKeyFrame) and (Length(Step.Args) <> 1)) or
+      ((Step.Call = ccSetParseKey) and (Length(Step.Args) <> 2)) then
+    begin Err := Name + ': invalid project arguments'; Exit; end;
     N := Length(Steps);
     SetLength(Steps, N + 1);
     Steps[N] := Step;
@@ -423,38 +438,80 @@ begin
 end;
 
 function RunConnectorSteps(const Steps: TConnectorSteps; Proto: TProtocol;
-  Sink: TRawSink; out Token, Err: string): Boolean;
+  Sink: TRawSink; out Token, Err: string; Project: TProjectCipher; const ParsePrivateExponent: string): Boolean;
 var
-  I: Integer;
-  Wire: string;
+  I, J, At: Integer;
+  Wire, Pad, Value: string;
+  Values: TStringList;
+  Step: TConnectorStep;
 begin
-  Result := False;
-  Token := '';
-  Err := '';
+  Result := False; Token := ''; Err := '';
   for I := 0 to High(Steps) do
-    case Steps[I].Call of
-      ccSetProtocol:
-        Proto.SetProtocol(Steps[I].Args[0]);
-      ccSendRaw:
+    if (Steps[I].Call = ccSetParseKey) and (ParsePrivateExponent = '') then
+    begin Err := 'runtime parse private exponent required'; Exit; end;
+  Values := TStringList.Create;
+  Values.CaseSensitive := True;
+  Values.Values['parsePrivateExponent'] := ParsePrivateExponent;
+  try
+    for I := 0 to High(Steps) do
+    begin
+      Step := Steps[I];
+      { Copy dynamic arguments before resolving; never mutate the parsed script. }
+      SetLength(Step.Args, Length(Steps[I].Args));
+      for J := 0 to High(Step.Args) do
+      begin
+        Step.Args[J] := Steps[I].Args[J];
+        if (J < Length(Step.Variables)) and Step.Variables[J] then
         begin
-          { The version-token step. A stock script puts the operator's
-            token here; this project's script puts SeiToken. }
-          if not Proto.SendRaw(Steps[I].Args[0], Wire) or (Wire <> Steps[I].Args[0]) then
-          begin
-            Err := 'sendRaw gained a header';
-            Exit;
-          end;
-          if Assigned(Sink) and not Sink(Wire) then
-          begin
-            Err := 'sendRaw could not write to the game socket';
-            Exit;
-          end;
-          Token := Steps[I].Args[0];
+          At := Values.IndexOfName(Step.Args[J]);
+          if At < 0 then begin Err := 'undefined connector variable'; Exit; end;
+          Step.Args[J] := Values.ValueFromIndex[At];
         end;
-      ccSetEncryptionOut:
-        Proto.SetEncryptionOut(ArgAt(Steps[I], 0), ArgAt(Steps[I], 1), ArgAt(Steps[I], 2));
+      end;
+      case Step.Call of
+        ccSetProtocol: Proto.SetProtocol(Step.Args[0]);
+        ccSendRaw:
+          begin
+            if not Proto.SendRaw(Step.Args[0], Wire) or (Wire <> Step.Args[0]) then
+            begin Err := 'sendRaw gained a header'; Exit; end;
+            if Assigned(Sink) and not Sink(Wire) then
+            begin Err := 'sendRaw could not write to the game socket'; Exit; end;
+            Token := Step.Args[0];
+          end;
+        ccGenerateKey:
+          begin
+            if not GSecCrypto.RandomBytes(16, Value) then
+            begin Err := 'OS entropy unavailable'; Exit; end;
+            Values.Values[Step.Target] := Value;
+          end;
+        ccRsaEncrypt:
+          begin
+            if (Length(Step.Args[0]) <> 16) or not GSecCrypto.RandomBytes(237, Pad) then
+            begin Err := 'invalid key or OS entropy unavailable'; Exit; end;
+            Value := RsaWrapType2(Step.Args[1], Step.Args[0], Pad);
+            if Length(Value) <> RsaBytes then begin Err := 'RSA key wrap failed'; Exit; end;
+            Values.Values[Step.Target] := Value;
+          end;
+        ccSendKeyFrame:
+          begin
+            if (Proto.Enc = eoRc4) or (Proto.Counter <> 1) or
+              (Length(Step.Args[0]) <> RsaBytes) then
+            begin Err := 'key frame must precede encrypted stream'; Exit; end;
+            Wire := BuildKeyFrame(Proto.Counter, Step.Args[0]);
+            if Assigned(Sink) and not Sink(Wire) then
+            begin Err := 'key frame write failed'; Exit; end;
+          end;
+        ccSetEncryptionOut:
+          Proto.SetEncryptionOut(ArgAt(Step, 0), ArgAt(Step, 1), ArgAt(Step, 2));
+        ccSetParseKey:
+          begin
+            if Step.Args[1] = '' then begin Err := 'runtime parse private exponent required'; Exit; end;
+            if Project <> nil then Project.SetParseKey(Step.Args[0], Step.Args[1]);
+          end;
+      end;
     end;
-  Result := True;
+    Result := True;
+  finally Values.Free; end;
 end;
 
 { ---- HTTP fetch ---- }
