@@ -2,6 +2,7 @@
 #include "../draw/body_colors.hpp"
 #include "../draw/hud.hpp"
 #include "../draw/world.hpp"
+#include "../draw/ui_font.hpp"
 #include "../files/gani.hpp"
 #include "../files/gmap.hpp"
 #include "../files/level.hpp"
@@ -210,6 +211,97 @@ void test_v6_texts() {
   w.v6_texts = false;
   r.draw(c, w, Draw::View{});
   CHECK(count(40, 104, 120, 124, {224, 196, 0, 255}) == 0);
+}
+
+// One selected text pass per frame. All images/font pixels are authored
+// in-memory controls, not an original-client or downloaded-font oracle.
+void test_npc_text_pass_selection() {
+  auto extra_white = [](const Draw::Canvas& actual, const Draw::Canvas& quiet,
+                        int x0, int y0, int x1, int y1) {
+    int count = 0;
+    for (int y = y0; y < y1; ++y)
+      for (int x = x0; x < x1; ++x)
+        count += actual.surface().at(x, y) == Draw::Color{255,255,255,255} &&
+                 actual.surface().at(x, y) != quiet.surface().at(x, y);
+    return count;
+  };
+  Draw::WorldState w;
+  w.level.layers.push_back({}); w.have_level = true; w.v6_texts = true; w.player_hidden = true;
+  Draw::NpcSprite npc;
+  npc.character = true; npc.x = npc.actor.x = 5; npc.y = npc.actor.y = 5;
+  npc.actor.chat = "X"; npc.actor.nick = "Npc"; npc.actor.ap = 50;
+  w.npcs.push_back(npc);
+  Draw::WorldRenderer renderer;
+  Draw::Canvas actual(192,240), quiet(192,240);
+  auto silent = w; silent.npcs[0].actor.chat.clear(); silent.npcs[0].actor.nick.clear();
+  renderer.draw(quiet, silent, Draw::View{}); renderer.draw(actual, w, Draw::View{});
+  CHECK(extra_white(actual, quiet, 60,32,145,64) > 0);  // selected v6 chat above y - 1
+  CHECK(extra_white(actual, quiet, 60,64,145,80) == 0); // no second, legacy-position chat
+  CHECK(extra_white(actual, quiet, 60,120,145,136) > 0); // nickname still present
+  w.v6_texts = silent.v6_texts = false;
+  renderer.draw(quiet, silent, Draw::View{}); renderer.draw(actual, w, Draw::View{});
+  CHECK(extra_white(actual, quiet, 60,64,145,80) > 0);  // pre-v6 NPC chat retained
+  CHECK(extra_white(actual, quiet, 60,32,145,64) == 0);
+  CHECK(extra_white(actual, quiet, 60,120,145,136) == 0); // pre-v6 has no nickname
+  w.lobby = silent.lobby = true; w.v6_texts = silent.v6_texts = true;
+  renderer.draw(quiet, silent, Draw::View{}); renderer.draw(actual, w, Draw::View{});
+  CHECK(actual.surface().pixels == quiet.surface().pixels); // lobby character text stays hidden
+
+  // Image NPC and text-only NPC retain their one message with only the
+  // selected v6 blue shadow. A generic black outline underneath is observable.
+  Draw::Assets assets;
+  assets.put_image("owned-npc.png", Draw::Image(12,9,{80,120,160,255}));
+  renderer.set_assets(&assets);
+  for (bool image : {false, true}) {
+    Draw::WorldState image_world;
+    image_world.level.layers.push_back({}); image_world.have_level = true;
+    image_world.v6_texts = true; image_world.player_hidden = true;
+    Draw::NpcSprite message; message.x = message.y = 5;
+    if (image) message.image = "owned-npc.png";
+    message.message = "X"; image_world.npcs.push_back(message);
+    auto empty = image_world; empty.npcs[0].message.clear();
+    Draw::Canvas expected(192,240);
+    renderer.draw(expected, empty, Draw::View{});
+    const int cx = 80 + (image ? 12 : 32) / 2;
+    const int x = cx - Draw::ui_text_width("X", false) / 2;
+    Draw::ui_draw_text(expected, x+1,65,"X",{0,0,255,255},false);
+    Draw::ui_draw_text(expected, x,64,"X",{255,255,255,255},false);
+    renderer.draw(actual, image_world, Draw::View{});
+    CHECK(actual.surface().pixels == expected.surface().pixels);
+    // Generic lobby message output is identical with v6 flag off or on.
+    image_world.lobby = true; image_world.v6_texts = false;
+    renderer.draw(expected, image_world, Draw::View{});
+    image_world.v6_texts = true; renderer.draw(actual, image_world, Draw::View{});
+    CHECK(actual.surface().pixels == expected.surface().pixels);
+    empty = image_world; empty.npcs[0].message.clear(); renderer.draw(quiet, empty, Draw::View{});
+    CHECK(extra_white(actual,quiet,60,64,145,80) > 0);
+    // The pre-v6 non-lobby generic message remains present as well.
+    image_world.lobby = false; image_world.v6_texts = false;
+    empty = image_world; empty.npcs[0].message.clear();
+    renderer.draw(quiet, empty, Draw::View{}); renderer.draw(actual, image_world, Draw::View{});
+    CHECK(extra_white(actual,quiet,60,64,145,80) > 0);
+  }
+  // Moving v6 dispatch must retain both local and remote player labels.
+  Draw::WorldState players;
+  players.level.layers.push_back({}); players.have_level = true;
+  players.v6_texts = true; players.player_chat = true;
+  players.player.x = 1; players.player.y = 8; players.player.chat = "L";
+  players.player.nick = "Local"; players.player.ap = 50;
+  Draw::Actor remote; remote.x = 7; remote.y = 8; remote.chat = "R";
+  remote.nick = "Remote"; remote.ap = 50; players.others.push_back(remote);
+  auto no_labels = players;
+  no_labels.player.chat.clear(); no_labels.player.nick.clear();
+  no_labels.others[0].chat.clear(); no_labels.others[0].nick.clear();
+  renderer.draw(quiet,no_labels,Draw::View{}); renderer.draw(actual,players,Draw::View{});
+  CHECK(extra_white(actual,quiet,0,96,80,112) > 0);
+  CHECK(extra_white(actual,quiet,100,96,192,112) > 0);
+  CHECK(extra_white(actual,quiet,0,168,80,184) > 0);
+  CHECK(extra_white(actual,quiet,100,168,192,184) > 0);
+  players.v6_texts = no_labels.v6_texts = false;
+  renderer.draw(quiet,no_labels,Draw::View{}); renderer.draw(actual,players,Draw::View{});
+  CHECK(extra_white(actual,quiet,0,112,80,128) > 0);
+  CHECK(extra_white(actual,quiet,100,112,192,128) > 0);
+  CHECK(extra_white(actual,quiet,0,168,192,184) == 0);
 }
 
 }  // namespace
@@ -527,6 +619,7 @@ void test_nw() {
 
 int main() {
   test_v6_texts();
+  test_npc_text_pass_selection();
   test_nw();
   test_grv103();
   test_runs();
