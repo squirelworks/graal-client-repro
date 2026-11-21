@@ -105,3 +105,12 @@ code and a project-only script/socket adapter (see "Status" below).
   decrypted transport buffer, original-client interoperability, VM end-to-end
   acceptance, and the 6.11r1 Mac and Worlds adapters. The companion GPL server
   is a separate opt-in implementation; key exchange is not a playable login.
+
+Project receive limits are enforced before appending to the socket buffer.
+The opt-in bounded poll performs at most eight nonblocking reads per pump,
+then yields so the key deadline can run. Legacy polling callers are unchanged.
+Offline deterministic-reader tests cover continuous input and cap failures;
+the existing CI-only socket fixture also verifies receipt of a partial key
+header, a one-write key-tail/ciphertext pair and subsequent stream continuation.
+TCP may split that write; deterministic Feed tests prove same-buffer handling. These are reproduction tests,
+not a joint run with the companion GPL server or a native client.

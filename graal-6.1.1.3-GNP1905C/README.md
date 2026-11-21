@@ -266,3 +266,12 @@ inner token and tail.
 - [ ] GS2 execution.
 - [ ] Side-by-side against the real 6.1.1.3 client.
 - [ ] macOS was not run in this environment. A skipped macOS job is not a pass.
+
+Project receive limits are enforced before appending to the socket buffer.
+The opt-in bounded poll performs at most eight nonblocking reads per pump,
+then yields so the key deadline can run. Legacy polling callers are unchanged.
+Offline deterministic-reader tests cover continuous input and cap failures;
+the existing CI-only socket fixture also verifies receipt of a partial key
+header, a one-write key-tail/ciphertext pair and subsequent stream continuation.
+TCP may split that write; deterministic Feed tests prove same-buffer handling. These are reproduction tests,
+not a joint run with the companion GPL server or a native client.

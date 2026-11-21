@@ -549,7 +549,9 @@ begin
   begin Fail('project server key timeout'); Exit; end;
   Sock := TGSocket(FSock);
   Old := Length(FRx);
-  Alive := Sock.Poll(FRx);
+  if Phase in [phProjectKey, phProjectTransport] then
+    Alive := Sock.PollBounded(FRx, 1048576 - Length(ProjectReceived), 8)
+  else Alive := Sock.Poll(FRx);
   if not Alive and not (Phase in [phProjectKey, phProjectTransport]) then
   begin
     if Phase = phStoppedClear then
@@ -574,7 +576,7 @@ begin
     begin Fail('project receive buffer limit'); Exit; end;
     ProjectReceived := ProjectReceived + Payload;
     if Project.Ready then Phase := phProjectTransport;
-    if not Alive then Fail('project transport closed');
+    if not Alive then Fail('project transport: ' + Sock.LastError);
     Exit;
   end;
   if Phase = phSeiPending then

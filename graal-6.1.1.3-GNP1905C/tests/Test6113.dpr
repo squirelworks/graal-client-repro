@@ -8,6 +8,7 @@ program Test6113;
 uses
   SysUtils, Classes,
   GSurface in '../../common/GSurface.pas',
+  GSocket in '../../common/GSocket.pas',
   GZlib in '../../common/GZlib.pas',
   GBzip2 in '../../common/GBzip2.pas',
   Frame6113 in '../src/Frame6113.pas',
@@ -349,6 +350,48 @@ var N: Integer;
 begin
   N := 6 + Length(Z);
   Result := #1#2 + Chr(N shr 16) + Chr((N shr 8) and 255) + Chr(N and 255) + #$fd + Z;
+end;
+
+type
+  TFloodReader = class
+    Calls, Available: Integer;
+    function Read(var Chunk; Capacity: Integer): Integer;
+  end;
+function TFloodReader.Read(var Chunk; Capacity: Integer): Integer;
+begin
+  Inc(Calls);
+  if Available = 0 then begin Result := SocketReadWouldBlock; Exit; end;
+  Result := Capacity;
+  if (Available > 0) and (Available < Result) then Result := Available;
+  if Available > 0 then Dec(Available, Result);
+  FillChar(Chunk, Result, 'x');
+end;
+procedure TestBoundedProjectSocket;
+var R: TFloodReader; Buf, Err: string;
+begin
+  R := TFloodReader.Create;
+  try
+    R.Available := -1; Buf := '';
+    Check(DrainSocketBounded(Buf, 1048576, 3, R.Read, Err) and
+      (R.Calls = 3) and (Length(Buf) = 24576),
+      'continuous peer yields after read budget so key deadline can run');
+    R.Calls := 0; Buf := 'keep';
+    Check(not DrainSocketBounded(Buf, 10, 8, R.Read, Err) and
+      (Buf = 'keep') and (R.Calls = 1),
+      'over-limit read fails before destination append/allocation');
+    R.Calls := 0; R.Available := 8; Buf := '';
+    Check(DrainSocketBounded(Buf, 8, 8, R.Read, Err) and (Length(Buf) = 8),
+      'exact-cap input followed by would-block remains valid');
+    R.Calls := 0; R.Available := 1;
+    Check(not DrainSocketBounded(Buf, 8, 8, R.Read, Err) and (Length(Buf) = 8),
+      'one byte after full buffer fails without growth');
+    R.Calls := 0; R.Available := 2; Buf := '';
+    Check(DrainSocketBounded(Buf, 8, 8, R.Read, Err) and (Length(Buf) = 2),
+      'fresh buffer after failure has no lingering drain state');
+    R.Calls := 0;
+    Check(not DrainSocketBounded(Buf, 8, 0, R.Read, Err) and (R.Calls = 0),
+      'invalid drain budget rejected before reading');
+  finally R.Free; end;
 end;
 
 procedure TestProjectCipher;
@@ -819,7 +862,10 @@ var
   Con: TLabConnector;
   Srv: TLabServer;
   S: TSession;
-  I: Integer;
+  I, Counter, BeforeHeader: Integer;
+  Started: QWord;
+  Frame, KeyBlock: string;
+  Peer: TRc4;
 begin
   Con := TLabConnector.Create;
   Srv := TLabServer.Create;
@@ -829,7 +875,7 @@ begin
     Check(Con.Listen(0) and Srv.Listen(0), 'connector and game listeners on 127.0.0.1');
     ConnUnderTest := Con;
     S.ConnectorIdle := PumpConnector;
-    S.ParsePrivateExponent := '01'; { fixture records key exchange; no reply/decrypt here }
+    S.ParsePrivateExponent := '01'; { replaced with the test pair before synthetic reply }
     Check(S.ConnectViaConnector(Con.Port, Srv.Port), 'connector login runs: ' + S.Err);
     Check(Con.Requests = 1, 'one conf.gs request');
     Check(Pos('GET /conf.gs HTTP/1.0', Con.LastRequest) = 1, 'plain GET /conf.gs, no p= blob');
@@ -848,6 +894,47 @@ begin
     Check(Pos('no account admission', Logs.Text) > 0, 'key exchange does not claim account admission');
     Check(Pos('signature verified', Logs.Text) > 0, 'the log shows the signature check');
     Check(S.EndToken = 'project-key-pending', 'the summary identifies pending project key');
+    { This reproduction fixture supplies the existing test parse pair, not
+      the shipped runtime pair and not a native/server admission oracle. }
+    S.Project.SetParseKey(TestN, TestD);
+    Counter := 1;
+    KeyBlock := RsaWrapType2(TestN, BuildServerKeyPlain(1, '0123456789abcdef', ''), StringOfChar('P', 237));
+    Frame := BuildKeyFrame(Counter, KeyBlock);
+    Peer := TRc4.Create('0123456789abcdef');
+    try
+      BeforeHeader := S.BytesAfterHello;
+      Check(Srv.SendProjectFixture(Copy(Frame, 1, 5)), 'CI socket fixture sends partial key header');
+      Started := GetTickCount64;
+      repeat
+        S.Pump;
+        if (S.BytesAfterHello - BeforeHeader >= 5) or (S.Phase = phError) or
+          (GetTickCount64 - Started > 3000) then Break;
+        Sleep(5);
+      until False;
+      Check((S.BytesAfterHello - BeforeHeader = 5) and (S.Phase = phProjectKey) and
+        (S.ProjectReceived = ''), 'socket actually receives five clear bytes and buffers incomplete key');
+      Check(Srv.SendProjectFixture(Copy(Frame, 6, MaxInt) + Peer.Crypt('first payload')),
+        'CI socket fixture writes key tail and encrypted payload together');
+      Started := GetTickCount64;
+      repeat
+        S.Pump;
+        if ((S.Phase = phProjectTransport) and (S.ProjectReceived = 'first payload')) or
+          (S.Phase = phError) or (GetTickCount64 - Started > 30000) then Break;
+        Sleep(5);
+      until False;
+      Check((S.Phase = phProjectTransport) and (S.ProjectReceived = 'first payload'),
+        'actual bounded socket path switches at complete key boundary');
+      Check(Srv.SendProjectFixture(Peer.Crypt(' next')), 'CI socket fixture sends later ciphertext');
+      Started := GetTickCount64;
+      repeat
+        S.Pump;
+        if (S.ProjectReceived = 'first payload next') or (S.Phase = phError) or
+          (GetTickCount64 - Started > 3000) then Break;
+        Sleep(5);
+      until False;
+      Check((S.Phase = phProjectTransport) and (S.ProjectReceived = 'first payload next'),
+        'actual socket path continues incoming RC4 without double decrypt');
+    finally Peer.Free; end;
   finally
     ConnUnderTest := nil;
     S.Free;
@@ -1175,6 +1262,7 @@ begin
     TestSessionCipher;
     TestKeyFrames;
     TestProjectCipher;
+    TestBoundedProjectSocket;
     TestProps;
     TestGs2;
     TestLevelAndCollision;
