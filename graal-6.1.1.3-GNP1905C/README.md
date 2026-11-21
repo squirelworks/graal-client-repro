@@ -108,6 +108,11 @@ Without `--window` the same frames are computed and can be written with
 
 ## Project connector transport
 
+The owner [declined and closed the matching GPL server proposal](https://github.com/squirelworks/seihai-gserver-v2/pull/141#issuecomment-7063957450).
+The independent client adapter is retained without an accepted backend,
+account admission or a forthcoming joint VM test. No alternate backend is
+proposed here. The server PR is left unchanged, with no follow-up work.
+
 `--connector` fetches and verifies the signed clear `conf.gs` before running
 its bounded project script. `SeiConnectorScript` is byte-equal to the shipped
 script. The script sets EILLLT, sends raw `SEI00001`, generates a fresh 16-byte
@@ -220,8 +225,9 @@ numbers the note names. It does not execute any opcode.
   above reads only the bounded project calls and simple variable assignments.
 - [x] Project script and incremental RSA/RC4 socket transport, with offline
   boundary/reset tests. This does not implement authenticated game admission.
-- [ ] Project account/game protocol and VM interoperability with the separate
-  opt-in GPL server, plus stock-client interoperability.
+- [ ] Account/game admission and native interoperability remain unimplemented.
+  The owner declined the matching GPL backend; no such integration, alternate
+  backend or joint VM follow-up is planned by this change.
 - [ ] UDP bind. The image can open a datagram socket from script. This
   connect path does not, and the bind method is not implemented.
 - [ ] AES and the generation-5 XOR mix. The mix width (12 dwords, or
@@ -274,4 +280,4 @@ Offline deterministic-reader tests cover continuous input and cap failures;
 the existing CI-only socket fixture also verifies receipt of a partial key
 header, a one-write key-tail/ciphertext pair and subsequent stream continuation.
 TCP may split that write; deterministic Feed tests prove same-buffer handling. These are reproduction tests,
-not a joint run with the companion GPL server or a native client.
+not a joint backend run or a native-client run.

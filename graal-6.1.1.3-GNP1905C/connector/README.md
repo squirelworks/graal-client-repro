@@ -29,3 +29,8 @@ decrypted transport buffer only. Account/game admission and gameplay dispatch
 remain open. Raw project selection is separate from classic-framed SEI00001
 secure login and the original raw GNP1905C stop path; failure never downgrades
 between those routes. No stock-client or joint VM acceptance is implied.
+
+The owner [declined the matching GPL server transport](https://github.com/squirelworks/seihai-gserver-v2/pull/141#issuecomment-7063957450) and
+closed that proposal unmerged. No matching backend, server follow-up or
+joint VM validation is planned. This directory preserves independent client
+and reproduction work, without proposing a replacement backend.

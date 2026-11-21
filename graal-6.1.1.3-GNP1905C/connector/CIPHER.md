@@ -7,6 +7,16 @@ records the choice and why. It applies to the 6.1.1.3, 6.11r1 Mac and
 shared Worlds scaffolds. The 6.1.1.3 client has the cipher as library
 code and a project-only script/socket adapter (see "Status" below).
 
+## Owner backend decision (2026-11-21)
+
+The owner [closed server PR141 unmerged](https://github.com/squirelworks/seihai-gserver-v2/pull/141#issuecomment-7063957450) and directed that
+`seihai-gserver-v2` retain the plain Graal protocol without this project
+RSA/RC4 transport. That PR is left unchanged; no server glue, admission,
+harness continuation, resubmission or port is planned here. The independent
+client primitives and reproduction adapter remain separate work. There is
+no accepted matching backend or forthcoming joint VM validation, and no
+alternate backend or architecture is proposed by this note.
+
 ## Decision
 
 1. **Session cipher: RC4 with a fresh 16-byte key per direction per
@@ -69,9 +79,9 @@ code and a project-only script/socket adapter (see "Status" below).
   (PKCS #1 v1.5 type 2) to the project server key, the `0xfc`/`0xfd`
   send, RC4 out, and an incoming `0xfc` handler that unwraps with the
   parse key and re-keys RC4 in.
-- seihai-gserver-v2 (and later the Rust gserver): accept `SEI00001`,
-  read the client's `0xfc` with the project private key, and send their
-  own `0xfc`.
+- Historical server requirement: the matching backend would need both key
+  directions. The owner declined this work for `seihai-gserver-v2`; this is
+  not an active server task or a plan to port it to the Rust gserver.
 - The signing fixture stays intentionally public. Server and parse public
   SPKI/modulus fixtures are committed; their new private PEMs and parse
   exponents are runtime-only outside the checkout. Operators keep their own
@@ -103,8 +113,9 @@ code and a project-only script/socket adapter (see "Status" below).
   Failed parsing must never downgrade or fall back between these routes.
 - Not done: authenticated account/game admission, message dispatch after the
   decrypted transport buffer, original-client interoperability, VM end-to-end
-  acceptance, and the 6.11r1 Mac and Worlds adapters. The companion GPL server
-  is a separate opt-in implementation; key exchange is not a playable login.
+  acceptance, and the 6.11r1 Mac and Worlds adapters. The proposed GPL server
+  implementation was declined and closed unmerged. No matching backend or
+  joint validation is planned; key exchange is not a playable login.
 
 Project receive limits are enforced before appending to the socket buffer.
 The opt-in bounded poll performs at most eight nonblocking reads per pump,
@@ -113,4 +124,4 @@ Offline deterministic-reader tests cover continuous input and cap failures;
 the existing CI-only socket fixture also verifies receipt of a partial key
 header, a one-write key-tail/ciphertext pair and subsequent stream continuation.
 TCP may split that write; deterministic Feed tests prove same-buffer handling. These are reproduction tests,
-not a joint run with the companion GPL server or a native client.
+not a joint backend run or a native-client run.
