@@ -17,7 +17,7 @@ struct Vec3 {
 
 // Section 7, the movement data of an object whose movetype made a
 // movement object (torque/udp-session.md §8; the lab run of
-// protocol/lab-appe-gwentea2-2026-11-20d.md, E#505). `interpolate` and
+// protocol/lab-appe-hosta-2026-11-20d.md, E#505). `interpolate` and
 // `rigid` carry one target: a position (3 x f32), a rotation (4 x 8 bits;
 // the lab server's identity rotation is 127, 127, 127, 255), six 9-bit
 // vector parts and a flag. `list` carries entries of 8 x 32 bits; the

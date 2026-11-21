@@ -358,7 +358,7 @@ std::string serverControlUpdate(uint32_t seq, uint32_t ack, const GameObjectStat
 constexpr uint32_t kSec(int n) { return 1u << (n - 1); }
 
 void testMovetypes() {
-  // E#505 (protocol/lab-appe-gwentea2-2026-11-20d.md): a server moves the
+  // E#505 (protocol/lab-appe-hosta-2026-11-20d.md): a server moves the
   // player with a movetype and movement data on its control object.
   const uint32_t announce = kSec(3) | kSec(5) | kSec(6) | kSec(13);
 
