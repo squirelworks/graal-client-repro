@@ -39,7 +39,7 @@ LIBFLAGS = -shared -fPIC -fvisibility=hidden
 EXE =
 endif
 
-.PHONY: all test clean
+.PHONY: all test test-canvas-bounds clean
 all: $(LIB)
 
 build:
@@ -56,7 +56,15 @@ $(LIB): $(SOURCES) $(HEADERS) build/stb_impl.o | build
 build/engine-test$(EXE): tests/engine_test.cpp $(SOURCES) $(HEADERS) build/stb_impl.o | build
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) tests/engine_test.cpp $(SOURCES) build/stb_impl.o -o $@ $(LDLIBS) -pthread
 
-test: $(LIB) build/engine-test$(EXE)
+# Standalone geometry control: no original assets, engine/window or network.
+build/canvas-bounds-test$(EXE): tests/canvas_bounds_test.cpp src/canvas.cpp src/canvas.hpp src/host.hpp include/graalengine.h include/graalengine_slots.def | build
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) tests/canvas_bounds_test.cpp src/canvas.cpp -o $@
+
+test-canvas-bounds: build/canvas-bounds-test$(EXE)
+	./build/canvas-bounds-test$(EXE)
+
+test: $(LIB) build/engine-test$(EXE) build/canvas-bounds-test$(EXE)
+	./build/canvas-bounds-test$(EXE)
 	./build/engine-test$(EXE)
 	python3 tests/check_exports.py $(LIB)
 

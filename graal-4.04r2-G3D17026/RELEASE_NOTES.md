@@ -23,6 +23,11 @@ program works too (`graal-assets/4.04r2/`, then `graal-assets/common/`).
 
 ## What's new in v0.0.5
 
+- [x] Engine canvas rectangle clipping and hit-testing no longer wrap signed
+  edges for large positive extents. Empty extents stay empty; int32 ABI and
+  normal control routing stay the same. Checked with inert geometry controls;
+  this does not establish new native coordinate behavior or double-click bindings.
+
 - [x] **The pictures, icons and levels this program carries are graal-delphi's own art.** What it used to carry from the original program's resources (start and server list art, picture buttons, toolbar and dialog pictures, the icon, cursors, the Training and start levels) is redrawn in the same size, format and layout by `scripts/art/make_art.py` ([docs/art.md](../docs/art.md)). To see the original's own files, put them in `assets/` beside the program (`assets/<version>/res/SCREENIMG1.jpg`, `assets/res/TUTORIALA1.graal`, ...): they win over the compiled-in art with no rebuild ([docs/assets.md](../docs/assets.md), "Your own files").
 
 - [x] The engine-library path requests a cold-missing current GANI with 23 and zero-checksum 157, once per connection, following the 4.04r2 capture. Present invalid files are not treated as cold absence; metadata replies and cache validation remain separate.
