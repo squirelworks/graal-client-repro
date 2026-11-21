@@ -3,22 +3,30 @@
 #include "host.hpp"
 
 #include <algorithm>
+#include <cstdint>
 
 namespace graalengine {
 
 namespace {
 
 graal_rect intersect(const graal_rect& a, const graal_rect& b) {
-  const int x0 = std::max(a.x, b.x);
-  const int y0 = std::max(a.y, b.y);
-  const int x1 = std::min(a.x + a.w, b.x + b.w);
-  const int y1 = std::min(a.y + a.h, b.y + b.h);
-  if (x1 <= x0 || y1 <= y0) return {x0, y0, 0, 0};
-  return {x0, y0, x1 - x0, y1 - y0};
+  if (a.w <= 0 || a.h <= 0 || b.w <= 0 || b.h <= 0) return {0, 0, 0, 0};
+  // Rectangle fields stay int32 at the launcher ABI. Edges can lie beyond
+  // that range even for positive extents, so compute them before narrowing.
+  const auto x0 = std::max<std::int64_t>(a.x, b.x);
+  const auto y0 = std::max<std::int64_t>(a.y, b.y);
+  const auto x1 = std::min(std::int64_t(a.x) + a.w, std::int64_t(b.x) + b.w);
+  const auto y1 = std::min(std::int64_t(a.y) + a.h, std::int64_t(b.y) + b.h);
+  if (x1 <= x0 || y1 <= y0) return {0, 0, 0, 0};
+  // An intersection is no wider/taller than either positive input extent.
+  return {static_cast<std::int32_t>(x0), static_cast<std::int32_t>(y0),
+          static_cast<std::int32_t>(x1 - x0), static_cast<std::int32_t>(y1 - y0)};
 }
 
 bool contains(const graal_rect& r, int x, int y) {
-  return x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h;
+  return r.w > 0 && r.h > 0 && x >= r.x && y >= r.y &&
+         std::int64_t(x) < std::int64_t(r.x) + r.w &&
+         std::int64_t(y) < std::int64_t(r.y) + r.h;
 }
 
 void setClip(const graal_rect& r) { host::SetClippingRectangle(r.x, r.y, r.w, r.h); }

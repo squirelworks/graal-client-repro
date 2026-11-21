@@ -9,7 +9,8 @@ rebuild (plan Track C1). The launcher half is
 
 ```
 make            # build/libgraalengine.so, or build/GraalEngineRepro.dll on Windows
-make test       # recording-host tests, then the export check
+make test       # inert geometry + recording-host tests, then the export check
+make test-canvas-bounds  # inert rectangle clipping/hit tests only
 ```
 
 `scripts/build.sh graal-4.04r2-G3D17026` builds the library and copies it
@@ -50,6 +51,21 @@ Graal_analysis, behaviour only; nothing from a decompile is kept here.
   (`torque/5007-engine.md` adds "when an account and a password are
   already set and no client exists yet"; that check comes with the
   session).
+
+## Rectangle bounds
+
+Canvas clipping and mouse hit-testing use widened intermediate edges while
+keeping the existing int32 rectangle ABI. A positive large extent can cross
+an int32 edge without wrapping into an empty control; nonpositive extents
+are empty. Ordinary exclusive right/bottom edges, visibility and frontmost
+control/dialog routing are unchanged. This fixes the rebuild's arithmetic,
+not a newly measured native coordinate-acceptance rule.
+
+`make test-canvas-bounds` is an inert recording-host control with large,
+negative, empty and ordinary rectangle cases. It loads no engine resources,
+opens no window/socket and requires no original client. The full `make test`
+also runs it; the double/doublemouse native script-binding and session tasks
+below remain open.
 
 ## The start menus (C2)
 
