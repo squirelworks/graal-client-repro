@@ -1,0 +1,3 @@
+# trufflehog --exclude-paths .trufflehogignore: the open lab connector key,
+# public on purpose (common/connector-lab-key/README.md)
+common/connector-lab-key/lab-signing-key\.pem
