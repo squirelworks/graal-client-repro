@@ -38,3 +38,25 @@ The private key here is listed as ignored for GitHub secret scanning
 (`.github/secret_scanning.yml`), gitleaks (`.gitleaks.toml`) and trufflehog
 (`.trufflehogignore`, passed with `--exclude-paths`), so it does not raise
 alerts. Do not add an operator key to those lists.
+
+## Project transport fixtures
+
+`lab-server-key.pub.pem` and `lab-parse-key.pub.pem` are intentional public
+RSA-2048 SPKI keys, with exponent 65537; matching `.modulus` files contain
+`Modulus=` followed by 512 big-endian hex digits. The new private server and
+parse keys are runtime-only and are not committed. These public fixtures do
+not establish operator identity. The existing open signing fixture is unchanged.
+
+For independently justified synthetic wire tests, keep runtime RSA pairs outside
+the checkout. The key formats are private PKCS#1 PEM and public SPKI PEM.
+Replace the public modulus strings in the project connector script to match
+those runtime pairs and re-sign the script with `make-conf.sh`. The client
+receives the parse private exponent as `SEI6113_PARSE_PRIVATE_EXPONENT` (contiguous even-length hex,
+big-endian, 2 through 512 digits; no prefix, separators or whitespace); it is bound to the script's `parsePrivateExponent` variable.
+Never put private exponents, runtime scripts containing them or private PEMs
+in Git. A missing runtime parse exponent fails before any script socket write.
+
+The owner declined the proposed `seihai-gserver-v2` RSA/RC4 backend in
+[PR141](https://github.com/squirelworks/seihai-gserver-v2/pull/141#issuecomment-7063957450). These fixtures do not imply an accepted backend or
+forthcoming joint validation. No further server work or alternate backend
+is planned here; the closed server proposal is left unchanged.

@@ -23,7 +23,7 @@ unit Play6113;
 interface
 
 uses
-  GSurface, Frame6113, Props6113, Level6113, Connector6113;
+  GSurface, Frame6113, Props6113, Level6113, Connector6113, Project6113;
 
 const
   ViewW = 240;
@@ -39,7 +39,7 @@ const
 
 type
   TPhase = (phIdle, phConnecting, phTcpUp, phHelloSent, phStoppedClear,
-    phLabWorld, phError, phSeiPending);
+    phLabWorld, phError, phSeiPending, phProjectKey, phProjectTransport);
 
   TLogFn = procedure(const S: string);
 
@@ -57,6 +57,9 @@ type
     MovesSent: Integer;
     { Connector path results. }
     ConnectorToken: string;
+    ParsePrivateExponent: string;
+    ProjectReceived: string;
+    Project: TProjectCipher;
     ConnectorSteps: Integer;
     ConnectorIdle: TIdleProc;
     Proto: TProtocol;
@@ -69,8 +72,9 @@ type
     function ConnectTo(const Host: string; Port: Word): Boolean;
     { The 6.11 connector login: GET conf.gs from the connector, verify,
       decrypt, connect to the game port, run the connector script. Stops
-      after the SEI00001 hello (not yet usable). }
+      at project key exchange; account/game admission is not implemented. }
     function ConnectViaConnector(ConnectorPort, GamePort: Word): Boolean;
+    function SendProjectFrame(Id: Integer; const Body: string): Boolean;
     function WaitForLab(Ms: Integer): Boolean;
     procedure Pump;
     procedure MoveBy(DX, DY: Integer);
@@ -83,6 +87,8 @@ type
     FRx: string;
     FHelloSent: Boolean;
     FNeedReady: Boolean;
+    FKeyStarted: QWord;
+    procedure ResetConnection;
     procedure Fail(const Msg: string);
     function SendGame(const Wire: string): Boolean;
     procedure UpdateCamera;
@@ -170,7 +176,9 @@ constructor TSession.Create;
 begin
   inherited Create;
   Phase := phIdle;
+  ParsePrivateExponent := GetEnvironmentVariable('SEI6113_PARSE_PRIVATE_EXPONENT');
   Proto := TProtocol.Create;
+  Project := TProjectCipher.Create(Proto);
   Props := TPropBag.Create;
   Level := TLabLevel.Create;
   FSock := TGSocket.Create;
@@ -182,13 +190,25 @@ begin
   TGSocket(FSock).Free;
   Level.Free;
   Props.Free;
+  Project.Free;
   Proto.Free;
   inherited Destroy;
+end;
+
+procedure TSession.ResetConnection;
+begin
+  TGSocket(FSock).Close;
+  Project.Free; Proto.Free;
+  Proto := TProtocol.Create; Project := TProjectCipher.Create(Proto);
+  FRx := ''; ProjectReceived := ''; FHelloSent := False; FNeedReady := False;
+  BytesAfterHello := 0; ConnectorToken := ''; ConnectorSteps := 0; Err := '';
 end;
 
 procedure TSession.Fail(const Msg: string);
 begin
   Phase := phError;
+  TGSocket(FSock).Close;
+  FHelloSent := False;
   Err := Msg;
   LogLine('error: ' + Msg);
 end;
@@ -267,6 +287,7 @@ var
   Sock: TGSocket;
 begin
   Result := False;
+  ResetConnection;
   Sock := TGSocket(FSock);
   UdpOpens := 0;
   if Host <> '127.0.0.1' then
@@ -323,6 +344,7 @@ var
   Sock: TGSocket;
 begin
   Result := False;
+  ResetConnection;
   Sock := TGSocket(FSock);
   UdpOpens := 0;
   Phase := phConnecting;
@@ -350,7 +372,7 @@ begin
     Exit;
   end;
   if PayloadCipherPending then
-    LogLine('connector: payload cipher pending; payload read as clear');
+    LogLine('connector: verified project payload is clear by design');
   if not ParseConnectorScript(Script, Steps, Err) then
   begin
     Fail(Err);
@@ -365,7 +387,7 @@ begin
   Sock.SetNoDelay(True);
   Phase := phTcpUp;
   LogLine('tcp up; datagram sockets opened: 0');
-  if not RunConnectorSteps(Steps, Proto, SendGame, ConnectorToken, Err) then
+  if not RunConnectorSteps(Steps, Proto, SendGame, ConnectorToken, Err, Project, ParsePrivateExponent) then
   begin
     Fail(Err);
     Exit;
@@ -379,14 +401,24 @@ begin
   Phase := phHelloSent;
   LogLine('connector: header template ' + ConnectorTemplate + ' set');
   LogLine('connector hello sent: ' + ConnectorToken);
-  if (ConnectorToken = SeiToken) and not SeiTokenUsable then
+  if (ConnectorToken = SeiToken) and (Proto.Enc = eoRc4) then
   begin
-    Phase := phSeiPending;
-    LogLine('stopped after SEI00001 hello; ' + SeiPendingNote);
+    Phase := phProjectKey;
+    FKeyStarted := GetTickCount64;
+    LogLine('project key sent; waiting for server key, no account admission');
   end
-  else
-    Phase := phStoppedClear;
+  else Phase := phStoppedClear;
   Result := True;
+end;
+
+function TSession.SendProjectFrame(Id: Integer; const Body: string): Boolean;
+var Wire, Why: string;
+begin
+  Result := False;
+  if Phase <> phProjectTransport then Exit;
+  if not Proto.SendData(Id, Body, Wire, Why) then begin Fail(Why); Exit; end;
+  Result := SendGame(Wire);
+  if not Result then Fail('project frame write failed');
 end;
 
 function TSession.WaitForLab(Ms: Integer): Boolean;
@@ -508,13 +540,19 @@ procedure TSession.Pump;
 var
   Sock: TGSocket;
   Old: Integer;
-  Payload: string;
+  Alive: Boolean;
+  Payload, Why: string;
 begin
   if Phase = phError then Exit;
   if not FHelloSent then Exit;
+  if (Phase = phProjectKey) and (GetTickCount64 - FKeyStarted > 30000) then
+  begin Fail('project server key timeout'); Exit; end;
   Sock := TGSocket(FSock);
   Old := Length(FRx);
-  if not Sock.Poll(FRx) then
+  if Phase in [phProjectKey, phProjectTransport] then
+    Alive := Sock.PollBounded(FRx, 1048576 - Length(ProjectReceived), 8)
+  else Alive := Sock.Poll(FRx);
+  if not Alive and not (Phase in [phProjectKey, phProjectTransport]) then
   begin
     if Phase = phStoppedClear then
     begin
@@ -527,6 +565,18 @@ begin
       Exit;
     end;
     Fail(Sock.LastError);
+    Exit;
+  end;
+  if Phase in [phProjectKey, phProjectTransport] then
+  begin
+    Inc(BytesAfterHello, Length(FRx) - Old);
+    if not Project.Feed(FRx, Payload, Why) then begin Fail(Why); Exit; end;
+    FRx := '';
+    if Length(ProjectReceived) + Length(Payload) > 1048576 then
+    begin Fail('project receive buffer limit'); Exit; end;
+    ProjectReceived := ProjectReceived + Payload;
+    if Project.Ready then Phase := phProjectTransport;
+    if not Alive then Fail('project transport: ' + Sock.LastError);
     Exit;
   end;
   if Phase = phSeiPending then
@@ -638,6 +688,8 @@ begin
     phLabWorld: Result := 'LAB';
     phError: Result := 'ERROR';
     phSeiPending: Result := 'SEI PENDING';
+    phProjectKey: Result := 'PROJECT KEY';
+    phProjectTransport: Result := 'PROJECT TRANSPORT';
   else
     Result := 'ERROR';
   end;
@@ -648,6 +700,8 @@ begin
   if Phase = phError then Result := 'error'
   else if Phase = phStoppedClear then Result := 'clear-hello'
   else if Phase = phSeiPending then Result := 'sei-pending'
+  else if Phase = phProjectKey then Result := 'project-key-pending'
+  else if Phase = phProjectTransport then Result := 'project-transport'
   else Result := 'clean';
 end;
 

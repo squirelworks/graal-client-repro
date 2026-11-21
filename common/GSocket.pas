@@ -10,12 +10,17 @@ unit GSocket;
 
 interface
 
+const
+  SocketReadWouldBlock = -2;
 type
+  { Reader returns bytes, 0 for EOF, -2 for would-block, -1 for failure. }
+  TBoundedSocketReader = function(var Chunk; Capacity: Integer): Integer of object;
   TGSocket = class
   private
     FHandle: Integer;
     FConnected: Boolean;
     FLastError: string;
+    function ReadBounded(var Chunk; Capacity: Integer): Integer;
   public
     constructor Create;
     destructor Destroy; override;
@@ -27,11 +32,17 @@ type
     { Appends whatever is waiting to Buffer. Returns False when the peer
       closed the link or an error happened. }
     function Poll(var Buffer: string): Boolean;
+    { Opt-in bounded drain. Caps before append and yields after MaxReads. }
+    function PollBounded(var Buffer: string; MaxBuffer, MaxReads: Integer): Boolean;
     { TCP_NODELAY on the connected socket (off by default, as in WinSock). }
     function SetNoDelay(On: Boolean): Boolean;
     property Connected: Boolean read FConnected;
     property LastError: string read FLastError;
   end;
+
+{ Pure drain policy, also exercised with an offline deterministic reader. }
+function DrainSocketBounded(var Buffer: string; MaxBuffer, MaxReads: Integer;
+  Reader: TBoundedSocketReader; out Err: string): Boolean;
 
 implementation
 
@@ -267,6 +278,52 @@ begin
 {$ELSE}
   Result := setsockopt(FHandle, IPPROTO_TCP_, TCP_NODELAY_, PChar(@V), SizeOf(V)) = 0;
 {$ENDIF}
+end;
+
+function DrainSocketBounded(var Buffer: string; MaxBuffer, MaxReads: Integer;
+  Reader: TBoundedSocketReader; out Err: string): Boolean;
+var
+  Chunk: array[0..8191] of Char;
+  N, Old, Remaining, Capacity, Reads: Integer;
+begin
+  Result := False; Err := '';
+  if (MaxBuffer < 0) or (MaxReads < 1) or (Length(Buffer) > MaxBuffer) or not Assigned(Reader) then
+  begin Err := 'invalid bounded receive limits'; Exit; end;
+  for Reads := 1 to MaxReads do
+  begin
+    Remaining := MaxBuffer - Length(Buffer);
+    Capacity := SizeOf(Chunk);
+    { Read at most one byte beyond remaining capacity into the fixed stack
+      buffer, so excess is rejected before resizing the destination. }
+    if Remaining < Capacity then Capacity := Remaining + 1;
+    N := Reader(Chunk, Capacity);
+    if N = SocketReadWouldBlock then begin Result := True; Exit; end;
+    if N = 0 then begin Err := 'connection closed by the server'; Exit; end;
+    if (N < 0) or (N > Capacity) then begin Err := 'recv failed'; Exit; end;
+    if N > Remaining then begin Err := 'receive buffer limit'; Exit; end;
+    Old := Length(Buffer); SetLength(Buffer, Old + N);
+    Move(Chunk[0], Buffer[Old + 1], N);
+  end;
+  Result := True; { Yield even when the peer continuously supplies bytes. }
+end;
+
+function TGSocket.ReadBounded(var Chunk; Capacity: Integer): Integer;
+begin
+{$IFDEF FPC}
+  Result := fpRecv(FHandle, @Chunk, Capacity, 0);
+{$ELSE}
+  Result := WinSock.recv(FHandle, Chunk, Capacity, 0);
+{$ENDIF}
+  if (Result < 0) and WouldBlock then Result := SocketReadWouldBlock;
+end;
+
+function TGSocket.PollBounded(var Buffer: string; MaxBuffer, MaxReads: Integer): Boolean;
+var Why: string;
+begin
+  Result := False;
+  if not FConnected then Exit;
+  Result := DrainSocketBounded(Buffer, MaxBuffer, MaxReads, ReadBounded, Why);
+  if not Result then begin FLastError := Why; Close; end;
 end;
 
 function TGSocket.Poll(var Buffer: string): Boolean;

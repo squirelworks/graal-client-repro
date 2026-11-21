@@ -58,6 +58,8 @@ type
     AfterSei: string;
     Moves: Integer;
     PlayerX, PlayerY: Integer;
+    { Synthetic project-wire bytes for the CI-only socket fixture. }
+    function SendProjectFixture(const Data: string): Boolean;
     constructor Create;
     destructor Destroy; override;
     function Listen(APort: Word): Boolean;
@@ -205,6 +207,24 @@ begin
   Arg := 1;
   ioctlsocket(S, Longint(FIONBIO), Arg);
 {$ENDIF}
+end;
+
+function TLabServer.SendProjectFixture(const Data: string): Boolean;
+var Done, N: Integer; Started: QWord;
+begin
+  Result := False;
+  if FPeer < 0 then Exit;
+  Done := 0; Started := GetTickCount64;
+  while Done < Length(Data) do
+  begin
+    if GetTickCount64 - Started > 5000 then
+    begin LastError := 'project fixture send timeout'; DropPeer; Exit; end;
+    N := fpSend(FPeer, @Data[Done + 1], Length(Data) - Done, 0);
+    if N > 0 then Inc(Done, N)
+    else if (N < 0) and WouldBlock then Sleep(1)
+    else begin LastError := 'project fixture send failed'; DropPeer; Exit; end;
+  end;
+  Result := True;
 end;
 
 constructor TLabServer.Create;

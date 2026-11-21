@@ -8,8 +8,8 @@
 # starts the clients with --connector-key. The reply is:
 #   u32be(256) signature u32be(N) payload
 # where signature is RSA-2048 PKCS #1 v1.5 type 1 over the bare SHA-256
-# digest of payload (no DigestInfo). The payload cipher is pending, so the
-# payload is the script text as is.
+# digest of payload (no DigestInfo). The project deliberately keeps the
+# verified payload clear: it is the script text as is.
 set -eu
 : "${SEI_CONNECTOR_KEY:=$(dirname "$0")/../../common/connector-lab-key/lab-signing-key.pem}"
 IN=$1

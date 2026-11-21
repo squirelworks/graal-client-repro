@@ -1,5 +1,5 @@
 { Graal 6.1.1.3 (GNP1905C). The clear hello is the documented login.
-  Anything after it is either refused or the lab-only fixture.
+  The original raw path stops there; project transport is separate.
 
   Graal6113 --level FILE [--window] [--frames N] [--keys SCRIPT]
              [--dump FRAME.bmp]
@@ -11,12 +11,12 @@
 
   --connector runs the 6.11 connector login: GET conf.gs, check the
   project-key signature, run the connector script (setProtocol EILLLT,
-  sendRaw, setEncryptionOut). The project script sends the placeholder
-  token SEI00001, which is not yet usable: the client stops after it
-  until seihai-gserver-v2 handles SEI00001.
+  sendRaw and RSA/RC4 key exchange). The raw project token SEI00001
+  selects project transport only, without account/game admission.
   --lab continues after the clear hello on the lab fixture. Without it the
   client sends GNP1905C and stops. The cipher is not applied.
-  --password-env is accepted and never sent or logged.
+  The project connector does not serialize account/password fields;
+  classic secure login remains a separate route.
   This rebuild connects only to 127.0.0.1. }
 program Graal6113;
 
@@ -80,7 +80,7 @@ begin
   WriteLn('  --level FILE [--window] [--frames N] [--keys SCRIPT] [--dump FILE]');
   WriteLn('  --server 127.0.0.1:PORT [--lab] [--window] [--frames N] [--keys SCRIPT]');
   WriteLn('  --lab-serve PORT [--seconds N]');
-  WriteLn('  --server 127.0.0.1:PORT --connector 127.0.0.1:PORT   connector login (SEI00001, not yet usable)');
+  WriteLn('  --server 127.0.0.1:PORT --connector 127.0.0.1:PORT   project RSA/RC4 transport (no account admission)');
   WriteLn('  --connector-serve PORT --conf FILE [--seconds N]     lab conf.gs responder');
   WriteLn('  --connector-key FILE    trust this operator modulus (hex) instead of the open lab key');
   WriteLn('  --password-env VAR   accepted, never sent or logged');
