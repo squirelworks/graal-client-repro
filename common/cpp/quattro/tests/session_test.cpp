@@ -227,11 +227,41 @@ void test_session_524() {
   CHECK(game.login_line == want);
 }
 
+// 6.00r4 shares the 5.31 token, not its receive switch. Exercise the
+// production connection filter after a real synthetic gen-5 login.
+void test_session_600() {
+  const BuildProfile* prof = find_profile("6.00r4");
+  CHECK(prof);
+  if (!prof) return;
+  FakeServer server;
+  CHECK(server.start());
+  std::vector<int> delivered;
+  Session::Events ev;
+  ev.message = [&](int id, std::string_view) { delivered.push_back(id); };
+  Session session(*prof, ev);
+  session.next_key = [] { return uint8_t(0x5A); };
+  CHECK(session.start("127.0.0.1", server.port(), "guest", "pw"));
+  CHECK(server.conn.accept_from(server.listener));
+  CHECK(run_until(session, &server, nullptr, [&] { return server.saw(37, "English"); }));
+  const std::string want = "G3D26090" + gstring("guest") + gstring("pw") +
+    "win" + kFakeWinFields + ",\"6.2 9200 \"";
+  CHECK(server.login_line == want);
+  server.send(gchar(165) + "ignored\n" + gchar(169) + "ignored\n" +
+              gchar(111) + "ignored\n" + gchar(175) + "accepted\n" +
+              gchar(184) + "accepted\n" + gchar(6) + "done.nw\n");
+  CHECK(run_until(session, &server, nullptr, [&] { return delivered.size() == 3; }));
+  CHECK((delivered == std::vector<int>{175, 184, 6}));
+  CHECK(session.connection().dropped() == 3);
+  CHECK(!session.connection().send(39, "x"));
+  CHECK(!session.connection().send(160, "x"));
+}
+
 int main() {
   test_warp_parse();
   test_session();
   test_session_404();
   test_session_512();
   test_session_524();
+  test_session_600();
   TEST_MAIN_END();
 }

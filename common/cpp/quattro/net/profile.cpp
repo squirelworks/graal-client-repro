@@ -130,6 +130,24 @@ std::vector<BuildProfile> make() {
   r531.plo.reset(181);
   rows.push_back(r531);
 
+  // Windows 6.00r4 has its own 93-id receive switch despite sharing
+  // G3D26090 with 5.31r4: no 165/169, but 175/184 remain (Graal_analysis
+  // protocol/v5v6-windows-unpacked.md). The outgoing set is explicitly
+  // incomplete/inferred from Linux 6.01r1 in version-profiles/5.00-6.03.toml.
+  // Gameplay, own-prop handling, login requests and HUD inherit the 6.x
+  // rebuild; they are not fresh measurements of Windows 6.00r4.
+  BuildProfile r600 = r603w;
+  r600.label = "6.00r4 Windows";
+  r600.token = "G3D26090";
+  r600.plo.reset(111);
+  r600.plo.set(175);
+  r600.plo.set(184);
+  r600.pli.reset(160);
+  r600.escape_menu = false;
+  r600.carry_sprite_after = 4;
+  r600.carry_still_after = 6;
+  rows.push_back(r600);
+
   // 4.04r2 (Windows, the GraalEngine.dll session, used by
   // common/cpp/graalengine). From Graal_analysis protocol/v4x-clients.md
   // and version-profiles/4.04-4.20.toml, as graal-4.04r2-G3D17026's
