@@ -70,6 +70,29 @@ Graal600r4 --level some.nw                                          # offline
 With `--server` and no `--server-name` the server is `Login`: no tiles and
 no characters are drawn until the server sends a 178.
 
+## Opt-in Quattro engine
+
+`Graal600r4 --engine --server HOST:PORT --account NAME` or
+`Graal600r4 --engine --level some.nw` hands the game to the packaged
+`quattro-play --build 6.00r4`. Supported extra options are `--window`,
+`--data`, `--seconds` (positive), offline `--x` / `--y`, and online
+`--password-env` / `--server-name`. The password is read from the selected
+environment variable and handed to the child through the existing private
+environment channel. Unsupported or duplicate options exit 64; a missing
+or disabled engine (including Linux without a display) exits 69. There is
+no silent fallback from an explicit engine request.
+
+The profile uses the published 93-id receive switch, Windows login fields
+and gen-5 framing. Its outgoing set remains incomplete and inferred from
+Linux 6.01r1, as documented in Graal_analysis's `5.00-6.03.toml`. Own-prop
+handling, HUD, package requests and gameplay inherit the 6.x rebuild;
+this implementation does not establish new original-client measurements.
+IDs 175 and 184 pass the receive filter but their game behavior remains
+unimplemented. The no-argument start screen and ordinary CLI still run
+Pascal. A default switch and original-client/end-to-end acceptance remain
+open. macOS uses the existing AppKit packaging path; no macOS compilation
+or runtime validation is claimed here.
+
 ## Files it opens
 
 From the program's folder (or `--data`), then `graal-assets/6.00r4/`, then
@@ -87,6 +110,9 @@ From the program's folder (or `--data`), then `graal-assets/6.00r4/`, then
 - `listserver.txt` (optional)
 
 ## Not yet, or not known
+
+- [x] Explicit opt-in `--engine` profile and CLI handoff (above).
+- [ ] Validate the engine end-to-end before changing the no-argument/release default.
 
 - [ ] The beta expiry: the original logs "This is a beta release of Graal..." and exits unless the clock is set back to its build month. The rebuild has no expiry.
 - [ ] 175 and 184 are accepted and ignored.

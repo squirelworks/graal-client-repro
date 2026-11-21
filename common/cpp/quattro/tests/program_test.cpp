@@ -1348,8 +1348,8 @@ void test_program_524() {
 
 // 5.31r4 on Quattro: login, the 178 warp and walk, as the lab played it.
 // Login mode draws no tiles before the warp (v5v6-lab-play.md).
-void test_program_531() {
-  const Net::BuildProfile* prof = Net::find_profile("5.31r4");
+void test_program_531_or_600(const char* build) {
+  const Net::BuildProfile* prof = Net::find_profile(build);
   CHECK(prof && !prof->login_draws_tiles);
   if (!prof) return;
   FakeServer login, game;
@@ -1401,8 +1401,8 @@ void test_program_531() {
   }
   win.keys.clear();
   CHECK(p.me().x > x0);
-  // 46 is unread for 5.x: the rebuild does not send it.
-  for (auto& [id, b] : game.got) CHECK(id != 46);
+  // The profiles share a token, but only the 6.x row sends ENTERLEVEL.
+  CHECK(game.saw(46, gchar(1)) == prof->sends_enter_level);
 }
 
 // 6.03r7's level entry and the general handlers it added over 6.00:
@@ -1626,7 +1626,8 @@ int main() {
   test_script_native_bounds();
   test_program();
   test_program_524();
-  test_program_531();
+  test_program_531_or_600("5.31r4");
+  test_program_531_or_600("6.00r4");
   test_program_603_level_entry();
   test_program_603_load_gani();
   test_program_603_level_link();

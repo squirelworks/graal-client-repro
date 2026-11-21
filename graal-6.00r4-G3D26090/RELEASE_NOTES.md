@@ -22,6 +22,9 @@ to the program works too.
 
 ## What's new in v0.0.5
 
+- [x] **Explicit Quattro engine route.** `--engine` hands supported online/offline arguments to the packaged `6.00r4 Windows` profile. It has the documented 93-id receive set and Windows login tail; inferred outgoing/own-prop/gameplay limits remain in the README. Inert argument tests and synthetic connection/program regressions cover the route. No-argument/default Pascal behavior stays unchanged; original-client end-to-end acceptance remains open.
+- [x] **Receive filter consistency.** The Pascal switch now includes documented IDs 175 and 184, matching its stated 93-id set; their game behavior is still unimplemented.
+
 - [x] **Short compressed frames step the cipher rounded down.** A zlib or bz2 body now steps the gen-5 key len / 4 times rounded down (a raw one still rounds up), as the read 4.04r2, 5.12 and 6.03r7 do and as seihai-core v0.7.0 expects of every gen-5 build from 4.04r2 on. Round-up only held while frame lengths happened to agree.
 - [x] **New client.** 6.00r4 has a folder of its own, started from `graal-6.0.1.5-G3D3007A` with its own token `G3D26090` and the Windows login tail (`win` and four machine fields) and `win` as its system name.
 - [x] **Machine fields in the original's shape.** The login line now sends `win`, three fixed made-up MD5 hashes (of SquirrelOS, SquirrelNIC and SquirrelBIOS strings) and the quoted Windows version `"6.2 9200 "`, the shape the real client sends. Nothing is read from your machine.

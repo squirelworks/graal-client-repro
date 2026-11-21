@@ -217,6 +217,21 @@ void test_profiles() {
     CHECK(r531->plo.count() == 95);
   }
 
+  const BuildProfile* r600 = find_profile("6.00r4");
+  CHECK(r600 && r600 != r531 && r600->token == "G3D26090");
+  if (r600) {
+    CHECK(r600->platform == "win" && r600->has_os_version);
+    CHECK(r600->machine_fields == kFakeWinFields && r600->os_version == "6.2 9200 ");
+    auto expected = r603->plo;
+    expected.reset(111); expected.set(175); expected.set(184);
+    CHECK(r600->plo == expected && r600->plo.count() == 93);
+    CHECK(!r600->plo.test(165) && !r600->plo.test(169));
+    CHECK(r600->pli == r601->pli && !r600->pli.test(39) && !r600->pli.test(160));
+    CHECK(r600->packed_round_down && !r600->compress_always);
+    CHECK(r600->own_props == OwnProps::k6x && !r600->login_draws_tiles);
+    CHECK(!r600->escape_menu && r600->carry_sprite_after == 4);
+  }
+
   // 5.00r7 and 5.12: the same 100-id switch (v5v6-windows-unpacked.md).
   const BuildProfile* r500 = find_profile("5.00r7");
   const BuildProfile* r512 = find_profile("5.12");
