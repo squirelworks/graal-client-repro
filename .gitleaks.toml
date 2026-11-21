@@ -1,0 +1,11 @@
+# gitleaks: the default rules, less the open lab connector key.
+# common/connector-lab-key/lab-signing-key.pem is public on purpose and
+# authenticates nothing (common/connector-lab-key/README.md).
+[extend]
+useDefault = true
+
+[allowlist]
+description = "open lab connector key, public on purpose"
+paths = [
+  '''common/connector-lab-key/lab-signing-key\.pem''',
+]

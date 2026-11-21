@@ -303,12 +303,28 @@ fi
 # that have it: loop2 again with the password sealed, trusting the
 # gserver's key on first use in a settings folder of its own
 if grep -qs "GSecLogin" "$ROOT/$B"/src/*.dpr; then
-  set +e
-  GRAAL_SECURE_DIR="$WORK/sec" GRAAL_PW=loopbackpw "$CLIENT" --server 127.0.0.1:$PORT \
-    --account loop2 --frames 40 --secure-login required > "$WORK/secure.json" 2> "$WORK/secure.log"
-  RC4=$?
-  set -e
-  echo "--- loop2, secure login"; cat "$WORK/secure.log" "$WORK/secure.json"
+  # 40 frames (2 s) flaked on main after #433: the hello went out, no S1
+  # came back in the 2 s, and the gserver log was printed before this step
+  # so it could not say why. 80 frames (4 s) give a slow runner room; the
+  # gserver log is now printed after this step, and a try that does not
+  # log in is retried once, with a warning, in a fresh settings folder.
+  secure_try() {
+    rm -rf "$WORK/sec"
+    set +e
+    GRAAL_SECURE_DIR="$WORK/sec" GRAAL_PW=loopbackpw "$CLIENT" --server 127.0.0.1:$PORT \
+      --account loop2 --frames 80 --secure-login required > "$WORK/secure.json" 2> "$WORK/secure.log"
+    RC4=$?
+    set -e
+    echo "--- loop2, secure login (try $1)"; cat "$WORK/secure.log" "$WORK/secure.json"
+    grep -q '"kind":"summary".*"end":"clean"' "$WORK/secure.json"
+  }
+  if ! secure_try 1; then
+    echo "::warning::$B: secure login try 1 did not log in; gserver log so far:"
+    cat "$WORK/gserver.log"
+    secure_try 2 || true
+  fi
+  echo "--- gserver log, after the secure login"
+  cat "$WORK/gserver.log"
   if ! grep -q "SEI00001 inner ${B##*-}" "$WORK/gserver.log"; then
     echo "gserver did not log a SEI00001 login"; exit 1
   fi

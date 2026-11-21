@@ -31,3 +31,10 @@ openssl rsa -in operator.pem -noout -modulus > operator.modulus
 ```
 
 Never reuse this lab key for anything that needs to be secret.
+
+## Secret scanners
+
+The private key here is listed as ignored for GitHub secret scanning
+(`.github/secret_scanning.yml`), gitleaks (`.gitleaks.toml`) and trufflehog
+(`.trufflehogignore`, passed with `--exclude-paths`), so it does not raise
+alerts. Do not add an operator key to those lists.
