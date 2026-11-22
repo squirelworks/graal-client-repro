@@ -28,7 +28,7 @@ arguments:
 | 6.00b1 | Quattro `quattro-play`, explicit `--engine` | Pascal | inherited gameplay and native/full e2e acceptance remain; no default switch |
 | Linux beta dated 2011-06-27 (`G3D28090`, native version unknown) | Quattro, explicit `--engine` | Pascal | 6.01r1 rebuild contract inherited; native/expiry/e2e and default switch remain open |
 | 6.004mac, 6.0.1.5, 6.015mac, 6.0.3.4 | Quattro (no profile row yet) | Pascal | add a profile row, hand off, e2e, switch |
-| 6.1.1.3, 6.11r1 Mac | connector clients | Pascal | connector cipher end to end (#429), then Quattro |
+| 6.1.1.3, 6.11r1 Mac | connector clients | Pascal | independent client primitives merged (#436); admission/native/Mac integration incomplete (#429), declined backend not continued |
 
 ## 1. Run the end-to-end tests
 
@@ -103,10 +103,12 @@ Use a headless lab VM (never bare metal), Xvfb for the windowed client.
      `common/GQuattroPlay.pas`, as `graal-6.03r7-G3D0511C/src/Graal603.dpr`
      does, and add the folder to the Quattro list in `scripts/build.sh`.
    - Remaining long-tail GS2 builtins (`serverwarp`, ...), plan item D2+.
-2. **Connector clients (#429).** The project script that sends the
-   `0xfd`/`0xfc` key frame, the socket loop calling `Cipher6113`, the
-   server side in seihai-gserver-v2, then the Mac and Worlds scaffolds.
-   Then put 6.1.1.3 / 6.11r1 on Quattro.
+2. **Connector clients (#429).** Independent project-script/socket primitives
+   are merged in [#436](https://github.com/squirelworks/graal-client-repro/pull/436),
+   with reproduction tests. The owner [declined the matching gserver-v2 transport](https://github.com/squirelworks/seihai-gserver-v2/pull/141#issuecomment-7063957450)
+   and closed that proposal unmerged; no server continuation, alternate backend
+   or forthcoming joint validation is planned. Account/game admission, native
+   interoperability, Mac/Worlds adapters and Quattro integration remain open.
 3. **The 4.x / 5.0 engine library (#304), the biggest piece.**
    `common/cpp/graalengine`: the launcher (`common/GEngineHost.pas`)
    loads it with `--engine`. Menus, login, level, walk and chat work on
