@@ -135,7 +135,10 @@ class WinWindow final : public Window {
       if (state[VK_SHIFT] & 0x80) mod("shift");
       if (state[VK_CONTROL] & 0x80) mod("ctrl");
       if (state[VK_MENU] & 0x80) mod("alt");
-      if (press && !e.key.empty()) self->gui_down_.emplace(w, e);
+      if (press && !e.key.empty()) {
+        const auto saved = self->gui_down_.emplace(w, e);
+        e.key = saved.first->second.key; // repeats retain the press identity, not its current modifiers
+      }
       if (!press) {
         auto it = self->gui_down_.find(w);
         if (it != self->gui_down_.end()) {

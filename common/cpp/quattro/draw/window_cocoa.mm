@@ -343,7 +343,10 @@ class CocoaWindow final : public Window {
     if (f & NSEventModifierFlagShift) mod("shift");
     if (f & NSEventModifierFlagControl) mod("ctrl");
     if (f & NSEventModifierFlagOption) mod("alt");
-    if (press && !e.key.empty()) gui_down_.emplace(code, e);
+    if (press && !e.key.empty()) {
+      const auto saved = gui_down_.emplace(code, e);
+      e.key = saved.first->second.key; // keep release identity while retaining current text/modifiers
+    }
     if (!press) {
       auto it = gui_down_.find(code);
       if (it != gui_down_.end()) {

@@ -476,6 +476,7 @@ void Program::on_destroy(const gs2::VarPtr& v) {
 // ----------------------------------------------------------------- events
 
 bool Program::held_index(int i) const {
+  if (chat_active_ || chat_release_pending_ || chat_blocks_tick_) return false;
   auto held = [this](Draw::Key k) { return window_.held(k); };
   switch (i) {
     case 0: return held(Draw::Key::Up) || (action_moves_ & 1u);

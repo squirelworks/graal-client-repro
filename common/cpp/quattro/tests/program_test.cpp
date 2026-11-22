@@ -3,6 +3,7 @@
 // server and the board is drawn.
 #include "../../gs2/tests/assembler.hpp"
 #include "../shell/program.hpp"
+#include "../draw/input_keys.hpp"
 #include "check.hpp"
 #include "fake_server.hpp"
 
@@ -1622,7 +1623,155 @@ void test_program_603_level_link() {
   CHECK(p.me().chat.empty());
 }
 
+
+// Own-project composer through the same window queue used by native adapters.
+// This is not a native-client shortcut or Unicode/IME contract.
+void test_project_chat_input() {
+  const auto* prof = Net::find_profile("6.03r7");
+  CHECK(prof);
+  if (!prof) return;
+  FakeServer game;
+  CHECK(game.start());
+  Shell::Options opt;
+  opt.host = "127.0.0.1"; opt.port = game.port();
+  opt.server_name = "Project Game"; opt.width = 320; opt.height = 240;
+  class InputWindow : public HeldWindow {
+   public:
+    Draw::Key pending = Draw::Key::NoKey;
+    Draw::Key poll_key() override { auto k = pending; pending = Draw::Key::NoKey; return k; }
+  } win;
+  Shell::Program p(*prof, opt, win);
+  CHECK(p.start());
+  CHECK(game.conn.accept_from(game.listener));
+  CHECK(run(p, nullptr, &game, [&] { return game.saw(37, "English"); }));
+  auto key = [&](const std::string& name, int ch = 0, const std::string& mods = "", bool up = true) {
+    Draw::InputEvent e; e.key = name; e.ch = ch; e.mods = mods;
+    win.push_input(e);
+    if (up) { e.type = Draw::InputEvent::KeyUp; win.push_input(e); }
+  };
+  auto release = [&](const std::string& name) {
+    Draw::InputEvent e; e.type = Draw::InputEvent::KeyUp; e.key = name; win.push_input(e);
+  };
+  auto frame = [&] { CHECK(p.tick()); game.pump(); };
+  auto panel = [&] {
+    const auto& passes = p.last_passes();
+    return std::find(passes.begin(), passes.end(), "ChatInput") != passes.end();
+  };
+  auto sent = [&](const std::string& text) {
+    const std::string body = gchar(World::kCurChat) + Net::gstring(text);
+    return std::count_if(game.got.begin(), game.got.end(), [&](const auto& pk) {
+      return pk.first == 2 && pk.second == body;
+    });
+  };
+  key("enter", 13, "ctrl"); frame(); CHECK(!panel()); // no level/own props yet
+  game.send(send_level("onlinestartlocal.nw", 7) + gchar(9) + gchar(World::kMaxPower) + gchar(3) +
+            gchar(World::kCurPower) + gchar(6) + gchar(World::kX) + gchar(60) +
+            gchar(World::kY) + gchar(60) + "\n");
+  CHECK(run(p, nullptr, &game, [&] { return p.world().have_level && p.me().power == 6; }));
+  using gs2asm::Asm;
+  Asm a;
+  a.function("onKeyPressed", {"code", "ch", "scancode"});
+  a.var("chat_input_keys").op(Asm::INC).op(Asm::POP).num(0).op(Asm::RET);
+  a.function("onWeaponFired", {});
+  a.var("chat_input_fired").op(Asm::INC).op(Asm::POP).num(0).op(Asm::RET);
+  a.function("onPlayerChats", {});
+  a.var("chat_input_chats").op(Asm::INC).op(Asm::POP);
+  a.var("chat_input_heard").op(182).var("chat").op(Asm::MEMBER).op(Asm::ASSIGN).num(0).op(Asm::RET);
+  Shell::ScriptDescriptor d; d.type = "weapon"; d.name = "InputControl";
+  std::string raw = gchar(140) + Shell::make_script_packet(d, a.bytes()) + "\n";
+  game.send(gchar(33) + Net::gstring(d.name) + "\n" +
+            gchar(100) + Net::gint3(static_cast<uint32_t>(raw.size())) + "\n" + raw);
+  CHECK(run(p, nullptr, &game, [&] { return p.scripts().machine().hasScript(p.scripts().weapon(d.name)); }));
+  auto u = p.scripts().machine().universe();
+  auto value = [&](const char* name) { return u->child(name) ? u->child(name)->string() : ""; };
+  key("enter", 13); frame(); CHECK(value("chat_input_keys") == "1" && !panel()); // existing plain Enter
+  key("enter", 13, "ctrl", false); frame(); CHECK(panel());
+  const auto edge = win.last().at(0, 240 - 36);
+  CHECK(edge.r == 255 && edge.g == 255 && edge.b == 255);
+  win.keys.insert(Draw::Key::Right); win.keys.insert(Draw::Key::A); win.keys.insert(Draw::Key::D);
+  const double x = p.me().x;
+  key("h", 'h'); key("x", 'x'); key("backspace", 8); key("i", 'i');
+  key("enter", 13, "ctrl", false); // held Enter repeat must not submit
+  frame(); CHECK(panel() && p.me().chat.empty() && sent("hi") == 0 && p.me().x == x);
+  CHECK(value("chat_input_keys") == "1" && value("chat_input_fired").empty()); // no typed actions
+  release("enter"); frame(); key("enter", 13, "", false); key("m", 'm', "", false); frame();
+  CHECK(run(p, nullptr, &game, [&] { return sent("hi") == 1; }));
+  CHECK(p.me().chat == "hi" && value("chat_input_heard") == "hi" && value("chat_input_chats") == "1");
+  key("enter", 13, "", false); key("x", 'x'); frame();
+  CHECK(sent("hi") == 1 && !panel() && value("chat_input_keys") == "1");
+  CHECK(p.me().x == x); // no held-key escape into gameplay after submit
+  win.keys.clear(); release("enter"); frame();
+  key("m", 'm', "", false); frame(); // held non-gameplay letter is still composer-owned
+  CHECK(value("chat_input_keys") == "1" && !panel());
+  win.pending = Draw::Key::Escape; key("escape", 27, "", false); frame();
+  CHECK(!panel() && value("chat_input_keys") == "1"); // pending composer owns physical Escape too
+  release("escape"); release("m"); frame(); frame();
+  key("enter", 13, "ctrl"); key("x", 'x'); frame();
+  win.pending = Draw::Key::Escape; key("escape", 27, "", false); frame();
+  CHECK(!panel() && sent("x") == 0 && p.me().status == 0);
+  key("z", 'z'); frame(); CHECK(value("chat_input_keys") == "1");
+  win.pending = Draw::Key::Escape; key("escape", 27, "", false); frame();
+  CHECK(p.me().status == 0 && value("chat_input_keys") == "1"); // no cancel-repeat callback leak
+  release("escape"); frame(); frame();
+  key("r", 'r'); win.keys.insert(Draw::Key::Right); win.keys.insert(Draw::Key::D); frame();
+  CHECK(value("chat_input_keys") == "2" && value("chat_input_fired") == "1" && p.me().x > x);
+  win.keys.clear(); frame();
+  key("enter", 13, "ctrl"); key("enter", 13); frame(); CHECK(sent("") == 0);
+  key("enter", 13, "ctrl");
+  for (int i = 0; i < 230; ++i) key("a", 'a');
+  key("c", 'c', "ctrl"); key("unicode", 233); // explicit portable ASCII contract
+  key("enter", 13); frame();
+  const std::string limit(223, 'a');
+  CHECK(run(p, nullptr, &game, [&] { return sent(limit) == 1; }));
+  CHECK(p.me().chat == limit && value("chat_input_heard") == limit && value("chat_input_chats") == "2");
+  frame(); frame();
+  // An ordinary server peer update reaches the actor consumed by the renderer.
+  game.send(gchar(8) + Net::gshort(7) + gchar(World::kNickname) + Net::gstring("Peer") +
+            gchar(World::kX) + gchar(48) + gchar(World::kY) + gchar(60) +
+            gchar(World::kCurChat) + Net::gstring("hi") + "\n");
+  CHECK(run(p, nullptr, &game, [&] {
+    return p.world().others.size() == 1 && p.world().others[0].chat == "hi";
+  }));
+  key("enter", 13, "ctrl"); key("s", 's'); frame(); CHECK(panel());
+  game.send(gchar(6) + "onlinestartlocal.nw\n"); // unchanged level does not discard the draft
+  for (int i = 0; i < 5; ++i) frame();
+  CHECK(panel());
+  game.send(send_level("next.nw", 7));
+  CHECK(run(p, nullptr, &game, [&] { return p.level_name() == "next.nw"; }));
+  CHECK(!panel() && sent("s") == 0);
+  frame(); frame();
+  auto content = std::make_shared<gs2::gui::Control>("ChatPriority", "GuiControl");
+  p.gui().screen().setContent(content);
+  key("enter", 13, "ctrl"); key("z", 'z'); frame(); CHECK(!panel() && sent("z") == 0);
+  win.pending = Draw::Key::Close; CHECK(!p.tick()); // native Close still owns termination
+}
+
+// The actual X11 adapter helper: release identity must survive modifier
+// changes and focus loss, so a modal composer cannot retain phantom keys.
+void test_adapter_key_release_identity() {
+  Draw::detail::InputKeys keys;
+  Draw::InputEvent first; first.key = "!"; first.ch = '!'; first.mods = "shift";
+  const auto down = keys.press(10, first);
+  Draw::InputEvent repeat; repeat.key = "1"; repeat.ch = '1';
+  const auto again = keys.press(10, repeat);
+  CHECK(down.key == "!" && again.key == "!" && again.ch == '1' && again.mods.empty());
+  const auto up = keys.release(10);
+  CHECK(up && up->type == Draw::InputEvent::KeyUp && up->key == "!" && up->ch == '!');
+  CHECK(!keys.release(10));
+  Draw::InputEvent m; m.key = "m"; m.ch = 'm';
+  Draw::InputEvent enter; enter.key = "enter"; enter.mods = "ctrl";
+  keys.press(58, m); keys.press(36, enter);
+  const auto lost = keys.release_all();
+  CHECK(lost.size() == 2);
+  CHECK(std::all_of(lost.begin(), lost.end(), [](const auto& e) { return e.type == Draw::InputEvent::KeyUp; }));
+  CHECK(std::any_of(lost.begin(), lost.end(), [](const auto& e) { return e.key == "m"; }));
+  CHECK(std::any_of(lost.begin(), lost.end(), [](const auto& e) { return e.key == "enter"; }));
+  CHECK(keys.release_all().empty() && !keys.release(58) && !keys.release(36));
+}
+
 int main() {
+  test_adapter_key_release_identity();
+  test_project_chat_input();
   test_script_native_bounds();
   test_program();
   test_program_524_or_beta2("5.24r4");
