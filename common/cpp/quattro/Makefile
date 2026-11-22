@@ -1,4 +1,5 @@
 CXX ?= g++
+PYTHON ?= python3
 CXXFLAGS ?= -std=c++17 -Wall -Wextra -Werror -O2
 LIBS = -lz -lbz2
 # Override only for the isolated release-package regression; normal builds
@@ -99,6 +100,7 @@ test: build/codec-test build/seclogin-test build/cache-test build/session-test b
 	./build/program-test
 	./build/gui-test
 	./build/quattro-session --list | grep -q 'G3D0511C'
+	$(PYTHON) tests/cli_numeric_test.py ./build/quattro-play
 
 clean:
 	rm -rf build
