@@ -14,6 +14,10 @@
 #include "../shell/program.hpp"
 
 #include <chrono>
+#include <cmath>
+#include <limits>
+#include <locale>
+#include <sstream>
 #include <cstdio>
 #include <cstdlib>
 #include <thread>
@@ -21,6 +25,45 @@
 using namespace Quattro;
 
 namespace {
+// Consume the complete argument before creating a window or connection.
+bool integer(const std::string& text, int minimum, int maximum, int& value) {
+  if (text.empty()) return false;
+  std::size_t i = text[0] == '+' ? 1 : 0;
+  if (i == text.size()) return false;
+  int parsed = 0;
+  for (; i < text.size(); ++i) {
+    if (text[i] < '0' || text[i] > '9') return false;
+    const int digit = text[i] - '0';
+    if (parsed > maximum / 10 || (parsed == maximum / 10 && digit > maximum % 10)) return false;
+    parsed = parsed * 10 + digit;
+  }
+  if (parsed < minimum) return false;
+  value = parsed;
+  return true;
+}
+
+bool coordinate(const std::string& text, double& value) {
+  if (text.empty()) return false;
+  std::istringstream input(text);
+  input.imbue(std::locale::classic());
+  double parsed = 0;
+  input >> std::noskipws >> parsed;
+  if (input.fail() || !input.eof() || !std::isfinite(parsed)) return false;
+  value = parsed;
+  return true;
+}
+
+bool dimensions(const std::string& text, int& width, int& height) {
+  const auto x = text.find('x');
+  if (x == std::string::npos || text.find('x', x + 1) != std::string::npos) return false;
+  int w = 0, h = 0;
+  if (!integer(text.substr(0, x), 64, 4096, w) ||
+      !integer(text.substr(x + 1), 64, 4096, h)) return false;
+  width = w;
+  height = h;
+  return true;
+}
+
 int usage() {
   std::fprintf(stderr,
                "usage: quattro-play --build LABEL --connect HOST:PORT --account NAME --password-env VAR\n"
@@ -63,17 +106,17 @@ int main(int argc, char** argv) {
       if (!Net::Sec::decode_key(opt.server_key, k)) return usage();
     }
     else if (a == "--offline") offline = next();
-    else if (a == "--x") start_x = std::atof(next().c_str());
-    else if (a == "--y") start_y = std::atof(next().c_str());
+    else if (a == "--x") { if (!coordinate(next(), start_x)) return usage(); }
+    else if (a == "--y") { if (!coordinate(next(), start_y)) return usage(); }
     else if (a == "--headless") headless = true;
-    else if (a == "--seconds") seconds = std::atoi(next().c_str());
+    else if (a == "--seconds") {
+      if (!integer(next(), 0, std::numeric_limits<int>::max(), seconds)) return usage();
+    }
     else if (a == "--shot") shot = next();
     else if (a == "--size") {
       sized = true;
       std::string s = next();
-      if (std::sscanf(s.c_str(), "%dx%d", &opt.width, &opt.height) != 2 || opt.width < 64 || opt.height < 64 ||
-          opt.width > 4096 || opt.height > 4096)
-        return usage();
+      if (!dimensions(s, opt.width, opt.height)) return usage();
     } else return usage();
   }
   const Net::BuildProfile* prof = Net::find_profile(opt.build);
@@ -84,7 +127,9 @@ int main(int argc, char** argv) {
   if (!prof) return usage();
   if (offline.empty()) {
     size_t colon = target.rfind(':');
-    if (colon == std::string::npos || opt.account.empty() || pw_env.empty()) return usage();
+    if (colon == std::string::npos || colon == 0 || opt.account.empty() || pw_env.empty()) return usage();
+    int port = 0;
+    if (!integer(target.substr(colon + 1), 1, 65535, port)) return usage();
     const char* pw = std::getenv(pw_env.c_str());
     if (!pw) {
       std::fprintf(stderr, "%s is not set\n", pw_env.c_str());
@@ -92,8 +137,6 @@ int main(int argc, char** argv) {
     }
     opt.password = pw;
     opt.host = target.substr(0, colon);
-    int port = std::atoi(target.c_str() + colon + 1);
-    if (port <= 0 || port > 65535) return usage();
     opt.port = static_cast<uint16_t>(port);
   }
 

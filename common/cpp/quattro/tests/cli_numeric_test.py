@@ -3,7 +3,7 @@
 
 Run with the built quattro-play path. Each subprocess is bounded and owned;
 subprocess.run kills and waits for its direct child on timeout. The player
-does not launch children. This file itself has not been executed by its author.
+does not launch children. This direct executable regression is used by existing CI.
 """
 import os
 from pathlib import Path
