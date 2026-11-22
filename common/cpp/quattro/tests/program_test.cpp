@@ -370,6 +370,49 @@ void write(const std::filesystem::path& path, const std::string& data) {
   std::ofstream(path, std::ios::binary) << data;
 }
 
+// Finite initial coordinates reach collision before the existing board clamp.
+void test_offline_finite_coordinate_movement() {
+  const auto* profile = Net::find_profile("6.03r7");
+  CHECK(profile);
+  if (!profile) return;
+  namespace fs = std::filesystem;
+  const auto root = fs::temp_directory_path() /
+      ("quattro-finite-collision-" + std::to_string(
+          std::chrono::steady_clock::now().time_since_epoch().count()));
+  const bool owns_root = fs::create_directory(root);
+  CHECK(owns_root);
+  if (!owns_root) return; // never clean up a directory this test did not create
+  write(root / "levels/finite.nw", "GLEVNW01\n");
+  constexpr double far = 4294967296.0;
+  for (int axis = 0; axis < 2; ++axis) {
+    for (double value : {-far, far}) {
+      Shell::Options options;
+      options.assets = root.string();
+      options.width = 64;
+      options.height = 64;
+      HeldWindow window;
+      Shell::Program program(*profile, options, window);
+      const double x = axis == 0 ? value : 30.0;
+      const double y = axis == 1 ? value : 30.0;
+      const bool started = program.start_offline("finite.nw", x, y);
+      CHECK(started);
+      if (!started) continue;
+      CHECK(program.me().x == x && program.me().y == y);
+      CHECK(program.level_name() == "finite.nw" && !program.world().lobby);
+      window.keys.insert(axis == 0 ? Draw::Key::Right : Draw::Key::Down);
+      // Collision probes run BEFORE Walker's existing final board clamp.
+      CHECK(program.tick());
+      CHECK(program.me().x == (axis == 0 ? (value < 0 ? 0.0 : 62.0) : 30.0));
+      CHECK(program.me().y == (axis == 1 ? (value < 0 ? 0.0 : 62.0) : 30.0));
+      window.keys.clear();
+      const double stopped_x = program.me().x, stopped_y = program.me().y;
+      CHECK(program.tick());
+      CHECK(program.me().x == stopped_x && program.me().y == stopped_y);
+    }
+  }
+  fs::remove_all(root); // only the uniquely created, owned fixture directory
+}
+
 // Offline: a short-form gmap in levels/tutorial, no server. The centre part
 // first; walking right crosses into the next part at x 64 and stops at the
 // map's edge.
@@ -1814,6 +1857,7 @@ int main() {
   test_program_603_load_gani();
   test_program_603_level_link();
   test_offline();
+  test_offline_finite_coordinate_movement();
   test_update_packages();
   test_downloads();
   test_cold_gani_requests();

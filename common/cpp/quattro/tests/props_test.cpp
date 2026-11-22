@@ -176,6 +176,32 @@ void test_walls() {
   CHECK(!step(r, 0, c, t) && r.y == 30 && r.x == 30);
 }
 
+void test_finite_collision_coordinates() {
+  auto level = open_level();
+  const auto types = test_types();
+  constexpr double far = 4294967296.0; // exactly representable finite 2^32
+  for (double value : {-far, far}) {
+    CHECK(!point_blocked(level, types, value, 10.0));
+    CHECK(!point_blocked(level, types, 10.0, value));
+  }
+
+  // Preserve the existing board's half-open bounds and ordinary tile rule.
+  set_tile(level, 0, 0, 5);
+  set_tile(level, 63, 63, 5);
+  CHECK(point_blocked(level, types, 0.0, 0.0));
+  CHECK(point_blocked(level, types, 63.999, 63.999));
+  CHECK(!point_blocked(level, types, -0.001, 0.0));
+  CHECK(!point_blocked(level, types, 0.0, -0.001));
+  CHECK(!point_blocked(level, types, 64.0, 63.999));
+  CHECK(!point_blocked(level, types, 63.999, 64.0));
+  CHECK(!point_blocked(level, types, 10.0, 10.0));
+
+  level.chests.push_back({31, 29, 0, 0});
+  CHECK(point_blocked(level, types, 31.0, 29.0));
+  CHECK(point_blocked(level, types, 33.0, 31.0));
+  CHECK(!point_blocked(level, types, 33.001, 31.0));
+}
+
 void test_push() {
   TileTypes t = test_types();
   Files::Level l = open_level();
@@ -850,6 +876,7 @@ int main() {
   test_sending();
   test_arrays_dat();
   test_walls();
+  test_finite_collision_coordinates();
   test_push();
   test_item_keys("6.03r7", 6, 8);
   test_item_keys("6.01r1", 4, 6);
