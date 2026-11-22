@@ -64,9 +64,8 @@ jobs:
       # (scripts/build.sh). Without it the zip ships Graal304.exe alone.
       - name: 32-bit MinGW for the 3.04 Torque program (Windows)
         if: runner.os == 'Windows'
-        continue-on-error: true
         shell: pwsh
-        run: C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm --needed make mingw-w64-i686-gcc mingw-w64-i686-zlib"
+        run: C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm --needed make mingw-w64-i686-gcc mingw-w64-i686-zlib mingw-w64-i686-bzip2"
       - name: Install Free Pascal (macOS)
         if: runner.os == 'macOS'
         run: brew install fpc
@@ -82,12 +81,18 @@ jobs:
         shell: bash
         run: |
           if [ "$RUNNER_OS" = Windows ]; then
-            export PATH="$(ls -d /c/tools/freepascal/bin/* | head -1):$PATH"
+            export PATH="$(ls -d /c/tools/freepascal/bin/* | head -1):/c/msys64/mingw32/bin:$PATH"
             # -WR: relocations, so the exe can carry the ASLR flag
             export FPCFLAGS='-O2 -WR -FuC:\tools\freepascal\units\i386-win32\*'
           fi
           scripts/build.sh "$BUILD"
+          if [ "$RUNNER_OS" = Windows ]; then
+            pwsh -NoProfile -File scripts/win/check_engine_arch.ps1 -Phase BeforeTests
+          fi
           scripts/test.sh
+          if [ "$RUNNER_OS" = Windows ]; then
+            pwsh -NoProfile -File scripts/win/check_engine_arch.ps1 -Phase AfterTests
+          fi
       - name: Pack
         shell: bash
         run: scripts/release/pack.sh "$BUILD" "$VERSION" "${RUNNER_OS,,}"
