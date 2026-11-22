@@ -114,6 +114,16 @@ std::vector<BuildProfile> make() {
   r524.own_props = OwnProps::k5x;  // probed on Windows 5.24r4
   rows.push_back(r524);
 
+  // Windows 6.00 beta2 shares the early-2010 receive97 set with 5.24,
+  // independently read in Graal_analysis protocol/v5v6-windows-unpacked.md.
+  // The original beta2 lab reached login only. Lobby tiles, gameplay,
+  // own-props, ping/entry policy and the incomplete outgoing set inherit
+  // this rebuild's contemporary 5.24 row, not a native beta2 measurement.
+  BuildProfile beta2 = r524;
+  beta2.label = "6.00b2 Windows";
+  for (int id : {41, 165, 169, 175, 181, 184}) beta2.plo.set(static_cast<size_t>(id));
+  rows.push_back(beta2);
+
   // 5.30r3 and 5.31r4 Windows (G3D26090; Graal_analysis
   // protocol/v5v6-windows-unpacked.md and v5v6-lab-play.md). The same
   // one-exe quattro_lib program and gen-5 codec as 5.24r4, the same "win"

@@ -207,6 +207,20 @@ void test_profiles() {
         r524->login_draws_tiles && !r524->answers_ping &&
         !r524->plo.test(111) && r524->has_os_version);
 
+  const BuildProfile* beta2 = find_profile("6.00b2");
+  CHECK(beta2 && beta2 != r524 && beta2->token == "G3D15010");
+  if (beta2) {
+    auto expected = r603->plo;
+    expected.reset(111);
+    for (int id : {41, 165, 169, 175, 181, 184}) expected.set(static_cast<size_t>(id));
+    CHECK(beta2->plo == expected && beta2->plo.count() == 97);
+    CHECK(beta2->platform == "win" && beta2->has_os_version);
+    CHECK(beta2->machine_fields == kFakeWinFields && beta2->os_version == "6.2 9200 ");
+    CHECK(beta2->pli == r524->pli && beta2->own_props == OwnProps::k5x);
+    CHECK(beta2->login_draws_tiles && !beta2->answers_ping && !beta2->sends_enter_level);
+    CHECK(beta2->packed_round_down && !beta2->plo.test(111));
+  }
+
   // 5.30r3 / 5.31r4: G3D26090, 5.24's switch without 41 and 181, 95 ids.
   const BuildProfile* r531 = find_profile("5.31r4");
   CHECK(r531 && r531->token == "G3D26090" && r531->platform == "win" && r531->has_os_version &&

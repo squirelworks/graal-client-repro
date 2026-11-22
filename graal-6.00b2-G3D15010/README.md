@@ -70,6 +70,34 @@ Graal600b2 --level some.nw                                          # offline
 With `--server` and no `--server-name` the server is `Login`: the tiles are
 drawn but no characters until the server sends a 178.
 
+## Opt-in Quattro engine
+
+`Graal600b2 --engine --server HOST:PORT --account NAME` or
+`Graal600b2 --engine --level some.nw` hands the game to the packaged
+`quattro-play --build 6.00b2`. Supported extra options are `--window`,
+`--data`, positive `--seconds`, offline `--x` / `--y`, and online
+`--password-env` / `--server-name`. Passwords use the existing private
+environment handoff. Unsupported or duplicate options exit 64; a missing
+or disabled player (including Linux without a display) exits 69. An
+explicit engine request does not silently fall back to Pascal.
+
+The profile has the independently documented 97-ID receive switch and
+Windows login/gen-5 framing. The original beta2 lab reached login only:
+lobby tiles, ping/ENTERLEVEL suppression, own-props and gameplay inherit
+the contemporary 5.24 rebuild. Its inherited outgoing set remains
+incomplete; this is not a claim of an independently recovered beta2 send
+set or new native measurements. The six newly accepted IDs pass filtering
+but their game handlers remain unimplemented. The existing 5.24 rebuild's
+narrower filter is unchanged in this slice.
+
+The shared argument translator receives beta2's own label, so asset roots
+select `6.00b2` rather than `6.00r4`. Inert tests cover that boundary and
+locale-independent coordinates; connection and Program regressions use
+synthetic loopback data in CI. No-argument/default Pascal behavior stays
+unchanged. Native/end-to-end acceptance and a default switch remain open.
+macOS follows the existing AppKit packaging path; source portability was
+reviewed, but no macOS compilation or runtime validation is claimed.
+
 ## Files it opens
 
 From the program's folder (or `--data`), then `graal-assets/6.00b2/`, then
@@ -87,6 +115,9 @@ From the program's folder (or `--data`), then `graal-assets/6.00b2/`, then
 - `listserver.txt` (optional)
 
 ## Not yet, or not known
+
+- [x] Explicit opt-in `--engine` profile and CLI handoff (above).
+- [ ] Validate the engine end-to-end before changing the no-argument/release default.
 
 - [ ] Played only to the login in the lab; the Login mode and play are 5.24's.
 - [ ] 41, 165, 169, 175, 181 and 184 are accepted and ignored.

@@ -256,6 +256,34 @@ void test_session_600() {
   CHECK(!session.connection().send(160, "x"));
 }
 
+// Beta2's independently read97 receive set includes six IDs missing from
+// the older sibling rebuild; the shared login token does not choose a row.
+void test_session_beta2() {
+  const BuildProfile* prof = find_profile("6.00b2");
+  CHECK(prof);
+  if (!prof) return;
+  FakeServer server;
+  CHECK(server.start());
+  std::vector<int> delivered;
+  Session::Events ev;
+  ev.message = [&](int id, std::string_view) { delivered.push_back(id); };
+  Session session(*prof, ev);
+  session.next_key = [] { return uint8_t(0x5A); };
+  CHECK(session.start("127.0.0.1", server.port(), "guest", "pw"));
+  CHECK(server.conn.accept_from(server.listener));
+  CHECK(run_until(session, &server, nullptr, [&] { return server.saw(37, "English"); }));
+  const std::string want = "G3D15010" + gstring("guest") + gstring("pw") +
+    "win" + kFakeWinFields + ",\"6.2 9200 \"";
+  CHECK(server.login_line == want);
+  std::string packets;
+  for (int id : {41, 165, 169, 175, 181, 184}) packets += gchar(id) + "accepted\n";
+  server.send(packets + gchar(111) + "ignored\n" + gchar(6) + "done.nw\n");
+  CHECK(run_until(session, &server, nullptr, [&] { return delivered.size() == 7; }));
+  CHECK((delivered == std::vector<int>{41, 165, 169, 175, 181, 184, 6}));
+  CHECK(session.connection().dropped() == 1);
+  CHECK(!session.connection().send(39, "x"));
+}
+
 int main() {
   test_warp_parse();
   test_session();
@@ -263,5 +291,6 @@ int main() {
   test_session_512();
   test_session_524();
   test_session_600();
+  test_session_beta2();
   TEST_MAIN_END();
 }
