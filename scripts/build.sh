@@ -250,8 +250,11 @@ for B in $BUILDS; do
        [ "$B" = "graal-5.31r4-G3D26090" ] || [ "$B" = "graal-6.00r4-G3D26090" ] || [ "$B" = "graal-6.00b2-G3D15010" ] || [ "$B" = "graal-6.00b1-G3D03048" ] || [ "$B" = "graal-6.00beta-20110627-G3D28090" ]; } &&
      [ -f "$ROOT/common/cpp/quattro/Makefile" ]; then
     CXXBIN=${CXX:-g++}
-    case "$(uname -s)" in
-      Linux)
+    Q_TARGET_OS=$("$FPC" -iTO 2>/dev/null || true)
+    # Never retain a previous host player in a cross-target output folder.
+    rm -f "$OUT/quattro-play" "$OUT/quattro-play.exe"
+    case "$(uname -s)/$Q_TARGET_OS" in
+      Linux/linux)
         # Without Xlib it would only run headless, so it is left out.
         if [ -f /usr/include/X11/Xlib.h ]; then
           echo "== common/cpp/quattro"
@@ -261,21 +264,27 @@ for B in $BUILDS; do
           echo "quattro-play: no Xlib headers; the Pascal game plays here"
         fi
         ;;
-      MINGW*|MSYS*|CYGWIN*)
+      MINGW*/win32|MSYS*/win32|CYGWIN*/win32|MINGW*/win64|MSYS*/win64|CYGWIN*/win64)
         echo "== common/cpp/quattro"
-        make -C "$ROOT/common/cpp/quattro" build/quattro-play CXX="$CXXBIN" ||
-          echo "::warning::quattro-play not built; the Pascal game plays here"
-        for L in quattro-play.exe quattro-play; do
-          if [ -f "$ROOT/common/cpp/quattro/build/$L" ]; then cp "$ROOT/common/cpp/quattro/build/$L" "$OUT/"; fi
-        done
+        if [ -z "${CXX:-}" ] && [ -x /c/msys64/ucrt64/bin/g++ ] &&
+           [ -x /c/msys64/usr/bin/make ]; then
+          # This is a standalone process, not a DLL loaded by 32-bit FPC.
+          # Use the same UCRT64 dependencies as the focused Quattro CI.
+          QW=$(cygpath -m "$ROOT/common/cpp/quattro")
+          MSYSTEM=UCRT64 /c/msys64/usr/bin/bash.exe -lc \
+            "cd '$QW' && make build/quattro-play"
+        else
+          make -C "$ROOT/common/cpp/quattro" build/quattro-play CXX="$CXXBIN"
+        fi
+        cp "$ROOT/common/cpp/quattro/build/quattro-play.exe" "$OUT/"
         ;;
-      Darwin)
+      Darwin/darwin)
         echo "== common/cpp/quattro"
         make -C "$ROOT/common/cpp/quattro" build/quattro-play CXX="${CXX:-c++}" ||
           echo "::warning::quattro-play not built; the Pascal game plays here"
         if [ -f "$ROOT/common/cpp/quattro/build/quattro-play" ]; then cp "$ROOT/common/cpp/quattro/build/quattro-play" "$OUT/"; fi
         ;;
-      *) echo "quattro-play: skipped on this host; the Pascal game plays here" ;;
+      *) echo "quattro-play: unsupported host/target pair; no host binary copied, Pascal fallback only" ;;
     esac
   fi
   # 6.114's connector is a small C++ program. The playable stand-in is

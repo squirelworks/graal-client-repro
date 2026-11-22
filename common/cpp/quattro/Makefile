@@ -1,10 +1,20 @@
 CXX ?= g++
 CXXFLAGS ?= -std=c++17 -Wall -Wextra -Werror -O2
 LIBS = -lz -lbz2
+# Override only for the isolated release-package regression; normal builds
+# continue to produce build/quattro-play beside the Pascal launcher.
+PLAYER ?= build/quattro-play
+PLAYER_RC ?= win/quattro-play.rc
+PLAYER_RESOURCE ?= build/quattro-play.res.o
 X11_LIBS =
 ifeq ($(OS),Windows_NT)
 LIBS += -lws2_32 -ladvapi32
 WINDOW_LIBS = -luser32 -lgdi32
+# The release zip does not ship a compiler toolchain or third-party DLLs.
+# Apply static linkage to the shipped player only, not sanitizer/test tools.
+PLAYER_LDFLAGS = -static -static-libgcc -static-libstdc++
+PLAYER_RES = $(PLAYER_RESOURCE)
+WINDRES ?= $(patsubst %g++,%windres,$(patsubst %c++,%windres,$(notdir $(CXX))))
 else ifeq ($(shell uname -s),Darwin)
 # macOS: an AppKit window (draw/window_cocoa.mm), not X11.
 X11_DEFS = -DQUATTRO_COCOA
@@ -30,7 +40,7 @@ HDRS = $(wildcard net/*.hpp cache/*.hpp files/*.hpp draw/*.hpp shell/*.hpp world
 WINDOW = draw/window_x11.cpp draw/window_native.cpp $(COCOA)
 
 .PHONY: all test clean
-all: build/quattro-session build/quattro-play
+all: build/quattro-session $(PLAYER)
 
 build:
 	mkdir -p build
@@ -65,8 +75,15 @@ build/gui-test: $(NET) $(FILES) $(DRAW) $(SHELL_SRC) $(HDRS) draw/window_x11.cpp
 build/quattro-session: $(NET) $(HDRS) tools/quattro_session.cpp | build
 	$(CXX) $(CXXFLAGS) $(NET) tools/quattro_session.cpp -o $@ $(LIBS)
 
-build/quattro-play: $(NET) $(FILES) $(DRAW) $(SHELL_SRC) $(HDRS) $(WINDOW) tools/quattro_play.cpp | build
-	$(CXX) $(CXXFLAGS) $(X11_DEFS) $(NET) $(FILES) $(DRAW) $(SHELL_SRC) $(WINDOW) tools/quattro_play.cpp -o $@ $(LIBS) $(X11_LIBS) $(WINDOW_LIBS)
+ifeq ($(OS),Windows_NT)
+$(PLAYER_RESOURCE): $(PLAYER_RC) ../../win/graal-delphi.manifest | build
+	mkdir -p $(dir $@)
+	cd $(dir $(abspath $(PLAYER_RC))) && $(WINDRES) -O coff $(notdir $(PLAYER_RC)) -o $(abspath $@)
+endif
+
+$(PLAYER): $(NET) $(FILES) $(DRAW) $(SHELL_SRC) $(HDRS) $(WINDOW) tools/quattro_play.cpp $(PLAYER_RES) | build
+	mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) $(X11_DEFS) $(NET) $(FILES) $(DRAW) $(SHELL_SRC) $(WINDOW) tools/quattro_play.cpp $(PLAYER_RES) -o $@ $(PLAYER_LDFLAGS) $(LIBS) $(X11_LIBS) $(WINDOW_LIBS)
 
 build/window-test: $(NET) $(FILES) $(DRAW) $(SHELL_SRC) $(HDRS) $(WINDOW) tests/window_test.cpp | build
 	$(CXX) $(CXXFLAGS) $(X11_DEFS) $(NET) $(FILES) $(DRAW) $(SHELL_SRC) $(WINDOW) tests/window_test.cpp -o $@ $(LIBS) $(X11_LIBS) $(WINDOW_LIBS) -pthread

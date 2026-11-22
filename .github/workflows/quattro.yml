@@ -3,6 +3,10 @@ name: quattro
 on:
   pull_request:
     paths:
+      - 'scripts/release/stamp.sh'
+      - 'scripts/release/pack.sh'
+      - 'common/win/graal-delphi.manifest'
+      - 'graal-*/release-files'
       - 'common/cpp/quattro/**'
       - 'common/cpp/gs2/*.cpp'
       - 'common/cpp/gs2/*.hpp'
@@ -13,6 +17,10 @@ on:
   push:
     branches: [main]
     paths:
+      - 'scripts/release/stamp.sh'
+      - 'scripts/release/pack.sh'
+      - 'common/win/graal-delphi.manifest'
+      - 'graal-*/release-files'
       - 'common/cpp/quattro/**'
       - 'common/cpp/gs2/*.cpp'
       - 'common/cpp/gs2/*.hpp'
@@ -72,3 +80,6 @@ jobs:
         run: |
           make -C common/cpp/quattro build/window-test
           common/cpp/quattro/build/window-test
+      - name: Packaged player metadata, version relink and runtime closure
+        shell: msys2 {0}
+        run: bash common/cpp/quattro/tests/package_test.sh

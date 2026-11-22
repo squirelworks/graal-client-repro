@@ -160,6 +160,9 @@ jobs:
       - name: Install Free Pascal
         shell: pwsh
         run: choco install freepascal -y --no-progress
+      - name: Standalone Quattro toolchain
+        shell: pwsh
+        run: C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm --needed make mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-zlib mingw-w64-ucrt-x86_64-bzip2"
       - name: Build and test
         shell: bash
         run: |

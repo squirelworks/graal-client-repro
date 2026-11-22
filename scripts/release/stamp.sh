@@ -6,7 +6,9 @@
 set -eu
 BUILD=$1 VERSION=$2
 N="${VERSION#v}"; IFS=. read -r A B C _ <<< "$N"
-for R in "$BUILD"/src/*.rc; do
+# The shared Quattro player has its own PE resources, outside src/*.dpr.
+# Stamp them through the same project-version path as the Pascal launchers.
+for R in "$BUILD"/src/*.rc common/cpp/quattro/win/quattro-play.rc; do
   [ -f "$R" ] || continue
   sed -i -e "s/^\(FILEVERSION\|PRODUCTVERSION\) 0,0,0,0/\1 ${A:-0},${B:-0},${C:-0},0/" \
          -e "s/\"0\.0\.0-dev\"/\"$N\"/" "$R"

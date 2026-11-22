@@ -176,6 +176,10 @@ jobs:
         continue-on-error: true
         shell: pwsh
         run: C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm --needed make mingw-w64-i686-gcc mingw-w64-i686-zlib"
+      - name: Standalone Quattro toolchain (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm --needed make mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-zlib mingw-w64-ucrt-x86_64-bzip2"
       - name: Stamp the version into the Windows resources
         if: runner.os == 'Windows'
         shell: bash
