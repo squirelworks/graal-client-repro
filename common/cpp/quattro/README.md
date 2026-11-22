@@ -411,3 +411,22 @@ Linux-to-Darwin Pascal cross-builds do not copy a Linux ELF into a macOS zip;
 that cross-built player remains unsupported and the Pascal fallback remains.
 Native Darwin still uses AppKit. This change does not establish macOS build,
 runtime-library deployment or execution acceptance, and changes no client default.
+
+## Numeric command-line arguments
+
+- [x] Numeric arguments are consumed completely before window or connection
+  startup: seconds must be a nonnegative decimal integer, coordinates a finite
+  dot-decimal/exponent number, ports 1 through 65535, and size 64 through 4096 on
+  each axis. Trailing text, overflow, missing values and nonfinite coordinates
+  return the existing usage/exit 2 diagnostic.
+- [x] Duration 0 retains its existing behavior: no explicit windowed deadline,
+  or the existing 15-second headless fallback. Finite negative coordinates remain
+  accepted. This adds no arbitrary coordinate clamp or new allocation budget.
+- [ ] Native behavior, all resource-limit guarantees and macOS execution are
+  separate from this own-project CLI validation.
+
+The existing test target invokes the actual headless player with an authored
+empty NW level. Each child process is bounded and reaped; malformed-port cases
+use a deliberately absent password variable, so no listener or connection is
+needed. This exercises the production argument and startup paths without a
+new parser-only hook.

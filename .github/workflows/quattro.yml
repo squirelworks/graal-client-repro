@@ -48,7 +48,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Install zlib, bzip2 and Xlib
-        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev libbz2-dev libx11-dev valgrind
+        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev libbz2-dev libx11-dev valgrind python3
       - name: Build and test
         run: make -C common/cpp/quattro test
       - name: Diagnose a failed program test
@@ -71,7 +71,7 @@ jobs:
         with:
           msystem: UCRT64
           update: true
-          install: make mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-zlib mingw-w64-ucrt-x86_64-bzip2
+          install: make mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-zlib mingw-w64-ucrt-x86_64-bzip2 mingw-w64-ucrt-x86_64-python
       - name: Build and test
         shell: msys2 {0}
         run: make -C common/cpp/quattro test
