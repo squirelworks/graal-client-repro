@@ -276,7 +276,8 @@ for B in $BUILDS; do
         else
           make -C "$ROOT/common/cpp/quattro" build/quattro-play CXX="$CXXBIN"
         fi
-        cp "$ROOT/common/cpp/quattro/build/quattro-play.exe" "$OUT/"
+        # FPC bin precedes PATH here; use the MSYS copy tool, as above.
+        /usr/bin/cp "$ROOT/common/cpp/quattro/build/quattro-play.exe" "$OUT/"
         ;;
       Darwin/darwin)
         echo "== common/cpp/quattro"
