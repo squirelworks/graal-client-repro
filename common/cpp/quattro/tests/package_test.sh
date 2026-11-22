@@ -10,7 +10,12 @@ WORK=$(mktemp -d "$BASE/quattro-package.XXXXXX")
 mkdir -p "$WORK/common/cpp/quattro/win" "$WORK/common/win" "$WORK/$B/src" "$WORK/build/$B"
 cp "$Q/win/quattro-play.rc" "$WORK/common/cpp/quattro/win/"
 cp "$ROOT/common/win/graal-delphi.manifest" "$WORK/common/win/"
-cp "$ROOT/$B/release-files" "$ROOT/$B/README.md" "$ROOT/$B/RELEASE_NOTES.md" "$WORK/$B/"
+cp "$ROOT/$B/README.md" "$ROOT/$B/RELEASE_NOTES.md" "$WORK/$B/"
+# Preserve the actual manifest entries but force Windows line separators so
+# this path remains covered even if runner checkout defaults change.
+while IFS= read -r entry || [ -n "$entry" ]; do
+  printf '%s\r\n' "${entry%$'\r'}"
+done < "$ROOT/$B/release-files" > "$WORK/$B/release-files"
 printf 'program Probe; begin end.\n' > "$WORK/$B/src/Probe.dpr"
 printf 'not shipped\n' > "$WORK/build/$B/TestEngine600b.exe"
 RC="$WORK/common/cpp/quattro/win/quattro-play.rc"
