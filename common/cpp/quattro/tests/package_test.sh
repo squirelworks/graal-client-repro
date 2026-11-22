@@ -25,8 +25,10 @@ RC="$WORK/common/cpp/quattro/win/quattro-play.rc"
 RES="$WORK/quattro-play.res.o"
 PLAYER="$WORK/build/$B/quattro-play.exe"
 check_player() {
+  local extra=()
+  if [ "$#" -eq 3 ]; then extra=(-ReferencePlayer "$(cygpath -w "$3")"); fi
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w "$Q/tests/package_test.ps1")" \
-    -Player "$(cygpath -w "$1")" -Version "$2"
+    -Player "$(cygpath -w "$1")" -Version "$2" "${extra[@]}"
 }
 make -C "$Q" "PLAYER=$PLAYER" "PLAYER_RC=$RC" "PLAYER_RESOURCE=$RES"
 check_player "$PLAYER" 0.0.0-dev
@@ -46,6 +48,6 @@ ZIP="$WORK/dist/$B-v1.2.3-windows.zip"
 PACK="$WORK/unpacked/$B-v1.2.3-windows"
 test -f "$PACK/quattro-play.exe"
 test ! -e "$PACK/TestEngine600b.exe"
-cmp "$PLAYER" "$PACK/quattro-play.exe"
-check_player "$PACK/quattro-play.exe" 1.2.3
+# Use the existing Windows runtime for exact bytes; MSYS2 need not have cmp.
+check_player "$PACK/quattro-play.exe" 1.2.3 "$PLAYER"
 echo 'Actual pack.zip includes the byte-identical versioned player and excludes test binaries'

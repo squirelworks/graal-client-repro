@@ -1,6 +1,7 @@
 param(
   [Parameter(Mandatory=$true)][string]$Player,
-  [Parameter(Mandatory=$true)][string]$Version
+  [Parameter(Mandatory=$true)][string]$Version,
+  [string]$ReferencePlayer = ''
 )
 $ErrorActionPreference = 'Stop'
 $exe = (Resolve-Path -LiteralPath $Player).Path
@@ -8,6 +9,14 @@ $v = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($exe)
 if ($v.ProductName -ne 'graal-delphi' -or $v.CompanyName -ne 'squirelworks' -or
     $v.ProductVersion -ne $Version) { throw "Incorrect player version metadata: $($v.ProductVersion)" }
 $bytes = [IO.File]::ReadAllBytes($exe)
+if ($ReferencePlayer) {
+  $reference = [IO.File]::ReadAllBytes((Resolve-Path -LiteralPath $ReferencePlayer).Path)
+  if ($bytes.Length -ne $reference.Length) { throw 'Packaged player byte length differs' }
+  for ($i = 0; $i -lt $bytes.Length; $i++) {
+    if ($bytes[$i] -ne $reference[$i]) { throw 'Packaged player bytes differ' }
+  }
+  Write-Output 'Packaged player bytes exactly match the built player'
+}
 if (-not [Text.Encoding]::ASCII.GetString($bytes).Contains('requestedExecutionLevel')) {
   throw 'Player has no embedded application manifest'
 }
