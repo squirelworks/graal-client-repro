@@ -16,6 +16,9 @@ cp "$ROOT/$B/README.md" "$ROOT/$B/RELEASE_NOTES.md" "$WORK/$B/"
 while IFS= read -r entry || [ -n "$entry" ]; do
   printf '%s\r\n' "${entry%$'\r'}"
 done < "$ROOT/$B/release-files" > "$WORK/$B/release-files"
+# Leave the final Windows player entry without LF: both CR separation and
+# the final nonempty-line path must work for the actual ZIP assertion below.
+truncate -s -1 "$WORK/$B/release-files"
 printf 'program Probe; begin end.\n' > "$WORK/$B/src/Probe.dpr"
 printf 'not shipped\n' > "$WORK/build/$B/TestEngine600b.exe"
 RC="$WORK/common/cpp/quattro/win/quattro-play.rc"
