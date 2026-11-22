@@ -19,7 +19,10 @@ done
 # Programs built outside src/*.dpr (the 3.04 Torque program and its game
 # library) are named in <build>/release-files, one per line.
 if [ -f "$BUILD/release-files" ]; then
-  while read -r F; do
+  while IFS= read -r F || [ -n "$F" ]; do
+    # Windows checkouts can give release-files CRLF line endings. The CR
+    # is a separator, not part of the file name (also keep a final bare line).
+    F=${F%$'\r'}
     # a file, or a folder such as the macOS graal304-torque.app
     [ -n "$F" ] && [ -e "build/$BUILD/$F" ] && cp -R "build/$BUILD/$F" "dist/$OUT/"
   done < "$BUILD/release-files"

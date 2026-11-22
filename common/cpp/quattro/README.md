@@ -389,3 +389,25 @@ The X11 adapter retains physical press identity for matching releases across
 modifier changes and releases tracked keys on focus loss. This prevents modal
 input from retaining phantom presses. Windows/Cocoa also retain the original
 logical key on repeats while keeping current typed characters and modifiers. Source portability is reviewed separately from macOS execution.
+
+## Release packaging
+
+The nine folders registered by `scripts/build.sh` name both native player
+filenames in `release-files`; `pack.sh` includes the built player and excludes
+test programs. The Windows player carries the shared as-invoker manifest and
+project version resource, stamped by the existing release-version script.
+Its standalone UCRT64 build links the compiler, zlib and bzip2 runtimes
+statically; it does not load the Pascal launcher's process or share its bitness.
+
+The Windows Quattro CI package regression builds the actual player, stamps an
+isolated copy of its resource to a synthetic project version and verifies that
+the same make target relinks. It then runs the real packer, checks the extracted
+player's metadata/manifest, rejects non-system DLL imports and runs argument
+validation with no toolchain directories in the child PATH. It opens no window
+or socket. A successful package check is not native gameplay acceptance.
+
+Player copies are restricted to native host/target pairs. In particular,
+Linux-to-Darwin Pascal cross-builds do not copy a Linux ELF into a macOS zip;
+that cross-built player remains unsupported and the Pascal fallback remains.
+Native Darwin still uses AppKit. This change does not establish macOS build,
+runtime-library deployment or execution acceptance, and changes no client default.

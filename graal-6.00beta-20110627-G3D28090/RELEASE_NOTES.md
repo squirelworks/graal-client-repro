@@ -82,3 +82,11 @@ The test suite (97 checks) runs with range and overflow checks and the heap
 tracer, and must end with no unfreed memory. CI also logs two of these
 clients into seihai-gserver, has the second see the first, and walks one
 through a level link.
+
+## Unreleased: Quattro release packaging
+
+- Include the built opt-in player via `release-files` on native Linux/Windows
+  builds, with the shared Windows project-version resource and static runtime
+  linkage. The focused CI checks the actual packed executable and stamped-version
+  relink. Native Mac execution and cross-built player deployment remain unverified;
+  defaults and the inherited protocol/gameplay limits are unchanged.
