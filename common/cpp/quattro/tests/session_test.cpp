@@ -256,10 +256,10 @@ void test_session_600() {
   CHECK(!session.connection().send(160, "x"));
 }
 
-// Beta2's independently read97 receive set includes six IDs missing from
+// Early beta1/beta2's independently read97 receive set includes six IDs missing from
 // the older sibling rebuild; the shared login token does not choose a row.
-void test_session_beta2() {
-  const BuildProfile* prof = find_profile("6.00b2");
+void test_session_early600(const char* build, const char* token) {
+  const BuildProfile* prof = find_profile(build);
   CHECK(prof);
   if (!prof) return;
   FakeServer server;
@@ -272,7 +272,7 @@ void test_session_beta2() {
   CHECK(session.start("127.0.0.1", server.port(), "guest", "pw"));
   CHECK(server.conn.accept_from(server.listener));
   CHECK(run_until(session, &server, nullptr, [&] { return server.saw(37, "English"); }));
-  const std::string want = "G3D15010" + gstring("guest") + gstring("pw") +
+  const std::string want = std::string(token) + gstring("guest") + gstring("pw") +
     "win" + kFakeWinFields + ",\"6.2 9200 \"";
   CHECK(server.login_line == want);
   std::string packets;
@@ -291,6 +291,7 @@ int main() {
   test_session_512();
   test_session_524();
   test_session_600();
-  test_session_beta2();
+  test_session_early600("6.00b2", "G3D15010");
+  test_session_early600("6.00b1", "G3D03048");
   TEST_MAIN_END();
 }

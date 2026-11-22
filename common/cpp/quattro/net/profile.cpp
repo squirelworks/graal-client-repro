@@ -124,6 +124,15 @@ std::vector<BuildProfile> make() {
   for (int id : {41, 165, 169, 175, 181, 184}) beta2.plo.set(static_cast<size_t>(id));
   rows.push_back(beta2);
 
+  // Beta1 has the independently documented same receive97 set, with its
+  // own G3D03048 token (v5v6-windows-unpacked.md). Original testing reached
+  // login only. Gameplay, own-props, lobby/ping/entry and incomplete outgoing
+  // behavior inherit beta2/5.24 here; none is a fresh native beta1 measurement.
+  BuildProfile beta1 = beta2;
+  beta1.label = "6.00b1 Windows";
+  beta1.token = "G3D03048";
+  rows.push_back(beta1);
+
   // 5.30r3 and 5.31r4 Windows (G3D26090; Graal_analysis
   // protocol/v5v6-windows-unpacked.md and v5v6-lab-play.md). The same
   // one-exe quattro_lib program and gen-5 codec as 5.24r4, the same "win"

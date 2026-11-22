@@ -1309,7 +1309,7 @@ void test_program_524_or_beta2(const char* build) {
   CHECK(p.start());
   CHECK(login.conn.accept_from(login.listener));
   CHECK(run(p, &login, nullptr, [&] { return login.saw(37, "English"); }));
-  CHECK(login.login_line.find("G3D15010") == 0);
+  CHECK(login.login_line.find(prof->token) == 0);
   CHECK(login.login_line.find("win,") != std::string::npos);
 
   login.send(send_level("onlinestartlocal.nw", 7));
@@ -1627,6 +1627,7 @@ int main() {
   test_program();
   test_program_524_or_beta2("5.24r4");
   test_program_524_or_beta2("6.00b2");
+  test_program_524_or_beta2("6.00b1");
   test_program_531_or_600("5.31r4");
   test_program_531_or_600("6.00r4");
   test_program_603_level_entry();
