@@ -1665,8 +1665,8 @@ void test_project_chat_input() {
   };
   key("enter", 13, "ctrl"); frame(); CHECK(!panel()); // no level/own props yet
   game.send(send_level("onlinestartlocal.nw", 7) + gchar(9) + gchar(World::kMaxPower) + gchar(3) +
-            gchar(World::kCurPower) + gchar(6) + gchar(World::kX) + gchar(60) +
-            gchar(World::kY) + gchar(60) + "\n");
+            gchar(World::kCurPower) + gchar(6) + gchar(World::kX) + gchar(40) +
+            gchar(World::kY) + gchar(40) + "\n");
   CHECK(run(p, nullptr, &game, [&] { return p.world().have_level && p.me().power == 6; }));
   using gs2asm::Asm;
   Asm a;
@@ -1714,7 +1714,12 @@ void test_project_chat_input() {
   CHECK(p.me().status == 0 && value("chat_input_keys") == "1"); // no cancel-repeat callback leak
   release("escape"); frame(); frame();
   key("r", 'r'); win.keys.insert(Draw::Key::Right); win.keys.insert(Draw::Key::D); frame();
-  CHECK(value("chat_input_keys") == "2" && value("chat_input_fired") == "1" && p.me().x > x);
+  CHECK(value("chat_input_keys") == "2");
+  CHECK(value("chat_input_fired") == "1");
+  CHECK(p.me().x > x); // authored position is away from the helper's chest at (31,31)
+  std::fprintf(stderr, "chat resume: keys=%s fired=%s x=%.1f before=%.1f status=%d panel=%d\n",
+               value("chat_input_keys").c_str(), value("chat_input_fired").c_str(),
+               p.me().x, x, p.me().status, panel());
   win.keys.clear(); frame();
   key("enter", 13, "ctrl"); key("enter", 13); frame(); CHECK(sent("") == 0);
   key("enter", 13, "ctrl");
@@ -1722,7 +1727,19 @@ void test_project_chat_input() {
   key("c", 'c', "ctrl"); key("unicode", 233); // explicit portable ASCII contract
   key("enter", 13); frame();
   const std::string limit(223, 'a');
-  CHECK(run(p, nullptr, &game, [&] { return sent(limit) == 1; }));
+  std::fprintf(stderr, "chat cap immediate: local=%zu heard=%zu callbacks=%s panel=%d status=%d\n",
+               p.me().chat.size(), value("chat_input_heard").size(), value("chat_input_chats").c_str(),
+               panel(), p.me().status);
+  const bool delivered_limit = run(p, nullptr, &game, [&] { return sent(limit) == 1; });
+  if (!delivered_limit) {
+    for (const auto& packet : game.got) {
+      if (packet.first == 2)
+        std::fprintf(stderr, "chat cap wire: bytes=%zu property=%u length_byte=%u\n", packet.second.size(),
+                     packet.second.empty() ? 0u : static_cast<unsigned char>(packet.second[0]),
+                     packet.second.size() < 2 ? 0u : static_cast<unsigned char>(packet.second[1]));
+    }
+  }
+  CHECK(delivered_limit);
   CHECK(p.me().chat == limit && value("chat_input_heard") == limit && value("chat_input_chats") == "2");
   frame(); frame();
   // An ordinary server peer update reaches the actor consumed by the renderer.
