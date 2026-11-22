@@ -28,7 +28,8 @@ int usage() {
                "                    [--secure-login off|auto|required] [--server-key BASE64]\n"
                "       quattro-play --build LABEL --offline LEVEL [--x X --y Y]\n"
                "  both: [--assets DIR] [--asset-root DIR]... [--download-files] [--program FILE]\n"
-               "        [--size WxH] [--headless] [--seconds N] [--shot FILE.png]\n");
+               "        [--size WxH] [--headless] [--seconds N] [--shot FILE.png]\n"
+               "  game chat: Ctrl+Enter opens; Enter sends; Esc cancels (printable ASCII, 223 bytes)\n");
   return 2;
 }
 }  // namespace

@@ -1,4 +1,5 @@
 #include "window.hpp"
+#include "input_keys.hpp"
 
 #ifdef QUATTRO_X11
 
@@ -28,7 +29,7 @@ class X11Window : public Window {
     hints.min_width = hints.max_width = w;
     hints.min_height = hints.max_height = h;
     XSetWMNormalHints(d_, win_, &hints);
-    XSelectInput(d_, win_, KeyPressMask | KeyReleaseMask | ButtonPressMask | ExposureMask | StructureNotifyMask);
+    XSelectInput(d_, win_, KeyPressMask | KeyReleaseMask | ButtonPressMask | ExposureMask | StructureNotifyMask | FocusChangeMask);
     wm_delete_ = XInternAtom(d_, "WM_DELETE_WINDOW", False);
     XSetWMProtocols(d_, win_, &wm_delete_, 1);
     gc_ = XCreateGC(d_, win_, 0, nullptr);
@@ -73,6 +74,9 @@ class X11Window : public Window {
       XNextEvent(d_, &e);
       if (e.type == ClientMessage && static_cast<Atom>(e.xclient.data.l[0]) == wm_delete_) {
         keys_.push_back(Key::Close);
+      } else if (e.type == FocusOut) {
+        for (const auto& released : gui_keys_.release_all()) input_.push_back(released);
+        down_.clear();
       } else if (e.type == ButtonPress && e.xbutton.button == Button1) {
         InputEvent in;
         in.type = InputEvent::MouseDown;
@@ -117,6 +121,10 @@ class X11Window : public Window {
 
   // The Torque name of a key, and its character.
   void gui_key(XEvent& e) {
+    if (e.type == KeyRelease) {
+      if (auto released = gui_keys_.release(e.xkey.keycode)) input_.push_back(*released);
+      return;
+    }
     char buf[8] = {0};
     KeySym sym = 0;
     int n = XLookupString(&e.xkey, buf, sizeof buf - 1, &sym, nullptr);
@@ -138,6 +146,13 @@ class X11Window : public Window {
         if (sym >= XK_F1 && sym <= XK_F12) name = "f" + std::to_string(sym - XK_F1 + 1);
         else if (n == 1 && buf[0] > 32 && buf[0] < 127) name = std::string(1, static_cast<char>(std::tolower(static_cast<unsigned char>(buf[0]))));
     }
+    // Ctrl-letter text can be a control byte, but its physical key still
+    // needs a matching release while a modal editor owns it.
+    if (name.empty()) {
+      const KeySym base = XLookupKeysym(&e.xkey, 0);
+      if (base > 32 && base < 127)
+        name.assign(1, static_cast<char>(std::tolower(static_cast<unsigned char>(base))));
+    }
     if (name.empty()) return;
     InputEvent in;
     in.type = e.type == KeyPress ? InputEvent::KeyDown : InputEvent::KeyUp;
@@ -150,7 +165,7 @@ class X11Window : public Window {
     if (st & ControlMask) add("ctrl");
     if (st & Mod1Mask) add("alt");
     in.mods = mods;
-    input_.push_back(in);
+    input_.push_back(gui_keys_.press(e.xkey.keycode, in));
   }
   const std::string& title() const override { return title_; }
 
@@ -183,6 +198,7 @@ class X11Window : public Window {
   std::deque<InputEvent> input_;
   Time last_click_ = 0;
   std::set<Key> down_;
+  detail::InputKeys gui_keys_;
 };
 
 }  // namespace

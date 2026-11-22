@@ -205,6 +205,12 @@ class Program {
   // A list 24 sprite's rect on sprites.png; width 0 when there is none.
   Draw::Rect sprite_cell(int sprite) const;
   void draw_hud();
+  // Own-project Ctrl+Enter composer; native shortcuts/Unicode are not inferred.
+  bool chat_available();
+  bool chat_controls_held() const;
+  bool chat_input(const Draw::InputEvent& e, bool enter_pressed);
+  void cancel_chat_input();
+  void draw_chat_input();
   std::vector<std::string> roots() const;
   bool load_tile_sheet();
   void want_file(const std::string& name);
@@ -295,6 +301,11 @@ class Program {
   double screen_effect_[4] = {1, 1, 1, 1};
   std::string shoot_params_;
   std::set<int> keys_down_;  // virtual-key codes held (from the window's input events)
+  bool chat_active_ = false, chat_release_pending_ = false;
+  bool chat_blocks_tick_ = false;
+  bool chat_enter_held_ = false, chat_escape_held_ = false;
+  std::set<int> chat_owned_keys_;  // consumed keydowns remain owned until their keyups
+  std::string chat_draft_;  // printable ASCII, at most the 223-byte GSTRING limit
   bool props_sent_ = false;
   bool enter_level_pending_ = false;
   // 5.24 on: the own chat clears itself 3 s after it was set (lab: 2.97

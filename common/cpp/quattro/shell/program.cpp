@@ -60,6 +60,7 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
       run_start_(std::filesystem::file_time_type::clock::now()) {
   Net::Session::Events ev;
   ev.connecting = [this](const std::string& name, const std::string& addr) {
+    cancel_chat_input();
     gani_requests_.clear();
     if (log) log("connecting to " + name + " (" + addr + ")");
   };
@@ -71,6 +72,7 @@ Program::Program(const Net::BuildProfile& profile, Options opt, Draw::Window& wi
   };
   ev.disconnected = [this](const std::string& why) {
     if (log) log("disconnected: " + why);
+    cancel_chat_input();
     unlist_all();
     if (disconnected) disconnected(why);
   };
@@ -413,6 +415,83 @@ Draw::Rect Program::sprite_cell(int sprite) const {
   return {x, y, w, h};
 }
 
+bool Program::chat_available() {
+  return !profile_.v4_scripts && !offline_ && props_sent_ && world_.have_level &&
+         !world_.lobby && session_.connection().connected() && !gui_->has_content() &&
+         sign_text_.empty() && !item_list_open_;
+}
+
+bool Program::chat_controls_held() const {
+  if (chat_enter_held_ || chat_escape_held_ || !chat_owned_keys_.empty()) return true;
+  for (auto key : {Draw::Key::Up, Draw::Key::Left, Draw::Key::Down, Draw::Key::Right,
+                   Draw::Key::A, Draw::Key::S, Draw::Key::D, Draw::Key::Q, Draw::Key::Tab})
+    if (window_.held(key)) return true;
+  return false;
+}
+
+void Program::cancel_chat_input() {
+  if (chat_active_) chat_release_pending_ = true;
+  chat_active_ = false;
+  chat_draft_.clear();
+}
+
+bool Program::chat_input(const Draw::InputEvent& e, bool enter_pressed) {
+  if ((chat_active_ || chat_release_pending_) && e.type == Draw::InputEvent::KeyDown) {
+    const int code = ScriptHost::keycode(e.key, e.ch);
+    if (code) chat_owned_keys_.insert(code);
+  }
+  // A canceled Escape stays consumed until release, including auto-repeat.
+  if (e.type == Draw::InputEvent::KeyDown && e.key == "escape" && chat_escape_held_) return true;
+  if (!chat_active_ && chat_release_pending_) return true; // drain owned input through release boundary
+  if (!chat_active_) {
+    // Plain Enter retains its existing GUI/sign/weapon meaning. This explicit
+    // project shortcut does not pretend scripts have a key-consumed result.
+    if (e.type != Draw::InputEvent::KeyDown || e.key != "enter" || !enter_pressed ||
+        e.mods != "ctrl" || chat_release_pending_ || !chat_available()) return false;
+    chat_active_ = chat_release_pending_ = true;
+    chat_draft_.clear();
+    chat_owned_keys_ = keys_down_;
+    chat_owned_keys_.insert(13);
+    keys_down_.clear();
+    return true;
+  }
+  if (e.type != Draw::InputEvent::KeyDown) return true; // modal keyboard/mouse ownership
+  if (e.key == "escape") {
+    chat_escape_held_ = true;
+    cancel_chat_input();
+  } else if (e.key == "enter") {
+    if (enter_pressed) {
+      const std::string text = chat_draft_;
+      cancel_chat_input();
+      if (!text.empty()) say(text);
+    }
+  } else if (e.mods.empty() || e.mods == "shift") {
+    if (e.key == "backspace") {
+      if (!chat_draft_.empty()) chat_draft_.pop_back();
+    } else if (e.ch >= 32 && e.ch <= 126 && chat_draft_.size() < 223) {
+      chat_draft_.push_back(static_cast<char>(e.ch));
+    }
+  }
+  return true;
+}
+
+void Program::draw_chat_input() {
+  if (!chat_active_) return;
+  const int w = canvas_.width(), h = canvas_.height();
+  if (w <= 0 || h <= 0) return;
+  const int height = std::min(36, h), y = h - height;
+  canvas_.push_clip({0, y, w, height});
+  canvas_.fill_rect({0, y, w, height}, {0, 0, 32, 255});
+  canvas_.frame_rect({0, y, w, height}, {255, 255, 255, 255});
+  std::string tail = chat_draft_;
+  while (!tail.empty() && Draw::ui_text_width("Chat: " + tail + "_", false) > std::max(0, w - 8))
+    tail.erase(tail.begin());
+  Draw::ui_draw_text(canvas_, 4, y + 4, "Chat: " + tail + "_", {255, 255, 255, 255}, false);
+  Draw::ui_draw_text(canvas_, 4, y + 20, "ASCII 223 | Enter send | Esc cancel", {192, 192, 192, 255}, false);
+  canvas_.pop_clip();
+  passes_.push_back("ChatInput");
+}
+
 void Program::say(const std::string& text) {
   me_.chat = text;
   if (props_sent_) session_.connection().send(2, Net::gchar(World::kCurChat) + Net::gstring(text));
@@ -560,6 +639,7 @@ void Program::pick_tile_sheet() {
 }
 
 bool Program::start_offline(const std::string& file, double x, double y, const std::string& part) {
+  cancel_chat_input();
   offline_ = true;
   have_gmap_ = false;
   offline_dir_.clear();
@@ -864,6 +944,7 @@ void Program::on_message(int id, std::string_view body) {
       // So does a repeat before the board (gs2emu can send 6 twice for
       // one link): one entry, one 46.
       if (!level_name_.empty() && body == level_name_) break;
+      cancel_chat_input();
       level_name_ = std::string(body);
       if (link_warp_pending_ && lower_name(level_name_) == lower_name(link_dest_)) {
         // The server answers a LEVELWARP with the level alone (no 14,
@@ -1077,8 +1158,16 @@ bool Program::tick() {
   world_.lobby = !offline_ && session_.lobby_mode();
   if (window_.title() != window_title()) window_.set_title(window_title());
 
+  chat_blocks_tick_ = chat_active_ || chat_release_pending_;
+  if (chat_active_ && !chat_available()) cancel_chat_input();
   bool escape_closed_item_list = false;
   for (Draw::Key k = window_.poll_key(); k != Draw::Key::NoKey; k = window_.poll_key()) {
+    if (k == Draw::Key::Escape && (chat_active_ || chat_release_pending_ || chat_escape_held_)) {
+      chat_escape_held_ = true;
+      cancel_chat_input();
+      chat_blocks_tick_ = true;
+      continue;
+    }
     if (k == Draw::Key::Escape && item_list_open_) {
       item_list_open_ = false;  // Esc closes the item list
       escape_closed_item_list = true;
@@ -1089,8 +1178,16 @@ bool Program::tick() {
   // Input the GUI does not take goes to the weapon scripts (onKeyPressed,
   // onMouseDown, keydown2) and the say2 box.
   for (Draw::InputEvent e; window_.poll_input(e);) {
+    const bool enter_pressed = e.type == Draw::InputEvent::KeyDown && e.key == "enter" && !chat_enter_held_;
+    if (e.key == "enter" && e.type != Draw::InputEvent::MouseDown)
+      chat_enter_held_ = e.type == Draw::InputEvent::KeyDown;
+    if (e.key == "escape" && e.type == Draw::InputEvent::KeyUp) chat_escape_held_ = false;
     // Releases update physical state even when an overlay takes the event.
-    if (e.type == Draw::InputEvent::KeyUp) keys_down_.erase(ScriptHost::keycode(e.key, e.ch));
+    if (e.type == Draw::InputEvent::KeyUp) {
+      const int code = ScriptHost::keycode(e.key, e.ch);
+      keys_down_.erase(code);
+      chat_owned_keys_.erase(code);
+    }
     if (escape_closed_item_list && e.type == Draw::InputEvent::KeyDown &&
         ScriptHost::keycode(e.key, e.ch) == 27) {
       keys_down_.insert(27);
@@ -1099,6 +1196,10 @@ bool Program::tick() {
     if (gui_->has_content() && gui_->input(e)) continue;
     if (item_list_open_) {
       item_list_input(e);
+      continue;
+    }
+    if (chat_input(e, enter_pressed)) {
+      chat_blocks_tick_ = true;
       continue;
     }
     if (profile_.escape_menu && !gui_->has_content() && !weapons_.any_shown() &&
@@ -1111,6 +1212,8 @@ bool Program::tick() {
     }
     if (!world_.lobby) script_input(e);
   }
+  chat_blocks_tick_ |= chat_active_ || chat_release_pending_;
+  if (!chat_active_ && !chat_controls_held()) chat_release_pending_ = false;
   script_tick();
   if (world_.lobby && action_pressed_) {  // no stale press when the game starts
     action_pressed_ = 0;
@@ -1125,15 +1228,15 @@ bool Program::tick() {
     // D, Q and Tab toggle the same status bit while no weapon is shown
     // (item-keys lab). With one, D uses the selected weapon and Q or Tab
     // opens and closes the item list.
-    const bool d_held = window_.held(Draw::Key::D) || action_d_;
-    const bool q_held = window_.held(Draw::Key::Q) || window_.held(Draw::Key::Tab) || action_q_;
+    const bool d_held = !chat_blocks_tick_ && (window_.held(Draw::Key::D) || action_d_);
+    const bool q_held = !chat_blocks_tick_ && (window_.held(Draw::Key::Q) || window_.held(Draw::Key::Tab) || action_q_);
     const bool armed = weapons_.any_shown();
     unsigned items = (window_.held(Draw::Key::A) ? World::kKeyA : 0u) |
                      (window_.held(Draw::Key::S) ? World::kKeyS : 0u) |
                      (!armed && (d_held || q_held) ? World::kKeyD : 0u) |
                      (action_items_ & (World::kKeyA | World::kKeyS));
     // Script movement/freeze gates hold walking and built-in item keys.
-    if (freeze_left_ > 0 || !def_movement_) {
+    if (chat_blocks_tick_ || freeze_left_ > 0 || !def_movement_) {
       keys = 0;
       items = 0;
     }
@@ -1288,6 +1391,7 @@ bool Program::tick() {
     npcs_to_world();
   }
   gui_->pick_content();
+  if (chat_active_ && !chat_available()) cancel_chat_input();
   gui_->screen().advance(0.05);  // the show-images' emitters, one 50 ms tick
   passes_.clear();
   if (gui_->has_content()) {
@@ -1307,6 +1411,7 @@ bool Program::tick() {
     draw_item_list();
     draw_show_images(true);
     draw_sign();
+    draw_chat_input();
   }
   window_.present(canvas_.surface());
   return !quit_;

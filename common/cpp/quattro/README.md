@@ -358,3 +358,33 @@ not measured yet.
   original sends (it hashes the machine). No machine is read.
 - The PLI 50 size counts the id byte, the body and the newline; the note
   gives the cap, not what is counted.
+
+
+## Project keyboard chat
+
+In an online, initialized non-lobby game using a late Quattro profile, press
+**Ctrl+Enter** to open the project chat composer. Type printable ASCII, use
+Backspace to edit, Enter to submit a nonempty message, or Escape to cancel.
+Empty submit/cancel sends no chat update. The editor is bounded to 223 bytes,
+matching the existing GSTRING wire field; the panel shows a clipped tail for
+long drafts. Unicode/IME, clipboard and other editing shortcuts are not part
+of this initial portable input path.
+
+Plain Enter outside the composer keeps its existing script/GUI meaning. GUI
+content, sign boxes and item lists keep priority; legacy `v4_scripts` profiles,
+offline mode, loading/connecting and the Login lobby do not open this composer.
+A real level or connection change discards the draft; a repeated report of the
+same level does not. Key releases are processed even when an overlay owns
+input. Typed keys and mouse clicks stay modal through submit/cancel until the
+owned presses are released; gameplay input then resumes. Network/world updates
+continue while typing. Native window-close shortcuts remain available.
+
+Submission uses the existing `Program::say` path: the own chat/script value,
+chat property and `PlayerChats` callback. This is an explicit own-project user
+path, not a recovered native-client shortcut, native chat widget or original
+font-timing result. No engine default or unsupported backend is switched.
+
+The X11 adapter retains physical press identity for matching releases across
+modifier changes and releases tracked keys on focus loss. This prevents modal
+input from retaining phantom presses. Windows/Cocoa also retain the original
+logical key on repeats while keeping current typed characters and modifiers. Source portability is reviewed separately from macOS execution.
