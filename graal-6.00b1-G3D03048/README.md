@@ -22,7 +22,7 @@ is 5.24's. This is the 0.0.1 reproduction: hit or miss.
 Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
 
 - **default:** Delphi/Pascal stand-in (no-argument / release entry on main today).
-- **faithful engine:** Quattro one-exe program — still being wired; not the release default.
+- **faithful engine:** explicit `--engine` hands the documented subset to Quattro; not the release default.
 - **relic:** none yet. When the faithful engine is validated end-to-end and switched to default, the Pascal stand-in becomes the labeled relic/fallback and is never deleted.
 
 ## Sources
@@ -48,6 +48,34 @@ Server ids handled: 97, read from the unpacked 6.00 beta 1 (the same set as 6.00
 
 As in `graal-6.0.1.5-G3D3007A`, with this folder's suffix: `Graal600b1.dpr`, `Protocol600b1`,
 `ListServer600b1`, `StartScreen600b1`, `GraalClient`, `Adventure`, `RunMode`.
+
+## Explicit Quattro route
+
+`Graal600b1 --engine --server HOST:PORT --account NAME` or
+`Graal600b1 --engine --level some.nw` hands the game to the packaged
+`quattro-play --build 6.00b1`. Supported extra options are `--window`,
+`--data`, positive `--seconds`, offline `--x` / `--y`, and online
+`--password-env` / `--server-name`. Passwords use the existing private
+environment handoff. Unsupported or duplicate options exit 64; a missing
+or disabled player (including Linux without a display) exits 69. An
+explicit engine request does not silently fall back to Pascal.
+
+The profile has the independently documented 97-ID receive switch and
+Windows login/gen-5 framing. The original beta1 lab reached login only:
+lobby tiles, ping/ENTERLEVEL suppression, own-props and gameplay inherit
+the contemporary 5.24 rebuild. Its inherited outgoing set remains
+incomplete; this is not a claim of an independently recovered beta1 send
+set or new native measurements. The six newly accepted IDs pass filtering
+but their game handlers remain unimplemented. The existing 5.24 rebuild's
+narrower filter is unchanged in this slice.
+
+The shared argument translator receives beta1's own label, so asset roots
+select `6.00b1` without sibling beta2/r4 roots. Inert tests cover that boundary and
+locale-independent coordinates; connection and Program regressions use
+synthetic loopback data in CI. No-argument/default Pascal behavior stays
+unchanged. Native/end-to-end acceptance and a default switch remain open.
+macOS follows the existing AppKit packaging path; source portability was
+reviewed, but no macOS compilation or runtime validation is claimed.
 
 ## Running it
 

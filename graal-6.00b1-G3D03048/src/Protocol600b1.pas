@@ -4,9 +4,9 @@
   The original 6.00b1 for Windows (8 January 2010, one MoleBox-wrapped exe) is one native
   C++ program; this rebuild runs on Linux and Windows. Names follow gs2lib
   (graal_analysis protocol/packet-ids.md). Sources: protocol/v6x-clients.md
-  and protocol/v5v6-lab-play.md (the lab ran the Windows 6.03r7; 6.00b1
-  was never run, so where its behaviour is not read from the binary the
-  6.03r7 run stands in). 6.00b1 speaks
+  and protocol/v5v6-lab-play.md (the original beta1 reached login only;
+  gameplay not established there remains inherited from the contemporary
+  rebuild). 6.00b1 speaks
   the gen-5 wire with its own token, no tamper check, no listserver and no
   licence file: it logs into a game server it calls Login, and plays only
   after that server sends a server warp (178). It handles 97 server ids;
@@ -266,11 +266,11 @@ uses
 
 function PLOKnown(Id: Integer): Boolean;
 begin
-  { v6x-clients.md, "Server -> client ids (6.01, 6.03)" }
+  { v5v6-windows-unpacked.md: early-2010 beta1 receive switch, 97 ids. }
   case Id of
-    0..25, 27..40, 42, 43, 45..49, 67..69, 74, 82, 84, 101, 102, 104..107, 109,
-    131, 134, 140, 150, 151, 153..156, 166, 168, 170, 172..174, 176,
-    178..180, 182, 183, 185..187, 189..191, 194, 195, 197, 198:
+    0..25, 27..43, 45..49, 67..69, 74, 82, 84, 101, 102, 104..107, 109,
+    131, 134, 140, 150, 151, 153..156, 165, 166, 168..170, 172..176,
+    178..187, 189..191, 194, 195, 197, 198:
       Result := True;
   else
     Result := False;
