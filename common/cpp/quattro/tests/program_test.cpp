@@ -1631,6 +1631,9 @@ void test_project_chat_input() {
   CHECK(prof);
   if (!prof) return;
   FakeServer game;
+  // The peer must use the selected profile's packed cipher rule too: the
+  // capped repeated-text message compresses to a short final cipher group.
+  game.round_down = prof->packed_round_down;
   CHECK(game.start());
   Shell::Options opt;
   opt.host = "127.0.0.1"; opt.port = game.port();
@@ -1740,6 +1743,7 @@ void test_project_chat_input() {
     }
   }
   CHECK(delivered_limit);
+  CHECK(game.dec && !game.dec->failed());
   CHECK(p.me().chat == limit && value("chat_input_heard") == limit && value("chat_input_chats") == "2");
   frame(); frame();
   // An ordinary server peer update reaches the actor consumed by the renderer.
