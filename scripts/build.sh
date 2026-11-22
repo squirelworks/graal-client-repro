@@ -200,45 +200,49 @@ for B in $BUILDS; do
        [ "$B" = "graal-5.00r7-G3D22067" ] || [ "$B" = "graal-5.12-G3D14097" ]; } &&
      [ -f "$ROOT/common/cpp/graalengine/Makefile" ]; then
     echo "== common/cpp/graalengine"
-    CXXBIN=${CXX:-g++}
-    if command -v "$CXXBIN" >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
-      case "$(uname -s)" in
-        MINGW*|MSYS*|CYGWIN*)
-          # The Windows launcher is 32-bit (i386-win32), so its DLL must be
-          # too. A compiler with no 32-bit target leaves the DLL out and the
-          # launcher test skips its library half.
-          make -C "$ROOT/common/cpp/graalengine" clean all CXX="$CXXBIN" \
-            CXXFLAGS="-std=c++17 -Wall -Wextra -Werror -O2 -m32" ||
-            echo "::warning::no 32-bit C++ target; 4.x engine library not built"
-          ;;
-        *) make -C "$ROOT/common/cpp/graalengine" clean all CXX="$CXXBIN" ;;
-      esac
-      for L in GraalEngineRepro.dll libgraalengine.so libgraalengine.dylib; do
-        if [ -f "$ROOT/common/cpp/graalengine/build/$L" ]; then cp "$ROOT/common/cpp/graalengine/build/$L" "$OUT/"; fi
-      done
-      # The 3D library (common/cpp/graal3dengine) sits beside it, as
-      # Graal3DEngine.dll does; the launcher loads it for `3 ` servers.
-      if [ -f "$ROOT/common/cpp/graal3dengine/Makefile" ]; then
-        echo "== common/cpp/graal3dengine"
-        case "$(uname -s)" in
-          MINGW*|MSYS*|CYGWIN*)
-            make -C "$ROOT/common/cpp/graal3dengine" clean all CXX="$CXXBIN" \
-              CXXFLAGS="-std=c++17 -Wall -Wextra -Werror -O2 -m32" ||
-              echo "::warning::no 32-bit C++ target; 4.x 3D library not built"
-            ;;
-          *) make -C "$ROOT/common/cpp/graal3dengine" clean all CXX="$CXXBIN" ;;
+    case "$(uname -s)" in
+      MINGW*|MSYS*|CYGWIN*)
+        # DLLs must match the FPC launcher, not the standalone player.
+        rm -f "$OUT/GraalEngineRepro.dll" "$OUT/Graal3DEngineRepro.dll"
+        E_TARGET_CPU=$("$FPC" -iTP 2>/dev/null || true)
+        E_TARGET_OS=$("$FPC" -iTO 2>/dev/null || true)
+        case "$E_TARGET_CPU/$E_TARGET_OS" in
+          i386/win32) E_PREFIX=mingw32 ;;
+          x86_64/win64) E_PREFIX=ucrt64 ;;
+          *) E_PREFIX= ;;
         esac
-        for L in Graal3DEngineRepro.dll libgraal3dengine.so libgraal3dengine.dylib; do
-          if [ -f "$ROOT/common/cpp/graal3dengine/build/$L" ]; then cp "$ROOT/common/cpp/graal3dengine/build/$L" "$OUT/"; fi
-        done
-      fi
-    else
-      case "$(uname -s)" in
-        Linux) echo "g++ and make are required for the 4.x engine library"; exit 1 ;;
-        *) echo "no g++ or make; 4.x engine library skipped" ;;
-      esac
-    fi
+        if [ -n "$E_PREFIX" ] && [ -x "/c/msys64/$E_PREFIX/bin/g++" ] &&
+           [ -x /c/msys64/usr/bin/make ]; then
+          # Once a matching toolchain is selected, compile/link errors fail.
+          sh "$ROOT/scripts/build-engine-windows.sh" "$OUT" "$E_TARGET_CPU/$E_TARGET_OS"
+        else
+          echo "::warning::matching Windows C++ toolchain unavailable; engine DLLs not built"
+        fi
+        ;;
+      *)
+        CXXBIN=${CXX:-g++}
+        if command -v "$CXXBIN" >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
+          make -C "$ROOT/common/cpp/graalengine" clean all CXX="$CXXBIN"
+          for L in libgraalengine.so libgraalengine.dylib; do
+            if [ -f "$ROOT/common/cpp/graalengine/build/$L" ]; then cp "$ROOT/common/cpp/graalengine/build/$L" "$OUT/"; fi
+          done
+          if [ -f "$ROOT/common/cpp/graal3dengine/Makefile" ]; then
+            echo "== common/cpp/graal3dengine"
+            make -C "$ROOT/common/cpp/graal3dengine" clean all CXX="$CXXBIN"
+            for L in libgraal3dengine.so libgraal3dengine.dylib; do
+              if [ -f "$ROOT/common/cpp/graal3dengine/build/$L" ]; then cp "$ROOT/common/cpp/graal3dengine/build/$L" "$OUT/"; fi
+            done
+          fi
+        else
+          case "$(uname -s)" in
+            Linux) echo "g++ and make are required for the 4.x engine library"; exit 1 ;;
+            *) echo "no g++ or make; 4.x engine library skipped" ;;
+          esac
+        fi
+        ;;
+    esac
   fi
+
   # The 6.01r1 / 6.03r7 Linux, Windows 6.03r7, 5.24r4 and 5.31r4 clients are one C++
   # program (quattro_lib). Its rebuild, common/cpp/quattro's quattro-play,
   # sits beside the start screen, which hands the game to it

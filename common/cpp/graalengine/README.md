@@ -16,6 +16,23 @@ make test-canvas-bounds  # inert rectangle clipping/hit tests only
 `scripts/build.sh graal-4.04r2-G3D17026` builds the library and copies it
 next to `Graal404`; `TestEngineHost404` loads it from there.
 
+## Windows launcher architecture
+
+The FPC launcher and both engine DLLs must have the same target. The Windows
+build script selects MINGW32 for `i386/win32` and UCRT64 for `x86_64/win64`,
+including matching zlib/bzip2 headers and libraries. It invokes MSYS make,
+validates the compiler target, and clears shared objects when that target
+changes. A selected matching compiler failure is an error, not a skipped DLL.
+Absent toolchains retain the explicit Pascal-only warning path.
+
+Existing Windows jobs install the32-bit dependencies and keep their runtime
+DLL directory on PATH while running the authored Pascal host tests. The gate
+checks i386 PE headers, required DLLs and actual2D/3D load/initialization output;
+missing DLLs cannot silently turn these controls into skips. This establishes
+the configured32-bit CI loader path only. A full toolchain PATH is not portable
+release dependency closure. Native interoperability, macOS execution, Windows
+64-bit launcher validation and other release gates remain separate.
+
 ## What it was written from
 
 Graal_analysis, behaviour only; nothing from a decompile is kept here.
