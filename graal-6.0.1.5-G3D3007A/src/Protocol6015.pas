@@ -5,11 +5,11 @@
   C++ program; this rebuild runs on Linux and Windows. Names follow gs2lib
   (graal_analysis protocol/packet-ids.md). Sources: protocol/v6x-clients.md
   and protocol/v5v6-lab-play.md (the lab ran the Windows 6.03r7; 6.0.1.5
-  was never run, so where its behaviour is not read from the binary the
+  token was observed, but gameplay was not established, so where behavior is not read the
   6.03r7 run stands in). 6.0.1.5 speaks
-  the gen-5 wire with its own token, no tamper check, no listserver and no
+  the inherited gen-5 wire with its own token, no tamper check, no listserver and no
   licence file: it logs into a game server it calls Login, and plays only
-  after that server sends a server warp (178). It handles 92 server ids;
+  after that server sends a server warp (178). The rebuild inherits 91 server ids from Linux 6.01r1;
   every other id is ignored silently. }
 unit Protocol6015;
 
@@ -256,7 +256,7 @@ const
   TextCodePage = 1250;
 
 function PLOName(Id: Integer): string;
-{ True for the 91 server ids 6.0.1.5's receive switch has a case for. }
+{ The existing rebuild inherits these 91 ids from Linux 6.01r1; not a native Windows measurement. }
 function PLOKnown(Id: Integer): Boolean;
 
 implementation

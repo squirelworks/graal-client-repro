@@ -23,7 +23,7 @@ if [ -z "${GRAAL_BUILD_ONE:-}" ] && [ "$JOBS" -gt 1 ] && [ "$(echo $BUILDS | wc 
   PAR=""
   for B in $BUILDS; do
     case $B in
-      graal-3.04-*|graal-3.153-*|graal-3.0beta-*|graal-3.01-*|graal-3.151-*|graal-4.20r8-*|graal-4.04r2-*|graal-4.02.11-*|graal-4.03r1-*|graal-4.03r3-*|graal-4.11-*|graal-4.20r6-*|graal-5.00r7-*|graal-5.12-*|graal-6.01r1-*|graal-6.03r7-*|graal-6.03r7win-*|graal-5.24r4-*|graal-5.31r4-*|graal-6.00r4-*|graal-6.00b2-*|graal-6.00b1-*|graal-6.00beta-20110627-*)
+      graal-3.04-*|graal-3.153-*|graal-3.0beta-*|graal-3.01-*|graal-3.151-*|graal-4.20r8-*|graal-4.04r2-*|graal-4.02.11-*|graal-4.03r1-*|graal-4.03r3-*|graal-4.11-*|graal-4.20r6-*|graal-5.00r7-*|graal-5.12-*|graal-6.01r1-*|graal-6.03r7-*|graal-6.03r7win-*|graal-5.24r4-*|graal-5.31r4-*|graal-6.00r4-*|graal-6.00b2-*|graal-6.00b1-*|graal-6.00beta-20110627-*|graal-6.0.1.5-*)
         SERIAL="$SERIAL $B" ;;
       *) PAR="$PAR $B" ;;
     esac
@@ -247,7 +247,7 @@ for B in $BUILDS; do
   # Pascal game.
   if { [ "$B" = "graal-6.03r7-G3D0511C" ] || [ "$B" = "graal-6.01r1-G3D0108A" ] ||
        [ "$B" = "graal-6.03r7win-G3D0311C" ] || [ "$B" = "graal-5.24r4-G3D15010" ] ||
-       [ "$B" = "graal-5.31r4-G3D26090" ] || [ "$B" = "graal-6.00r4-G3D26090" ] || [ "$B" = "graal-6.00b2-G3D15010" ] || [ "$B" = "graal-6.00b1-G3D03048" ] || [ "$B" = "graal-6.00beta-20110627-G3D28090" ]; } &&
+       [ "$B" = "graal-5.31r4-G3D26090" ] || [ "$B" = "graal-6.00r4-G3D26090" ] || [ "$B" = "graal-6.00b2-G3D15010" ] || [ "$B" = "graal-6.00b1-G3D03048" ] || [ "$B" = "graal-6.00beta-20110627-G3D28090" ] || [ "$B" = "graal-6.0.1.5-G3D3007A" ]; } &&
      [ -f "$ROOT/common/cpp/quattro/Makefile" ]; then
     CXXBIN=${CXX:-g++}
     case "$(uname -s)" in

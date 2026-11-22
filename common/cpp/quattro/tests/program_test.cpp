@@ -1395,6 +1395,13 @@ void test_program_nontile_lobby(const char* build, const char* token, const char
     return false;
   }));
   CHECK(p.me().x == 20 && p.me().y == 22);
+  if (std::string(build) == "6.0.1.5") {
+    bool windows_ostype = false;
+    for (const auto& packet : game.got)
+      if (packet.first == 2 && packet.second.find(gchar(75) + gstring("win")) != std::string::npos)
+        windows_ostype = true;
+    CHECK(windows_ostype);  // Literal OSTYPE oracle, independent of profile.platform.
+  }
   const double x0 = p.me().x;
   win.keys.insert(Draw::Key::Right);
   for (int i = 0; i < 20; ++i) {
@@ -1802,6 +1809,7 @@ int main() {
   test_program_nontile_lobby("5.31r4", "G3D26090", "win");
   test_program_nontile_lobby("6.00r4", "G3D26090", "win");
   test_program_nontile_lobby("6.00beta-20110627", "G3D28090", "linux");
+  test_program_nontile_lobby("6.0.1.5", "G3D3007A", "win");
   test_program_603_level_entry();
   test_program_603_load_gani();
   test_program_603_level_link();

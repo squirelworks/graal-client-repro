@@ -22,6 +22,8 @@ to the program works too.
 
 ## What's new in v0.0.5
 
+- [x] Explicit `--engine` selects the Windows 6.0.1.5 Quattro profile and own asset roots, with a packaged player manifest. Its91-id/gameplay policy is inherited from the existing 6.01r1 rebuild; native/default/full-chain acceptance remains open.
+
 - [x] **Short compressed frames step the cipher rounded down.** A zlib or bz2 body now steps the gen-5 key len / 4 times rounded down (a raw one still rounds up), as the read 4.04r2, 5.12 and 6.03r7 do and as seihai-core v0.7.0 expects of every gen-5 build from 4.04r2 on. Round-up only held while frame lengths happened to agree.
 - [x] **Seihai secure login (optional, off by default).** With `--secure-login auto` (or `required`, or `secure_login.txt` in the settings folder), the account and password go sealed to a Seihai game server or list server (`SEI00001`), after the server's key is checked and pinned. Servers that do not know it get the original login under `auto`. Off, the login is byte for byte the original's. This is not in the original 6.0.1.5.
 - [x] **New client.** 6.0.1.5 has a folder of its own, started from `graal-6.01r1-G3D0108A` with its own token `G3D3007A` and the Windows login tail (`win` and four machine fields) and `win` as its system name.

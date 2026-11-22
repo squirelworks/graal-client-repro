@@ -52,6 +52,8 @@ program Graal6015;
 
 uses
   SysUtils, Classes,
+  GQuattroPlay in '../../common/GQuattroPlay.pas',
+  Engine6015 in 'Engine6015.pas',
   GTypes in '../../common/GTypes.pas',
   GZlib in '../../common/GZlib.pas',
   GSocket in '../../common/GSocket.pas',
@@ -114,6 +116,38 @@ begin
 end;
 
 
+{ Explicit engine route only. Unsupported options fail with 64 rather than
+  silently running a different game. The no-argument and ordinary CLI
+  routes remain Pascal until the engine's end-to-end bar is met. }
+function RunEngine6015: Integer;
+var
+  Input: array of string;
+  Args: TQuattroArgs;
+  I: Integer;
+  Dir, Exe, PasswordEnv, Password: string;
+begin
+  Result := 64;
+  Dir := ExtractFilePath(ParamStr(0));
+  SetLength(Input, ParamCount);
+  for I := 1 to ParamCount do Input[I-1] := ParamStr(I);
+  if not EngineArguments6015(Input, Dir, Args, PasswordEnv) then
+  begin
+    WriteLn(ErrOutput, 'unsupported --engine arguments; see README');
+    Exit;
+  end;
+  Exe := QuattroProgram(Dir, HasArg('--server'));
+  if Exe = '' then
+  begin
+    WriteLn(ErrOutput, 'engine unavailable: no quattro-play, disabled engine, or no display');
+    Exit(69);
+  end;
+  Password := '';
+  if HasArg('--server') then Password := GetEnvironmentVariable(PasswordEnv);
+  Result := RunQuattro(Exe, ClientBuildLabel, Args, Password);
+  if Result < 0 then Result := 69;
+end;
+
+
 procedure Usage;
 begin
   WriteLn('Graal ', ClientBuildLabel, ' (', ClientVersionToken, ') rebuild');
@@ -121,6 +155,7 @@ begin
   WriteLn('  --server HOST:PORT --account NAME [--password-env VAR] [--server-name NAME]');
   WriteLn('          [--secure-login off|auto|required] [--server-key KEY]');
   WriteLn('  --level FILE [--x X --y Y]');
+  WriteLn('  --engine: opt-in Quattro; server/level, data, coordinates and seconds only');
   WriteLn('  common: [--data DIR] [--window | --headless] [--frames N] [--seconds N]');
   WriteLn('          [--keys SCRIPT] [--walk script|idle|random] [--walk-ms N] [--seed N]');
   WriteLn('          [--link-every N] [--nodelay] [--stats-every N]');
@@ -615,5 +650,6 @@ begin
   if ParamCount = 0 then
     Halt(RunGui);
   OpenConsoleIO;
+  if HasArg('--engine') then Halt(RunEngine6015);
   Halt(RunGame(nil, '', ''));
 end.
