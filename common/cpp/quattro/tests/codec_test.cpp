@@ -190,7 +190,22 @@ void test_profiles() {
         r603w->has_os_version && r603w->plo == r603->plo);
   CHECK(r603->plo.count() == 92);
   CHECK(r601->plo.count() == 91);
-  const BuildProfile* date_beta = find_profile("6.00beta-20110627");
+    const BuildProfile* r6015 = find_profile("6.0.1.5");
+    CHECK(r6015 && r6015 != r601 && r6015->token == "G3D3007A");
+    if (r6015) {
+      CHECK(find_profile("6.0.1.5 Windows") == r6015);
+      CHECK(!find_profile("6.0.1") && !find_profile("G3D3007A"));
+      CHECK(r6015->platform == "win" && r6015->has_os_version);
+      CHECK(r6015->machine_fields == kFakeWinFields && r6015->os_version == "6.2 9200 ");
+      CHECK(r6015->plo == r601->plo && r6015->plo.count() == 91);
+      CHECK(!r6015->plo.test(111) && !r6015->plo.test(175) && !r6015->plo.test(184));
+      CHECK(r6015->pli == r601->pli && !r6015->pli.test(39) && !r6015->pli.test(160));
+      CHECK(r6015->own_props == r601->own_props && !r6015->login_draws_tiles);
+      CHECK(r6015->packed_round_down == r601->packed_round_down);
+      CHECK(r6015->answers_ping && r6015->sends_enter_level);
+      CHECK(r6015->login_wants == r601->login_wants && r6015->update_packages);
+    }
+    const BuildProfile* date_beta = find_profile("6.00beta-20110627");
   CHECK(date_beta && date_beta != r601 && date_beta->token == "G3D28090");
   if (date_beta) {
     CHECK(date_beta->label == "6.00beta-20110627 Linux" && date_beta->platform == "linux");

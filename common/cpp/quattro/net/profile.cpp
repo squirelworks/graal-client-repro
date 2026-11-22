@@ -90,6 +90,19 @@ std::vector<BuildProfile> make() {
   r601.pli.reset(160);
   rows.push_back(r601);
 
+  // Windows 6.0.1.5: the existing folder inherits the 6.01r1 rebuild's
+  // 91-id receive set and gameplay, with the Windows login tail/OSTYPE.
+  // Only the native token is established; these policies are not new native
+  // measurements, nor proof that another build sharing the token is equal.
+  BuildProfile r6015 = r601;
+  r6015.label = "6.0.1.5 Windows";
+  r6015.token = "G3D3007A";
+  r6015.platform = "win";
+  r6015.machine_fields = kFakeWinFields;
+  r6015.has_os_version = true;
+  r6015.os_version = "6.2 9200 ";
+  rows.push_back(r6015);
+
   // Date-labelled Linux beta: only its token is established. The native
   // version is unknown; receive/send/gameplay policies inherit our 6.01r1
   // rebuild, not a new measurement of this beta. No expiry behavior inferred.
