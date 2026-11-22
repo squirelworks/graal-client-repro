@@ -23,8 +23,8 @@ arguments:
 | 5.00r7, 5.12, 5.12mac | same library (5.0 profile) | Pascal | as 4.x |
 | 5.24r4, 5.31r4 | Quattro `quattro-play` (`common/cpp/quattro`) | engine | e2e lab like 6.03r7 |
 | 6.01r1, 6.03r7 Linux, 6.03r7 Windows | Quattro | engine | gaps in #430 |
-| 6.00r4 | Quattro `quattro-play`, explicit `--engine` | Pascal | validate inherited behavior and e2e before default switch |
-| 6.00b2 | Quattro `quattro-play`, explicit `--engine` | Pascal | validate inherited behavior and e2e before default switch |
+| 6.00r4 | Quattro `quattro-play`, explicit `--engine` | Pascal | [direct project check](engine-600-project-check-2026-11-22.md) passed; launcher/full e2e and inherited behavior remain |
+| 6.00b2 | Quattro `quattro-play`, explicit `--engine` | Pascal | [direct project check](engine-600-project-check-2026-11-22.md) passed; launcher/full e2e and inherited behavior remain |
 | 6.00b1, 6.00beta, 6.004mac, 6.0.1.5, 6.015mac, 6.0.3.4 | Quattro (no profile row yet) | Pascal | add a profile row, hand off, e2e, switch |
 | 6.1.1.3, 6.11r1 Mac | connector clients | Pascal | connector cipher end to end (#429), then Quattro |
 
@@ -47,6 +47,12 @@ through a level link. `stress.sh` soaks three clients. Both use
 127.0.0.1 only. The Pascal 6.1.1.3 / 6.11r1 suites:
 `fpc -Mdelphi -Fu../../common -Fu../src tests/Test6113.dpr`, run from the
 repo root.
+
+For a direct game-port Quattro check, supply an explicit non-Login
+`--server-name`; the CLI default `Login` selects lobby behavior. An authored
+collision fixture must actually mark its visible tile IDs passable. See the
+[bounded r4/beta2 project check](engine-600-project-check-2026-11-22.md) for the
+observed setup failures and the narrower acceptance it establishes.
 
 ### 1b. The full lab chain (before switching a default)
 
