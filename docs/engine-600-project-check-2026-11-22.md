@@ -72,8 +72,33 @@ earlier controller-reported cleanup observation.
 
 Actual logs, seed/final account snapshots and before/after views were read in
 review; no captures or account files are published. Only the direct project
-"see each other" item is completed here. The long soak was not run, and no
-chat, weapon, native-client or Windows launcher acceptance follows from it.
+"see each other" item is completed here. Those peer-only runs did not include the long soak, and no chat, weapon,
+native-client or Windows launcher acceptance follows from them.
+
+## Separate five-minute no-input connection soak
+
+A later pair for each label reused the same recorded client build, authored
+fixture and retained unknown-source server. Neither client received gameplay
+input. Timing began only after both server logins were recorded, with the same
+client PIDs checked at 60, 120, 180, 240 and 300 seconds.
+
+The r4 end captures followed 301.3 seconds after that anchor; beta2 followed
+300.8 seconds. Both end views still contained both players. Server logs record
+only the expected normal client closes at about 310 seconds per connection;
+no unexpected disconnect was recorded during the measured intervals. All four
+client exits and both bounded runner exits were zero. Each soak pair has its
+own saved post-cleanup inventory, with none of its recorded owned PIDs present.
+This does not change the earlier smoke run's cleanup evidence.
+
+The controller recorded unchanged server policy: `heartbeat = 5`, `ping = 0`,
+and `idle_timeout = 0`. Post-run configuration snapshots agree with those
+values, but are not contemporaneous captures or independent proof of policy
+immutability during the run. This supports bounded idle connection stability
+under that recorded configuration, not enforced keepalive, ping-timeout or
+idle-eviction behavior.
+It does not establish active-gameplay/churn stress, memory-leak freedom, chat,
+weapons, native fidelity, launcher handoff or the complete end-to-end gate.
+The source/binary provenance limits above still apply.
 
 ## Remaining acceptance
 
@@ -82,8 +107,10 @@ chat, weapon, native-client or Windows launcher acceptance follows from it.
 - [ ] Windows Pascal `--engine` launcher and start-screen handoff.
 - [x] Direct project two-player visibility and rendered peer-position updates
   for both labels, in separate bounded pairs.
-- [ ] Server-list/login-to-game warp chain, chat, weapons/actions and the full
-  soak checklist in [ENGINE-HANDOFF](ENGINE-HANDOFF.md).
+- [x] Separate direct-project no-input pairs remained connected for at least
+  five minutes after both logins, under the recorded server policy.
+- [ ] Server-list/login-to-game warp chain, chat, weapons/actions and the
+  combined full checklist in [ENGINE-HANDOFF](ENGINE-HANDOFF.md).
 - [ ] Original-client/native behavior, inherited send/property contracts and
   macOS execution validation.
 - [ ] Default-switch gate. The no-argument route remains Pascal.
