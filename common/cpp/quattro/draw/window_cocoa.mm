@@ -271,6 +271,12 @@ class CocoaWindow final : public Window {
             return true;
           }
         }
+        // Command may be pressed after an ordinary tracked key. Its release
+        // must still end that original press, without consuming new shortcuts.
+        if (t == NSEventTypeKeyUp && gui_down_.count([ev keyCode])) {
+          key(ev, false);
+          return true;
+        }
         return false;
       }
       key(ev, t == NSEventTypeKeyDown);
