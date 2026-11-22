@@ -1,15 +1,15 @@
-{ Graal 6.00beta-20110627 for Linux (G3D28090), rebuilt. The original is a native C++
-  program; this rebuild carries the 6.03r7 one over, since 6.00beta-20110627
-  keeps the gen-5 wire and the Login lobby (graal_analysis
-  protocol/v6x-clients.md).
+{ Date-labelled Linux beta of 2011-06-27 (G3D28090), rebuilt.
+  The native version is unknown. This Pascal stand-in inherits the 6.01r1
+  rebuild contract; the explicit Quattro path keeps those assumptions.
+  Only the original token is established here, not native gameplay or expiry.
 
-  Command line:
+  Command line (--engine is explicit opt-in; default stays Pascal):
     Graal600b --server HOST:PORT --account NAME [--password-env VAR]
              [--server-name NAME]
     Graal600b --level FILE.graal|FILE.nw|FILE.gmap [--x X --y Y]
-  --server-name: what the client calls that server (default Login, as
-  6.00beta-20110627 calls the first server it reaches: no tiles and no characters
-  are drawn until a server warp (178) names another).
+  --server-name: what the rebuild calls that server (default Login).
+  Login drawing suppression and warp (178) policy are inherited, not
+  newly measured behavior of the date-labelled original.
   common options:
     --data DIR        a Graal install: pics1, arrays.dat, levels/ganis, heads,
                       bodies, swords, shields, hats
@@ -53,6 +53,7 @@ program Graal600b;
 uses
   SysUtils, Classes,
   GTypes in '../../common/GTypes.pas',
+  GQuattroPlay in '../../common/GQuattroPlay.pas',
   GZlib in '../../common/GZlib.pas',
   GSocket in '../../common/GSocket.pas',
   GSecCrypto in '../../common/GSecCrypto.pas',
@@ -67,6 +68,7 @@ uses
   GFont in '../../common/GFont.pas',
   GWindow in '../../common/GWindow.pas',
   Protocol600b in 'Protocol600b.pas',
+  Engine600b in 'Engine600b.pas',
   GraalClient in 'GraalClient.pas',
   Adventure in 'Adventure.pas',
   GStartScreen in '../../common/GStartScreen.pas',
@@ -114,6 +116,38 @@ begin
 end;
 
 
+{ Explicit engine route only. Unsupported options fail with 64 rather than
+  silently running a different game. The no-argument and ordinary CLI
+  routes remain Pascal until the engine's end-to-end bar is met. }
+function RunEngine600b: Integer;
+var
+  Input: array of string;
+  Args: TQuattroArgs;
+  I: Integer;
+  Dir, Exe, PasswordEnv, Password: string;
+begin
+  Result := 64;
+  Dir := ExtractFilePath(ParamStr(0));
+  SetLength(Input, ParamCount);
+  for I := 1 to ParamCount do Input[I-1] := ParamStr(I);
+  if not EngineArguments600b(Input, Dir, Args, PasswordEnv) then
+  begin
+    WriteLn(ErrOutput, 'unsupported --engine arguments; see README');
+    Exit;
+  end;
+  Exe := QuattroProgram(Dir, HasArg('--server'));
+  if Exe = '' then
+  begin
+    WriteLn(ErrOutput, 'engine unavailable: no quattro-play, disabled engine, or no display');
+    Exit(69);
+  end;
+  Password := '';
+  if HasArg('--server') then Password := GetEnvironmentVariable(PasswordEnv);
+  Result := RunQuattro(Exe, ClientBuildLabel, Args, Password);
+  if Result < 0 then Result := 69;
+end;
+
+
 procedure Usage;
 begin
   WriteLn('Graal ', ClientBuildLabel, ' (', ClientVersionToken, ') rebuild');
@@ -121,6 +155,7 @@ begin
   WriteLn('  --server HOST:PORT --account NAME [--password-env VAR] [--server-name NAME]');
   WriteLn('          [--secure-login off|auto|required] [--server-key KEY]');
   WriteLn('  --level FILE [--x X --y Y]');
+  WriteLn('  --engine: opt-in Quattro; server/level, data, coordinates and seconds only');
   WriteLn('  common: [--data DIR] [--window | --headless] [--frames N] [--seconds N]');
   WriteLn('          [--keys SCRIPT] [--walk script|idle|random] [--walk-ms N] [--seed N]');
   WriteLn('          [--link-every N] [--nodelay] [--stats-every N]');
@@ -615,5 +650,6 @@ begin
   if ParamCount = 0 then
     Halt(RunGui);
   OpenConsoleIO;
+  if HasArg('--engine') then Halt(RunEngine600b);
   Halt(RunGame(nil, '', ''));
 end.

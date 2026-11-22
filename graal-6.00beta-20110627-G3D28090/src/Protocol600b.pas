@@ -1,16 +1,11 @@
-{ Protocol600b: message ids and constants of the 6.00beta-20110627 Linux client
-  (G3D28090).
-
-  The original 6.00beta-20110627 for Linux (the beta of 27 June 2011, x64 and x86; probably 6.00r4) is one native
-  C++ program; this rebuild runs on Linux and Windows. Names follow gs2lib
-  (graal_analysis protocol/packet-ids.md). Sources: protocol/v6x-clients.md
-  and protocol/v5v6-lab-play.md (the lab ran the Windows 6.03r7; 6.00beta-20110627
-  was never run, so where its behaviour is not read from the binary the
-  6.03r7 run stands in). 6.00beta-20110627 speaks
-  the gen-5 wire with its own token, no tamper check, no listserver and no
-  licence file: it logs into a game server it calls Login, and plays only
-  after that server sends a server warp (178). It handles 92 server ids;
-  every other id is ignored silently. }
+{ Protocol600b: constants of the date-labelled Linux rebuild (G3D28090).
+  Only the token is established from the original beta of 27 June 2011;
+  its native version remains unknown. This stand-in inherits the Linux
+  6.01r1 contract: 91 accepted server IDs, gen-5 framing and Login policy.
+  Those are rebuild assumptions, not newly measured beta behavior. Names
+  follow graal_analysis protocol/packet-ids.md; inherited framing/session
+  sources are protocol/v6x-clients.md and protocol/v5v6-lab-play.md.
+  No original beta run, expiry handling or native gameplay is added here. }
 unit Protocol600b;
 
 {$IFDEF FPC}{$MODE DELPHI}{$H+}{$ENDIF}
@@ -264,7 +259,7 @@ uses
 
 function PLOKnown(Id: Integer): Boolean;
 begin
-  { v6x-clients.md, "Server -> client ids (6.01, 6.03)" }
+  { Inherited 91-ID Protocol601 gate; not measured from this date beta. }
   case Id of
     0..25, 27..40, 42, 43, 45..49, 67..69, 74, 82, 84, 101, 102, 104..107, 109,
     131, 134, 140, 150, 151, 153..156, 166, 168, 170, 172..174, 176,

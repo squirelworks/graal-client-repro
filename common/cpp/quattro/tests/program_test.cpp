@@ -1349,11 +1349,12 @@ void test_program_524_or_beta2(const char* build) {
 
 // 5.31r4 on Quattro: login, the 178 warp and walk, as the lab played it.
 // Login mode draws no tiles before the warp (v5v6-lab-play.md).
-void test_program_531_or_600(const char* build) {
+void test_program_nontile_lobby(const char* build, const char* token, const char* platform) {
   const Net::BuildProfile* prof = Net::find_profile(build);
   CHECK(prof && !prof->login_draws_tiles);
   if (!prof) return;
   FakeServer login, game;
+  login.round_down = game.round_down = prof->packed_round_down;
   CHECK(login.start() && game.start());
 
   Shell::Options opt;
@@ -1366,8 +1367,8 @@ void test_program_531_or_600(const char* build) {
   CHECK(p.start());
   CHECK(login.conn.accept_from(login.listener));
   CHECK(run(p, &login, nullptr, [&] { return login.saw(37, "English"); }));
-  CHECK(login.login_line.find("G3D26090") == 0);
-  CHECK(login.login_line.find("win,") != std::string::npos);
+  CHECK(login.login_line.find(token) == 0);
+  CHECK(login.login_line.find(std::string(platform) + ",") != std::string::npos);
 
   login.send(send_level("onlinestartlocal.nw", 7));
   CHECK(run(p, &login, nullptr, [&] { return p.world().have_level; }));
@@ -1381,7 +1382,7 @@ void test_program_531_or_600(const char* build) {
   acc.join();
   CHECK(warped);
   CHECK(run(p, nullptr, &game, [&] { return game.saw(37, "English"); }));
-  CHECK(game.login_line.find("G3D26090") == 0);
+  CHECK(game.login_line.find(token) == 0);
   game.send(send_level("walk.nw", 7));
   CHECK(run(p, nullptr, &game, [&] { return p.world().have_level && !p.world().lobby; }));
   p.tick();
@@ -1402,7 +1403,7 @@ void test_program_531_or_600(const char* build) {
   }
   win.keys.clear();
   CHECK(p.me().x > x0);
-  // The profiles share a token, but only the 6.x row sends ENTERLEVEL.
+  // Entry policy is inherited per row, not inferred from the login token.
   CHECK(game.saw(46, gchar(1)) == prof->sends_enter_level);
 }
 
@@ -1798,8 +1799,9 @@ int main() {
   test_program_524_or_beta2("5.24r4");
   test_program_524_or_beta2("6.00b2");
   test_program_524_or_beta2("6.00b1");
-  test_program_531_or_600("5.31r4");
-  test_program_531_or_600("6.00r4");
+  test_program_nontile_lobby("5.31r4", "G3D26090", "win");
+  test_program_nontile_lobby("6.00r4", "G3D26090", "win");
+  test_program_nontile_lobby("6.00beta-20110627", "G3D28090", "linux");
   test_program_603_level_entry();
   test_program_603_load_gani();
   test_program_603_level_link();

@@ -190,6 +190,22 @@ void test_profiles() {
         r603w->has_os_version && r603w->plo == r603->plo);
   CHECK(r603->plo.count() == 92);
   CHECK(r601->plo.count() == 91);
+  const BuildProfile* date_beta = find_profile("6.00beta-20110627");
+  CHECK(date_beta && date_beta != r601 && date_beta->token == "G3D28090");
+  if (date_beta) {
+    CHECK(date_beta->label == "6.00beta-20110627 Linux" && date_beta->platform == "linux");
+    CHECK(find_profile("6.00beta-20110627 Linux") == date_beta);
+    CHECK(!find_profile("6.00beta") && !find_profile("G3D28090"));
+    CHECK(!date_beta->has_os_version && date_beta->machine_fields == kFakeLinuxFields);
+    CHECK(date_beta->plo == r601->plo && date_beta->plo.count() == 91);
+    CHECK(!date_beta->plo.test(111) && !date_beta->plo.test(175) && !date_beta->plo.test(184));
+    CHECK(date_beta->pli == r601->pli && !date_beta->pli.test(39) && !date_beta->pli.test(160));
+    CHECK(date_beta->packed_round_down == r601->packed_round_down && !date_beta->compress_always);
+    CHECK(date_beta->own_props == r601->own_props && !date_beta->login_draws_tiles);
+    CHECK(date_beta->answers_ping == r601->answers_ping && date_beta->sends_enter_level == r601->sends_enter_level);
+    CHECK(date_beta->login_wants == r601->login_wants && date_beta->update_packages == r601->update_packages);
+    CHECK(date_beta->carry_sprite_after == r601->carry_sprite_after && !date_beta->escape_menu);
+  }
   CHECK(r603->plo.test(111) && !r601->plo.test(111));
   CHECK(r603->pli.test(160) && !r601->pli.test(160));
   CHECK(!r603->pli.test(39));  // no tamper check

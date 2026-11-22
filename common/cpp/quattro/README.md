@@ -65,6 +65,7 @@ commands. Nothing here re-implements the machine.
 |---|---|---|---|
 | 6.03r7 Linux | `G3D0511C` | `net/profile.cpp` | `graal-6.03r7-G3D0511C` |
 | 6.01r1 Linux | `G3D0108A` | `net/profile.cpp` | `graal-6.01r1-G3D0108A` |
+| Linux beta dated 2011-06-27 (native version unknown) | `G3D28090` | inherited 6.01r1 rebuild contract | `graal-6.00beta-20110627-G3D28090` |
 | 4.04r2 Windows (the engine library's session) | `G3D17026` | `net/profile.cpp` | `graal-4.04r2-G3D17026` |
 | 5.00r7 Windows (the engine library's session) | `G3D22067` | `net/profile.cpp` | `graal-5.00r7-G3D22067` |
 | 5.12 Windows (the engine library's session) | `G3D14097` | `net/profile.cpp` | `graal-5.12-G3D14097` |
