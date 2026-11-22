@@ -90,6 +90,14 @@ std::vector<BuildProfile> make() {
   r601.pli.reset(160);
   rows.push_back(r601);
 
+  // Date-labelled Linux beta: only its token is established. The native
+  // version is unknown; receive/send/gameplay policies inherit our 6.01r1
+  // rebuild, not a new measurement of this beta. No expiry behavior inferred.
+  BuildProfile date_beta = r601;
+  date_beta.label = "6.00beta-20110627 Linux";
+  date_beta.token = "G3D28090";
+  rows.push_back(date_beta);
+
   // 5.24r4 Windows (G3D15010): first one-exe quattro_lib. Receive switch is
   // the 6.03r7 set without 111 (Protocol524r4.PLOKnown). Login draws tiles
   // (v5v6-lab-play.md); no ping answer in the rebuild. Quattro's send floor

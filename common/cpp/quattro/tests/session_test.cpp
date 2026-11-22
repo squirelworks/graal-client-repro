@@ -284,6 +284,47 @@ void test_session_early600(const char* build, const char* token) {
   CHECK(!session.connection().send(39, "x"));
 }
 
+// Date beta acceptance uses our inherited 6.01r1 contract, not native
+// measurements. The literal token/platform are independent login oracles.
+void test_session_date_beta() {
+  const BuildProfile* prof = find_profile("6.00beta-20110627");
+  CHECK(prof);
+  if (!prof) return;
+  FakeServer login, game;
+  login.round_down = game.round_down = prof->packed_round_down;
+  CHECK(login.start() && game.start());
+  std::vector<int> delivered;
+  Session::Events ev;
+  ev.message = [&](int id, std::string_view) { delivered.push_back(id); };
+  Session session(*prof, ev);
+  session.next_key = [] { return uint8_t(0x5A); };
+  CHECK(session.start("127.0.0.1", login.port(), "guest", "pw"));
+  CHECK(login.conn.accept_from(login.listener));
+  CHECK(run_until(session, &login, nullptr, [&] { return login.saw(37, "English"); }));
+  const std::string want = std::string("G3D28090") + gstring("guest") + gstring("pw") +
+                           "linux" + kFakeLinuxFields;
+  CHECK(login.login_line == want && session.lobby_mode());
+  login.send(gchar(111) + "ignored\n" + gchar(175) + "ignored\n" +
+             gchar(184) + "ignored\n" + gchar(109) + "redirect\n" +
+             gchar(198) + "flags\n" + gchar(6) + "done.nw\n" +
+             gchar(108) + gchar(0) + gshort(1234) + "\n");
+  CHECK(run_until(session, &login, nullptr, [&] {
+    return delivered.size() == 3 && login.saw(162, "!" + gshort(1234));
+  }));
+  CHECK((delivered == std::vector<int>{109, 198, 6}));
+  CHECK(session.connection().dropped() == 3);
+  CHECK(!session.connection().send(39, "x"));
+  CHECK(!session.connection().send(160, "x"));
+  login.send(gchar(178) + "0,Lab Server,127.0.0.1," + std::to_string(game.port()) + "\n");
+  std::atomic<bool> accepted{false};
+  std::thread acc([&] { accepted = game.conn.accept_from(game.listener); });
+  const bool warped = run_until(session, &login, nullptr, [&] { return session.logins() == 2; });
+  acc.join();
+  CHECK(warped && accepted && !session.lobby_mode());
+  CHECK(run_until(session, nullptr, &game, [&] { return game.saw(37, "English"); }));
+  CHECK(game.login_line == want);
+}
+
 int main() {
   test_warp_parse();
   test_session();
@@ -291,6 +332,7 @@ int main() {
   test_session_512();
   test_session_524();
   test_session_600();
+  test_session_date_beta();
   test_session_early600("6.00b2", "G3D15010");
   test_session_early600("6.00b1", "G3D03048");
   TEST_MAIN_END();

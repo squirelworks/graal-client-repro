@@ -26,7 +26,7 @@ line). Only the token differs so far. This is the 0.0.1 reproduction: hit or mis
 Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
 
 - **default:** Delphi/Pascal stand-in (no-argument / release entry on main today).
-- **faithful engine:** Quattro one-exe program — still being wired; not the release default.
+- **faithful engine:** Quattro one-exe program via explicit `--engine`; inherited contract, not the release default.
 - **relic:** none yet. When the faithful engine is validated end-to-end and switched to default, the Pascal stand-in becomes the labeled relic/fallback and is never deleted.
 
 ## Sources
@@ -50,7 +50,7 @@ Server ids handled: 91, taken from 6.01r1 Linux (not read from this build; the W
 ## Units
 
 As in `graal-6.01r1-G3D0108A`, with this folder's suffix: `Graal600b.dpr`, `Protocol600b`,
-`ListServer600b`, `StartScreen600b`, `GraalClient`, `Adventure`, `RunMode`.
+`ListServer600b`, `StartScreen600b`, `Engine600b`, `GraalClient`, `Adventure`, `RunMode`.
 
 ## Running it
 
@@ -72,6 +72,37 @@ Graal600b --level some.nw                                          # offline
 
 With `--server` and no `--server-name` the server is `Login`: no tiles and
 no characters are drawn until the server sends a 178.
+
+## Explicit project-engine route
+
+`Graal600b --engine` opts into the packaged `quattro-play` using the explicit
+`6.00beta-20110627 Linux` profile and `G3D28090`. This is a date/folder identifier,
+not an established original version or an alias for Windows 6.00r4. Ordinary
+CLI and no-argument startup remain Pascal.
+
+```
+Graal600b --engine --server localhost:14900 --account guest --server-name Lab
+Graal600b --engine --level authored.nw --data PATH --x 20 --y 22 --seconds 2
+```
+
+Only server/account/password-environment/server-name, offline level, data,
+coordinates and duration options are translated. Unsupported or mixed arguments
+fail with 64. A missing, disabled or unavailable engine fails with 69; there is
+no silent fallback. The child password uses its isolated environment binding.
+
+Asset lookup uses this folder's `6.00beta-20110627` root plus common data, not
+6.01r1, Windows r4, beta1 or beta2 roots. Linux/X11, Windows and existing Darwin
+packaging paths are reused without a new dependency. macOS compilation/runtime
+has not been established by this change.
+
+The Quattro row inherits the existing **6.01r1 Linux rebuild** masks and policies:
+91 accepted server IDs, current send floor, packed-frame rule, Login suppression,
+6.x own properties, ping and level-entry replies, package/font requests and game
+handlers. This is deliberately broader than some Pascal missing-feature entries
+below; it is not new evidence about this beta. Send support remains incomplete,
+and the native version, expiry, original gameplay and default-switch acceptance
+remain open. The authored codec/session/program and inert launcher tests verify
+our implementation contract only; no original or guest run is claimed here.
 
 ## Files it opens
 
@@ -101,6 +132,8 @@ README, "Seihai secure login". CI logs in once more with
 
 
 ## Not yet, or not known
+
+- [x] Explicit date-labelled Quattro profile and opt-in launcher; inherited behavior remains qualified.
 
 - [ ] Nothing past the token has been read from the beta yet. The ids handled, the Login mode and the framing are 6.01r1's.
 - [ ] Whether it has the beta expiry the Windows 6.00r2 and 6.00r4 have ("This is a beta release of Graal...", the only related text in the program) is not traced.
