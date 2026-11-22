@@ -49,13 +49,41 @@ an empty passability set and blocked movement; correcting the authored fixture
 to include tile zero enabled the measured walk. Neither result established an
 engine code defect, and no production code was changed for this check.
 
+## Follow-up: two-player visibility and position updates
+
+A separate 35-second pair for each label reused the controller-recorded client
+build, authored assets and retained unknown-source server above; no rebuild was
+performed. The two accounts started on the same level at x=18 and x=25, both
+at y=30.5. Each client's initial frame visibly contained its own red placeholder
+and the other player's blue placeholder, with both distinct names.
+
+Only A received a real 0.2-second Right-key hold. In these runs its persisted
+x changed from 18 to 20.5, while B stayed at 25; level and y were unchanged.
+The stationary B view showed the peer move right while its own placeholder
+stayed fixed, for both profiles. This checks rendered peer-position updates,
+not exact input timing, movement rate or packet equivalence.
+
+Both servers logged two accepted players and normal client closes. All four
+clients exited with status zero. Unlike the earlier smoke runs, each peer pair
+has a saved timestamped post-run process inventory: none of its recorded client,
+server or display-server PIDs remained after the cleanup trap waited for them.
+This cleanup evidence applies only to these peer runs. It does not upgrade the
+earlier controller-reported cleanup observation.
+
+Actual logs, seed/final account snapshots and before/after views were read in
+review; no captures or account files are published. Only the direct project
+"see each other" item is completed here. The long soak was not run, and no
+chat, weapon, native-client or Windows launcher acceptance follows from it.
+
 ## Remaining acceptance
 
 - [x] Direct Linux-built project profiles: login, authored board, real-key walk,
   level-link transition and bounded clean exit, for both labels.
 - [ ] Windows Pascal `--engine` launcher and start-screen handoff.
-- [ ] Server-list/login-to-game warp chain, second-player visibility, chat,
-  weapons/actions and the full soak checklist in [ENGINE-HANDOFF](ENGINE-HANDOFF.md).
+- [x] Direct project two-player visibility and rendered peer-position updates
+  for both labels, in separate bounded pairs.
+- [ ] Server-list/login-to-game warp chain, chat, weapons/actions and the full
+  soak checklist in [ENGINE-HANDOFF](ENGINE-HANDOFF.md).
 - [ ] Original-client/native behavior, inherited send/property contracts and
   macOS execution validation.
 - [ ] Default-switch gate. The no-argument route remains Pascal.
