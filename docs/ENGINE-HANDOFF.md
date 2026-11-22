@@ -27,7 +27,8 @@ arguments:
 | 6.00b2 | Quattro `quattro-play`, explicit `--engine` | Pascal | [direct project and peer checks](engine-600-project-check-2026-11-22.md) passed; launcher/full e2e and inherited behavior remain |
 | 6.00b1 | Quattro `quattro-play`, explicit `--engine` | Pascal | inherited gameplay and native/full e2e acceptance remain; no default switch |
 | Linux beta dated 2011-06-27 (`G3D28090`, native version unknown) | Quattro, explicit `--engine` | Pascal | 6.01r1 rebuild contract inherited; native/expiry/e2e and default switch remain open |
-| 6.004mac, 6.0.1.5, 6.015mac, 6.0.3.4 | Quattro (no profile row yet) | Pascal | add a profile row, hand off, e2e, switch |
+| 6.0.1.5 Windows | Quattro, explicit `--engine` | Pascal | inherited 6.01r1 contract with Windows tail; native/full e2e/default and portable release acceptance remain open |
+| 6.004mac, 6.015mac, 6.0.3.4 | Quattro (no profile row yet) | Pascal | add a profile row, hand off, e2e, switch |
 | 6.1.1.3, 6.11r1 Mac | connector clients | Pascal | independent client primitives merged (#436); admission/native/Mac integration incomplete (#429), declined backend not continued |
 
 ## 1. Run the end-to-end tests

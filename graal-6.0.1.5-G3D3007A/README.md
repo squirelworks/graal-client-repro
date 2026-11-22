@@ -6,7 +6,7 @@ graalonline.com downloads of November 2011 (2,699,360 bytes, SHA-256
 FileVersion 6.015, linked 2011-11-05): a self-installing client, one
 protected executable, no launcher and no engine library. 6.0.0.7 (the
 same download in August 2011, FileVersion 6.007) sends the same token, so
-this folder stands for both.
+this explicit profile is for 6.0.1.5 only. The shared token does not establish equivalent behavior.
 
 This folder starts as a copy of `graal-6.01r1-G3D0108A` and changes only what is
 known to differ. 6.0.1.5 is the Windows release two months after the Linux 6.01r1 this
@@ -23,7 +23,7 @@ Windows login tail the Windows 5.12 to 6.03r7 builds send. This is the 0.0.1 rep
 Policy: [docs/engine-repro-policy.md](../docs/engine-repro-policy.md).
 
 - **default:** Delphi/Pascal stand-in (no-argument / release entry on main today).
-- **faithful engine:** Quattro one-exe program — still being wired; not the release default.
+- **faithful engine:** Quattro one-exe program, explicitly selected with `--engine`; not the release default.
 - **relic:** none yet. When the faithful engine is validated end-to-end and switched to default, the Pascal stand-in becomes the labeled relic/fallback and is never deleted.
 
 ## Sources
@@ -71,6 +71,23 @@ Graal6015 --level some.nw                                          # offline
 
 With `--server` and no `--server-name` the server is `Login`: no tiles and
 no characters are drawn until the server sends a 178.
+
+## Explicit Quattro route
+
+- [x] `Graal6015 --engine --level authored.nw --data DIR` runs the packaged
+  player with the explicit `--build 6.0.1.5` profile. Online, use `--server`,
+  `--account`, optional `--password-env` and `--server-name`; the default
+  server name remains Login. Coordinates and positive `--seconds` are supported.
+- [x] Own asset roots select `graal-assets/6.0.1.5/` and common assets;
+  sibling beta/r4/6.01r1 asset roots are excluded.
+- [x] Unsupported engine arguments fail with 64; missing/disabled player or
+  display fails with 69. It never silently falls back after explicit selection.
+- [ ] The inherited 91-id receive/send/gameplay contract is reproduction policy,
+  not a new measurement of the protected Windows binary. Native/full-chain
+  acceptance, macOS execution and switching the default remain open. Sharing
+  a token with 6.0.0.7 does not establish equivalent behavior.
+- [ ] Portable packaged-runtime acceptance remains separate; the shared release
+  repair is tracked in #449, not established by this folder manifest alone.
 
 ## Files it opens
 
