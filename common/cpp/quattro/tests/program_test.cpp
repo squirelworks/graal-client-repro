@@ -1398,7 +1398,7 @@ void test_program_nontile_lobby(const char* build, const char* token, const char
   if (std::string(build) == "6.0.1.5") {
     bool windows_ostype = false;
     for (const auto& packet : game.got)
-      if (packet.first == 2 && packet.second.find(gchar(75) + gstring("win")) != std::string::npos)
+      if (packet.first == 2 && packet.second.find(gchar(75) + Net::gstring("win")) != std::string::npos)
         windows_ostype = true;
     CHECK(windows_ostype);  // Literal OSTYPE oracle, independent of profile.platform.
   }
