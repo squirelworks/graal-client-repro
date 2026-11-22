@@ -53,6 +53,7 @@ program Graal600b2;
 uses
   SysUtils, Classes,
   GTypes in '../../common/GTypes.pas',
+  GQuattroPlay in '../../common/GQuattroPlay.pas',
   GZlib in '../../common/GZlib.pas',
   GSocket in '../../common/GSocket.pas',
   GLevel in '../../common/GLevel.pas',
@@ -65,6 +66,7 @@ uses
   GFont in '../../common/GFont.pas',
   GWindow in '../../common/GWindow.pas',
   Protocol600b2 in 'Protocol600b2.pas',
+  Engine600b2 in 'Engine600b2.pas',
   GraalClient in 'GraalClient.pas',
   Adventure in 'Adventure.pas',
   GStartScreen in '../../common/GStartScreen.pas',
@@ -112,12 +114,45 @@ begin
 end;
 
 
+{ Explicit engine route only. Unsupported options fail with 64 rather than
+  silently running a different game. The no-argument and ordinary CLI
+  routes remain Pascal until the engine's end-to-end bar is met. }
+function RunEngine600b2: Integer;
+var
+  Input: array of string;
+  Args: TQuattroArgs;
+  I: Integer;
+  Dir, Exe, PasswordEnv, Password: string;
+begin
+  Result := 64;
+  Dir := ExtractFilePath(ParamStr(0));
+  SetLength(Input, ParamCount);
+  for I := 1 to ParamCount do Input[I-1] := ParamStr(I);
+  if not EngineArguments600b2(Input, Dir, Args, PasswordEnv) then
+  begin
+    WriteLn(ErrOutput, 'unsupported --engine arguments; see README');
+    Exit;
+  end;
+  Exe := QuattroProgram(Dir, HasArg('--server'));
+  if Exe = '' then
+  begin
+    WriteLn(ErrOutput, 'engine unavailable: no quattro-play, disabled engine, or no display');
+    Exit(69);
+  end;
+  Password := '';
+  if HasArg('--server') then Password := GetEnvironmentVariable(PasswordEnv);
+  Result := RunQuattro(Exe, ClientBuildLabel, Args, Password);
+  if Result < 0 then Result := 69;
+end;
+
+
 procedure Usage;
 begin
   WriteLn('Graal ', ClientBuildLabel, ' (', ClientVersionToken, ') rebuild');
   WriteLn('  (no arguments: the start screen, Training or the server list)');
   WriteLn('  --server HOST:PORT --account NAME [--password-env VAR] [--server-name NAME]');
   WriteLn('  --level FILE [--x X --y Y]');
+  WriteLn('  --engine: opt-in Quattro; server/level, data, coordinates and seconds only');
   WriteLn('  common: [--data DIR] [--window | --headless] [--frames N] [--seconds N]');
   WriteLn('          [--keys SCRIPT] [--walk script|idle|random] [--walk-ms N] [--seed N]');
   WriteLn('          [--link-every N] [--nodelay] [--stats-every N]');
@@ -604,5 +639,6 @@ begin
   if ParamCount = 0 then
     Halt(RunGui);
   OpenConsoleIO;
+  if HasArg('--engine') then Halt(RunEngine600b2);
   Halt(RunGame(nil, '', ''));
 end.

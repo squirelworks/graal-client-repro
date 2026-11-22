@@ -1292,8 +1292,8 @@ void test_seteffect() {
 }
 
 // 5.24r4 on Quattro: login + level + walk. Login draws tiles (unlike 6.03r7).
-void test_program_524() {
-  const Net::BuildProfile* prof = Net::find_profile("5.24r4");
+void test_program_524_or_beta2(const char* build) {
+  const Net::BuildProfile* prof = Net::find_profile(build);
   CHECK(prof && prof->login_draws_tiles);
   if (!prof) return;
   FakeServer login, game;
@@ -1625,7 +1625,8 @@ void test_program_603_level_link() {
 int main() {
   test_script_native_bounds();
   test_program();
-  test_program_524();
+  test_program_524_or_beta2("5.24r4");
+  test_program_524_or_beta2("6.00b2");
   test_program_531_or_600("5.31r4");
   test_program_531_or_600("6.00r4");
   test_program_603_level_entry();
