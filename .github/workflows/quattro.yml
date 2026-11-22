@@ -83,3 +83,11 @@ jobs:
       - name: Packaged player metadata, version relink and runtime closure
         shell: msys2 {0}
         run: bash common/cpp/quattro/tests/package_test.sh
+      - name: Retain the checked Windows player package
+        if: success()
+        uses: actions/upload-artifact@v6
+        with:
+          name: quattro-windows-package
+          path: ${{ runner.temp }}/quattro-package.*/dist/*-windows.zip
+          if-no-files-found: error
+          retention-days: 7
