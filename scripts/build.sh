@@ -272,9 +272,9 @@ for B in $BUILDS; do
           # Use the same UCRT64 dependencies as the focused Quattro CI.
           QW=$(cygpath -m "$ROOT/common/cpp/quattro")
           MSYSTEM=UCRT64 /c/msys64/usr/bin/bash.exe -lc \
-            "cd '$QW' && make build/quattro-play"
+            "cd '$QW' && make build/quattro-play OS=Windows_NT"
         else
-          make -C "$ROOT/common/cpp/quattro" build/quattro-play CXX="$CXXBIN"
+          make -C "$ROOT/common/cpp/quattro" build/quattro-play OS=Windows_NT CXX="$CXXBIN"
         fi
         # FPC bin precedes PATH here; use the MSYS copy tool, as above.
         /usr/bin/cp "$ROOT/common/cpp/quattro/build/quattro-play.exe" "$OUT/"

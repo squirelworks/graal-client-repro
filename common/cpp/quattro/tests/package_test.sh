@@ -30,13 +30,13 @@ check_player() {
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w "$Q/tests/package_test.ps1")" \
     -Player "$(cygpath -w "$1")" -Version "$2" "${extra[@]}"
 }
-make -C "$Q" "PLAYER=$PLAYER" "PLAYER_RC=$RC" "PLAYER_RESOURCE=$RES"
+env -u OS make -C "$Q" OS=Windows_NT "PLAYER=$PLAYER" "PLAYER_RC=$RC" "PLAYER_RESOURCE=$RES"
 check_player "$PLAYER" 0.0.0-dev
 # Rebuild the SAME target after stamping: proves the RC dependency relinks,
 # not merely that a one-off compiler invocation embeds hardcoded metadata.
 sleep 2
 (cd "$WORK" && bash "$ROOT/scripts/release/stamp.sh" "$B" v1.2.3)
-make -C "$Q" "PLAYER=$PLAYER" "PLAYER_RC=$RC" "PLAYER_RESOURCE=$RES"
+env -u OS make -C "$Q" OS=Windows_NT "PLAYER=$PLAYER" "PLAYER_RC=$RC" "PLAYER_RESOURCE=$RES"
 check_player "$PLAYER" 1.2.3
 if ! command -v 7z >/dev/null 2>&1; then
   export PATH="/c/Program Files/7-Zip:$PATH"
