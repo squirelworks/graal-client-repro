@@ -64,6 +64,22 @@ is cut, work lands on `main` without a release.
   `GRESCR01` cache, weapons, bombs/shots, hurt/Q list (#260, #359)
 - [x] Quattro `seteffect(r, g, b, a)` day/night screen tint (#397, merged)
 
+## Completed implementation slices (reconciled 2026-11-22)
+
+- [x] Engine rectangle clipping/hit-test overflow repair (#437), with 56 authored
+  checks; native coordinate and double-click bindings remain open.
+- [x] Explicit opt-in Quattro profiles and handoffs: Windows 6.00r4 (#439),
+  beta2 (#440), beta1 (#443), and the date-labelled Linux beta (#446).
+  Inherited protocol/gameplay limits remain; native identity/fidelity, default
+  switching and portable release-package completion are not established.
+- [x] Direct Linux r4/beta2 project checks: bounded login/board/walk/link (#441),
+  peer visibility/rendered position updates (#442), and separate no-input,
+  configuration-qualified connected soaks (#444). The retained server source
+  is unknown; full ENGINE acceptance remains open.
+- [x] Own-project Ctrl+Enter ASCII chat input and modal key-release handling
+  (#445), exercised by Linux/Windows production-path CI. Native shortcuts,
+  Unicode/IME, macOS execution and full ENGINE acceptance remain open.
+
 ## Live epics
 
 Open tracking issues only. Detail and checklists live on each issue.
@@ -81,7 +97,7 @@ Open tracking issues only. Detail and checklists live on each issue.
 - [ ] [#305](https://github.com/squirelworks/graal-client-repro/issues/305)
   Quattro (6.x and 5.24–5.31r4): fidelity, world objects and GS2
   - [x] #397 `seteffect` day/night tint (merged)
-  - [ ] #398 `findplayer(account)` (open PR, in flight)
+  - [x] #398 `findplayer(account)` (merged)
 - [ ] [#306](https://github.com/squirelworks/graal-client-repro/issues/306)
   side builds (Java, Game Boy, Zelda Online, Graal3D 2000) and Seihai mode
 - [ ] [#307](https://github.com/squirelworks/graal-client-repro/issues/307)
@@ -178,11 +194,14 @@ notes items in the PR that does the fix.
 - [ ] Classic fidelity and gameplay (#302)
 - [ ] Torque 3.x lab and fidelity (#303)
 - [ ] 4.x / 5.x engine library, launchers and 3D (#304)
-- [ ] Quattro fidelity and GS2 builtins (#305), including #398
+- [ ] Quattro fidelity and remaining GS2 builtins (#305)
 - [ ] Side builds and Seihai extras (#306)
 - [ ] Release / platform gates (#307)
 - [ ] Focus versions end to end (#373 / #194); 6.03r7 gaps in #430
-- [ ] The 6.1x project connector cipher end to end (#429)
+- [ ] The wider 6.1x connector admission/native interoperability work (#429).
+  Independent script/socket primitives are merged in #436. The owner declined
+  the matching gserver-v2 transport (server PR141, closed unmerged); no server
+  continuation, alternate backend or forthcoming joint validation is planned.
 - [ ] Engine defaults for the 4.x, 5.0/5.12 and remaining 6.x folders
   (#403; 10 of the 36 3.x-6.x folders start their engine by default)
 
