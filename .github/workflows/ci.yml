@@ -162,11 +162,11 @@ jobs:
         run: choco install freepascal -y --no-progress
       - name: Standalone Quattro toolchain
         shell: pwsh
-        run: C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm --needed make mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-zlib mingw-w64-ucrt-x86_64-bzip2"
+        run: C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm --needed make mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-zlib mingw-w64-ucrt-x86_64-bzip2 mingw-w64-i686-gcc mingw-w64-i686-zlib mingw-w64-i686-bzip2"
       - name: Build and test
         shell: bash
         run: |
-          export PATH="$(ls -d /c/tools/freepascal/bin/* | head -1):$PATH"
+          export PATH="$(ls -d /c/tools/freepascal/bin/* | head -1):/c/msys64/mingw32/bin:$PATH"
           # The Chocolatey install has no fpc.cfg naming the unit folders,
           # so name them here (Windows path form, with FPC's * wildcard).
           # -WR: relocations, so the exe can carry the ASLR flag
@@ -175,7 +175,13 @@ jobs:
           # folders and test programs run one per CPU (scripts/build.sh,
           # scripts/test.sh)
           BUILD_JOBS=$(nproc) scripts/build.sh $BUILDS
+          if [ "$RUNNER_OS" = Windows ]; then
+            pwsh -NoProfile -File scripts/win/check_engine_arch.ps1 -Phase BeforeTests
+          fi
           scripts/test.sh
+          if [ "$RUNNER_OS" = Windows ]; then
+            pwsh -NoProfile -File scripts/win/check_engine_arch.ps1 -Phase AfterTests
+          fi
       - name: Check the clients carry version info and a manifest
         shell: pwsh
         run: |
