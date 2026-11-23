@@ -81,8 +81,13 @@ bool point_blocked(const Files::Level& level, const TileTypes& types, double x, 
   for (const auto& c : level.chests) {
     if (x >= c.x && x <= c.x + 2 && y >= c.y && y <= c.y + 2) return true;
   }
+  // Floor then narrow only when the coordinate is finite and already inside the
+  // board's half-open bounds; otherwise treat it as out-of-board (not blocked).
+  if (!std::isfinite(x) || !std::isfinite(y) || x < 0.0 || y < 0.0 ||
+      x >= Files::kBoardSide || y >= Files::kBoardSide) {
+    return false;
+  }
   int tx = static_cast<int>(std::floor(x)), ty = static_cast<int>(std::floor(y));
-  if (tx < 0 || ty < 0 || tx >= Files::kBoardSide || ty >= Files::kBoardSide) return false;
   if (level.layers.empty()) return false;
   return types.blocks(level.tile(tx, ty));
 }
