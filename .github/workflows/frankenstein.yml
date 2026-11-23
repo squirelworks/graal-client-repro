@@ -1,0 +1,116 @@
+name: frankenstein
+
+# Community experimental client (frankenstein/): a v6.113 host with v5.120
+# Graal3D folded in, UDP left enabled. Scaffold only until a real client
+# exists.
+#
+# Separate from ci.yml, macos.yml, and release-all.yml. Path filters keep
+# this workflow off other clients' pulls and pushes. release-all.yml does
+# not call this file. Releases use the tag prefix frankenstein-v
+# (frankenstein-v0.0.1) and are drafts until someone publishes them.
+#
+# TODO: compile the real client in the build job. macOS is the first
+# playable target (Graal3D testing); Linux and Windows build the same
+# sources. Until then, frankenstein/build.sh and frankenstein/test.sh
+# check a manifest.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frankenstein/**'
+      - '.github/workflows/frankenstein.yml'
+  pull_request:
+    paths:
+      - 'frankenstein/**'
+      - '.github/workflows/frankenstein.yml'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Three-part version to draft-release, e.g. v0.0.1 (empty = build only)
+        required: false
+        default: ''
+      publish:
+        description: Publish straight away (no = draft)
+        type: choice
+        options: ['yes', 'no']
+        default: 'no'
+
+concurrency:
+  group: frankenstein-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: scaffold (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macOS first: the later Graal3D test build.
+          - os: macos-15
+            name: macos
+          - os: ubuntu-latest
+            name: linux
+          - os: windows-latest
+            name: windows
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      # TODO: install the real client toolchain here, then compile.
+      - name: Build and test the scaffold
+        shell: bash
+        run: frankenstein/test.sh
+      - uses: actions/upload-artifact@v6
+        with:
+          name: frankenstein-${{ matrix.name }}
+          path: build/frankenstein/
+
+  release:
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.version != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: frankenstein-*
+          path: dist-in
+      - name: Pack macOS, Linux, and Windows zips
+        env:
+          IN_VERSION: ${{ inputs.version }}
+        run: |
+          set -eu
+          V="$IN_VERSION"
+          case "$V" in
+            v*.*.*.*) echo "version must be three parts, like v0.0.1"; exit 1 ;;
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "version must look like v0.0.1"; exit 1 ;;
+          esac
+          mkdir -p dist
+          for spec in macos linux windows; do
+            src="dist-in/frankenstein-$spec"
+            test -s "$src/MANIFEST.txt"
+            grep -q '^udp: enabled$' "$src/MANIFEST.txt"
+            stage="dist/frankenstein-$V-$spec"
+            mkdir -p "$stage"
+            cp -a "$src/." "$stage/"
+            cp frankenstein/README.md frankenstein/RELEASE_NOTES.md frankenstein/VERSION "$stage/"
+            (cd dist && zip -qr "frankenstein-$V-$spec.zip" "frankenstein-$V-$spec")
+          done
+          echo "TAG_NAME=frankenstein-$V" >> "$GITHUB_ENV"
+          echo "TITLE=Frankenstein $V" >> "$GITHUB_ENV"
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          name: ${{ env.TITLE }}
+          body_path: frankenstein/RELEASE_NOTES.md
+          target_commitish: ${{ github.sha }}
+          draft: ${{ inputs.publish != 'yes' }}
+          files: dist/*.zip
+          make_latest: false
