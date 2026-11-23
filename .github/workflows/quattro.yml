@@ -61,7 +61,7 @@ jobs:
       - name: Check with address and undefined behavior sanitizers
         run: |
           make -C common/cpp/quattro clean
-          make -C common/cpp/quattro test CXXFLAGS='-std=c++17 -Wall -Wextra -Werror -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer'
+          make -C common/cpp/quattro test CXXFLAGS='-std=c++17 -Wall -Wextra -Werror -O1 -g -fsanitize=address,undefined,float-cast-overflow -fno-sanitize-recover=float-cast-overflow -fno-omit-frame-pointer'
 
   windows:
     runs-on: windows-latest
