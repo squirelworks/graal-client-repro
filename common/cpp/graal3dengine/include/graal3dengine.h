@@ -45,8 +45,8 @@ G3D_API void G3D_CALL runGraal3DEngine(void);
 /* Sends the disconnect, closes the link and clears the 3D slots. */
 G3D_API void G3D_CALL endGraal3DEngine(void);
 
-/* The 3D view's size and the full-screen toggle. Kept for the names: no 3D
- * view is drawn yet. */
+/* The 3D view's size and the full-screen toggle. Kept for the names; the
+ * host gives the size to graal3dengine_renderFrame. */
 G3D_API void G3D_CALL resizeGraal3DWindow(int32_t width, int32_t height);
 G3D_API void G3D_CALL toggleGraal3DFullScreen(void);
 
@@ -65,6 +65,19 @@ G3D_API int32_t G3D_CALL graal3dengine_ghostCount(void);
 /* The connect sequence of the next link (the client's choice; the real
  * 5.12 lab run used 0x400). 0 picks one from the clock. For tests. */
 G3D_API void G3D_CALL graal3dengine_setConnectSequence(uint32_t sequence);
+
+/* The world renderer (render/). Draws the current 3D world into `pixels`
+ * (32-bit, red in the lowest byte, `stride` pixels per row): the sky box,
+ * then each object's shape seen from the server's Camera, lit by the Sun.
+ * Black with no Camera, as the 5.x client. Returns the number of objects
+ * drawn. In the original the 3D view is GraalControl3D in Torque's canvas;
+ * this export is the rebuild's own, for the hosts to present. */
+G3D_API int32_t G3D_CALL graal3dengine_renderFrame(uint32_t *pixels, int32_t width, int32_t height, int32_t stride);
+/* A folder the renderer finds shapes and textures in (searched with its
+ * subfolders). Without one, `levels3d` in the working folder is used. */
+G3D_API void G3D_CALL graal3dengine_addResourceFolder(const char *folder);
+/* Looks for files again, after downloads have landed. */
+G3D_API void G3D_CALL graal3dengine_rescanResources(void);
 
 #ifdef __cplusplus
 }

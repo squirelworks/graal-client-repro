@@ -183,7 +183,37 @@ bool readSkyUpdate(BitReader& r, SkyState& s) {
     s.visibleDistance = r.f32();
     s.textures = r.pstring();
   }
-  if (init) s.fogColor = readVec(r);
+  if (init) {
+    s.fogColor = readVec(r);
+    const uint32_t volumes = r.u32();
+    if (volumes > kMaxSkyFogVolumes) return false;
+    s.options[0] = r.u8();
+    s.options[1] = r.u8();
+    s.solidColor = readVec(r);
+    s.options[2] = r.u8();
+    r.flag();  // read and ignored
+    s.fogVolumes.assign(volumes, SkyFogVolume());
+    for (auto& v : s.fogVolumes) {
+      for (float& f : v.values) f = r.f32();
+      v.flag = r.u8();
+    }
+    for (auto& c : s.clouds) {
+      c.texture = r.pstring();
+      c.height = r.f32();
+      c.speed = r.f32();
+    }
+    s.windVelocity = readVec(r);
+    r.u32();  // unnamed
+    if (r.flag())
+      for (int i = 0; i < 5; ++i) r.u32();  // storm fog
+  }
+  if (r.flag()) r.u8();  // mask 0x20
+  if (r.flag()) r.u8();  // mask 0x40
+  r.flag();              // bare flag (the writer repeats the init state)
+  static const int kGroups[4] = {2, 3, 4, 3};  // masks 0x2, 0x4, 0x8, 0x10
+  for (int n : kGroups)
+    if (r.flag())
+      for (int i = 0; i < n; ++i) r.u32();
   return !r.overrun();
 }
 
