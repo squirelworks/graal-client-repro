@@ -21,6 +21,7 @@ name: frankenstein-6037
 status: scaffold
 base: v6.037
 graal3d: v5.120
+graal3d-repro: graal-5.12-G3D14097
 udp: enabled
 os: $OS
 server: <server>

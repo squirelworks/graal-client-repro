@@ -1,6 +1,6 @@
 name: frankenstein
 
-# Community experimental client (frankenstein/): a v6.113 host with v5.120
+# Community experimental client (frankenstein/): a v6.113 host with v5.120 (the 5.12 repro)
 # Graal3D folded in, UDP left enabled. Scaffold only until a real client
 # exists.
 #

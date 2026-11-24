@@ -1,7 +1,10 @@
 # Frankenstein 6.037
 
 A community-requested experimental client: a **v6.037** host with **v5.120
-Graal3D** folded in, and **UDP left enabled**. People have been calling it
+Graal3D** folded in, and **UDP left enabled**. The Graal3D half uses
+this repo's 5.12 repro, [`graal-5.12-G3D14097`](../graal-5.12-G3D14097/)
+(v5.120 is 5.12), with the Mac 5.12 repro
+[`graal-5.12mac-G3D15097`](../graal-5.12mac-G3D15097/) beside it. People have been calling it
 a cursed mixture, and that is the right word. It is one program on purpose
 made from two generations that the faithful folders keep apart.
 
