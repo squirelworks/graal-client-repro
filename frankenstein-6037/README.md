@@ -8,10 +8,10 @@ this repo's 5.12 repro, [`graal-5.12-G3D14097`](../graal-5.12-G3D14097/)
 a cursed mixture, and that is the right word. It is one program on purpose
 made from two generations that the faithful folders keep apart.
 
-This directory is the scaffold. There is no engine, no window, and no
-protocol code yet. The first playable deliverable, later, is a **macOS**
-build people can use for Graal3D testing, with **Linux** and **Windows**
-builds of the same client beside it.
+The program is `frankenstein-6037`: the 6.03r7 Quattro program (the same
+rebuild Graal603w hands its game to) with the 5.12 repro's Graal3D link
+linked in. It builds on **macOS** (the Graal3D test build), **Linux** and
+**Windows** from the same sources. It is version 0.0.1: hit or miss.
 
 The other experimental mix, a v6.113 host with the same v5.120 fold-in,
 lives in [`frankenstein/`](../frankenstein/). This tree does not change
@@ -34,31 +34,57 @@ for this mix grows under `frankenstein-6037/` and does not change those
 folders to suit the mix.
 
 Game data (tiles, ganis, heads, bodies, levels) is loaded from the player's
-own install when a real client exists. This scaffold carries none of it.
-Any picture or level a later build embeds is graal-delphi's own art, as in
-the rest of the repo. This repository may carry original Graal material in
-the shape the other folders already use. This scaffold does not add any.
+own install (`--assets`), as `quattro-play` does. This folder carries none
+of it.
 
-A later client may default to the community list-server hostname the 6.03
-folders already name (`listserver.graal.in`). Endpoints and digests in this
-scaffold stay the placeholders below.
+## How it plays
 
-## Build targets
-
-| Platform | Role now | Role when the client exists |
+| Piece | What it is | Code |
 |---|---|---|
-| macOS | Stub build in CI (`macos-15`), listed first | The build Graal3D testing will use. This is the first real deliverable |
-| Linux | Stub build in CI | Same client, same sources |
-| Windows | Stub build in CI | Same client, same sources |
+| Host | `common/cpp/quattro`'s `Shell::Program` on the 6.03r7 row: token `G3D0311C` and the `win` login tail on Windows, `G3D0511C` and `linux` on Linux and macOS (there is no Mac 6.03r7). Session, 178 warps, levels, players, GS2 weapon scripts, the 6.x HUD, 1024 x 768 | `src/host6037/` |
+| 3D | A server whose list name starts with `3 ` (given with `--server-name "3 Lab"`, or reached by the Login server's 178 warp to one, as the real 5.12 entered 3D) loses the marker and is entered on two links at once, as the 5.12 engine library does: the Torque link to the listed port + 1, then the TCP login on the listed port. The link is the 5.12 repro's protocol 24 (`common/cpp/graal3dengine`): handshake, packets and acks, events, ghosts, the control object and its movement, login steps 2 to 6. Server text (weapons, flags, scripts) goes to the 6.x program's GS2 machine, and its server triggers go back over the link as `events` lines | `src/net/udp/` (glue), `src/host6037/` |
+| UDP | Left enabled: the 3D link is a UDP socket on a random local port, in a 6.x host whose stock connect path opens none. The two links live and die together | `src/net/udp/` |
+| View | The 5.12 repro reads the 3D world but does not draw it yet. Once the link reaches step 6, the Frankenstein draws its own stand-in over the frame: the sky's fog colour, a ground grid and each `GameObject` as a box (the player's own in yellow), seen from behind the player, with the 6.x frame as a quarter-size inset bottom left. `--no-3d-view` keeps the plain 6.x frame | `src/graal3d5120/` |
 
-`frankenstein-6037/build.sh` writes a manifest under
-`build/frankenstein-6037/` and copies a shell stand-in.
-`frankenstein-6037/test.sh` checks that manifest. Neither script compiles
-a client. Output stays in `build/`, which the repo already ignores.
+The real Torque world (terrain, interiors, DTS and `.3ds` shapes, sky
+textures) is a renderer of its own for `common/cpp/graal3dengine`, shared
+with the 4.x and 5.x folders; this view gives way to it when it exists.
+
+## Running it
+
+```
+PW=... frankenstein-6037 --connect HOST:PORT --account NAME --password-env PW --assets DIR
+PW=... frankenstein-6037 --connect HOST:PORT --account NAME --password-env PW --server-name "3 Lab"
+frankenstein-6037 --offline start.nw --assets DIR
+```
+
+With the default server name (`Login`) the Login server's warp decides; a
+`3 ` warp takes the player into 3D. The secure login follows the player's
+setting as `quattro-play` does. `--headless --seconds N --shot FILE.png`
+runs without a window and saves the last frame. The 3D server must take
+protocol 24 on its port + 1, as the Seihai gserver's `graal3d` mode does.
+
+## Build and test
+
+```
+make -C frankenstein-6037          # build/frankenstein-6037 (.exe on Windows)
+make -C frankenstein-6037 test     # the view, and the loopback run below
+frankenstein-6037/test.sh          # both, then stages build/frankenstein-6037/ with MANIFEST.txt
+```
+
+The same tools as `common/cpp/quattro`: a C++17 compiler, zlib and bzip2,
+Xlib on Linux (headless without it), Cocoa on macOS, MSYS2 UCRT64 on
+Windows. The loopback test starts its own servers: a Login server that
+takes the 6.03r7 login and sends 178 to `3 Lab`, a game server on a port
+whose next port is a UDP server answering the handshake and replaying the
+recorded protocol-24 session (`common/cpp/graal3dengine/tests/vectors.hpp`).
+It checks both logins carry the 6.03r7 token, the link reaches step 6 with
+the player's object, the view draws it, and closing sends the 3D
+disconnect.
 
 The manifest records the mix and three placeholders: `<server>`, `<port>`,
 `<md5>`. Those stay placeholders until a real check has a value to put
-there. Loopback tests, when they exist, talk to a server the run starts.
+there.
 
 ## Releases stay on their own track
 
@@ -75,11 +101,12 @@ The separate pipeline is
 [`.github/workflows/frankenstein-6037.yml`](../.github/workflows/frankenstein-6037.yml).
 
 - **When it runs.** Pull requests and pushes to `main` that touch
-  `frankenstein-6037/**` or that workflow file, and a manual run from the
-  Actions tab. Other client work does not start it. A change under
-  `frankenstein/` does not start it.
-- **What it builds today.** The scaffold, on macOS, Linux, and Windows.
-  The workflow comments mark where the real compile will go.
+  `frankenstein-6037/**`, the shared code it compiles
+  (`common/cpp/quattro`, `common/cpp/graal3dengine/src`, the GS2 machine,
+  `common/torque/gui`) or that workflow file, and a manual run from the
+  Actions tab. A change under `frankenstein/` does not start it.
+- **What it builds.** `frankenstein-6037` on macOS, Linux, and Windows,
+  with `test.sh` (the loopback run) on each.
 - **How a release is cut.** Actions → **frankenstein-6037** → Run
   workflow, on `main`. Set version to a three-part tag such as `v0.0.1`
   (empty means build only). Publish defaults to a draft. The release tag
@@ -88,7 +115,7 @@ The separate pipeline is
   `frankenstein-6037-v0.0.1-macos.zip`,
   `frankenstein-6037-v0.0.1-linux.zip`,
   `frankenstein-6037-v0.0.1-windows.zip`. Squirrel publishes the draft.
-- **Version file.** [`VERSION`](VERSION) is `0.0.1` for this scaffold.
+- **Version file.** [`VERSION`](VERSION) is `0.0.1`.
   These versions are not the combined `v0.0.5` line, and they are not the
   `frankenstein/` line. Notes for a release go in
   [`RELEASE_NOTES.md`](RELEASE_NOTES.md).
@@ -96,9 +123,9 @@ The separate pipeline is
 Editing `.github/workflows/frankenstein-6037.yml` also selects every
 Pascal client in the main `ci` workflow. That selector
 (`scripts/ci/select_pascal_builds.py`) treats every file under
-`.github/workflows/` as shared CI. This scaffold does not change that
-rule. A later change that stays inside `frankenstein-6037/` does not
-select those clients.
+`.github/workflows/` as shared CI. This folder does not change that
+rule. A change that stays inside `frankenstein-6037/` does not select
+those clients.
 
 ## Layout
 
@@ -106,32 +133,42 @@ select those clients.
 frankenstein-6037/
   README.md            this file
   RELEASE_NOTES.md     notes for frankenstein-6037-v* drafts
-  VERSION              scaffold version (0.0.1)
-  build.sh             stub build (manifest + shell stand-in)
-  test.sh              checks the stub
+  VERSION              version (0.0.1)
+  Makefile             the program and its test
+  build.sh             make, then stage build/frankenstein-6037/ with MANIFEST.txt
+  test.sh              make test, build.sh, check the manifest
   src/
-    frankenstein.sh    shell stand-in the stub build ships
-    host6037/          v6.037 host (placeholder)
-    graal3d5120/       v5.120 Graal3D fold-in (placeholder)
-    net/udp/           UDP-enabled connect path (placeholder)
-    platform/          macos, linux, windows slots
-  tests/               where client tests will live
-  res/                 future embedded resources (empty of game data)
+    main.cpp           arguments, window, the 50 ms loop
+    host6037/          the 6.03r7 program and the `3 ` path (host.*)
+    graal3d5120/       the stand-in 3D view (view3d.*)
+    net/udp/           the 5.12 link on a UDP socket (link3d.*)
+    platform/          notes per platform (windows come from common/cpp/quattro/draw)
+  tests/               frankenstein_test.cpp (loopback)
+  res/                 embedded resources (empty of game data)
 ```
 
 ## Not yet
 
-- [ ] v6.037 host under `src/host6037/` (session, scripts, files), reading
-      the Windows `G3D0311C` notes and the Linux `G3D0511C` sibling as two
-      builds of the same release.
-- [ ] v5.120 Graal3D under `src/graal3d5120/`, inside that host.
-- [ ] UDP enabled on the game connection (`src/net/udp/`).
-- [ ] A macOS build that can be used for Graal3D testing.
-- [ ] Linux and Windows builds of that same client.
-- [ ] Loopback coverage against a server the run starts (`<server>`,
-      `<port>`). Digests stay `<md5>` until a real check exists.
-- [ ] Replace the manifest stub in `frankenstein-6037.yml` with the real
-      compile.
+- [x] v6.037 host under `src/host6037/`: the 6.03r7 Quattro program,
+      Windows `G3D0311C` and Linux `G3D0511C` rows.
+- [x] v5.120 Graal3D under `src/graal3d5120/` and `src/net/udp/`, inside
+      that host: the 5.12 repro's protocol-24 link, entered by a `3 `
+      server or a 178 warp to one.
+- [x] UDP enabled on the game connection (`src/net/udp/`).
+- [x] macOS, Linux and Windows builds of the same client in
+      `frankenstein-6037.yml`.
+- [x] Loopback coverage against servers the run starts.
+- [ ] The Torque world drawn (terrain, interiors, DTS and `.3ds` shapes,
+      sky): a renderer in `common/cpp/graal3dengine`, shared with the 4.x
+      and 5.x folders. Until then, the stand-in view.
+- [ ] Keys moving the player in 3D (the link sends where the server's
+      movetype took it; keyboard input with a movetype was not run on the
+      real 5.12 either).
+- [ ] The files step 6 waits for in 5.12 (shapes and sky textures over
+      TCP), `TerrainChunkEvent`, and the `fixedudpport` option (14899).
+- [ ] The 6.x start screen and server list: the program starts straight
+      into its session, as `quattro-play` does.
+- [ ] A lab run against the Seihai gserver's `graal3d` mode.
 
 ## Rules for this folder
 
@@ -141,11 +178,9 @@ frankenstein-6037/
 - Behaviour comes from the notes named above. No code addresses, no
   decompiler symbol names, and no decompiled C in this tree, in commits,
   or in pull requests.
-- The later engine is the older Quattro program the 6.03 folders use,
-  with v5.120 Graal3D folded into that host. No modern Torque3D base.
-  A small MIT-licensed piece from modern Torque3D is allowed only where
-  that older Torque needs it (the string Huffman table already kept under
-  `common/cpp/third_party/torque3d/`). This scaffold adds no engine code.
-- Original game files stay in the player's install, not in git, unless a
-  later change follows the shape the other folders in this repo already
-  use. This scaffold adds none.
+- The engine is the Quattro program the 6.03 folders use, with v5.120
+  Graal3D folded into that host. No modern Torque3D base. A small
+  MIT-licensed piece from modern Torque3D is allowed only where that older
+  Torque needs it (the string Huffman table kept under
+  `common/cpp/third_party/torque3d/`, which the link uses).
+- Original game files stay in the player's install, not in git.

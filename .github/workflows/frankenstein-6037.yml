@@ -10,21 +10,31 @@ name: frankenstein-6037
 # the tag prefix frankenstein-6037-v (frankenstein-6037-v0.0.1) and are
 # drafts until someone publishes them.
 #
-# TODO: compile the real client in the build job. macOS is the first
-# playable target (Graal3D testing); Linux and Windows build the same
-# sources. The later engine is the older Quattro program, not a modern
-# Torque3D base. Until then, frankenstein-6037/build.sh and
-# frankenstein-6037/test.sh check a manifest.
+# The build job compiles frankenstein-6037 (common/cpp/quattro on the
+# 6.03r7 row plus the 5.12 Graal3D link from common/cpp/graal3dengine) on
+# macOS, Linux and Windows and runs its loopback test.
 
 on:
   push:
     branches: [main]
     paths:
       - 'frankenstein-6037/**'
+      - 'common/cpp/quattro/**'
+      - 'common/cpp/graal3dengine/src/**'
+      - 'common/cpp/gs2/*.cpp'
+      - 'common/cpp/gs2/*.hpp'
+      - 'common/torque/gui/*.cpp'
+      - 'common/torque/gui/*.hpp'
       - '.github/workflows/frankenstein-6037.yml'
   pull_request:
     paths:
       - 'frankenstein-6037/**'
+      - 'common/cpp/quattro/**'
+      - 'common/cpp/graal3dengine/src/**'
+      - 'common/cpp/gs2/*.cpp'
+      - 'common/cpp/gs2/*.hpp'
+      - 'common/torque/gui/*.cpp'
+      - 'common/torque/gui/*.hpp'
       - '.github/workflows/frankenstein-6037.yml'
   workflow_dispatch:
     inputs:
@@ -47,12 +57,12 @@ permissions:
 
 jobs:
   build:
-    name: scaffold (${{ matrix.name }})
+    name: build (${{ matrix.name }})
     strategy:
       fail-fast: false
       matrix:
         include:
-          # macOS first: the later Graal3D test build.
+          # macOS first: the Graal3D test build.
           - os: macos-15
             name: macos
           - os: ubuntu-latest
@@ -62,10 +72,22 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
-      # TODO: install the real client toolchain here, then compile.
-      # The compile stays on the older Quattro program. No modern Torque3D base.
-      - name: Build and test the scaffold
+      - name: Install zlib, bzip2 and Xlib (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y g++ make zlib1g-dev libbz2-dev libx11-dev
+      - uses: msys2/setup-msys2@v2
+        if: runner.os == 'Windows'
+        with:
+          msystem: UCRT64
+          update: true
+          install: make mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-zlib mingw-w64-ucrt-x86_64-bzip2
+      - name: Build and test (macOS, Linux)
+        if: runner.os != 'Windows'
         shell: bash
+        run: frankenstein-6037/test.sh
+      - name: Build and test (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
         run: frankenstein-6037/test.sh
       - uses: actions/upload-artifact@v6
         with:

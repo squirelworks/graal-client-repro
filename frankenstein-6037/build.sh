@@ -1,8 +1,7 @@
 #!/bin/sh
-# Scaffold build for the Frankenstein 6.037 client.
-# TODO: replace this script with the real v6.037 + v5.120 Graal3D compile.
-# macOS is the first playable target; Linux and Windows follow the same sources.
-# No modern Torque3D base. The later engine is the older Quattro program.
+# Builds the Frankenstein 6.037 client (make) and stages it with its
+# manifest under build/frankenstein-6037/ at the repo root, which the
+# workflow uploads and the release job zips.
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 ROOT=$(CDPATH= cd -- "$HERE/.." && pwd)
@@ -10,24 +9,27 @@ OUT="$ROOT/build/frankenstein-6037"
 mkdir -p "$OUT"
 
 case "$(uname -s)" in
-  Darwin) OS=macos ;;
-  Linux) OS=linux ;;
-  MINGW*|MSYS*|CYGWIN*) OS=windows ;;
-  *) OS=unknown ;;
+  Darwin) OS=macos; EXE= ;;
+  Linux) OS=linux; EXE= ;;
+  MINGW*|MSYS*|CYGWIN*) OS=windows; EXE=.exe ;;
+  *) OS=unknown; EXE= ;;
 esac
 
-cat > "$OUT/MANIFEST.txt" <<EOF
+JOBS=$( (nproc || sysctl -n hw.ncpu) 2>/dev/null || echo 2)
+make -C "$HERE" -j"$JOBS" all
+cp "$HERE/build/frankenstein-6037$EXE" "$OUT/"
+
+cat > "$OUT/MANIFEST.txt" <<MANIFEST
 name: frankenstein-6037
-status: scaffold
+status: experimental
 base: v6.037
 graal3d: v5.120
 graal3d-repro: graal-5.12-G3D14097
 udp: enabled
 os: $OS
+program: frankenstein-6037$EXE
 server: <server>
 port: <port>
 md5: <md5>
-EOF
-
-cp "$HERE/src/frankenstein.sh" "$OUT/frankenstein.sh"
-echo "scaffold built for $OS -> $OUT"
+MANIFEST
+echo "frankenstein-6037 built for $OS -> $OUT"
