@@ -1,0 +1,121 @@
+name: frankenstein-6037
+
+# Community experimental client (frankenstein-6037/): a v6.037 host with
+# v5.120 Graal3D folded in, UDP left enabled. Scaffold only until a real
+# client exists. Separate from frankenstein/ (v6.113) and from its workflow.
+#
+# Separate from ci.yml, macos.yml, and release-all.yml. Path filters keep
+# this workflow off other clients' pulls and pushes, including
+# frankenstein/**. release-all.yml does not call this file. Releases use
+# the tag prefix frankenstein-6037-v (frankenstein-6037-v0.0.1) and are
+# drafts until someone publishes them.
+#
+# TODO: compile the real client in the build job. macOS is the first
+# playable target (Graal3D testing); Linux and Windows build the same
+# sources. The later engine is the older Quattro program, not a modern
+# Torque3D base. Until then, frankenstein-6037/build.sh and
+# frankenstein-6037/test.sh check a manifest.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frankenstein-6037/**'
+      - '.github/workflows/frankenstein-6037.yml'
+  pull_request:
+    paths:
+      - 'frankenstein-6037/**'
+      - '.github/workflows/frankenstein-6037.yml'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Three-part version to draft-release, e.g. v0.0.1 (empty = build only)
+        required: false
+        default: ''
+      publish:
+        description: Publish straight away (no = draft)
+        type: choice
+        options: ['yes', 'no']
+        default: 'no'
+
+concurrency:
+  group: frankenstein-6037-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: scaffold (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macOS first: the later Graal3D test build.
+          - os: macos-15
+            name: macos
+          - os: ubuntu-latest
+            name: linux
+          - os: windows-latest
+            name: windows
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      # TODO: install the real client toolchain here, then compile.
+      # The compile stays on the older Quattro program. No modern Torque3D base.
+      - name: Build and test the scaffold
+        shell: bash
+        run: frankenstein-6037/test.sh
+      - uses: actions/upload-artifact@v6
+        with:
+          name: frankenstein-6037-${{ matrix.name }}
+          path: build/frankenstein-6037/
+
+  release:
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.version != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: frankenstein-6037-*
+          path: dist-in
+      - name: Pack macOS, Linux, and Windows zips
+        env:
+          IN_VERSION: ${{ inputs.version }}
+        run: |
+          set -eu
+          V="$IN_VERSION"
+          case "$V" in
+            v*.*.*.*) echo "version must be three parts, like v0.0.1"; exit 1 ;;
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "version must look like v0.0.1"; exit 1 ;;
+          esac
+          mkdir -p dist
+          for spec in macos linux windows; do
+            src="dist-in/frankenstein-6037-$spec"
+            test -s "$src/MANIFEST.txt"
+            grep -q '^name: frankenstein-6037$' "$src/MANIFEST.txt"
+            grep -q '^base: v6.037$' "$src/MANIFEST.txt"
+            grep -q '^udp: enabled$' "$src/MANIFEST.txt"
+            stage="dist/frankenstein-6037-$V-$spec"
+            mkdir -p "$stage"
+            cp -a "$src/." "$stage/"
+            cp frankenstein-6037/README.md frankenstein-6037/RELEASE_NOTES.md frankenstein-6037/VERSION "$stage/"
+            (cd dist && zip -qr "frankenstein-6037-$V-$spec.zip" "frankenstein-6037-$V-$spec")
+          done
+          echo "TAG_NAME=frankenstein-6037-$V" >> "$GITHUB_ENV"
+          echo "TITLE=Frankenstein 6.037 $V" >> "$GITHUB_ENV"
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          name: ${{ env.TITLE }}
+          body_path: frankenstein-6037/RELEASE_NOTES.md
+          target_commitish: ${{ github.sha }}
+          draft: ${{ inputs.publish != 'yes' }}
+          files: dist/*.zip
+          make_latest: false
