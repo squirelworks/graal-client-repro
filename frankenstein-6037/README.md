@@ -1,7 +1,10 @@
 # Frankenstein 6.037
 
 A community-requested experimental client: a **v6.037** host with **v5.120
-Graal3D** folded in, and **UDP left enabled**. People have been calling it
+Graal3D** folded in, and **UDP left enabled**. The Graal3D half uses
+this repo's 5.12 repro, [`graal-5.12-G3D14097`](../graal-5.12-G3D14097/)
+(v5.120 is 5.12), with the Mac 5.12 repro
+[`graal-5.12mac-G3D15097`](../graal-5.12mac-G3D15097/) beside it. People have been calling it
 a cursed mixture, and that is the right word. It is one program on purpose
 made from two generations that the faithful folders keep apart.
 
@@ -23,7 +26,7 @@ that one. Releases, tags, and the workflow here are their own series.
 | Piece | What this mix keeps | Where the behaviour notes already live |
 |---|---|---|
 | Host | v6.037 session, scripts, and file requests | [`graal-6.03r7win-G3D0311C`](../graal-6.03r7win-G3D0311C/) (Windows 6.03r7, token `G3D0311C`; [`docs/v6-repro.md`](../docs/v6-repro.md) says a 6.0.3.7 repro uses that token) and [`graal-6.03r7-G3D0511C`](../graal-6.03r7-G3D0511C/) (Linux 6.03r7, token `G3D0511C`, the same release). Notes: [`docs/v6-repro.md`](../docs/v6-repro.md) |
-| World | v5.120 Graal3D, folded into that host | No folder in this repo is named 5.120. The Graal3D-era 5.12 rebuilds are [`graal-5.12-G3D14097`](../graal-5.12-G3D14097/) and [`graal-5.12mac-G3D15097`](../graal-5.12mac-G3D15097/). A later change has to show that v5.120 is one of those builds, or name the real 5.120 profile, before any 3D code is brought over |
+| World | v5.120 Graal3D, folded into that host | v5.120 is 5.12, written the way the 6.x builds are (6.03r7 is v6.037). The rebuilds are [`graal-5.12-G3D14097`](../graal-5.12-G3D14097/) (Windows, token `G3D14097`) and [`graal-5.12mac-G3D15097`](../graal-5.12mac-G3D15097/) (Mac OS X, token `G3D15097`, same engine source, seen on the wire in the lab). Both split the Delphi launcher from `GraalEngine.dll` and `Graal3DEngine.dll` |
 | Net | UDP stays enabled, including on the game connection | [`docs/v6-repro.md`](../docs/v6-repro.md) (UDP) says a 6.x connect path does not open a datagram socket, and that whether the 6.0.3.7 game connect path calls the opener is not found. This experiment turns that path on and keeps it on |
 
 The faithful client folders stay matched to their own real clients. Code
@@ -118,8 +121,6 @@ frankenstein-6037/
 
 ## Not yet
 
-- [ ] Confirm which real build "v5.120" is, against the 5.12 folders or a
-      profile of its own, before any Graal3D code is folded in.
 - [ ] v6.037 host under `src/host6037/` (session, scripts, files), reading
       the Windows `G3D0311C` notes and the Linux `G3D0511C` sibling as two
       builds of the same release.

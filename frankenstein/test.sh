@@ -10,6 +10,7 @@ grep -q '^name: frankenstein$' "$M"
 grep -q '^status: scaffold$' "$M"
 grep -q '^base: v6.113$' "$M"
 grep -q '^graal3d: v5.120$' "$M"
+grep -q '^graal3d-repro: graal-5.12-G3D14097$' "$M"
 grep -q '^udp: enabled$' "$M"
 grep -q '^server: <server>$' "$M"
 grep -q '^port: <port>$' "$M"
@@ -18,5 +19,6 @@ grep -E -q '^os: (macos|linux|windows)$' "$M"
 OUT=$(sh "$ROOT/build/frankenstein/frankenstein.sh")
 printf '%s\n' "$OUT" | grep -q 'v6.113'
 printf '%s\n' "$OUT" | grep -q 'v5.120'
+printf '%s\n' "$OUT" | grep -q '5.12 repro'
 printf '%s\n' "$OUT" | grep -q 'UDP enabled'
 echo "scaffold tests passed"

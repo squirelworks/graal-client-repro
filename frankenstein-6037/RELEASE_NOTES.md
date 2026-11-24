@@ -1,4 +1,4 @@
-# Frankenstein 6.037 (v6.037 + v5.120 Graal3D)
+# Frankenstein 6.037 (v6.037 + v5.120 Graal3D, from the 5.12 repro)
 
 Community experimental client. Releases use the tag prefix
 `frankenstein-6037-v` from `.github/workflows/frankenstein-6037.yml`. They
