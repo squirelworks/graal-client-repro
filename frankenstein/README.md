@@ -19,7 +19,7 @@ builds of the same client beside it.
 | Piece | What this mix keeps | Where the behaviour notes already live |
 |---|---|---|
 | Host | v6.113 session, scripts, and file requests | [`graal-6.1.1.3-GNP1905C`](../graal-6.1.1.3-GNP1905C/) (`graalversion` 6.113, token `GNP1905C`) and [`docs/v6-repro.md`](../docs/v6-repro.md) |
-| World | v5.120 Graal3D, folded into that host | No folder in this repo is named 5.120. The Graal3D-era 5.12 rebuilds are [`graal-5.12-G3D14097`](../graal-5.12-G3D14097/) and [`graal-5.12mac-G3D15097`](../graal-5.12mac-G3D15097/). A later change has to show that v5.120 is one of those builds, or name the real 5.120 profile, before any 3D code is brought over |
+| World | v5.120 Graal3D, folded into that host | v5.120 is 5.12, written the way the 6.x builds are (6.03r7 is v6.037). The rebuilds are [`graal-5.12-G3D14097`](../graal-5.12-G3D14097/) (Windows, token `G3D14097`) and [`graal-5.12mac-G3D15097`](../graal-5.12mac-G3D15097/) (Mac OS X, token `G3D15097`, same engine source, seen on the wire in the lab). Both split the Delphi launcher from `GraalEngine.dll` and `Graal3DEngine.dll` |
 | Net | UDP stays enabled, including on the game connection | Stock v6.113 leaves the datagram socket off the game connect path (`docs/v6-repro.md`, UDP). This experiment turns that path on and keeps it on |
 
 The faithful client folders stay matched to their own real clients. Code
@@ -104,8 +104,6 @@ frankenstein/
 
 ## Not yet
 
-- [ ] Confirm which real build "v5.120" is, against the 5.12 folders or a
-      profile of its own, before any Graal3D code is folded in.
 - [ ] v6.113 host under `src/host6113/` (session, scripts, files).
 - [ ] v5.120 Graal3D under `src/graal3d5120/`, inside that host.
 - [ ] UDP enabled on the game connection (`src/net/udp/`).
