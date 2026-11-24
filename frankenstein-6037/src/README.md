@@ -1,14 +1,11 @@
-# Source slots
+# Sources
 
-Empty of engine code. Each directory is a place the later client will fill.
-
-| Path | Later contents |
+| Path | What it holds |
 |---|---|
-| `host6037/` | v6.037 host: session, scripts, file requests. Read behaviour from `graal-6.03r7win-G3D0311C`, `graal-6.03r7-G3D0511C`, and `docs/v6-repro.md`. |
-| `graal3d5120/` | v5.120 Graal3D, folded into that host. v5.120 is 5.12: read `graal-5.12-G3D14097` (Windows) and `graal-5.12mac-G3D15097` (Mac). |
-| `net/udp/` | Datagram path left enabled on the game connection. |
-| `platform/` | macOS (first playable target), Linux, and Windows. |
-| `frankenstein.sh` | Scaffold stand-in. The real entry point replaces it. |
+| `main.cpp` | Arguments, the window (`common/cpp/quattro/draw`: Win32, AppKit or X11, else headless), the 50 ms loop. |
+| `host6037/` | `Frank::Host`: the 6.03r7 `Shell::Program` and the `3 ` path (strip the marker, open the link on port + 1, then the TCP login; a 178 warp to a `3 ` server does the same). `ViewWindow` puts the 3D view over the frame. |
+| `graal3d5120/` | The stand-in 3D view. v5.120 is 5.12: the link and world are the 5.12 repro's (`common/cpp/graal3dengine`, used by `graal-5.12-G3D14097` and `graal-5.12mac-G3D15097`). |
+| `net/udp/` | `Frank::Link3D`: the 5.12 link on a UDP socket, left enabled in a 6.x host. |
+| `platform/` | Notes per platform. |
 
-`frankenstein-6037/build.sh` does not compile anything here. The later
-engine is the older Quattro program, with no modern Torque3D base.
+The engine is the Quattro program, with no modern Torque3D base.

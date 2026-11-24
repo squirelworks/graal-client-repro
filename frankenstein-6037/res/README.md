@@ -1,6 +1,6 @@
 # Resources
 
-Empty on purpose. This scaffold embeds no pictures, levels, or original
+Empty on purpose. The client embeds no pictures, levels, or original
 game files.
 
 When a client needs embedded bytes, they are graal-delphi's own art in the

@@ -1,7 +1,7 @@
 # macOS
 
-First real deliverable once a client exists: a Mac build people can use
-for Graal3D testing.
+The build for Graal3D testing: an AppKit window
+(`common/cpp/quattro/draw/window_cocoa.mm`). There is no Mac 6.03r7, so it
+sends the Linux 6.03r7 row (`G3D0511C`, `linux`).
 
-The scaffold CI job runs on `macos-15` and only checks the stub manifest.
-No Cocoa window and no Mac binary live here yet.
+CI builds and tests the client on `macos-15`.
