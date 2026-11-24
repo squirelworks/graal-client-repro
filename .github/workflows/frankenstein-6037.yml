@@ -1,7 +1,7 @@
 name: frankenstein-6037
 
 # Community experimental client (frankenstein-6037/): a v6.037 host with
-# v5.120 Graal3D (the 5.12 repro) folded in, UDP left enabled. Scaffold only until a real
+# v5.120 Graal3D folded in, UDP left enabled. Scaffold only until a real
 # client exists. Separate from frankenstein/ (v6.113) and from its workflow.
 #
 # Separate from ci.yml, macos.yml, and release-all.yml. Path filters keep
