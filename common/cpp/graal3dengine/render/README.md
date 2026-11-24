@@ -1,0 +1,61 @@
+# render: the Graal3D world renderer
+
+The 3D view of the 4.20 to 5.12 clients, drawn from the ghosts the link
+holds (plan: milestone 1 of the world renderer). It takes a scene (the
+objects with their shapes, the server's Camera, the Sun and the Sky) and a
+file resolver, and draws one frame into 32-bit pixels someone else owns.
+It does not depend on the UDP link, so the Frankenstein 6.037 client can
+link it beside its own world.
+
+| File | Does |
+|---|---|
+| `math.hpp` | Vectors and matrices; the clients' rotation rule (a positive angle about +z turns right, about +x tilts down) |
+| `mesh.*` | The one shape every reader produces: meshes, materials, collision meshes kept apart |
+| `read_3ds.*` | `.3ds`: objects, vertices, texture coordinates, faces, face groups, materials with diffuse colour and texture name. `Col-` meshes are collision only; faces with no material are not drawn |
+| `texture.*`, `stb_impl.cpp` | Textures (PNG, JPEG, GIF, BMP, TGA through `stb_image`) and the `Frame` view onto the caller's pixels |
+| `resources.*` | Finds files by lower-case name in any subfolder of the roots (`levels3d/` by default), tries the image extensions on a texture named without one (`sky_fr`), caches what loaded, and forgets misses on `rescan()` |
+| `scene.*` | The scene from a `GhostTable`: every `GameObject` with a shape, the named `Camera` and the field of view, the first `Sun` and `Sky` |
+| `raster.*` | The software rasteriser: perspective-correct textured triangles, depth buffer, near and far clipping, per-vertex light and fog |
+| `draw.*` | One frame: the sky box, then each object lit by the sun and fogged toward the sky's fog colour |
+
+The library exports `graal3dengine_renderFrame`, `graal3dengine_addResourceFolder`
+and `graal3dengine_rescanResources` for the hosts (`include/graal3dengine.h`).
+
+## What it was written from
+
+- Graal_analysis `torque/udp-session.md` §8 (the `GameObject`, `Camera`,
+  `Sun` and `Sky` updates), `graal3d/torque-engine-4x.md` and
+  `torque/engine-and-formats.md` (the formats and `Col-` hulls),
+  `client-internals/mac-ppc-runtime-surface-2026-11-09.md` (where files go
+  under `levels3d`).
+- The Seihai gserver's lab notes (`bin/docs/graal3d.md` in
+  seihai-gserver-v2): the rotation rule, the 5.x client drawing only
+  through a Camera, extension-less sky textures, a `.3ds` with no material
+  loading but not drawn.
+- The public 3D Studio chunk format. Nothing from a decompile; no original
+  Graal file is in the repo or its tests (the tests write their own shapes
+  and textures).
+
+## What is the rebuild's own
+
+The pixels: the original draws through OpenGL, and no pixel match is
+claimed (`docs/functional-parity.md`). Also, until a lab run checks them
+side by side with a real 5.12:
+
+- Nothing past the Sky's visible distance is drawn (1000 units without a
+  Sky); fog rises linearly from half that distance.
+- The sky box: front +y, right +x, back -y, left -x, top +z, bottom -z,
+  each upright from inside; top and bottom with their top edge toward +y.
+  Cloud layers, fog volumes and the solid colour are read but not drawn.
+- Per-vertex lighting `ambient + colour * max(0, n . -direction)`; both
+  sides of every triangle are drawn; texels under half alpha are cut out.
+- A textured material draws its texture unmodulated; an untextured one its
+  diffuse colour.
+
+## Not yet
+
+- [ ] The hosts presenting the frame in `GraalControl3D` (milestone 2)
+- [ ] `.dts`, `.dif`, `.ft` shapes (milestones 3 to 5); they are logged and skipped
+- [ ] Animation threads (`GameObject` section 8)
+- [ ] Terrain, water, replicators (milestone 6)
+- [ ] `.dds`, `.jp2`, `.mng` textures

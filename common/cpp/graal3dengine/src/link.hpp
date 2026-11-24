@@ -75,6 +75,10 @@ class Link {
   int loginStep() const { return step_; }
   const GhostTable& ghosts() const { return ghosts_; }
   int controlGhost() const { return controlGhost_; }
+  // The ghost the server last named as the camera (-1 before any), and the
+  // last field of view it sent in degrees (0 before any).
+  int cameraGhost() const { return cameraGhost_; }
+  int fieldOfView() const { return fov_; }
   uint32_t serverTime() const { return serverTime_; }
   // Where the control object is: while it has a movement object, where
   // its movement has taken it; otherwise its transform's position.
@@ -179,6 +183,8 @@ class Link {
   int step_ = 0;
   GhostTable ghosts_;
   int controlGhost_ = -1;
+  int cameraGhost_ = -1;
+  int fov_ = 0;
   bool sendOwnState_ = false;
 
   // The control object's movement object (E#505): a server moves the

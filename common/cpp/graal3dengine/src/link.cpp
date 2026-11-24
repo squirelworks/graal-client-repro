@@ -312,6 +312,7 @@ bool Link::readServerGameSection(BitReader& r) {
   }
   if (r.flag()) {
     const int idx = static_cast<int>(r.bits(12));
+    cameraGhost_ = idx;
     if (r.flag()) {
       auto it = ghosts_.find(idx);
       if (it == ghosts_.end() || it->second.className != "Camera") {
@@ -321,7 +322,7 @@ bool Link::readServerGameSection(BitReader& r) {
       if (!readCameraUpdate(r, it->second.camera)) return false;
     }
   }
-  if (r.flag()) r.bits(8);  // field of view
+  if (r.flag()) fov_ = static_cast<int>(r.bits(8));  // field of view, degrees
   return !r.overrun();
 }
 

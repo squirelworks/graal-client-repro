@@ -1,0 +1,574 @@
+// Tests for the world renderer (render/): the .3ds reader, the file
+// resolver, the scene built from ghosts, and frames drawn from them.
+// Every shape and texture here is made by the test itself.
+#include "../render/draw.hpp"
+#include "../render/read_3ds.hpp"
+#include "bits.hpp"
+#include "vectors.hpp"
+#include "world.hpp"
+
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <string>
+#include <vector>
+
+using namespace graal3d;
+using namespace graal3d::render;
+
+static int failures = 0;
+#define CHECK(cond)                                                                 \
+  do {                                                                              \
+    if (!(cond)) {                                                                  \
+      std::fprintf(stderr, "%s:%d: CHECK failed: %s\n", __FILE__, __LINE__, #cond); \
+      ++failures;                                                                   \
+    }                                                                               \
+  } while (0)
+
+namespace {
+
+constexpr float kPi = 3.14159265358979f;
+
+std::string fromHexStr(const char* hex) {
+  std::string out;
+  for (size_t i = 0; hex[i] && hex[i + 1]; i += 2) out.push_back(char(std::strtoul(std::string(hex + i, 2).c_str(), nullptr, 16)));
+  return out;
+}
+
+// ---- A small .3ds writer, for the tests' own shapes ----
+
+struct Bytes {
+  std::vector<uint8_t> b;
+  void u8(uint8_t v) { b.push_back(v); }
+  void u16(uint16_t v) {
+    u8(uint8_t(v));
+    u8(uint8_t(v >> 8));
+  }
+  void u32(uint32_t v) {
+    u16(uint16_t(v));
+    u16(uint16_t(v >> 16));
+  }
+  void f32(float f) {
+    uint32_t v;
+    std::memcpy(&v, &f, 4);
+    u32(v);
+  }
+  void cstr(const std::string& s) {
+    for (char c : s) u8(uint8_t(c));
+    u8(0);
+  }
+  void append(const Bytes& o) { b.insert(b.end(), o.b.begin(), o.b.end()); }
+};
+
+Bytes chunk(uint16_t id, const Bytes& payload) {
+  Bytes c;
+  c.u16(id);
+  c.u32(uint32_t(payload.b.size() + 6));
+  c.append(payload);
+  return c;
+}
+
+struct TestMesh {
+  std::string name;
+  std::vector<V3> vertices;
+  std::vector<std::array<uint16_t, 3>> faces;
+  std::vector<std::pair<float, float>> uvs;
+  std::string material;  // empty: no face group
+};
+
+Bytes material3ds(const std::string& name, float r, float g, float b, const std::string& texture = "") {
+  Bytes m;
+  Bytes n;
+  n.cstr(name);
+  m.append(chunk(0xA000, n));
+  Bytes col;
+  col.f32(r);
+  col.f32(g);
+  col.f32(b);
+  m.append(chunk(0xA020, chunk(0x0010, col)));
+  if (!texture.empty()) {
+    Bytes f;
+    f.cstr(texture);
+    m.append(chunk(0xA200, chunk(0xA300, f)));
+  }
+  return chunk(0xAFFF, m);
+}
+
+Bytes object3ds(const TestMesh& mesh) {
+  Bytes tri;
+  Bytes verts;
+  verts.u16(uint16_t(mesh.vertices.size()));
+  for (const V3& v : mesh.vertices) {
+    verts.f32(v.x);
+    verts.f32(v.y);
+    verts.f32(v.z);
+  }
+  tri.append(chunk(0x4110, verts));
+  if (!mesh.uvs.empty()) {
+    Bytes uv;
+    uv.u16(uint16_t(mesh.uvs.size()));
+    for (auto& p : mesh.uvs) {
+      uv.f32(p.first);
+      uv.f32(p.second);
+    }
+    tri.append(chunk(0x4140, uv));
+  }
+  Bytes faces;
+  faces.u16(uint16_t(mesh.faces.size()));
+  for (auto& f : mesh.faces) {
+    for (uint16_t i : f) faces.u16(i);
+    faces.u16(7);
+  }
+  if (!mesh.material.empty()) {
+    Bytes g;
+    g.cstr(mesh.material);
+    g.u16(uint16_t(mesh.faces.size()));
+    for (size_t i = 0; i < mesh.faces.size(); ++i) g.u16(uint16_t(i));
+    faces.append(chunk(0x4130, g));
+  }
+  tri.append(chunk(0x4120, faces));
+  Bytes obj;
+  obj.cstr(mesh.name);
+  obj.append(chunk(0x4100, tri));
+  return chunk(0x4000, obj);
+}
+
+// A cube of side `size` centred on `c`, every face its own four vertices.
+TestMesh cubeMesh(const std::string& name, V3 c, float size, const std::string& material) {
+  TestMesh m;
+  m.name = name;
+  m.material = material;
+  const float h = size / 2;
+  const V3 n[6] = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
+  for (const V3& f : n) {
+    // Two axes across the face.
+    const V3 a = std::fabs(f.z) > 0.5f ? V3{1, 0, 0} : V3{0, 0, 1};
+    const V3 b = cross(f, a);
+    const uint16_t base = uint16_t(m.vertices.size());
+    const V3 centre = c + f * h;
+    m.vertices.push_back(centre + a * -h + b * -h);
+    m.vertices.push_back(centre + a * h + b * -h);
+    m.vertices.push_back(centre + a * h + b * h);
+    m.vertices.push_back(centre + a * -h + b * h);
+    m.uvs.insert(m.uvs.end(), {{0, 0}, {1, 0}, {1, 1}, {0, 1}});
+    m.faces.push_back({base, uint16_t(base + 1), uint16_t(base + 2)});
+    m.faces.push_back({base, uint16_t(base + 2), uint16_t(base + 3)});
+  }
+  return m;
+}
+
+std::vector<uint8_t> file3ds(const std::vector<Bytes>& materials, const std::vector<TestMesh>& meshes) {
+  Bytes editor;
+  for (const Bytes& m : materials) editor.append(m);
+  for (const TestMesh& m : meshes) editor.append(object3ds(m));
+  Bytes ver;
+  ver.u32(3);
+  Bytes main;
+  main.append(chunk(0x0002, ver));
+  main.append(chunk(0x3D3D, editor));
+  return chunk(0x4D4D, main).b;
+}
+
+Shape cubeShape(float r, float g, float b, float size = 1.0f, V3 c = {0, 0, 0}) {
+  Shape s;
+  std::string error;
+  const bool ok = read3ds(file3ds({material3ds("paint", r, g, b)}, {cubeMesh("box", c, size, "paint")}), s, error);
+  CHECK(ok);
+  return s;
+}
+
+// A 24-bit BMP of one colour.
+std::vector<uint8_t> solidBmp(int w, int h, uint8_t r, uint8_t g, uint8_t b) {
+  const int row = (w * 3 + 3) & ~3;
+  Bytes f;
+  f.u8('B');
+  f.u8('M');
+  f.u32(uint32_t(54 + row * h));
+  f.u32(0);
+  f.u32(54);
+  f.u32(40);
+  f.u32(uint32_t(w));
+  f.u32(uint32_t(h));
+  f.u16(1);
+  f.u16(24);
+  f.u32(0);
+  f.u32(uint32_t(row * h));
+  f.u32(2835);
+  f.u32(2835);
+  f.u32(0);
+  f.u32(0);
+  for (int y = 0; y < h; ++y) {
+    for (int x = 0; x < w; ++x) {
+      f.u8(b);
+      f.u8(g);
+      f.u8(r);
+    }
+    for (int p = w * 3; p < row; ++p) f.u8(0);
+  }
+  return f.b;
+}
+
+Texture solidTexture(uint8_t r, uint8_t g, uint8_t b) {
+  Texture t;
+  t.width = t.height = 2;
+  t.pixels.assign(4, packRgba(r, g, b));
+  return t;
+}
+
+struct TestFrame {
+  int w, h;
+  std::vector<uint32_t> px;
+  TestFrame(int w_ = 160, int h_ = 120) : w(w_), h(h_), px(size_t(w_) * h_, 0xDEADBEEF) {}
+  Frame frame() { return Frame{px.data(), w, h, w}; }
+  uint32_t at(int x, int y) const { return px[size_t(y) * w + x]; }
+  uint32_t centre() const { return at(w / 2, h / 2); }
+};
+
+// A scene with a camera at `eye`, turned by the wire's axis and angle.
+Scene cameraScene(V3 eye, V3 axis = {1, 0, 0}, float angle = 0) {
+  Scene s;
+  s.hasCamera = true;
+  s.view.cameraToWorld = graalTransform(eye, axis, angle);
+  s.view.fovDegrees = 90;
+  return s;
+}
+
+SceneObject objectAt(const std::string& shape, V3 pos) {
+  SceneObject o;
+  o.shape = shape;
+  o.transform = M4::translation(pos);
+  return o;
+}
+
+bool isColor(uint32_t c, int r, int g, int b, int tol = 2) {
+  return std::abs(red(c) - r) <= tol && std::abs(green(c) - g) <= tol && std::abs(blue(c) - b) <= tol;
+}
+
+// ---- Tests ----
+
+void testRead3ds() {
+  TestMesh col = cubeMesh("Col-1", {0, 0, 0}, 1, "paint");
+  TestMesh bare = cubeMesh("bare", {3, 0, 0}, 1, "");
+  Shape s;
+  std::string error;
+  CHECK(read3ds(file3ds({material3ds("paint", 1, 0.5f, 0, "brick.png")}, {cubeMesh("box", {0, 0, 0}, 2, "paint"), col, bare}),
+                s, error));
+  CHECK(s.materials.size() == 1);
+  CHECK(s.materials[0].name == "paint" && s.materials[0].texture == "brick.png");
+  CHECK(std::fabs(s.materials[0].color[1] - 0.5f) < 1e-6f);
+  CHECK(s.meshes.size() == 2);       // box and bare
+  CHECK(s.collision.size() == 1);    // Col-1 is never drawn
+  CHECK(s.meshes[0].vertices.size() == 24 && s.meshes[0].triangles.size() == 12);
+  CHECK(s.meshes[0].triangles[0].material == 0);
+  CHECK(s.meshes[1].triangles[0].material == -1);  // no face group: not drawn
+  CHECK(std::fabs(s.boundsMin.x + 1) < 1e-6f && std::fabs(s.boundsMax.x - 3.5f) < 1e-6f);
+  // v counts from the bottom of the image in a .3ds.
+  CHECK(std::fabs(s.meshes[0].vertices[0].v - 1.0f) < 1e-6f);
+
+  // A material defined after the object that names it.
+  Bytes editor;
+  editor.append(object3ds(cubeMesh("box", {0, 0, 0}, 1, "late")));
+  editor.append(material3ds("late", 0, 1, 0));
+  Shape late;
+  CHECK(read3ds(chunk(0x4D4D, chunk(0x3D3D, editor)).b, late, error));
+  CHECK(late.meshes.size() == 1 && late.meshes[0].triangles[0].material == 0);
+
+  // Refused: not a 3ds, a chunk longer than the file, cut short, a face
+  // naming a vertex that is not there.
+  Shape bad;
+  CHECK(!read3ds(std::vector<uint8_t>{1, 2, 3, 4, 5, 6, 7}, bad, error));
+  auto good = file3ds({material3ds("paint", 1, 1, 1)}, {cubeMesh("box", {0, 0, 0}, 1, "paint")});
+  auto cut = good;
+  cut.resize(cut.size() - 10);
+  CHECK(!read3ds(cut, bad, error));
+  auto longer = good;
+  longer[2] = 0xFF;
+  longer[3] = 0xFF;
+  CHECK(!read3ds(longer, bad, error));
+  TestMesh wrong = cubeMesh("box", {0, 0, 0}, 1, "paint");
+  wrong.faces[0][1] = 999;
+  CHECK(!read3ds(file3ds({material3ds("paint", 1, 1, 1)}, {wrong}), bad, error));
+  // Every truncation of a good file is refused or read, never a crash.
+  for (size_t n = 0; n < good.size(); ++n) {
+    Shape any;
+    read3ds(good.data(), n, any, error);
+  }
+}
+
+void testRotationRule() {
+  // A positive angle about +z turns right: forward (+y) becomes +x.
+  const V3 f = graalRotation({0, 0, 1}, kPi / 2).vector({0, 1, 0});
+  CHECK(std::fabs(f.x - 1) < 1e-5f && std::fabs(f.y) < 1e-5f);
+  // A positive angle about +x tilts the view down.
+  const V3 d = graalRotation({1, 0, 0}, 0.38f).vector({0, 1, 0});
+  CHECK(d.z < 0 && d.y > 0);
+}
+
+void testDrawObjects() {
+  Resources res;
+  res.putShape("red.3ds", cubeShape(1, 0, 0));
+  res.putShape("green.3ds", cubeShape(0, 1, 0, 0.5f));
+
+  // No Camera: black, as the 5.x client.
+  {
+    TestFrame f;
+    Scene s;
+    s.objects.push_back(objectAt("red.3ds", {0, 5, 0}));
+    CHECK(drawScene(f.frame(), s, res).objectsDrawn == 0);
+    CHECK(isColor(f.centre(), 0, 0, 0) && isColor(f.at(0, 0), 0, 0, 0));
+  }
+  // A red cube straight ahead, nothing else: red in the middle, the
+  // clear colour (black without a Sky) at the corner.
+  {
+    TestFrame f;
+    Scene s = cameraScene({0, -5, 0});
+    s.objects.push_back(objectAt("red.3ds", {0, 0, 0}));
+    const DrawStats st = drawScene(f.frame(), s, res);
+    CHECK(st.objectsDrawn == 1 && st.triangles == 12);
+    CHECK(isColor(f.centre(), 255, 0, 0));
+    CHECK(isColor(f.at(0, 0), 0, 0, 0));
+    // The cube is 1 unit wide, 4.5 units away, 90 degrees across 160
+    // pixels: about 160 / 2 / 4.5 = 18 pixels wide.
+    int wide = 0;
+    for (int x = 0; x < f.w; ++x) wide += isColor(f.at(x, f.h / 2), 255, 0, 0);
+    CHECK(wide >= 16 && wide <= 20);
+  }
+  // A nearer green cube hides the red one; order in the list does not matter.
+  {
+    TestFrame f;
+    Scene s = cameraScene({0, -5, 0});
+    s.objects.push_back(objectAt("green.3ds", {0, -2, 0}));
+    s.objects.push_back(objectAt("red.3ds", {0, 0, 0}));
+    drawScene(f.frame(), s, res);
+    CHECK(isColor(f.centre(), 0, 255, 0));
+  }
+  // Turning the camera right by a quarter turn brings a cube on +x into view.
+  {
+    TestFrame f;
+    Scene s = cameraScene({0, 0, 0}, {0, 0, 1}, kPi / 2);
+    s.objects.push_back(objectAt("red.3ds", {5, 0, 0}));
+    s.objects.push_back(objectAt("green.3ds", {0, 5, 0}));
+    drawScene(f.frame(), s, res);
+    CHECK(isColor(f.centre(), 255, 0, 0));
+  }
+  // Behind the camera: not drawn, and nothing crosses the near plane badly.
+  {
+    TestFrame f;
+    Scene s = cameraScene({0, 0, 0});
+    s.objects.push_back(objectAt("red.3ds", {0, -5, 0}));
+    s.objects.push_back(objectAt("green.3ds", {0, 0, 0}));  // around the eye
+    drawScene(f.frame(), s, res);
+    for (uint32_t c : f.px) CHECK(alpha(c) == 255);
+    CHECK(!isColor(f.centre(), 255, 0, 0));
+  }
+  // A missing shape is counted, not drawn.
+  {
+    TestFrame f;
+    Scene s = cameraScene({0, -5, 0});
+    s.objects.push_back(objectAt("nothere.dts", {0, 0, 0}));
+    const DrawStats st = drawScene(f.frame(), s, res);
+    CHECK(st.objectsDrawn == 0 && st.objectsMissing == 1);
+  }
+  // A shape whose faces have no material is loaded but not drawn.
+  {
+    Shape bare;
+    std::string error;
+    CHECK(read3ds(file3ds({}, {cubeMesh("box", {0, 0, 0}, 1, "")}), bare, error));
+    res.putShape("bare.3ds", bare);
+    TestFrame f;
+    Scene s = cameraScene({0, -5, 0});
+    s.objects.push_back(objectAt("bare.3ds", {0, 0, 0}));
+    const DrawStats st = drawScene(f.frame(), s, res);
+    CHECK(st.objectsDrawn == 1 && st.triangles == 0);
+    CHECK(isColor(f.centre(), 0, 0, 0));
+  }
+}
+
+void testSunAndFog() {
+  Resources res;
+  res.putShape("white.3ds", cubeShape(1, 1, 1));
+  auto litCentre = [&](V3 dir) {
+    TestFrame f;
+    Scene s = cameraScene({0, -5, 0});
+    s.sun.present = true;
+    s.sun.direction = normalize(dir);
+    for (int i = 0; i < 3; ++i) {
+      s.sun.color[i] = 0.75f;
+      s.sun.ambient[i] = 0.25f;
+    }
+    s.objects.push_back(objectAt("white.3ds", {0, 0, 0}));
+    drawScene(f.frame(), s, res);
+    return f.centre();
+  };
+  // The face toward the camera faces -y. Light travelling +y hits it full
+  // on (0.25 + 0.75); light travelling -y leaves it at the ambient.
+  CHECK(isColor(litCentre({0, 1, 0}), 255, 255, 255));
+  CHECK(isColor(litCentre({0, -1, 0}), 64, 64, 64));
+  // At 60 degrees: 0.25 + 0.75 * 0.5.
+  CHECK(isColor(litCentre({0, 0.5f, -0.8660254f}), 159, 159, 159));
+
+  // Fog: with a visible distance of 100, a cube 20 units away is clear,
+  // one 90 units away is mostly fog colour, one past 100 is not drawn.
+  auto fogged = [&](float dist) {
+    TestFrame f;
+    Scene s = cameraScene({0, 0, 0});
+    s.sky.present = true;
+    s.sky.visibleDistance = 100;
+    s.sky.fogColor[0] = 0;
+    s.sky.fogColor[1] = 0;
+    s.sky.fogColor[2] = 1;
+    s.objects.push_back(objectAt("white.3ds", {0, dist, 0}));
+    drawScene(f.frame(), s, res);
+    return f.centre();
+  };
+  CHECK(isColor(fogged(20), 255, 255, 255));
+  const uint32_t far = fogged(90);
+  CHECK(red(far) < 80 && blue(far) == 255);
+  CHECK(isColor(fogged(120), 0, 0, 255));
+}
+
+void testSkyBox() {
+  Resources res;
+  const char* names[6] = {"sky_fr", "sky_rt", "sky_bk", "sky_lf", "sky_up", "sky_dn"};
+  const int colors[6][3] = {{200, 0, 0}, {0, 200, 0}, {0, 0, 200}, {200, 200, 0}, {0, 200, 200}, {200, 0, 200}};
+  for (int i = 0; i < 6; ++i) res.putTexture(names[i], solidTexture(uint8_t(colors[i][0]), uint8_t(colors[i][1]), uint8_t(colors[i][2])));
+  auto look = [&](V3 axis, float angle) {
+    TestFrame f;
+    Scene s = cameraScene({10, 20, 3}, axis, angle);
+    s.sky.present = true;
+    s.sky.visibleDistance = 500;
+    for (int i = 0; i < 6; ++i) s.sky.textures[i] = names[i];
+    drawScene(f.frame(), s, res);
+    return f.centre();
+  };
+  CHECK(isColor(look({0, 0, 1}, 0), 200, 0, 0));             // front, +y
+  CHECK(isColor(look({0, 0, 1}, kPi / 2), 0, 200, 0));       // right, +x
+  CHECK(isColor(look({0, 0, 1}, kPi), 0, 0, 200));           // back
+  CHECK(isColor(look({0, 0, 1}, -kPi / 2), 200, 200, 0));    // left
+  CHECK(isColor(look({1, 0, 0}, -kPi / 2), 0, 200, 200));    // up (a negative angle tilts up)
+  CHECK(isColor(look({1, 0, 0}, kPi / 2), 200, 0, 200));     // down
+}
+
+void testSceneFromGhosts() {
+  GhostTable ghosts;
+  // The recorded Seihai payloads: the Sun, the Sky and a player object.
+  {
+    BitReader r(fromHexStr(kSun));
+    ghosts[0].className = "Sun";
+    CHECK(readSunUpdate(r, ghosts[0].sun));
+  }
+  {
+    BitReader r(fromHexStr(kSky));
+    ghosts[1].className = "Sky";
+    CHECK(readSkyUpdate(r, ghosts[1].sky));
+    // The whole Sky is read and it ends inside the last byte.
+    const size_t bits = fromHexStr(kSky).size() * 8;
+    CHECK(r.pos() <= bits && bits - r.pos() < 8);
+    CHECK(ghosts[1].sky.fogVolumes.empty());
+  }
+  {
+    BitReader r(fromHexStr(kGameObject));
+    ghosts[2].className = "GameObject";
+    CHECK(readGameObjectUpdate(r, ghosts[2].object));
+  }
+  ghosts[3].className = "Camera";
+  ghosts[3].camera.object.position = {0, -5, 2};
+  ghosts[3].camera.object.axis = {1, 0, 0};
+  ghosts[3].camera.object.angle = 0.38f;
+  ghosts[4].className = "GameObject";  // no shape: not drawn
+
+  Scene none = sceneFromGhosts(ghosts, -1, 0);
+  CHECK(!none.hasCamera);
+  Scene s = sceneFromGhosts(ghosts, 3, 0);
+  CHECK(s.hasCamera);
+  CHECK(std::fabs(s.view.fovDegrees - 90) < 1e-6f);
+  CHECK(s.sun.present && std::fabs(s.sun.direction.z + 0.57735f) < 1e-3f);
+  CHECK(s.sky.present && s.sky.textures[0] == "sky_fr" && s.sky.textures[5] == "sky_dn");
+  CHECK(std::fabs(s.sky.visibleDistance - 500) < 1e-3f);
+  CHECK(s.objects.size() == 1 && s.objects[0].shape == ghosts[2].object.shape);
+  CHECK(std::fabs(s.view.cameraToWorld.m[2][3] - 2) < 1e-6f);
+  CHECK(sceneFromGhosts(ghosts, 3, 60).view.fovDegrees == 60);
+
+  // "-" leaves a face empty.
+  ghosts[1].sky.textures = "a,-,c";
+  Scene dash = sceneFromGhosts(ghosts, 3, 0);
+  CHECK(dash.sky.textures[0] == "a" && dash.sky.textures[1].empty() && dash.sky.textures[2] == "c");
+
+  // Drawn: the player's shape from a file of the test's own.
+  Resources res;
+  res.putShape(ghosts[2].object.shape, cubeShape(1, 1, 1, 1, {0, 0, 0}));
+  TestFrame f(320, 240);
+  const DrawStats st = drawScene(f.frame(), s, res);
+  CHECK(st.objectsDrawn == 1);
+}
+
+void testResources() {
+  namespace fs = std::filesystem;
+  const fs::path root = fs::temp_directory_path() / ("g3d-render-test-" + std::to_string(std::rand()));
+  fs::create_directories(root / "shapes");
+  fs::create_directories(root / "images" / "sky");
+  auto write = [](const fs::path& p, const std::vector<uint8_t>& b) {
+    std::ofstream o(p, std::ios::binary);
+    o.write(reinterpret_cast<const char*>(b.data()), std::streamsize(b.size()));
+  };
+  write(root / "shapes" / "Tower.3DS",
+        file3ds({material3ds("stone", 1, 1, 1, "Stone.BMP")}, {cubeMesh("tower", {0, 0, 0}, 1, "stone")}));
+  write(root / "images" / "stone.bmp", solidBmp(4, 4, 10, 120, 30));
+  write(root / "images" / "sky" / "sky_fr.bmp", solidBmp(3, 3, 1, 2, 3));
+  write(root / "images" / "junk.png", {1, 2, 3});
+
+  Resources res;
+  std::vector<std::string> logs;
+  res.setLog([&](const std::string& l) { logs.push_back(l); });
+  res.addRoot(root.string());
+  CHECK(!res.find("tower.3ds").empty());
+  const Shape* tower = res.shape("TOWER.3ds");
+  CHECK(tower && tower->meshes.size() == 1);
+  CHECK(res.shape("tower.3ds") == tower);  // cached
+  const Texture* stone = res.texture("stone.bmp");
+  CHECK(stone && stone->width == 4 && isColor(stone->pixels[0], 10, 120, 30));
+  CHECK(res.texture("sky_fr") != nullptr);       // no extension: tried as .bmp
+  CHECK(res.texture("sky_fr.png") != nullptr);   // another extension falls back too
+  CHECK(res.texture("junk.png") == nullptr);
+  CHECK(res.shape("later.3ds") == nullptr);
+  CHECK(res.shape("tree.dts") == nullptr);
+
+  // The textured cube draws with its texture.
+  {
+    TestFrame f;
+    Scene s = cameraScene({0, -5, 0});
+    s.objects.push_back(objectAt("tower.3ds", {0, 0, 0}));
+    drawScene(f.frame(), s, res);
+    CHECK(isColor(f.centre(), 10, 120, 30));
+  }
+
+  // A file that lands later is found after a rescan.
+  write(root / "shapes" / "later.3ds", file3ds({material3ds("m", 1, 1, 1)}, {cubeMesh("x", {0, 0, 0}, 1, "m")}));
+  CHECK(res.shape("later.3ds") == nullptr);
+  res.rescan();
+  CHECK(res.shape("later.3ds") != nullptr);
+  CHECK(res.shape("tower.3ds") == tower);  // kept across the rescan
+  CHECK(!logs.empty());
+  fs::remove_all(root);
+}
+
+}  // namespace
+
+int main() {
+  testRead3ds();
+  testRotationRule();
+  testDrawObjects();
+  testSunAndFog();
+  testSkyBox();
+  testSceneFromGhosts();
+  testResources();
+  if (failures) {
+    std::fprintf(stderr, "render-test: %d failure(s)\n", failures);
+    return 1;
+  }
+  std::printf("render-test: ok\n");
+  return 0;
+}

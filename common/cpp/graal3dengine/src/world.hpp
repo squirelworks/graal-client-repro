@@ -75,16 +75,32 @@ struct SunState {
 };
 bool readSunUpdate(BitReader& r, SunState& s);
 
-// Sky: the name and the material list. The rest of the reader's shape is
-// in the note; this rebuild does not draw a sky yet, and the ghost's
-// length prefix skips what is not read.
+// Sky: the reader's whole shape (torque/udp-session.md section 8); every
+// part after the name is guarded, so a later update carries only what is
+// set. The three unnamed bools and the solid colour are kept by position,
+// as the Seihai gserver's `skyoptions` sends them.
+struct SkyFogVolume {
+  float values[6] = {0, 0, 0, 0, 0, 0};
+  uint8_t flag = 0;
+};
+struct SkyCloudLayer {
+  std::string texture;
+  float height = 0, speed = 0;
+};
 struct SkyState {
   std::string name;
   float visibleDistance = 0;
   std::string textures;  // front, right, back, left, top, bottom
   Vec3 fogColor;
+  std::vector<SkyFogVolume> fogVolumes;
+  uint8_t options[3] = {0, 0, 0};  // the three 8-bit bools, in wire order
+  Vec3 solidColor;
+  SkyCloudLayer clouds[3];
+  Vec3 windVelocity;
   bool init = false;
 };
+// Fog volumes accepted in one Sky update (rebuild policy).
+constexpr uint32_t kMaxSkyFogVolumes = 64;
 bool readSkyUpdate(BitReader& r, SkyState& s);
 
 // The position a `list` entry carries (its first three values as f32).

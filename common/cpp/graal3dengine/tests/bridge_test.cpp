@@ -105,6 +105,16 @@ int main() {
   CHECK(logged("Initial Control Object"));
   CHECK(isGraal3DMode() == 1);
 
+  // The recorded session names no Camera, so the 3D view is black, as the
+  // 5.x client's; the frame is drawn into the caller's pixels.
+  {
+    std::vector<uint32_t> pixels(64 * 48, 0x12345678u);
+    CHECK(graal3dengine_renderFrame(pixels.data(), 64, 48, 64) == 0);
+    CHECK(pixels[0] == 0xFF000000u && pixels[64 * 48 - 1] == 0xFF000000u);
+    CHECK(graal3dengine_renderFrame(nullptr, 64, 48, 64) == 0);
+    CHECK(graal3dengine_renderFrame(pixels.data(), 64, 48, 10) == 0);  // stride too small
+  }
+
   // Ending the library sends the disconnect (0x26).
   endGraal3DEngine();
   server.wait(200);

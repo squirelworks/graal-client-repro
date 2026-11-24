@@ -27,9 +27,10 @@ the connect to login step 6:
 | `src/link.*` packets | The data-link header, 9-bit sequences widened, ack masks, delivered/lost notification, at most 30 packets in flight, a ping answered with an ack, every server data packet answered at once, a keep-alive each second, the 30 s silence time-out | §4 |
 | `src/link.*` events | Unguaranteed and guaranteed-ordered lists with Graal's 14-bit length prefix, held back until in order, lost ones sent again; `NetStringEvent` tags, `RemoteCommandEvent`, `BigDataStartEvent`/`ChunkEvent` both ways (none, zlib, bzip2 in; none out) | §5, §7 |
 | `src/link.*` mission start | `MissionStartPhase1` → step 2 and `MissionStartPhase1Ack`; `MissionStartPhase2` → steps 3, 4 and `MissionStartPhase2Ack`; the first control object after phase 2 → steps 5 and 6 | §7, `torque/4208-g3d.md`, `torque/5007-g3d.md` |
-| `src/world.*` | Ghost creates, updates and deletes; `GameObject` (all thirteen sections), `Camera`, `Sun`, `Sky` (name, material list, fog colour); any other class skipped by its length | §8 |
+| `src/world.*` | Ghost creates, updates and deletes; `GameObject` (all thirteen sections), `Camera`, `Sun`, `Sky` (the whole update: name, material list, fog colour, fog volumes, clouds); any other class skipped by its length | §8 |
 | client game section | First person, the control object's position and ghost, its shape, transform and flags sent back once, then an empty update | §6 |
 | `src/link.*` movement | A movetype (`interpolate`, `list`, `rigid`) and movement data on the control object move the player: `list` jumps onto each position, `interpolate` and `rigid` glide to each target; the position sent in every packet is where the object has got to. `interpolate` and `list` send their shape, transform, movetype and flags once when the movement object is made; then `interpolate` sends its movement data and `list` its transform in every update, and `rigid` sends no object section | `protocol/lab-appe-hosta-2026-11-20d.md` (E#505, real 5.12) |
+| `render/` | The world renderer: `.3ds` shapes, the server's Camera, Sun lighting, the Sky's box and fog, drawn in software into the host's pixels by `graal3dengine_renderFrame` ([render/README.md](render/README.md)) | `torque/udp-session.md` §8, `graal3d/torque-engine-4x.md` |
 | `src/exports.cpp` | `loadGraal3DEngine` registers `ConnectTo3DServer`, `RemoveGraal3DConnection`, `SendGraal3DScriptEvent(s)`, `RemoveGraal3DMissionGroup` on the engine, clears the launcher's `StartGraal3D` and initialises the engine again; `runGraal3DEngine` is one frame of the link on a UDP socket; `endGraal3DEngine` sends the disconnect | `graal3d/torque-engine-4x.md`, `torque/5007-g3d.md` |
 
 The engine library's half (`../graalengine`): a `3 ` server with these
@@ -93,9 +94,10 @@ every Graal build uses the same table. The rest is this rebuild's own.
   `StartGraal3D`, connecting again and calling `runGraal3DEngine` each
   frame~~ (the 5.12 launcher test checks it)
 - [ ] A lab run with the rebuilt 5.12 against the Seihai gserver's 3D mode
-- [ ] Drawing: the Torque world (terrain, interiors, DTS and `.3ds`
-  shapes, sky, sun) in `GraalControl3D`, and the draw slots the original
-  takes over
+- [ ] Drawing: the Torque world in `GraalControl3D`, and the draw slots
+  the original takes over. `.3ds` shapes, the camera, sun and sky box are
+  drawn by `render/`; the hosts do not present the frame yet, and `.dts`,
+  `.dif`, `.ft`, terrain and water are not drawn (render/README.md)
 - [ ] Step 6 waits for the engine's TCP file downloads; the shapes and sky
   textures fetched over TCP
 - [ ] The TCP session in 3D mode ignoring level boards, warps and flags

@@ -3,6 +3,7 @@
 #include "graal3dengine.h"
 #include "graalengine.h"
 #include "link.hpp"
+#include "../render/draw.hpp"
 #include "udp.hpp"
 
 #include <chrono>
@@ -18,6 +19,8 @@ struct State {
   std::string connectString, protocolString;
   uint32_t sequence = 0;
   bool loaded = false;
+  graal3d::render::Resources resources;
+  bool resourceFolders = false;
 };
 
 State& st() {
@@ -176,5 +179,27 @@ G3D_API int32_t G3D_CALL graal3dengine_ghostCount(void) {
 }
 
 G3D_API void G3D_CALL graal3dengine_setConnectSequence(uint32_t sequence) { st().sequence = sequence; }
+
+G3D_API void G3D_CALL graal3dengine_addResourceFolder(const char* folder) {
+  auto& s = st();
+  if (!folder || !*folder) return;
+  if (!s.resourceFolders) s.resources.setLog([](const std::string& line) { graalengine_logLine(line.c_str()); });
+  s.resourceFolders = true;
+  s.resources.addRoot(folder);
+}
+
+G3D_API void G3D_CALL graal3dengine_rescanResources(void) { st().resources.rescan(); }
+
+G3D_API int32_t G3D_CALL graal3dengine_renderFrame(uint32_t* pixels, int32_t width, int32_t height, int32_t stride) {
+  auto& s = st();
+  if (!pixels || width <= 0 || height <= 0 || stride < width) return 0;
+  if (!s.resourceFolders) graal3dengine_addResourceFolder("levels3d");
+  graal3d::render::Frame frame{pixels, width, height, stride};
+  graal3d::render::Scene scene;
+  if (s.link)
+    scene = graal3d::render::sceneFromGhosts(s.link->ghosts(), s.link->cameraGhost(),
+                                             static_cast<float>(s.link->fieldOfView()));
+  return graal3d::render::drawScene(frame, scene, s.resources).objectsDrawn;
+}
 
 }  // extern "C"
