@@ -49,7 +49,7 @@ endif
 .PHONY: all test clean engine tools
 all: $(LIB)
 
-tools: build/g3d-replay$(EXE)
+tools: build/g3d-replay$(EXE) build/g3d-fuzzcases$(EXE)
 
 build:
 	mkdir -p build
@@ -73,10 +73,13 @@ build/render-test$(EXE): tests/render_test.cpp $(CORE) $(RENDER) $(RENDER_OBJ) $
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) tests/render_test.cpp $(CORE) $(RENDER) $(RENDER_OBJ) -o $@ $(LDLIBS)
 
 # Tools (tools/): g3d-replay reads a recorded session back and draws it.
-TOOLS = tools/capture.cpp tools/png.cpp
+TOOLS = tools/capture.cpp tools/png.cpp tools/fuzzcases.cpp
 
 build/g3d-replay$(EXE): tools/g3d_replay.cpp $(TOOLS) $(wildcard tools/*.hpp) $(CORE) $(RENDER) $(RENDER_OBJ) $(HEADERS) | build
 	$(CXX) $(CPPFLAGS) -Irender $(CXXFLAGS) tools/g3d_replay.cpp $(TOOLS) $(CORE) $(RENDER) $(RENDER_OBJ) -o $@ $(LDLIBS)
+
+build/g3d-fuzzcases$(EXE): tools/g3d_fuzzcases.cpp $(TOOLS) $(wildcard tools/*.hpp) $(CORE) $(RENDER) $(RENDER_OBJ) $(HEADERS) | build
+	$(CXX) $(CPPFLAGS) -Irender $(CXXFLAGS) tools/g3d_fuzzcases.cpp $(TOOLS) $(CORE) $(RENDER) $(RENDER_OBJ) -o $@ $(LDLIBS)
 
 build/replay-test$(EXE): tests/replay_test.cpp $(TOOLS) $(wildcard tools/*.hpp) $(CORE) $(RENDER) $(RENDER_OBJ) $(HEADERS) | build
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) tests/replay_test.cpp $(TOOLS) $(CORE) $(RENDER) $(RENDER_OBJ) -o $@ $(LDLIBS)
@@ -85,7 +88,7 @@ build/bridge-test$(EXE): tests/bridge_test.cpp $(LIB) | build
 	$(CXX) $(CPPFLAGS) -UGRAAL3DENGINE_BUILD $(CXXFLAGS) tests/bridge_test.cpp src/bits.cpp src/udp.cpp \
 	  ../third_party/torque3d/huffman.cpp -o $@ $(LIB_LINK) $(ENGINE_LINK) $(LDLIBS) $(RPATH)
 
-test: build/link-test$(EXE) build/render-test$(EXE) build/replay-test$(EXE) build/g3d-replay$(EXE) build/bridge-test$(EXE)
+test: build/link-test$(EXE) build/render-test$(EXE) build/replay-test$(EXE) build/g3d-replay$(EXE) build/g3d-fuzzcases$(EXE) build/bridge-test$(EXE)
 	./build/link-test$(EXE)
 	./build/render-test$(EXE)
 	./build/replay-test$(EXE)

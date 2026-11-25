@@ -3,11 +3,13 @@
 // and the tools' PNG writer.
 #include "../render/texture.hpp"
 #include "../tools/capture.hpp"
+#include "../tools/fuzzcases.hpp"
 #include "../tools/png.hpp"
 #include "bits.hpp"
 #include "vectors.hpp"
 
 #include <cstdio>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -317,11 +319,76 @@ void testPng() {
 
 }  // namespace
 
+// A small .3ds: one textured triangle.
+std::vector<uint8_t> tiny3ds() {
+  auto chunk = [](uint16_t id, const std::vector<uint8_t>& payload) {
+    std::vector<uint8_t> c = {uint8_t(id), uint8_t(id >> 8)};
+    const uint32_t len = uint32_t(payload.size() + 6);
+    for (int i = 0; i < 4; ++i) c.push_back(uint8_t(len >> (8 * i)));
+    c.insert(c.end(), payload.begin(), payload.end());
+    return c;
+  };
+  auto cat = [](std::initializer_list<std::vector<uint8_t>> parts) {
+    std::vector<uint8_t> r;
+    for (const auto& p : parts) r.insert(r.end(), p.begin(), p.end());
+    return r;
+  };
+  auto str = [](const std::string& s) {
+    std::vector<uint8_t> r(s.begin(), s.end());
+    r.push_back(0);
+    return r;
+  };
+  auto f32s = [](std::initializer_list<float> fs) {
+    std::vector<uint8_t> r;
+    for (float f : fs) {
+      uint8_t b[4];
+      std::memcpy(b, &f, 4);
+      r.insert(r.end(), b, b + 4);
+    }
+    return r;
+  };
+  const auto material = chunk(0xAFFF, cat({chunk(0xA000, str("mat")), chunk(0xA200, chunk(0xA300, str("Stone.PNG")))}));
+  const auto faces = chunk(0x4120, cat({{1, 0, 0, 0, 1, 0, 2, 0, 0, 0}, chunk(0x4130, cat({str("mat"), {1, 0, 0, 0}}))}));
+  const auto mesh = chunk(0x4100, cat({chunk(0x4110, cat({{3, 0}, f32s({0, 0, 0, 1, 0, 0, 0, 1, 0})})),
+                                       chunk(0x4140, cat({{3, 0}, f32s({0, 0, 1, 0, 0, 1})})), faces}));
+  return chunk(0x4D4D, chunk(0x3D3D, cat({material, chunk(0x4000, cat({str("tri"), mesh}))})));
+}
+
+void testFuzzCases() {
+  const std::vector<uint8_t> seed = tiny3ds();
+  CHECK(graal3d::tools::readerVerdict("3ds", seed) == "ok meshes 1 triangles 1 materials 1");
+  const auto cases = graal3d::tools::makeFuzzCases("3ds", seed, 50, 9);
+  CHECK(cases.size() > 100);
+  bool sawExt = false, sawCount = false;
+  for (const auto& c : cases) {
+    CHECK(!c.what.empty() && c.bytes != seed);
+    graal3d::tools::readerVerdict("3ds", c.bytes);  // never faults
+    // A renamed texture keeps every chunk length right: still one triangle.
+    if (c.what.find("map-file") != std::string::npos && c.what.find("extension \".jpg\"") != std::string::npos) {
+      sawExt = true;
+      CHECK(graal3d::tools::readerVerdict("3ds", c.bytes) == "ok meshes 1 triangles 1 materials 1");
+    }
+    if (c.what.find("vertices") != std::string::npos && c.what.find("count 3 -> 0") != std::string::npos) sawCount = true;
+  }
+  CHECK(sawExt && sawCount);
+  // The same seed makes the same cases.
+  const auto again = graal3d::tools::makeFuzzCases("3ds", seed, 50, 9);
+  CHECK(again.size() == cases.size() && again.back().bytes == cases.back().bytes);
+  // .dts and .dif seeds that are not shapes still give cases, safely.
+  std::vector<uint8_t> junk(64, 0x18);
+  for (const char* f : {"dts", "dif"}) {
+    const auto k = graal3d::tools::makeFuzzCases(f, junk, 20, 3);
+    CHECK(k.size() >= 20);
+    for (const auto& c : k) graal3d::tools::readerVerdict(f, c.bytes);
+  }
+}
+
 int main() {
   testCaptures();
   testStopAt();
   testBadCaptures();
   testPng();
+  testFuzzCases();
   if (failures) {
     std::fprintf(stderr, "replay-test: %d check(s) failed\n", failures);
     return 1;
