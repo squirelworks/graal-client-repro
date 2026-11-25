@@ -520,6 +520,10 @@ void Link::readGhosts(BitReader& r) {
 
 bool Link::readGhostPayload(BitReader& r, Ghost& g) {
   if (g.className == "GameObject") return readGameObjectUpdate(r, g.object);
+  // The replicators and grass share one reader: a whole GameObject update,
+  // then a flag-guarded block of their own, left unread (lab T3D-048,
+  // static read and live on the real 5.12).
+  if (isReplicatorClass(g.className)) return readGameObjectUpdate(r, g.object);
   if (g.className == "Camera") return readCameraUpdate(r, g.camera);
   if (g.className == "Sun") return readSunUpdate(r, g.sun);
   if (g.className == "Sky") return readSkyUpdate(r, g.sky);

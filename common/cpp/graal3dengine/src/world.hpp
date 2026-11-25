@@ -152,4 +152,10 @@ struct Ghost {
 
 using GhostTable = std::map<int, Ghost>;
 
+// DynamicGrass, DynamicGrassReplicator and DynamicShapeReplicator: their
+// updates start with a GameObject's (lab T3D-048).
+inline bool isReplicatorClass(const std::string& c) {
+  return c == "DynamicShapeReplicator" || c == "DynamicGrassReplicator" || c == "DynamicGrass";
+}
+
 }  // namespace graal3d

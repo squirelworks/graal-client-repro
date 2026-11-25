@@ -642,6 +642,18 @@ void testSceneFromGhosts() {
   }
   ghosts[4].object.nickname.clear();
   ghosts[4].object.hasMovement = false;
+  // A DynamicShapeReplicator draws its shape like a GameObject; the grass
+  // classes draw nothing (lab T3D-048).
+  {
+    GhostTable rg;
+    for (int i = 0; i < 3; ++i) {
+      rg[i].className = i == 0 ? "DynamicShapeReplicator" : i == 1 ? "DynamicGrassReplicator" : "DynamicGrass";
+      rg[i].object.shape = "rock.3ds";
+      rg[i].object.hasTransform = true;
+    }
+    const Scene rs = sceneFromGhosts(rg, -1, 0);
+    CHECK(rs.objects.size() == 1 && rs.objects[0].ghost == 0 && rs.objects[0].shape == "rock.3ds");
+  }
   // A WaterBlock's surface is its top: position z plus scale z.
   {
     GhostTable wg;

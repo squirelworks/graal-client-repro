@@ -55,6 +55,16 @@ Scene sceneFromGhosts(const GhostTable& ghosts, int cameraGhost, float fovDegree
       so.shape = g.object.shape;
       so.transform = objectTransform(g.object);
       scene.objects.push_back(so);
+    } else if (g.className == "DynamicShapeReplicator") {
+      // Drawn as a GameObject with its shape; no copies were scattered in
+      // any lab variant (worlds without terrain), and DynamicGrass and
+      // DynamicGrassReplicator draw nothing (lab T3D-048, real 5.12).
+      if ((g.object.flags & kGameObjectEditorFlag) || g.object.shape.empty()) continue;
+      SceneObject so;
+      so.ghost = index;
+      so.shape = g.object.shape;
+      so.transform = objectTransform(g.object);
+      scene.objects.push_back(so);
     } else if (g.className == "Camera") {
       if (index == cameraGhost) {
         scene.hasCamera = true;
