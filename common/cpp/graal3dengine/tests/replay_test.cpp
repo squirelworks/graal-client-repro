@@ -292,10 +292,13 @@ void testPng() {
                           render::packRgba(0, 0, 255), render::packRgba(10, 20, 30), 0xDEADBEEF};
   const std::string path = (std::filesystem::temp_directory_path() / "g3d-replay-test.png").string();
   CHECK(tools::writePng(path, px, 2, 2, 3));
-  std::ifstream f(path, std::ios::binary);
-  std::stringstream ss;
-  ss << f.rdbuf();
-  const std::string b = ss.str();
+  std::string b;
+  {
+    std::ifstream f(path, std::ios::binary);  // closed before the remove (Windows)
+    std::stringstream ss;
+    ss << f.rdbuf();
+    b = ss.str();
+  }
   render::Texture t;
   std::string error;
   CHECK(render::decodeImage(reinterpret_cast<const uint8_t*>(b.data()), b.size(), t, error));
@@ -306,7 +309,8 @@ void testPng() {
     CHECK(t.pixels[2] == render::packRgba(0, 0, 255));
     CHECK(t.pixels[3] == render::packRgba(10, 20, 30));
   }
-  std::filesystem::remove(path);
+  std::error_code ec;
+  std::filesystem::remove(path, ec);
   CHECK(!tools::writePng(path, px, 0, 2, 3));
   CHECK(!tools::writePng("/nonexistent-dir/x.png", px, 2, 2, 3));
 }
