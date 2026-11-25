@@ -215,6 +215,41 @@ int loadTerrainCache(const std::string& dir, Terrain& t) {
   return loaded;
 }
 
+bool terrainHeightAt(const Terrain& t, float x, float y, float& z, V3* normal) {
+  const float sq = t.squareSize > 0 ? t.squareSize : 8.0f;
+  const float gx = x / sq + 128.0f, gy = y / sq + 128.0f;
+  if (!(gx >= 0 && gy >= 0 && gx < kTerrainSize && gy < kTerrainSize)) return false;
+  const int ix = int(gx), iy = int(gy);
+  if (t.hole[size_t(iy) * kTerrainSize + size_t(ix)]) return false;
+  const float fx = gx - float(ix), fy = gy - float(iy);
+  const float ha = t.heightMetres(ix, iy), hb = t.heightMetres(ix + 1, iy), hc = t.heightMetres(ix + 1, iy + 1),
+              hd = t.heightMetres(ix, iy + 1);
+  // The same split as terrainShape: a-b-d / b-c-d on odd squares, a-b-c /
+  // a-c-d on even ones (corners a (0,0), b (1,0), c (1,1), d (0,1)).
+  float dzdx, dzdy;
+  if ((ix ^ iy) & 1) {
+    if (fx + fy <= 1) {
+      z = ha + (hb - ha) * fx + (hd - ha) * fy;
+      dzdx = hb - ha;
+      dzdy = hd - ha;
+    } else {
+      z = hc + (hd - hc) * (1 - fx) + (hb - hc) * (1 - fy);
+      dzdx = hc - hd;
+      dzdy = hc - hb;
+    }
+  } else if (fx >= fy) {
+    z = ha + (hb - ha) * fx + (hc - hb) * fy;
+    dzdx = hb - ha;
+    dzdy = hc - hb;
+  } else {
+    z = ha + (hc - hd) * fx + (hd - ha) * fy;
+    dzdx = hc - hd;
+    dzdy = hd - ha;
+  }
+  if (normal) *normal = normalize(V3{-dzdx / sq, -dzdy / sq, 1});
+  return true;
+}
+
 Shape terrainShape(const Terrain& t) {
   Shape shape;
   shape.kind = Shape::kTerrain;

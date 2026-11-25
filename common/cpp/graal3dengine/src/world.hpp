@@ -134,6 +134,32 @@ struct WaterBlockState {
 };
 bool readWaterBlockUpdate(BitReader& r, WaterBlockState& w);
 
+// The replicators' own part, after their GameObject update (Graal_analysis
+// torque/replicators-512.md): ground cover scattered on 8-unit cells
+// around the control object.
+struct ReplicatorState {
+  bool init = false;
+  Vec3 position;
+  float rotation[4] = {0, 0, 0, 1};  // quaternion x, y, z, w
+  int32_t seed = 0;
+  std::string shapeFiles;  // comma-separated
+  int radius = 0;          // cells
+  int minObjects = 0, maxObjects = 0;
+  int boxMin[3] = {0, 0, 0}, boxMax[3] = {0, 0, 0};
+  Vec3 scaleMin, scaleMax, rotateMin, rotateMax;
+  float offsetZ = 0;
+  bool allowTerrain = false, allowInteriors = false, allowStatics = false, allowWater = false,
+       allowWaterSurface = false;
+  int allowedSlope = 0;
+  bool alignToTerrain = false;
+  Vec3 terrainAlignment;
+  bool surfaceExclusion = false;
+  int surfaceType = 0;
+  bool hide = false;
+};
+// The part after the GameObject update; a 0 first flag ends it.
+bool readReplicatorUpdate(BitReader& r, ReplicatorState& s);
+
 // The position a `list` entry carries (its first three values as f32).
 Vec3 listEntryPosition(const std::array<uint32_t, 8>& entry);
 
@@ -147,6 +173,7 @@ struct Ghost {
   SkyState sky;
   TerrainBlockState terrain;
   WaterBlockState water;
+  ReplicatorState replicator;  // DynamicShapeReplicator, DynamicGrass(Replicator)
   int updates = 0;
 };
 

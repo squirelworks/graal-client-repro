@@ -5,6 +5,7 @@
 #include "link.hpp"
 #include "../render/draw.hpp"
 #include "../render/motion.hpp"
+#include "../render/replicate.hpp"
 #include "../render/terrain.hpp"
 #include "udp.hpp"
 
@@ -229,6 +230,10 @@ G3D_API int32_t G3D_CALL graal3dengine_renderFrame(uint32_t* pixels, int32_t wid
     so.transform = graal3d::render::M4::identity();
     so.direct = &s.terrain.shape;
     scene.objects.push_back(so);
+    // Replicator cover around the control object (replicate.hpp).
+    graal3d::render::V3 control;
+    if (graal3d::render::scenePositionOf(scene, s.link->controlGhost(), control))
+      graal3d::render::scatterReplicators(scene, s.link->ghosts(), s.terrain.terrain, control, s.resources);
   }
   graal3d::render::DrawStats stats = graal3d::render::drawScene(frame, scene, s.resources);
   s.labels = std::move(stats.labels);

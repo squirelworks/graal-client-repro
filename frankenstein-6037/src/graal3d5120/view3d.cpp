@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "../../../common/cpp/graal3dengine/render/draw.hpp"
+#include "../../../common/cpp/graal3dengine/render/replicate.hpp"
 #include "../../../common/cpp/quattro/draw/ui_font.hpp"
 #include "../../../common/torque/gui/canvas.hpp"
 
@@ -151,6 +152,8 @@ bool draw_world3d(Image& frame, const graal3d::GhostTable& ghosts, int camera, i
     so.transform = R::M4::identity();
     so.direct = &world.terrain.shape;
     scene.objects.push_back(so);
+    R::V3 at;
+    if (R::scenePositionOf(scene, control, at)) R::scatterReplicators(scene, ghosts, world.terrain.terrain, at, world.resources);
   }
   std::vector<uint32_t> px(std::size_t(frame.width) * frame.height);
   const R::DrawStats ds = R::drawScene({px.data(), frame.width, frame.height, frame.width}, scene, world.resources);
