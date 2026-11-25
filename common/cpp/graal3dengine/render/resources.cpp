@@ -1,6 +1,7 @@
 #include "resources.hpp"
 
 #include "read_3ds.hpp"
+#include "read_dif.hpp"
 #include "read_dts.hpp"
 
 #include <cctype>
@@ -85,7 +86,7 @@ const Shape* Resources::shape(const std::string& name) {
   const std::string ext = extensionOf(key);
   if (path.empty()) {
     note("Graal3D: shape " + name + " is not here");
-  } else if (ext != ".3ds" && ext != ".dts") {
+  } else if (ext != ".3ds" && ext != ".dts" && ext != ".dif") {
     note("Graal3D: cannot draw " + ext + " shapes yet (" + name + ")");
   } else {
     std::vector<uint8_t> bytes;
@@ -93,7 +94,9 @@ const Shape* Resources::shape(const std::string& name) {
     std::string error;
     if (!readAll(path, bytes)) {
       note("Graal3D: cannot read " + path);
-    } else if (!(ext == ".dts" ? readDts(bytes, *s, error) : read3ds(bytes, *s, error))) {
+    } else if (!(ext == ".dts"   ? readDts(bytes, *s, error)
+                 : ext == ".dif" ? readDif(bytes, *s, error)
+                                 : read3ds(bytes, *s, error))) {
       note("Graal3D: " + name + ": " + error);
     } else {
       loaded = std::move(s);

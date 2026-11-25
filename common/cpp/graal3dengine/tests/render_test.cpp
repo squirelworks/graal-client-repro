@@ -3,6 +3,7 @@
 // Every shape and texture here is made by the test itself.
 #include "../render/draw.hpp"
 #include "../render/read_3ds.hpp"
+#include "../render/read_dif.hpp"
 #include "../render/read_dts.hpp"
 #include "bits.hpp"
 #include "vectors.hpp"
@@ -874,6 +875,154 @@ void testReadDts() {
   std::filesystem::remove_all(root);
 }
 
+// ---- A .dif writer for the tests (resource 44, interior 0) ------------
+struct DifWriter {
+  std::vector<uint8_t> b;
+  void u8(uint8_t v) { b.push_back(v); }
+  void u16(uint16_t v) {
+    u8(uint8_t(v));
+    u8(uint8_t(v >> 8));
+  }
+  void u32(uint32_t v) {
+    for (int i = 0; i < 4; ++i) u8(uint8_t(v >> (8 * i)));
+  }
+  void f32(float f) {
+    uint32_t v;
+    std::memcpy(&v, &f, 4);
+    u32(v);
+  }
+  void str(const std::string& s) {
+    u8(uint8_t(s.size()));
+    for (char c : s) u8(uint8_t(c));
+  }
+};
+
+// A 2 by 3 floor (one strip of four points) textured by world x and y,
+// and a surface on Torque's NULL material that is never drawn.
+// `wideMaps` writes the surfaces' lightmap fields as 16-bit values.
+std::vector<uint8_t> difFile(uint32_t resource = 44, int32_t interior = 0, bool narrowWindings = true,
+                             bool wideMaps = false, bool preview = false) {
+  DifWriter w;
+  w.u32(resource);
+  w.u8(preview ? 1 : 0);
+  if (preview) {
+    const uint8_t png[] = {0x89, 'P', 'N', 'G', 1, 2, 3, 0, 0, 0, 0, 'I', 'E', 'N', 'D', 0xAE, 0x42, 0x60, 0x82};
+    for (uint8_t c : png) w.u8(c);
+  }
+  w.u32(1);  // detail levels
+  w.u32(uint32_t(interior));
+  w.u32(0);
+  w.u32(0);
+  for (int i = 0; i < 10; ++i) w.f32(0);  // box, sphere
+  w.u8(0);
+  w.u32(0);
+  w.u32(1);  // normals
+  w.f32(0);
+  w.f32(0);
+  w.f32(1);
+  w.u32(1);  // planes
+  w.u16(0);
+  w.f32(0);
+  const float pts[4][3] = {{0, 0, 0}, {2, 0, 0}, {0, 3, 0}, {2, 3, 0}};
+  w.u32(4);
+  for (const auto& p : pts)
+    for (float f : p) w.f32(f);
+  w.u32(4);  // point visibilities
+  for (int i = 0; i < 4; ++i) w.u8(0xFF);
+  w.u32(1);  // texgen: u = x / 2, v = y / 3
+  const float tg[8] = {0.5f, 0, 0, 0, 0, 1.0f / 3, 0, 0};
+  for (float f : tg) w.f32(f);
+  w.u32(1);  // BSP nodes
+  for (int i = 0; i < 3; ++i) w.u16(0);
+  w.u32(1);  // BSP leaves
+  w.u32(0);
+  w.u16(2);
+  w.u8(1);  // material list version
+  w.u32(2);
+  w.str("floor");
+  w.str("NULL");
+  const int32_t wind[7] = {0, 1, 2, 3, 0, 1, 2};
+  if (narrowWindings) {
+    w.u32(7 | 0x80000000u);
+    w.u8(1);
+    for (int32_t i : wind) w.u16(uint16_t(i));
+  } else {
+    w.u32(7);
+    for (int32_t i : wind) w.u32(uint32_t(i));
+  }
+  w.u32(0);  // winding indices
+  w.u32(0);  // zones
+  w.u32(0);  // zone surfaces
+  w.u32(0);  // zone portals
+  w.u32(0);  // portals
+  w.u32(2);  // surfaces
+  const uint32_t starts[2] = {0, 4};
+  const uint8_t counts[2] = {4, 3};
+  for (int k = 0; k < 2; ++k) {
+    w.u32(starts[k]);
+    w.u8(counts[k]);
+    w.u16(k ? 0x8000 : 0);  // the second plane flipped
+    w.u16(uint16_t(k));     // material
+    w.u32(0);               // texgen
+    w.u8(0);
+    w.u32(0);
+    w.u16(0);
+    w.f32(0);
+    w.f32(0);
+    w.u16(0);
+    w.u32(0);
+    for (int i = 0; i < 4; ++i) wideMaps ? w.u16(0) : w.u8(0);
+  }
+  // What follows (null surfaces, lightmaps, other levels) is not read.
+  w.u32(0);
+  return w.b;
+}
+
+void testReadDif() {
+  Shape s;
+  std::string error;
+  const std::vector<uint8_t> file = difFile();
+  bool ok = readDif(file, s, error);
+  if (!ok) std::fprintf(stderr, "readDif: %s\n", error.c_str());
+  CHECK(ok);
+  CHECK(s.materials.size() == 2 && s.materials[0].texture == "floor");
+  CHECK(s.meshes.size() == 1);  // the NULL surface is not drawn
+  if (s.meshes.size() == 1) {
+    const Mesh& m = s.meshes[0];
+    CHECK(m.triangles.size() == 2);
+    CHECK(m.vertices.size() == 4);
+    if (m.triangles.size() == 2 && m.vertices.size() == 4) {
+      // A strip: (0 1 2), then (2 1 3) wound back.
+      CHECK(m.triangles[0].v[0] == 0 && m.triangles[0].v[1] == 1 && m.triangles[0].v[2] == 2);
+      CHECK(m.triangles[1].v[0] == 2 && m.triangles[1].v[1] == 1 && m.triangles[1].v[2] == 3);
+      CHECK(m.triangles[0].material == 0);
+      CHECK(std::fabs(m.vertices[3].u - 1) < 1e-5f && std::fabs(m.vertices[3].v - 1) < 1e-5f);
+      CHECK(std::fabs(m.vertices[1].u - 1) < 1e-5f && std::fabs(m.vertices[1].v) < 1e-5f);
+    }
+  }
+  CHECK(nearV(s.boundsMax, {2, 3, 0}));
+  // Wide windings, wide lightmap fields and a preview image read the same.
+  for (const auto& f : {difFile(44, 0, false), difFile(44, 0, true, true), difFile(44, 0, true, false, true)}) {
+    Shape t;
+    CHECK(readDif(f, t, error) && t.meshes.size() == 1 && t.meshes[0].triangles.size() == 2);
+  }
+  // Other versions are refused by name.
+  Shape t;
+  CHECK(!readDif(difFile(43), t, error) && error.find("resource version 43") != std::string::npos);
+  CHECK(!readDif(difFile(44, 14), t, error) && error.find("interior version 14") != std::string::npos);
+  // Truncations and byte changes are refused or read safely.
+  for (size_t n = 0; n < file.size(); ++n) readDif(file.data(), n, t, error);
+  uint32_t seed = 11;
+  for (int i = 0; i < 20000; ++i) {
+    std::vector<uint8_t> m = file;
+    for (int k = 0; k < 3; ++k) {
+      seed = seed * 1103515245u + 12345u;
+      m[(seed >> 8) % m.size()] = uint8_t(seed >> 3);
+    }
+    readDif(m, t, error);
+  }
+}
+
 void testResources() {
   namespace fs = std::filesystem;
   const fs::path root = fs::temp_directory_path() / ("g3d-render-test-" + std::to_string(std::rand()));
@@ -939,6 +1088,7 @@ int main() {
   testSceneFromGhosts();
   testResources();
   testReadDts();
+  testReadDif();
   if (failures) {
     std::fprintf(stderr, "render-test: %d failure(s)\n", failures);
     return 1;
