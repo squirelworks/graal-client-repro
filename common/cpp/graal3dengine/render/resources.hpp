@@ -40,6 +40,15 @@ class Resources {
   const Shape* shape(const std::string& name);
   const Texture* texture(const std::string& name);
 
+  // Which image files load. The 5.12 client decodes a texture by its
+  // content, whatever its name says, and draws only 8-bit PNG, JPEG and
+  // GIF; BMP, TGA, DDS and 16-bit PNG stay undrawn (white), and GIF
+  // transparency draws opaque white (lab, 2026-11-25: Graal_analysis
+  // T3D-032). kAll loads everything stb_image reads (tools, older
+  // clients not yet measured).
+  enum class ImageFormats { kClient512, kAll };
+  void setImageFormats(ImageFormats f) { formats_ = f; }
+
   // For tests: put a shape or texture in the cache without a file.
   void putShape(const std::string& name, Shape shape);
   void putTexture(const std::string& name, Texture texture);
@@ -54,6 +63,7 @@ class Resources {
   std::map<std::string, std::unique_ptr<Texture>> textures_;
   std::set<std::string> logged_;
   Log log_;
+  ImageFormats formats_ = ImageFormats::kClient512;
 };
 
 std::string lowerName(const std::string& name);

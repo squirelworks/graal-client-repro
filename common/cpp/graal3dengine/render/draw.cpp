@@ -100,7 +100,9 @@ DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
         st.fogColor = fogColor;
         st.texture = m.texture.empty() ? nullptr : res.texture(m.texture);
         st.alphaTest = m.alphaTest;
-        if (!st.texture)
+        // A material with no texture draws its colour. One whose texture is
+        // missing or not drawable draws white, as the 5.12 does (T3D-032).
+        if (!st.texture && m.texture.empty())
           for (int j = 0; j < 3; ++j) st.color[j] = m.color[j];
         r.drawTriangle(vs[t.v[0]], vs[t.v[1]], vs[t.v[2]], st);
         ++stats.triangles;

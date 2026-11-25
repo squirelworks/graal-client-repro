@@ -4,6 +4,7 @@
 #include "read_dif.hpp"
 #include "read_dts.hpp"
 
+#include <algorithm>
 #include <cctype>
 #include <filesystem>
 #include <fstream>
@@ -40,6 +41,16 @@ bool readAll(const std::string& path, std::vector<uint8_t>& out) {
   f.seekg(0);
   out.resize(size_t(size));
   return size == 0 || bool(f.read(reinterpret_cast<char*>(out.data()), size));
+}
+
+enum class ImageKind { kPng8, kPng16, kJpeg, kGif, kOther };
+
+ImageKind sniff(const std::vector<uint8_t>& b) {
+  static const uint8_t png[8] = {0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
+  if (b.size() >= 25 && std::equal(png, png + 8, b.begin())) return b[24] > 8 ? ImageKind::kPng16 : ImageKind::kPng8;
+  if (b.size() >= 3 && b[0] == 0xFF && b[1] == 0xD8 && b[2] == 0xFF) return ImageKind::kJpeg;
+  if (b.size() >= 6 && b[0] == 'G' && b[1] == 'I' && b[2] == 'F' && b[3] == '8') return ImageKind::kGif;
+  return ImageKind::kOther;
 }
 
 const char* const kImageExtensions[] = {".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tga"};
@@ -150,9 +161,18 @@ const Texture* Resources::texture(const std::string& name) {
     std::vector<uint8_t> bytes;
     auto t = std::make_unique<Texture>();
     std::string error;
-    if (!readAll(path, bytes) || !decodeImage(bytes.data(), bytes.size(), *t, error)) {
+    ImageKind kind = ImageKind::kOther;
+    if (!readAll(path, bytes)) {
+      note("Graal3D: cannot read texture " + path);
+    } else if (formats_ == ImageFormats::kClient512 &&
+               ((kind = sniff(bytes)) == ImageKind::kPng16 || kind == ImageKind::kOther)) {
+      note("Graal3D: the client does not draw this kind of image (" + path + ")");
+    } else if (!decodeImage(bytes.data(), bytes.size(), *t, error)) {
       note("Graal3D: cannot read texture " + path + (error.empty() ? "" : ": " + error));
     } else {
+      if (formats_ == ImageFormats::kClient512 && kind == ImageKind::kGif)
+        for (uint32_t& p : t->pixels)
+          if (alpha(p) < 128) p = packRgba(255, 255, 255);
       loaded = std::move(t);
     }
   }
