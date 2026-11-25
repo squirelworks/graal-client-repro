@@ -1730,6 +1730,28 @@ void testMotion() {
   applyMotion(scene, ghosts, m, 10);
   CHECK(near(scene.objects[0].transform.point({0, 0, 0}), 4, 4, 4));
   CHECK(near(scene.tags[0].transform.point({0, 0, 0}), 4, 4, 4));
+
+  // Camera mode 1 looks at the control object (lab T3D-023); mode 0 keeps
+  // the camera's own turn.
+  Ghost& cg = ghosts[7];
+  cg.className = "Camera";
+  cg.camera.object.position = {4, 0, 4};
+  Scene view;
+  view.hasCamera = true;
+  view.view.cameraToWorld = M4::translation({4, 0, 4});
+  applyMotion(view, ghosts, m, 10, 7, 5);
+  CHECK(near(view.view.cameraToWorld.vector({0, 1, 0}), 0, 1, 0));
+  cg.camera.mode = 1;
+  applyMotion(view, ghosts, m, 10, 7, 5);
+  CHECK(near(view.view.cameraToWorld.vector({0, 1, 0}), 0, 1, 0));  // straight ahead at (4, 4, 4)
+  CHECK(near(view.view.cameraToWorld.vector({1, 0, 0}), 1, 0, 0));
+  ghosts[5].object.movetype = "";
+  ghosts[5].object.hasMovement = false;
+  ghosts[5].object.position = {4, 0, 0};  // below: looking straight down
+  applyMotion(view, ghosts, m, 10, 7, 5);
+  CHECK(near(view.view.cameraToWorld.vector({0, 1, 0}), 0, 0, -1));
+  CHECK(near(view.view.cameraToWorld.point({0, 0, 0}), 4, 0, 4));
+
   ghosts.clear();
   applyMotion(scene, ghosts, m, 11);
   CHECK(m.size() == 0);

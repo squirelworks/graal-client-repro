@@ -38,7 +38,12 @@ class MotionTracker {
 };
 
 // Moves each of the scene's objects and tags that has movement data to
-// where `motion` draws it.
-void applyMotion(Scene& scene, const GhostTable& ghosts, MotionTracker& motion, double now);
+// where `motion` draws it. Then, when the camera ghost's mode is 1, turns
+// the view to look at the control object (lab T3D-023, real 5.12: mode 1
+// looks at the player's own object; mode 0 and the follow index change
+// nothing). The point looked at, the object's origin, and the level
+// horizon are the rebuild's own.
+void applyMotion(Scene& scene, const GhostTable& ghosts, MotionTracker& motion, double now, int cameraGhost = -1,
+                 int controlGhost = -1);
 
 }  // namespace graal3d::render

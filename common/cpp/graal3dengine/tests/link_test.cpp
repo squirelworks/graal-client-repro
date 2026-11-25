@@ -50,6 +50,7 @@ struct ClientPacket {
   Vec3 position;
   GameObjectState own;
   uint32_t ownSections = 0;
+  bool cameraMode = false, cameraFollow = false;
   std::vector<std::pair<int, std::string>> commands;  // class id, command name
 };
 
@@ -57,7 +58,7 @@ struct ClientPacket {
 // keeps the movetype from one packet to the next, which decides whether
 // section 7 is there.
 ClientPacket readClientPacket(const std::string& bytes, const std::map<int, std::string>& events,
-                              GameObjectState* seen = nullptr) {
+                              GameObjectState* seen = nullptr, bool cameraControl = false) {
   ClientPacket p;
   BitReader r(bytes);
   if (!r.flag()) return p;
@@ -79,6 +80,11 @@ ClientPacket readClientPacket(const std::string& bytes, const std::map<int, std:
     GameObjectState& o = seen ? *seen : p.own;
     readGameObjectUpdate(r, o, &p.ownSections);
     p.own = o;
+    // A Camera control object: two Camera flags follow (lab T3D-023).
+    if (cameraControl) {
+      p.cameraMode = r.flag();
+      p.cameraFollow = r.flag();
+    }
   }
   if (r.flag()) r.bits(8);
   while (r.flag()) {
@@ -727,15 +733,28 @@ void testGhostAlwaysAndCameraControl() {
   CHECK(link.state() == Link::State::Connected);
   // No mission phases came, so the login steps do not move.
   CHECK(steps.empty());
-  // The client's next data packet names the Camera and sends no update
-  // for it.
+  // The client's next data packet names the Camera and writes it back as
+  // the real 5.12 does (lab T3D-023): GameObject sections, the first time
+  // its transform and flags 0, then two Camera flags; later ones an empty
+  // update and the two flags.
   t += Link::kKeepAliveMs;
   link.tick(t);
   auto out = link.takeOutgoing();
   CHECK(!out.empty());
   if (!out.empty()) {
-    const auto p = readClientPacket(out.back(), link.eventClasses());
-    CHECK(p.hasControl && p.controlGhost == 2 && !p.ownState);
+    const auto p = readClientPacket(out.front(), link.eventClasses(), nullptr, true);
+    CHECK(p.hasControl && p.controlGhost == 2 && p.ownState);
+    CHECK(p.ownSections == ((1u << 4) | (1u << 12)));
+    CHECK(p.own.flags == 0 && p.own.shape.empty());
+    CHECK(!p.cameraMode && !p.cameraFollow);
+  }
+  t += Link::kKeepAliveMs;
+  link.tick(t);
+  out = link.takeOutgoing();
+  CHECK(!out.empty());
+  if (!out.empty()) {
+    const auto p = readClientPacket(out.back(), link.eventClasses(), nullptr, true);
+    CHECK(p.ownState && p.ownSections == 0);
   }
 }
 

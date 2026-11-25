@@ -198,6 +198,7 @@ class Link {
   int step_ = 0;
   GhostTable ghosts_;
   int controlGhost_ = -1;
+  bool sendCameraState_ = false;  // a Camera control object's first update is due
   std::map<int, std::string> terrainChunks_;
   int terrainChunkCount_ = 0;
   bool terrainRequested_ = false;

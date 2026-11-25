@@ -323,6 +323,7 @@ bool Link::readServerGameSection(BitReader& r) {
     } else if (controlGhost_ != idx) {
       controlGhost_ = idx;
       sendOwnState_ = !camera;
+      sendCameraState_ = camera;
       // Step 5 is set by the first control object after the last mission
       // phase; one that comes earlier leaves the client at step 4 (§6).
       if (step_ == 4) {
@@ -574,10 +575,13 @@ void Link::writeClientGameSection(BitWriter& w) {
   w.flag(true);  // first person
   const auto it = ghosts_.find(controlGhost_);
   const bool hasControl = controlGhost_ >= 0 && it != ghosts_.end();
-  // Only a GameObject control object is sent back. What a client sends
-  // for a Camera control object is not read yet; this one sends the ghost
-  // and no update.
-  const GameObjectState* o = hasControl && it->second.className == "GameObject" ? &it->second.object : nullptr;
+  // A GameObject control object is sent back as one; a Camera as its
+  // GameObject sections and then two Camera flags (lab T3D-023, real 5.12:
+  // the first update carries the transform and flags 0, no shape).
+  const bool cameraControl = hasControl && it->second.className == "Camera";
+  const GameObjectState* o = hasControl && it->second.className == "GameObject" ? &it->second.object
+                             : cameraControl                                   ? &it->second.camera.object
+                                                                               : nullptr;
   advanceOwnMovement();
   const Vec3 at = controlPosition();
   w.f32(at.x);
@@ -593,6 +597,15 @@ void Link::writeClientGameSection(BitWriter& w) {
     GameObjectState back = *o;
     // A zero rotation goes back as axis (1, 0, 0), angle 0 (lab).
     if (back.angle == 0) back.axis = {1, 0, 0};
+    if (cameraControl) {
+      back.flags = 0;
+      writeGameObjectUpdate(w, back, sendCameraState_ ? ((1u << 4) | (1u << 12)) : 0);
+      sendCameraState_ = false;
+      w.flag(false);  // camera mode
+      w.flag(false);  // follow ghost
+      w.flag(false);  // field of view
+      return;
+    }
     // The first packet after the control object carries its shape,
     // transform and flags back; later ones an empty update.
     uint32_t sections = sendOwnState_ ? ((1u << 2) | (1u << 4) | (1u << 12)) : 0;
