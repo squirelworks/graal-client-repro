@@ -2,6 +2,7 @@
 // resolver, the scene built from ghosts, and frames drawn from them.
 // Every shape and texture here is made by the test itself.
 #include "../render/draw.hpp"
+#include "../render/motion.hpp"
 #include "../render/read_3ds.hpp"
 #include "../render/read_dif.hpp"
 #include "../render/read_dts.hpp"
@@ -1680,8 +1681,63 @@ void testBilinear() {
   t.sampleBilinear(-1e30f, std::numeric_limits<float>::infinity());
 }
 
+// Movement (lab E#505): list jumps onto each target; interpolate glides
+// toward it over the time since the previous target.
+void testMotion() {
+  auto near = [](const V3& a, float x, float y, float z) {
+    return std::fabs(a.x - x) < 1e-3f && std::fabs(a.y - y) < 1e-3f && std::fabs(a.z - z) < 1e-3f;
+  };
+  GhostTable ghosts;
+  Ghost& g = ghosts[5];
+  g.className = "GameObject";
+  GameObjectState& o = g.object;
+  o.shape = "box.3ds";
+  o.position = {1, 2, 3};
+  MotionTracker m;
+  // No movetype: section 5.
+  CHECK(near(m.position(5, o, 0), 1, 2, 3));
+  o.movetype = "interpolate";
+  o.hasMovement = o.hasMovementData = true;
+  o.movement.position = {0, 10, 0};
+  o.movementSerial = 1;
+  CHECK(near(m.position(5, o, 0), 0, 10, 0));  // the first target: drawn there
+  o.movement.position = {0, 10.5f, 0};
+  o.movementSerial = 2;
+  CHECK(near(m.position(5, o, 1.0), 0, 10, 0));  // a new target a second later
+  CHECK(near(m.position(5, o, 1.5), 0, 10.25f, 0));
+  CHECK(near(m.position(5, o, 2.0), 0, 10.5f, 0));
+  CHECK(near(m.position(5, o, 9.0), 0, 10.5f, 0));
+  // A target that comes mid-glide starts from where the object is drawn.
+  o.movement.position = {0, 11, 0};
+  o.movementSerial = 3;
+  CHECK(near(m.position(5, o, 9.0), 0, 10.5f, 0));
+  CHECK(near(m.position(5, o, 9.5), 0, 10.75f, 0));  // glide capped at 1 s
+  // list: jumps.
+  o.movetype = "list";
+  o.movement.position = {4, 4, 4};
+  o.movementSerial = 4;
+  CHECK(near(m.position(5, o, 9.6), 4, 4, 4));
+  // applyMotion moves the scene's object and tag; prune forgets gone ghosts.
+  Scene scene;
+  SceneObject so;
+  so.ghost = 5;
+  so.transform = M4::translation({1, 2, 3});
+  scene.objects.push_back(so);
+  SceneTag tag;
+  tag.ghost = 5;
+  tag.transform = so.transform;
+  scene.tags.push_back(tag);
+  applyMotion(scene, ghosts, m, 10);
+  CHECK(near(scene.objects[0].transform.point({0, 0, 0}), 4, 4, 4));
+  CHECK(near(scene.tags[0].transform.point({0, 0, 0}), 4, 4, 4));
+  ghosts.clear();
+  applyMotion(scene, ghosts, m, 11);
+  CHECK(m.size() == 0);
+}
+
 int main() {
   testRead3ds();
+  testMotion();
   testRotationRule();
   testDrawObjects();
   testSunAndFog();

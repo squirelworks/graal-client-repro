@@ -4,6 +4,7 @@
 #include "graalengine.h"
 #include "link.hpp"
 #include "../render/draw.hpp"
+#include "../render/motion.hpp"
 #include "../render/terrain.hpp"
 #include "udp.hpp"
 
@@ -26,6 +27,7 @@ struct State {
   graal3d::render::Resources resources;
   bool resourceFolders = false;
   graal3d::render::StreamedTerrain terrain;
+  graal3d::render::MotionTracker motion;
   std::vector<graal3d::render::Label> labels;  // the last frame's
 };
 
@@ -34,6 +36,10 @@ State& st() {
   return s;
 }
 
+double nowSeconds() {
+  using namespace std::chrono;
+  return duration<double>(steady_clock::now().time_since_epoch()).count();
+}
 uint32_t nowMs() {
   using namespace std::chrono;
   return static_cast<uint32_t>(duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count());
@@ -203,8 +209,12 @@ G3D_API int32_t G3D_CALL graal3dengine_renderFrame(uint32_t* pixels, int32_t wid
   graal3d::render::Frame frame{pixels, width, height, stride};
   graal3d::render::Scene scene;
   if (s.link)
+  {
     scene = graal3d::render::sceneFromGhosts(s.link->ghosts(), s.link->cameraGhost(),
                                              static_cast<float>(s.link->fieldOfView()));
+    // Moving objects glide or jump to their section 7 targets (motion.hpp).
+    graal3d::render::applyMotion(scene, s.link->ghosts(), s.motion, nowSeconds());
+  }
   if (s.link && scene.terrain.present) {
     // The session's chunks over the client's own cache, when a resource
     // folder holds one (levels3d/heights/<server>/).

@@ -15,7 +15,7 @@ CORE = src/bits.cpp src/world.cpp src/link.cpp src/udp.cpp ../third_party/torque
 # The world renderer (render/README.md); stb_image is built on its own,
 # without -Werror, as third-party code.
 RENDER = render/mesh.cpp render/read_3ds.cpp render/read_dif.cpp render/read_dts.cpp render/read_ft.cpp render/terrain.cpp render/texture.cpp render/raster.cpp render/resources.cpp \
-         render/scene.cpp render/draw.cpp
+         render/scene.cpp render/motion.cpp render/draw.cpp
 RENDER_OBJ = build/render_stb.o
 SOURCES = src/exports.cpp $(CORE) $(RENDER)
 HEADERS = include/graal3dengine.h ../graalengine/include/graalengine.h ../graalengine/include/graalengine_slots.def \
