@@ -15,11 +15,16 @@
 // floor(n / cols)). Each lands where a ray down from z 2000 to -2000 meets
 // the ground, inside the box's z range and no steeper than the slope limit.
 //
-// The rebuild's own until a lab check: the shape, scale and turn draws
-// after x and y (and their order), a grass piece's size (half a metre
-// times its x/y scale), turn (z only) and lift, no terrain alignment,
-// cover only on terrain (interiors, statics and water are not tried), and
-// at most kMaxReplicas copies in all.
+// After the ground ray a shape copy draws, from the same stream: the shape
+// (r mod the list's length), turn z, y, x, then scale z, y, x, each
+// uniform in its range with a minimum above its maximum swapped; it sits
+// at the ground hit plus offsetz (replicators-512.md).
+//
+// The rebuild's own until a lab check: an animated shape's extra draw
+// (r mod 64 + 1) is not taken, as no shape here animates yet; a grass
+// piece's size (half a metre times its x/y scale), turn (z only) and lift;
+// no terrain alignment; cover only on terrain (interiors, statics and
+// water are not tried); and at most kMaxReplicas copies in all.
 #pragma once
 
 #include <cstdint>

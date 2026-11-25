@@ -34,6 +34,9 @@ std::vector<std::string> splitShapes(const std::string& list) {
 
 float lerp(float a, float b, float t) { return a + (b - a) * t; }
 
+// Uniform between two bounds, a minimum above its maximum swapped first.
+float ranged(float lo, float hi, float t) { return lo <= hi ? lerp(lo, hi, t) : lerp(hi, lo, t); }
+
 void clampCounts(int& lo, int& hi, int limit) {
   lo = std::clamp(lo, 0, limit);
   hi = std::clamp(hi, 0, limit);
@@ -124,22 +127,27 @@ int scatterReplicators(Scene& scene, const GhostTable& ghosts, const Terrain& te
     if (s.hide || !s.allowTerrain || !terrain.present) continue;
     std::vector<std::string> names = splitShapes(s.shapeFiles);
     if (shapes) {
-      names.erase(std::remove_if(names.begin(), names.end(), [&](const std::string& n) { return !res.shape(n); }),
-                  names.end());
-      if (names.empty()) continue;
+      if (names.empty() || std::none_of(names.begin(), names.end(), [&](const std::string& n) { return res.shape(n) != nullptr; }))
+        continue;
       forEachCell(s, kMaxShapeCount, control, [&](R250& r, float wx, float wy, int count) {
         for (int k = 0; k < count; ++k) {
           if (added >= kMaxReplicas) return false;
-          // Within half a cell of the corner (replicators-512.md).
+          // Within half a cell of the corner, then the ground ray; only a
+          // copy that lands draws the rest: the shape (from the whole list),
+          // turn z, y, x, then scale z, y, x (replicators-512.md).
           const float px = wx + (r.unit() - 0.5f) * kReplicatorCell, py = wy + (r.unit() - 0.5f) * kReplicatorCell;
-          const std::string& shape = names[r.next() % names.size()];
-          const V3 scale{lerp(s.scaleMin.x, s.scaleMax.x, r.unit()), lerp(s.scaleMin.y, s.scaleMax.y, r.unit()),
-                         lerp(s.scaleMin.z, s.scaleMax.z, r.unit())};
-          const V3 turn{lerp(s.rotateMin.x, s.rotateMax.x, r.unit()), lerp(s.rotateMin.y, s.rotateMax.y, r.unit()),
-                        lerp(s.rotateMin.z, s.rotateMax.z, r.unit())};
           float z;
           V3 n;
           if (!groundAt(s, terrain, px, py, z, n)) continue;
+          const std::string& shape = names[r.next() % names.size()];
+          V3 turn, scale;
+          turn.z = ranged(s.rotateMin.z, s.rotateMax.z, r.unit());
+          turn.y = ranged(s.rotateMin.y, s.rotateMax.y, r.unit());
+          turn.x = ranged(s.rotateMin.x, s.rotateMax.x, r.unit());
+          scale.z = ranged(s.scaleMin.z, s.scaleMax.z, r.unit());
+          scale.y = ranged(s.scaleMin.y, s.scaleMax.y, r.unit());
+          scale.x = ranged(s.scaleMin.x, s.scaleMax.x, r.unit());
+          if (!res.shape(shape)) continue;  // a name we cannot load still takes its draws
           const float d2r = 3.14159265f / 180.0f;
           M4 m = M4::translation({px, py, z + s.offsetZ}) * graalRotation({0, 0, 1}, turn.z * d2r) *
                  graalRotation({0, 1, 0}, turn.y * d2r) * graalRotation({1, 0, 0}, turn.x * d2r);

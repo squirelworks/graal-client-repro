@@ -1956,7 +1956,7 @@ void testReplicators() {
     ReplicatorState& s = d.replicator;
     s.init = true;
     s.seed = 42;
-    s.shapeFiles = "rock.3ds, missing.dts";
+    s.shapeFiles = "rock.3ds";
     s.radius = 1;
     s.minObjects = s.maxObjects = 2;
     s.boxMin[0] = s.boxMin[1] = -100;
@@ -1977,6 +1977,12 @@ void testReplicators() {
     Scene again;
     scatterReplicators(again, g, t, {3, 3, 0}, res);
     CHECK(again.objects[7].transform.m[0][3] == sc.objects[7].transform.m[0][3]);
+    // A listed shape we cannot load is still picked, and not drawn.
+    s.shapeFiles = "rock.3ds, missing.dts";
+    Scene partial;
+    const int some = scatterReplicators(partial, g, t, {3, 3, 0}, res);
+    CHECK(some > 0 && some < 18);
+    s.shapeFiles = "rock.3ds";
     s.boxMin[0] = 0;  // the cell at x -8 has its corner outside
     Scene boxed;
     CHECK(scatterReplicators(boxed, g, t, {3, 3, 0}, res) == 12);
@@ -1987,6 +1993,17 @@ void testReplicators() {
     Scene high;
     CHECK(scatterReplicators(high, g, t, {3, 3, 0}, res) == 0);
     s.boxMax[2] = 10;
+    // A minimum above its maximum is swapped: scale 2..1 stays in 1..2.
+    s.scaleMin = {2, 2, 2};
+    s.scaleMax = {1, 1, 1};
+    Scene swapped;
+    scatterReplicators(swapped, g, t, {3, 3, 0}, res);
+    for (const SceneObject& o : swapped.objects) {
+      const float len = std::sqrt(o.transform.m[0][0] * o.transform.m[0][0] + o.transform.m[1][0] * o.transform.m[1][0] +
+                                  o.transform.m[2][0] * o.transform.m[2][0]);
+      CHECK(len >= 1 - 1e-4f && len <= 2 + 1e-4f);
+    }
+    s.scaleMin = s.scaleMax = {1, 1, 1};
     s.hide = true;
     Scene hidden;
     CHECK(scatterReplicators(hidden, g, t, {3, 3, 0}, res) == 0);
