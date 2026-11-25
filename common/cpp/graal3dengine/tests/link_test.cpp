@@ -508,6 +508,125 @@ void testMovetypes() {
   }
 }
 
+// SharpServer's world (the Sharp3D capture, 2026-11-24): every object is a
+// GhostAlwaysObjectEvent, no mission commands, and the control object is
+// the Camera. The class ids are kAcceptFull's: object 0 Camera,
+// 4 GameObject; event 3 GhostAlwaysObjectEvent.
+BitWriter ghostAlwaysEvent(int ghost, int classId, const BitWriter& payload) {
+  BitWriter ev;
+  ev.bits(static_cast<uint32_t>(ghost), 12);
+  ev.flag(true);
+  ev.bits(static_cast<uint32_t>(classId), 12);
+  ev.bits(static_cast<uint32_t>(payload.pos()), 14);
+  ev.append(payload);
+  return ev;
+}
+
+void testGhostAlwaysAndCameraControl() {
+  std::vector<int> steps;
+  LinkLogin login;
+  Link link(login, {nullptr, [&](int s) { steps.push_back(s); }, nullptr, nullptr});
+  uint32_t t = 0;
+  link.start(t);
+  link.receive(challengeResponse(), ++t);
+  link.receive(fromHex(kAcceptFull), ++t);
+  link.takeOutgoing();
+
+  GameObjectState cam;
+  cam.name = "TestCamera";
+  cam.position = {-3, 4, 2.8f};
+  cam.axis = {0, 0, 1};
+  cam.angle = 2.44f;
+  BitWriter camPayload;
+  writeGameObjectUpdate(camPayload, cam, kSec(1) | kSec(5));
+  camPayload.flag(false);  // mode
+  camPayload.flag(false);  // follow
+  GameObjectState forest;
+  forest.name = "KokiriForest";
+  forest.shape = "forest.3ds";
+  BitWriter forestPayload;
+  writeGameObjectUpdate(forestPayload, forest, kSec(1) | kSec(3) | kSec(5));
+
+  // seq 1: both objects as guaranteed events 0 and 1.
+  BitWriter w;
+  w.flag(true);
+  w.bits(0, 1);
+  w.bits(1, 9);
+  w.bits(0, 9);
+  w.bits(0, 2);
+  w.bits(0, 3);
+  w.flag(false);  // rates
+  w.flag(false);
+  w.flag(false);  // control object
+  w.flag(false);  // camera
+  w.flag(false);  // fov
+  w.flag(false);  // unguaranteed
+  const BitWriter events[2] = {ghostAlwaysEvent(2, 0, camPayload), ghostAlwaysEvent(1, 4, forestPayload)};
+  for (int i = 0; i < 2; ++i) {
+    w.flag(true);
+    if (!w.flag(i > 0)) w.bits(0, 7);
+    w.bits(3, 12);
+    w.bits(static_cast<uint32_t>(events[i].pos()), 14);
+    w.append(events[i]);
+  }
+  w.flag(false);  // end of guaranteed
+  w.flag(false);  // ghosts
+  link.receive(w.bytes(), ++t);
+  CHECK(link.ghosts().size() == 2);
+  CHECK(link.ghosts().count(2) && link.ghosts().at(2).className == "Camera");
+  CHECK(link.ghosts().count(2) && link.ghosts().at(2).camera.object.name == "TestCamera");
+  CHECK(link.ghosts().count(2) && near(link.ghosts().at(2).camera.object.angle, 2.44f));
+  CHECK(link.ghosts().count(1) && link.ghosts().at(1).object.shape == "forest.3ds");
+  link.takeOutgoing();
+
+  // seq 2: the Camera as the control object (an empty Camera update),
+  // then the camera ghost and a field of view of 60, as SharpServer sends
+  // every packet. The packet must read to its end.
+  BitWriter c;
+  c.flag(true);
+  c.bits(0, 1);
+  c.bits(2, 9);
+  c.bits(1, 9);
+  c.bits(0, 2);
+  c.bits(0, 3);
+  c.flag(false);
+  c.flag(false);
+  c.flag(true);  // control object
+  c.flag(true);
+  c.u32(5000);
+  c.bits(2, 12);
+  writeGameObjectUpdate(c, GameObjectState(), 0);
+  c.flag(false);  // mode
+  c.flag(false);  // follow
+  c.flag(true);   // camera
+  c.bits(2, 12);
+  c.flag(false);  // no camera update
+  c.flag(true);   // fov
+  c.bits(60, 8);
+  c.flag(false);  // unguaranteed
+  c.flag(false);  // guaranteed
+  c.flag(false);  // ghosts
+  link.receive(c.bytes(), ++t);
+  CHECK(link.controlGhost() == 2);
+  CHECK(link.cameraGhost() == 2);
+  CHECK(link.fieldOfView() == 60);
+  CHECK(link.serverTime() == 5000);
+  CHECK(near(link.controlPosition().x, -3) && near(link.controlPosition().z, 2.8f));
+  CHECK(link.state() == Link::State::Connected);
+  // No mission phases came, so the login steps do not move.
+  CHECK(steps.empty());
+  // The client's next data packet names the Camera and sends no update
+  // for it.
+  t += Link::kKeepAliveMs;
+  link.tick(t);
+  auto out = link.takeOutgoing();
+  CHECK(!out.empty());
+  if (!out.empty()) {
+    const auto p = readClientPacket(out.back(), link.eventClasses());
+    CHECK(p.hasControl && p.controlGhost == 2 && !p.ownState);
+  }
+}
+
 void testLostEventIsResent() {
   // The server's first packet does not ack our ack-carrying packet: the
   // event goes out again in the next data packet.
@@ -654,6 +773,7 @@ int main() {
   testPayloads();
   testServerSession();
   testMovetypes();
+  testGhostAlwaysAndCameraControl();
   testLostEventIsResent();
   testTimeouts();
   testProtocols();

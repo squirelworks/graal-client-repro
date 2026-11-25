@@ -36,37 +36,58 @@ void Rasterizer::drawTriangle(const RasterVertex& a, const RasterVertex& b, cons
     const V3 p = worldToCamera_.point(src[i]->position);
     in[i] = {p.x, p.z, p.y, src[i]->u, src[i]->v, {src[i]->light[0], src[i]->light[1], src[i]->light[2]}, src[i]->fog};
   }
-  // Clip against the near and far planes (Sutherland-Hodgman, two passes).
-  ClipVertex bufA[5], bufB[5];
-  int n = 0;
-  auto clipPass = [](const ClipVertex* poly, int count, ClipVertex* out, float plane, bool keepAbove) {
+  // Clip (Sutherland-Hodgman) against the near and far planes and the four
+  // sides of the view, widened by a guard band: a triangle that reaches
+  // behind the camera (a sky-box face, a floor under the eye) is cut to
+  // what can be seen, so no corner projects to a huge screen position.
+  // Each plane keeps the points where `side` is >= 0.
+  constexpr float kGuard = 2.0f;
+  const float gx = kGuard * frame_.width * 0.5f / focal_;
+  const float gy = kGuard * frame_.height * 0.5f / focal_;
+  const float nearPlane = view_.nearPlane, farPlane = view_.farPlane;
+  auto side = [&](const ClipVertex& p, int plane) {
+    switch (plane) {
+      case 0: return p.d - nearPlane;
+      case 1: return farPlane - p.d;
+      case 2: return gx * p.d - p.x;
+      case 3: return gx * p.d + p.x;
+      case 4: return gy * p.d - p.y;
+      default: return gy * p.d + p.y;
+    }
+  };
+  ClipVertex bufA[kMaxClipVertices], bufB[kMaxClipVertices];
+  ClipVertex* cur = bufA;
+  ClipVertex* next = bufB;
+  for (int i = 0; i < 3; ++i) cur[i] = in[i];
+  int n = 3;
+  for (int plane = 0; plane < 6; ++plane) {
     int k = 0;
-    for (int i = 0; i < count; ++i) {
-      const ClipVertex& p = poly[i];
-      const ClipVertex& q = poly[(i + 1) % count];
-      const bool pin = keepAbove ? p.d >= plane : p.d <= plane;
-      const bool qin = keepAbove ? q.d >= plane : q.d <= plane;
-      if (pin) out[k++] = p;
+    for (int i = 0; i < n; ++i) {
+      const ClipVertex& p = cur[i];
+      const ClipVertex& q = cur[(i + 1) % n];
+      const float sp = side(p, plane), sq = side(q, plane);
+      const bool pin = sp >= 0, qin = sq >= 0;
+      if (pin) next[k++] = p;
       if (pin != qin) {
-        const float t = (plane - p.d) / (q.d - p.d);
+        const float t = sp / (sp - sq);
         ClipVertex r;
         r.x = p.x + (q.x - p.x) * t;
         r.y = p.y + (q.y - p.y) * t;
-        r.d = plane;
+        r.d = p.d + (q.d - p.d) * t;
+        if (plane == 0) r.d = nearPlane;
+        if (plane == 1) r.d = farPlane;
         r.u = p.u + (q.u - p.u) * t;
         r.v = p.v + (q.v - p.v) * t;
         for (int j = 0; j < 3; ++j) r.l[j] = p.l[j] + (q.l[j] - p.l[j]) * t;
         r.fog = p.fog + (q.fog - p.fog) * t;
-        out[k++] = r;
+        next[k++] = r;
       }
     }
-    return k;
-  };
-  n = clipPass(in, 3, bufA, view_.nearPlane, true);
-  if (n < 3) return;
-  n = clipPass(bufA, n, bufB, view_.farPlane, false);
-  if (n < 3) return;
-  drawClipped(bufB, n, s);
+    n = k;
+    if (n < 3) return;
+    std::swap(cur, next);
+  }
+  drawClipped(cur, n, s);
 }
 
 namespace {
@@ -89,7 +110,7 @@ inline uint8_t clamp8(float v) {
 }  // namespace
 
 void Rasterizer::drawClipped(const ClipVertex* poly, int count, const RasterState& s) {
-  ScreenVertex sv[5];
+  ScreenVertex sv[kMaxClipVertices];
   const float cx = frame_.width * 0.5f, cy = frame_.height * 0.5f;
   for (int i = 0; i < count; ++i) {
     const ClipVertex& p = poly[i];
@@ -109,8 +130,9 @@ void Rasterizer::drawClipped(const ClipVertex* poly, int count, const RasterStat
     const ScreenVertex& c = sv[t + 1];
     float area = edge(a, b, c.sx, c.sy);
     if (!(std::fabs(area) >= 1e-6f) || !std::isfinite(area)) continue;  // also NaN
-    // Far off screen (bad data or a vertex next to the eye): skip rather
-    // than overflow the pixel bounds.
+    // The guard band keeps real geometry well inside this; only bad data
+    // (huge or NaN coordinates) gets here, and is skipped rather than
+    // overflow the pixel bounds.
     const float kLimit = 1e6f;
     if (!(std::fabs(a.sx) < kLimit && std::fabs(b.sx) < kLimit && std::fabs(c.sx) < kLimit &&
           std::fabs(a.sy) < kLimit && std::fabs(b.sy) < kLimit && std::fabs(c.sy) < kLimit))

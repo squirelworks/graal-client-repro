@@ -25,12 +25,13 @@ the connect to login step 6:
 | `src/bits.*` | The Torque bit stream: LSB-first fields, `string` (Huffman or raw) and `pstring` (the per-packet prefix buffer) | `torque/udp-session.md` §2 |
 | `src/link.*` handshake | Challenge (`0x1A`), connect request (`GameConnection`, group 0, CRC `0xFFFFFFFF`, `Graal3D`, the protocol twice, the password, account and nickname), Graal's class table in the accept, the protocol check; resent every 500 ms, given up after 15 s with the real client's sentence | §3 |
 | `src/link.*` packets | The data-link header, 9-bit sequences widened, ack masks, delivered/lost notification, at most 30 packets in flight, a ping answered with an ack, every server data packet answered at once, a keep-alive each second, the 30 s silence time-out | §4 |
-| `src/link.*` events | Unguaranteed and guaranteed-ordered lists with Graal's 14-bit length prefix, held back until in order, lost ones sent again; `NetStringEvent` tags, `RemoteCommandEvent`, `BigDataStartEvent`/`ChunkEvent` both ways (none, zlib, bzip2 in; none out) | §5, §7 |
+| `src/link.*` events | Unguaranteed and guaranteed-ordered lists with Graal's 14-bit length prefix, held back until in order, lost ones sent again; `NetStringEvent` tags, `RemoteCommandEvent`, `BigDataStartEvent`/`ChunkEvent` both ways (none, zlib, bzip2 in; none out); `GhostAlwaysObjectEvent` makes the ghost it carries (ghost index, object flag, class, 14-bit length, the class's update) | §5, §7; the Sharp3D capture (2026-11-24) |
 | `src/link.*` mission start | `MissionStartPhase1` → step 2 and `MissionStartPhase1Ack`; `MissionStartPhase2` → steps 3, 4 and `MissionStartPhase2Ack`; the first control object after phase 2 → steps 5 and 6 | §7, `torque/4208-g3d.md`, `torque/5007-g3d.md` |
 | `src/world.*` | Ghost creates, updates and deletes; `GameObject` (all thirteen sections), `Camera`, `Sun`, `Sky` (the whole update: name, material list, fog colour, fog volumes, clouds); any other class skipped by its length | §8 |
-| client game section | First person, the control object's position and ghost, its shape, transform and flags sent back once, then an empty update | §6 |
+| client game section | First person, the control object's position and ghost, its shape, transform and flags sent back once, then an empty update. The control object is read with its own class: a `GameObject`, or a `Camera` as SharpServer sends it (the ghost is named back with no update; what the real client sends then is not read yet) | §6; the Sharp3D capture |
 | `src/link.*` movement | A movetype (`interpolate`, `list`, `rigid`) and movement data on the control object move the player: `list` jumps onto each position, `interpolate` and `rigid` glide to each target; the position sent in every packet is where the object has got to. `interpolate` and `list` send their shape, transform, movetype and flags once when the movement object is made; then `interpolate` sends its movement data and `list` its transform in every update, and `rigid` sends no object section | `protocol/lab-appe-hosta-2026-11-20d.md` (E#505, real 5.12) |
 | `render/` | The world renderer: `.3ds` shapes, the server's Camera, Sun lighting, the Sky's box and fog, drawn in software into the host's pixels by `graal3dengine_renderFrame` ([render/README.md](render/README.md)) | `torque/udp-session.md` §8, `graal3d/torque-engine-4x.md` |
+| `tools/` | `g3d-replay` (`make tools`): reads a packet capture (pcap or pcapng) of a real session, feeds the server's UDP side to the link in replay mode, prints the class tables, login steps, commands and every ghost, and can draw the world the camera saw to a PNG ([tools/README.md](tools/README.md)) | this library |
 | `src/exports.cpp` | `loadGraal3DEngine` registers `ConnectTo3DServer`, `RemoveGraal3DConnection`, `SendGraal3DScriptEvent(s)`, `RemoveGraal3DMissionGroup` on the engine, clears the launcher's `StartGraal3D` and initialises the engine again; `runGraal3DEngine` is one frame of the link on a UDP socket; `endGraal3DEngine` sends the disconnect | `graal3d/torque-engine-4x.md`, `torque/5007-g3d.md` |
 
 The engine library's half (`../graalengine`): a `3 ` server with these
@@ -51,6 +52,11 @@ each login step raises `onGraal3DLoginStep(step)` on the universe and step
 - The whole recorded server session (§8): the link's own packet numbering
   meets each server packet's acks, the acks go out in order, and it ends at
   step 6 with the player's object as the control object.
+- A real third-party server's session (SharpServer 0.0.40, the Sharp3D TEST
+  capture of 2026-11-24, replayed with `tools/g3d-replay`): all eight
+  `GhostAlwaysObjectEvent` payloads end on their length, every Camera
+  control update reads to the packet's end, and the drawn view lines up
+  with the real 5.12 client's screenshots. The capture stays off the repo.
 - Both libraries as shared libraries over loopback UDP: `make test` runs a
   UDP server that answers the handshake and replays that session, and the
   engine reports login step 6.

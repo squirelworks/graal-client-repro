@@ -2,8 +2,10 @@
 # engine library (common/cpp/graalengine), which it links against, as the
 # original Graal3DEngine.dll imports from GraalEngine.dll.
 #   make            build/libgraal3dengine.so (Graal3DEngineRepro.dll on Windows)
-#   make test       the link against the recorded vectors, then both
-#                   libraries over loopback UDP, then the export check
+#   make test       the link against the recorded vectors, the renderer,
+#                   the capture replay, then both libraries over loopback
+#                   UDP, then the export check
+#   make tools      build/g3d-replay (tools/g3d_replay.cpp)
 CXX ?= g++
 CXXFLAGS ?= -std=c++17 -Wall -Wextra -Werror -O2
 CPPFLAGS += -Iinclude -Isrc -I../graalengine/include -I../third_party/torque3d -DGRAAL3DENGINE_BUILD
@@ -44,8 +46,10 @@ RPATH = -Wl,-rpath,'$$ORIGIN'
 endif
 endif
 
-.PHONY: all test clean engine
+.PHONY: all test clean engine tools
 all: $(LIB)
+
+tools: build/g3d-replay$(EXE)
 
 build:
 	mkdir -p build
@@ -68,13 +72,23 @@ build/link-test$(EXE): tests/link_test.cpp $(CORE) $(HEADERS) | build
 build/render-test$(EXE): tests/render_test.cpp $(CORE) $(RENDER) $(RENDER_OBJ) $(HEADERS) | build
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) tests/render_test.cpp $(CORE) $(RENDER) $(RENDER_OBJ) -o $@ $(LDLIBS)
 
+# Tools (tools/): g3d-replay reads a recorded session back and draws it.
+TOOLS = tools/capture.cpp tools/png.cpp
+
+build/g3d-replay$(EXE): tools/g3d_replay.cpp $(TOOLS) $(wildcard tools/*.hpp) $(CORE) $(RENDER) $(RENDER_OBJ) $(HEADERS) | build
+	$(CXX) $(CPPFLAGS) -Irender $(CXXFLAGS) tools/g3d_replay.cpp $(TOOLS) $(CORE) $(RENDER) $(RENDER_OBJ) -o $@ $(LDLIBS)
+
+build/replay-test$(EXE): tests/replay_test.cpp $(TOOLS) $(wildcard tools/*.hpp) $(CORE) $(RENDER) $(RENDER_OBJ) $(HEADERS) | build
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) tests/replay_test.cpp $(TOOLS) $(CORE) $(RENDER) $(RENDER_OBJ) -o $@ $(LDLIBS)
+
 build/bridge-test$(EXE): tests/bridge_test.cpp $(LIB) | build
 	$(CXX) $(CPPFLAGS) -UGRAAL3DENGINE_BUILD $(CXXFLAGS) tests/bridge_test.cpp src/bits.cpp src/udp.cpp \
 	  ../third_party/torque3d/huffman.cpp -o $@ $(LIB_LINK) $(ENGINE_LINK) $(LDLIBS) $(RPATH)
 
-test: build/link-test$(EXE) build/render-test$(EXE) build/bridge-test$(EXE)
+test: build/link-test$(EXE) build/render-test$(EXE) build/replay-test$(EXE) build/g3d-replay$(EXE) build/bridge-test$(EXE)
 	./build/link-test$(EXE)
 	./build/render-test$(EXE)
+	./build/replay-test$(EXE)
 	./build/bridge-test$(EXE)
 	python3 tests/check_exports.py $(LIB)
 
