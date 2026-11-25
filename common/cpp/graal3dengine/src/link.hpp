@@ -35,6 +35,10 @@ struct LinkLogin {
   std::string account, nickname, password;
   int protocol = 24;
   uint32_t connectSequence = 0x400;  // the client's choice; 0x400 in the 5.12 run
+  // Replaying a recorded session (tools/g3d_replay.cpp): the server's acks
+  // name the recorded client's packets, not ours, so they are not checked
+  // against what this link sent and resend nothing.
+  bool replay = false;
 };
 
 // A Graal text message over BigData (udp-session.md §7).

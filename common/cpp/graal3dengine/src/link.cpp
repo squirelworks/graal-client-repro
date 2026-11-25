@@ -209,10 +209,10 @@ void Link::onDataPacket(BitReader& r, uint32_t now) {
   if (seq > lastRecvSeq_ + 31) return;
   ack |= highestAckedSeq_ & ~0x1FFu;
   if (ack < highestAckedSeq_) ack += 0x200;
-  if (ack > sendSeq_) return;  // acks a packet we never sent
+  if (ack > sendSeq_ && !login_.replay) return;  // acks a packet we never sent
 
   lastHeard_ = now;
-  notify(ack, mask, 8 * ackBytes);
+  if (!login_.replay) notify(ack, mask, 8 * ackBytes);
 
   const uint32_t advance = seq - lastRecvSeq_;
   if (advance > 0) {
