@@ -59,11 +59,15 @@ side by side with a real 5.12:
 
 - Nothing past the Sky's visible distance is drawn (1000 units without a
   Sky); fog rises linearly from half that distance.
-- The sky box: front +y, right +x, back -y, left -x, top +z, bottom -z,
-  each upright from inside; top and bottom with their top edge toward +y.
-  Cloud layers, fog volumes and the solid colour are read but not drawn.
-- Per-vertex lighting `ambient + colour * max(0, n . -direction)`; both
-  sides of every triangle are drawn; texels under half alpha are cut out
+- The sky (lab T3D-046, under Mesa): entries 0 to 3 on -y, +x, +y and -x,
+  mirrored left to right; entry 4 on top, its image's top toward +y;
+  entry 5 not drawn; the fog colour below the horizon with a band of it
+  fading up; the solid colour when the first option is off. Cloud layers
+  and fog volumes are read but not drawn.
+- Lighting (lighting probe, under Mesa): the Sun's direction, colour and
+  ambient change nothing; with a Sun a face draws at material x texture,
+  with none at a quarter. A shape turns by the right-hand rule, the
+  camera the other way. Both sides of every triangle are drawn; texels under half alpha are cut out
   (for a `.dts`, only on a translucent material: an opaque Torque
   material's alpha is its environment-map amount).
 - The terrain: each square's primary material only, each texture

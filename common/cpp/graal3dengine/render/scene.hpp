@@ -89,7 +89,9 @@ struct Scene {
 // `fovDegrees` the game section's field of view (0: not sent, 90 used).
 Scene sceneFromGhosts(const GhostTable& ghosts, int cameraGhost, float fovDegrees);
 
-// The rotation the wire gives an object, as a matrix (clients' sign rule).
+// The transform the wire gives a shape, and a camera (math.hpp: the two
+// turn opposite ways).
 M4 objectTransform(const GameObjectState& o);
+M4 cameraTransform(const GameObjectState& o);
 
 }  // namespace graal3d::render

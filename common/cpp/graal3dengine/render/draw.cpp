@@ -104,7 +104,6 @@ DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
   const V3 eye{view.cameraToWorld.m[0][3], view.cameraToWorld.m[1][3], view.cameraToWorld.m[2][3]};
   const float fogStart = farPlane * 0.5f;
   const bool fog = scene.sky.present;
-  const V3 toLight = -scene.sun.direction;
 
   for (const SceneObject& obj : scene.objects) {
     const Shape* shape = obj.direct ? obj.direct : res.shape(obj.shape);
@@ -122,11 +121,11 @@ DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
         rv.position = obj.transform.point(mv.position);
         rv.u = mv.u;
         rv.v = mv.v;
-        if (scene.sun.present) {
-          const V3 n = normalize(obj.transform.vector(mv.normal));
-          const float d = std::max(0.0f, dot(n, toLight));
-          for (int j = 0; j < 3; ++j) rv.light[j] = std::min(1.0f, scene.sun.ambient[j] + scene.sun.color[j] * d);
-        }
+        // The 5.12 does not shade by the Sun (lighting probe L1-L7 under
+        // Mesa): with a Sun a face draws at material x texture, without
+        // one at a quarter of it.
+        if (!scene.sun.present)
+          for (float& l : rv.light) l = kNoSunLight;
         if (fog) {
           const float dist = length(rv.position - eye);
           rv.fog = dist <= fogStart ? 0 : (dist - fogStart) / (farPlane - fogStart);

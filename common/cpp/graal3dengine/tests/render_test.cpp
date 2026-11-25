@@ -241,6 +241,7 @@ Scene cameraScene(V3 eye, V3 axis = {1, 0, 0}, float angle = 0) {
   s.hasCamera = true;
   s.view.cameraToWorld = graalTransform(eye, axis, angle);
   s.view.fovDegrees = 90;
+  s.sun.present = true;  // full light (the 5.12 draws a quarter without one)
   return s;
 }
 
@@ -307,6 +308,10 @@ void testRead3ds() {
 }
 
 void testRotationRule() {
+  // A shape turns the other way from the camera (lighting probe): a
+  // positive angle about +z takes its +y to -x, the right-hand rule.
+  const V3 g = graalShapeTransform({0, 0, 0}, {0, 0, 1}, kPi / 2).vector({0, 1, 0});
+  CHECK(std::fabs(g.x + 1) < 1e-5f && std::fabs(g.y) < 1e-5f);
   // A positive angle about +z turns right: forward (+y) becomes +x.
   const V3 f = graalRotation({0, 0, 1}, kPi / 2).vector({0, 1, 0});
   CHECK(std::fabs(f.x - 1) < 1e-5f && std::fabs(f.y) < 1e-5f);
@@ -411,12 +416,19 @@ void testSunAndFog() {
     drawScene(f.frame(), s, res);
     return f.centre();
   };
-  // The face toward the camera faces -y. Light travelling +y hits it full
-  // on (0.25 + 0.75); light travelling -y leaves it at the ambient.
+  // The 5.12 ignores the Sun's direction, colour and ambient (lighting
+  // probe): every face full; without a Sun, a quarter.
   CHECK(isColor(litCentre({0, 1, 0}), 255, 255, 255));
-  CHECK(isColor(litCentre({0, -1, 0}), 64, 64, 64));
-  // At 60 degrees: 0.25 + 0.75 * 0.5.
-  CHECK(isColor(litCentre({0, 0.5f, -0.8660254f}), 159, 159, 159));
+  CHECK(isColor(litCentre({0, -1, 0}), 255, 255, 255));
+  CHECK(isColor(litCentre({0, 0.5f, -0.8660254f}), 255, 255, 255));
+  {
+    TestFrame f;
+    Scene s = cameraScene({0, -5, 0});
+    s.sun.present = false;
+    s.objects.push_back(objectAt("white.3ds", {0, 0, 0}));
+    drawScene(f.frame(), s, res);
+    CHECK(isColor(f.centre(), 64, 64, 64));
+  }
 
   // Fog: with a visible distance of 100, a cube 20 units away is clear,
   // one 90 units away is mostly fog colour, one past 100 is not drawn.
@@ -1429,6 +1441,7 @@ void testTerrain() {
   scene.hasCamera = true;
   scene.view.fovDegrees = 60;
   scene.view.cameraToWorld = graalTransform({0, 0, 50}, {1, 0, 0}, 1.5708f);  // looking down
+  scene.sun.present = true;
   SceneObject obj;
   obj.direct = &s;
   obj.transform = M4::identity();

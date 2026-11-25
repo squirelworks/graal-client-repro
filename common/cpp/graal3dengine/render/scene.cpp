@@ -10,7 +10,8 @@ V3 v(const Vec3& a) { return {a.x, a.y, a.z}; }
 float clamp01(float x) { return x < 0 ? 0 : (x > 1 ? 1 : x); }
 }  // namespace
 
-M4 objectTransform(const GameObjectState& o) { return graalTransform(v(o.position), v(o.axis), o.angle); }
+M4 objectTransform(const GameObjectState& o) { return graalShapeTransform(v(o.position), v(o.axis), o.angle); }
+M4 cameraTransform(const GameObjectState& o) { return graalTransform(v(o.position), v(o.axis), o.angle); }
 
 Scene sceneFromGhosts(const GhostTable& ghosts, int cameraGhost, float fovDegrees) {
   Scene scene;
@@ -36,7 +37,7 @@ Scene sceneFromGhosts(const GhostTable& ghosts, int cameraGhost, float fovDegree
     } else if (g.className == "Camera") {
       if (index == cameraGhost) {
         scene.hasCamera = true;
-        scene.view.cameraToWorld = objectTransform(g.camera.object);
+        scene.view.cameraToWorld = cameraTransform(g.camera.object);
       }
     } else if (g.className == "TerrainBlock" && g.terrain.init) {
       // A later block replaces the first only when it is named Terrain.

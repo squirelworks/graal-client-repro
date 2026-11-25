@@ -13,8 +13,12 @@
 //   fills the faces instead of their images. The box is not otherwise
 //   fogged. Open: the client's faces look about twice as magnified, and
 //   its visible distance did not change the frame.
-// - Lighting per vertex: ambient + colour * max(0, n . -direction),
-//   clamped; without a Sun everything is fully lit.
+// - Lighting (lighting probe L1-L7, real 5.12 under Mesa llvmpipe): the
+//   Sun's direction, colour and ambient change nothing on a .3ds. With a
+//   Sun a face draws at material x texture; with none, at a quarter of
+//   it. Open: the client draws one of a turned cube's sides at 0.85
+//   whatever the Sun, by a rule not yet found; .dts, .dif and terrain are
+//   taken to follow .3ds until a lab shot.
 // - A textured material draws its texture as is; an untextured one its
 //   diffuse colour.
 // - Name tags: each tagged object's nickname is placed centred just above
@@ -30,6 +34,7 @@
 namespace graal3d::render {
 
 constexpr float kSkyFogBand = 0.25f;
+constexpr float kNoSunLight = 0.25f;
 
 // A line of text for the host to draw over the frame, centred on (x, y),
 // its baseline at y.
