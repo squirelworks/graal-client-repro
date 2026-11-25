@@ -579,6 +579,8 @@ void testSkyBox() {
   }
 }
 
+bool nearV(const V3& a, const V3& b);
+
 void testSceneFromGhosts() {
   GhostTable ghosts;
   // The recorded Seihai payloads: the Sun, the Sky and a player object.
@@ -650,7 +652,30 @@ void testSceneFromGhosts() {
     wg[0].water.rotation[3] = 1;
     const Scene ws = sceneFromGhosts(wg, -1, 0);
     CHECK(ws.water.size() == 1 && std::fabs(ws.water[0].transform.m[2][3] - 13) < 1e-4f);
+    // Any scale is taken; the block runs from its corner to corner + scale
+    // and turns about it: 90 degrees about z puts its +x along world -y
+    // (lab, Graal_analysis PR #895).
+    wg[0].water.position = {0, 0, 0};
+    wg[0].water.scale = {512, 256, 0};
+    const float h = std::sqrt(0.5f);
+    wg[0].water.rotation[2] = h;
+    wg[0].water.rotation[3] = h;
+    const Scene turned = sceneFromGhosts(wg, -1, 0);
+    CHECK(turned.water.size() == 1 && turned.water[0].width == 512 && turned.water[0].depth == 256);
+    if (turned.water.size() == 1) {
+      CHECK(nearV(turned.water[0].transform.point({512, 0, 0}), {0, -512, 0}));
+      CHECK(nearV(turned.water[0].transform.point({0, 256, 0}), {256, 0, 0}));
+    }
+    wg[0].water.scale = {0, 256, 0};
+    CHECK(sceneFromGhosts(wg, -1, 0).water.empty());
   }
+  // Waves (lab): flat at magnitude 0; peak to peak 0.32 x magnitude over
+  // 8.75 s, lowest at 0, highest at 3.25 s.
+  CHECK(waveHeight(0, 1) == 0);
+  CHECK(std::fabs(waveHeight(2, 0) + 0.32f) < 1e-4f);
+  CHECK(std::fabs(waveHeight(2, 3.25) - 0.32f) < 1e-4f);
+  CHECK(std::fabs(waveHeight(2, 8.75) + 0.32f) < 1e-4f);
+  CHECK(waveHeight(2, 1.0) < waveHeight(2, 2.0) && waveHeight(2, 5.0) > waveHeight(2, 7.0));
   // Section 2 scales the shape about its origin; zeros mean unset.
   {
     GameObjectState o;

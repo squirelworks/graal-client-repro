@@ -212,6 +212,7 @@ G3D_API int32_t G3D_CALL graal3dengine_renderFrame(uint32_t* pixels, int32_t wid
   {
     scene = graal3d::render::sceneFromGhosts(s.link->ghosts(), s.link->cameraGhost(),
                                              static_cast<float>(s.link->fieldOfView()));
+    scene.time = nowSeconds();
     // Moving objects glide or jump to their section 7 targets (motion.hpp).
     graal3d::render::applyMotion(scene, s.link->ghosts(), s.motion, nowSeconds(),
                                  s.link->cameraGhost(), s.link->controlGhost());

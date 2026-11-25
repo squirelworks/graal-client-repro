@@ -10,6 +10,15 @@ V3 v(const Vec3& a) { return {a.x, a.y, a.z}; }
 float clamp01(float x) { return x < 0 ? 0 : (x > 1 ? 1 : x); }
 }  // namespace
 
+float waveHeight(float magnitude, double seconds) {
+  constexpr double kPeriod = 8.75, kRise = 3.25, kPi = 3.14159265358979323846;
+  if (!(magnitude > 0) || !std::isfinite(seconds)) return 0;
+  double p = std::fmod(seconds, kPeriod);
+  if (p < 0) p += kPeriod;
+  const double h = p < kRise ? -std::cos(kPi * p / kRise) : std::cos(kPi * (p - kRise) / (kPeriod - kRise));
+  return static_cast<float>(h * 0.16 * magnitude);
+}
+
 M4 objectTransform(const GameObjectState& o) {
   M4 m = graalShapeTransform(v(o.position), v(o.axis), o.angle);
   // Section 2 scales the shape about its origin; all zeros is unset (lab
@@ -62,20 +71,23 @@ Scene sceneFromGhosts(const GhostTable& ghosts, int cameraGhost, float fovDegree
       }
     } else if (g.className == "WaterBlock" && g.water.init) {
       const WaterBlockState& w = g.water;
-      if (!(w.scale.x >= 1024 && w.scale.y >= 1024) || !std::isfinite(w.scale.x) || !std::isfinite(w.scale.y)) continue;
+      if (!std::isfinite(w.scale.x) || !std::isfinite(w.scale.y) || w.scale.x <= 0 || w.scale.y <= 0) continue;
       WaterSurface ws;
-      // Torque keeps the conjugate quaternion (read_dts.cpp); turned here
-      // as a standard one: the rebuild's own reading until a lab shot.
+      // The block runs from its position (a corner) to position + scale and
+      // turns about its position: turned 90 degrees about z its +x lies
+      // along world -y (lab, real 5.12; Graal_analysis torque/terrain-512.md
+      // section 5). That is Torque's quaternion, the conjugate of the
+      // textbook one (as read_dts.cpp), so the matrix is the transpose.
       const float qx = w.rotation[0], qy = w.rotation[1], qz = w.rotation[2], qw = w.rotation[3];
       M4 m = M4::identity();
       m.m[0][0] = 1 - 2 * (qy * qy + qz * qz);
-      m.m[0][1] = 2 * (qx * qy - qz * qw);
-      m.m[0][2] = 2 * (qx * qz + qy * qw);
-      m.m[1][0] = 2 * (qx * qy + qz * qw);
+      m.m[1][0] = 2 * (qx * qy - qz * qw);
+      m.m[2][0] = 2 * (qx * qz + qy * qw);
+      m.m[0][1] = 2 * (qx * qy + qz * qw);
       m.m[1][1] = 1 - 2 * (qx * qx + qz * qz);
-      m.m[1][2] = 2 * (qy * qz - qx * qw);
-      m.m[2][0] = 2 * (qx * qz - qy * qw);
-      m.m[2][1] = 2 * (qy * qz + qx * qw);
+      m.m[2][1] = 2 * (qy * qz - qx * qw);
+      m.m[0][2] = 2 * (qx * qz - qy * qw);
+      m.m[1][2] = 2 * (qy * qz + qx * qw);
       m.m[2][2] = 1 - 2 * (qx * qx + qy * qy);
       m.m[0][3] = w.position.x;
       m.m[1][3] = w.position.y;
@@ -87,6 +99,7 @@ Scene sceneFromGhosts(const GhostTable& ghosts, int cameraGhost, float fovDegree
       ws.depth = w.scale.y;
       ws.texture = w.textures[0];
       ws.opacity = std::isfinite(w.opacity) ? clamp01(w.opacity) : 1.0f;
+      ws.waveMagnitude = std::isfinite(w.waveMagnitude) ? std::fabs(w.waveMagnitude) : 0.0f;
       scene.water.push_back(ws);
     } else if (g.className == "Sun" && !scene.sun.present && g.sun.init) {
       scene.sun.present = true;

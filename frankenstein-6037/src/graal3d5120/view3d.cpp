@@ -138,6 +138,7 @@ bool draw_world3d(Image& frame, const graal3d::GhostTable& ghosts, int camera, i
     for (const auto& r : world.roots) world.resources.addRoot(r);
     world.rooted = true;
   }
+  scene.time = now;
   R::applyMotion(scene, ghosts, world.motion, now, camera, control);
   if (scene.terrain.present) {
     // The session's chunks over the client's own cache, when a resource

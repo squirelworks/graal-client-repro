@@ -78,10 +78,19 @@ struct WaterSurface {
   float width = 0, depth = 0;
   std::string texture;
   float opacity = 1;
+  float waveMagnitude = 0;  // the surface rises and falls (waveHeight)
 };
+
+// How far the water surface is off its rest height at `seconds` (lab, real
+// 5.12: peak to peak 0.32 x the wave magnitude, centred on the surface;
+// one wave every 8.75 s, rising for 3.25 s and falling for 5.5 s). The
+// whole surface moves together and the curve within each half is the
+// rebuild's own (a half cosine).
+float waveHeight(float magnitude, double seconds);
 
 struct Scene {
   bool hasCamera = false;
+  double time = 0;  // seconds, for the water's waves
   View view;
   SunLight sun;
   SkyBox sky;

@@ -121,7 +121,7 @@ struct WaterBlockState {
   std::string name;
   Vec3 position;
   float rotation[4] = {0, 0, 0, 1};  // quaternion x, y, z, w
-  Vec3 scale;                         // extent in metres (taken from 1024 up)
+  Vec3 scale;                         // extent in metres from the corner at position (any size, lab)
   std::string textures[5];            // surface, specular mask, env over, env under, shore
   std::string submergeTextures[2];
   uint32_t liquidType = 0;

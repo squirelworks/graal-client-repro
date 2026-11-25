@@ -171,9 +171,11 @@ DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
     st.depthWrite = false;
     st.opacity = w.opacity;
     const float corners[4][2] = {{0, 0}, {w.width, 0}, {w.width, w.depth}, {0, w.depth}};
+    const float wave = waveHeight(w.waveMagnitude, scene.time);
     RasterVertex q[4];
     for (int i = 0; i < 4; ++i) {
       q[i].position = w.transform.point({corners[i][0], corners[i][1], 0});
+      q[i].position.z += wave;
       q[i].u = corners[i][0] / 16.0f;
       q[i].v = corners[i][1] / 16.0f;
     }
