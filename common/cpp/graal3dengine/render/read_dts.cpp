@@ -1,5 +1,7 @@
 #include "read_dts.hpp"
 
+#include <algorithm>
+#include <climits>
 #include <cmath>
 #include <cstring>
 
@@ -156,7 +158,9 @@ struct Header {
       objectStates, decalStates, triggers, details, meshes, names;
 };
 
-bool readMesh(Alloc& a, int type, std::vector<RawMesh>& meshes, RawMesh& m) {
+// `meshes` is the list a parent index names: the shape's meshes, or for
+// the separate skin list of versions below 23, the skins.
+bool readMesh(Alloc& a, int version, int type, std::vector<RawMesh>& meshes, RawMesh& m) {
   m.present = true;
   m.type = type;
   a.checkGuard();
@@ -188,8 +192,8 @@ bool readMesh(Alloc& a, int type, std::vector<RawMesh>& meshes, RawMesh& m) {
     }
   }
   if (!p) {
-    a.skip32(nv * 3);  // normals
-    a.skip8(nv);       // encoded normals (versions above 21)
+    a.skip32(nv * 3);              // normals
+    if (version > 21) a.skip8(nv);  // encoded normals
   }
   const size_t np = a.count(a.s32(), "primitive");
   std::vector<int16_t> se(np * 2);
@@ -217,8 +221,8 @@ bool readMesh(Alloc& a, int type, std::vector<RawMesh>& meshes, RawMesh& m) {
       if (!a.need32(niv * 3)) return false;
       m.verts.resize(niv);
       for (auto& v : m.verts) v = a.point();
-      a.skip32(niv * 3);  // normals
-      a.skip8(niv);       // encoded normals
+      a.skip32(niv * 3);               // normals
+      if (version > 21) a.skip8(niv);  // encoded normals
     }
     const size_t nx = a.count(a.s32(), "skin transform");
     if (!p) a.skip32(nx * 16);
@@ -337,8 +341,16 @@ bool readDts(const uint8_t* data, size_t size, Shape& out, std::string& error) {
   const uint32_t numSeq = r.u32();
   if (numSeq > kDtsMaxCount) return error = "dts: bad sequence count", false;
   for (uint32_t i = 0; i < numSeq && !r.bad; ++i) {
-    r.skip(15 * 4);
-    for (int b = 0; b < 8; ++b) r.skipBitSet();
+    if (version > 21) {
+      r.skip(15 * 4);
+      for (int b = 0; b < 8; ++b) r.skipBitSet();
+    } else {
+      // No flags word, but blend, cyclic and make-path as one byte each;
+      // one base for rotation and translation and none for scale; one
+      // bit set for rotation and translation and none for scale.
+      r.skip(3 * 4 + 3 + 9 * 4);
+      for (int b = 0; b < 6; ++b) r.skipBitSet();
+    }
   }
   // Material list: stream type, count, then names (length-prefixed).
   r.u8();
@@ -376,11 +388,17 @@ bool readDts(const uint8_t* data, size_t size, Shape& out, std::string& error) {
   h.decals = a.count(a.s32(), "decal");
   h.subShapes = a.count(a.s32(), "sub-shape");
   h.ifls = a.count(a.s32(), "IFL material");
-  h.rots = a.count(a.s32(), "node rotation");
-  h.trans = a.count(a.s32(), "node translation");
-  h.uscales = a.count(a.s32(), "uniform scale");
-  h.ascales = a.count(a.s32(), "aligned scale");
-  h.arbscales = a.count(a.s32(), "arbitrary scale");
+  if (version > 21) {
+    h.rots = a.count(a.s32(), "node rotation");
+    h.trans = a.count(a.s32(), "node translation");
+    h.uscales = a.count(a.s32(), "uniform scale");
+    h.ascales = a.count(a.s32(), "aligned scale");
+    h.arbscales = a.count(a.s32(), "arbitrary scale");
+  } else {
+    // One count of node states, the default pose included.
+    const int64_t states = int64_t(a.s32()) - int64_t(h.nodes);
+    h.rots = h.trans = a.count(states < 0 || states > INT32_MAX ? -1 : int32_t(states), "node state");
+  }
   if (version > 23) h.groundFrames = a.count(a.s32(), "ground frame");
   h.objectStates = a.count(a.s32(), "object state");
   h.decalStates = a.count(a.s32(), "decal state");
@@ -419,7 +437,6 @@ bool readDts(const uint8_t* data, size_t size, Shape& out, std::string& error) {
     o.node = a.s32();
     a.skip32(2);  // next sibling, first decal
   }
-  if (version < 23) a.skip32(skins * 6);
   a.checkGuard();
   a.skip32(h.decals * 5);
   a.checkGuard();
@@ -437,9 +454,11 @@ bool readDts(const uint8_t* data, size_t size, Shape& out, std::string& error) {
   a.skip32(h.trans * 3);
   a.skip16(h.rots * 4);
   a.checkGuard();
-  a.skip32(h.uscales + h.ascales * 3 + h.arbscales * 3);
-  a.skip16(h.arbscales * 4);
-  a.checkGuard();
+  if (version > 21) {
+    a.skip32(h.uscales + h.ascales * 3 + h.arbscales * 3);
+    a.skip16(h.arbscales * 4);
+    a.checkGuard();
+  }
   if (version > 23) {
     a.skip32(h.groundFrames * 3);
     a.skip16(h.groundFrames * 4);
@@ -476,11 +495,33 @@ bool readDts(const uint8_t* data, size_t size, Shape& out, std::string& error) {
       return false;
     }
     if (type != kStandard && type != kSkin) return error = "dts: unknown mesh type " + std::to_string(type), false;
-    if (!readMesh(a, type, meshes, meshes[i])) break;
+    if (!readMesh(a, version, type, meshes, meshes[i])) break;
   }
   if (a.bad) return error = a.why, false;
   a.checkGuard();
   if (a.bad) return error = a.why, false;
+
+  // Before version 23 the skins follow the names as their own list, each
+  // detail level naming its run of them.
+  std::vector<RawMesh> oldSkins;
+  std::vector<int32_t> detFirstSkin, detNumSkins;
+  if (version < 23) {
+    for (size_t i = 0; i < h.names && !a.bad; ++i)
+      while (a.u8() != 0 && !a.bad) {
+      }
+    a.checkGuard();
+    if (!a.need32(h.details * 2)) return error = a.why, false;
+    detFirstSkin.resize(h.details);
+    detNumSkins.resize(h.details);
+    for (auto& f : detFirstSkin) f = a.s32();
+    for (auto& n : detNumSkins) n = a.s32();
+    a.checkGuard();
+    oldSkins.resize(skins);
+    for (size_t i = 0; i < skins && !a.bad; ++i)
+      if (!readMesh(a, version, kSkin, oldSkins, oldSkins[i])) break;
+    a.checkGuard();
+    if (a.bad) return error = a.why, false;
+  }
 
   // The node chain's default pose, shape space.
   std::vector<M4> world(h.nodes);
@@ -529,6 +570,17 @@ bool readDts(const uint8_t* data, size_t size, Shape& out, std::string& error) {
       if (m.triangles.empty()) continue;
       computeNormals(m);
       shape.meshes.push_back(std::move(m));
+    }
+    // The old separate skins of this detail level, in shape space.
+    if (size_t(detailNum) < detFirstSkin.size()) {
+      const int64_t first = detFirstSkin[size_t(detailNum)], n = detNumSkins[size_t(detailNum)];
+      for (int64_t i = std::max<int64_t>(first, 0); i < first + n && i < int64_t(oldSkins.size()); ++i) {
+        Mesh m;
+        buildMesh(oldSkins[size_t(i)], M4::identity(), shape.materials.size(), m);
+        if (m.triangles.empty()) continue;
+        computeNormals(m);
+        shape.meshes.push_back(std::move(m));
+      }
     }
   }
   shape.computeBounds();

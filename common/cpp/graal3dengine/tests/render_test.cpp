@@ -582,24 +582,40 @@ struct DtsSpec {
   std::vector<std::pair<int, float>> details;  // object detail number, size
   std::vector<DtsMesh> meshes;
   std::vector<std::pair<std::string, uint32_t>> materials;  // name, flags
+  int sequences = 1;  // empty sequences, in the version's own layout
 };
 
-std::vector<uint8_t> dtsFile(const DtsSpec& d) {
+// Below version 23 a skin mesh is written to the separate skin list (all
+// in the first detail level) and a null mesh takes its place.
+std::vector<uint8_t> dtsFile(const DtsSpec& spec) {
+  DtsSpec d = spec;
+  std::vector<DtsMesh> oldSkins;
+  if (d.version < 23)
+    for (auto& m : d.meshes)
+      if (m.type == 1) {
+        oldSkins.push_back(m);
+        m = DtsMesh();
+        m.type = 4;
+      }
+  const bool encodedNormals = d.version > 21;
   DtsStreams a;
   a.i32(int32_t(d.nodes.size()));
   a.i32(int32_t(d.objects.size()));
   a.i32(0);  // decals
   a.i32(1);  // sub-shapes
   a.i32(0);  // IFL materials
-  for (int i = 0; i < 5; ++i) a.i32(0);  // node rotations ... arbitrary scales
-  if (d.version > 23) a.i32(0);          // ground frames
+  if (d.version > 21)
+    for (int i = 0; i < 5; ++i) a.i32(0);  // node rotations ... arbitrary scales
+  else
+    a.i32(int32_t(d.nodes.size()));  // node states, the default pose included
+  if (d.version > 23) a.i32(0);      // ground frames
   a.i32(0);  // object states
   a.i32(0);  // decal states
   a.i32(0);  // triggers
   a.i32(int32_t(d.details.size()));
   a.i32(int32_t(d.meshes.size()));
-  if (d.version < 23) a.i32(0);  // skins
-  a.i32(0);  // names
+  if (d.version < 23) a.i32(int32_t(oldSkins.size()));  // skins
+  a.i32(2);  // names
   a.f32(0);
   a.i32(0);
   a.g();
@@ -640,7 +656,7 @@ std::vector<uint8_t> dtsFile(const DtsSpec& d) {
     a.f32(n.t.z);
   }
   a.g();
-  a.g();  // scales
+  if (d.version > 21) a.g();  // scales
   if (d.version > 23) a.g();  // ground frames
   a.g();  // object states
   a.g();  // decal states
@@ -655,9 +671,7 @@ std::vector<uint8_t> dtsFile(const DtsSpec& d) {
     a.i32(0);
   }
   a.g();
-  for (const auto& m : d.meshes) {
-    a.i32(m.type);
-    if (m.type == 4) continue;
+  auto writeMesh = [&](const DtsMesh& m) {
     a.g();
     a.i32(1);
     a.i32(1);
@@ -681,7 +695,8 @@ std::vector<uint8_t> dtsFile(const DtsSpec& d) {
       }
     if (own) {
       for (size_t i = 0; i < nv * 3; ++i) a.f32(0);
-      for (size_t i = 0; i < nv; ++i) a.u8(0);
+      if (encodedNormals)
+        for (size_t i = 0; i < nv; ++i) a.u8(0);
     }
     a.i32(int32_t(m.prims.size()));
     for (const auto& p : m.prims) {
@@ -704,7 +719,8 @@ std::vector<uint8_t> dtsFile(const DtsSpec& d) {
           a.f32(v.z);
         }
         for (size_t i = 0; i < m.verts.size() * 3; ++i) a.f32(0);
-        for (size_t i = 0; i < m.verts.size(); ++i) a.u8(0);
+        if (encodedNormals)
+          for (size_t i = 0; i < m.verts.size(); ++i) a.u8(0);
       }
       a.i32(1);  // initial transforms
       if (own)
@@ -720,9 +736,24 @@ std::vector<uint8_t> dtsFile(const DtsSpec& d) {
       if (own) a.i32(0);
       a.g();
     }
+  };
+  for (const auto& m : d.meshes) {
+    a.i32(m.type);
+    if (m.type != 4) writeMesh(m);
   }
   a.g();
+  for (const char* name : {"a", "bc"}) {
+    for (const char* c = name; *c; ++c) a.u8(uint8_t(*c));
+    a.u8(0);
+  }
   a.g();  // names
+  if (d.version < 23) {
+    for (size_t i = 0; i < d.details.size(); ++i) a.i32(i == 0 ? 0 : int32_t(oldSkins.size()));
+    for (size_t i = 0; i < d.details.size(); ++i) a.i32(i == 0 ? int32_t(oldSkins.size()) : 0);
+    a.g();
+    for (const auto& m : oldSkins) writeMesh(m);
+    a.g();
+  }
   // Pad the 16- and 8-bit streams to whole words and join them.
   while (a.s16.size() % 4) a.s16.push_back(0);
   while (a.s8.size() % 4) a.s8.push_back(0);
@@ -737,7 +768,18 @@ std::vector<uint8_t> dtsFile(const DtsSpec& d) {
   f.insert(f.end(), a.s32.begin(), a.s32.end());
   f.insert(f.end(), a.s16.begin(), a.s16.end());
   f.insert(f.end(), a.s8.begin(), a.s8.end());
-  u32(0);  // sequences
+  u32(uint32_t(d.sequences));
+  for (int q = 0; q < d.sequences; ++q) {
+    const int words = d.version > 21 ? 15 : 12, sets = d.version > 21 ? 8 : 6;
+    for (int i = 0; i < 3; ++i) u32(0);  // name, (flags,) key frames ...
+    if (d.version < 22) f.insert(f.end(), {1, 0, 1});  // blend, cyclic, make path
+    for (int i = 3; i < words; ++i) u32(0);
+    for (int i = 0; i < sets; ++i) {
+      u32(0);
+      u32(1);  // one word
+      u32(0xFFFFFFFFu);
+    }
+  }
   f.push_back(1);
   u32(uint32_t(d.materials.size()));
   for (const auto& [name, flags] : d.materials) {
@@ -817,8 +859,8 @@ void testReadDts() {
     CHECK(c.triangles.size() == 1 && nearV(c.vertices[1].position, {6, 5, 5}));
   }
 
-  // Versions outside 22 to 24 are refused by name.
-  for (int v : {18, 21, 25, 26}) {
+  // Versions outside 19 to 24 are refused by name.
+  for (int v : {17, 18, 25, 26}) {
     DtsSpec d = sampleDts();
     d.version = v;
     std::vector<uint8_t> f = dtsFile(d);
@@ -826,12 +868,39 @@ void testReadDts() {
     CHECK(!readDts(f, t, error));
     CHECK(error.find("version " + std::to_string(v)) != std::string::npos);
   }
-  // Versions 22 and 23 (skins count, no ground frames) read.
-  for (int v : {22, 23}) {
+  // Versions 19 to 23 read: no ground frames below 24; below 23 the skins
+  // in a list of their own; below 22 one node-state count, no scales, no
+  // encoded normals, and the older sequence layout.
+  for (int v : {19, 20, 21, 22, 23}) {
     DtsSpec d = sampleDts();
     d.version = v;
+    d.sequences = 2;
     Shape t;
-    CHECK(readDts(dtsFile(d), t, error) && t.meshes.size() == 3);
+    const bool read = readDts(dtsFile(d), t, error);
+    if (!read) std::fprintf(stderr, "readDts version %d: %s\n", v, error.c_str());
+    CHECK(read && t.meshes.size() == 3 && t.materials.size() == 2);
+    if (t.meshes.size() == 3) {
+      CHECK(nearV(t.meshes[0].vertices[1].position, {1, 3, 3}));
+      CHECK(t.meshes[2].triangles.size() == 1 && nearV(t.meshes[2].vertices[1].position, {6, 5, 5}));
+    }
+    CHECK(t.materials.size() == 2 && !t.materials[0].alphaTest && t.materials[1].alphaTest);
+    if (v == 21) {
+      std::vector<uint8_t> f = dtsFile(d);
+      uint32_t seed = 11;
+      for (int i = 0; i < 20000; ++i) {
+        std::vector<uint8_t> m = f;
+        for (int k = 0; k < 4; ++k) {
+          seed = seed * 1103515245u + 12345u;
+          m[(seed >> 8) % m.size()] = uint8_t(seed >> 3);
+        }
+        Shape u;
+        readDts(m, u, error);
+      }
+      for (size_t n = 0; n < f.size(); ++n) {
+        Shape u;
+        readDts(f.data(), n, u, error);
+      }
+    }
   }
   // A broken guard is caught.
   std::vector<uint8_t> broken = file;
