@@ -37,6 +37,13 @@ struct Terrain {
   std::vector<uint16_t> heights = std::vector<uint16_t>(kTerrainSize * kTerrainSize, 0);
   std::vector<uint8_t> material = std::vector<uint8_t>(kTerrainSize * kTerrainSize, 0);
   std::vector<uint8_t> hole = std::vector<uint8_t>(kTerrainSize * kTerrainSize, 0);
+  // A blended square: its second material and the primary's share a
+  // (primary alpha a * 16, secondary 255 - a * 16), kept with the larger
+  // share as primary as the client keeps it. blendShare 0: no blend.
+  std::vector<uint8_t> secondary = std::vector<uint8_t>(kTerrainSize * kTerrainSize, 0);
+  std::vector<uint8_t> blendShare = std::vector<uint8_t>(kTerrainSize * kTerrainSize, 0);
+  // The client's stamp of each chunk (index y * 16 + x), 0 for none.
+  std::vector<uint32_t> stamps = std::vector<uint32_t>(kTerrainChunks * kTerrainChunks, 0);
   std::vector<std::string> materials;  // texture names by material id (heights.info)
   int chunksLoaded = 0;
 
@@ -46,7 +53,17 @@ struct Terrain {
 // Applies one inflated chunk at chunk (cx, cy). Returns false (and
 // changes nothing) when cx or cy is out of range; data that runs short
 // reads as zeros (the rebuild's bit reader).
+// Also records the chunk's stamp, as the client computes it.
 bool applyTerrainChunk(Terrain& t, int cx, int cy, const uint8_t* data, size_t size);
+
+// The chunk as the 5.12 re-encodes it before saving and stamping it
+// (terrain-512.md section 3): mode 2, only the material ids used, ascending,
+// deltas from its own two-pass writer, each clamped.
+std::vector<uint8_t> encodeTerrainChunk(const Terrain& t, int cx, int cy);
+
+// The 5.12's stamp of re-encoded chunk bytes: CRC-32 (start 0xFFFFFFFF)
+// with no final inversion.
+uint32_t terrainStamp(const std::vector<uint8_t>& plain);
 
 // Inflates a chunk's zlib stream and applies it. A corrupt or truncated
 // stream applies as all zeros (height 0, material 0), as the 5.12 does.

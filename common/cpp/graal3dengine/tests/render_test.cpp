@@ -1195,6 +1195,7 @@ struct ChunkSpec {
   std::vector<int> ids;          // material ids
   int primary[16][16] = {};      // index into ids
   bool blend[16][16] = {};
+  int second[16][16] = {};  // index into ids, for a blend
   bool hole[16][16] = {};
 };
 
@@ -1224,7 +1225,7 @@ std::string chunkBytes(const ChunkSpec& c) {
         w.flag(c.blend[y][x]);
         w.bits(uint32_t(c.primary[y][x]), bitsW);
         if (c.blend[y][x]) {
-          w.bits(0, bitsW);
+          w.bits(uint32_t(c.second[y][x]), bitsW);
           w.bits(7, 4);
         }
       }
@@ -1253,6 +1254,7 @@ void testTerrain() {
     }
   c.ids = {3, 1};
   c.blend[2][2] = true;
+  c.second[2][2] = 1;  // primary id 3 at share 7, id 1 the rest
   c.hole[15][15] = true;
   const std::string raw = chunkBytes(c);
   Terrain t;
@@ -1263,8 +1265,29 @@ void testTerrain() {
   CHECK(t.heights[at(32 + 5, 16 + 6)] == (40 + 10 + 6 + 20) * 4);
   CHECK(t.heights[at(47, 31)] == (40 + 30 + 15) * 4);
   CHECK(std::fabs(t.heightMetres(32, 16) - 5.0f) < 1e-6f);  // 40 units of 1/8 m
-  CHECK(t.material[at(33, 16)] == 3 && t.material[at(40, 16)] == 1 && t.material[at(34, 18)] == 3);
+  CHECK(t.material[at(33, 16)] == 3 && t.material[at(40, 16)] == 1 && t.material[at(34, 17)] == 3);
   CHECK(t.hole[at(47, 31)] == 1 && t.hole[at(46, 31)] == 0);
+  // The blend is kept with the larger alpha first: primary 3 at 7 * 16 is
+  // less than 1's 255 - 112, so it is saved as primary 1 at share 8.
+  CHECK(t.material[at(34, 18)] == 1 && t.secondary[at(34, 18)] == 3 && t.blendShare[at(34, 18)] == 8);
+  // The client's re-encoding: mode 2, ids ascending (1, 3), and it reads
+  // back to the same terrain, re-encodes to the same bytes and stamps them.
+  const std::vector<uint8_t> canon = encodeTerrainChunk(t, 2, 1);
+  CHECK(!canon.empty() && canon[0] == 2);
+  {
+    BitReader cr(std::string(canon.begin(), canon.end()));
+    cr.bits(8 + 16 + 2048);
+    CHECK(cr.bits(6) == 2 && cr.bits(5) == 1 && cr.bits(5) == 3);
+  }
+  Terrain again;
+  applyTerrainChunk(again, 2, 1, canon.data(), canon.size());
+  CHECK(encodeTerrainChunk(again, 2, 1) == canon);
+  CHECK(again.heights == t.heights && again.material == t.material && again.hole == t.hole);
+  CHECK(t.stamps[1 * 16 + 2] == terrainStamp(canon) && again.stamps[1 * 16 + 2] == t.stamps[1 * 16 + 2]);
+  CHECK(t.stamps[0] == 0);
+  // The stamp is CRC-32 without the final inversion.
+  const std::string check = "123456789";
+  CHECK(terrainStamp(std::vector<uint8_t>(check.begin(), check.end())) == (0xCBF43926u ^ 0xFFFFFFFFu));
   CHECK(t.heights[at(31, 16)] == 0 && t.heights[at(32, 15)] == 0);  // neighbours untouched
   CHECK(!applyTerrainChunk(t, 16, 0, reinterpret_cast<const uint8_t*>(raw.data()), raw.size()));
   // Mode 1 clears the chunk's holes; mode 0 leaves them.

@@ -56,17 +56,27 @@ bool applyTerrainChunk(Terrain& t, int cx, int cy, const uint8_t* data, size_t s
   int ids[64] = {};
   for (int i = 0; i < n; ++i) ids[i] = int(r.bits(5));
   uint8_t mat[kTerrainChunkSize][kTerrainChunkSize] = {};
+  uint8_t sec[kTerrainChunkSize][kTerrainChunkSize] = {};
+  uint8_t share[kTerrainChunkSize][kTerrainChunkSize] = {};
   if (n > 1) {
     const int w = choiceBits(n);
     for (int y = 0; y < kTerrainChunkSize; ++y)
       for (int x = 0; x < kTerrainChunkSize; ++x) {
         const bool blend = r.flag();
         const int primary = int(r.bits(w));
-        if (blend) {
-          r.bits(w);  // secondary
-          r.bits(4);  // its share
-        }
         mat[y][x] = uint8_t(primary < n ? ids[primary] : 0);
+        if (blend) {
+          const int second = int(r.bits(w));
+          int a = int(r.bits(4));
+          uint8_t other = uint8_t(second < n ? ids[second] : 0);
+          // The larger alpha is primary: a * 16 against 255 - a * 16.
+          if (a * 16 < 255 - a * 16) {
+            std::swap(mat[y][x], other);
+            a = (255 - a * 16) / 16;
+          }
+          sec[y][x] = other;
+          share[y][x] = uint8_t(a);
+        }
       }
   } else if (n == 1) {
     for (auto& row : mat)
@@ -81,10 +91,68 @@ bool applyTerrainChunk(Terrain& t, int cx, int cy, const uint8_t* data, size_t s
       const size_t at = size_t(cy * kTerrainChunkSize + y) * kTerrainSize + size_t(cx * kTerrainChunkSize + x);
       t.heights[at] = uint16_t(uint16_t(h[y][x]) << 2);
       t.material[at] = mat[y][x];
+      t.secondary[at] = sec[y][x];
+      t.blendShare[at] = share[y][x];
       if (mode == 2) t.hole[at] = uint8_t(holes[y][x]);
       else if (mode == 1) t.hole[at] = 0;
     }
+  t.stamps[size_t(cy * kTerrainChunks + cx)] = terrainStamp(encodeTerrainChunk(t, cx, cy));
   return true;
+}
+
+std::vector<uint8_t> encodeTerrainChunk(const Terrain& t, int cx, int cy) {
+  if (cx < 0 || cy < 0 || cx >= kTerrainChunks || cy >= kTerrainChunks) return {};
+  const int n = kTerrainChunkSize;
+  auto at = [&](int x, int y) { return size_t(cy * n + y) * kTerrainSize + size_t(cx * n + x); };
+  auto h = [&](int x, int y) { return int(t.heights[at(x, y)] >> 2); };
+  auto clamp = [](int v) { return v < -127 ? -127 : (v > 127 ? 127 : v); };
+  int d[16][16] = {};
+  for (int x = 1; x < n; ++x) d[0][x] = clamp(h(x, 0) - h(x - 1, 0));
+  for (int y = 1; y < n; ++y) {
+    d[y][0] = clamp(h(0, y) - h(0, y - 1));
+    for (int x = 1; x < n; ++x) d[y][x] = clamp(h(x, y) - (h(x, y - 1) + h(x - 1, y)) / 2);
+  }
+  for (int y = n - 1; y >= 1; --y)
+    for (int x = n - 1; x >= 1; --x) d[y][x] = clamp(d[y][x] - (d[y - 1][x] + d[y][x - 1]) / 2);
+  BitWriter w;
+  w.bits(2, 8);
+  w.bits(uint32_t(h(0, 0)), 16);
+  for (auto& row : d)
+    for (int v : row) w.bits(uint32_t(v) & 0xFF, 8);
+  bool used[32] = {};
+  for (int y = 0; y < n; ++y)
+    for (int x = 0; x < n; ++x) {
+      used[t.material[at(x, y)] & 31] = true;
+      if (t.blendShare[at(x, y)]) used[t.secondary[at(x, y)] & 31] = true;
+    }
+  int index[32] = {}, count = 0;
+  for (int i = 0; i < 32; ++i)
+    if (used[i]) index[i] = count++;
+  w.bits(uint32_t(count), 6);
+  for (int i = 0; i < 32; ++i)
+    if (used[i]) w.bits(uint32_t(i), 5);
+  if (count > 1) {
+    const int bits = choiceBits(count);
+    for (int y = 0; y < n; ++y)
+      for (int x = 0; x < n; ++x) {
+        const size_t a = at(x, y);
+        const bool blend = t.blendShare[a] != 0;
+        w.flag(blend);
+        w.bits(uint32_t(index[t.material[a] & 31]), bits);
+        if (blend) {
+          w.bits(uint32_t(index[t.secondary[a] & 31]), bits);
+          w.bits(t.blendShare[a] & 15u, 4);
+        }
+      }
+  }
+  for (int y = 0; y < n; ++y)
+    for (int x = 0; x < n; ++x) w.flag(t.hole[at(x, y)] != 0);
+  const std::string b = w.bytes();
+  return std::vector<uint8_t>(b.begin(), b.end());
+}
+
+uint32_t terrainStamp(const std::vector<uint8_t>& plain) {
+  return uint32_t(crc32(0, plain.data(), uInt(plain.size()))) ^ 0xFFFFFFFFu;
 }
 
 bool applyCompressedTerrainChunk(Terrain& t, int cx, int cy, const uint8_t* data, size_t size) {
