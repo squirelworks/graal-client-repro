@@ -1526,7 +1526,7 @@ void testFtTrees() {
   CHECK(!parseFt("width 1 1\n", none, error));
   // Through Resources by extension.
   Resources res;
-  const std::string dir = std::filesystem::temp_directory_path() / "g3d-ft-test";
+  const std::string dir = (std::filesystem::temp_directory_path() / "g3d-ft-test").string();
   std::filesystem::create_directories(dir);
   { std::ofstream(dir + "/labtree.ft") << lab; }
   res.addRoot(dir);
