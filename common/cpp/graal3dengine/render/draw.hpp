@@ -40,6 +40,11 @@
 namespace graal3d::render {
 
 constexpr float kSkyFogBand = 0.25f;
+// A .ft tree GameObject never draws on the real 5.12 (lab: flags 0, 0x08,
+// 0x18; defaultLevels 1, 2, 6; the file and its texture download, nothing
+// is logged). The tree is still read and grown (read_ft.hpp); a host may
+// set this to draw it.
+inline bool gDrawFtTrees = false;
 // The far plane, fixed (the visible distance does nothing in the 5.12).
 constexpr float kFarPlane = 10000.0f;
 constexpr float kNoSunLight = 0.25f;  // a .3ds without a Sun

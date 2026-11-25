@@ -117,6 +117,7 @@ DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
       ++stats.objectsMissing;
       continue;
     }
+    if (shape->kind == Shape::kFt && !gDrawFtTrees) continue;
     ++stats.objectsDrawn;
     for (const Mesh& mesh : shape->meshes) {
       // World-space vertices, lit and fogged once per vertex.

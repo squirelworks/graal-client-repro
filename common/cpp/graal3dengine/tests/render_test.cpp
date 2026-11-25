@@ -1615,6 +1615,16 @@ void testFtTrees() {
   const Shape* loaded = res.shape("labtree.ft");
   CHECK(loaded && !loaded->meshes.empty() && !loaded->meshes[0].triangles.empty());
   std::filesystem::remove_all(dir);
+  // The real 5.12 draws no .ft GameObject; the tree draws only when asked.
+  {
+    TestFrame f;
+    Scene sc = cameraScene({0, 0, 0});
+    sc.objects.push_back(objectAt("labtree.ft", {0, 6, -1}));
+    CHECK(drawScene(f.frame(), sc, res).objectsDrawn == 0);
+    gDrawFtTrees = true;
+    CHECK(drawScene(f.frame(), sc, res).objectsDrawn == 1);
+    gDrawFtTrees = false;
+  }
 }
 
 void testLabels() {

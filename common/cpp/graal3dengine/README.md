@@ -103,8 +103,8 @@ every Graal build uses the same table. The rest is this rebuild's own.
 - [ ] A lab run with the rebuilt 5.12 against the Seihai gserver's 3D mode
 - [ ] Drawing: the Torque world in `GraalControl3D`, and the draw slots
   the original takes over. `.3ds` shapes, the camera, sun and sky box are
-  drawn by `render/`; the hosts do not present the frame yet, and `.ft`
-  is not drawn (render/README.md)
+  drawn by `render/`; the 5.12 host presents the frame (GEngineHost), and
+  `.ft` is not drawn, as on the real 5.12 (render/README.md)
 - [ ] Step 6 waits for the engine's TCP file downloads; the shapes and sky
   textures fetched over TCP
 - [ ] The TCP session in 3D mode ignoring level boards, warps and flags
