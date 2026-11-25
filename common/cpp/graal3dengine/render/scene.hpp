@@ -83,14 +83,16 @@ struct WaterSurface {
 
 // How far the water surface is off its rest height at world (x, y) at
 // `seconds` (lab fit, real 5.12: a 5 x 5 grid at magnitude 1, r.m.s.
-// error 0.005; Graal_analysis torque/terrain-512.md section 5): two equal
+// error 0.005, then a line scan; Graal_analysis torque/terrain-512.md section 5): two equal
 // waves, one along world x and one along world y, crests travelling toward
 // -x and -y,
 //   0.25 m (sin(w t + k x + phase) + sin(w t + k y + phase)),
-// w about 0.984 rad/s (6.4 s), wavelength 2 pi / k about 126 units (a finer
-// scan is queued). The phase is the rebuild's own (0).
-constexpr float kWaveOmega = 0.984f;       // radians a second
-constexpr float kWaveLength = 126.0f;      // world units
+// w 0.983 rad/s (6.39 s) and k 0.050 a unit (wavelength 125.7), pinned by
+// a 33-point line scan (r.m.s. 0.0004). The phase is only the clock's
+// origin (0 here).
+constexpr float kWaveOmega = 0.983f;                                   // radians a second
+constexpr float kWaveNumber = 0.050f;                                  // radians a world unit
+constexpr float kWaveLength = 2 * 3.14159265358979f / kWaveNumber;     // world units
 float waveHeight(float magnitude, double seconds, float x = 0, float y = 0);
 
 struct Scene {
