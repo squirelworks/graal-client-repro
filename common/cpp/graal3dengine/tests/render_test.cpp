@@ -1997,9 +1997,43 @@ void testReplicators() {
     V3 at;
     CHECK(scenePositionOf(where, 9, at) && at.x == 4 && at.y == 5 && at.z == 6);
     CHECK(!scenePositionOf(where, 8, at) && !scenePositionOf(where, -1, at));
-    d.className = "DynamicGrassReplicator";
-    s.shapeFiles = "rock.3ds";
-    CHECK(scatterReplicators(hidden, g, t, {3, 3, 0}, res) == 0);
+    // Grass (Graal_analysis PR #931): flat pieces over the same cells, a
+    // texture named in shapefiles, counts up to 100, one owned shape.
+    for (const char* cls : {"DynamicGrassReplicator", "DynamicGrass"}) {
+      d.className = cls;
+      s.shapeFiles = "grass.png";
+      s.boxMin[0] = -100;
+      s.radius = 1;
+      s.minObjects = s.maxObjects = 50;
+      Scene gs;
+      CHECK(scatterReplicators(gs, g, t, {3, 3, 0}, res) == 450);  // 9 cells, 50 each
+      CHECK(gs.objects.size() == 1 && gs.owned.size() == 1 && gs.objects[0].direct == gs.owned[0].get());
+      const Shape& gshape = *gs.owned[0];
+      CHECK(gshape.materials.size() == 1 && gshape.materials[0].texture == "grass.png");
+      CHECK(gshape.meshes.size() == 1 && gshape.meshes[0].triangles.size() == 900);
+      for (const Vertex& v : gshape.meshes[0].vertices) CHECK(std::fabs(v.position.z - 2.52f) < 1e-3f);  // flat on the ground
+      CHECK(gshape.boundsMax.x - gshape.boundsMin.x < 26);
+      s.minObjects = s.maxObjects = 250;  // clamped to 100
+      Scene many;
+      CHECK(scatterReplicators(many, g, t, {3, 3, 0}, res) == 900);
+      Scene again2;
+      scatterReplicators(again2, g, t, {3, 3, 0}, res);
+      CHECK(again2.owned[0]->meshes[0].vertices[123].position.x == many.owned[0]->meshes[0].vertices[123].position.x);
+      s.minObjects = s.maxObjects = 0;
+      Scene none2;
+      CHECK(scatterReplicators(none2, g, t, {3, 3, 0}, res) == 0 && none2.objects.empty());
+    }
+    CHECK(replicatorCellCount(77, 3, 3, 150, 150, kMaxGrassCount) == 100);
+    // Two shapes in the list: each copy picks one.
+    d.className = "DynamicShapeReplicator";
+    res.putShape("bush.3ds", cubeShape(0, 1, 0));
+    s.shapeFiles = "rock.3ds,bush.3ds";
+    s.minObjects = s.maxObjects = 10;
+    Scene two;
+    CHECK(scatterReplicators(two, g, t, {3, 3, 0}, res) == 90);
+    int rocks = 0;
+    for (const SceneObject& o : two.objects) rocks += o.shape == "rock.3ds";
+    CHECK(rocks > 0 && rocks < 90);
   }
 }
 

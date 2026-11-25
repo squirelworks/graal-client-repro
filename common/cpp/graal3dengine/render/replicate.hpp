@@ -4,8 +4,14 @@
 // its corner lies in the world-space x/y box. Each cell's count comes from
 // stock Torque's R250 stream seeded with seed + 256 (cy & 255) + (cx & 255).
 //
+// DynamicGrass and DynamicGrassReplicator grow over the same cells: small
+// flat pieces lying on the ground, textured from the names in shapefiles,
+// more per cell at higher counts, the count clamped to 0-100 (Graal_analysis
+// PR #931; under GDI the 5.12 drew them untextured).
+//
 // The rebuild's own until a lab check: how each copy is placed in its cell
 // (x, y, shape, scale and turn drawn in that order from the same stream),
+// a grass piece's size (half a metre times its x/y scale), turn (z only) and lift,
 // the slope test against the terrain normal, no terrain alignment, cover
 // only on terrain, and at most kMaxReplicas copies in all.
 #pragma once
@@ -20,6 +26,14 @@ namespace graal3d::render {
 
 constexpr float kReplicatorCell = 8.0f;
 constexpr int kMaxReplicas = 20000;
+// Per-cell count limits: 0-20 for shapes, 0-100 for grass (Graal_analysis
+// PR #931).
+constexpr int kMaxShapeCount = 20;
+constexpr int kMaxGrassCount = 100;
+// A grass piece's side before its scale, and its lift off the ground
+// against depth fighting (the rebuild's own).
+constexpr float kGrassPiece = 0.5f;
+constexpr float kGrassLift = 0.02f;
 
 // Stock Torque's R250 (MRandomR250): a 250-word shift register seeded
 // from a Park-Miller stream.
@@ -35,10 +49,13 @@ class R250 {
 };
 
 // The count a cell grows (min and max already clamped as the client does).
-int replicatorCellCount(int32_t seed, int cx, int cy, int minObjects, int maxObjects);
+int replicatorCellCount(int32_t seed, int cx, int cy, int minObjects, int maxObjects,
+                        int limit = kMaxShapeCount);
 
-// Adds the cover of every DynamicShapeReplicator in `ghosts` to `scene`
-// around `control` (world), on `terrain`. Returns the copies added.
+// Adds the cover of every replicator in `ghosts` to `scene` around
+// `control` (world), on `terrain`: a DynamicShapeReplicator's shapes as
+// objects, a DynamicGrass or DynamicGrassReplicator's flat pieces as one
+// shape held in `scene.owned`. Returns the copies and pieces added.
 int scatterReplicators(Scene& scene, const GhostTable& ghosts, const Terrain& terrain, const V3& control,
                        Resources& res);
 

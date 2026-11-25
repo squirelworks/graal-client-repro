@@ -12,6 +12,7 @@
 #include "raster.hpp"
 #include "../src/world.hpp"
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -105,6 +106,9 @@ struct Scene {
   std::vector<SceneObject> objects;
   std::vector<WaterSurface> water;
   std::vector<SceneTag> tags;
+  // Shapes built for this frame (replicator grass); objects point at them
+  // through `direct`.
+  std::vector<std::shared_ptr<const Shape>> owned;
 };
 
 // `cameraGhost` is the ghost the server named as the camera (-1 for none);
