@@ -148,6 +148,11 @@ DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
         RasterState st;
         st.fogColor = fogColor;
         st.texture = m.texture.empty() ? nullptr : res.texture(m.texture);
+        // A terrain texture must be 256 by 256, or the 5.12 logs "Terrain
+        // texture of bad format" and uses its default (terrain-512.md
+        // section 4; drawn white here).
+        if (st.texture && shape->kind == Shape::kTerrain && (st.texture->width != 256 || st.texture->height != 256))
+          st.texture = nullptr;
         st.alphaTest = m.alphaTest;
         // A material with no texture draws its colour. One whose texture is
         // missing or not drawable draws white, as the 5.12 does (T3D-032).

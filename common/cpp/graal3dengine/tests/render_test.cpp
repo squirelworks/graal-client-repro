@@ -1496,10 +1496,14 @@ void testTerrain() {
 
   // Drawn from above: the terrain fills the view in its texture's colour.
   Resources res;
+  // A terrain texture that is not 256 by 256 is not used: white.
+  Texture small;
+  small.width = small.height = 1;
+  small.pixels = {packRgba(30, 200, 40)};
+  for (const char* n : {"a", "b", "c", "d"}) res.putTexture(n, small);
   Texture green;
-  green.width = green.height = 1;
-  green.pixels = {packRgba(30, 200, 40)};
-  for (const char* n : {"a", "b", "c", "d"}) res.putTexture(n, green);
+  green.width = green.height = 256;
+  green.pixels.assign(256 * 256, packRgba(30, 200, 40));
   Scene scene;
   scene.hasCamera = true;
   scene.view.fovDegrees = 60;
@@ -1510,6 +1514,9 @@ void testTerrain() {
   obj.transform = M4::identity();
   scene.objects.push_back(obj);
   std::vector<uint32_t> px(64 * 48);
+  drawScene({px.data(), 64, 48, 64}, scene, res);
+  CHECK(isColor(px[24 * 64 + 32], 255, 255, 255));
+  for (const char* n : {"a", "b", "c", "d"}) res.putTexture(n, green);
   drawScene({px.data(), 64, 48, 64}, scene, res);
   CHECK(isColor(px[24 * 64 + 32], 30, 200, 40));
   // Water above it at half opacity, in its texture's colour, blended.
