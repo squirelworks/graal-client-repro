@@ -6,14 +6,20 @@
 //
 // DynamicGrass and DynamicGrassReplicator grow over the same cells: small
 // flat pieces lying on the ground, textured from the names in shapefiles,
-// more per cell at higher counts, the count clamped to 0-100 (Graal_analysis
-// PR #931; under GDI the 5.12 drew them untextured).
+// the count clamped to 0-100 (Graal_analysis PR #931; under GDI the 5.12
+// drew them untextured).
 //
-// The rebuild's own until a lab check: how each copy is placed in its cell
-// (x, y, shape, scale and turn drawn in that order from the same stream),
-// a grass piece's size (half a metre times its x/y scale), turn (z only) and lift,
-// the slope test against the terrain normal, no terrain alignment, cover
-// only on terrain, and at most kMaxReplicas copies in all.
+// Inside a cell (replicators-512.md, PR #931): a shape copy draws x then y
+// from the cell's stream, within half a cell of the corner; grass sits on
+// a regular sub-grid of cols = min(16, floor(sqrt(n))) by rows = min(16,
+// floor(n / cols)). Each lands where a ray down from z 2000 to -2000 meets
+// the ground, inside the box's z range and no steeper than the slope limit.
+//
+// The rebuild's own until a lab check: the shape, scale and turn draws
+// after x and y (and their order), a grass piece's size (half a metre
+// times its x/y scale), turn (z only) and lift, no terrain alignment,
+// cover only on terrain (interiors, statics and water are not tried), and
+// at most kMaxReplicas copies in all.
 #pragma once
 
 #include <cstdint>

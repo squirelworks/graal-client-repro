@@ -1961,6 +1961,8 @@ void testReplicators() {
     s.minObjects = s.maxObjects = 2;
     s.boxMin[0] = s.boxMin[1] = -100;
     s.boxMax[0] = s.boxMax[1] = 100;
+    s.boxMin[2] = -10;
+    s.boxMax[2] = 10;
     s.scaleMin = s.scaleMax = {1, 1, 1};
     s.offsetZ = 0.5f;
     s.allowTerrain = true;
@@ -1970,7 +1972,7 @@ void testReplicators() {
     for (const SceneObject& o : sc.objects) {
       CHECK(o.ghost == -1 && o.shape == "rock.3ds");
       CHECK(std::fabs(o.transform.m[2][3] - 2.5f) < 1e-4f);
-      CHECK(o.transform.m[0][3] >= -8 && o.transform.m[0][3] < 16);
+      CHECK(o.transform.m[0][3] >= -12 && o.transform.m[0][3] < 12);  // within 4 of a corner -8, 0 or 8
     }
     Scene again;
     scatterReplicators(again, g, t, {3, 3, 0}, res);
@@ -1981,6 +1983,10 @@ void testReplicators() {
     s.radius = 0;  // clamped to 1
     Scene clamped;
     CHECK(scatterReplicators(clamped, g, t, {3, 3, 0}, res) == 12);
+    s.boxMax[2] = 1;  // the ground at z 2 is above the box
+    Scene high;
+    CHECK(scatterReplicators(high, g, t, {3, 3, 0}, res) == 0);
+    s.boxMax[2] = 10;
     s.hide = true;
     Scene hidden;
     CHECK(scatterReplicators(hidden, g, t, {3, 3, 0}, res) == 0);
@@ -2006,16 +2012,25 @@ void testReplicators() {
       s.radius = 1;
       s.minObjects = s.maxObjects = 50;
       Scene gs;
-      CHECK(scatterReplicators(gs, g, t, {3, 3, 0}, res) == 450);  // 9 cells, 50 each
+      CHECK(scatterReplicators(gs, g, t, {3, 3, 0}, res) == 441);  // 9 cells, 7 x 7 of 50 each
       CHECK(gs.objects.size() == 1 && gs.owned.size() == 1 && gs.objects[0].direct == gs.owned[0].get());
       const Shape& gshape = *gs.owned[0];
       CHECK(gshape.materials.size() == 1 && gshape.materials[0].texture == "grass.png");
-      CHECK(gshape.meshes.size() == 1 && gshape.meshes[0].triangles.size() == 900);
+      CHECK(gshape.meshes.size() == 1 && gshape.meshes[0].triangles.size() == 882);
       for (const Vertex& v : gshape.meshes[0].vertices) CHECK(std::fabs(v.position.z - 2.52f) < 1e-3f);  // flat on the ground
       CHECK(gshape.boundsMax.x - gshape.boundsMin.x < 26);
       s.minObjects = s.maxObjects = 250;  // clamped to 100
       Scene many;
-      CHECK(scatterReplicators(many, g, t, {3, 3, 0}, res) == 900);
+      CHECK(scatterReplicators(many, g, t, {3, 3, 0}, res) == 900);  // clamped to 100: 10 x 10
+      s.minObjects = s.maxObjects = 5;  // 2 x 2
+      Scene five;
+      CHECK(scatterReplicators(five, g, t, {3, 3, 0}, res) == 36);
+      // The sub-grid: piece k of a cell at (k % cols / cols - 0.5) * 8.
+      const auto& fv = five.owned[0]->meshes[0].vertices;
+      float centreX = 0, centreY = 0;
+      for (int c = 0; c < 4; ++c) { centreX += fv[size_t(c)].position.x / 4; centreY += fv[size_t(c)].position.y / 4; }
+      CHECK(std::fabs(centreX - -12) < 1e-3f && std::fabs(centreY - -12) < 1e-3f);  // cell (-1, -1), piece 0
+      s.minObjects = s.maxObjects = 250;
       Scene again2;
       scatterReplicators(again2, g, t, {3, 3, 0}, res);
       CHECK(again2.owned[0]->meshes[0].vertices[123].position.x == many.owned[0]->meshes[0].vertices[123].position.x);

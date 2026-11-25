@@ -94,9 +94,21 @@ void forEachCell(const ReplicatorState& s, int limit, const V3& control, Grow gr
     }
 }
 
+// The ground under (x, y) as the 5.12 finds it: a ray down from z 2000 to
+// -2000 that must hit inside the box's z range and no steeper than the
+// slope limit (Graal_analysis PR #931, replicators-512.md).
+bool groundAt(const ReplicatorState& s, const Terrain& terrain, float x, float y, float& z, V3& n);
+
 bool slopeAllowed(const ReplicatorState& s, const V3& n) {
   if (s.allowedSlope <= 0) return true;
   return std::acos(std::clamp(n.z, -1.0f, 1.0f)) <= float(s.allowedSlope) * 3.14159265f / 180.0f;
+}
+
+bool groundAt(const ReplicatorState& s, const Terrain& terrain, float x, float y, float& z, V3& n) {
+  if (!terrainHeightAt(terrain, x, y, z, &n)) return false;
+  if (z > 2000 || z < -2000) return false;
+  if (z < float(s.boxMin[2]) || z > float(s.boxMax[2])) return false;
+  return slopeAllowed(s, n);
 }
 
 }  // namespace
@@ -118,7 +130,8 @@ int scatterReplicators(Scene& scene, const GhostTable& ghosts, const Terrain& te
       forEachCell(s, kMaxShapeCount, control, [&](R250& r, float wx, float wy, int count) {
         for (int k = 0; k < count; ++k) {
           if (added >= kMaxReplicas) return false;
-          const float px = wx + r.unit() * kReplicatorCell, py = wy + r.unit() * kReplicatorCell;
+          // Within half a cell of the corner (replicators-512.md).
+          const float px = wx + (r.unit() - 0.5f) * kReplicatorCell, py = wy + (r.unit() - 0.5f) * kReplicatorCell;
           const std::string& shape = names[r.next() % names.size()];
           const V3 scale{lerp(s.scaleMin.x, s.scaleMax.x, r.unit()), lerp(s.scaleMin.y, s.scaleMax.y, r.unit()),
                          lerp(s.scaleMin.z, s.scaleMax.z, r.unit())};
@@ -126,7 +139,7 @@ int scatterReplicators(Scene& scene, const GhostTable& ghosts, const Terrain& te
                         lerp(s.rotateMin.z, s.rotateMax.z, r.unit())};
           float z;
           V3 n;
-          if (!terrainHeightAt(terrain, px, py, z, &n) || !slopeAllowed(s, n)) continue;
+          if (!groundAt(s, terrain, px, py, z, n)) continue;
           const float d2r = 3.14159265f / 180.0f;
           M4 m = M4::translation({px, py, z + s.offsetZ}) * graalRotation({0, 0, 1}, turn.z * d2r) *
                  graalRotation({0, 1, 0}, turn.y * d2r) * graalRotation({1, 0, 0}, turn.x * d2r);
@@ -159,9 +172,15 @@ int scatterReplicators(Scene& scene, const GhostTable& ghosts, const Terrain& te
     mesh.name = "grass";
     int pieces = 0;
     forEachCell(s, kMaxGrassCount, control, [&](R250& r, float wx, float wy, int count) {
-      for (int k = 0; k < count; ++k) {
+      // A regular sub-grid, not random places: cols x rows pieces, each
+      // dimension at most 16 (replicators-512.md), so 5 draws 4.
+      if (count <= 0) return true;
+      const int cols = std::clamp(int(std::sqrt(double(count))), 1, 16);
+      const int rows = std::min(16, count / cols);
+      for (int k = 0; k < cols * rows; ++k) {
         if (added >= kMaxReplicas) return false;
-        const float px = wx + r.unit() * kReplicatorCell, py = wy + r.unit() * kReplicatorCell;
+        const float px = wx + (float(k % cols) / float(cols) - 0.5f) * kReplicatorCell;
+        const float py = wy + (float(k / cols) / float(rows) - 0.5f) * kReplicatorCell;
         const int mat = int(r.next() % names.size());
         float sx = lerp(s.scaleMin.x, s.scaleMax.x, r.unit()), sy = lerp(s.scaleMin.y, s.scaleMax.y, r.unit());
         if (!(std::isfinite(sx) && sx > 0)) sx = 1;
@@ -169,7 +188,7 @@ int scatterReplicators(Scene& scene, const GhostTable& ghosts, const Terrain& te
         const float turn = lerp(s.rotateMin.z, s.rotateMax.z, r.unit()) * 3.14159265f / 180.0f;
         float z;
         V3 n;
-        if (!terrainHeightAt(terrain, px, py, z, &n) || !slopeAllowed(s, n)) continue;
+        if (!groundAt(s, terrain, px, py, z, n)) continue;
         const float hx = kGrassPiece * 0.5f * sx, hy = kGrassPiece * 0.5f * sy;
         const float c = std::cos(turn), sn = std::sin(turn);
         const uint32_t base = uint32_t(mesh.vertices.size());
