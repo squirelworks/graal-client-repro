@@ -14,8 +14,8 @@
 //   from the horizon (its height, kSkyFogBand of the box's half-height,
 //   is the rebuild's own). With the first option off, the solid colour
 //   fills the faces instead of their images. The box is not otherwise
-//   fogged. Open: the client's faces look about twice as magnified, and
-//   its visible distance did not change the frame.
+//   fogged. One face spans the default 90-degree view, as in the client
+//   (sky grid S1 under Mesa; its field of view measured 89.4 degrees).
 // - Lighting (lighting probe and follow-ups 10 and 11, real 5.12 under
 //   Mesa): the Sun's direction, colour and ambient shade nothing, on any
 //   kind of shape. A .3ds face is lit by a fixed light from about
