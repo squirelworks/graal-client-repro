@@ -82,8 +82,7 @@ side by side with a real 5.12:
   diffuse colour. A material whose texture is missing or undrawable draws
   white, as the 5.12 does (lab, 2026-11-25).
 - Replicator cover: which shape, its scale and turn (drawn after x and y
-  from the cell's stream), the slope
-  test, a grass piece's size, turn and lift, no terrain alignment, cover only on terrain (interiors, statics
+  from the cell's stream), a grass piece's size, turn and lift, no terrain alignment, cover only on terrain (interiors, statics
   and water are not tried), and at most 20000 copies in all.
 - Textures are filtered bilinearly, as a `GL_LINEAR` texture draws, with no
   mipmaps; sky-box faces are held at their edges, other textures wrap.
