@@ -126,6 +126,10 @@ class Link {
     BigText big;
     uint32_t total = 0;
     int compression = 0;
+    // GhostAlwaysObjectEvent
+    int ghostIndex = -1;
+    bool hasGhost = false;
+    Ghost ghost;
   };
 
   void log(const std::string& s);

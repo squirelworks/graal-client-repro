@@ -111,6 +111,13 @@ std::string Resources::lookupTexturePath(const std::string& name) const {
   std::string stem = key;
   const std::string ext = extensionOf(key);
   if (!ext.empty()) stem = key.substr(0, key.size() - ext.size());
+  // A 5.x client stores downloaded images under their name without an
+  // extension (levels3d/images/<name>), while shapes and the Sky still
+  // name them with one (the Sharp3D capture, 2026-11-24).
+  if (!ext.empty()) {
+    path = find(stem);
+    if (!path.empty()) return path;
+  }
   for (const char* e : kImageExtensions) {
     path = find(stem + e);
     if (!path.empty()) return path;

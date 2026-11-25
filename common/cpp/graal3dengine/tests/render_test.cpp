@@ -519,6 +519,8 @@ void testResources() {
   write(root / "images" / "stone.bmp", solidBmp(4, 4, 10, 120, 30));
   write(root / "images" / "sky" / "sky_fr.bmp", solidBmp(3, 3, 1, 2, 3));
   write(root / "images" / "junk.png", {1, 2, 3});
+  // As a 5.x client stores a download: no extension (Sharp3D capture).
+  write(root / "images" / "km001fc0", solidBmp(2, 2, 40, 50, 60));
 
   Resources res;
   std::vector<std::string> logs;
@@ -533,6 +535,8 @@ void testResources() {
   CHECK(res.texture("sky_fr") != nullptr);       // no extension: tried as .bmp
   CHECK(res.texture("sky_fr.png") != nullptr);   // another extension falls back too
   CHECK(res.texture("junk.png") == nullptr);
+  const Texture* bare = res.texture("km001fc0.png");  // named with .png, stored without
+  CHECK(bare && bare->width == 2 && isColor(bare->pixels[0], 40, 50, 60));
   CHECK(res.shape("later.3ds") == nullptr);
   CHECK(res.shape("tree.dts") == nullptr);
 

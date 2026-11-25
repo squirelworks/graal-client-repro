@@ -291,14 +291,22 @@ bool Link::readServerGameSection(BitReader& r) {
     serverTime_ = r.u32();
     const int idx = static_cast<int>(r.bits(12));
     auto it = ghosts_.find(idx);
-    GameObjectState scratch;
-    GameObjectState& o = it != ghosts_.end() ? it->second.object : scratch;
-    if (!readGameObjectUpdate(r, o)) return false;
-    if (it == ghosts_.end() || it->second.className != "GameObject") {
-      log("Graal3D: control object " + std::to_string(idx) + " is not a GameObject ghost");
+    // The control object's update is its own class's: a GameObject's
+    // thirteen sections, or a Camera's (SharpServer 0.0.40 makes its
+    // TestCamera the control object; the Sharp3D capture, 2026-11-24).
+    const bool camera = it != ghosts_.end() && it->second.className == "Camera";
+    if (camera) {
+      if (!readCameraUpdate(r, it->second.camera)) return false;
+    } else {
+      GameObjectState scratch;
+      GameObjectState& o = it != ghosts_.end() ? it->second.object : scratch;
+      if (!readGameObjectUpdate(r, o)) return false;
+    }
+    if (it == ghosts_.end() || (!camera && it->second.className != "GameObject")) {
+      log("Graal3D: control object " + std::to_string(idx) + " is not a GameObject or Camera ghost");
     } else if (controlGhost_ != idx) {
       controlGhost_ = idx;
-      sendOwnState_ = true;
+      sendOwnState_ = !camera;
       // Step 5 is set by the first control object after the last mission
       // phase; one that comes earlier leaves the client at step 4 (§6).
       if (step_ == 4) {
@@ -365,6 +373,23 @@ bool Link::readEvent(BitReader& r, int classId, InEvent& ev) {
     ev.transfer = static_cast<int>(r.bits(16));
     const int n = static_cast<int>(r.bits(8));
     for (int i = 0; i < n; ++i) ev.big.data.push_back(static_cast<char>(r.u8()));
+  } else if (c == "GhostAlwaysObjectEvent") {
+    // A ghost made by a guaranteed event rather than the ghost section:
+    // the ghost index (12 bits), an object flag, then as in the ghost
+    // section the class (12 bits), Graal's 14-bit length and the class's
+    // update. SharpServer 0.0.40 makes every object this way (the Sharp3D
+    // capture, 2026-11-24: all eight payloads end on their length).
+    ev.ghostIndex = static_cast<int>(r.bits(12));
+    if (r.flag()) {
+      const int classId = static_cast<int>(r.bits(12));
+      const uint32_t glen = r.bits(14);
+      const size_t gstart = r.pos();
+      auto cls = objectClasses_.find(classId);
+      ev.ghost.className = cls == objectClasses_.end() ? std::string("?") : cls->second;
+      readGhostPayload(r, ev.ghost);
+      r.seek(gstart + glen);
+      ev.hasGhost = true;
+    }
   }
   // Everything else (ConnectionMessageEvent, the terrain events, a class
   // the table did not name) is skipped by its length.
@@ -375,7 +400,13 @@ bool Link::readEvent(BitReader& r, int classId, InEvent& ev) {
 
 void Link::deliver(const InEvent& ev) {
   const std::string& c = ev.className;
-  if (c == "NetStringEvent") {
+  if (c == "GhostAlwaysObjectEvent") {
+    if (ev.hasGhost) {
+      Ghost& g = ghosts_[ev.ghostIndex];
+      g = ev.ghost;
+      g.updates = 1;
+    }
+  } else if (c == "NetStringEvent") {
     tags_[ev.tagId & 31] = ev.text;
   } else if (c == "RemoteCommandEvent") {
     std::vector<std::string> args;
@@ -502,13 +533,17 @@ void Link::writeClientGameSection(BitWriter& w) {
   // §6, client to server (protocols 21 and 24: no moves).
   w.flag(true);  // first person
   const auto it = ghosts_.find(controlGhost_);
-  const GameObjectState* o = controlGhost_ >= 0 && it != ghosts_.end() ? &it->second.object : nullptr;
+  const bool hasControl = controlGhost_ >= 0 && it != ghosts_.end();
+  // Only a GameObject control object is sent back. What a client sends
+  // for a Camera control object is not read yet; this one sends the ghost
+  // and no update.
+  const GameObjectState* o = hasControl && it->second.className == "GameObject" ? &it->second.object : nullptr;
   advanceOwnMovement();
   const Vec3 at = controlPosition();
   w.f32(at.x);
   w.f32(at.y);
   w.f32(at.z);
-  if (w.flag(o != nullptr)) w.bits(static_cast<uint32_t>(controlGhost_), 12);
+  if (w.flag(hasControl)) w.bits(static_cast<uint32_t>(controlGhost_), 12);
   if (login_.protocol == 19) {
     // Stock TGE: the client sends moves (none).
     w.flag(false);
@@ -688,12 +723,13 @@ Vec3 Link::controlPosition() const {
   if (!move_.type.empty() && move_.ghost == controlGhost_) return move_.current;
   const auto it = ghosts_.find(controlGhost_);
   if (controlGhost_ < 0 || it == ghosts_.end()) return Vec3();
+  if (it->second.className == "Camera") return it->second.camera.object.position;
   return it->second.object.position;
 }
 
 void Link::updateOwnMovement() {
   const auto it = ghosts_.find(controlGhost_);
-  if (controlGhost_ < 0 || it == ghosts_.end()) {
+  if (controlGhost_ < 0 || it == ghosts_.end() || it->second.className != "GameObject") {
     move_ = OwnMovement();
     return;
   }
