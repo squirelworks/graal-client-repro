@@ -113,6 +113,11 @@ int main() {
     CHECK(pixels[0] == 0xFF000000u && pixels[64 * 48 - 1] == 0xFF000000u);
     CHECK(graal3dengine_renderFrame(nullptr, 64, 48, 64) == 0);
     CHECK(graal3dengine_renderFrame(pixels.data(), 64, 48, 10) == 0);  // stride too small
+    // No Camera, no name tags.
+    CHECK(graal3dengine_labelCount() == 0);
+    char text[8] = "x";
+    CHECK(graal3dengine_label(0, nullptr, nullptr, nullptr, nullptr, text, sizeof text) == -1);
+    CHECK(graal3dengine_label(-1, nullptr, nullptr, nullptr, nullptr, nullptr, 0) == -1);
   }
 
   // Ending the library sends the disconnect (0x26).

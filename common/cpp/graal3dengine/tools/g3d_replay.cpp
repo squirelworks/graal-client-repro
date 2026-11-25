@@ -213,24 +213,18 @@ int main(int argc, char** argv) {
     render::Scene scene = render::sceneFromGhosts(link->ghosts(), link->cameraGhost(), float(fov));
     // The streamed terrain: the chunks the session sent, over the client's
     // cache (levels3d/heights/<server>/) when a --res folder holds one.
-    render::Terrain terrain;
-    render::Shape terrainShape;
+    render::StreamedTerrain terrain;
     if (scene.terrain.present) {
-      terrain.squareSize = scene.terrain.squareSize;
-      terrain.repeat = scene.terrain.repeat;
       const std::string info = resources.find("heights.info");
-      if (!info.empty()) {
-        const int cached = render::loadTerrainCache(std::filesystem::path(info).parent_path().string(), terrain);
-        std::printf("  terrain cache %s: %d chunk files\n", std::filesystem::path(info).parent_path().string().c_str(), cached);
-      }
-      for (const auto& [i, bytes] : link->terrainChunks())
-        render::applyCompressedTerrainChunk(terrain, i % 16, i / 16, reinterpret_cast<const uint8_t*>(bytes.data()),
-                                            bytes.size());
-      terrainShape = render::terrainShape(terrain);
+      const std::string cacheDir = info.empty() ? "" : std::filesystem::path(info).parent_path().string();
+      render::updateStreamedTerrain(terrain, scene.terrain.squareSize, scene.terrain.repeat, cacheDir,
+                                    link->terrainChunks(), link->terrainChunkCount());
+      if (!cacheDir.empty())
+        std::printf("  terrain cache %s: %d chunk files\n", cacheDir.c_str(), terrain.terrain.chunksLoaded);
       render::SceneObject so;
       so.shape = "(terrain)";
       so.transform = render::M4::identity();
-      so.direct = &terrainShape;
+      so.direct = &terrain.shape;
       scene.objects.push_back(so);
     }
     std::vector<uint32_t> pixels(size_t(width) * height, 0);

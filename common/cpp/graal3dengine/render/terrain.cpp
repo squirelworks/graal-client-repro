@@ -267,4 +267,24 @@ Shape terrainShape(const Terrain& t) {
   return shape;
 }
 
+bool updateStreamedTerrain(StreamedTerrain& st, float squareSize, bool repeat, const std::string& cacheDir,
+                           const std::map<int, std::string>& chunks, int chunkCount) {
+  if (st.builtChunkCount == chunkCount && st.builtCacheDir == cacheDir && st.builtSquareSize == squareSize &&
+      st.builtRepeat == repeat)
+    return false;
+  st.terrain = Terrain();
+  st.terrain.squareSize = squareSize;
+  st.terrain.repeat = repeat;
+  if (!cacheDir.empty()) loadTerrainCache(cacheDir, st.terrain);
+  for (const auto& [i, bytes] : chunks)
+    applyCompressedTerrainChunk(st.terrain, i % kTerrainChunks, i / kTerrainChunks,
+                                reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
+  st.shape = terrainShape(st.terrain);
+  st.builtChunkCount = chunkCount;
+  st.builtCacheDir = cacheDir;
+  st.builtSquareSize = squareSize;
+  st.builtRepeat = repeat;
+  return true;
+}
+
 }  // namespace graal3d::render

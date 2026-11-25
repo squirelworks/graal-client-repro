@@ -79,6 +79,17 @@ G3D_API void G3D_CALL graal3dengine_addResourceFolder(const char *folder);
 /* Looks for files again, after downloads have landed. */
 G3D_API void G3D_CALL graal3dengine_rescanResources(void);
 
+/* The name tags and chat lines of the last renderFrame, for the host to
+ * draw over the frame with its own font (the renderer has none): farthest
+ * first. Each is centred on (x, y), its baseline at y, in the frame's
+ * pixels; `rgba` red in the lowest byte; `kind` 0 a nickname, 1 chat.
+ * `text` gets at most textSize - 1 bytes and a NUL. Returns the text's
+ * full length, or -1 for an index out of range. Placement is the
+ * rebuild's own until a lab shot. */
+G3D_API int32_t G3D_CALL graal3dengine_labelCount(void);
+G3D_API int32_t G3D_CALL graal3dengine_label(int32_t index, float *x, float *y, uint32_t *rgba, int32_t *kind,
+                                             char *text, int32_t textSize);
+
 #ifdef __cplusplus
 }
 #endif

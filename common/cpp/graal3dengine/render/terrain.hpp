@@ -17,6 +17,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -79,5 +80,24 @@ int loadTerrainCache(const std::string& dir, Terrain& t);
 // The terrain as a shape in world space: one mesh, material i naming
 // materials[i]'s texture. Holes are left out.
 Shape terrainShape(const Terrain& t);
+
+// The streamed terrain as a renderer keeps it between frames: the cache
+// folder's chunks with the session's over them, and its mesh. Rebuilt
+// only when the settings, the cache folder or the number of chunks the
+// session has received change.
+struct StreamedTerrain {
+  Terrain terrain;
+  Shape shape;
+  int builtChunkCount = -1;
+  std::string builtCacheDir;
+  float builtSquareSize = -1;
+  bool builtRepeat = false;
+};
+
+// `cacheDir` is the folder holding heights.info ("" for none); `chunks`
+// the session's chunks by index (y * 16 + x), `chunkCount` how many it
+// has received. Returns true when it rebuilt.
+bool updateStreamedTerrain(StreamedTerrain& st, float squareSize, bool repeat, const std::string& cacheDir,
+                           const std::map<int, std::string>& chunks, int chunkCount);
 
 }  // namespace graal3d::render

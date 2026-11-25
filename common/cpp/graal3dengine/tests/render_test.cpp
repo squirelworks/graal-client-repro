@@ -1451,6 +1451,28 @@ void testTerrain() {
   CHECK(isColor(px[24 * 64 + 32], 15, 100, 130));
 }
 
+void testStreamedTerrain() {
+  ChunkSpec c;
+  for (int y = 0; y < 16; ++y)
+    for (int x = 0; x < 16; ++x) c.h[y][x] = int16_t(8 * (x + y));
+  c.ids = {0};
+  const std::vector<uint8_t> z = zipped(chunkBytes(c));
+  std::map<int, std::string> chunks;
+  chunks[1 * 16 + 2] = std::string(z.begin(), z.end());
+  StreamedTerrain st;
+  CHECK(updateStreamedTerrain(st, 8, false, "", chunks, 1));
+  CHECK(!st.shape.meshes.empty());
+  // Square (32 + 3, 16 + 4): wire 8 * 7 = 56, stored 224, 7 m.
+  CHECK(std::fabs(st.terrain.heightMetres(35, 20) - 7) < 1e-4f);
+  // Nothing changed: no rebuild. A new chunk or new settings: rebuilt.
+  CHECK(!updateStreamedTerrain(st, 8, false, "", chunks, 1));
+  chunks[0] = chunks[1 * 16 + 2];
+  CHECK(updateStreamedTerrain(st, 8, false, "", chunks, 2));
+  CHECK(std::fabs(st.terrain.heightMetres(3, 4) - 7) < 1e-4f);
+  CHECK(updateStreamedTerrain(st, 4, false, "", chunks, 2));
+  CHECK(st.terrain.squareSize == 4);
+}
+
 void testLabels() {
   Resources res;
   res.putShape("red.3ds", cubeShape(1, 0, 0));
@@ -1527,6 +1549,7 @@ int main() {
   testReadDif();
   testBilinear();
   testLabels();
+  testStreamedTerrain();
   testTerrain();
   testClientImageFormats();
   if (failures) {

@@ -11,6 +11,7 @@ WANT = {
     "toggleGraal3DFullScreen", "graal3dengine_abi", "graal3dengine_loginStep", "graal3dengine_state",
     "graal3dengine_ghostCount", "graal3dengine_setConnectSequence",
     "graal3dengine_renderFrame", "graal3dengine_addResourceFolder", "graal3dengine_rescanResources",
+    "graal3dengine_labelCount", "graal3dengine_label",
 }
 
 
