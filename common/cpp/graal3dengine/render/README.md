@@ -64,10 +64,13 @@ side by side with a real 5.12:
   entry 5 not drawn; the fog colour below the horizon with a band of it
   fading up; the solid colour when the first option is off. Cloud layers
   and fog volumes are read but not drawn.
-- Lighting (lighting probe, under Mesa): the Sun's direction, colour and
-  ambient change nothing; with a Sun a face draws at material x texture,
-  with none at a quarter. A shape turns by the right-hand rule, the
-  camera the other way. Both sides of every triangle are drawn; texels under half alpha are cut out
+- Lighting (lighting probe and follow-ups, under Mesa): the Sun's
+  direction, colour and ambient shade nothing. A `.3ds` face is lit by a
+  fixed light from about (-x, -y, +z): 1.0 facing it, 0.85 facing away;
+  without a Sun a `.3ds` draws at a quarter, a `.dts` or `.dif` black, and
+  terrain unchanged. A shape turns by the camera's rule (clockwise from
+  above for a positive angle about +z). Both sides of every triangle are
+  drawn; texels under half alpha are cut out
   (for a `.dts`, only on a translucent material: an opaque Torque
   material's alpha is its environment-map amount).
 - The terrain: each square's primary material only, each texture

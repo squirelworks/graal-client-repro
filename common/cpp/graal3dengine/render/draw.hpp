@@ -14,12 +14,14 @@
 //   fills the faces instead of their images. The box is not otherwise
 //   fogged. Open: the client's faces look about twice as magnified, and
 //   its visible distance did not change the frame.
-// - Lighting (lighting probe L1-L7, real 5.12 under Mesa llvmpipe): the
-//   Sun's direction, colour and ambient change nothing on a .3ds. With a
-//   Sun a face draws at material x texture; with none, at a quarter of
-//   it. Open: the client draws one of a turned cube's sides at 0.85
-//   whatever the Sun, by a rule not yet found; .dts, .dif and terrain are
-//   taken to follow .3ds until a lab shot.
+// - Lighting (lighting probe and follow-ups 10 and 11, real 5.12 under
+//   Mesa): the Sun's direction, colour and ambient shade nothing, on any
+//   kind of shape. A .3ds face is lit by a fixed light from about
+//   (-x, -y, +z) in the world: 1.0 facing it, 0.85 facing away (the
+//   rebuild's curve: min(1, 0.85 + max(0, n . l))). Without a Sun a .3ds
+//   draws at a quarter, a .dts and a .dif black, terrain unchanged.
+//   .dts, .dif, .ft and terrain otherwise draw at full light; .dif
+//   lightmaps are not drawn (the client showed none).
 // - A textured material draws its texture as is; an untextured one its
 //   diffuse colour.
 // - Name tags (scene.cpp: only on objects with a movetype; the real 5.12
@@ -36,7 +38,8 @@
 namespace graal3d::render {
 
 constexpr float kSkyFogBand = 0.25f;
-constexpr float kNoSunLight = 0.25f;
+constexpr float kNoSunLight = 0.25f;  // a .3ds without a Sun
+constexpr float kFixedLightFloor = 0.85f;
 
 // A line of text for the host to draw over the frame, centred on (x, y),
 // its baseline at y.

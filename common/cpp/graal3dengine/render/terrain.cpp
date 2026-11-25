@@ -217,6 +217,7 @@ int loadTerrainCache(const std::string& dir, Terrain& t) {
 
 Shape terrainShape(const Terrain& t) {
   Shape shape;
+  shape.kind = Shape::kTerrain;
   const int n = kTerrainSize;
   const float sq = t.squareSize > 0 ? t.squareSize : 8.0f;
   const float corner = -128.0f * sq;

@@ -34,6 +34,9 @@ struct Mesh {
 };
 
 struct Shape {
+  // What the shape was read from; the 5.12 lights each kind its own way.
+  enum Kind { k3ds, kDts, kDif, kFt, kTerrain };
+  Kind kind = k3ds;
   std::vector<Material> materials;
   std::vector<Mesh> meshes;     // drawn
   std::vector<Mesh> collision;  // kept apart, never drawn

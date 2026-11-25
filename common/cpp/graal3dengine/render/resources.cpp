@@ -112,6 +112,7 @@ const Shape* Resources::shape(const std::string& name) {
                                  : read3ds(bytes, *s, error))) {
       note("Graal3D: " + name + ": " + error);
     } else {
+      s->kind = ext == ".dts" ? Shape::kDts : ext == ".dif" ? Shape::kDif : ext == ".ft" ? Shape::kFt : Shape::k3ds;
       loaded = std::move(s);
     }
   }

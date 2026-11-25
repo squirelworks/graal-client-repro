@@ -115,11 +115,11 @@ inline M4 graalTransform(const V3& position, const V3& axis, float angle) {
   return M4::translation(position) * graalRotation(axis, angle);
 }
 
-// A shape's transform from the wire. The real 5.12 turns a shape the
-// other way from its camera, by the right-hand rule (lighting probe,
-// cubes turned 30 degrees about +z, 2026-11-25).
+// A shape's transform from the wire: the same rule as the camera's (lab
+// follow-up 10: a positive angle about +z turns a cube clockwise seen
+// from above, its +x face to -y at 90 degrees).
 inline M4 graalShapeTransform(const V3& position, const V3& axis, float angle) {
-  return M4::translation(position) * M4::rotation(axis, angle);
+  return graalTransform(position, axis, angle);
 }
 
 }  // namespace graal3d::render

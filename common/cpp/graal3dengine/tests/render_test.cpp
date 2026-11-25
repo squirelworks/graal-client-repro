@@ -308,10 +308,10 @@ void testRead3ds() {
 }
 
 void testRotationRule() {
-  // A shape turns the other way from the camera (lighting probe): a
-  // positive angle about +z takes its +y to -x, the right-hand rule.
-  const V3 g = graalShapeTransform({0, 0, 0}, {0, 0, 1}, kPi / 2).vector({0, 1, 0});
-  CHECK(std::fabs(g.x + 1) < 1e-5f && std::fabs(g.y) < 1e-5f);
+  // A shape turns as the camera does (lab follow-up 10): at +90 degrees
+  // about +z its +x face looks to -y.
+  const V3 g = graalShapeTransform({0, 0, 0}, {0, 0, 1}, kPi / 2).vector({1, 0, 0});
+  CHECK(std::fabs(g.y + 1) < 1e-5f && std::fabs(g.x) < 1e-5f);
   // A positive angle about +z turns right: forward (+y) becomes +x.
   const V3 f = graalRotation({0, 0, 1}, kPi / 2).vector({0, 1, 0});
   CHECK(std::fabs(f.x - 1) < 1e-5f && std::fabs(f.y) < 1e-5f);
@@ -428,6 +428,29 @@ void testSunAndFog() {
     s.objects.push_back(objectAt("white.3ds", {0, 0, 0}));
     drawScene(f.frame(), s, res);
     CHECK(isColor(f.centre(), 64, 64, 64));
+  }
+  // The fixed light from (-x, -y, +z): a face toward +y or +x draws at
+  // 0.85, whatever the Sun (follow-up 10).
+  {
+    TestFrame f;
+    Scene s = cameraScene({0, 5, 0}, {0, 0, 1}, kPi);  // looking -y at the +y face
+    s.objects.push_back(objectAt("white.3ds", {0, 0, 0}));
+    drawScene(f.frame(), s, res);
+    CHECK(isColor(f.centre(), 217, 217, 217));
+  }
+  // A .dts or .dif without a Sun is black; with one, full (follow-up 11).
+  {
+    Shape d = cubeShape(1, 1, 1);
+    d.kind = Shape::kDif;
+    res.putShape("white.dif", d);
+    TestFrame f;
+    Scene s = cameraScene({0, 5, 0}, {0, 0, 1}, kPi);
+    s.objects.push_back(objectAt("white.dif", {0, 0, 0}));
+    drawScene(f.frame(), s, res);
+    CHECK(isColor(f.centre(), 255, 255, 255));
+    s.sun.present = false;
+    drawScene(f.frame(), s, res);
+    CHECK(isColor(f.centre(), 0, 0, 0));
   }
 
   // Fog: with a visible distance of 100, a cube 20 units away is clear,

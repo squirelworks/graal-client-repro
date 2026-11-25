@@ -7,6 +7,8 @@ namespace graal3d::render {
 
 namespace {
 
+const V3 kFixedLight = normalize(V3{-1, -1, 1});
+
 uint32_t colorOf(const float c[3]) {
   auto b = [](float x) { return uint32_t(x <= 0 ? 0 : (x >= 1 ? 255 : x * 255.0f + 0.5f)); };
   return packRgba(b(c[0]), b(c[1]), b(c[2]));
@@ -125,11 +127,16 @@ DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
         rv.position = obj.transform.point(mv.position);
         rv.u = mv.u;
         rv.v = mv.v;
-        // The 5.12 does not shade by the Sun (lighting probe L1-L7 under
-        // Mesa): with a Sun a face draws at material x texture, without
-        // one at a quarter of it.
-        if (!scene.sun.present)
-          for (float& l : rv.light) l = kNoSunLight;
+        // draw.hpp: the 5.12's lighting by kind of shape.
+        float light = 1;
+        if (shape->kind == Shape::k3ds) {
+          const V3 n = normalize(obj.transform.vector(mv.normal));
+          light = scene.sun.present ? std::min(1.0f, kFixedLightFloor + std::max(0.0f, dot(n, kFixedLight)))
+                                    : kNoSunLight;
+        } else if (!scene.sun.present && (shape->kind == Shape::kDts || shape->kind == Shape::kDif)) {
+          light = 0;
+        }
+        for (float& l : rv.light) l = light;
         if (fog) {
           const float dist = length(rv.position - eye);
           rv.fog = dist <= fogStart ? 0 : (dist - fogStart) / (farPlane - fogStart);
