@@ -80,7 +80,9 @@ Scene sceneFromGhosts(const GhostTable& ghosts, int cameraGhost, float fovDegree
       m.m[0][3] = w.position.x;
       m.m[1][3] = w.position.y;
       m.m[2][3] = w.position.z;
-      ws.transform = m;
+      // The surface is the top of the block: position z plus scale z
+      // (lab, real 5.12 under GDI).
+      ws.transform = std::isfinite(w.scale.z) ? m * M4::translation({0, 0, w.scale.z}) : m;
       ws.width = w.scale.x;
       ws.depth = w.scale.y;
       ws.texture = w.textures[0];

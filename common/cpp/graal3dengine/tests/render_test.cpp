@@ -618,6 +618,17 @@ void testSceneFromGhosts() {
   }
   ghosts[4].object.nickname.clear();
   ghosts[4].object.hasMovement = false;
+  // A WaterBlock's surface is its top: position z plus scale z.
+  {
+    GhostTable wg;
+    wg[0].className = "WaterBlock";
+    wg[0].water.init = true;
+    wg[0].water.position = {5, 6, 10};
+    wg[0].water.scale = {2048, 2048, 3};
+    wg[0].water.rotation[3] = 1;
+    const Scene ws = sceneFromGhosts(wg, -1, 0);
+    CHECK(ws.water.size() == 1 && std::fabs(ws.water[0].transform.m[2][3] - 13) < 1e-4f);
+  }
   // Section 2 scales the shape about its origin; zeros mean unset.
   {
     GameObjectState o;

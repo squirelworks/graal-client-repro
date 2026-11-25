@@ -67,8 +67,9 @@ struct TerrainSettings {
   bool repeat = false;
 };
 
-// A WaterBlock's surface (terrain-512.md section 5): a flat rectangle from
-// its position over its scale's x and y, turned by its rotation. The
+// A WaterBlock's surface (terrain-512.md section 5): a flat rectangle at
+// the block's top (its position plus its scale's z), over its scale's x
+// and y, turned by its rotation. The
 // 5.12 takes the scale only from 1024 up; a smaller block draws nothing
 // (lab). Drawn with its surface texture at its opacity: the rebuild's own,
 // with no waves, reflection or shore.
