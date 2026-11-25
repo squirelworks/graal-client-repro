@@ -82,15 +82,13 @@ struct WaterSurface {
 };
 
 // How far the water surface is off its rest height at world (x, y) at
-// `seconds`. Provisional, from the lab's first point samples (real 5.12,
-// run 12): each point swings about +-0.5 x the wave magnitude on a cycle
-// near 4.4 s, and the wave travels toward -x/-y (a point at (30, 30) peaks
-// about 0.6 s before one at (2, 18)). The constants below fit those
-// samples as a plain travelling sine; a 5x5 grid fit is coming and will
-// replace them.
-constexpr float kWaveAmplitude = 0.5f;   // x magnitude
-constexpr float kWavePeriod = 4.4f;      // seconds at a point
-constexpr float kWaveSpeed = 47.0f;      // metres a second, toward -x/-y
+// `seconds`. From the lab's one clean series (real 5.12, magnitude 1 on a
+// 256 x 256 block): +-0.5 x the magnitude with a 6.0 s period. Whether and
+// how it varies across the surface is not measured yet (a per-tick grid
+// is running), so every point moves together for now; the sine shape is
+// the rebuild's own.
+constexpr float kWaveAmplitude = 0.5f;  // x magnitude
+constexpr float kWavePeriod = 6.0f;     // seconds
 float waveHeight(float magnitude, double seconds, float x = 0, float y = 0);
 
 struct Scene {

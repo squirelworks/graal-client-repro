@@ -13,10 +13,7 @@ float clamp01(float x) { return x < 0 ? 0 : (x > 1 ? 1 : x); }
 float waveHeight(float magnitude, double seconds, float x, float y) {
   constexpr double kPi = 3.14159265358979323846;
   if (!(magnitude > 0) || !std::isfinite(seconds) || !std::isfinite(x) || !std::isfinite(y)) return 0;
-  // Distance along the direction the wave comes from (+x, +y): points
-  // farther along it are reached first.
-  const double along = (double(x) + double(y)) * 0.70710678118654752;
-  const double phase = (seconds + along / kWaveSpeed) / kWavePeriod;
+  const double phase = seconds / kWavePeriod;
   return static_cast<float>(kWaveAmplitude * magnitude * std::sin(2 * kPi * (phase - std::floor(phase))));
 }
 

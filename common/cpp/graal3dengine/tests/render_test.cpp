@@ -669,21 +669,19 @@ void testSceneFromGhosts() {
     wg[0].water.scale = {0, 256, 0};
     CHECK(sceneFromGhosts(wg, -1, 0).water.empty());
   }
-  // Waves (lab run 12, provisional fit): flat at magnitude 0; at a point,
-  // +-0.5 x magnitude once every 4.4 s; (30, 30) a little ahead of (2, 18).
+  // Waves (lab run 12, the clean series): flat at magnitude 0; +-0.5 x
+  // magnitude once every 6 s; the whole surface together for now.
   CHECK(waveHeight(0, 1, 5, 5) == 0);
   {
     float lo = 1e9f, hi = -1e9f;
-    for (int k = 0; k < 440; ++k) {
+    for (int k = 0; k < 600; ++k) {
       const float h = waveHeight(1, k * 0.01, 2, 18);
       lo = std::min(lo, h);
       hi = std::max(hi, h);
     }
     CHECK(std::fabs(hi - 0.5f) < 0.01f && std::fabs(lo + 0.5f) < 0.01f);
     CHECK(std::fabs(waveHeight(1, 1.0, 2, 18) - waveHeight(1, 1.0 + kWavePeriod, 2, 18)) < 1e-3f);
-    // The far corner is where (2, 18) will be about 0.6 s later.
-    CHECK(std::fabs(waveHeight(1, 1.0, 30, 30) - waveHeight(1, 1.6, 2, 18)) < 0.05f);
-    CHECK(std::fabs(waveHeight(1, 1.0, 30, 30) - waveHeight(1, 1.0, 2, 18)) > 0.05f);
+    CHECK(waveHeight(1, 1.0, 30, 30) == waveHeight(1, 1.0, 2, 18));
   }
   // Section 2 scales the shape about its origin; zeros mean unset.
   {
