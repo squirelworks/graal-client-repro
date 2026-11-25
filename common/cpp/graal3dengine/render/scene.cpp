@@ -17,6 +17,16 @@ Scene sceneFromGhosts(const GhostTable& ghosts, int cameraGhost, float fovDegree
   scene.view.fovDegrees = fovDegrees > 0 ? fovDegrees : 90.0f;
   for (const auto& [index, g] : ghosts) {
     if (g.className == "GameObject") {
+      if (!g.object.nickname.empty() || !g.object.chat.empty()) {
+        SceneTag tag;
+        tag.ghost = index;
+        tag.shape = g.object.shape;
+        tag.transform = objectTransform(g.object);
+        tag.nickname = g.object.nickname;
+        tag.chat = g.object.chat;
+        for (int i = 0; i < 4; ++i) tag.color[i] = g.object.nickColor[i];
+        scene.tags.push_back(tag);
+      }
       if (g.object.shape.empty()) continue;
       SceneObject so;
       so.ghost = index;

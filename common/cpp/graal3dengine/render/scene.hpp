@@ -26,6 +26,17 @@ struct SceneObject {
   const Shape* direct = nullptr;
 };
 
+// A player's name tag and chat, from a GameObject with a nickname or chat
+// (the multi-client view). Drawn over the frame by the host, which has
+// the font (drawScene gives each tag's screen position as a Label).
+struct SceneTag {
+  int ghost = -1;
+  std::string shape;  // its shape, for the anchor above it ("" for none)
+  M4 transform;
+  std::string nickname, chat;
+  uint8_t color[4] = {255, 255, 255, 255};
+};
+
 struct SunLight {
   bool present = false;
   V3 direction{0, 0, -1};  // the way the light travels
@@ -69,6 +80,7 @@ struct Scene {
   TerrainSettings terrain;
   std::vector<SceneObject> objects;
   std::vector<WaterSurface> water;
+  std::vector<SceneTag> tags;
 };
 
 // `cameraGhost` is the ghost the server named as the camera (-1 for none);

@@ -11,6 +11,10 @@
 //   clamped; without a Sun everything is fully lit.
 // - A textured material draws its texture as is; an untextured one its
 //   diffuse colour.
+// - Name tags: each tagged object's nickname is placed centred just above
+//   its shape's bounds (2 m above its origin with no shape), its chat one
+//   line above that. Tags are not hidden behind other objects and are
+//   left out past the visible distance or off screen.
 #pragma once
 
 #include "raster.hpp"
@@ -19,11 +23,26 @@
 
 namespace graal3d::render {
 
+// A line of text for the host to draw over the frame, centred on (x, y),
+// its baseline at y.
+struct Label {
+  enum Kind { kNickname, kChat };
+  int ghost = -1;
+  Kind kind = kNickname;
+  float x = 0, y = 0, depth = 0;
+  std::string text;
+  uint8_t color[4] = {255, 255, 255, 255};
+};
+
 struct DrawStats {
   int objectsDrawn = 0;
   int objectsMissing = 0;  // shape not here or not readable
   long triangles = 0;
+  std::vector<Label> labels;  // nearest last, so later ones draw on top
 };
+
+// The tags' labels in a width by height frame, as drawScene gives them.
+std::vector<Label> sceneLabels(const Scene& scene, Resources& resources, int width, int height);
 
 DrawStats drawScene(Frame frame, const Scene& scene, Resources& resources);
 

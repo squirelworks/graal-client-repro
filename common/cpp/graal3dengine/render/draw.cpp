@@ -1,5 +1,6 @@
 #include "draw.hpp"
 
+#include <algorithm>
 #include <cmath>
 
 namespace graal3d::render {
@@ -134,7 +135,52 @@ DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
     r.drawTriangle(q[0], q[2], q[3], st);
     stats.triangles += 2;
   }
+  stats.labels = sceneLabels(scene, res, frame.width, frame.height);
   return stats;
+}
+
+std::vector<Label> sceneLabels(const Scene& scene, Resources& res, int width, int height) {
+  std::vector<Label> out;
+  if (!scene.hasCamera || width <= 0 || height <= 0) return out;
+  View view = scene.view;
+  view.farPlane = scene.sky.present && scene.sky.visibleDistance > 0 ? scene.sky.visibleDistance : 1000.0f;
+  constexpr float kLineHeight = 16;  // pixels between the nickname and chat lines
+  for (const SceneTag& tag : scene.tags) {
+    V3 anchor = tag.transform.point({0, 0, 2});
+    if (const Shape* shape = tag.shape.empty() ? nullptr : res.shape(tag.shape)) {
+      // The top centre of the shape's bounds, turned with the object; the
+      // highest of the top corners carries the height.
+      const V3 lo = shape->boundsMin, hi = shape->boundsMax;
+      anchor = tag.transform.point({(lo.x + hi.x) * 0.5f, (lo.y + hi.y) * 0.5f, hi.z});
+      for (int i = 0; i < 4; ++i) {
+        const V3 c = tag.transform.point({i & 1 ? hi.x : lo.x, i & 2 ? hi.y : lo.y, hi.z});
+        if (c.z > anchor.z) anchor.z = c.z;
+      }
+    }
+    float sx, sy, depth;
+    if (!projectPoint(view, width, height, anchor, sx, sy, depth) || depth > view.farPlane) continue;
+    if (sx < 0 || sx >= width || sy < 0 || sy >= height) continue;
+    Label nick;
+    nick.ghost = tag.ghost;
+    nick.x = sx;
+    nick.y = sy;
+    nick.depth = depth;
+    for (int i = 0; i < 4; ++i) nick.color[i] = tag.color[i];
+    if (!tag.nickname.empty()) {
+      nick.text = tag.nickname;
+      out.push_back(nick);
+    }
+    if (!tag.chat.empty()) {
+      Label chat = nick;
+      chat.kind = Label::kChat;
+      chat.text = tag.chat;
+      chat.y = sy - (tag.nickname.empty() ? 0 : kLineHeight);
+      for (int i = 0; i < 4; ++i) chat.color[i] = 255;
+      out.push_back(chat);
+    }
+  }
+  std::stable_sort(out.begin(), out.end(), [](const Label& a, const Label& b) { return a.depth > b.depth; });
+  return out;
 }
 
 }  // namespace graal3d::render

@@ -239,6 +239,9 @@ int main(int argc, char** argv) {
     std::printf("  %s; %d objects drawn, %d missing, %ld triangles\n",
                 scene.hasCamera ? "camera found" : "no camera: the frame is black", ds.objectsDrawn,
                 ds.objectsMissing, ds.triangles);
+    for (const render::Label& l : ds.labels)
+      std::printf("  %s of ghost %d at (%.0f, %.0f), %.1f m: \"%s\"\n",
+                  l.kind == render::Label::kChat ? "chat" : "name", l.ghost, l.x, l.y, l.depth, l.text.c_str());
     if (!tools::writePng(renderPath, pixels.data(), width, height, width)) {
       std::fprintf(stderr, "g3d-replay: cannot write %s\n", renderPath.c_str());
       return 1;

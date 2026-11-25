@@ -520,6 +520,18 @@ void testSceneFromGhosts() {
   CHECK(s.objects.size() == 1 && s.objects[0].shape == ghosts[2].object.shape);
   CHECK(std::fabs(s.view.cameraToWorld.m[2][3] - 2) < 1e-6f);
   CHECK(sceneFromGhosts(ghosts, 3, 60).view.fovDegrees == 60);
+  // A shapeless GameObject with a nickname is tagged but not drawn.
+  ghosts[4].object.nickname = "Zed";
+  ghosts[4].object.nickColor[0] = 7;
+  {
+    const Scene t = sceneFromGhosts(ghosts, 3, 0);
+    CHECK(t.objects.size() == 1);
+    int found = 0;
+    for (const SceneTag& tag : t.tags)
+      if (tag.ghost == 4) found += tag.nickname == "Zed" && tag.color[0] == 7 && tag.shape.empty();
+    CHECK(found == 1);
+  }
+  ghosts[4].object.nickname.clear();
 
   // "-" leaves a face empty.
   ghosts[1].sky.textures = "a,-,c";
@@ -1384,6 +1396,48 @@ void testTerrain() {
   CHECK(isColor(px[24 * 64 + 32], 15, 100, 130));
 }
 
+void testLabels() {
+  Resources res;
+  res.putShape("red.3ds", cubeShape(1, 0, 0));
+  Scene s = cameraScene({0, -5, 0});
+  auto tagAt = [](const std::string& shape, V3 pos, const std::string& nick, const std::string& chat) {
+    SceneTag t;
+    t.shape = shape;
+    t.transform = M4::translation(pos);
+    t.nickname = nick;
+    t.chat = chat;
+    return t;
+  };
+  s.tags.push_back(tagAt("red.3ds", {0, 0, 0}, "Bob", "hi"));
+  s.tags[0].ghost = 9;
+  s.tags[0].color[0] = 10;
+  s.tags.push_back(tagAt("", {2, 0, 0}, "Ann", ""));   // no shape: 2 m up
+  s.tags.push_back(tagAt("", {0, -10, 0}, "Gone", ""));  // behind the camera
+  s.tags.push_back(tagAt("", {-1, -1, 0}, "", "near"));  // chat only, nearer
+  s.tags.push_back(tagAt("", {0, -4, 0}, "Up", ""));     // above the frame
+  TestFrame f;
+  const DrawStats st = drawScene(f.frame(), s, res);
+  // 160 by 120 at 90 degrees: 80 pixels per unit at depth 1.
+  CHECK(st.labels.size() == 4);
+  if (st.labels.size() == 4) {
+    // Farthest first: Bob, his chat and Ann at depth 5, the chat at depth 4.
+    const Label& bob = st.labels[0];
+    CHECK(bob.kind == Label::kNickname && bob.text == "Bob" && bob.ghost == 9 && bob.color[0] == 10);
+    CHECK(std::fabs(bob.x - 80) < 0.01f && std::fabs(bob.y - 52) < 0.01f && std::fabs(bob.depth - 5) < 1e-4f);
+    const Label& said = st.labels[1];
+    CHECK(said.kind == Label::kChat && said.text == "hi" && std::fabs(said.y - 36) < 0.01f && said.color[0] == 255);
+    const Label& ann = st.labels[2];
+    CHECK(ann.text == "Ann" && std::fabs(ann.x - 112) < 0.01f && std::fabs(ann.y - 28) < 0.01f);
+    const Label& near = st.labels[3];
+    CHECK(near.kind == Label::kChat && near.text == "near" && std::fabs(near.x - 60) < 0.01f &&
+          std::fabs(near.y - 20) < 0.01f);
+  }
+  // No camera: no labels.
+  Scene dark = s;
+  dark.hasCamera = false;
+  CHECK(drawScene(f.frame(), dark, res).labels.empty());
+}
+
 void testBilinear() {
   // One black and one white texel side by side.
   Texture t;
@@ -1417,6 +1471,7 @@ int main() {
   testReadDts();
   testReadDif();
   testBilinear();
+  testLabels();
   testTerrain();
   testClientImageFormats();
   if (failures) {
