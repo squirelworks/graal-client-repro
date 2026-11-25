@@ -13,8 +13,12 @@ float clamp01(float x) { return x < 0 ? 0 : (x > 1 ? 1 : x); }
 float waveHeight(float magnitude, double seconds, float x, float y) {
   constexpr double kPi = 3.14159265358979323846;
   if (!(magnitude > 0) || !std::isfinite(seconds) || !std::isfinite(x) || !std::isfinite(y)) return 0;
-  const double phase = seconds / kWavePeriod;
-  return static_cast<float>(kWaveAmplitude * magnitude * std::sin(2 * kPi * (phase - std::floor(phase))));
+  const double k = 2 * kPi / kWaveLength;
+  // Reduce the time to one period so large clocks keep their precision.
+  const double period = 2 * kPi / kWaveOmega;
+  const double t = seconds - std::floor(seconds / period) * period;
+  return static_cast<float>(0.25 * magnitude *
+                            (std::sin(kWaveOmega * t + k * x) + std::sin(kWaveOmega * t + k * y)));
 }
 
 M4 objectTransform(const GameObjectState& o) {

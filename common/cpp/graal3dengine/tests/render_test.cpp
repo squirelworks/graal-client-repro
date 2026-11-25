@@ -681,19 +681,27 @@ void testSceneFromGhosts() {
     wg[0].water.scale = {0, 256, 0};
     CHECK(sceneFromGhosts(wg, -1, 0).water.empty());
   }
-  // Waves (lab run 12, the clean series): flat at magnitude 0; +-0.5 x
-  // magnitude once every 6 s; the whole surface together for now.
+  // Waves (lab grid fit): flat at magnitude 0; on x = y a point swings
+  // +-0.5 x magnitude, elsewhere less; one period is 2 pi / 0.984 s; crests
+  // travel toward -x.
   CHECK(waveHeight(0, 1, 5, 5) == 0);
   {
-    float lo = 1e9f, hi = -1e9f;
-    for (int k = 0; k < 600; ++k) {
-      const float h = waveHeight(1, k * 0.01, 2, 18);
-      lo = std::min(lo, h);
-      hi = std::max(hi, h);
-    }
-    CHECK(std::fabs(hi - 0.5f) < 0.01f && std::fabs(lo + 0.5f) < 0.01f);
-    CHECK(std::fabs(waveHeight(1, 1.0, 2, 18) - waveHeight(1, 1.0 + kWavePeriod, 2, 18)) < 1e-3f);
-    CHECK(waveHeight(1, 1.0, 30, 30) == waveHeight(1, 1.0, 2, 18));
+    auto swing = [](float x, float y) {
+      float lo = 1e9f, hi = -1e9f;
+      for (int k = 0; k < 700; ++k) {
+        const float h = waveHeight(1, k * 0.01, x, y);
+        lo = std::min(lo, h);
+        hi = std::max(hi, h);
+      }
+      return hi - lo;
+    };
+    CHECK(std::fabs(swing(10, 10) - 1.0f) < 0.01f);
+    CHECK(swing(0, 63) < 0.15f);  // half a wavelength apart: nearly cancel
+    const double period = 2 * 3.14159265358979 / kWaveOmega;
+    CHECK(std::fabs(waveHeight(1, 1.0, 7, 3) - waveHeight(1, 1.0 + period, 7, 3)) < 1e-3f);
+    // A crest at x moves to x - c dt (c = w / k).
+    const float c = kWaveOmega * kWaveLength / (2 * 3.14159265f);
+    CHECK(std::fabs(waveHeight(1, 2.0, 40, 5) - waveHeight(1, 1.0, 40 + c, 5 + c)) < 1e-3f);
   }
   // Section 2 scales the shape about its origin; zeros mean unset.
   {

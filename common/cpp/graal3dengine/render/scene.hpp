@@ -82,13 +82,15 @@ struct WaterSurface {
 };
 
 // How far the water surface is off its rest height at world (x, y) at
-// `seconds`. From the lab's one clean series (real 5.12, magnitude 1 on a
-// 256 x 256 block): +-0.5 x the magnitude with a 6.0 s period. Whether and
-// how it varies across the surface is not measured yet (a per-tick grid
-// is running), so every point moves together for now; the sine shape is
-// the rebuild's own.
-constexpr float kWaveAmplitude = 0.5f;  // x magnitude
-constexpr float kWavePeriod = 6.0f;     // seconds
+// `seconds` (lab fit, real 5.12: a 5 x 5 grid at magnitude 1, r.m.s.
+// error 0.005; Graal_analysis torque/terrain-512.md section 5): two equal
+// waves, one along world x and one along world y, crests travelling toward
+// -x and -y,
+//   0.25 m (sin(w t + k x + phase) + sin(w t + k y + phase)),
+// w about 0.984 rad/s (6.4 s), wavelength 2 pi / k about 126 units (a finer
+// scan is queued). The phase is the rebuild's own (0).
+constexpr float kWaveOmega = 0.984f;       // radians a second
+constexpr float kWaveLength = 126.0f;      // world units
 float waveHeight(float magnitude, double seconds, float x = 0, float y = 0);
 
 struct Scene {
