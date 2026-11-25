@@ -172,6 +172,13 @@ void Rasterizer::drawClipped(const ClipVertex* poly, int count, const RasterStat
         r = r + (fr - r) * fog;
         g = g + (fg - g) * fog;
         bch = bch + (fb - bch) * fog;
+        if (s.opacity < 1) {
+          const uint32_t under = frame_.at(x, y);
+          const float o = s.opacity < 0 ? 0 : s.opacity;
+          r = red(under) + (r - red(under)) * o;
+          g = green(under) + (g - green(under)) * o;
+          bch = blue(under) + (bch - blue(under)) * o;
+        }
         frame_.at(x, y) = packRgba(clamp8(r), clamp8(g), clamp8(bch));
         if (s.depthWrite) dz = iw;
         ++written_;

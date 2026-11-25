@@ -16,7 +16,8 @@ link it beside its own world.
 | `read_dif.*` | Torque `.dif`, InteriorResource 44 with Interior 0 (the clients' only accepted versions): the first detail level's points, planes, texgens, windings and surfaces, one mesh per material with texgen texture coordinates, surfaces drawn as strips. Both winding widths and both lightmap field widths are read; the marker materials (`NULL`, `ORIGIN`, `TRIGGER`, `FORCEFIELD`, `EMITTER`) are not drawn. Lightmaps, portals, zones, other detail levels and the extra sections after the interiors are skipped |
 | `texture.*`, `stb_impl.cpp` | Textures (PNG, JPEG, GIF, BMP, TGA through `stb_image`) and the `Frame` view onto the caller's pixels |
 | `resources.*` | Loads only the images the 5.12 draws, by content whatever the name (8-bit PNG, JPEG, GIF; GIF transparency as white; `kAll` for everything `stb_image` reads). Finds files by lower-case name in any subfolder of the roots (`levels3d/` by default), tries the image extensions on a texture named without one (`sky_fr`), the bare name of one named with one (a 5.x client stores downloads bare), and the extensions added to a material name with a dot of its own (`base.marble`), caches what loaded, and forgets misses on `rescan()` |
-| `scene.*` | The scene from a `GhostTable`: every `GameObject` with a shape, the named `Camera` and the field of view, the first `Sun` and `Sky` |
+| `terrain.*` | The 5.12's streamed terrain (Graal_analysis `torque/terrain-512.md`): the chunk decoder (heights from their two-pass deltas, material ids per square, hole modes 0 to 2), a corrupt zlib stream applied as zeros as the client does, `heights.info` one name per line, the cache folder's `heights<x>-<y>.dat`, and the 256 by 256 grid as one mesh centred on the origin |
+| `scene.*` | The scene from a `GhostTable`: every `GameObject` with a shape, the named `Camera` and the field of view, the first `Sun` and `Sky`, the `TerrainBlock`'s settings, and each `WaterBlock` 1024 or more a side as a surface. A caller adds the terrain's shape as an object (`SceneObject::direct`) |
 | `raster.*` | The software rasteriser: perspective-correct textured triangles, depth buffer, clipping to the near and far planes and to the view sides with a guard band (so a face reaching behind the camera, such as a sky-box face, is still drawn), bilinear texture filtering (held at the edges for sky-box faces), per-vertex light and fog |
 | `draw.*` | One frame: the sky box, then each object lit by the sun and fogged toward the sky's fog colour |
 
@@ -64,6 +65,9 @@ side by side with a real 5.12:
   sides of every triangle are drawn; texels under half alpha are cut out
   (for a `.dts`, only on a translucent material: an opaque Torque
   material's alpha is its environment-map amount).
+- The terrain: each square's primary material only, each texture
+  repeating every 8 squares, the grid wrapping at its far edges. Water: a
+  flat unlit surface at its opacity, its texture every 16 m.
 - A textured material draws its texture unmodulated; an untextured one its
   diffuse colour. A material whose texture is missing or undrawable draws
   white, as the 5.12 does (lab, 2026-11-25).
@@ -78,5 +82,8 @@ side by side with a real 5.12:
 - [ ] `.dif` lightmaps, other detail levels, interior versions other than 0
 - [ ] `.ft` shapes (milestone 5); they are logged and skipped
 - [ ] Animation threads (`GameObject` section 8)
-- [ ] Terrain, water, replicators (milestone 6)
+- [ ] Terrain material blending and the client's terrain texture scale;
+  water waves, reflection and shore; replicators (milestone 6)
+- [ ] The client's chunk re-encoding and stamps (terrain-512.md §3), so
+  the link can keep a cache and ask only for changed chunks
 - [ ] `.dds`, `.jp2`, `.mng` textures

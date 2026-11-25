@@ -21,10 +21,12 @@
 #include "png.hpp"
 #include "resources.hpp"
 #include "scene.hpp"
+#include "terrain.hpp"
 
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 
@@ -107,6 +109,16 @@ void printGhosts(const Link& link) {
           std::printf("      cloud %s height %s speed %s\n", quote(c.texture).c_str(), fmt(c.height).c_str(),
                       fmt(c.speed).c_str());
       std::printf("      wind %s\n", fmt(s.windVelocity).c_str());
+    } else if (g.className == "TerrainBlock") {
+      const TerrainBlockState& t = g.terrain;
+      std::printf("      name %s, square size %u, repeat %d\n", quote(t.name).c_str(), t.squareSize, t.repeat ? 1 : 0);
+    } else if (g.className == "WaterBlock") {
+      const WaterBlockState& w = g.water;
+      std::printf("      name %s\n      position %s scale %s rotation (%s, %s, %s, %s)\n", quote(w.name).c_str(),
+                  fmt(w.position).c_str(), fmt(w.scale).c_str(), fmt(w.rotation[0]).c_str(), fmt(w.rotation[1]).c_str(),
+                  fmt(w.rotation[2]).c_str(), fmt(w.rotation[3]).c_str());
+      std::printf("      surface %s shore %s liquid type %u opacity %s\n", quote(w.textures[0]).c_str(),
+                  quote(w.textures[4]).c_str(), w.liquidType, fmt(w.opacity).c_str());
     }
   }
 }
@@ -190,13 +202,37 @@ int main(int argc, char** argv) {
   std::printf("\nServer time %u, control ghost %d, camera ghost %d, field of view %d\n", link->serverTime(),
               link->controlGhost(), link->cameraGhost(), link->fieldOfView());
   printGhosts(*link);
+  if (link->terrainChunkCount() > 0)
+    std::printf("\nTerrain chunks: %d received, %zu distinct\n", link->terrainChunkCount(), link->terrainChunks().size());
 
   if (!renderPath.empty()) {
     render::Resources resources;
     resources.setLog([](const std::string& s) { std::printf("  render: %s\n", s.c_str()); });
     for (const auto& r : roots) resources.addRoot(r);
     const int fov = link->fieldOfView() > 0 ? link->fieldOfView() : fovOverride;
-    const render::Scene scene = render::sceneFromGhosts(link->ghosts(), link->cameraGhost(), float(fov));
+    render::Scene scene = render::sceneFromGhosts(link->ghosts(), link->cameraGhost(), float(fov));
+    // The streamed terrain: the chunks the session sent, over the client's
+    // cache (levels3d/heights/<server>/) when a --res folder holds one.
+    render::Terrain terrain;
+    render::Shape terrainShape;
+    if (scene.terrain.present) {
+      terrain.squareSize = scene.terrain.squareSize;
+      terrain.repeat = scene.terrain.repeat;
+      const std::string info = resources.find("heights.info");
+      if (!info.empty()) {
+        const int cached = render::loadTerrainCache(std::filesystem::path(info).parent_path().string(), terrain);
+        std::printf("  terrain cache %s: %d chunk files\n", std::filesystem::path(info).parent_path().string().c_str(), cached);
+      }
+      for (const auto& [i, bytes] : link->terrainChunks())
+        render::applyCompressedTerrainChunk(terrain, i % 16, i / 16, reinterpret_cast<const uint8_t*>(bytes.data()),
+                                            bytes.size());
+      terrainShape = render::terrainShape(terrain);
+      render::SceneObject so;
+      so.shape = "(terrain)";
+      so.transform = render::M4::identity();
+      so.direct = &terrainShape;
+      scene.objects.push_back(so);
+    }
     std::vector<uint32_t> pixels(size_t(width) * height, 0);
     std::printf("\nRendering %dx%d to %s\n", width, height, renderPath.c_str());
     const render::DrawStats ds = render::drawScene({pixels.data(), width, height, width}, scene, resources);

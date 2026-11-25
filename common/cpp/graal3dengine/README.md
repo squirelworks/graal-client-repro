@@ -27,10 +27,11 @@ the connect to login step 6:
 | `src/link.*` packets | The data-link header, 9-bit sequences widened, ack masks, delivered/lost notification, at most 30 packets in flight, a ping answered with an ack, every server data packet answered at once, a keep-alive each second, the 30 s silence time-out | §4 |
 | `src/link.*` events | Unguaranteed and guaranteed-ordered lists with Graal's 14-bit length prefix, held back until in order, lost ones sent again; `NetStringEvent` tags, `RemoteCommandEvent`, `BigDataStartEvent`/`ChunkEvent` both ways (none, zlib, bzip2 in; none out); `GhostAlwaysObjectEvent` makes the ghost it carries (ghost index, object flag, class, 14-bit length, the class's update) | §5, §7; the Sharp3D capture (2026-11-24) |
 | `src/link.*` mission start | `MissionStartPhase1` → step 2 and `MissionStartPhase1Ack`; `MissionStartPhase2` → steps 3, 4 and `MissionStartPhase2Ack`; the first control object after phase 2 → steps 5 and 6 | §7, `torque/4208-g3d.md`, `torque/5007-g3d.md` |
-| `src/world.*` | Ghost creates, updates and deletes; `GameObject` (all thirteen sections), `Camera`, `Sun`, `Sky` (the whole update: name, material list, fog colour, fog volumes, clouds); any other class skipped by its length | §8 |
+| `src/world.*` | Ghost creates, updates and deletes; `GameObject` (all thirteen sections), `Camera`, `Sun`, `Sky` (the whole update: name, material list, fog colour, fog volumes, clouds), `TerrainBlock` (name, square size, repeat) and `WaterBlock` (the whole update); any other class skipped by its length | §8; `torque/terrain-512.md` §1, §5 |
+| `src/link.*` terrain | `TerrainChunkEvent` (chunk x and y, stamp, 10-bit length, zlib stream) kept per chunk once a `TerrainBlock` is there, an empty one ignored; one `TerrainRequestUpdatesEvent` with 256 zero stamps when the block first arrives (the rebuild keeps no cache, so the server sends every chunk) | `torque/terrain-512.md` §2, §3 |
 | client game section | First person, the control object's position and ghost, its shape, transform and flags sent back once, then an empty update. The control object is read with its own class: a `GameObject`, or a `Camera` as SharpServer sends it (the ghost is named back with no update; what the real client sends then is not read yet) | §6; the Sharp3D capture |
 | `src/link.*` movement | A movetype (`interpolate`, `list`, `rigid`) and movement data on the control object move the player: `list` jumps onto each position, `interpolate` and `rigid` glide to each target; the position sent in every packet is where the object has got to. `interpolate` and `list` send their shape, transform, movetype and flags once when the movement object is made; then `interpolate` sends its movement data and `list` its transform in every update, and `rigid` sends no object section | `protocol/lab-appe-hosta-2026-11-20d.md` (E#505, real 5.12) |
-| `render/` | The world renderer: `.3ds` shapes, the server's Camera, Sun lighting, the Sky's box and fog, drawn in software into the host's pixels by `graal3dengine_renderFrame` ([render/README.md](render/README.md)) | `torque/udp-session.md` §8, `graal3d/torque-engine-4x.md` |
+| `render/` | The world renderer: `.3ds`, `.dts` and `.dif` shapes, the streamed terrain, water surfaces, the server's Camera, Sun lighting, the Sky's box and fog, drawn in software into the host's pixels by `graal3dengine_renderFrame` ([render/README.md](render/README.md)) | `torque/udp-session.md` §8, `graal3d/torque-engine-4x.md` |
 | `tools/` | `g3d-replay` (`make tools`): reads a packet capture (pcap or pcapng) of a real session, feeds the server's UDP side to the link in replay mode, prints the class tables, login steps, commands and every ghost, and can draw the world the camera saw to a PNG ([tools/README.md](tools/README.md)) | this library |
 | `src/exports.cpp` | `loadGraal3DEngine` registers `ConnectTo3DServer`, `RemoveGraal3DConnection`, `SendGraal3DScriptEvent(s)`, `RemoveGraal3DMissionGroup` on the engine, clears the launcher's `StartGraal3D` and initialises the engine again; `runGraal3DEngine` is one frame of the link on a UDP socket; `endGraal3DEngine` sends the disconnect | `graal3d/torque-engine-4x.md`, `torque/5007-g3d.md` |
 
@@ -102,8 +103,8 @@ every Graal build uses the same table. The rest is this rebuild's own.
 - [ ] A lab run with the rebuilt 5.12 against the Seihai gserver's 3D mode
 - [ ] Drawing: the Torque world in `GraalControl3D`, and the draw slots
   the original takes over. `.3ds` shapes, the camera, sun and sky box are
-  drawn by `render/`; the hosts do not present the frame yet, and `.dts`,
-  `.dif`, `.ft`, terrain and water are not drawn (render/README.md)
+  drawn by `render/`; the hosts do not present the frame yet, and `.ft`
+  is not drawn (render/README.md)
 - [ ] Step 6 waits for the engine's TCP file downloads; the shapes and sky
   textures fetched over TCP
 - [ ] The TCP session in 3D mode ignoring level boards, warps and flags

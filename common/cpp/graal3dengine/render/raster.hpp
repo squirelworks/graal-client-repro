@@ -42,6 +42,8 @@ struct RasterState {
   // texture at its edges instead of wrapping (sky-box faces).
   bool bilinear = true;
   bool clampTexture = false;
+  // Below 1, the pixel is blended over what is there (water).
+  float opacity = 1;
 };
 
 class Rasterizer {

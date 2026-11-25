@@ -68,7 +68,7 @@ DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
   const V3 toLight = -scene.sun.direction;
 
   for (const SceneObject& obj : scene.objects) {
-    const Shape* shape = res.shape(obj.shape);
+    const Shape* shape = obj.direct ? obj.direct : res.shape(obj.shape);
     if (!shape) {
       ++stats.objectsMissing;
       continue;
@@ -108,6 +108,31 @@ DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
         ++stats.triangles;
       }
     }
+  }
+
+  // Water last, blended over what is beneath (the rebuild's own: a flat,
+  // unlit surface, its texture repeating every 16 m).
+  for (const WaterSurface& w : scene.water) {
+    RasterState st;
+    st.fogColor = fogColor;
+    st.texture = w.texture.empty() ? nullptr : res.texture(w.texture);
+    st.alphaTest = false;
+    st.depthWrite = false;
+    st.opacity = w.opacity;
+    const float corners[4][2] = {{0, 0}, {w.width, 0}, {w.width, w.depth}, {0, w.depth}};
+    RasterVertex q[4];
+    for (int i = 0; i < 4; ++i) {
+      q[i].position = w.transform.point({corners[i][0], corners[i][1], 0});
+      q[i].u = corners[i][0] / 16.0f;
+      q[i].v = corners[i][1] / 16.0f;
+      if (fog) {
+        const float dist = length(q[i].position - eye);
+        q[i].fog = dist <= fogStart ? 0 : (dist - fogStart) / (farPlane - fogStart);
+      }
+    }
+    r.drawTriangle(q[0], q[1], q[2], st);
+    r.drawTriangle(q[0], q[2], q[3], st);
+    stats.triangles += 2;
   }
   return stats;
 }

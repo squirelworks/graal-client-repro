@@ -1,5 +1,7 @@
 #include "scene.hpp"
 
+#include <cmath>
+
 namespace graal3d::render {
 
 namespace {
@@ -26,6 +28,39 @@ Scene sceneFromGhosts(const GhostTable& ghosts, int cameraGhost, float fovDegree
         scene.hasCamera = true;
         scene.view.cameraToWorld = objectTransform(g.camera.object);
       }
+    } else if (g.className == "TerrainBlock" && g.terrain.init) {
+      // A later block replaces the first only when it is named Terrain.
+      if (!scene.terrain.present || g.terrain.name == "Terrain") {
+        scene.terrain.present = true;
+        scene.terrain.squareSize = g.terrain.squareSize > 0 && g.terrain.squareSize <= 1024 ? float(g.terrain.squareSize) : 8.0f;
+        scene.terrain.repeat = g.terrain.repeat;
+      }
+    } else if (g.className == "WaterBlock" && g.water.init) {
+      const WaterBlockState& w = g.water;
+      if (!(w.scale.x >= 1024 && w.scale.y >= 1024) || !std::isfinite(w.scale.x) || !std::isfinite(w.scale.y)) continue;
+      WaterSurface ws;
+      // Torque keeps the conjugate quaternion (read_dts.cpp); turned here
+      // as a standard one: the rebuild's own reading until a lab shot.
+      const float qx = w.rotation[0], qy = w.rotation[1], qz = w.rotation[2], qw = w.rotation[3];
+      M4 m = M4::identity();
+      m.m[0][0] = 1 - 2 * (qy * qy + qz * qz);
+      m.m[0][1] = 2 * (qx * qy - qz * qw);
+      m.m[0][2] = 2 * (qx * qz + qy * qw);
+      m.m[1][0] = 2 * (qx * qy + qz * qw);
+      m.m[1][1] = 1 - 2 * (qx * qx + qz * qz);
+      m.m[1][2] = 2 * (qy * qz - qx * qw);
+      m.m[2][0] = 2 * (qx * qz - qy * qw);
+      m.m[2][1] = 2 * (qy * qz + qx * qw);
+      m.m[2][2] = 1 - 2 * (qx * qx + qy * qy);
+      m.m[0][3] = w.position.x;
+      m.m[1][3] = w.position.y;
+      m.m[2][3] = w.position.z;
+      ws.transform = m;
+      ws.width = w.scale.x;
+      ws.depth = w.scale.y;
+      ws.texture = w.textures[0];
+      ws.opacity = std::isfinite(w.opacity) ? clamp01(w.opacity) : 1.0f;
+      scene.water.push_back(ws);
     } else if (g.className == "Sun" && !scene.sun.present && g.sun.init) {
       scene.sun.present = true;
       scene.sun.direction = normalize(v(g.sun.direction));

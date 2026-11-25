@@ -31,6 +31,11 @@ to that client, in capture order. Then it prints:
 - every ghost held at the end, with the fields this library reads
   (`GameObject`, `Camera`, `Sun`, `Sky`; other classes by name).
 
+When the session has a `TerrainBlock`, the summary counts the terrain
+chunks received, and `--render` draws the terrain from them, laid over the
+client's cache when a `--res` folder holds one (the `heights.info` and
+`heights<x>-<y>.dat` under `levels3d/heights/<server>/`).
+
 `--render` draws that world with `render/` from the files under each
 `--res` folder (the client's `levels3d`, for example) as the camera ghost
 saw it. `--at` stops that many seconds after the challenge, to look at an

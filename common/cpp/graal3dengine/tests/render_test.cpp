@@ -5,6 +5,7 @@
 #include "../render/read_3ds.hpp"
 #include "../render/read_dif.hpp"
 #include "../render/read_dts.hpp"
+#include "../render/terrain.hpp"
 #include "bits.hpp"
 #include "vectors.hpp"
 #include "world.hpp"
@@ -19,6 +20,8 @@
 #include <fstream>
 #include <string>
 #include <vector>
+
+#include <zlib.h>
 
 using namespace graal3d;
 using namespace graal3d::render;
@@ -1183,6 +1186,181 @@ void testClientImageFormats() {
   std::filesystem::remove_all(root);
 }
 
+// ---- A terrain chunk writer for the tests (terrain-512.md section 2) ---
+// Wire deltas that decode to exactly `h` (heights small enough that no
+// delta needs clamping).
+struct ChunkSpec {
+  int mode = 2;
+  int16_t h[16][16] = {};
+  std::vector<int> ids;          // material ids
+  int primary[16][16] = {};      // index into ids
+  bool blend[16][16] = {};
+  bool hole[16][16] = {};
+};
+
+std::string chunkBytes(const ChunkSpec& c) {
+  int dec[16][16];  // decoded deltas
+  int8_t wire[16][16];
+  for (int y = 0; y < 16; ++y)
+    for (int x = 0; x < 16; ++x) {
+      if (y == 0 && x == 0) dec[y][x] = 0;
+      else if (y == 0) dec[y][x] = c.h[0][x] - c.h[0][x - 1];
+      else if (x == 0) dec[y][x] = c.h[y][0] - c.h[y - 1][0];
+      else dec[y][x] = c.h[y][x] - (c.h[y - 1][x] + c.h[y][x - 1]) / 2;
+      wire[y][x] = int8_t(y == 0 || x == 0 ? dec[y][x] : dec[y][x] - (dec[y - 1][x] + dec[y][x - 1]) / 2);
+    }
+  BitWriter w;
+  w.bits(uint32_t(c.mode), 8);
+  w.bits(uint16_t(c.h[0][0]), 16);
+  for (auto& row : wire)
+    for (int8_t v : row) w.bits(uint8_t(v), 8);
+  w.bits(uint32_t(c.ids.size()), 6);
+  for (int id : c.ids) w.bits(uint32_t(id), 5);
+  if (c.ids.size() > 1) {
+    int bitsW = 0;
+    while ((1u << bitsW) < c.ids.size()) ++bitsW;
+    for (int y = 0; y < 16; ++y)
+      for (int x = 0; x < 16; ++x) {
+        w.flag(c.blend[y][x]);
+        w.bits(uint32_t(c.primary[y][x]), bitsW);
+        if (c.blend[y][x]) {
+          w.bits(0, bitsW);
+          w.bits(7, 4);
+        }
+      }
+  }
+  if (c.mode == 2)
+    for (auto& row : c.hole)
+      for (bool v : row) w.flag(v);
+  return w.bytes();
+}
+
+std::vector<uint8_t> zipped(const std::string& raw) {
+  uLongf n = compressBound(uLong(raw.size()));
+  std::vector<uint8_t> out(n);
+  compress(out.data(), &n, reinterpret_cast<const Bytef*>(raw.data()), uLong(raw.size()));
+  out.resize(n);
+  return out;
+}
+
+void testTerrain() {
+  // A slope with a bump, two materials (ids 3 and 1), a blend and a hole.
+  ChunkSpec c;
+  for (int y = 0; y < 16; ++y)
+    for (int x = 0; x < 16; ++x) {
+      c.h[y][x] = int16_t(40 + x * 2 + y + (x == 5 && y == 6 ? 20 : 0));
+      c.primary[y][x] = x < 8 ? 0 : 1;
+    }
+  c.ids = {3, 1};
+  c.blend[2][2] = true;
+  c.hole[15][15] = true;
+  const std::string raw = chunkBytes(c);
+  Terrain t;
+  CHECK(applyTerrainChunk(t, 2, 1, reinterpret_cast<const uint8_t*>(raw.data()), raw.size()));
+  auto at = [](int x, int y) { return size_t(y) * kTerrainSize + size_t(x); };
+  // Chunk (2, 1) covers squares x 32..47, y 16..31. Stored = wire << 2.
+  CHECK(t.heights[at(32, 16)] == 40 * 4);
+  CHECK(t.heights[at(32 + 5, 16 + 6)] == (40 + 10 + 6 + 20) * 4);
+  CHECK(t.heights[at(47, 31)] == (40 + 30 + 15) * 4);
+  CHECK(std::fabs(t.heightMetres(32, 16) - 5.0f) < 1e-6f);  // 40 units of 1/8 m
+  CHECK(t.material[at(33, 16)] == 3 && t.material[at(40, 16)] == 1 && t.material[at(34, 18)] == 3);
+  CHECK(t.hole[at(47, 31)] == 1 && t.hole[at(46, 31)] == 0);
+  CHECK(t.heights[at(31, 16)] == 0 && t.heights[at(32, 15)] == 0);  // neighbours untouched
+  CHECK(!applyTerrainChunk(t, 16, 0, reinterpret_cast<const uint8_t*>(raw.data()), raw.size()));
+  // Mode 1 clears the chunk's holes; mode 0 leaves them.
+  ChunkSpec flat;
+  flat.mode = 0;
+  std::string f0 = chunkBytes(flat);
+  applyTerrainChunk(t, 2, 1, reinterpret_cast<const uint8_t*>(f0.data()), f0.size());
+  CHECK(t.hole[at(47, 31)] == 1 && t.heights[at(40, 20)] == 0 && t.material[at(40, 20)] == 0);
+  flat.mode = 1;
+  std::string f1 = chunkBytes(flat);
+  applyTerrainChunk(t, 2, 1, reinterpret_cast<const uint8_t*>(f1.data()), f1.size());
+  CHECK(t.hole[at(47, 31)] == 0);
+  // Compressed, and corrupt (applied as zeros).
+  Terrain z;
+  const std::vector<uint8_t> packed = zipped(raw);
+  CHECK(applyCompressedTerrainChunk(z, 0, 0, packed.data(), packed.size()) && z.heights[at(0, 0)] == 160);
+  std::vector<uint8_t> bad = packed;
+  bad[bad.size() / 2] ^= 0xFF;
+  bad.resize(bad.size() - 3);
+  CHECK(applyCompressedTerrainChunk(z, 0, 0, bad.data(), bad.size()) && z.heights[at(0, 0)] == 0);
+  // Short data reads as zeros without faults; random bytes too.
+  uint32_t seed = 5;
+  for (int i = 0; i < 3000; ++i) {
+    std::string m = raw.substr(0, size_t(seed % (raw.size() + 1)));
+    for (char& ch : m) {
+      seed = seed * 1103515245u + 12345u;
+      if ((seed >> 16) % 7 == 0) ch = char(seed >> 8);
+    }
+    Terrain u;
+    applyTerrainChunk(u, int(seed % 16), int((seed >> 4) % 16), reinterpret_cast<const uint8_t*>(m.data()), m.size());
+  }
+
+  // heights.info: one name per line; a comma is part of a name.
+  const auto names = parseHeightsInfo("grass\r\nrock,dirt\n\nsand\n");
+  CHECK(names.size() == 4 && names[0] == "grass" && names[1] == "rock,dirt" && names[2].empty() && names[3] == "sand");
+
+  // The cache folder: heights.info and heights<x>-<y>.dat.
+  const auto root = std::filesystem::temp_directory_path() / "g3d-render-test-terrain";
+  std::filesystem::remove_all(root);
+  std::filesystem::create_directories(root);
+  {
+    std::ofstream(root / "heights.info") << "a\nb\nc\nd\n";
+    std::ofstream o(root / "heights15-3.dat", std::ios::binary);
+    o.write(reinterpret_cast<const char*>(packed.data()), std::streamsize(packed.size()));
+  }
+  Terrain cached;
+  CHECK(loadTerrainCache(root.string(), cached) == 1 && cached.present && cached.chunksLoaded == 1);
+  CHECK(cached.materials.size() == 4 && cached.materials[3] == "d");
+  CHECK(cached.heights[at(15 * 16, 3 * 16)] == 160);
+  std::filesystem::remove_all(root);
+
+  // The mesh: centred on the origin, 8 m squares, one hole left out.
+  const Shape s = terrainShape(cached);
+  CHECK(s.meshes.size() == 1 && s.materials.size() == 4 && s.materials[3].texture == "d");
+  if (s.meshes.size() == 1) {
+    const Mesh& m = s.meshes[0];
+    CHECK(m.vertices.size() == 257u * 257u);
+    CHECK(m.triangles.size() == 2u * (256u * 256u - 1u));
+    CHECK(nearV(m.vertices[0].position, {-1024, -1024, 0}));
+    const Vertex& v = m.vertices[size_t(3 * 16) * 257 + size_t(15 * 16)];
+    CHECK(nearV(v.position, {(240 - 128) * 8.0f, (48 - 128) * 8.0f, 5.0f}));
+    CHECK(nearV(m.vertices[256].position, {1024, -1024, 0}));  // wraps to point 0
+  }
+
+  // Drawn from above: the terrain fills the view in its texture's colour.
+  Resources res;
+  Texture green;
+  green.width = green.height = 1;
+  green.pixels = {packRgba(30, 200, 40)};
+  for (const char* n : {"a", "b", "c", "d"}) res.putTexture(n, green);
+  Scene scene;
+  scene.hasCamera = true;
+  scene.view.fovDegrees = 60;
+  scene.view.cameraToWorld = graalTransform({0, 0, 50}, {1, 0, 0}, 1.5708f);  // looking down
+  SceneObject obj;
+  obj.direct = &s;
+  obj.transform = M4::identity();
+  scene.objects.push_back(obj);
+  std::vector<uint32_t> px(64 * 48);
+  drawScene({px.data(), 64, 48, 64}, scene, res);
+  CHECK(isColor(px[24 * 64 + 32], 30, 200, 40));
+  // Water above it at half opacity, in its texture's colour, blended.
+  Texture blue;
+  blue.width = blue.height = 1;
+  blue.pixels = {packRgba(0, 0, 220)};
+  res.putTexture("lake", blue);
+  WaterSurface w;
+  w.transform = M4::translation({-1024, -1024, 10});
+  w.width = w.depth = 2048;
+  w.texture = "lake";
+  w.opacity = 0.5f;
+  scene.water.push_back(w);
+  drawScene({px.data(), 64, 48, 64}, scene, res);
+  CHECK(isColor(px[24 * 64 + 32], 15, 100, 130));
+}
+
 void testBilinear() {
   // One black and one white texel side by side.
   Texture t;
@@ -1216,6 +1394,7 @@ int main() {
   testReadDts();
   testReadDif();
   testBilinear();
+  testTerrain();
   testClientImageFormats();
   if (failures) {
     std::fprintf(stderr, "render-test: %d failure(s)\n", failures);

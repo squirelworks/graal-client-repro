@@ -8,6 +8,7 @@
 #pragma once
 
 #include "math.hpp"
+#include "mesh.hpp"
 #include "raster.hpp"
 #include "../src/world.hpp"
 
@@ -20,6 +21,9 @@ struct SceneObject {
   int ghost = -1;
   std::string shape;
   M4 transform;
+  // A shape the caller holds (the streamed terrain); used instead of
+  // looking `shape` up when set.
+  const Shape* direct = nullptr;
 };
 
 struct SunLight {
@@ -36,12 +40,35 @@ struct SkyBox {
   float fogColor[3] = {0, 0, 0};
 };
 
+// The TerrainBlock's settings (terrain-512.md section 1). The heights come
+// separately (terrain.hpp); a caller adds the terrain's shape as a
+// SceneObject with `direct` set.
+struct TerrainSettings {
+  bool present = false;
+  float squareSize = 8;  // the block's own; 0 (a create with init 0) is drawn as 8
+  bool repeat = false;
+};
+
+// A WaterBlock's surface (terrain-512.md section 5): a flat rectangle from
+// its position over its scale's x and y, turned by its rotation. The
+// 5.12 takes the scale only from 1024 up; a smaller block draws nothing
+// (lab). Drawn with its surface texture at its opacity: the rebuild's own,
+// with no waves, reflection or shore.
+struct WaterSurface {
+  M4 transform;
+  float width = 0, depth = 0;
+  std::string texture;
+  float opacity = 1;
+};
+
 struct Scene {
   bool hasCamera = false;
   View view;
   SunLight sun;
   SkyBox sky;
+  TerrainSettings terrain;
   std::vector<SceneObject> objects;
+  std::vector<WaterSurface> water;
 };
 
 // `cameraGhost` is the ghost the server named as the camera (-1 for none);
