@@ -50,8 +50,8 @@ struct SkyBox {
   bool present = false;
   std::string textures[6];  // by sky-line entry: -y, +x, +y, -x, up, (bottom, not drawn)
   bool useTextures = true;  // the first option; off: the solid colour fills the sky
-  // Entry 5 drawn as the floor (the lab set the second and third options
-  // together; which of them does it is open).
+  // The second option: entry 5 drawn as the floor (lab; the third option
+  // showed nothing).
   bool drawBottom = false;
   float solidColor[3] = {0, 0, 0};
   float visibleDistance = 0;

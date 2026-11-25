@@ -103,7 +103,7 @@ Scene sceneFromGhosts(const GhostTable& ghosts, int cameraGhost, float fovDegree
       scene.sky.fogColor[1] = clamp01(g.sky.fogColor.y);
       scene.sky.fogColor[2] = clamp01(g.sky.fogColor.z);
       scene.sky.useTextures = g.sky.options[0] != 0;
-      scene.sky.drawBottom = g.sky.options[1] != 0 || g.sky.options[2] != 0;
+      scene.sky.drawBottom = g.sky.options[1] != 0;
       scene.sky.solidColor[0] = clamp01(g.sky.solidColor.x);
       scene.sky.solidColor[1] = clamp01(g.sky.solidColor.y);
       scene.sky.solidColor[2] = clamp01(g.sky.solidColor.z);

@@ -7,7 +7,7 @@
 // - The sky (lab T3D-046, real 5.12): entries 0 to 3 of the sky line draw
 //   on -y, +x, +y and -x, each mirrored left to right with up still up;
 //   entry 4 on top, its image's top toward +y; entry 5, the floor, only
-//   when the Sky's second or third option is set (lab: both set).
+//   when the Sky's second option is set.
 //   Below the horizon is the fog colour, and a band of it fades up
 //   from the horizon (its height, kSkyFogBand of the box's half-height,
 //   is the rebuild's own). With the first option off, the solid colour
