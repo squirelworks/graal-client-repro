@@ -11,6 +11,7 @@
 
 #include <array>
 #include <cmath>
+#include <limits>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -1148,6 +1149,28 @@ void testResources() {
 
 }  // namespace
 
+void testBilinear() {
+  // One black and one white texel side by side.
+  Texture t;
+  t.width = 2;
+  t.height = 1;
+  t.pixels = {packRgba(0, 0, 0), packRgba(255, 255, 255)};
+  // Between the two texel centres: half way.
+  CHECK(red(t.sampleBilinear(0.5f, 0.5f)) == 128 && alpha(t.sampleBilinear(0.5f, 0.5f)) == 255);
+  // On a texel centre: that texel.
+  CHECK(red(t.sampleBilinear(0.25f, 0.5f)) == 0 && red(t.sampleBilinear(0.75f, 0.5f)) == 255);
+  // At the left edge: wrapping blends in the right texel; clamping does not.
+  CHECK(red(t.sampleBilinear(0.0f, 0.5f)) == 128);
+  CHECK(red(t.sampleBilinear(0.0f, 0.5f, true)) == 0);
+  CHECK(red(t.sampleBilinear(1.0f, 0.5f, true)) == 255);
+  // Repeats past 1 and below 0.
+  CHECK(t.sampleBilinear(2.25f, 7.5f) == t.sampleBilinear(0.25f, 0.5f));
+  CHECK(t.sampleBilinear(-0.75f, -3.5f) == t.sampleBilinear(0.25f, 0.5f));
+  // Bad coordinates do not read outside the texture.
+  t.sampleBilinear(std::nanf(""), 1e30f);
+  t.sampleBilinear(-1e30f, std::numeric_limits<float>::infinity());
+}
+
 int main() {
   testRead3ds();
   testRotationRule();
@@ -1158,6 +1181,7 @@ int main() {
   testResources();
   testReadDts();
   testReadDif();
+  testBilinear();
   if (failures) {
     std::fprintf(stderr, "render-test: %d failure(s)\n", failures);
     return 1;

@@ -17,7 +17,7 @@ link it beside its own world.
 | `texture.*`, `stb_impl.cpp` | Textures (PNG, JPEG, GIF, BMP, TGA through `stb_image`) and the `Frame` view onto the caller's pixels |
 | `resources.*` | Finds files by lower-case name in any subfolder of the roots (`levels3d/` by default), tries the image extensions on a texture named without one (`sky_fr`), the bare name of one named with one (a 5.x client stores downloads bare), and the extensions added to a material name with a dot of its own (`base.marble`), caches what loaded, and forgets misses on `rescan()` |
 | `scene.*` | The scene from a `GhostTable`: every `GameObject` with a shape, the named `Camera` and the field of view, the first `Sun` and `Sky` |
-| `raster.*` | The software rasteriser: perspective-correct textured triangles, depth buffer, clipping to the near and far planes and to the view sides with a guard band (so a face reaching behind the camera, such as a sky-box face, is still drawn), per-vertex light and fog |
+| `raster.*` | The software rasteriser: perspective-correct textured triangles, depth buffer, clipping to the near and far planes and to the view sides with a guard band (so a face reaching behind the camera, such as a sky-box face, is still drawn), bilinear texture filtering (held at the edges for sky-box faces), per-vertex light and fog |
 | `draw.*` | One frame: the sky box, then each object lit by the sun and fogged toward the sky's fog colour |
 
 The library exports `graal3dengine_renderFrame`, `graal3dengine_addResourceFolder`
@@ -66,6 +66,8 @@ side by side with a real 5.12:
   material's alpha is its environment-map amount).
 - A textured material draws its texture unmodulated; an untextured one its
   diffuse colour.
+- Textures are filtered bilinearly, as a `GL_LINEAR` texture draws, with no
+  mipmaps; sky-box faces are held at their edges, other textures wrap.
 
 ## Not yet
 

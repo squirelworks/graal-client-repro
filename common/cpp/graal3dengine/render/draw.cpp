@@ -28,6 +28,7 @@ void drawSkyBox(Rasterizer& r, const Scene& scene, Resources& res, float farPlan
   RasterState st;
   st.depthTest = false;
   st.depthWrite = false;
+  st.clampTexture = true;
   for (int f = 0; f < 6; ++f) {
     const Texture* tex = res.texture(scene.sky.textures[f]);
     if (!tex) continue;
