@@ -2,6 +2,7 @@
 
 #include "read_3ds.hpp"
 #include "read_dif.hpp"
+#include "read_ft.hpp"
 #include "read_dts.hpp"
 
 #include <algorithm>
@@ -97,7 +98,7 @@ const Shape* Resources::shape(const std::string& name) {
   const std::string ext = extensionOf(key);
   if (path.empty()) {
     note("Graal3D: shape " + name + " is not here");
-  } else if (ext != ".3ds" && ext != ".dts" && ext != ".dif") {
+  } else if (ext != ".3ds" && ext != ".dts" && ext != ".dif" && ext != ".ft") {
     note("Graal3D: cannot draw " + ext + " shapes yet (" + name + ")");
   } else {
     std::vector<uint8_t> bytes;
@@ -107,9 +108,11 @@ const Shape* Resources::shape(const std::string& name) {
       note("Graal3D: cannot read " + path);
     } else if (!(ext == ".dts"   ? readDts(bytes, *s, error)
                  : ext == ".dif" ? readDif(bytes, *s, error)
+                 : ext == ".ft"  ? readFt(bytes, *s, error)
                                  : read3ds(bytes, *s, error))) {
       note("Graal3D: " + name + ": " + error);
     } else {
+      s->kind = ext == ".dts" ? Shape::kDts : ext == ".dif" ? Shape::kDif : ext == ".ft" ? Shape::kFt : Shape::k3ds;
       loaded = std::move(s);
     }
   }
@@ -169,6 +172,10 @@ const Texture* Resources::texture(const std::string& name) {
       note("Graal3D: the client does not draw this kind of image (" + path + ")");
     } else if (!decodeImage(bytes.data(), bytes.size(), *t, error)) {
       note("Graal3D: cannot read texture " + path + (error.empty() ? "" : ": " + error));
+    } else if (formats_ == ImageFormats::kClient512 && (t->width > kClientMaxTextureSide || t->height > kClientMaxTextureSide)) {
+      // The real 5.12 draws 1024 a side but not 2048 or 4096 (lab, GDI):
+      // the shape draws untextured white.
+      note("Graal3D: the client does not draw a texture this large (" + path + ")");
     } else {
       if (formats_ == ImageFormats::kClient512 && kind == ImageKind::kGif)
         for (uint32_t& p : t->pixels)

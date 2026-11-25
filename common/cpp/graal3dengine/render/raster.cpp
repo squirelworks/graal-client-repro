@@ -19,6 +19,19 @@ void Rasterizer::setView(const View& view) {
   focal_ = (frame_.width * 0.5f) / halfTan;
 }
 
+bool projectPoint(const View& view, int width, int height, const V3& world, float& sx, float& sy, float& depth) {
+  float fov = view.fovDegrees;
+  if (!(fov > 1.0f)) fov = 1.0f;
+  if (fov > 179.0f) fov = 179.0f;
+  const float focal = (width * 0.5f) / std::tan(fov * 3.14159265358979f / 360.0f);
+  const V3 c = view.cameraToWorld.rigidInverse().point(world);  // x right, y forward, z up
+  depth = c.y;
+  if (!(c.y > view.nearPlane)) return false;
+  sx = width * 0.5f + c.x / c.y * focal;
+  sy = height * 0.5f - c.z / c.y * focal;
+  return std::isfinite(sx) && std::isfinite(sy);
+}
+
 void Rasterizer::clear(uint32_t color) {
   for (int y = 0; y < frame_.height; ++y)
     for (int x = 0; x < frame_.width; ++x) frame_.at(x, y) = color;
@@ -172,6 +185,13 @@ void Rasterizer::drawClipped(const ClipVertex* poly, int count, const RasterStat
         r = r + (fr - r) * fog;
         g = g + (fg - g) * fog;
         bch = bch + (fb - bch) * fog;
+        if (s.opacity < 1) {
+          const uint32_t under = frame_.at(x, y);
+          const float o = s.opacity < 0 ? 0 : s.opacity;
+          r = red(under) + (r - red(under)) * o;
+          g = green(under) + (g - green(under)) * o;
+          bch = blue(under) + (bch - blue(under)) * o;
+        }
         frame_.at(x, y) = packRgba(clamp8(r), clamp8(g), clamp8(bch));
         if (s.depthWrite) dz = iw;
         ++written_;

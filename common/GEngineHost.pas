@@ -88,6 +88,7 @@ type
     procedure SetError(const S: string);
     procedure Start3D;
     procedure Unload3D;
+    procedure Present3D;
   public
     { The frame the engine draws into, sized to the window. }
     Screen: TGSurface;
@@ -1483,11 +1484,62 @@ begin
   Call0(FLib, 'loadGraalGui');
 end;
 
+{ The 3D view under the canvas, once the 3D link is past its mission start
+  (login step 6): the library draws the world into Screen
+  (graal3dengine_renderFrame, red in the lowest byte, so red and blue swap
+  for Screen's $AARRGGBB), then the name tags and chat over it in the
+  launcher's font, shadowed. The original draws its 3D view as
+  GraalControl3D in Torque's canvas; this order and the tag font are the
+  rebuild's own. }
+procedure TEngineHost.Present3D;
+type
+  TRenderFn = function(Pixels: PCardinal; W, H, Stride: LongInt): LongInt; cdecl;
+  TLabelFn = function(Index: LongInt; X, Y: PSingle; Rgba: PCardinal; Kind: PLongInt;
+    Text: PAnsiChar; TextSize: LongInt): LongInt; cdecl;
+const
+  TagFont: PAnsiChar = 'Arial';
+  TagSize = 14;
+var
+  RenderFn: TRenderFn;
+  CountFn: TIntFn;
+  LabelFn: TLabelFn;
+  I, N, Len, TW, TH: Integer;
+  C: Cardinal;
+  LX, LY: Single;
+  Rgba: Cardinal;
+  Kind: LongInt;
+  Buf: array[0..255] of AnsiChar;
+begin
+  if (F3DLib = 0) or (Graal3DLoginStep < 6) or (Length(Screen.Pixels) = 0) then Exit;
+  RenderFn := TRenderFn(GetProcedureAddress(TLibHandle(F3DLib), 'graal3dengine_renderFrame'));
+  if not Assigned(RenderFn) then Exit;
+  RenderFn(@Screen.Pixels[0], Screen.Width, Screen.Height, Screen.Width);
+  for I := 0 to Screen.Width * Screen.Height - 1 do
+  begin
+    C := Screen.Pixels[I];
+    Screen.Pixels[I] := (C and $FF00FF00) or ((C and $FF) shl 16) or ((C shr 16) and $FF);
+  end;
+  CountFn := TIntFn(GetProcedureAddress(TLibHandle(F3DLib), 'graal3dengine_labelCount'));
+  LabelFn := TLabelFn(GetProcedureAddress(TLibHandle(F3DLib), 'graal3dengine_label'));
+  if not Assigned(CountFn) or not Assigned(LabelFn) then Exit;
+  N := CountFn();
+  TH := cbTextHeight(TagFont, TagSize, 0);
+  for I := 0 to N - 1 do
+  begin
+    Len := LabelFn(I, @LX, @LY, @Rgba, @Kind, @Buf[0], SizeOf(Buf));
+    if Len <= 0 then Continue;
+    TW := cbTextWidth(@Buf[0], TagFont, TagSize, 0);
+    C := $FF000000 or ((Rgba and $FF) shl 16) or (Rgba and $FF00) or ((Rgba shr 16) and $FF);
+    cbDrawShadowed(Round(LX) - TW div 2, Round(LY) - TH, @Buf[0], TagFont, TagSize, 0, C, $FF000000);
+  end;
+end;
+
 procedure TEngineHost.Render;
 begin
   Cur := Self;
   if F3DWanted then Start3D;
   Call0(F3DLib, 'runGraal3DEngine');
+  Present3D;
   Call0(FLib, 'renderGraalCanvas');
 end;
 

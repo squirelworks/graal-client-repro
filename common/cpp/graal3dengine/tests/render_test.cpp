@@ -2,9 +2,12 @@
 // resolver, the scene built from ghosts, and frames drawn from them.
 // Every shape and texture here is made by the test itself.
 #include "../render/draw.hpp"
+#include "../render/motion.hpp"
 #include "../render/read_3ds.hpp"
 #include "../render/read_dif.hpp"
 #include "../render/read_dts.hpp"
+#include "../render/read_ft.hpp"
+#include "../render/terrain.hpp"
 #include "bits.hpp"
 #include "vectors.hpp"
 #include "world.hpp"
@@ -19,6 +22,8 @@
 #include <fstream>
 #include <string>
 #include <vector>
+
+#include <zlib.h>
 
 using namespace graal3d;
 using namespace graal3d::render;
@@ -237,6 +242,7 @@ Scene cameraScene(V3 eye, V3 axis = {1, 0, 0}, float angle = 0) {
   s.hasCamera = true;
   s.view.cameraToWorld = graalTransform(eye, axis, angle);
   s.view.fovDegrees = 90;
+  s.sun.present = true;  // full light (the 5.12 draws a quarter without one)
   return s;
 }
 
@@ -263,8 +269,8 @@ void testRead3ds() {
   CHECK(s.materials.size() == 1);
   CHECK(s.materials[0].name == "paint" && s.materials[0].texture == "brick.png");
   CHECK(std::fabs(s.materials[0].color[1] - 0.5f) < 1e-6f);
-  CHECK(s.meshes.size() == 2);       // box and bare
-  CHECK(s.collision.size() == 1);    // Col-1 is never drawn
+  CHECK(s.meshes.size() == 3);       // box, bare, and Col-1 (drawn, lab T3D-032)
+  CHECK(s.collision.size() == 1);    // Col-1 is also the collision hull
   CHECK(s.meshes[0].vertices.size() == 24 && s.meshes[0].triangles.size() == 12);
   CHECK(s.meshes[0].triangles[0].material == 0);
   CHECK(s.meshes[1].triangles[0].material == -1);  // no face group: not drawn
@@ -303,6 +309,10 @@ void testRead3ds() {
 }
 
 void testRotationRule() {
+  // A shape turns as the camera does (lab follow-up 10): at +90 degrees
+  // about +z its +x face looks to -y.
+  const V3 g = graalShapeTransform({0, 0, 0}, {0, 0, 1}, kPi / 2).vector({1, 0, 0});
+  CHECK(std::fabs(g.y + 1) < 1e-5f && std::fabs(g.x) < 1e-5f);
   // A positive angle about +z turns right: forward (+y) becomes +x.
   const V3 f = graalRotation({0, 0, 1}, kPi / 2).vector({0, 1, 0});
   CHECK(std::fabs(f.x - 1) < 1e-5f && std::fabs(f.y) < 1e-5f);
@@ -407,15 +417,47 @@ void testSunAndFog() {
     drawScene(f.frame(), s, res);
     return f.centre();
   };
-  // The face toward the camera faces -y. Light travelling +y hits it full
-  // on (0.25 + 0.75); light travelling -y leaves it at the ambient.
+  // The 5.12 ignores the Sun's direction, colour and ambient (lighting
+  // probe): every face full; without a Sun, a quarter.
   CHECK(isColor(litCentre({0, 1, 0}), 255, 255, 255));
-  CHECK(isColor(litCentre({0, -1, 0}), 64, 64, 64));
-  // At 60 degrees: 0.25 + 0.75 * 0.5.
-  CHECK(isColor(litCentre({0, 0.5f, -0.8660254f}), 159, 159, 159));
+  CHECK(isColor(litCentre({0, -1, 0}), 255, 255, 255));
+  CHECK(isColor(litCentre({0, 0.5f, -0.8660254f}), 255, 255, 255));
+  {
+    TestFrame f;
+    Scene s = cameraScene({0, -5, 0});
+    s.sun.present = false;
+    s.objects.push_back(objectAt("white.3ds", {0, 0, 0}));
+    drawScene(f.frame(), s, res);
+    CHECK(isColor(f.centre(), 64, 64, 64));
+  }
+  // The fixed light from (-x, -y, +z): a face toward +y or +x draws at
+  // 0.85, whatever the Sun (follow-up 10).
+  {
+    TestFrame f;
+    Scene s = cameraScene({0, 5, 0}, {0, 0, 1}, kPi);  // looking -y at the +y face
+    s.objects.push_back(objectAt("white.3ds", {0, 0, 0}));
+    drawScene(f.frame(), s, res);
+    CHECK(isColor(f.centre(), 217, 217, 217));
+  }
+  // A .dts or .dif without a Sun is black; with one, full (follow-up 11).
+  {
+    Shape d = cubeShape(1, 1, 1);
+    d.kind = Shape::kDif;
+    res.putShape("white.dif", d);
+    TestFrame f;
+    Scene s = cameraScene({0, 5, 0}, {0, 0, 1}, kPi);
+    s.objects.push_back(objectAt("white.dif", {0, 0, 0}));
+    drawScene(f.frame(), s, res);
+    CHECK(isColor(f.centre(), 255, 255, 255));
+    s.sun.present = false;
+    drawScene(f.frame(), s, res);
+    CHECK(isColor(f.centre(), 0, 0, 0));
+  }
 
-  // Fog: with a visible distance of 100, a cube 20 units away is clear,
-  // one 90 units away is mostly fog colour, one past 100 is not drawn.
+  // No fog on objects and no distance clip (lab, Mesa): with a visible
+  // distance of 100 and a blue fog, cubes at 20, 90, 120 and 800 units
+  // all draw white.
+  res.putShape("bigwhite.3ds", cubeShape(1, 1, 1, 10));
   auto fogged = [&](float dist) {
     TestFrame f;
     Scene s = cameraScene({0, 0, 0});
@@ -424,14 +466,11 @@ void testSunAndFog() {
     s.sky.fogColor[0] = 0;
     s.sky.fogColor[1] = 0;
     s.sky.fogColor[2] = 1;
-    s.objects.push_back(objectAt("white.3ds", {0, dist, 0}));
+    s.objects.push_back(objectAt("bigwhite.3ds", {0, dist, 0}));
     drawScene(f.frame(), s, res);
     return f.centre();
   };
-  CHECK(isColor(fogged(20), 255, 255, 255));
-  const uint32_t far = fogged(90);
-  CHECK(red(far) < 80 && blue(far) == 255);
-  CHECK(isColor(fogged(120), 0, 0, 255));
+  for (float d : {20.0f, 90.0f, 120.0f, 800.0f}) CHECK(isColor(fogged(d), 255, 255, 255));
 }
 
 void testSkyBox() {
@@ -448,12 +487,73 @@ void testSkyBox() {
     drawScene(f.frame(), s, res);
     return f.centre();
   };
-  CHECK(isColor(look({0, 0, 1}, 0), 200, 0, 0));             // front, +y
-  CHECK(isColor(look({0, 0, 1}, kPi / 2), 0, 200, 0));       // right, +x
-  CHECK(isColor(look({0, 0, 1}, kPi), 0, 0, 200));           // back
-  CHECK(isColor(look({0, 0, 1}, -kPi / 2), 200, 200, 0));    // left
-  CHECK(isColor(look({1, 0, 0}, -kPi / 2), 0, 200, 200));    // up (a negative angle tilts up)
-  CHECK(isColor(look({1, 0, 0}, kPi / 2), 200, 0, 200));     // down
+  // Facing +y the client draws entry 2 (T3D-046); a point above the band.
+  auto lookAbove = [&](V3 axis, float angle) {
+    TestFrame f;
+    Scene s = cameraScene({10, 20, 3}, axis, angle);
+    s.sky.present = true;
+    for (int i = 0; i < 6; ++i) s.sky.textures[i] = names[i];
+    drawScene(f.frame(), s, res);
+    return f.at(f.w / 2, f.h / 2 - 30);
+  };
+  CHECK(isColor(lookAbove({0, 0, 1}, 0), 0, 0, 200));            // entry 2, +y
+  CHECK(isColor(lookAbove({0, 0, 1}, kPi / 2), 0, 200, 0));      // entry 1, +x
+  CHECK(isColor(lookAbove({0, 0, 1}, kPi), 200, 0, 0));          // entry 0, -y
+  CHECK(isColor(lookAbove({0, 0, 1}, -kPi / 2), 200, 200, 0));   // entry 3, -x
+  CHECK(isColor(look({1, 0, 0}, -kPi / 2), 0, 200, 200));        // up (a negative angle tilts up)
+  CHECK(isColor(look({1, 0, 0}, kPi / 2), 0, 0, 0));             // down: entry 5 not drawn, the fog colour
+  {
+    TestFrame f;
+    Scene s = cameraScene({10, 20, 3}, {1, 0, 0}, kPi / 2);
+    s.sky.present = true;
+    s.sky.drawBottom = true;  // the Sky's floor option
+    for (int i = 0; i < 6; ++i) s.sky.textures[i] = names[i];
+    drawScene(f.frame(), s, res);
+    CHECK(isColor(f.centre(), 200, 0, 200));
+  }
+
+  // The fog band: the fog colour at the horizon, the image above it,
+  // the fog colour below.
+  {
+    TestFrame f;
+    Scene s = cameraScene({10, 20, 3});
+    s.sky.present = true;
+    s.sky.fogColor[0] = 1;
+    for (int i = 0; i < 6; ++i) s.sky.textures[i] = names[i];
+    drawScene(f.frame(), s, res);
+    CHECK(isColor(f.at(f.w / 2, f.h / 2 - 1), 255, 0, 0, 8));
+    CHECK(isColor(f.at(f.w / 2, f.h / 2 - 30), 0, 0, 200));
+    const uint32_t mid = f.at(f.w / 2, f.h / 2 - 10);  // part way up the band
+    CHECK(red(mid) > 60 && red(mid) < 200 && blue(mid) > 40 && blue(mid) < 160);
+    CHECK(isColor(f.at(f.w / 2, f.h / 2 + 10), 255, 0, 0));
+  }
+  // The side faces draw mirrored: facing +y, the image's right half is on
+  // the viewer's left.
+  {
+    Texture halves;
+    halves.width = 2;
+    halves.height = 1;
+    halves.pixels = {packRgba(255, 0, 0), packRgba(0, 0, 255)};
+    res.putTexture("halves", halves);
+    TestFrame f;
+    Scene s = cameraScene({10, 20, 3});
+    s.sky.present = true;
+    s.sky.textures[2] = "halves";
+    drawScene(f.frame(), s, res);
+    CHECK(isColor(f.at(f.w / 4, f.h / 2 - 30), 0, 0, 255));
+    CHECK(isColor(f.at(3 * f.w / 4, f.h / 2 - 30), 255, 0, 0));
+  }
+  // The first option off: the solid colour instead of the images.
+  {
+    TestFrame f;
+    Scene s = cameraScene({10, 20, 3});
+    s.sky.present = true;
+    s.sky.useTextures = false;
+    s.sky.solidColor[1] = 0.5f;
+    for (int i = 0; i < 6; ++i) s.sky.textures[i] = names[i];
+    drawScene(f.frame(), s, res);
+    CHECK(isColor(f.at(f.w / 2, f.h / 2 - 30), 0, 128, 0));
+  }
 
   // Looking toward a corner, every face in view reaches behind the camera;
   // each must still fill its part of the frame (the Sharp3D replay showed
@@ -464,7 +564,8 @@ void testSkyBox() {
     TestFrame f(789, 588);
     Scene s = cameraScene({10, 20, 3}, {0, 0, 1}, yaw);
     s.view.fovDegrees = 60;
-    s.view.cameraToWorld = s.view.cameraToWorld * graalRotation({1, 0, 0}, -0.5f);
+    // Tilted well up, so the frame stays above the horizon's fog band.
+    s.view.cameraToWorld = s.view.cameraToWorld * graalRotation({1, 0, 0}, -1.0f);
     s.sky.present = true;
     for (int i = 0; i < 6; ++i) s.sky.textures[i] = names[i];
     drawScene(f.frame(), s, res);
@@ -477,6 +578,8 @@ void testSkyBox() {
     CHECK(uncovered == 0);
   }
 }
+
+bool nearV(const V3& a, const V3& b);
 
 void testSceneFromGhosts() {
   GhostTable ghosts;
@@ -517,6 +620,99 @@ void testSceneFromGhosts() {
   CHECK(s.objects.size() == 1 && s.objects[0].shape == ghosts[2].object.shape);
   CHECK(std::fabs(s.view.cameraToWorld.m[2][3] - 2) < 1e-6f);
   CHECK(sceneFromGhosts(ghosts, 3, 60).view.fovDegrees == 60);
+  // An editor object (flag 0x04) is not drawn.
+  ghosts[2].object.flags = 0x04;
+  CHECK(sceneFromGhosts(ghosts, 3, 0).objects.empty());
+  ghosts[2].object.flags = 0x08;
+  CHECK(sceneFromGhosts(ghosts, 3, 0).objects.size() == 1);
+  ghosts[2].object.flags = 0;
+  // A static GameObject shows no tag, whatever its nickname (lab).
+  ghosts[4].object.nickname = "Zed";
+  ghosts[4].object.nickColor[0] = 7;
+  CHECK(sceneFromGhosts(ghosts, 3, 0).tags.empty() || sceneFromGhosts(ghosts, 3, 0).tags[0].ghost != 4);
+  // A moving, shapeless GameObject with a nickname is tagged but not drawn.
+  ghosts[4].object.hasMovement = true;
+  {
+    const Scene t = sceneFromGhosts(ghosts, 3, 0);
+    CHECK(t.objects.size() == 1);
+    int found = 0;
+    for (const SceneTag& tag : t.tags)
+      if (tag.ghost == 4) found += tag.nickname == "Zed" && tag.color[0] == 7 && tag.shape.empty();
+    CHECK(found == 1);
+  }
+  ghosts[4].object.nickname.clear();
+  ghosts[4].object.hasMovement = false;
+  // A DynamicShapeReplicator draws its shape like a GameObject; the grass
+  // classes draw nothing (lab T3D-048).
+  {
+    GhostTable rg;
+    for (int i = 0; i < 3; ++i) {
+      rg[i].className = i == 0 ? "DynamicShapeReplicator" : i == 1 ? "DynamicGrassReplicator" : "DynamicGrass";
+      rg[i].object.shape = "rock.3ds";
+      rg[i].object.hasTransform = true;
+    }
+    const Scene rs = sceneFromGhosts(rg, -1, 0);
+    CHECK(rs.objects.size() == 1 && rs.objects[0].ghost == 0 && rs.objects[0].shape == "rock.3ds");
+  }
+  // A WaterBlock's surface is its top: position z plus scale z.
+  {
+    GhostTable wg;
+    wg[0].className = "WaterBlock";
+    wg[0].water.init = true;
+    wg[0].water.position = {5, 6, 10};
+    wg[0].water.scale = {2048, 2048, 3};
+    wg[0].water.rotation[3] = 1;
+    const Scene ws = sceneFromGhosts(wg, -1, 0);
+    CHECK(ws.water.size() == 1 && std::fabs(ws.water[0].transform.m[2][3] - 13) < 1e-4f);
+    // Any scale is taken; the block runs from its corner to corner + scale
+    // and turns about it: 90 degrees about z puts its +x along world -y
+    // (lab, Graal_analysis PR #895).
+    wg[0].water.position = {0, 0, 0};
+    wg[0].water.scale = {512, 256, 0};
+    const float h = std::sqrt(0.5f);
+    wg[0].water.rotation[2] = h;
+    wg[0].water.rotation[3] = h;
+    const Scene turned = sceneFromGhosts(wg, -1, 0);
+    CHECK(turned.water.size() == 1 && turned.water[0].width == 512 && turned.water[0].depth == 256);
+    if (turned.water.size() == 1) {
+      CHECK(nearV(turned.water[0].transform.point({512, 0, 0}), {0, -512, 0}));
+      CHECK(nearV(turned.water[0].transform.point({0, 256, 0}), {256, 0, 0}));
+    }
+    wg[0].water.scale = {0, 256, 0};
+    CHECK(sceneFromGhosts(wg, -1, 0).water.empty());
+  }
+  // Waves (lab grid fit): flat at magnitude 0; on x = y a point swings
+  // +-0.5 x magnitude, elsewhere less; one period is 2 pi / 0.984 s; crests
+  // travel toward -x.
+  CHECK(waveHeight(0, 1, 5, 5) == 0);
+  {
+    auto swing = [](float x, float y) {
+      float lo = 1e9f, hi = -1e9f;
+      for (int k = 0; k < 700; ++k) {
+        const float h = waveHeight(1, k * 0.01, x, y);
+        lo = std::min(lo, h);
+        hi = std::max(hi, h);
+      }
+      return hi - lo;
+    };
+    CHECK(std::fabs(swing(10, 10) - 1.0f) < 0.01f);
+    CHECK(swing(0, 63) < 0.15f);  // half a wavelength apart: nearly cancel
+    const double period = 2 * 3.14159265358979 / kWaveOmega;
+    CHECK(std::fabs(waveHeight(1, 1.0, 7, 3) - waveHeight(1, 1.0 + period, 7, 3)) < 1e-3f);
+    // A crest at x moves to x - c dt (c = w / k).
+    const float c = kWaveOmega * kWaveLength / (2 * 3.14159265f);
+    CHECK(std::fabs(waveHeight(1, 2.0, 40, 5) - waveHeight(1, 1.0, 40 + c, 5 + c)) < 1e-3f);
+  }
+  // Section 2 scales the shape about its origin; zeros mean unset.
+  {
+    GameObjectState o;
+    o.position = {1, 2, 3};
+    const V3 p = objectTransform(o).point({1, 1, 1});
+    CHECK(std::fabs(p.x - 2) < 1e-5f && std::fabs(p.z - 4) < 1e-5f);
+    o.scale = {1, 1, 3};
+    const V3 q = objectTransform(o).point({1, 1, 1});
+    CHECK(std::fabs(q.x - 2) < 1e-5f && std::fabs(q.z - 6) < 1e-5f);
+  }
 
   // "-" leaves a face empty.
   ghosts[1].sky.textures = "a,-,c";
@@ -1174,13 +1370,391 @@ void testClientImageFormats() {
   CHECK(res.texture("bmp.png") == nullptr);
   const Texture* g = res.texture("gif.jpg");  // named as anything: read by content
   CHECK(g && g->width == 2 && isColor(g->pixels[0], 255, 0, 0) && g->pixels[1] == packRgba(255, 255, 255));
+  // Up to 1024 a side draws; 2048 does not (lab, live-512-shapes).
+  auto greyPng = [](uint32_t w, uint32_t h) {
+    auto be = [](std::vector<uint8_t>& v, uint32_t x) {
+      for (int i = 3; i >= 0; --i) v.push_back(uint8_t(x >> (8 * i)));
+    };
+    auto chunk = [&](std::vector<uint8_t>& out, const char* type, const std::vector<uint8_t>& data) {
+      be(out, uint32_t(data.size()));
+      std::vector<uint8_t> td(type, type + 4);
+      td.insert(td.end(), data.begin(), data.end());
+      out.insert(out.end(), td.begin(), td.end());
+      be(out, uint32_t(crc32(0, td.data(), uInt(td.size()))));
+    };
+    std::vector<uint8_t> raw;
+    for (uint32_t y = 0; y < h; ++y) {
+      raw.push_back(0);
+      raw.insert(raw.end(), w, 128);
+    }
+    std::vector<uint8_t> z(compressBound(uLong(raw.size())));
+    uLongf zn = uLongf(z.size());
+    compress(z.data(), &zn, raw.data(), uLong(raw.size()));
+    z.resize(zn);
+    std::vector<uint8_t> out{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a};
+    std::vector<uint8_t> ihdr;
+    be(ihdr, w);
+    be(ihdr, h);
+    ihdr.insert(ihdr.end(), {8, 0, 0, 0, 0});
+    chunk(out, "IHDR", ihdr);
+    chunk(out, "IDAT", z);
+    chunk(out, "IEND", {});
+    return out;
+  };
+  write("side1024", greyPng(1024, 2));
+  write("side2048", greyPng(2, 2048));
+  res.rescan();
+  CHECK(res.texture("side1024") != nullptr);
+  CHECK(res.texture("side2048") == nullptr);
   Resources all;
   all.setImageFormats(Resources::ImageFormats::kAll);
   all.addRoot(root.string());
-  CHECK(all.texture("bmp") != nullptr && all.texture("png16") != nullptr);
+  CHECK(all.texture("bmp") != nullptr && all.texture("png16") != nullptr && all.texture("side2048") != nullptr);
   const Texture* ga = all.texture("gif");
   CHECK(ga && alpha(ga->pixels[1]) == 0);
   std::filesystem::remove_all(root);
+}
+
+// ---- A terrain chunk writer for the tests (terrain-512.md section 2) ---
+// Wire deltas that decode to exactly `h` (heights small enough that no
+// delta needs clamping).
+struct ChunkSpec {
+  int mode = 2;
+  int16_t h[16][16] = {};
+  std::vector<int> ids;          // material ids
+  int primary[16][16] = {};      // index into ids
+  bool blend[16][16] = {};
+  int second[16][16] = {};  // index into ids, for a blend
+  bool hole[16][16] = {};
+};
+
+std::string chunkBytes(const ChunkSpec& c) {
+  int dec[16][16];  // decoded deltas
+  int8_t wire[16][16];
+  for (int y = 0; y < 16; ++y)
+    for (int x = 0; x < 16; ++x) {
+      if (y == 0 && x == 0) dec[y][x] = 0;
+      else if (y == 0) dec[y][x] = c.h[0][x] - c.h[0][x - 1];
+      else if (x == 0) dec[y][x] = c.h[y][0] - c.h[y - 1][0];
+      else dec[y][x] = c.h[y][x] - (c.h[y - 1][x] + c.h[y][x - 1]) / 2;
+      wire[y][x] = int8_t(y == 0 || x == 0 ? dec[y][x] : dec[y][x] - (dec[y - 1][x] + dec[y][x - 1]) / 2);
+    }
+  BitWriter w;
+  w.bits(uint32_t(c.mode), 8);
+  w.bits(uint16_t(c.h[0][0]), 16);
+  for (auto& row : wire)
+    for (int8_t v : row) w.bits(uint8_t(v), 8);
+  w.bits(uint32_t(c.ids.size()), 6);
+  for (int id : c.ids) w.bits(uint32_t(id), 5);
+  if (c.ids.size() > 1) {
+    int bitsW = 0;
+    while ((1u << bitsW) < c.ids.size()) ++bitsW;
+    for (int y = 0; y < 16; ++y)
+      for (int x = 0; x < 16; ++x) {
+        w.flag(c.blend[y][x]);
+        w.bits(uint32_t(c.primary[y][x]), bitsW);
+        if (c.blend[y][x]) {
+          w.bits(uint32_t(c.second[y][x]), bitsW);
+          w.bits(7, 4);
+        }
+      }
+  }
+  if (c.mode == 2)
+    for (auto& row : c.hole)
+      for (bool v : row) w.flag(v);
+  return w.bytes();
+}
+
+std::vector<uint8_t> zipped(const std::string& raw) {
+  uLongf n = compressBound(uLong(raw.size()));
+  std::vector<uint8_t> out(n);
+  compress(out.data(), &n, reinterpret_cast<const Bytef*>(raw.data()), uLong(raw.size()));
+  out.resize(n);
+  return out;
+}
+
+void testTerrain() {
+  // A slope with a bump, two materials (ids 3 and 1), a blend and a hole.
+  ChunkSpec c;
+  for (int y = 0; y < 16; ++y)
+    for (int x = 0; x < 16; ++x) {
+      c.h[y][x] = int16_t(40 + x * 2 + y + (x == 5 && y == 6 ? 20 : 0));
+      c.primary[y][x] = x < 8 ? 0 : 1;
+    }
+  c.ids = {3, 1};
+  c.blend[2][2] = true;
+  c.second[2][2] = 1;  // primary id 3 at share 7, id 1 the rest
+  c.hole[15][15] = true;
+  const std::string raw = chunkBytes(c);
+  Terrain t;
+  CHECK(applyTerrainChunk(t, 2, 1, reinterpret_cast<const uint8_t*>(raw.data()), raw.size()));
+  auto at = [](int x, int y) { return size_t(y) * kTerrainSize + size_t(x); };
+  // Chunk (2, 1) covers squares x 32..47, y 16..31. Stored = wire << 2.
+  CHECK(t.heights[at(32, 16)] == 40 * 4);
+  CHECK(t.heights[at(32 + 5, 16 + 6)] == (40 + 10 + 6 + 20) * 4);
+  CHECK(t.heights[at(47, 31)] == (40 + 30 + 15) * 4);
+  CHECK(std::fabs(t.heightMetres(32, 16) - 5.0f) < 1e-6f);  // 40 units of 1/8 m
+  CHECK(t.material[at(33, 16)] == 3 && t.material[at(40, 16)] == 1 && t.material[at(34, 17)] == 3);
+  CHECK(t.hole[at(47, 31)] == 1 && t.hole[at(46, 31)] == 0);
+  // The blend is kept with the larger alpha first: primary 3 at 7 * 16 is
+  // less than 1's 255 - 112, so it is saved as primary 1 at share 8.
+  CHECK(t.material[at(34, 18)] == 1 && t.secondary[at(34, 18)] == 3 && t.blendShare[at(34, 18)] == 8);
+  // The client's re-encoding: mode 2, ids ascending (1, 3), and it reads
+  // back to the same terrain, re-encodes to the same bytes and stamps them.
+  const std::vector<uint8_t> canon = encodeTerrainChunk(t, 2, 1);
+  CHECK(!canon.empty() && canon[0] == 2);
+  {
+    BitReader cr(std::string(canon.begin(), canon.end()));
+    cr.bits(8 + 16 + 2048);
+    CHECK(cr.bits(6) == 2 && cr.bits(5) == 1 && cr.bits(5) == 3);
+  }
+  Terrain again;
+  applyTerrainChunk(again, 2, 1, canon.data(), canon.size());
+  CHECK(encodeTerrainChunk(again, 2, 1) == canon);
+  CHECK(again.heights == t.heights && again.material == t.material && again.hole == t.hole);
+  CHECK(t.stamps[1 * 16 + 2] == terrainStamp(canon) && again.stamps[1 * 16 + 2] == t.stamps[1 * 16 + 2]);
+  CHECK(t.stamps[0] == 0);
+  // The stamp is CRC-32 without the final inversion.
+  const std::string check = "123456789";
+  CHECK(terrainStamp(std::vector<uint8_t>(check.begin(), check.end())) == (0xCBF43926u ^ 0xFFFFFFFFu));
+  CHECK(t.heights[at(31, 16)] == 0 && t.heights[at(32, 15)] == 0);  // neighbours untouched
+  CHECK(!applyTerrainChunk(t, 16, 0, reinterpret_cast<const uint8_t*>(raw.data()), raw.size()));
+  // Mode 1 clears the chunk's holes; mode 0 leaves them.
+  ChunkSpec flat;
+  flat.mode = 0;
+  std::string f0 = chunkBytes(flat);
+  applyTerrainChunk(t, 2, 1, reinterpret_cast<const uint8_t*>(f0.data()), f0.size());
+  CHECK(t.hole[at(47, 31)] == 1 && t.heights[at(40, 20)] == 0 && t.material[at(40, 20)] == 0);
+  flat.mode = 1;
+  std::string f1 = chunkBytes(flat);
+  applyTerrainChunk(t, 2, 1, reinterpret_cast<const uint8_t*>(f1.data()), f1.size());
+  CHECK(t.hole[at(47, 31)] == 0);
+  // Compressed, and corrupt (applied as zeros).
+  Terrain z;
+  const std::vector<uint8_t> packed = zipped(raw);
+  CHECK(applyCompressedTerrainChunk(z, 0, 0, packed.data(), packed.size()) && z.heights[at(0, 0)] == 160);
+  std::vector<uint8_t> bad = packed;
+  bad[bad.size() / 2] ^= 0xFF;
+  bad.resize(bad.size() - 3);
+  CHECK(applyCompressedTerrainChunk(z, 0, 0, bad.data(), bad.size()) && z.heights[at(0, 0)] == 0);
+  // Short data reads as zeros without faults; random bytes too.
+  uint32_t seed = 5;
+  for (int i = 0; i < 3000; ++i) {
+    std::string m = raw.substr(0, size_t(seed % (raw.size() + 1)));
+    for (char& ch : m) {
+      seed = seed * 1103515245u + 12345u;
+      if ((seed >> 16) % 7 == 0) ch = char(seed >> 8);
+    }
+    Terrain u;
+    applyTerrainChunk(u, int(seed % 16), int((seed >> 4) % 16), reinterpret_cast<const uint8_t*>(m.data()), m.size());
+  }
+
+  // heights.info: one name per line; a comma is part of a name.
+  const auto names = parseHeightsInfo("grass\r\nrock,dirt\n\nsand\n");
+  CHECK(names.size() == 4 && names[0] == "grass" && names[1] == "rock,dirt" && names[2].empty() && names[3] == "sand");
+
+  // The cache folder: heights.info and heights<x>-<y>.dat.
+  const auto root = std::filesystem::temp_directory_path() / "g3d-render-test-terrain";
+  std::filesystem::remove_all(root);
+  std::filesystem::create_directories(root);
+  {
+    std::ofstream(root / "heights.info") << "a\nb\nc\nd\n";
+    std::ofstream o(root / "heights15-3.dat", std::ios::binary);
+    o.write(reinterpret_cast<const char*>(packed.data()), std::streamsize(packed.size()));
+  }
+  Terrain cached;
+  CHECK(loadTerrainCache(root.string(), cached) == 1 && cached.present && cached.chunksLoaded == 1);
+  CHECK(cached.materials.size() == 4 && cached.materials[3] == "d");
+  CHECK(cached.heights[at(15 * 16, 3 * 16)] == 160);
+  std::filesystem::remove_all(root);
+
+  // The mesh: centred on the origin, 8 m squares, one hole left out.
+  const Shape s = terrainShape(cached);
+  CHECK(s.meshes.size() == 1 && s.materials.size() == 4 && s.materials[3].texture == "d");
+  if (s.meshes.size() == 1) {
+    const Mesh& m = s.meshes[0];
+    CHECK(m.vertices.size() == 257u * 257u);
+    CHECK(m.triangles.size() == 2u * (256u * 256u - 1u));
+    CHECK(nearV(m.vertices[0].position, {-1024, -1024, 0}));
+    const Vertex& v = m.vertices[size_t(3 * 16) * 257 + size_t(15 * 16)];
+    CHECK(nearV(v.position, {(240 - 128) * 8.0f, (48 - 128) * 8.0f, 5.0f}));
+    CHECK(nearV(m.vertices[256].position, {1024, -1024, 0}));  // wraps to point 0
+  }
+
+  // Drawn from above: the terrain fills the view in its texture's colour.
+  Resources res;
+  // A terrain texture that is not 256 by 256 is not used: white.
+  Texture small;
+  small.width = small.height = 1;
+  small.pixels = {packRgba(30, 200, 40)};
+  for (const char* n : {"a", "b", "c", "d"}) res.putTexture(n, small);
+  Texture green;
+  green.width = green.height = 256;
+  green.pixels.assign(256 * 256, packRgba(30, 200, 40));
+  Scene scene;
+  scene.hasCamera = true;
+  scene.view.fovDegrees = 60;
+  scene.view.cameraToWorld = graalTransform({0, 0, 50}, {1, 0, 0}, 1.5708f);  // looking down
+  scene.sun.present = true;
+  SceneObject obj;
+  obj.direct = &s;
+  obj.transform = M4::identity();
+  scene.objects.push_back(obj);
+  std::vector<uint32_t> px(64 * 48);
+  drawScene({px.data(), 64, 48, 64}, scene, res);
+  CHECK(isColor(px[24 * 64 + 32], 255, 255, 255));
+  for (const char* n : {"a", "b", "c", "d"}) res.putTexture(n, green);
+  drawScene({px.data(), 64, 48, 64}, scene, res);
+  CHECK(isColor(px[24 * 64 + 32], 30, 200, 40));
+  // Water above it at half opacity, in its texture's colour, blended.
+  Texture blue;
+  blue.width = blue.height = 1;
+  blue.pixels = {packRgba(0, 0, 220)};
+  res.putTexture("lake", blue);
+  WaterSurface w;
+  w.transform = M4::translation({-1024, -1024, 10});
+  w.width = w.depth = 2048;
+  w.texture = "lake";
+  w.opacity = 0.5f;
+  scene.water.push_back(w);
+  drawScene({px.data(), 64, 48, 64}, scene, res);
+  CHECK(isColor(px[24 * 64 + 32], 15, 100, 130));
+}
+
+void testStreamedTerrain() {
+  ChunkSpec c;
+  for (int y = 0; y < 16; ++y)
+    for (int x = 0; x < 16; ++x) c.h[y][x] = int16_t(8 * (x + y));
+  c.ids = {0};
+  const std::vector<uint8_t> z = zipped(chunkBytes(c));
+  std::map<int, std::string> chunks;
+  chunks[1 * 16 + 2] = std::string(z.begin(), z.end());
+  StreamedTerrain st;
+  CHECK(updateStreamedTerrain(st, 8, false, "", chunks, 1));
+  CHECK(!st.shape.meshes.empty());
+  // Square (32 + 3, 16 + 4): wire 8 * 7 = 56, stored 224, 7 m.
+  CHECK(std::fabs(st.terrain.heightMetres(35, 20) - 7) < 1e-4f);
+  // Nothing changed: no rebuild. A new chunk or new settings: rebuilt.
+  CHECK(!updateStreamedTerrain(st, 8, false, "", chunks, 1));
+  chunks[0] = chunks[1 * 16 + 2];
+  CHECK(updateStreamedTerrain(st, 8, false, "", chunks, 2));
+  CHECK(std::fabs(st.terrain.heightMetres(3, 4) - 7) < 1e-4f);
+  CHECK(updateStreamedTerrain(st, 4, false, "", chunks, 2));
+  CHECK(st.terrain.squareSize == 4);
+}
+
+void testFtTrees() {
+  // The made-up lab file from torque/ft-trees-512.md, plus a leaf term.
+  const std::string lab =
+      "// lab tree\n"
+      "width 0.4 0.3\n"
+      "length 2\n"
+      "defaultLevels 4\n"
+      "billboard \"far tree\"   // a quoted word\n"
+      "gramma\n{\n  A B[RA][LA]\n  A 2 B[RA]\n}\n"
+      "term B branch\n{\n  texBranch 0\n  lengthRatio 0.7 0.9\n  widthRatio 0.7\n}\n"
+      "term [ push\n"
+      "term ] pop\n"
+      "term R rotate\n{\n  yaw 20 40\n  pitch 25\n}\n"
+      "term L rotate\n{\n  yaw -40 -20\n  pitch 25\n}\n"
+      "term F leaf\n{\n  texLeaf 1\n  size 300\n}\n"
+      "term Q unknowntype\n{\n  yaw 5\n}\n"
+      "texture 0 bark.png\n{\n  0 0 1 1\n}\n"
+      "texture 1 leaves\n"
+      "mystery\n{\n  { \n  }\n  width 9 9\n}\n";
+  FtTree t;
+  std::string error;
+  CHECK(parseFt(lab, t, error));
+  CHECK(t.width[0] == 0.4f && t.width[1] == 0.3f && t.length == 2 && t.defaultLevels == 4);
+  CHECK(t.billboard == "far tree");
+  CHECK(t.start == 'A' && t.rules['A'].size() == 2 && t.rules['A'][1].weight == 2);
+  CHECK(t.terms.size() == 6 && !t.terms.count('Q'));  // an unknown type is skipped
+  CHECK(t.terms['B'].lengthRatio[0] == 0.7f && t.terms['B'].lengthRatio[1] == 0.9f);
+  CHECK(t.terms['R'].yaw[0] == 20 && t.terms['R'].pitch[1] == 25);
+  CHECK(t.terms['F'].size == 100);  // clamped
+  CHECK(t.textures[0] == "bark.png" && t.textures[1] == "leaves");
+  // Growing rewrites A each round; the result is made of the rules' text.
+  const std::string g = growFt(t, 7, 0);
+  CHECK(!g.empty() && g.size() <= kFtMaxString);
+  CHECK(g.find_first_not_of("AB[]RL") == std::string::npos && g[0] == 'B');
+  CHECK(growFt(t, 7, 0) == g);  // repeatable
+  CHECK(growFt(t, 7, 1).size() < g.size());
+  // Levels clamp to 15, and the string stops at 512.
+  CHECK(growFt(t, 7, 99).size() <= kFtMaxString);
+  // The shape: tubes for branches, rising from the origin.
+  const Shape sh = ftShape(t, 7, 3);
+  CHECK(sh.materials.size() == 8 && sh.materials[0].texture == "bark.png");
+  CHECK(sh.meshes.size() == 1 && !sh.meshes[0].triangles.empty());
+  CHECK(sh.boundsMin.z > -0.5f && sh.boundsMax.z > 2);
+  for (const Triangle& tri : sh.meshes[0].triangles) CHECK(tri.material == 0);
+  // A symbol with neither a rule nor a term is dropped in the next round.
+  FtTree drop;
+  CHECK(parseFt("gramma\n{\n  A BZ\n}\nterm B branch\n", drop, error));
+  CHECK(growFt(drop, 1, 1) == "BZ" && growFt(drop, 1, 2) == "B");
+  // No rules: refused.
+  FtTree none;
+  CHECK(!parseFt("width 1 1\n", none, error));
+  // Through Resources by extension.
+  Resources res;
+  const std::string dir = (std::filesystem::temp_directory_path() / "g3d-ft-test").string();
+  std::filesystem::create_directories(dir);
+  { std::ofstream(dir + "/labtree.ft") << lab; }
+  res.addRoot(dir);
+  const Shape* loaded = res.shape("labtree.ft");
+  CHECK(loaded && !loaded->meshes.empty() && !loaded->meshes[0].triangles.empty());
+  std::filesystem::remove_all(dir);
+  // The real 5.12 draws no .ft GameObject; the tree draws only when asked.
+  {
+    TestFrame f;
+    Scene sc = cameraScene({0, 0, 0});
+    sc.objects.push_back(objectAt("labtree.ft", {0, 6, -1}));
+    CHECK(drawScene(f.frame(), sc, res).objectsDrawn == 0);
+    gDrawFtTrees = true;
+    CHECK(drawScene(f.frame(), sc, res).objectsDrawn == 1);
+    gDrawFtTrees = false;
+  }
+}
+
+void testLabels() {
+  Resources res;
+  res.putShape("red.3ds", cubeShape(1, 0, 0));
+  Scene s = cameraScene({0, -5, 0});
+  auto tagAt = [](const std::string& shape, V3 pos, const std::string& nick, const std::string& chat) {
+    SceneTag t;
+    t.shape = shape;
+    t.transform = M4::translation(pos);
+    t.nickname = nick;
+    t.chat = chat;
+    return t;
+  };
+  s.tags.push_back(tagAt("red.3ds", {0, 0, 0}, "Bob", "hi"));
+  s.tags[0].ghost = 9;
+  s.tags[0].color[0] = 10;
+  s.tags.push_back(tagAt("", {2, 0, 0}, "Ann", ""));   // no shape: 2 m up
+  s.tags.push_back(tagAt("", {0, -10, 0}, "Gone", ""));  // behind the camera
+  s.tags.push_back(tagAt("", {-1, -1, 0}, "", "near"));  // chat only, nearer
+  s.tags.push_back(tagAt("", {0, -4, 0}, "Up", ""));     // above the frame
+  TestFrame f;
+  const DrawStats st = drawScene(f.frame(), s, res);
+  // 160 by 120 at 90 degrees: 80 pixels per unit at depth 1.
+  CHECK(st.labels.size() == 4);
+  if (st.labels.size() == 4) {
+    // Farthest first: Bob, his chat and Ann at depth 5, the chat at depth 4.
+    const Label& bob = st.labels[0];
+    CHECK(bob.kind == Label::kNickname && bob.text == "Bob" && bob.ghost == 9 && bob.color[0] == 10);
+    CHECK(std::fabs(bob.x - 80) < 0.01f && std::fabs(bob.y - 52) < 0.01f && std::fabs(bob.depth - 5) < 1e-4f);
+    const Label& said = st.labels[1];
+    CHECK(said.kind == Label::kChat && said.text == "hi" && std::fabs(said.y - 36) < 0.01f && said.color[0] == 255);
+    const Label& ann = st.labels[2];
+    CHECK(ann.text == "Ann" && std::fabs(ann.x - 112) < 0.01f && std::fabs(ann.y - 28) < 0.01f);
+    const Label& near = st.labels[3];
+    CHECK(near.kind == Label::kChat && near.text == "near" && std::fabs(near.x - 60) < 0.01f &&
+          std::fabs(near.y - 20) < 0.01f);
+  }
+  // No camera: no labels.
+  Scene dark = s;
+  dark.hasCamera = false;
+  CHECK(drawScene(f.frame(), dark, res).labels.empty());
 }
 
 void testBilinear() {
@@ -1205,8 +1779,85 @@ void testBilinear() {
   t.sampleBilinear(-1e30f, std::numeric_limits<float>::infinity());
 }
 
+// Movement (lab E#505): list jumps onto each target; interpolate glides
+// toward it over the time since the previous target.
+void testMotion() {
+  auto near = [](const V3& a, float x, float y, float z) {
+    return std::fabs(a.x - x) < 1e-3f && std::fabs(a.y - y) < 1e-3f && std::fabs(a.z - z) < 1e-3f;
+  };
+  GhostTable ghosts;
+  Ghost& g = ghosts[5];
+  g.className = "GameObject";
+  GameObjectState& o = g.object;
+  o.shape = "box.3ds";
+  o.position = {1, 2, 3};
+  MotionTracker m;
+  // No movetype: section 5.
+  CHECK(near(m.position(5, o, 0), 1, 2, 3));
+  o.movetype = "interpolate";
+  o.hasMovement = o.hasMovementData = true;
+  o.movement.position = {0, 10, 0};
+  o.movementSerial = 1;
+  CHECK(near(m.position(5, o, 0), 0, 10, 0));  // the first target: drawn there
+  o.movement.position = {0, 10.5f, 0};
+  o.movementSerial = 2;
+  CHECK(near(m.position(5, o, 1.0), 0, 10, 0));  // a new target a second later
+  CHECK(near(m.position(5, o, 1.5), 0, 10.25f, 0));
+  CHECK(near(m.position(5, o, 2.0), 0, 10.5f, 0));
+  CHECK(near(m.position(5, o, 9.0), 0, 10.5f, 0));
+  // A target that comes mid-glide starts from where the object is drawn.
+  o.movement.position = {0, 11, 0};
+  o.movementSerial = 3;
+  CHECK(near(m.position(5, o, 9.0), 0, 10.5f, 0));
+  CHECK(near(m.position(5, o, 9.5), 0, 10.75f, 0));  // glide capped at 1 s
+  // list: jumps.
+  o.movetype = "list";
+  o.movement.position = {4, 4, 4};
+  o.movementSerial = 4;
+  CHECK(near(m.position(5, o, 9.6), 4, 4, 4));
+  // applyMotion moves the scene's object and tag; prune forgets gone ghosts.
+  Scene scene;
+  SceneObject so;
+  so.ghost = 5;
+  so.transform = M4::translation({1, 2, 3});
+  scene.objects.push_back(so);
+  SceneTag tag;
+  tag.ghost = 5;
+  tag.transform = so.transform;
+  scene.tags.push_back(tag);
+  applyMotion(scene, ghosts, m, 10);
+  CHECK(near(scene.objects[0].transform.point({0, 0, 0}), 4, 4, 4));
+  CHECK(near(scene.tags[0].transform.point({0, 0, 0}), 4, 4, 4));
+
+  // Camera mode 1 looks at the control object (lab T3D-023); mode 0 keeps
+  // the camera's own turn.
+  Ghost& cg = ghosts[7];
+  cg.className = "Camera";
+  cg.camera.object.position = {4, 0, 4};
+  Scene view;
+  view.hasCamera = true;
+  view.view.cameraToWorld = M4::translation({4, 0, 4});
+  applyMotion(view, ghosts, m, 10, 7, 5);
+  CHECK(near(view.view.cameraToWorld.vector({0, 1, 0}), 0, 1, 0));
+  cg.camera.mode = 1;
+  applyMotion(view, ghosts, m, 10, 7, 5);
+  CHECK(near(view.view.cameraToWorld.vector({0, 1, 0}), 0, 1, 0));  // straight ahead at (4, 4, 4)
+  CHECK(near(view.view.cameraToWorld.vector({1, 0, 0}), 1, 0, 0));
+  ghosts[5].object.movetype = "";
+  ghosts[5].object.hasMovement = false;
+  ghosts[5].object.position = {4, 0, 0};  // below: looking straight down
+  applyMotion(view, ghosts, m, 10, 7, 5);
+  CHECK(near(view.view.cameraToWorld.vector({0, 1, 0}), 0, 0, -1));
+  CHECK(near(view.view.cameraToWorld.point({0, 0, 0}), 4, 0, 4));
+
+  ghosts.clear();
+  applyMotion(scene, ghosts, m, 11);
+  CHECK(m.size() == 0);
+}
+
 int main() {
   testRead3ds();
+  testMotion();
   testRotationRule();
   testDrawObjects();
   testSunAndFog();
@@ -1216,6 +1867,10 @@ int main() {
   testReadDts();
   testReadDif();
   testBilinear();
+  testLabels();
+  testFtTrees();
+  testStreamedTerrain();
+  testTerrain();
   testClientImageFormats();
   if (failures) {
     std::fprintf(stderr, "render-test: %d failure(s)\n", failures);

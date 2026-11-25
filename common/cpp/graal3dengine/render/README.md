@@ -11,14 +11,17 @@ link it beside its own world.
 |---|---|
 | `math.hpp` | Vectors and matrices; the clients' rotation rule (a positive angle about +z turns right, about +x tilts down) |
 | `mesh.*` | The one shape every reader produces: meshes, materials, collision meshes kept apart |
-| `read_3ds.*` | `.3ds`: objects, vertices, texture coordinates, faces, face groups, materials with diffuse colour and texture name. `Col-` meshes are collision only; faces with no material are not drawn |
+| `read_3ds.*` | `.3ds`: objects, vertices, texture coordinates, faces, face groups, materials with diffuse colour and texture name. `Col-` meshes are kept as the collision hull and drawn too, as the real 5.12 draws them; faces with no material are not drawn; material transparency is ignored and both sides of a face draw (lab T3D-032) |
 | `read_dts.*` | Torque `.dts`, versions 19 to 24 (the clients accept up to 24; 5.12 from 17): the three streams with their guards, nodes in their default pose, objects at the highest drawn detail level, standard and skin meshes (a child mesh shares its parent's vertices), triangle lists, strips and fans, the material list with each material's translucent flag. Below 23 the skins come in a list of their own, drawn with their detail level; below 22 the older sequence and node-state layout. Versions 17 and 18 (the pre-block stream), sorted and decal meshes are refused with a named error |
 | `read_dif.*` | Torque `.dif`, InteriorResource 44 with Interior 0 (the clients' only accepted versions): the first detail level's points, planes, texgens, windings and surfaces, one mesh per material with texgen texture coordinates, surfaces drawn as strips. Both winding widths and both lightmap field widths are read; the marker materials (`NULL`, `ORIGIN`, `TRIGGER`, `FORCEFIELD`, `EMITTER`) are not drawn. Lightmaps, portals, zones, other detail levels and the extra sections after the interiors are skipped |
+| `read_ft.*` | The 5.12's `.ft` trees (Graal_analysis `torque/ft-trees-512.md`): the text grammar parsed and grown as the client does (weighted rules, the first rule's symbol as the start, symbols with neither rule nor term dropped, 512 characters at most, levels 1 to 15), then walked as a turtle into tapered tubes and crossed leaf quads, material i being texture slot i. The random numbers, the turtle's angles, the tube and leaf shapes are the rebuild's own; billboards and texture rows are not drawn. Not drawn by default: the real 5.12 draws no `.ft` GameObject (lab); `gDrawFtTrees` turns them on |
 | `texture.*`, `stb_impl.cpp` | Textures (PNG, JPEG, GIF, BMP, TGA through `stb_image`) and the `Frame` view onto the caller's pixels |
-| `resources.*` | Loads only the images the 5.12 draws, by content whatever the name (8-bit PNG, JPEG, GIF; GIF transparency as white; `kAll` for everything `stb_image` reads). Finds files by lower-case name in any subfolder of the roots (`levels3d/` by default), tries the image extensions on a texture named without one (`sky_fr`), the bare name of one named with one (a 5.x client stores downloads bare), and the extensions added to a material name with a dot of its own (`base.marble`), caches what loaded, and forgets misses on `rescan()` |
-| `scene.*` | The scene from a `GhostTable`: every `GameObject` with a shape, the named `Camera` and the field of view, the first `Sun` and `Sky` |
+| `resources.*` | Loads only the images the 5.12 draws, by content whatever the name (8-bit PNG, JPEG, GIF; GIF transparency as white; at most 1024 a side, as the 5.12 draws 1024 but not 2048; `kAll` for everything `stb_image` reads). Finds files by lower-case name in any subfolder of the roots (`levels3d/` by default), tries the image extensions on a texture named without one (`sky_fr`), the bare name of one named with one (a 5.x client stores downloads bare), and the extensions added to a material name with a dot of its own (`base.marble`), caches what loaded, and forgets misses on `rescan()` |
+| `terrain.*` | The 5.12's streamed terrain (Graal_analysis `torque/terrain-512.md`): the chunk decoder (heights from their two-pass deltas, material ids per square, hole modes 0 to 2), a corrupt zlib stream applied as zeros as the client does, `heights.info` one name per line, the cache folder's `heights<x>-<y>.dat`, the client's re-encoding of a chunk (mode 2, used ids ascending, blends with the larger share first, its two-pass writer) and its stamp, and the 256 by 256 grid as one mesh centred on the origin |
+| `scene.*` | The scene from a `GhostTable`: every `GameObject` and `DynamicShapeReplicator` with a shape (grass classes draw nothing, lab T3D-048), the named `Camera` and the field of view, the first `Sun` and `Sky`, the `TerrainBlock`'s settings, and each `WaterBlock` as a surface from its corner to corner + scale, at position z + scale z, turned about its corner, rising and falling with its wave magnitude (lab, Graal_analysis PR #895). A caller adds the terrain's shape as an object (`SceneObject::direct`) |
 | `raster.*` | The software rasteriser: perspective-correct textured triangles, depth buffer, clipping to the near and far planes and to the view sides with a guard band (so a face reaching behind the camera, such as a sky-box face, is still drawn), bilinear texture filtering (held at the edges for sky-box faces), per-vertex light and fog |
-| `draw.*` | One frame: the sky box, then each object lit by the sun and fogged toward the sky's fog colour |
+| `motion.*` | Where a moving GameObject is drawn between updates: `list` jumps onto each section 7 target, `interpolate` and `rigid` glide toward it over the time since the previous target (lab E#505; the curve is the rebuild's own) |
+| `draw.*` | One frame: the sky box, then each object lit as the 5.12 lights it; only the sky takes the fog |
 
 The library exports `graal3dengine_renderFrame`, `graal3dengine_addResourceFolder`
 and `graal3dengine_rescanResources` for the hosts (`include/graal3dengine.h`).
@@ -55,15 +58,25 @@ The pixels: the original draws through OpenGL, and no pixel match is
 claimed (`docs/functional-parity.md`). Also, until a lab run checks them
 side by side with a real 5.12:
 
-- Nothing past the Sky's visible distance is drawn (1000 units without a
-  Sky); fog rises linearly from half that distance.
-- The sky box: front +y, right +x, back -y, left -x, top +z, bottom -z,
-  each upright from inside; top and bottom with their top edge toward +y.
-  Cloud layers, fog volumes and the solid colour are read but not drawn.
-- Per-vertex lighting `ambient + colour * max(0, n . -direction)`; both
-  sides of every triangle are drawn; texels under half alpha are cut out
+- Objects and water are never fogged or clipped by distance, and the
+  Sky's visible distance does nothing (lab fog run, under Mesa).
+- The sky (lab T3D-046, under Mesa): entries 0 to 3 on -y, +x, +y and -x,
+  mirrored left to right; entry 4 on top, its image's top toward +y;
+  entry 5 drawn as a floor only when the second option is set; the fog colour below the horizon with a band of it
+  fading up; the solid colour when the first option is off. Cloud layers
+  and fog volumes are read but not drawn.
+- Lighting (lighting probe and follow-ups, under Mesa): the Sun's
+  direction, colour and ambient shade nothing. A `.3ds` face is lit by a
+  fixed light from about (-x, -y, +z): 1.0 facing it, 0.85 facing away;
+  without a Sun a `.3ds` draws at a quarter, a `.dts` or `.dif` black, and
+  terrain unchanged. A shape turns by the camera's rule (clockwise from
+  above for a positive angle about +z). Both sides of every triangle are
+  drawn; texels under half alpha are cut out
   (for a `.dts`, only on a translucent material: an opaque Torque
   material's alpha is its environment-map amount).
+- The terrain: each square's primary material only, each texture
+  repeating every 8 squares, the grid wrapping at its far edges. Water: a
+  flat unlit surface at its opacity, its texture every 16 m.
 - A textured material draws its texture unmodulated; an untextured one its
   diffuse colour. A material whose texture is missing or undrawable draws
   white, as the 5.12 does (lab, 2026-11-25).
@@ -76,7 +89,10 @@ side by side with a real 5.12:
 - [ ] `.dts` versions 17 and 18 (no real 19 to 21 shape checked yet), sorted and decal meshes, IFL materials, the
   material flags past translucency (additive, self-illuminated, wrap)
 - [ ] `.dif` lightmaps, other detail levels, interior versions other than 0
-- [ ] `.ft` shapes (milestone 5); they are logged and skipped
+- [x] `.ft` shapes: read and grown, but not drawn by default, as on the real 5.12
 - [ ] Animation threads (`GameObject` section 8)
-- [ ] Terrain, water, replicators (milestone 6)
+- [ ] Terrain material blending and the client's terrain texture scale;
+  water waves, reflection and shore; replicators (milestone 6)
+- [ ] A terrain cache in the link (the stamps are computed; the link still
+  asks for every chunk)
 - [ ] `.dds`, `.jp2`, `.mng` textures

@@ -36,10 +36,13 @@ DRAW = $(Q)/draw/world.cpp $(Q)/draw/assets.cpp $(Q)/draw/body_colors.cpp $(Q)/d
 GS2 = $(GS)/loader.cpp $(GS)/machine.cpp $(GS)/var.cpp $(GS)/startscripts.cpp $(GS)/engine_commands.cpp $(GS)/delivery.cpp $(GS)/gui.cpp $(GS)/gui_draw.cpp $(GS)/emitter.cpp
 SHELL_SRC = $(Q)/shell/program.cpp $(Q)/shell/npcs.cpp $(Q)/shell/server_text.cpp $(Q)/world/npcs.cpp $(Q)/shell/weapon_api.cpp $(Q)/shell/scripts.cpp $(Q)/shell/gui_host.cpp $(Q)/world/player.cpp $(Q)/world/walk.cpp $(Q)/world/actions.cpp $(Q)/world/effects.cpp $(Q)/world/floor_items.cpp $(Q)/world/weapons.cpp $(Q)/world/health.cpp $(Q)/world/item_list.cpp $(GS2) $(CACHE)
 G3D = $(G)/src/bits.cpp $(G)/src/world.cpp $(G)/src/link.cpp $(G)/src/udp.cpp ../common/cpp/third_party/torque3d/huffman.cpp
+# The 5.12 repro's world renderer (common/cpp/graal3dengine/render); its
+# stb_image part is built on its own, without -Werror, as third-party code.
+RENDER = $(addprefix $(G)/render/,mesh.cpp read_3ds.cpp read_dif.cpp read_dts.cpp read_ft.cpp terrain.cpp texture.cpp raster.cpp resources.cpp scene.cpp motion.cpp draw.cpp)
 FRANK = src/net/udp/link3d.cpp src/graal3d5120/view3d.cpp src/host6037/host.cpp
 WINDOW = $(Q)/draw/window_x11.cpp $(Q)/draw/window_native.cpp $(COCOA)
-CORE = $(NET) $(FILES) $(DRAW) $(SHELL_SRC) $(G3D) $(FRANK)
-HDRS = $(wildcard src/*/*.hpp src/net/udp/*.hpp $(Q)/*/*.hpp $(G)/src/*.hpp $(TG)/*.hpp $(GS)/*.hpp)
+CORE = $(NET) $(FILES) $(DRAW) $(SHELL_SRC) $(G3D) $(RENDER) $(FRANK)
+HDRS = $(wildcard src/*/*.hpp src/net/udp/*.hpp $(Q)/*/*.hpp $(G)/src/*.hpp $(G)/render/*.hpp $(TG)/*.hpp $(GS)/*.hpp)
 
 .PHONY: all test clean
 all: $(OUT)/frankenstein-6037$(EXE)
@@ -49,7 +52,11 @@ $(OUT):
 
 # One object per source under $(OUT)/obj, by its path with ../ as up/.
 obj = $(patsubst %,$(OUT)/obj/%.o,$(subst ../,up/,$(1)))
-CORE_OBJ = $(call obj,$(CORE))
+CORE_OBJ = $(call obj,$(CORE)) $(OUT)/obj/render_stb.o
+
+$(OUT)/obj/render_stb.o: $(G)/render/stb_impl.cpp $(G)/render/texture.hpp
+	@mkdir -p $(dir $@)
+	$(CXX) -I../common/cpp/third_party/stb -std=c++17 -O2 -w $(filter -m32 -m64 -fsanitize=% -g,$(CXXFLAGS)) -c $< -o $@
 
 $(OUT)/obj/up/%.o: ../% $(HDRS)
 	@mkdir -p $(dir $@)

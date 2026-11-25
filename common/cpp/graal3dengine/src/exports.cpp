@@ -4,9 +4,14 @@
 #include "graalengine.h"
 #include "link.hpp"
 #include "../render/draw.hpp"
+#include "../render/motion.hpp"
+#include "../render/terrain.hpp"
 #include "udp.hpp"
 
+#include <algorithm>
 #include <chrono>
+#include <cstring>
+#include <filesystem>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -21,6 +26,9 @@ struct State {
   bool loaded = false;
   graal3d::render::Resources resources;
   bool resourceFolders = false;
+  graal3d::render::StreamedTerrain terrain;
+  graal3d::render::MotionTracker motion;
+  std::vector<graal3d::render::Label> labels;  // the last frame's
 };
 
 State& st() {
@@ -28,6 +36,10 @@ State& st() {
   return s;
 }
 
+double nowSeconds() {
+  using namespace std::chrono;
+  return duration<double>(steady_clock::now().time_since_epoch()).count();
+}
 uint32_t nowMs() {
   using namespace std::chrono;
   return static_cast<uint32_t>(duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count());
@@ -197,9 +209,50 @@ G3D_API int32_t G3D_CALL graal3dengine_renderFrame(uint32_t* pixels, int32_t wid
   graal3d::render::Frame frame{pixels, width, height, stride};
   graal3d::render::Scene scene;
   if (s.link)
+  {
     scene = graal3d::render::sceneFromGhosts(s.link->ghosts(), s.link->cameraGhost(),
                                              static_cast<float>(s.link->fieldOfView()));
-  return graal3d::render::drawScene(frame, scene, s.resources).objectsDrawn;
+    scene.time = nowSeconds();
+    // Moving objects glide or jump to their section 7 targets (motion.hpp).
+    graal3d::render::applyMotion(scene, s.link->ghosts(), s.motion, nowSeconds(),
+                                 s.link->cameraGhost(), s.link->controlGhost());
+  }
+  if (s.link && scene.terrain.present) {
+    // The session's chunks over the client's own cache, when a resource
+    // folder holds one (levels3d/heights/<server>/).
+    const std::string info = s.resources.find("heights.info");
+    const std::string cacheDir = info.empty() ? "" : std::filesystem::path(info).parent_path().string();
+    graal3d::render::updateStreamedTerrain(s.terrain, scene.terrain.squareSize, scene.terrain.repeat, cacheDir,
+                                           s.link->terrainChunks(), s.link->terrainChunkCount());
+    graal3d::render::SceneObject so;
+    so.shape = "(terrain)";
+    so.transform = graal3d::render::M4::identity();
+    so.direct = &s.terrain.shape;
+    scene.objects.push_back(so);
+  }
+  graal3d::render::DrawStats stats = graal3d::render::drawScene(frame, scene, s.resources);
+  s.labels = std::move(stats.labels);
+  return stats.objectsDrawn;
+}
+
+G3D_API int32_t G3D_CALL graal3dengine_labelCount(void) { return static_cast<int32_t>(st().labels.size()); }
+
+G3D_API int32_t G3D_CALL graal3dengine_label(int32_t index, float* x, float* y, uint32_t* rgba, int32_t* kind,
+                                             char* text, int32_t textSize) {
+  const auto& labels = st().labels;
+  if (index < 0 || size_t(index) >= labels.size()) return -1;
+  const graal3d::render::Label& l = labels[size_t(index)];
+  if (x) *x = l.x;
+  if (y) *y = l.y;
+  if (rgba)
+    *rgba = uint32_t(l.color[0]) | uint32_t(l.color[1]) << 8 | uint32_t(l.color[2]) << 16 | uint32_t(l.color[3]) << 24;
+  if (kind) *kind = l.kind == graal3d::render::Label::kChat ? 1 : 0;
+  if (text && textSize > 0) {
+    const size_t n = std::min(l.text.size(), size_t(textSize - 1));
+    std::memcpy(text, l.text.data(), n);
+    text[n] = 0;
+  }
+  return static_cast<int32_t>(l.text.size());
 }
 
 }  // extern "C"

@@ -27,7 +27,10 @@ void ViewWindow::present(const Torque::Gui::Image& frame) {
     return;
   }
   out_ = Torque::Gui::Image(frame.width, frame.height);
-  last = draw_view3d(out_, link->ghosts(), link->controlGhost(), link->controlPosition());
+  // The 5.12 renderer while the server names a Camera; else the stand-in.
+  const double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+  if (!draw_world3d(out_, *link, world3d, now, &last))
+    last = draw_view3d(out_, link->ghosts(), link->controlGhost(), link->controlPosition());
   draw_inset(out_, frame, 4);
   inner_.present(out_);
 }
@@ -38,6 +41,9 @@ Host::Host(Quattro::Shell::Options opt, Quattro::Draw::Window& window)
       view_(window),
       link_(callbacks()) {
   opt_.build = host_build_label();
+  // 3D files: levels3d/ beside the program and under each asset root.
+  view_.world3d.roots.push_back("levels3d");
+  for (const auto& r : opt_.asset_roots) view_.world3d.roots.push_back(r + "/levels3d");
 }
 
 Link3D::Callbacks Host::callbacks() {

@@ -270,6 +270,9 @@ struct Reader {
       for (uint16_t f : g.faces)
         if (f < mesh.triangles.size()) mesh.triangles[f].material = m;
     }
+    // The real 5.12 draws a Col- hull like any mesh (lab T3D-032): kept as
+    // the collision hull and drawn too.
+    for (const Mesh& m : shape.collision) shape.meshes.push_back(m);
     shape.computeBounds();
     return true;
   }

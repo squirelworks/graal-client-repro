@@ -18,13 +18,16 @@
 // server content: keep them and this tool's output out of the repository.
 #include "capture.hpp"
 #include "draw.hpp"
+#include "motion.hpp"
 #include "png.hpp"
 #include "resources.hpp"
 #include "scene.hpp"
+#include "terrain.hpp"
 
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 
@@ -61,8 +64,8 @@ void printObject(const GameObjectState& o, const char* indent) {
   if (o.hasTransform)
     std::printf("%sposition %s axis %s angle %s rad\n", indent, fmt(o.position).c_str(), fmt(o.axis).c_str(),
                 fmt(o.angle).c_str());
-  if (o.velocity.x != 0 || o.velocity.y != 0 || o.velocity.z != 0)
-    std::printf("%svelocity %s\n", indent, fmt(o.velocity).c_str());
+  if (o.scale.x != 0 || o.scale.y != 0 || o.scale.z != 0)
+    std::printf("%sscale %s\n", indent, fmt(o.scale).c_str());
   if (!o.movetype.empty()) std::printf("%smovetype %s\n", indent, quote(o.movetype).c_str());
   if (o.hasMovementData)
     std::printf("%smovement position %s, %zu list entries, %u payloads\n", indent, fmt(o.movement.position).c_str(),
@@ -107,6 +110,16 @@ void printGhosts(const Link& link) {
           std::printf("      cloud %s height %s speed %s\n", quote(c.texture).c_str(), fmt(c.height).c_str(),
                       fmt(c.speed).c_str());
       std::printf("      wind %s\n", fmt(s.windVelocity).c_str());
+    } else if (g.className == "TerrainBlock") {
+      const TerrainBlockState& t = g.terrain;
+      std::printf("      name %s, square size %u, repeat %d\n", quote(t.name).c_str(), t.squareSize, t.repeat ? 1 : 0);
+    } else if (g.className == "WaterBlock") {
+      const WaterBlockState& w = g.water;
+      std::printf("      name %s\n      position %s scale %s rotation (%s, %s, %s, %s)\n", quote(w.name).c_str(),
+                  fmt(w.position).c_str(), fmt(w.scale).c_str(), fmt(w.rotation[0]).c_str(), fmt(w.rotation[1]).c_str(),
+                  fmt(w.rotation[2]).c_str(), fmt(w.rotation[3]).c_str());
+      std::printf("      surface %s shore %s liquid type %u opacity %s\n", quote(w.textures[0]).c_str(),
+                  quote(w.textures[4]).c_str(), w.liquidType, fmt(w.opacity).c_str());
     }
   }
 }
@@ -190,19 +203,46 @@ int main(int argc, char** argv) {
   std::printf("\nServer time %u, control ghost %d, camera ghost %d, field of view %d\n", link->serverTime(),
               link->controlGhost(), link->cameraGhost(), link->fieldOfView());
   printGhosts(*link);
+  if (link->terrainChunkCount() > 0)
+    std::printf("\nTerrain chunks: %d received, %zu distinct\n", link->terrainChunkCount(), link->terrainChunks().size());
 
   if (!renderPath.empty()) {
     render::Resources resources;
     resources.setLog([](const std::string& s) { std::printf("  render: %s\n", s.c_str()); });
     for (const auto& r : roots) resources.addRoot(r);
     const int fov = link->fieldOfView() > 0 ? link->fieldOfView() : fovOverride;
-    const render::Scene scene = render::sceneFromGhosts(link->ghosts(), link->cameraGhost(), float(fov));
+    render::Scene scene = render::sceneFromGhosts(link->ghosts(), link->cameraGhost(), float(fov));
+    // At the capture's last moment: moving objects at their section 7
+    // targets, a Camera in mode 1 aimed at the control object, the water's
+    // waves at that time (the clock's origin is the capture's start).
+    render::MotionTracker motion;
+    scene.time = res.lastTime;
+    render::applyMotion(scene, link->ghosts(), motion, res.lastTime, link->cameraGhost(), link->controlGhost());
+    // The streamed terrain: the chunks the session sent, over the client's
+    // cache (levels3d/heights/<server>/) when a --res folder holds one.
+    render::StreamedTerrain terrain;
+    if (scene.terrain.present) {
+      const std::string info = resources.find("heights.info");
+      const std::string cacheDir = info.empty() ? "" : std::filesystem::path(info).parent_path().string();
+      render::updateStreamedTerrain(terrain, scene.terrain.squareSize, scene.terrain.repeat, cacheDir,
+                                    link->terrainChunks(), link->terrainChunkCount());
+      if (!cacheDir.empty())
+        std::printf("  terrain cache %s: %d chunk files\n", cacheDir.c_str(), terrain.terrain.chunksLoaded);
+      render::SceneObject so;
+      so.shape = "(terrain)";
+      so.transform = render::M4::identity();
+      so.direct = &terrain.shape;
+      scene.objects.push_back(so);
+    }
     std::vector<uint32_t> pixels(size_t(width) * height, 0);
     std::printf("\nRendering %dx%d to %s\n", width, height, renderPath.c_str());
     const render::DrawStats ds = render::drawScene({pixels.data(), width, height, width}, scene, resources);
     std::printf("  %s; %d objects drawn, %d missing, %ld triangles\n",
                 scene.hasCamera ? "camera found" : "no camera: the frame is black", ds.objectsDrawn,
                 ds.objectsMissing, ds.triangles);
+    for (const render::Label& l : ds.labels)
+      std::printf("  %s of ghost %d at (%.0f, %.0f), %.1f m: \"%s\"\n",
+                  l.kind == render::Label::kChat ? "chat" : "name", l.ghost, l.x, l.y, l.depth, l.text.c_str());
     if (!tools::writePng(renderPath, pixels.data(), width, height, width)) {
       std::fprintf(stderr, "g3d-replay: cannot write %s\n", renderPath.c_str());
       return 1;

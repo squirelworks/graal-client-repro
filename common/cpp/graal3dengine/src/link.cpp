@@ -275,6 +275,7 @@ void Link::onDataPacket(BitReader& r, uint32_t now) {
     }
   }
   if (state_ != State::Connected) return;
+  requestTerrainOnce();
   const bool announceBefore = move_.announce;
   updateOwnMovement();
   // Every server data packet is answered at once: with our data packet
@@ -283,6 +284,21 @@ void Link::onDataPacket(BitReader& r, uint32_t now) {
   const bool newMovement = move_.announce && !announceBefore;
   if (!outEvents_.empty() || newControl || newMovement) sendDataPacket();
   else sendAckPacket(kAck);
+}
+
+// When a TerrainBlock is first there, the 5.12 sends one
+// TerrainRequestUpdatesEvent with the stamp of every chunk it has cached
+// (terrain-512.md section 3). The rebuild keeps no cache, so every stamp is
+// 0 and the server sends every chunk.
+void Link::requestTerrainOnce() {
+  if (terrainRequested_) return;
+  bool have = false;
+  for (const auto& [i, g] : ghosts_) have = have || g.className == "TerrainBlock";
+  if (!have) return;
+  terrainRequested_ = true;
+  BitWriter p;
+  for (int i = 0; i < 256; ++i) p.u32(0);
+  queueEvent("TerrainRequestUpdatesEvent", std::move(p));
 }
 
 bool Link::readServerGameSection(BitReader& r) {
@@ -307,6 +323,7 @@ bool Link::readServerGameSection(BitReader& r) {
     } else if (controlGhost_ != idx) {
       controlGhost_ = idx;
       sendOwnState_ = !camera;
+      sendCameraState_ = camera;
       // Step 5 is set by the first control object after the last mission
       // phase; one that comes earlier leaves the client at step 4 (§6).
       if (step_ == 4) {
@@ -390,9 +407,17 @@ bool Link::readEvent(BitReader& r, int classId, InEvent& ev) {
       r.seek(gstart + glen);
       ev.hasGhost = true;
     }
+  } else if (c == "TerrainChunkEvent") {
+    // terrain-512.md section 2: chunk x and y (4 bits each), the sender's
+    // stamp, a 10-bit length and that many bytes of zlib stream.
+    ev.chunkX = static_cast<int>(r.bits(4));
+    ev.chunkY = static_cast<int>(r.bits(4));
+    r.u32();  // the sender's stamp: the receiver ignores it
+    const int n = static_cast<int>(r.bits(10));
+    for (int i = 0; i < n; ++i) ev.big.data.push_back(static_cast<char>(r.u8()));
   }
-  // Everything else (ConnectionMessageEvent, the terrain events, a class
-  // the table did not name) is skipped by its length.
+  // Everything else (ConnectionMessageEvent, a class the table did not
+  // name) is skipped by its length.
   const bool ok = !r.overrun() && r.pos() <= start + len;
   r.seek(start + len);
   return ok;
@@ -400,6 +425,20 @@ bool Link::readEvent(BitReader& r, int classId, InEvent& ev) {
 
 void Link::deliver(const InEvent& ev) {
   const std::string& c = ev.className;
+  if (c == "TerrainChunkEvent") {
+    // Kept only once a TerrainBlock is there, and an empty one is ignored
+    // (terrain-512.md section 2).
+    bool haveTerrain = false;
+    for (const auto& [i, g] : ghosts_) haveTerrain = haveTerrain || g.className == "TerrainBlock";
+    if (!haveTerrain || ev.big.data.empty()) {
+      log("Graal3D: terrain chunk (" + std::to_string(ev.chunkX) + ", " + std::to_string(ev.chunkY) + ") " +
+          (haveTerrain ? "empty, ignored" : "before the TerrainBlock, not kept"));
+      return;
+    }
+    terrainChunks_[ev.chunkY * 16 + ev.chunkX] = ev.big.data;
+    ++terrainChunkCount_;
+    return;
+  }
   if (c == "GhostAlwaysObjectEvent") {
     if (ev.hasGhost) {
       Ghost& g = ghosts_[ev.ghostIndex];
@@ -481,9 +520,15 @@ void Link::readGhosts(BitReader& r) {
 
 bool Link::readGhostPayload(BitReader& r, Ghost& g) {
   if (g.className == "GameObject") return readGameObjectUpdate(r, g.object);
+  // The replicators and grass share one reader: a whole GameObject update,
+  // then a flag-guarded block of their own, left unread (lab T3D-048,
+  // static read and live on the real 5.12).
+  if (isReplicatorClass(g.className)) return readGameObjectUpdate(r, g.object);
   if (g.className == "Camera") return readCameraUpdate(r, g.camera);
   if (g.className == "Sun") return readSunUpdate(r, g.sun);
   if (g.className == "Sky") return readSkyUpdate(r, g.sky);
+  if (g.className == "TerrainBlock") return readTerrainBlockUpdate(r, g.terrain);
+  if (g.className == "WaterBlock") return readWaterBlockUpdate(r, g.water);
   return true;  // read by length only
 }
 
@@ -534,10 +579,13 @@ void Link::writeClientGameSection(BitWriter& w) {
   w.flag(true);  // first person
   const auto it = ghosts_.find(controlGhost_);
   const bool hasControl = controlGhost_ >= 0 && it != ghosts_.end();
-  // Only a GameObject control object is sent back. What a client sends
-  // for a Camera control object is not read yet; this one sends the ghost
-  // and no update.
-  const GameObjectState* o = hasControl && it->second.className == "GameObject" ? &it->second.object : nullptr;
+  // A GameObject control object is sent back as one; a Camera as its
+  // GameObject sections and then two Camera flags (lab T3D-023, real 5.12:
+  // the first update carries the transform and flags 0, no shape).
+  const bool cameraControl = hasControl && it->second.className == "Camera";
+  const GameObjectState* o = hasControl && it->second.className == "GameObject" ? &it->second.object
+                             : cameraControl                                   ? &it->second.camera.object
+                                                                               : nullptr;
   advanceOwnMovement();
   const Vec3 at = controlPosition();
   w.f32(at.x);
@@ -553,6 +601,15 @@ void Link::writeClientGameSection(BitWriter& w) {
     GameObjectState back = *o;
     // A zero rotation goes back as axis (1, 0, 0), angle 0 (lab).
     if (back.angle == 0) back.axis = {1, 0, 0};
+    if (cameraControl) {
+      back.flags = 0;
+      writeGameObjectUpdate(w, back, sendCameraState_ ? ((1u << 4) | (1u << 12)) : 0);
+      sendCameraState_ = false;
+      w.flag(false);  // camera mode
+      w.flag(false);  // follow ghost
+      w.flag(false);  // field of view
+      return;
+    }
     // The first packet after the control object carries its shape,
     // transform and flags back; later ones an empty update.
     uint32_t sections = sendOwnState_ ? ((1u << 2) | (1u << 4) | (1u << 12)) : 0;

@@ -42,7 +42,14 @@ struct RasterState {
   // texture at its edges instead of wrapping (sky-box faces).
   bool bilinear = true;
   bool clampTexture = false;
+  // Below 1, the pixel is blended over what is there (water).
+  float opacity = 1;
 };
+
+// Where a world point lands on a width by height frame seen through
+// `view`, as the rasterizer places it; false when it is behind the near
+// plane. `depth` is its distance along the view.
+bool projectPoint(const View& view, int width, int height, const V3& world, float& sx, float& sy, float& depth);
 
 class Rasterizer {
  public:

@@ -35,7 +35,7 @@ struct MovementData {
 // seen. `has*` say a section has arrived at least once.
 struct GameObjectState {
   std::string name;
-  Vec3 velocity;
+  Vec3 scale;  // section 2: the shape's scale (lab T3D-015; 0, 0, 0 = unset)
   std::string shape, skin;
   Vec3 position, axis{0, 0, 1};
   float angle = 0;
@@ -103,6 +103,37 @@ struct SkyState {
 constexpr uint32_t kMaxSkyFogVolumes = 64;
 bool readSkyUpdate(BitReader& r, SkyState& s);
 
+// TerrainBlock (Graal_analysis torque/terrain-512.md section 1): settings
+// only, every update one guarded block. The heights arrive as
+// TerrainChunkEvents.
+struct TerrainBlockState {
+  bool init = false;
+  std::string name;
+  uint32_t squareSize = 0;  // metres per square (servers send 8)
+  bool repeat = false;
+};
+bool readTerrainBlockUpdate(BitReader& r, TerrainBlockState& t);
+
+// WaterBlock (terrain-512.md section 5): only the name is guarded; every
+// update carries the whole block.
+struct WaterBlockState {
+  bool init = false;
+  std::string name;
+  Vec3 position;
+  float rotation[4] = {0, 0, 0, 1};  // quaternion x, y, z, w
+  Vec3 scale;                         // extent in metres from the corner at position (any size, lab)
+  std::string textures[5];            // surface, specular mask, env over, env under, shore
+  std::string submergeTextures[2];
+  uint32_t liquidType = 0;
+  float density = 0, viscosity = 0, waveMagnitude = 0, opacity = 0, envMapIntensity = 0;
+  bool removeWetEdges = false, useDepthMask = false;
+  float shading[12] = {};
+  float specularColor[4] = {0, 0, 0, 0};
+  float specularPower = 0;
+  bool ignoreTerrain = false;
+};
+bool readWaterBlockUpdate(BitReader& r, WaterBlockState& w);
+
 // The position a `list` entry carries (its first three values as f32).
 Vec3 listEntryPosition(const std::array<uint32_t, 8>& entry);
 
@@ -114,9 +145,17 @@ struct Ghost {
   CameraState camera;
   SunState sun;
   SkyState sky;
+  TerrainBlockState terrain;
+  WaterBlockState water;
   int updates = 0;
 };
 
 using GhostTable = std::map<int, Ghost>;
+
+// DynamicGrass, DynamicGrassReplicator and DynamicShapeReplicator: their
+// updates start with a GameObject's (lab T3D-048).
+inline bool isReplicatorClass(const std::string& c) {
+  return c == "DynamicShapeReplicator" || c == "DynamicGrassReplicator" || c == "DynamicGrass";
+}
 
 }  // namespace graal3d

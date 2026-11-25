@@ -9,6 +9,13 @@ from the `frankenstein-v` series.
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").
 
+## Unreleased
+
+- The 3D world is drawn by the 5.12 repro's renderer while the server names
+  a Camera: sky, `.3ds`, `.dts` and `.dif` shapes from `levels3d/`, the
+  streamed terrain, water and name tags, lit and moved as the lab saw the
+  real 5.12 do. The stand-in view remains for a server with no Camera.
+
 ## What's new in frankenstein-6037-v0.0.1
 
 - The first client: `frankenstein-6037` for macOS, Linux and Windows. The

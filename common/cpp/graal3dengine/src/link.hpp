@@ -78,6 +78,10 @@ class Link {
   int protocol() const { return login_.protocol; }
   int loginStep() const { return step_; }
   const GhostTable& ghosts() const { return ghosts_; }
+  // The latest zlib stream of each terrain chunk (index y * 16 + x) the
+  // server sent once a TerrainBlock was there, and how many arrived.
+  const std::map<int, std::string>& terrainChunks() const { return terrainChunks_; }
+  int terrainChunkCount() const { return terrainChunkCount_; }
   int controlGhost() const { return controlGhost_; }
   // The ghost the server last named as the camera (-1 before any), and the
   // last field of view it sent in degrees (0 before any).
@@ -126,6 +130,8 @@ class Link {
     BigText big;
     uint32_t total = 0;
     int compression = 0;
+    // TerrainChunkEvent (the stream in big.data)
+    int chunkX = 0, chunkY = 0;
     // GhostAlwaysObjectEvent
     int ghostIndex = -1;
     bool hasGhost = false;
@@ -141,6 +147,7 @@ class Link {
   void onDataPacket(BitReader& r, uint32_t now);
   bool readServerGameSection(BitReader& r);
   bool readEvent(BitReader& r, int classId, InEvent& ev);
+  void requestTerrainOnce();
   void deliver(const InEvent& ev);
   void onCommand(const std::vector<std::string>& args);
   void readGhosts(BitReader& r);
@@ -191,6 +198,10 @@ class Link {
   int step_ = 0;
   GhostTable ghosts_;
   int controlGhost_ = -1;
+  bool sendCameraState_ = false;  // a Camera control object's first update is due
+  std::map<int, std::string> terrainChunks_;
+  int terrainChunkCount_ = 0;
+  bool terrainRequested_ = false;
   int cameraGhost_ = -1;
   int fov_ = 0;
   bool sendOwnState_ = false;

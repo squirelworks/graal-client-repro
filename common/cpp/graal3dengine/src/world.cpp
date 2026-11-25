@@ -1,5 +1,6 @@
 #include "world.hpp"
 
+#include <cmath>
 #include <cstring>
 
 namespace graal3d {
@@ -77,7 +78,7 @@ bool readGameObjectUpdate(BitReader& r, GameObjectState& o, uint32_t* sections) 
     return b;
   };
   if (has(1)) o.name = r.pstring();
-  if (has(2)) o.velocity = readVec(r);
+  if (has(2)) o.scale = readVec(r);
   if (has(3)) o.shape = r.pstring();
   if (has(4)) o.skin = r.pstring();
   if (has(5)) {
@@ -125,7 +126,7 @@ bool readGameObjectUpdate(BitReader& r, GameObjectState& o, uint32_t* sections) 
 void writeGameObjectUpdate(BitWriter& w, const GameObjectState& o, uint32_t s) {
   auto on = [&](int section) { return (s >> (section - 1)) & 1; };
   if (w.flag(on(1))) w.pstring(o.name);
-  if (w.flag(on(2))) writeVec(w, o.velocity);
+  if (w.flag(on(2))) writeVec(w, o.scale);
   if (w.flag(on(3))) w.pstring(o.shape);
   if (w.flag(on(4))) w.pstring(o.skin);
   if (w.flag(on(5))) {
@@ -170,6 +171,55 @@ bool readSunUpdate(BitReader& r, SunState& s) {
   s.direction = readVec(r);
   for (auto& f : s.color) f = r.f32();
   for (auto& f : s.ambient) f = r.f32();
+  return !r.overrun();
+}
+
+bool readTerrainBlockUpdate(BitReader& r, TerrainBlockState& t) {
+  if (!r.flag()) {
+    t.init = true;  // a create with init 0 still loads the terrain (lab)
+    return !r.overrun();
+  }
+  t.init = true;
+  t.name = r.pstring();
+  r.u32();      // stored, then reset to 1 when the block is added
+  r.pstring();  // dropped
+  r.pstring();  // dropped
+  r.u32();      // dropped (1.0)
+  r.u32();      // dropped (0.01)
+  r.u32();      // dropped (8)
+  t.squareSize = r.u32();
+  t.repeat = r.u8() != 0;
+  return !r.overrun();
+}
+
+bool readWaterBlockUpdate(BitReader& r, WaterBlockState& w) {
+  if (r.flag()) w.name = r.pstring();
+  w.init = true;
+  w.position = readVec(r);
+  // Torque's compact matrix read: quaternion x, y, z and "w is negative".
+  float q[3];
+  for (float& f : q) f = r.f32();
+  const bool negative = r.flag();
+  const float ww = 1.0f - q[0] * q[0] - q[1] * q[1] - q[2] * q[2];
+  w.rotation[0] = q[0];
+  w.rotation[1] = q[1];
+  w.rotation[2] = q[2];
+  w.rotation[3] = (ww > 0 ? std::sqrt(ww) : 0.0f) * (negative ? -1.0f : 1.0f);
+  w.scale = readVec(r);
+  for (auto& t : w.textures) t = r.pstring();
+  for (auto& t : w.submergeTextures) t = r.pstring();
+  w.liquidType = r.u32();
+  w.density = r.f32();
+  w.viscosity = r.f32();
+  w.waveMagnitude = r.f32();
+  w.opacity = r.f32();
+  w.envMapIntensity = r.f32();
+  w.removeWetEdges = r.u8() != 0;
+  w.useDepthMask = r.u8() != 0;
+  for (float& f : w.shading) f = r.f32();
+  for (float& f : w.specularColor) f = float(r.u8()) / 255.0f;
+  w.specularPower = r.f32();
+  w.ignoreTerrain = r.u8() != 0;
   return !r.overrun();
 }
 

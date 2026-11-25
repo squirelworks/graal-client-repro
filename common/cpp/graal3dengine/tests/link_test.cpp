@@ -50,6 +50,7 @@ struct ClientPacket {
   Vec3 position;
   GameObjectState own;
   uint32_t ownSections = 0;
+  bool cameraMode = false, cameraFollow = false;
   std::vector<std::pair<int, std::string>> commands;  // class id, command name
 };
 
@@ -57,7 +58,7 @@ struct ClientPacket {
 // keeps the movetype from one packet to the next, which decides whether
 // section 7 is there.
 ClientPacket readClientPacket(const std::string& bytes, const std::map<int, std::string>& events,
-                              GameObjectState* seen = nullptr) {
+                              GameObjectState* seen = nullptr, bool cameraControl = false) {
   ClientPacket p;
   BitReader r(bytes);
   if (!r.flag()) return p;
@@ -79,6 +80,11 @@ ClientPacket readClientPacket(const std::string& bytes, const std::map<int, std:
     GameObjectState& o = seen ? *seen : p.own;
     readGameObjectUpdate(r, o, &p.ownSections);
     p.own = o;
+    // A Camera control object: two Camera flags follow (lab T3D-023).
+    if (cameraControl) {
+      p.cameraMode = r.flag();
+      p.cameraFollow = r.flag();
+    }
   }
   if (r.flag()) r.bits(8);
   while (r.flag()) {
@@ -522,6 +528,118 @@ BitWriter ghostAlwaysEvent(int ghost, int classId, const BitWriter& payload) {
   return ev;
 }
 
+// Streamed terrain and water (Graal_analysis torque/terrain-512.md): a
+// TerrainBlock and a WaterBlock as guaranteed ghosts, a chunk before and
+// after the block, and the client's one TerrainRequestUpdatesEvent.
+void testTerrainAndWater() {
+  LinkLogin login;
+  Link link(login, {nullptr, nullptr, nullptr, nullptr});
+  uint32_t t = 0;
+  link.start(t);
+  link.receive(challengeResponse(), ++t);
+  link.receive(fromHex(kAcceptFull), ++t);
+  link.takeOutgoing();
+  auto id = [](const std::map<int, std::string>& m, const std::string& name) {
+    for (const auto& [i, n] : m)
+      if (n == name) return i;
+    return -1;
+  };
+  const int terrainClass = id(link.objectClasses(), "TerrainBlock");
+  const int waterClass = id(link.objectClasses(), "WaterBlock");
+  const int chunkEvent = id(link.eventClasses(), "TerrainChunkEvent");
+  const int requestEvent = id(link.eventClasses(), "TerrainRequestUpdatesEvent");
+  const int ghostAlways = id(link.eventClasses(), "GhostAlwaysObjectEvent");
+  CHECK(terrainClass >= 0 && waterClass >= 0 && chunkEvent >= 0 && requestEvent >= 0 && ghostAlways >= 0);
+
+  BitWriter terrain;  // section 1, as a server writes it
+  terrain.flag(true);
+  terrain.pstring("Terrain");
+  terrain.u32(0);
+  terrain.pstring("");
+  terrain.pstring("");
+  terrain.f32(1.0f);
+  terrain.f32(0.01f);
+  terrain.u32(8);
+  terrain.u32(8);  // square size
+  terrain.u8(1);   // repeat
+  BitWriter water;  // section 5
+  water.flag(true);
+  water.pstring("Lake");
+  for (float f : {10.0f, 20.0f, 3.0f}) water.f32(f);
+  for (float f : {0.0f, 0.0f, 0.0f}) water.f32(f);
+  water.flag(false);
+  for (float f : {2048.0f, 1024.0f, 5.0f}) water.f32(f);
+  for (const char* tx : {"water", "spec", "envover", "envunder", "shore"}) water.pstring(tx);
+  water.pstring("sub1");
+  water.pstring("sub2");
+  water.u32(1);
+  for (float f : {1.0f, 0.5f, 0.2f, 0.75f, 0.3f}) water.f32(f);
+  water.u8(1);
+  water.u8(0);
+  for (int i = 0; i < 12; ++i) water.f32(float(i));
+  for (int i = 0; i < 4; ++i) water.u8(255);
+  water.f32(8.0f);
+  water.u8(1);
+  auto chunk = [](int x, int y, const std::string& data) {
+    BitWriter c;
+    c.bits(uint32_t(x), 4);
+    c.bits(uint32_t(y), 4);
+    c.u32(0xDEADBEEF);
+    c.bits(uint32_t(data.size()), 10);
+    for (char ch : data) c.u8(uint8_t(ch));
+    return c;
+  };
+  const std::vector<std::pair<int, BitWriter>> events = {
+      {chunkEvent, chunk(1, 1, "early")},  // before the block: not kept
+      {ghostAlways, ghostAlwaysEvent(1, terrainClass, terrain)},
+      {ghostAlways, ghostAlwaysEvent(2, waterClass, water)},
+      {chunkEvent, chunk(3, 4, "zlib bytes")},
+      {chunkEvent, chunk(5, 5, "")},  // empty: ignored
+  };
+  BitWriter w;
+  w.flag(true);
+  w.bits(0, 1);
+  w.bits(1, 9);
+  w.bits(0, 9);
+  w.bits(0, 2);
+  w.bits(0, 3);
+  for (int i = 0; i < 5; ++i) w.flag(false);  // rates, control, camera, fov
+  w.flag(false);                              // unguaranteed
+  for (size_t i = 0; i < events.size(); ++i) {
+    w.flag(true);
+    if (!w.flag(i > 0)) w.bits(0, 7);
+    w.bits(uint32_t(events[i].first), 12);
+    w.bits(static_cast<uint32_t>(events[i].second.pos()), 14);
+    w.append(events[i].second);
+  }
+  w.flag(false);
+  w.flag(false);
+  link.receive(w.bytes(), ++t);
+  CHECK(link.ghosts().count(1) && link.ghosts().at(1).className == "TerrainBlock");
+  if (link.ghosts().count(1)) {
+    const TerrainBlockState& tb = link.ghosts().at(1).terrain;
+    CHECK(tb.init && tb.name == "Terrain" && tb.squareSize == 8 && tb.repeat);
+  }
+  CHECK(link.ghosts().count(2) && link.ghosts().at(2).className == "WaterBlock");
+  if (link.ghosts().count(2)) {
+    const WaterBlockState& wb = link.ghosts().at(2).water;
+    CHECK(wb.name == "Lake" && near(wb.position.y, 20) && near(wb.scale.x, 2048) && near(wb.rotation[3], 1));
+    CHECK(wb.textures[0] == "water" && wb.textures[4] == "shore" && wb.submergeTextures[1] == "sub2");
+    CHECK(wb.liquidType == 1 && near(wb.opacity, 0.75f) && wb.removeWetEdges && !wb.useDepthMask);
+    CHECK(near(wb.shading[11], 11) && near(wb.specularColor[2], 1) && near(wb.specularPower, 8) && wb.ignoreTerrain);
+  }
+  CHECK(link.terrainChunks().size() == 1 && link.terrainChunks().count(4 * 16 + 3) &&
+        link.terrainChunks().at(4 * 16 + 3) == "zlib bytes");
+  CHECK(link.terrainChunkCount() == 1);
+  // The client answers with one request carrying 256 stamps, once.
+  auto out = link.takeOutgoing();
+  int requests = 0;
+  for (const auto& o : out)
+    for (const auto& [cls, name] : readClientPacket(o, link.eventClasses()).commands) requests += cls == requestEvent;
+  CHECK(requests == 1);
+  CHECK(link.state() == Link::State::Connected);
+}
+
 void testGhostAlwaysAndCameraControl() {
   std::vector<int> steps;
   LinkLogin login;
@@ -615,15 +733,28 @@ void testGhostAlwaysAndCameraControl() {
   CHECK(link.state() == Link::State::Connected);
   // No mission phases came, so the login steps do not move.
   CHECK(steps.empty());
-  // The client's next data packet names the Camera and sends no update
-  // for it.
+  // The client's next data packet names the Camera and writes it back as
+  // the real 5.12 does (lab T3D-023): GameObject sections, the first time
+  // its transform and flags 0, then two Camera flags; later ones an empty
+  // update and the two flags.
   t += Link::kKeepAliveMs;
   link.tick(t);
   auto out = link.takeOutgoing();
   CHECK(!out.empty());
   if (!out.empty()) {
-    const auto p = readClientPacket(out.back(), link.eventClasses());
-    CHECK(p.hasControl && p.controlGhost == 2 && !p.ownState);
+    const auto p = readClientPacket(out.front(), link.eventClasses(), nullptr, true);
+    CHECK(p.hasControl && p.controlGhost == 2 && p.ownState);
+    CHECK(p.ownSections == ((1u << 4) | (1u << 12)));
+    CHECK(p.own.flags == 0 && p.own.shape.empty());
+    CHECK(!p.cameraMode && !p.cameraFollow);
+  }
+  t += Link::kKeepAliveMs;
+  link.tick(t);
+  out = link.takeOutgoing();
+  CHECK(!out.empty());
+  if (!out.empty()) {
+    const auto p = readClientPacket(out.back(), link.eventClasses(), nullptr, true);
+    CHECK(p.ownState && p.ownSections == 0);
   }
 }
 
@@ -774,6 +905,7 @@ int main() {
   testServerSession();
   testMovetypes();
   testGhostAlwaysAndCameraControl();
+  testTerrainAndWater();
   testLostEventIsResent();
   testTimeouts();
   testProtocols();

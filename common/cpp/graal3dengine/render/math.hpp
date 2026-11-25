@@ -110,9 +110,16 @@ struct M4 {
 // Seihai gserver's lab notes, bin/docs/graal3d.md, 2026-11-20).
 inline M4 graalRotation(const V3& axis, float angle) { return M4::rotation(axis, -angle); }
 
-// An object's transform from the wire: position, then axis and angle.
+// A camera's transform from the wire: position, then axis and angle.
 inline M4 graalTransform(const V3& position, const V3& axis, float angle) {
   return M4::translation(position) * graalRotation(axis, angle);
+}
+
+// A shape's transform from the wire: the same rule as the camera's (lab
+// follow-up 10: a positive angle about +z turns a cube clockwise seen
+// from above, its +x face to -y at 90 degrees).
+inline M4 graalShapeTransform(const V3& position, const V3& axis, float angle) {
+  return graalTransform(position, axis, angle);
 }
 
 }  // namespace graal3d::render
