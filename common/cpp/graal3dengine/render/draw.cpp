@@ -12,31 +12,67 @@ uint32_t colorOf(const float c[3]) {
   return packRgba(b(c[0]), b(c[1]), b(c[2]));
 }
 
-void drawSkyBox(Rasterizer& r, const Scene& scene, Resources& res, float farPlane) {
+void drawSkyBox(Rasterizer& r, const Scene& scene, Resources& res, float farPlane, uint32_t fogColor) {
   const V3 eye{scene.view.cameraToWorld.m[0][3], scene.view.cameraToWorld.m[1][3], scene.view.cameraToWorld.m[2][3]};
   const float s = farPlane * 0.5f;
-  // Corners of each face seen from inside: top-left, top-right,
-  // bottom-right, bottom-left (draw.hpp).
-  const V3 faces[6][4] = {
-      {{-s, s, s}, {s, s, s}, {s, s, -s}, {-s, s, -s}},      // front, +y
-      {{s, s, s}, {s, -s, s}, {s, -s, -s}, {s, s, -s}},      // right, +x
-      {{s, -s, s}, {-s, -s, s}, {-s, -s, -s}, {s, -s, -s}},  // back, -y
-      {{-s, -s, s}, {-s, s, s}, {-s, s, -s}, {-s, -s, -s}},  // left, -x
-      {{-s, s, s}, {s, s, s}, {s, -s, s}, {-s, -s, s}},      // top, +z
-      {{-s, s, -s}, {s, s, -s}, {s, -s, -s}, {-s, -s, -s}},  // bottom, -z
-  };
-  const float uv[4][2] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
+  const SkyBox& sky = scene.sky;
   RasterState st;
   st.depthTest = false;
   st.depthWrite = false;
   st.clampTexture = true;
-  for (int f = 0; f < 6; ++f) {
-    const Texture* tex = res.texture(scene.sky.textures[f]);
-    if (!tex) continue;
-    st.texture = tex;
+  st.fogColor = fogColor;
+  // The face a sky entry draws on (T3D-046): its outward direction, and
+  // the direction of the image's left edge as seen from inside. The side
+  // faces draw mirrored, so their left edge is on the viewer's right.
+  struct Side {
+    V3 out, left;
+  };
+  const Side sides[4] = {
+      {{0, -1, 0}, {-1, 0, 0}},  // entry 0, -y (viewer's right is -x)
+      {{1, 0, 0}, {0, -1, 0}},   // entry 1, +x
+      {{0, 1, 0}, {1, 0, 0}},    // entry 2, +y
+      {{-1, 0, 0}, {0, 1, 0}},   // entry 3, -x
+  };
+  auto faceState = [&](int entry) -> bool {
+    if (!sky.useTextures) {
+      st.texture = nullptr;
+      for (int j = 0; j < 3; ++j) st.color[j] = sky.solidColor[j];
+      return true;
+    }
+    st.texture = res.texture(sky.textures[entry]);
+    for (int j = 0; j < 3; ++j) st.color[j] = 1;
+    return st.texture != nullptr;
+  };
+  // Sides: only the half above the horizon (below it stays the clear
+  // colour, black). The lowest band fades from the fog colour at the
+  // horizon into the image (band height: the rebuild's own).
+  const float band = s * kSkyFogBand;
+  for (int f = 0; f < 4; ++f) {
+    if (!faceState(f)) continue;
+    const V3 c = sides[f].out * s, l = sides[f].left * s;
+    const float zs[3] = {s, band, 0};
+    for (int k = 0; k < 2; ++k) {
+      RasterVertex q[4];
+      const float z0 = zs[k], z1 = zs[k + 1];
+      const V3 pos[4] = {c + l + V3{0, 0, z0}, c - l + V3{0, 0, z0}, c - l + V3{0, 0, z1}, c + l + V3{0, 0, z1}};
+      const float zz[4] = {z0, z0, z1, z1};
+      for (int i = 0; i < 4; ++i) {
+        q[i].position = eye + pos[i];
+        q[i].u = (i == 0 || i == 3) ? 0.0f : 1.0f;
+        q[i].v = 0.5f - zz[i] / s * 0.5f;
+        q[i].fog = zz[i] >= band ? 0.0f : 1.0f - zz[i] / band;
+      }
+      r.drawTriangle(q[0], q[1], q[2], st);
+      r.drawTriangle(q[0], q[2], q[3], st);
+    }
+  }
+  // Up (entry 4), its image's top toward +y. Entry 5 is not drawn.
+  if (faceState(4)) {
+    const V3 up[4] = {{-s, s, s}, {s, s, s}, {s, -s, s}, {-s, -s, s}};
+    const float uv[4][2] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
     RasterVertex q[4];
     for (int i = 0; i < 4; ++i) {
-      q[i].position = eye + faces[f][i];
+      q[i].position = eye + up[i];
       q[i].u = uv[i][0];
       q[i].v = uv[i][1];
     }
@@ -59,8 +95,9 @@ DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
   view.farPlane = farPlane;
   r.setView(view);
   const uint32_t fogColor = scene.sky.present ? colorOf(scene.sky.fogColor) : packRgba(0, 0, 0);
-  r.clear(fogColor);
-  if (scene.sky.present) drawSkyBox(r, scene, res, farPlane);
+  // With a Sky, below the horizon is black (T3D-046).
+  r.clear(scene.sky.present ? packRgba(0, 0, 0) : fogColor);
+  if (scene.sky.present) drawSkyBox(r, scene, res, farPlane, fogColor);
   r.clearDepth();
 
   const V3 eye{view.cameraToWorld.m[0][3], view.cameraToWorld.m[1][3], view.cameraToWorld.m[2][3]};

@@ -46,7 +46,9 @@ struct SunLight {
 
 struct SkyBox {
   bool present = false;
-  std::string textures[6];  // front, right, back, left, top, bottom
+  std::string textures[6];  // by sky-line entry: -y, +x, +y, -x, up, (bottom, not drawn)
+  bool useTextures = true;  // the first option; off: the solid colour fills the sky
+  float solidColor[3] = {0, 0, 0};
   float visibleDistance = 0;
   float fogColor[3] = {0, 0, 0};
 };

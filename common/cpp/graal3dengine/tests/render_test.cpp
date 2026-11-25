@@ -418,7 +418,9 @@ void testSunAndFog() {
   CHECK(isColor(litCentre({0, 0.5f, -0.8660254f}), 159, 159, 159));
 
   // Fog: with a visible distance of 100, a cube 20 units away is clear,
-  // one 90 units away is mostly fog colour, one past 100 is not drawn.
+  // one 90 units away is mostly fog colour, one past 100 is not drawn
+  // (the background there, just under the horizon, is black).
+  res.putShape("bigwhite.3ds", cubeShape(1, 1, 1, 10));
   auto fogged = [&](float dist) {
     TestFrame f;
     Scene s = cameraScene({0, 0, 0});
@@ -427,14 +429,14 @@ void testSunAndFog() {
     s.sky.fogColor[0] = 0;
     s.sky.fogColor[1] = 0;
     s.sky.fogColor[2] = 1;
-    s.objects.push_back(objectAt("white.3ds", {0, dist, 0}));
+    s.objects.push_back(objectAt("bigwhite.3ds", {0, dist, 0}));
     drawScene(f.frame(), s, res);
     return f.centre();
   };
   CHECK(isColor(fogged(20), 255, 255, 255));
   const uint32_t far = fogged(90);
   CHECK(red(far) < 80 && blue(far) == 255);
-  CHECK(isColor(fogged(120), 0, 0, 255));
+  CHECK(isColor(fogged(120), 0, 0, 0));
 }
 
 void testSkyBox() {
@@ -451,12 +453,64 @@ void testSkyBox() {
     drawScene(f.frame(), s, res);
     return f.centre();
   };
-  CHECK(isColor(look({0, 0, 1}, 0), 200, 0, 0));             // front, +y
-  CHECK(isColor(look({0, 0, 1}, kPi / 2), 0, 200, 0));       // right, +x
-  CHECK(isColor(look({0, 0, 1}, kPi), 0, 0, 200));           // back
-  CHECK(isColor(look({0, 0, 1}, -kPi / 2), 200, 200, 0));    // left
-  CHECK(isColor(look({1, 0, 0}, -kPi / 2), 0, 200, 200));    // up (a negative angle tilts up)
-  CHECK(isColor(look({1, 0, 0}, kPi / 2), 200, 0, 200));     // down
+  // Facing +y the client draws entry 2 (T3D-046); a point above the band.
+  auto lookAbove = [&](V3 axis, float angle) {
+    TestFrame f;
+    Scene s = cameraScene({10, 20, 3}, axis, angle);
+    s.sky.present = true;
+    for (int i = 0; i < 6; ++i) s.sky.textures[i] = names[i];
+    drawScene(f.frame(), s, res);
+    return f.at(f.w / 2, f.h / 2 - 30);
+  };
+  CHECK(isColor(lookAbove({0, 0, 1}, 0), 0, 0, 200));            // entry 2, +y
+  CHECK(isColor(lookAbove({0, 0, 1}, kPi / 2), 0, 200, 0));      // entry 1, +x
+  CHECK(isColor(lookAbove({0, 0, 1}, kPi), 200, 0, 0));          // entry 0, -y
+  CHECK(isColor(lookAbove({0, 0, 1}, -kPi / 2), 200, 200, 0));   // entry 3, -x
+  CHECK(isColor(look({1, 0, 0}, -kPi / 2), 0, 200, 200));        // up (a negative angle tilts up)
+  CHECK(isColor(look({1, 0, 0}, kPi / 2), 0, 0, 0));             // down: entry 5 not drawn, black
+
+  // The fog band: the fog colour at the horizon, the image above it,
+  // black below.
+  {
+    TestFrame f;
+    Scene s = cameraScene({10, 20, 3});
+    s.sky.present = true;
+    s.sky.fogColor[0] = 1;
+    for (int i = 0; i < 6; ++i) s.sky.textures[i] = names[i];
+    drawScene(f.frame(), s, res);
+    CHECK(isColor(f.at(f.w / 2, f.h / 2 - 1), 255, 0, 0, 8));
+    CHECK(isColor(f.at(f.w / 2, f.h / 2 - 30), 0, 0, 200));
+    const uint32_t mid = f.at(f.w / 2, f.h / 2 - 10);  // part way up the band
+    CHECK(red(mid) > 60 && red(mid) < 200 && blue(mid) > 40 && blue(mid) < 160);
+    CHECK(isColor(f.at(f.w / 2, f.h / 2 + 10), 0, 0, 0));
+  }
+  // The side faces draw mirrored: facing +y, the image's right half is on
+  // the viewer's left.
+  {
+    Texture halves;
+    halves.width = 2;
+    halves.height = 1;
+    halves.pixels = {packRgba(255, 0, 0), packRgba(0, 0, 255)};
+    res.putTexture("halves", halves);
+    TestFrame f;
+    Scene s = cameraScene({10, 20, 3});
+    s.sky.present = true;
+    s.sky.textures[2] = "halves";
+    drawScene(f.frame(), s, res);
+    CHECK(isColor(f.at(f.w / 4, f.h / 2 - 30), 0, 0, 255));
+    CHECK(isColor(f.at(3 * f.w / 4, f.h / 2 - 30), 255, 0, 0));
+  }
+  // The first option off: the solid colour instead of the images.
+  {
+    TestFrame f;
+    Scene s = cameraScene({10, 20, 3});
+    s.sky.present = true;
+    s.sky.useTextures = false;
+    s.sky.solidColor[1] = 0.5f;
+    for (int i = 0; i < 6; ++i) s.sky.textures[i] = names[i];
+    drawScene(f.frame(), s, res);
+    CHECK(isColor(f.at(f.w / 2, f.h / 2 - 30), 0, 128, 0));
+  }
 
   // Looking toward a corner, every face in view reaches behind the camera;
   // each must still fill its part of the frame (the Sharp3D replay showed
@@ -467,7 +521,8 @@ void testSkyBox() {
     TestFrame f(789, 588);
     Scene s = cameraScene({10, 20, 3}, {0, 0, 1}, yaw);
     s.view.fovDegrees = 60;
-    s.view.cameraToWorld = s.view.cameraToWorld * graalRotation({1, 0, 0}, -0.5f);
+    // Tilted well up, so the frame stays above the horizon's fog band.
+    s.view.cameraToWorld = s.view.cameraToWorld * graalRotation({1, 0, 0}, -1.0f);
     s.sky.present = true;
     for (int i = 0; i < 6; ++i) s.sky.textures[i] = names[i];
     drawScene(f.frame(), s, res);

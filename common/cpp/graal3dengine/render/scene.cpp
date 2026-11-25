@@ -85,6 +85,10 @@ Scene sceneFromGhosts(const GhostTable& ghosts, int cameraGhost, float fovDegree
       scene.sky.fogColor[0] = clamp01(g.sky.fogColor.x);
       scene.sky.fogColor[1] = clamp01(g.sky.fogColor.y);
       scene.sky.fogColor[2] = clamp01(g.sky.fogColor.z);
+      scene.sky.useTextures = g.sky.options[0] != 0;
+      scene.sky.solidColor[0] = clamp01(g.sky.solidColor.x);
+      scene.sky.solidColor[1] = clamp01(g.sky.solidColor.y);
+      scene.sky.solidColor[2] = clamp01(g.sky.solidColor.z);
       // The texture field is a comma list; the first six are the box.
       size_t start = 0;
       for (int i = 0; i < 6 && start <= g.sky.textures.size(); ++i) {
