@@ -33,6 +33,15 @@ struct RasterState {
   uint32_t fogColor = 0;
   bool depthTest = true;
   bool depthWrite = true;
+  // Texels with alpha under 128 are not drawn (cut-out leaves and fences).
+  // Off for a Torque material that is not translucent, whose alpha is the
+  // environment-map amount instead.
+  bool alphaTest = true;
+  // Blend the four nearest texels (the clients draw through OpenGL with
+  // linear filtering); off: the nearest texel. `clampTexture` holds the
+  // texture at its edges instead of wrapping (sky-box faces).
+  bool bilinear = true;
+  bool clampTexture = false;
 };
 
 class Rasterizer {

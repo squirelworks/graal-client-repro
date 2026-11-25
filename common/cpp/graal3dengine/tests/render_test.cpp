@@ -3,11 +3,15 @@
 // Every shape and texture here is made by the test itself.
 #include "../render/draw.hpp"
 #include "../render/read_3ds.hpp"
+#include "../render/read_dif.hpp"
+#include "../render/read_dts.hpp"
 #include "bits.hpp"
 #include "vectors.hpp"
 #include "world.hpp"
 
+#include <array>
 #include <cmath>
+#include <limits>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -527,6 +531,569 @@ void testSceneFromGhosts() {
   CHECK(st.objectsDrawn == 1);
 }
 
+// ---- A .dts writer for the tests (version 24 by default) ---------------
+// The layout the reader follows (render/read_dts.hpp): three streams with
+// a guard after each section, then the sequences and the material list.
+struct DtsStreams {
+  std::vector<uint8_t> s32, s16, s8;
+  uint32_t guard = 0;
+  void i32(int32_t v) {
+    for (int i = 0; i < 4; ++i) s32.push_back(uint8_t(uint32_t(v) >> (8 * i)));
+  }
+  void f32(float f) {
+    int32_t v;
+    std::memcpy(&v, &f, 4);
+    i32(v);
+  }
+  void i16(int16_t v) {
+    s16.push_back(uint8_t(v));
+    s16.push_back(uint8_t(uint16_t(v) >> 8));
+  }
+  void u8(uint8_t v) { s8.push_back(v); }
+  void g() {
+    i32(int32_t(guard));
+    i16(int16_t(guard));
+    u8(uint8_t(guard));
+    ++guard;
+  }
+};
+
+struct DtsMesh {
+  int type = 0;  // 0 standard, 1 skin, 4 null
+  int parent = -1;
+  std::vector<V3> verts;
+  std::vector<std::pair<float, float>> tverts;
+  std::vector<std::array<uint32_t, 3>> prims;  // start, count, material word
+  std::vector<int16_t> indices;
+};
+
+struct DtsSpec {
+  int version = 24;
+  // Nodes: parent, rotation (standard quaternion x, y, z, w), translation.
+  struct Node {
+    int parent;
+    float q[4];
+    V3 t;
+  };
+  std::vector<Node> nodes;
+  struct Object {
+    int node, startMesh, numMeshes;
+  };
+  std::vector<Object> objects;
+  std::vector<std::pair<int, float>> details;  // object detail number, size
+  std::vector<DtsMesh> meshes;
+  std::vector<std::pair<std::string, uint32_t>> materials;  // name, flags
+  int sequences = 1;  // empty sequences, in the version's own layout
+};
+
+// Below version 23 a skin mesh is written to the separate skin list (all
+// in the first detail level) and a null mesh takes its place.
+std::vector<uint8_t> dtsFile(const DtsSpec& spec) {
+  DtsSpec d = spec;
+  std::vector<DtsMesh> oldSkins;
+  if (d.version < 23)
+    for (auto& m : d.meshes)
+      if (m.type == 1) {
+        oldSkins.push_back(m);
+        m = DtsMesh();
+        m.type = 4;
+      }
+  const bool encodedNormals = d.version > 21;
+  DtsStreams a;
+  a.i32(int32_t(d.nodes.size()));
+  a.i32(int32_t(d.objects.size()));
+  a.i32(0);  // decals
+  a.i32(1);  // sub-shapes
+  a.i32(0);  // IFL materials
+  if (d.version > 21)
+    for (int i = 0; i < 5; ++i) a.i32(0);  // node rotations ... arbitrary scales
+  else
+    a.i32(int32_t(d.nodes.size()));  // node states, the default pose included
+  if (d.version > 23) a.i32(0);      // ground frames
+  a.i32(0);  // object states
+  a.i32(0);  // decal states
+  a.i32(0);  // triggers
+  a.i32(int32_t(d.details.size()));
+  a.i32(int32_t(d.meshes.size()));
+  if (d.version < 23) a.i32(int32_t(oldSkins.size()));  // skins
+  a.i32(2);  // names
+  a.f32(0);
+  a.i32(0);
+  a.g();
+  for (int i = 0; i < 11; ++i) a.f32(0);  // radius, tube radius, centre, bounds
+  a.g();
+  for (const auto& n : d.nodes) {
+    a.i32(0);
+    a.i32(n.parent);
+    a.i32(-1);
+    a.i32(-1);
+    a.i32(-1);
+  }
+  a.g();
+  for (const auto& o : d.objects) {
+    a.i32(0);
+    a.i32(o.numMeshes);
+    a.i32(o.startMesh);
+    a.i32(o.node);
+    a.i32(-1);
+    a.i32(-1);
+  }
+  a.g();
+  a.g();  // decals
+  a.g();  // IFL materials
+  a.i32(0);
+  a.i32(0);
+  a.i32(0);
+  a.g();
+  a.i32(int32_t(d.nodes.size()));
+  a.i32(int32_t(d.objects.size()));
+  a.i32(0);
+  a.g();
+  for (const auto& n : d.nodes)  // Torque keeps the conjugate
+    for (int i = 0; i < 4; ++i) a.i16(int16_t(std::lround((i < 3 ? -n.q[i] : n.q[i]) * 32767)));
+  for (const auto& n : d.nodes) {
+    a.f32(n.t.x);
+    a.f32(n.t.y);
+    a.f32(n.t.z);
+  }
+  a.g();
+  if (d.version > 21) a.g();  // scales
+  if (d.version > 23) a.g();  // ground frames
+  a.g();  // object states
+  a.g();  // decal states
+  a.g();  // triggers
+  for (const auto& [k, size] : d.details) {
+    a.i32(0);
+    a.i32(0);
+    a.i32(k);
+    a.f32(size);
+    a.f32(0);
+    a.f32(0);
+    a.i32(0);
+  }
+  a.g();
+  auto writeMesh = [&](const DtsMesh& m) {
+    a.g();
+    a.i32(1);
+    a.i32(1);
+    a.i32(m.parent);
+    for (int i = 0; i < 10; ++i) a.f32(0);  // bounds, centre, radius
+    const bool own = m.parent < 0;
+    const bool skin = m.type == 1;
+    const size_t nv = skin ? 0 : m.verts.size();
+    a.i32(int32_t(nv));
+    if (own && !skin)
+      for (const auto& v : m.verts) {
+        a.f32(v.x);
+        a.f32(v.y);
+        a.f32(v.z);
+      }
+    a.i32(int32_t(m.tverts.size()));
+    if (own)
+      for (const auto& t : m.tverts) {
+        a.f32(t.first);
+        a.f32(t.second);
+      }
+    if (own) {
+      for (size_t i = 0; i < nv * 3; ++i) a.f32(0);
+      if (encodedNormals)
+        for (size_t i = 0; i < nv; ++i) a.u8(0);
+    }
+    a.i32(int32_t(m.prims.size()));
+    for (const auto& p : m.prims) {
+      a.i16(int16_t(p[0]));
+      a.i16(int16_t(p[1]));
+      a.i32(int32_t(p[2]));
+    }
+    a.i32(int32_t(m.indices.size()));
+    for (int16_t i : m.indices) a.i16(i);
+    a.i32(0);  // merge indices
+    a.i32(int32_t(nv));
+    a.i32(0);
+    a.g();
+    if (skin) {
+      a.i32(int32_t(m.verts.size()));
+      if (own) {
+        for (const auto& v : m.verts) {
+          a.f32(v.x);
+          a.f32(v.y);
+          a.f32(v.z);
+        }
+        for (size_t i = 0; i < m.verts.size() * 3; ++i) a.f32(0);
+        if (encodedNormals)
+          for (size_t i = 0; i < m.verts.size(); ++i) a.u8(0);
+      }
+      a.i32(1);  // initial transforms
+      if (own)
+        for (int i = 0; i < 16; ++i) a.f32(i % 5 == 0 ? 1.0f : 0.0f);
+      a.i32(int32_t(m.verts.size()));  // weights
+      if (own)
+        for (size_t i = 0; i < m.verts.size(); ++i) {
+          a.i32(int32_t(i));
+          a.i32(0);
+          a.f32(1);
+        }
+      a.i32(1);  // nodes
+      if (own) a.i32(0);
+      a.g();
+    }
+  };
+  for (const auto& m : d.meshes) {
+    a.i32(m.type);
+    if (m.type != 4) writeMesh(m);
+  }
+  a.g();
+  for (const char* name : {"a", "bc"}) {
+    for (const char* c = name; *c; ++c) a.u8(uint8_t(*c));
+    a.u8(0);
+  }
+  a.g();  // names
+  if (d.version < 23) {
+    for (size_t i = 0; i < d.details.size(); ++i) a.i32(i == 0 ? 0 : int32_t(oldSkins.size()));
+    for (size_t i = 0; i < d.details.size(); ++i) a.i32(i == 0 ? int32_t(oldSkins.size()) : 0);
+    a.g();
+    for (const auto& m : oldSkins) writeMesh(m);
+    a.g();
+  }
+  // Pad the 16- and 8-bit streams to whole words and join them.
+  while (a.s16.size() % 4) a.s16.push_back(0);
+  while (a.s8.size() % 4) a.s8.push_back(0);
+  std::vector<uint8_t> f;
+  auto u32 = [&](uint32_t v) {
+    for (int i = 0; i < 4; ++i) f.push_back(uint8_t(v >> (8 * i)));
+  };
+  u32(uint32_t(d.version) | (1u << 16));
+  u32(uint32_t((a.s32.size() + a.s16.size() + a.s8.size()) / 4));
+  u32(uint32_t(a.s32.size() / 4));
+  u32(uint32_t((a.s32.size() + a.s16.size()) / 4));
+  f.insert(f.end(), a.s32.begin(), a.s32.end());
+  f.insert(f.end(), a.s16.begin(), a.s16.end());
+  f.insert(f.end(), a.s8.begin(), a.s8.end());
+  u32(uint32_t(d.sequences));
+  for (int q = 0; q < d.sequences; ++q) {
+    const int words = d.version > 21 ? 15 : 12, sets = d.version > 21 ? 8 : 6;
+    for (int i = 0; i < 3; ++i) u32(0);  // name, (flags,) key frames ...
+    if (d.version < 22) f.insert(f.end(), {1, 0, 1});  // blend, cyclic, make path
+    for (int i = 3; i < words; ++i) u32(0);
+    for (int i = 0; i < sets; ++i) {
+      u32(0);
+      u32(1);  // one word
+      u32(0xFFFFFFFFu);
+    }
+  }
+  f.push_back(1);
+  u32(uint32_t(d.materials.size()));
+  for (const auto& [name, flags] : d.materials) {
+    f.push_back(uint8_t(name.size()));
+    f.insert(f.end(), name.begin(), name.end());
+  }
+  for (const auto& [name, flags] : d.materials) u32(flags);
+  for (int k = 0; k < 5; ++k)
+    for (size_t i = 0; i < d.materials.size(); ++i) u32(0);
+  return f;
+}
+
+// Two nodes (the second turned 90 degrees about z and moved), a triangle
+// list on the second node, a strip sharing the first mesh's vertices on
+// the root, a skin mesh, and a collision detail level that is not drawn.
+DtsSpec sampleDts() {
+  DtsSpec d;
+  const float h = std::sqrt(0.5f);
+  d.nodes = {{-1, {0, 0, 0, 1}, {0, 0, 0}}, {0, {0, 0, h, h}, {1, 2, 3}}};
+  d.objects = {{1, 0, 2}, {0, 2, 2}, {1, 4, 2}};
+  d.details = {{0, 10.0f}, {1, -1.0f}};
+  DtsMesh tri;
+  tri.verts = {{0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {1, 1, 0}};
+  tri.tverts = {{0, 0}, {1, 0}, {0, 1}, {1, 1}};
+  tri.prims = {{0, 3, 0}};
+  tri.indices = {0, 1, 2};
+  DtsMesh strip;
+  strip.parent = 0;
+  strip.prims = {{0, 4, (1u << 30) | 1}, {4, 3, 1u << 28}};  // a strip; then one with no material
+  strip.indices = {0, 1, 2, 3, 0, 1, 3};
+  DtsMesh skin;
+  skin.type = 1;
+  skin.verts = {{5, 5, 5}, {6, 5, 5}, {5, 6, 5}};
+  skin.prims = {{0, 3, 0}};
+  skin.indices = {0, 1, 2};
+  DtsMesh null;
+  null.type = 4;
+  DtsMesh hull = tri;  // the collision level: never drawn
+  d.meshes = {tri, hull, strip, null, skin, null};
+  d.materials = {{"base.metal", 0}, {"leaves", 4}};
+  return d;
+}
+
+bool nearV(const V3& a, const V3& b) { return std::fabs(a.x - b.x) < 1e-3f && std::fabs(a.y - b.y) < 1e-3f && std::fabs(a.z - b.z) < 1e-3f; }
+
+void testReadDts() {
+  Shape s;
+  std::string error;
+  const std::vector<uint8_t> file = dtsFile(sampleDts());
+  const bool ok = readDts(file, s, error);
+  if (!ok) std::fprintf(stderr, "readDts: %s\n", error.c_str());
+  CHECK(ok);
+  CHECK(s.materials.size() == 2);
+  CHECK(s.materials.size() == 2 && s.materials[0].name == "base.metal" && s.materials[0].texture == "base.metal");
+  CHECK(s.materials.size() == 2 && !s.materials[0].alphaTest && s.materials[1].alphaTest);
+  CHECK(s.meshes.size() == 3);
+  if (s.meshes.size() == 3) {
+    // The triangle list on node 1: turned 90 degrees about z, then moved.
+    const Mesh& a = s.meshes[0];
+    CHECK(a.triangles.size() == 1 && a.triangles[0].material == 0);
+    CHECK(nearV(a.vertices[0].position, {1, 2, 3}));
+    CHECK(nearV(a.vertices[1].position, {1, 3, 3}));
+    CHECK(nearV(a.vertices[2].position, {0, 2, 3}));
+    CHECK(a.vertices[1].u == 1 && a.vertices[2].v == 1);
+    // The strip on the root shares those vertices: two triangles, the
+    // second wound the other way; the no-material primitive is kept with -1.
+    const Mesh& b = s.meshes[1];
+    CHECK(b.triangles.size() == 3);
+    if (b.triangles.size() == 3) {
+      CHECK(b.triangles[0].v[0] == 0 && b.triangles[0].v[1] == 1 && b.triangles[0].v[2] == 2);
+      CHECK(b.triangles[1].v[0] == 2 && b.triangles[1].v[1] == 1 && b.triangles[1].v[2] == 3);
+      CHECK(b.triangles[0].material == 1 && b.triangles[2].material == -1);
+    }
+    CHECK(nearV(b.vertices[3].position, {1, 1, 0}));
+    // The skin mesh: its initial vertices, as they are (shape space).
+    const Mesh& c = s.meshes[2];
+    CHECK(c.triangles.size() == 1 && nearV(c.vertices[1].position, {6, 5, 5}));
+  }
+
+  // Versions outside 19 to 24 are refused by name.
+  for (int v : {17, 18, 25, 26}) {
+    DtsSpec d = sampleDts();
+    d.version = v;
+    std::vector<uint8_t> f = dtsFile(d);
+    Shape t;
+    CHECK(!readDts(f, t, error));
+    CHECK(error.find("version " + std::to_string(v)) != std::string::npos);
+  }
+  // Versions 19 to 23 read: no ground frames below 24; below 23 the skins
+  // in a list of their own; below 22 one node-state count, no scales, no
+  // encoded normals, and the older sequence layout.
+  for (int v : {19, 20, 21, 22, 23}) {
+    DtsSpec d = sampleDts();
+    d.version = v;
+    d.sequences = 2;
+    Shape t;
+    const bool read = readDts(dtsFile(d), t, error);
+    if (!read) std::fprintf(stderr, "readDts version %d: %s\n", v, error.c_str());
+    CHECK(read && t.meshes.size() == 3 && t.materials.size() == 2);
+    if (t.meshes.size() == 3) {
+      CHECK(nearV(t.meshes[0].vertices[1].position, {1, 3, 3}));
+      CHECK(t.meshes[2].triangles.size() == 1 && nearV(t.meshes[2].vertices[1].position, {6, 5, 5}));
+    }
+    CHECK(t.materials.size() == 2 && !t.materials[0].alphaTest && t.materials[1].alphaTest);
+    if (v == 21) {
+      std::vector<uint8_t> f = dtsFile(d);
+      uint32_t seed = 11;
+      for (int i = 0; i < 20000; ++i) {
+        std::vector<uint8_t> m = f;
+        for (int k = 0; k < 4; ++k) {
+          seed = seed * 1103515245u + 12345u;
+          m[(seed >> 8) % m.size()] = uint8_t(seed >> 3);
+        }
+        Shape u;
+        readDts(m, u, error);
+      }
+      for (size_t n = 0; n < f.size(); ++n) {
+        Shape u;
+        readDts(f.data(), n, u, error);
+      }
+    }
+  }
+  // A broken guard is caught.
+  std::vector<uint8_t> broken = file;
+  broken[16 + 19 * 4] ^= 0x55;  // the first guard: after 19 header words
+  Shape t;
+  CHECK(!readDts(broken, t, error));
+  // Every truncation and many byte changes are refused or read safely.
+  for (size_t n = 0; n < file.size(); ++n) {
+    Shape u;
+    readDts(file.data(), n, u, error);
+  }
+  uint32_t seed = 7;
+  for (int i = 0; i < 20000; ++i) {
+    std::vector<uint8_t> m = file;
+    for (int k = 0; k < 4; ++k) {
+      seed = seed * 1103515245u + 12345u;
+      m[(seed >> 8) % m.size()] = uint8_t(seed >> 3);
+    }
+    Shape u;
+    readDts(m, u, error);
+  }
+
+  // Resources loads a .dts by its extension, and finds a material whose
+  // name has a dot of its own by adding the image extension.
+  const auto root = std::filesystem::temp_directory_path() / "g3d-render-test-dts";
+  std::filesystem::remove_all(root);
+  std::filesystem::create_directories(root / "shapes");
+  {
+    std::ofstream o(root / "shapes" / "Thing.DTS", std::ios::binary);
+    o.write(reinterpret_cast<const char*>(file.data()), std::streamsize(file.size()));
+    const std::vector<uint8_t> bmp = solidBmp(2, 2, 9, 8, 7);
+    std::ofstream t2(root / "shapes" / "base.metal.bmp", std::ios::binary);
+    t2.write(reinterpret_cast<const char*>(bmp.data()), std::streamsize(bmp.size()));
+  }
+  Resources res;
+  res.setImageFormats(Resources::ImageFormats::kAll);  // the tests write BMP
+  res.addRoot(root.string());
+  const Shape* thing = res.shape("thing.dts");
+  CHECK(thing && thing->meshes.size() == 3);
+  const Texture* metal = res.texture("base.metal");
+  CHECK(metal && isColor(metal->pixels[0], 9, 8, 7));
+  std::filesystem::remove_all(root);
+}
+
+// ---- A .dif writer for the tests (resource 44, interior 0) ------------
+struct DifWriter {
+  std::vector<uint8_t> b;
+  void u8(uint8_t v) { b.push_back(v); }
+  void u16(uint16_t v) {
+    u8(uint8_t(v));
+    u8(uint8_t(v >> 8));
+  }
+  void u32(uint32_t v) {
+    for (int i = 0; i < 4; ++i) u8(uint8_t(v >> (8 * i)));
+  }
+  void f32(float f) {
+    uint32_t v;
+    std::memcpy(&v, &f, 4);
+    u32(v);
+  }
+  void str(const std::string& s) {
+    u8(uint8_t(s.size()));
+    for (char c : s) u8(uint8_t(c));
+  }
+};
+
+// A 2 by 3 floor (one strip of four points) textured by world x and y,
+// and a surface on Torque's NULL material that is never drawn.
+// `wideMaps` writes the surfaces' lightmap fields as 16-bit values.
+std::vector<uint8_t> difFile(uint32_t resource = 44, int32_t interior = 0, bool narrowWindings = true,
+                             bool wideMaps = false, bool preview = false) {
+  DifWriter w;
+  w.u32(resource);
+  w.u8(preview ? 1 : 0);
+  if (preview) {
+    const uint8_t png[] = {0x89, 'P', 'N', 'G', 1, 2, 3, 0, 0, 0, 0, 'I', 'E', 'N', 'D', 0xAE, 0x42, 0x60, 0x82};
+    for (uint8_t c : png) w.u8(c);
+  }
+  w.u32(1);  // detail levels
+  w.u32(uint32_t(interior));
+  w.u32(0);
+  w.u32(0);
+  for (int i = 0; i < 10; ++i) w.f32(0);  // box, sphere
+  w.u8(0);
+  w.u32(0);
+  w.u32(1);  // normals
+  w.f32(0);
+  w.f32(0);
+  w.f32(1);
+  w.u32(1);  // planes
+  w.u16(0);
+  w.f32(0);
+  const float pts[4][3] = {{0, 0, 0}, {2, 0, 0}, {0, 3, 0}, {2, 3, 0}};
+  w.u32(4);
+  for (const auto& p : pts)
+    for (float f : p) w.f32(f);
+  w.u32(4);  // point visibilities
+  for (int i = 0; i < 4; ++i) w.u8(0xFF);
+  w.u32(1);  // texgen: u = x / 2, v = y / 3
+  const float tg[8] = {0.5f, 0, 0, 0, 0, 1.0f / 3, 0, 0};
+  for (float f : tg) w.f32(f);
+  w.u32(1);  // BSP nodes
+  for (int i = 0; i < 3; ++i) w.u16(0);
+  w.u32(1);  // BSP leaves
+  w.u32(0);
+  w.u16(2);
+  w.u8(1);  // material list version
+  w.u32(2);
+  w.str("floor");
+  w.str("NULL");
+  const int32_t wind[7] = {0, 1, 2, 3, 0, 1, 2};
+  if (narrowWindings) {
+    w.u32(7 | 0x80000000u);
+    w.u8(1);
+    for (int32_t i : wind) w.u16(uint16_t(i));
+  } else {
+    w.u32(7);
+    for (int32_t i : wind) w.u32(uint32_t(i));
+  }
+  w.u32(0);  // winding indices
+  w.u32(0);  // zones
+  w.u32(0);  // zone surfaces
+  w.u32(0);  // zone portals
+  w.u32(0);  // portals
+  w.u32(2);  // surfaces
+  const uint32_t starts[2] = {0, 4};
+  const uint8_t counts[2] = {4, 3};
+  for (int k = 0; k < 2; ++k) {
+    w.u32(starts[k]);
+    w.u8(counts[k]);
+    w.u16(k ? 0x8000 : 0);  // the second plane flipped
+    w.u16(uint16_t(k));     // material
+    w.u32(0);               // texgen
+    w.u8(0);
+    w.u32(0);
+    w.u16(0);
+    w.f32(0);
+    w.f32(0);
+    w.u16(0);
+    w.u32(0);
+    for (int i = 0; i < 4; ++i) wideMaps ? w.u16(0) : w.u8(0);
+  }
+  // What follows (null surfaces, lightmaps, other levels) is not read.
+  w.u32(0);
+  return w.b;
+}
+
+void testReadDif() {
+  Shape s;
+  std::string error;
+  const std::vector<uint8_t> file = difFile();
+  bool ok = readDif(file, s, error);
+  if (!ok) std::fprintf(stderr, "readDif: %s\n", error.c_str());
+  CHECK(ok);
+  CHECK(s.materials.size() == 2 && s.materials[0].texture == "floor");
+  CHECK(s.meshes.size() == 1);  // the NULL surface is not drawn
+  if (s.meshes.size() == 1) {
+    const Mesh& m = s.meshes[0];
+    CHECK(m.triangles.size() == 2);
+    CHECK(m.vertices.size() == 4);
+    if (m.triangles.size() == 2 && m.vertices.size() == 4) {
+      // A strip: (0 1 2), then (2 1 3) wound back.
+      CHECK(m.triangles[0].v[0] == 0 && m.triangles[0].v[1] == 1 && m.triangles[0].v[2] == 2);
+      CHECK(m.triangles[1].v[0] == 2 && m.triangles[1].v[1] == 1 && m.triangles[1].v[2] == 3);
+      CHECK(m.triangles[0].material == 0);
+      CHECK(std::fabs(m.vertices[3].u - 1) < 1e-5f && std::fabs(m.vertices[3].v - 1) < 1e-5f);
+      CHECK(std::fabs(m.vertices[1].u - 1) < 1e-5f && std::fabs(m.vertices[1].v) < 1e-5f);
+    }
+  }
+  CHECK(nearV(s.boundsMax, {2, 3, 0}));
+  // Wide windings, wide lightmap fields and a preview image read the same.
+  for (const auto& f : {difFile(44, 0, false), difFile(44, 0, true, true), difFile(44, 0, true, false, true)}) {
+    Shape t;
+    CHECK(readDif(f, t, error) && t.meshes.size() == 1 && t.meshes[0].triangles.size() == 2);
+  }
+  // Other versions are refused by name.
+  Shape t;
+  CHECK(!readDif(difFile(43), t, error) && error.find("resource version 43") != std::string::npos);
+  CHECK(!readDif(difFile(44, 14), t, error) && error.find("interior version 14") != std::string::npos);
+  // Truncations and byte changes are refused or read safely.
+  for (size_t n = 0; n < file.size(); ++n) readDif(file.data(), n, t, error);
+  uint32_t seed = 11;
+  for (int i = 0; i < 20000; ++i) {
+    std::vector<uint8_t> m = file;
+    for (int k = 0; k < 3; ++k) {
+      seed = seed * 1103515245u + 12345u;
+      m[(seed >> 8) % m.size()] = uint8_t(seed >> 3);
+    }
+    readDif(m, t, error);
+  }
+}
+
 void testResources() {
   namespace fs = std::filesystem;
   const fs::path root = fs::temp_directory_path() / ("g3d-render-test-" + std::to_string(std::rand()));
@@ -545,6 +1112,7 @@ void testResources() {
   write(root / "images" / "km001fc0", solidBmp(2, 2, 40, 50, 60));
 
   Resources res;
+  res.setImageFormats(Resources::ImageFormats::kAll);  // the tests write BMP
   std::vector<std::string> logs;
   res.setLog([&](const std::string& l) { logs.push_back(l); });
   res.addRoot(root.string());
@@ -583,6 +1151,60 @@ void testResources() {
 
 }  // namespace
 
+// What the 5.12 draws (lab, 2026-11-25; Graal_analysis T3D-032): 8-bit
+// PNG, JPEG and GIF by content, whatever the name; not BMP or 16-bit PNG;
+// GIF transparency as opaque white.
+void testClientImageFormats() {
+  const auto root = std::filesystem::temp_directory_path() / "g3d-render-test-formats";
+  std::filesystem::remove_all(root);
+  std::filesystem::create_directories(root);
+  auto write = [&](const char* name, const std::vector<uint8_t>& b) {
+    std::ofstream o(root / name, std::ios::binary);
+    o.write(reinterpret_cast<const char*>(b.data()), std::streamsize(b.size()));
+  };
+  write("png8", std::vector<uint8_t>{0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0x00,0x00,0x00,0x0d,0x49,0x48,0x44,0x52,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x01,0x08,0x02,0x00,0x00,0x00,0x90,0x77,0x53,0xde,0x00,0x00,0x00,0x0c,0x49,0x44,0x41,0x54,0x78,0x9c,0x63,0x38,0x91,0x62,0x04,0x00,0x03,0x56,0x01,0x5f,0xe8,0x17,0x84,0x52,0x00,0x00,0x00,0x00,0x49,0x45,0x4e,0x44,0xae,0x42,0x60,0x82});
+  write("png16", std::vector<uint8_t>{0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0x00,0x00,0x00,0x0d,0x49,0x48,0x44,0x52,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x01,0x10,0x02,0x00,0x00,0x00,0xc0,0xe7,0x8f,0x9d,0x00,0x00,0x00,0x0f,0x49,0x44,0x41,0x54,0x78,0x9c,0x63,0x38,0xc1,0x90,0xc2,0x60,0xc4,0x00,0x00,0x06,0xab,0x01,0x5f,0x54,0x9e,0x4c,0x87,0x00,0x00,0x00,0x00,0x49,0x45,0x4e,0x44,0xae,0x42,0x60,0x82});
+  write("gif", std::vector<uint8_t>{0x47,0x49,0x46,0x38,0x39,0x61,0x02,0x00,0x01,0x00,0x80,0x00,0x00,0xff,0x00,0x00,0x00,0x00,0x00,0x21,0xf9,0x04,0x01,0x00,0x00,0x01,0x00,0x2c,0x00,0x00,0x00,0x00,0x02,0x00,0x01,0x00,0x00,0x02,0x02,0x44,0x0a,0x00,0x3b});
+  write("bmp", solidBmp(2, 2, 1, 2, 3));
+  Resources res;
+  res.addRoot(root.string());
+  const Texture* p8 = res.texture("png8.png");
+  CHECK(p8 && isColor(p8->pixels[0], 200, 100, 50));
+  CHECK(res.texture("png16.png") == nullptr);
+  CHECK(res.texture("bmp.png") == nullptr);
+  const Texture* g = res.texture("gif.jpg");  // named as anything: read by content
+  CHECK(g && g->width == 2 && isColor(g->pixels[0], 255, 0, 0) && g->pixels[1] == packRgba(255, 255, 255));
+  Resources all;
+  all.setImageFormats(Resources::ImageFormats::kAll);
+  all.addRoot(root.string());
+  CHECK(all.texture("bmp") != nullptr && all.texture("png16") != nullptr);
+  const Texture* ga = all.texture("gif");
+  CHECK(ga && alpha(ga->pixels[1]) == 0);
+  std::filesystem::remove_all(root);
+}
+
+void testBilinear() {
+  // One black and one white texel side by side.
+  Texture t;
+  t.width = 2;
+  t.height = 1;
+  t.pixels = {packRgba(0, 0, 0), packRgba(255, 255, 255)};
+  // Between the two texel centres: half way.
+  CHECK(red(t.sampleBilinear(0.5f, 0.5f)) == 128 && alpha(t.sampleBilinear(0.5f, 0.5f)) == 255);
+  // On a texel centre: that texel.
+  CHECK(red(t.sampleBilinear(0.25f, 0.5f)) == 0 && red(t.sampleBilinear(0.75f, 0.5f)) == 255);
+  // At the left edge: wrapping blends in the right texel; clamping does not.
+  CHECK(red(t.sampleBilinear(0.0f, 0.5f)) == 128);
+  CHECK(red(t.sampleBilinear(0.0f, 0.5f, true)) == 0);
+  CHECK(red(t.sampleBilinear(1.0f, 0.5f, true)) == 255);
+  // Repeats past 1 and below 0.
+  CHECK(t.sampleBilinear(2.25f, 7.5f) == t.sampleBilinear(0.25f, 0.5f));
+  CHECK(t.sampleBilinear(-0.75f, -3.5f) == t.sampleBilinear(0.25f, 0.5f));
+  // Bad coordinates do not read outside the texture.
+  t.sampleBilinear(std::nanf(""), 1e30f);
+  t.sampleBilinear(-1e30f, std::numeric_limits<float>::infinity());
+}
+
 int main() {
   testRead3ds();
   testRotationRule();
@@ -591,6 +1213,10 @@ int main() {
   testSkyBox();
   testSceneFromGhosts();
   testResources();
+  testReadDts();
+  testReadDif();
+  testBilinear();
+  testClientImageFormats();
   if (failures) {
     std::fprintf(stderr, "render-test: %d failure(s)\n", failures);
     return 1;

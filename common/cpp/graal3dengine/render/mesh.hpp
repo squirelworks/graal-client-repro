@@ -13,6 +13,7 @@ struct Material {
   std::string name;
   std::string texture;  // file name as the shape gives it; empty for none
   float color[3] = {1, 1, 1};  // diffuse, 0..1
+  bool alphaTest = true;       // see RasterState::alphaTest
 };
 
 struct Vertex {

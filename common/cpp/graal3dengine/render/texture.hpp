@@ -28,6 +28,11 @@ struct Texture {
   bool empty() const { return width <= 0 || height <= 0; }
   // Nearest texel, wrapping in both directions.
   uint32_t sample(float u, float v) const;
+  // The four nearest texels blended by distance (as a GL_LINEAR texture
+  // draws), wrapping in both directions, or held at the edges when
+  // `clamp` is set (a sky-box face, so one edge does not bleed into the
+  // opposite one).
+  uint32_t sampleBilinear(float u, float v, bool clamp = false) const;
 };
 
 // PNG, JPEG, GIF (first frame), BMP and TGA, through stb_image.

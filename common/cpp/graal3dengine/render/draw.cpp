@@ -28,6 +28,7 @@ void drawSkyBox(Rasterizer& r, const Scene& scene, Resources& res, float farPlan
   RasterState st;
   st.depthTest = false;
   st.depthWrite = false;
+  st.clampTexture = true;
   for (int f = 0; f < 6; ++f) {
     const Texture* tex = res.texture(scene.sky.textures[f]);
     if (!tex) continue;
@@ -98,7 +99,10 @@ DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
         RasterState st;
         st.fogColor = fogColor;
         st.texture = m.texture.empty() ? nullptr : res.texture(m.texture);
-        if (!st.texture)
+        st.alphaTest = m.alphaTest;
+        // A material with no texture draws its colour. One whose texture is
+        // missing or not drawable draws white, as the 5.12 does (T3D-032).
+        if (!st.texture && m.texture.empty())
           for (int j = 0; j < 3; ++j) st.color[j] = m.color[j];
         r.drawTriangle(vs[t.v[0]], vs[t.v[1]], vs[t.v[2]], st);
         ++stats.triangles;

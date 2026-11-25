@@ -42,3 +42,47 @@ login stay with the engine library.
 
 Captures and the files a server sends are that server's content. Keep
 them, and what this tool prints or draws from them, out of the repository.
+
+## g3d-fuzzcases
+
+Makes malformed level content for a lab run against the real client,
+one change per case, from a seed shape you supply. This is strand 3 of the
+client-mapping plan: serve the cases from our own gserver to a client in a
+lab VM, then write down what the client did with each one.
+
+```
+make tools
+./build/g3d-fuzzcases --random 40 seed.3ds out/3ds
+./build/g3d-fuzzcases seed.dts out/dts
+./build/g3d-fuzzcases seed.dif out/dif
+```
+
+The structural cases come first:
+
+- **`.3ds`:** for the first chunks of each chunk id (`--per-chunk`), it
+  changes the chunk's length (0, 5, one less, one more, huge, to the end of
+  the file), renames the chunk to an unknown id, and cuts the file at the
+  chunk and in its middle. For vertex, face and texture-coordinate chunks
+  it changes the count (0, one more, 65535) and sets NaN and far-away
+  values. It also makes out-of-range and degenerate face indices.
+- **`.3ds` names:** material, face-group and texture names are changed to
+  upper case, empty, 300 characters, and missing their terminating NUL.
+  Texture names also get every image extension and none, a folder, a
+  parent folder, a space, and a texture the server lacks. Renamed strings
+  keep every enclosing chunk length right.
+- **`.dts`:** every version from 0 to 27, plus 255, and the exporter
+  version. The block's word counts and stream starts. Each shape-header
+  count set to -1, a huge value and 0. A broken first guard. Cuts inside
+  and after the block.
+- **`.dif`:** the resource version, the preview flag, the detail count,
+  the interior version, and cuts.
+
+`--random N` adds N cases of one to six random byte changes, repeatable
+with `--seed`. A case that leaves the file as it was is dropped.
+
+It writes `out/<prefix>NNNN.<ext>` and `out/manifest.tsv`. The manifest
+has one row per case, with the change in words, its size, and what our
+own reader makes of it (`ok meshes M triangles T materials K` or
+`refused: <error>`). The last column is empty, for the client's
+reaction. The seed is game content, so the cases are too. Keep them, and
+the manifest, out of the repository.
