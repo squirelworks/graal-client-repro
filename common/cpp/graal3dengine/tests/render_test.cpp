@@ -5,6 +5,7 @@
 #include "../render/read_3ds.hpp"
 #include "../render/read_dif.hpp"
 #include "../render/read_dts.hpp"
+#include "../render/read_ft.hpp"
 #include "../render/terrain.hpp"
 #include "bits.hpp"
 #include "vectors.hpp"
@@ -1473,6 +1474,68 @@ void testStreamedTerrain() {
   CHECK(st.terrain.squareSize == 4);
 }
 
+void testFtTrees() {
+  // The made-up lab file from torque/ft-trees-512.md, plus a leaf term.
+  const std::string lab =
+      "// lab tree\n"
+      "width 0.4 0.3\n"
+      "length 2\n"
+      "defaultLevels 4\n"
+      "billboard \"far tree\"   // a quoted word\n"
+      "gramma\n{\n  A B[RA][LA]\n  A 2 B[RA]\n}\n"
+      "term B branch\n{\n  texBranch 0\n  lengthRatio 0.7 0.9\n  widthRatio 0.7\n}\n"
+      "term [ push\n"
+      "term ] pop\n"
+      "term R rotate\n{\n  yaw 20 40\n  pitch 25\n}\n"
+      "term L rotate\n{\n  yaw -40 -20\n  pitch 25\n}\n"
+      "term F leaf\n{\n  texLeaf 1\n  size 300\n}\n"
+      "term Q unknowntype\n{\n  yaw 5\n}\n"
+      "texture 0 bark.png\n{\n  0 0 1 1\n}\n"
+      "texture 1 leaves\n"
+      "mystery\n{\n  { \n  }\n  width 9 9\n}\n";
+  FtTree t;
+  std::string error;
+  CHECK(parseFt(lab, t, error));
+  CHECK(t.width[0] == 0.4f && t.width[1] == 0.3f && t.length == 2 && t.defaultLevels == 4);
+  CHECK(t.billboard == "far tree");
+  CHECK(t.start == 'A' && t.rules['A'].size() == 2 && t.rules['A'][1].weight == 2);
+  CHECK(t.terms.size() == 6 && !t.terms.count('Q'));  // an unknown type is skipped
+  CHECK(t.terms['B'].lengthRatio[0] == 0.7f && t.terms['B'].lengthRatio[1] == 0.9f);
+  CHECK(t.terms['R'].yaw[0] == 20 && t.terms['R'].pitch[1] == 25);
+  CHECK(t.terms['F'].size == 100);  // clamped
+  CHECK(t.textures[0] == "bark.png" && t.textures[1] == "leaves");
+  // Growing rewrites A each round; the result is made of the rules' text.
+  const std::string g = growFt(t, 7, 0);
+  CHECK(!g.empty() && g.size() <= kFtMaxString);
+  CHECK(g.find_first_not_of("AB[]RL") == std::string::npos && g[0] == 'B');
+  CHECK(growFt(t, 7, 0) == g);  // repeatable
+  CHECK(growFt(t, 7, 1).size() < g.size());
+  // Levels clamp to 15, and the string stops at 512.
+  CHECK(growFt(t, 7, 99).size() <= kFtMaxString);
+  // The shape: tubes for branches, rising from the origin.
+  const Shape sh = ftShape(t, 7, 3);
+  CHECK(sh.materials.size() == 8 && sh.materials[0].texture == "bark.png");
+  CHECK(sh.meshes.size() == 1 && !sh.meshes[0].triangles.empty());
+  CHECK(sh.boundsMin.z > -0.5f && sh.boundsMax.z > 2);
+  for (const Triangle& tri : sh.meshes[0].triangles) CHECK(tri.material == 0);
+  // A symbol with neither a rule nor a term is dropped in the next round.
+  FtTree drop;
+  CHECK(parseFt("gramma\n{\n  A BZ\n}\nterm B branch\n", drop, error));
+  CHECK(growFt(drop, 1, 1) == "BZ" && growFt(drop, 1, 2) == "B");
+  // No rules: refused.
+  FtTree none;
+  CHECK(!parseFt("width 1 1\n", none, error));
+  // Through Resources by extension.
+  Resources res;
+  const std::string dir = std::filesystem::temp_directory_path() / "g3d-ft-test";
+  std::filesystem::create_directories(dir);
+  { std::ofstream(dir + "/labtree.ft") << lab; }
+  res.addRoot(dir);
+  const Shape* loaded = res.shape("labtree.ft");
+  CHECK(loaded && !loaded->meshes.empty() && !loaded->meshes[0].triangles.empty());
+  std::filesystem::remove_all(dir);
+}
+
 void testLabels() {
   Resources res;
   res.putShape("red.3ds", cubeShape(1, 0, 0));
@@ -1549,6 +1612,7 @@ int main() {
   testReadDif();
   testBilinear();
   testLabels();
+  testFtTrees();
   testStreamedTerrain();
   testTerrain();
   testClientImageFormats();
