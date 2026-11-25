@@ -98,6 +98,7 @@ DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
         RasterState st;
         st.fogColor = fogColor;
         st.texture = m.texture.empty() ? nullptr : res.texture(m.texture);
+        st.alphaTest = m.alphaTest;
         if (!st.texture)
           for (int j = 0; j < 3; ++j) st.color[j] = m.color[j];
         r.drawTriangle(vs[t.v[0]], vs[t.v[1]], vs[t.v[2]], st);

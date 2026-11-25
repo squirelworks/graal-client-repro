@@ -14,7 +14,7 @@ LDLIBS = -lz -lbz2
 CORE = src/bits.cpp src/world.cpp src/link.cpp src/udp.cpp ../third_party/torque3d/huffman.cpp
 # The world renderer (render/README.md); stb_image is built on its own,
 # without -Werror, as third-party code.
-RENDER = render/mesh.cpp render/read_3ds.cpp render/texture.cpp render/raster.cpp render/resources.cpp \
+RENDER = render/mesh.cpp render/read_3ds.cpp render/read_dts.cpp render/texture.cpp render/raster.cpp render/resources.cpp \
          render/scene.cpp render/draw.cpp
 RENDER_OBJ = build/render_stb.o
 SOURCES = src/exports.cpp $(CORE) $(RENDER)

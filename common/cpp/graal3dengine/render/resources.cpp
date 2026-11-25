@@ -1,6 +1,7 @@
 #include "resources.hpp"
 
 #include "read_3ds.hpp"
+#include "read_dts.hpp"
 
 #include <cctype>
 #include <filesystem>
@@ -84,7 +85,7 @@ const Shape* Resources::shape(const std::string& name) {
   const std::string ext = extensionOf(key);
   if (path.empty()) {
     note("Graal3D: shape " + name + " is not here");
-  } else if (ext != ".3ds") {
+  } else if (ext != ".3ds" && ext != ".dts") {
     note("Graal3D: cannot draw " + ext + " shapes yet (" + name + ")");
   } else {
     std::vector<uint8_t> bytes;
@@ -92,7 +93,7 @@ const Shape* Resources::shape(const std::string& name) {
     std::string error;
     if (!readAll(path, bytes)) {
       note("Graal3D: cannot read " + path);
-    } else if (!read3ds(bytes, *s, error)) {
+    } else if (!(ext == ".dts" ? readDts(bytes, *s, error) : read3ds(bytes, *s, error))) {
       note("Graal3D: " + name + ": " + error);
     } else {
       loaded = std::move(s);
@@ -121,6 +122,14 @@ std::string Resources::lookupTexturePath(const std::string& name) const {
   for (const char* e : kImageExtensions) {
     path = find(stem + e);
     if (!path.empty()) return path;
+  }
+  // A Torque material name can hold dots of its own (`base.marble`); the
+  // engine adds the image extension to the whole name.
+  if (!ext.empty()) {
+    for (const char* e : kImageExtensions) {
+      path = find(key + e);
+      if (!path.empty()) return path;
+    }
   }
   return {};
 }

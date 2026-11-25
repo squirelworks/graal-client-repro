@@ -163,7 +163,7 @@ void Rasterizer::drawClipped(const ClipVertex* poly, int count, const RasterStat
         float fog = (w0 * a.fog + w1 * b.fog + w2 * c.fog) * z;
         fog = fog < 0 ? 0 : (fog > 1 ? 1 : fog);
         const uint32_t texel = s.texture ? s.texture->sample(u, v) : packRgba(255, 255, 255);
-        if (alpha(texel) < 128) continue;  // alpha-tested, as cut-out foliage needs
+        if (s.alphaTest && alpha(texel) < 128) continue;  // cut-out foliage
         float r = red(texel) * s.color[0] * l[0];
         float g = green(texel) * s.color[1] * l[1];
         float bch = blue(texel) * s.color[2] * l[2];

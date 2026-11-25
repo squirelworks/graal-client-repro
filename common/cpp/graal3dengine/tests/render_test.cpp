@@ -3,10 +3,12 @@
 // Every shape and texture here is made by the test itself.
 #include "../render/draw.hpp"
 #include "../render/read_3ds.hpp"
+#include "../render/read_dts.hpp"
 #include "bits.hpp"
 #include "vectors.hpp"
 #include "world.hpp"
 
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -527,6 +529,351 @@ void testSceneFromGhosts() {
   CHECK(st.objectsDrawn == 1);
 }
 
+// ---- A .dts writer for the tests (version 24 by default) ---------------
+// The layout the reader follows (render/read_dts.hpp): three streams with
+// a guard after each section, then the sequences and the material list.
+struct DtsStreams {
+  std::vector<uint8_t> s32, s16, s8;
+  uint32_t guard = 0;
+  void i32(int32_t v) {
+    for (int i = 0; i < 4; ++i) s32.push_back(uint8_t(uint32_t(v) >> (8 * i)));
+  }
+  void f32(float f) {
+    int32_t v;
+    std::memcpy(&v, &f, 4);
+    i32(v);
+  }
+  void i16(int16_t v) {
+    s16.push_back(uint8_t(v));
+    s16.push_back(uint8_t(uint16_t(v) >> 8));
+  }
+  void u8(uint8_t v) { s8.push_back(v); }
+  void g() {
+    i32(int32_t(guard));
+    i16(int16_t(guard));
+    u8(uint8_t(guard));
+    ++guard;
+  }
+};
+
+struct DtsMesh {
+  int type = 0;  // 0 standard, 1 skin, 4 null
+  int parent = -1;
+  std::vector<V3> verts;
+  std::vector<std::pair<float, float>> tverts;
+  std::vector<std::array<uint32_t, 3>> prims;  // start, count, material word
+  std::vector<int16_t> indices;
+};
+
+struct DtsSpec {
+  int version = 24;
+  // Nodes: parent, rotation (standard quaternion x, y, z, w), translation.
+  struct Node {
+    int parent;
+    float q[4];
+    V3 t;
+  };
+  std::vector<Node> nodes;
+  struct Object {
+    int node, startMesh, numMeshes;
+  };
+  std::vector<Object> objects;
+  std::vector<std::pair<int, float>> details;  // object detail number, size
+  std::vector<DtsMesh> meshes;
+  std::vector<std::pair<std::string, uint32_t>> materials;  // name, flags
+};
+
+std::vector<uint8_t> dtsFile(const DtsSpec& d) {
+  DtsStreams a;
+  a.i32(int32_t(d.nodes.size()));
+  a.i32(int32_t(d.objects.size()));
+  a.i32(0);  // decals
+  a.i32(1);  // sub-shapes
+  a.i32(0);  // IFL materials
+  for (int i = 0; i < 5; ++i) a.i32(0);  // node rotations ... arbitrary scales
+  if (d.version > 23) a.i32(0);          // ground frames
+  a.i32(0);  // object states
+  a.i32(0);  // decal states
+  a.i32(0);  // triggers
+  a.i32(int32_t(d.details.size()));
+  a.i32(int32_t(d.meshes.size()));
+  if (d.version < 23) a.i32(0);  // skins
+  a.i32(0);  // names
+  a.f32(0);
+  a.i32(0);
+  a.g();
+  for (int i = 0; i < 11; ++i) a.f32(0);  // radius, tube radius, centre, bounds
+  a.g();
+  for (const auto& n : d.nodes) {
+    a.i32(0);
+    a.i32(n.parent);
+    a.i32(-1);
+    a.i32(-1);
+    a.i32(-1);
+  }
+  a.g();
+  for (const auto& o : d.objects) {
+    a.i32(0);
+    a.i32(o.numMeshes);
+    a.i32(o.startMesh);
+    a.i32(o.node);
+    a.i32(-1);
+    a.i32(-1);
+  }
+  a.g();
+  a.g();  // decals
+  a.g();  // IFL materials
+  a.i32(0);
+  a.i32(0);
+  a.i32(0);
+  a.g();
+  a.i32(int32_t(d.nodes.size()));
+  a.i32(int32_t(d.objects.size()));
+  a.i32(0);
+  a.g();
+  for (const auto& n : d.nodes)  // Torque keeps the conjugate
+    for (int i = 0; i < 4; ++i) a.i16(int16_t(std::lround((i < 3 ? -n.q[i] : n.q[i]) * 32767)));
+  for (const auto& n : d.nodes) {
+    a.f32(n.t.x);
+    a.f32(n.t.y);
+    a.f32(n.t.z);
+  }
+  a.g();
+  a.g();  // scales
+  if (d.version > 23) a.g();  // ground frames
+  a.g();  // object states
+  a.g();  // decal states
+  a.g();  // triggers
+  for (const auto& [k, size] : d.details) {
+    a.i32(0);
+    a.i32(0);
+    a.i32(k);
+    a.f32(size);
+    a.f32(0);
+    a.f32(0);
+    a.i32(0);
+  }
+  a.g();
+  for (const auto& m : d.meshes) {
+    a.i32(m.type);
+    if (m.type == 4) continue;
+    a.g();
+    a.i32(1);
+    a.i32(1);
+    a.i32(m.parent);
+    for (int i = 0; i < 10; ++i) a.f32(0);  // bounds, centre, radius
+    const bool own = m.parent < 0;
+    const bool skin = m.type == 1;
+    const size_t nv = skin ? 0 : m.verts.size();
+    a.i32(int32_t(nv));
+    if (own && !skin)
+      for (const auto& v : m.verts) {
+        a.f32(v.x);
+        a.f32(v.y);
+        a.f32(v.z);
+      }
+    a.i32(int32_t(m.tverts.size()));
+    if (own)
+      for (const auto& t : m.tverts) {
+        a.f32(t.first);
+        a.f32(t.second);
+      }
+    if (own) {
+      for (size_t i = 0; i < nv * 3; ++i) a.f32(0);
+      for (size_t i = 0; i < nv; ++i) a.u8(0);
+    }
+    a.i32(int32_t(m.prims.size()));
+    for (const auto& p : m.prims) {
+      a.i16(int16_t(p[0]));
+      a.i16(int16_t(p[1]));
+      a.i32(int32_t(p[2]));
+    }
+    a.i32(int32_t(m.indices.size()));
+    for (int16_t i : m.indices) a.i16(i);
+    a.i32(0);  // merge indices
+    a.i32(int32_t(nv));
+    a.i32(0);
+    a.g();
+    if (skin) {
+      a.i32(int32_t(m.verts.size()));
+      if (own) {
+        for (const auto& v : m.verts) {
+          a.f32(v.x);
+          a.f32(v.y);
+          a.f32(v.z);
+        }
+        for (size_t i = 0; i < m.verts.size() * 3; ++i) a.f32(0);
+        for (size_t i = 0; i < m.verts.size(); ++i) a.u8(0);
+      }
+      a.i32(1);  // initial transforms
+      if (own)
+        for (int i = 0; i < 16; ++i) a.f32(i % 5 == 0 ? 1.0f : 0.0f);
+      a.i32(int32_t(m.verts.size()));  // weights
+      if (own)
+        for (size_t i = 0; i < m.verts.size(); ++i) {
+          a.i32(int32_t(i));
+          a.i32(0);
+          a.f32(1);
+        }
+      a.i32(1);  // nodes
+      if (own) a.i32(0);
+      a.g();
+    }
+  }
+  a.g();
+  a.g();  // names
+  // Pad the 16- and 8-bit streams to whole words and join them.
+  while (a.s16.size() % 4) a.s16.push_back(0);
+  while (a.s8.size() % 4) a.s8.push_back(0);
+  std::vector<uint8_t> f;
+  auto u32 = [&](uint32_t v) {
+    for (int i = 0; i < 4; ++i) f.push_back(uint8_t(v >> (8 * i)));
+  };
+  u32(uint32_t(d.version) | (1u << 16));
+  u32(uint32_t((a.s32.size() + a.s16.size() + a.s8.size()) / 4));
+  u32(uint32_t(a.s32.size() / 4));
+  u32(uint32_t((a.s32.size() + a.s16.size()) / 4));
+  f.insert(f.end(), a.s32.begin(), a.s32.end());
+  f.insert(f.end(), a.s16.begin(), a.s16.end());
+  f.insert(f.end(), a.s8.begin(), a.s8.end());
+  u32(0);  // sequences
+  f.push_back(1);
+  u32(uint32_t(d.materials.size()));
+  for (const auto& [name, flags] : d.materials) {
+    f.push_back(uint8_t(name.size()));
+    f.insert(f.end(), name.begin(), name.end());
+  }
+  for (const auto& [name, flags] : d.materials) u32(flags);
+  for (int k = 0; k < 5; ++k)
+    for (size_t i = 0; i < d.materials.size(); ++i) u32(0);
+  return f;
+}
+
+// Two nodes (the second turned 90 degrees about z and moved), a triangle
+// list on the second node, a strip sharing the first mesh's vertices on
+// the root, a skin mesh, and a collision detail level that is not drawn.
+DtsSpec sampleDts() {
+  DtsSpec d;
+  const float h = std::sqrt(0.5f);
+  d.nodes = {{-1, {0, 0, 0, 1}, {0, 0, 0}}, {0, {0, 0, h, h}, {1, 2, 3}}};
+  d.objects = {{1, 0, 2}, {0, 2, 2}, {1, 4, 2}};
+  d.details = {{0, 10.0f}, {1, -1.0f}};
+  DtsMesh tri;
+  tri.verts = {{0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {1, 1, 0}};
+  tri.tverts = {{0, 0}, {1, 0}, {0, 1}, {1, 1}};
+  tri.prims = {{0, 3, 0}};
+  tri.indices = {0, 1, 2};
+  DtsMesh strip;
+  strip.parent = 0;
+  strip.prims = {{0, 4, (1u << 30) | 1}, {4, 3, 1u << 28}};  // a strip; then one with no material
+  strip.indices = {0, 1, 2, 3, 0, 1, 3};
+  DtsMesh skin;
+  skin.type = 1;
+  skin.verts = {{5, 5, 5}, {6, 5, 5}, {5, 6, 5}};
+  skin.prims = {{0, 3, 0}};
+  skin.indices = {0, 1, 2};
+  DtsMesh null;
+  null.type = 4;
+  DtsMesh hull = tri;  // the collision level: never drawn
+  d.meshes = {tri, hull, strip, null, skin, null};
+  d.materials = {{"base.metal", 0}, {"leaves", 4}};
+  return d;
+}
+
+bool nearV(const V3& a, const V3& b) { return std::fabs(a.x - b.x) < 1e-3f && std::fabs(a.y - b.y) < 1e-3f && std::fabs(a.z - b.z) < 1e-3f; }
+
+void testReadDts() {
+  Shape s;
+  std::string error;
+  const std::vector<uint8_t> file = dtsFile(sampleDts());
+  const bool ok = readDts(file, s, error);
+  if (!ok) std::fprintf(stderr, "readDts: %s\n", error.c_str());
+  CHECK(ok);
+  CHECK(s.materials.size() == 2);
+  CHECK(s.materials.size() == 2 && s.materials[0].name == "base.metal" && s.materials[0].texture == "base.metal");
+  CHECK(s.materials.size() == 2 && !s.materials[0].alphaTest && s.materials[1].alphaTest);
+  CHECK(s.meshes.size() == 3);
+  if (s.meshes.size() == 3) {
+    // The triangle list on node 1: turned 90 degrees about z, then moved.
+    const Mesh& a = s.meshes[0];
+    CHECK(a.triangles.size() == 1 && a.triangles[0].material == 0);
+    CHECK(nearV(a.vertices[0].position, {1, 2, 3}));
+    CHECK(nearV(a.vertices[1].position, {1, 3, 3}));
+    CHECK(nearV(a.vertices[2].position, {0, 2, 3}));
+    CHECK(a.vertices[1].u == 1 && a.vertices[2].v == 1);
+    // The strip on the root shares those vertices: two triangles, the
+    // second wound the other way; the no-material primitive is kept with -1.
+    const Mesh& b = s.meshes[1];
+    CHECK(b.triangles.size() == 3);
+    if (b.triangles.size() == 3) {
+      CHECK(b.triangles[0].v[0] == 0 && b.triangles[0].v[1] == 1 && b.triangles[0].v[2] == 2);
+      CHECK(b.triangles[1].v[0] == 2 && b.triangles[1].v[1] == 1 && b.triangles[1].v[2] == 3);
+      CHECK(b.triangles[0].material == 1 && b.triangles[2].material == -1);
+    }
+    CHECK(nearV(b.vertices[3].position, {1, 1, 0}));
+    // The skin mesh: its initial vertices, as they are (shape space).
+    const Mesh& c = s.meshes[2];
+    CHECK(c.triangles.size() == 1 && nearV(c.vertices[1].position, {6, 5, 5}));
+  }
+
+  // Versions outside 22 to 24 are refused by name.
+  for (int v : {18, 21, 25, 26}) {
+    DtsSpec d = sampleDts();
+    d.version = v;
+    std::vector<uint8_t> f = dtsFile(d);
+    Shape t;
+    CHECK(!readDts(f, t, error));
+    CHECK(error.find("version " + std::to_string(v)) != std::string::npos);
+  }
+  // Versions 22 and 23 (skins count, no ground frames) read.
+  for (int v : {22, 23}) {
+    DtsSpec d = sampleDts();
+    d.version = v;
+    Shape t;
+    CHECK(readDts(dtsFile(d), t, error) && t.meshes.size() == 3);
+  }
+  // A broken guard is caught.
+  std::vector<uint8_t> broken = file;
+  broken[16 + 19 * 4] ^= 0x55;  // the first guard: after 19 header words
+  Shape t;
+  CHECK(!readDts(broken, t, error));
+  // Every truncation and many byte changes are refused or read safely.
+  for (size_t n = 0; n < file.size(); ++n) {
+    Shape u;
+    readDts(file.data(), n, u, error);
+  }
+  uint32_t seed = 7;
+  for (int i = 0; i < 20000; ++i) {
+    std::vector<uint8_t> m = file;
+    for (int k = 0; k < 4; ++k) {
+      seed = seed * 1103515245u + 12345u;
+      m[(seed >> 8) % m.size()] = uint8_t(seed >> 3);
+    }
+    Shape u;
+    readDts(m, u, error);
+  }
+
+  // Resources loads a .dts by its extension, and finds a material whose
+  // name has a dot of its own by adding the image extension.
+  const auto root = std::filesystem::temp_directory_path() / "g3d-render-test-dts";
+  std::filesystem::remove_all(root);
+  std::filesystem::create_directories(root / "shapes");
+  {
+    std::ofstream o(root / "shapes" / "Thing.DTS", std::ios::binary);
+    o.write(reinterpret_cast<const char*>(file.data()), std::streamsize(file.size()));
+    const std::vector<uint8_t> bmp = solidBmp(2, 2, 9, 8, 7);
+    std::ofstream t2(root / "shapes" / "base.metal.bmp", std::ios::binary);
+    t2.write(reinterpret_cast<const char*>(bmp.data()), std::streamsize(bmp.size()));
+  }
+  Resources res;
+  res.addRoot(root.string());
+  const Shape* thing = res.shape("thing.dts");
+  CHECK(thing && thing->meshes.size() == 3);
+  const Texture* metal = res.texture("base.metal");
+  CHECK(metal && isColor(metal->pixels[0], 9, 8, 7));
+  std::filesystem::remove_all(root);
+}
+
 void testResources() {
   namespace fs = std::filesystem;
   const fs::path root = fs::temp_directory_path() / ("g3d-render-test-" + std::to_string(std::rand()));
@@ -591,6 +938,7 @@ int main() {
   testSkyBox();
   testSceneFromGhosts();
   testResources();
+  testReadDts();
   if (failures) {
     std::fprintf(stderr, "render-test: %d failure(s)\n", failures);
     return 1;

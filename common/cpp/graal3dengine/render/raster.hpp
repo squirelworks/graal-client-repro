@@ -33,6 +33,10 @@ struct RasterState {
   uint32_t fogColor = 0;
   bool depthTest = true;
   bool depthWrite = true;
+  // Texels with alpha under 128 are not drawn (cut-out leaves and fences).
+  // Off for a Torque material that is not translucent, whose alpha is the
+  // environment-map amount instead.
+  bool alphaTest = true;
 };
 
 class Rasterizer {
