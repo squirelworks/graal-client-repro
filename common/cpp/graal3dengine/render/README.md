@@ -20,7 +20,7 @@ link it beside its own world.
 | `terrain.*` | The 5.12's streamed terrain (Graal_analysis `torque/terrain-512.md`): the chunk decoder (heights from their two-pass deltas, material ids per square, hole modes 0 to 2), a corrupt zlib stream applied as zeros as the client does, `heights.info` one name per line, the cache folder's `heights<x>-<y>.dat`, the client's re-encoding of a chunk (mode 2, used ids ascending, blends with the larger share first, its two-pass writer) and its stamp, and the 256 by 256 grid as one mesh centred on the origin |
 | `scene.*` | The scene from a `GhostTable`: every `GameObject` with a shape, the named `Camera` and the field of view, the first `Sun` and `Sky`, the `TerrainBlock`'s settings, and each `WaterBlock` 1024 or more a side as a surface. A caller adds the terrain's shape as an object (`SceneObject::direct`) |
 | `raster.*` | The software rasteriser: perspective-correct textured triangles, depth buffer, clipping to the near and far planes and to the view sides with a guard band (so a face reaching behind the camera, such as a sky-box face, is still drawn), bilinear texture filtering (held at the edges for sky-box faces), per-vertex light and fog |
-| `draw.*` | One frame: the sky box, then each object lit by the sun and fogged toward the sky's fog colour |
+| `draw.*` | One frame: the sky box, then each object lit as the 5.12 lights it; only the sky takes the fog |
 
 The library exports `graal3dengine_renderFrame`, `graal3dengine_addResourceFolder`
 and `graal3dengine_rescanResources` for the hosts (`include/graal3dengine.h`).
@@ -57,8 +57,8 @@ The pixels: the original draws through OpenGL, and no pixel match is
 claimed (`docs/functional-parity.md`). Also, until a lab run checks them
 side by side with a real 5.12:
 
-- Nothing past the Sky's visible distance is drawn (1000 units without a
-  Sky); fog rises linearly from half that distance.
+- Objects and water are never fogged or clipped by distance, and the
+  Sky's visible distance does nothing (lab fog run, under Mesa).
 - The sky (lab T3D-046, under Mesa): entries 0 to 3 on -y, +x, +y and -x,
   mirrored left to right; entry 4 on top, its image's top toward +y;
   entry 5 not drawn; the fog colour below the horizon with a band of it

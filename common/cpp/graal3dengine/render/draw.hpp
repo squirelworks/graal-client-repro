@@ -1,9 +1,11 @@
 // One frame of the 3D world: the sky box, then every object's shape lit
-// by the sun and fogged toward the sky's fog colour.
+// lit as the 5.12 lights it (only the sky takes the fog).
 //
 // Rebuild choices, to be checked side by side with a real 5.12 in the lab:
-// - Nothing past the sky's visible distance is drawn (1000 units without a
-//   Sky); fog rises linearly from half that distance to all of it.
+// - Objects and water are never fogged or clipped by distance (lab fog
+//   run under Mesa: cubes out to 800 m drawn untinted behind a visible
+//   distance of 100; the Sky's visible distance changed nothing). The far
+//   plane is the fixed kFarPlane.
 // - The sky (lab T3D-046, real 5.12): entries 0 to 3 of the sky line draw
 //   on -y, +x, +y and -x, each mirrored left to right with up still up;
 //   entry 4 on top, its image's top toward +y; entry 5, the floor, only
@@ -38,6 +40,8 @@
 namespace graal3d::render {
 
 constexpr float kSkyFogBand = 0.25f;
+// The far plane, fixed (the visible distance does nothing in the 5.12).
+constexpr float kFarPlane = 10000.0f;
 constexpr float kNoSunLight = 0.25f;  // a .3ds without a Sun
 constexpr float kFixedLightFloor = 0.85f;
 

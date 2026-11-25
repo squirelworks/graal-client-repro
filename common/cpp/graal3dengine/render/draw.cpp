@@ -97,7 +97,9 @@ DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
     return stats;
   }
   View view = scene.view;
-  const float farPlane = scene.sky.present && scene.sky.visibleDistance > 0 ? scene.sky.visibleDistance : 1000.0f;
+  // The 5.12 never fogs or distance-clips objects; the Sky's visible
+  // distance changed nothing in the lab (Mesa, fog run).
+  const float farPlane = kFarPlane;
   view.farPlane = farPlane;
   r.setView(view);
   const uint32_t fogColor = scene.sky.present ? colorOf(scene.sky.fogColor) : packRgba(0, 0, 0);
@@ -108,8 +110,6 @@ DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
   r.clearDepth();
 
   const V3 eye{view.cameraToWorld.m[0][3], view.cameraToWorld.m[1][3], view.cameraToWorld.m[2][3]};
-  const float fogStart = farPlane * 0.5f;
-  const bool fog = scene.sky.present;
 
   for (const SceneObject& obj : scene.objects) {
     const Shape* shape = obj.direct ? obj.direct : res.shape(obj.shape);
@@ -137,10 +137,6 @@ DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
           light = 0;
         }
         for (float& l : rv.light) l = light;
-        if (fog) {
-          const float dist = length(rv.position - eye);
-          rv.fog = dist <= fogStart ? 0 : (dist - fogStart) / (farPlane - fogStart);
-        }
       }
       for (const Triangle& t : mesh.triangles) {
         if (t.material < 0 || size_t(t.material) >= shape->materials.size()) continue;  // not drawn (read_3ds.hpp)
@@ -179,10 +175,6 @@ DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
       q[i].position = w.transform.point({corners[i][0], corners[i][1], 0});
       q[i].u = corners[i][0] / 16.0f;
       q[i].v = corners[i][1] / 16.0f;
-      if (fog) {
-        const float dist = length(q[i].position - eye);
-        q[i].fog = dist <= fogStart ? 0 : (dist - fogStart) / (farPlane - fogStart);
-      }
     }
     r.drawTriangle(q[0], q[1], q[2], st);
     r.drawTriangle(q[0], q[2], q[3], st);
@@ -196,7 +188,7 @@ std::vector<Label> sceneLabels(const Scene& scene, Resources& res, int width, in
   std::vector<Label> out;
   if (!scene.hasCamera || width <= 0 || height <= 0) return out;
   View view = scene.view;
-  view.farPlane = scene.sky.present && scene.sky.visibleDistance > 0 ? scene.sky.visibleDistance : 1000.0f;
+  view.farPlane = kFarPlane;
   constexpr float kLineHeight = 16;  // pixels between the nickname and chat lines
   for (const SceneTag& tag : scene.tags) {
     V3 anchor = tag.transform.point({0, 0, 2});

@@ -453,8 +453,9 @@ void testSunAndFog() {
     CHECK(isColor(f.centre(), 0, 0, 0));
   }
 
-  // Fog: with a visible distance of 100, a cube 20 units away is clear,
-  // one 90 units away is mostly fog colour, one past 100 is not drawn.
+  // No fog on objects and no distance clip (lab, Mesa): with a visible
+  // distance of 100 and a blue fog, cubes at 20, 90, 120 and 800 units
+  // all draw white.
   res.putShape("bigwhite.3ds", cubeShape(1, 1, 1, 10));
   auto fogged = [&](float dist) {
     TestFrame f;
@@ -468,10 +469,7 @@ void testSunAndFog() {
     drawScene(f.frame(), s, res);
     return f.centre();
   };
-  CHECK(isColor(fogged(20), 255, 255, 255));
-  const uint32_t far = fogged(90);
-  CHECK(red(far) < 80 && blue(far) == 255);
-  CHECK(isColor(fogged(120), 0, 0, 255));
+  for (float d : {20.0f, 90.0f, 120.0f, 800.0f}) CHECK(isColor(fogged(d), 255, 255, 255));
 }
 
 void testSkyBox() {
