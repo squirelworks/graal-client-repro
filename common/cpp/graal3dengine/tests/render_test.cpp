@@ -450,6 +450,28 @@ void testSkyBox() {
   CHECK(isColor(look({0, 0, 1}, -kPi / 2), 200, 200, 0));    // left
   CHECK(isColor(look({1, 0, 0}, -kPi / 2), 0, 200, 200));    // up (a negative angle tilts up)
   CHECK(isColor(look({1, 0, 0}, kPi / 2), 200, 0, 200));     // down
+
+  // Looking toward a corner, every face in view reaches behind the camera;
+  // each must still fill its part of the frame (the Sharp3D replay showed
+  // such faces dropping out to the fog colour).
+  // A wide frame and a narrow field of view, as in that capture (789 by
+  // 588, 60 degrees), put the clipped corners far off screen.
+  for (float yaw : {kPi / 4, 3 * kPi / 4, -kPi / 3}) {
+    TestFrame f(789, 588);
+    Scene s = cameraScene({10, 20, 3}, {0, 0, 1}, yaw);
+    s.view.fovDegrees = 60;
+    s.view.cameraToWorld = s.view.cameraToWorld * graalRotation({1, 0, 0}, -0.5f);
+    s.sky.present = true;
+    for (int i = 0; i < 6; ++i) s.sky.textures[i] = names[i];
+    drawScene(f.frame(), s, res);
+    int uncovered = 0;
+    for (uint32_t p : f.px) {
+      bool sky = false;
+      for (const auto& c : colors) sky |= isColor(p, c[0], c[1], c[2]);
+      uncovered += !sky;
+    }
+    CHECK(uncovered == 0);
+  }
 }
 
 void testSceneFromGhosts() {

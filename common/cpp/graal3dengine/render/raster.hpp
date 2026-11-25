@@ -51,6 +51,8 @@ class Rasterizer {
   long pixelsWritten() const { return written_; }
 
  private:
+  // A triangle clipped by six planes has at most nine corners.
+  static constexpr int kMaxClipVertices = 9;
   struct ClipVertex {
     float x, y, d;  // camera space: right, up, forward (depth)
     float u, v, l[3], fog;
