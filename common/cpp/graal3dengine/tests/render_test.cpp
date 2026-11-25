@@ -480,6 +480,15 @@ void testSkyBox() {
   CHECK(isColor(lookAbove({0, 0, 1}, -kPi / 2), 200, 200, 0));   // entry 3, -x
   CHECK(isColor(look({1, 0, 0}, -kPi / 2), 0, 200, 200));        // up (a negative angle tilts up)
   CHECK(isColor(look({1, 0, 0}, kPi / 2), 0, 0, 0));             // down: entry 5 not drawn, the fog colour
+  {
+    TestFrame f;
+    Scene s = cameraScene({10, 20, 3}, {1, 0, 0}, kPi / 2);
+    s.sky.present = true;
+    s.sky.drawBottom = true;  // the Sky's floor option
+    for (int i = 0; i < 6; ++i) s.sky.textures[i] = names[i];
+    drawScene(f.frame(), s, res);
+    CHECK(isColor(f.centre(), 200, 0, 200));
+  }
 
   // The fog band: the fog colour at the horizon, the image above it,
   // the fog colour below.
@@ -587,6 +596,12 @@ void testSceneFromGhosts() {
   CHECK(s.objects.size() == 1 && s.objects[0].shape == ghosts[2].object.shape);
   CHECK(std::fabs(s.view.cameraToWorld.m[2][3] - 2) < 1e-6f);
   CHECK(sceneFromGhosts(ghosts, 3, 60).view.fovDegrees == 60);
+  // An editor object (flag 0x04) is not drawn.
+  ghosts[2].object.flags = 0x04;
+  CHECK(sceneFromGhosts(ghosts, 3, 0).objects.empty());
+  ghosts[2].object.flags = 0x08;
+  CHECK(sceneFromGhosts(ghosts, 3, 0).objects.size() == 1);
+  ghosts[2].object.flags = 0;
   // A shapeless GameObject with a nickname is tagged but not drawn.
   ghosts[4].object.nickname = "Zed";
   ghosts[4].object.nickColor[0] = 7;

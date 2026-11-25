@@ -66,9 +66,13 @@ void drawSkyBox(Rasterizer& r, const Scene& scene, Resources& res, float farPlan
       r.drawTriangle(q[0], q[2], q[3], st);
     }
   }
-  // Up (entry 4), its image's top toward +y. Entry 5 is not drawn.
-  if (faceState(4)) {
-    const V3 up[4] = {{-s, s, s}, {s, s, s}, {s, -s, s}, {-s, -s, s}};
+  // Up (entry 4), its image's top toward +y. Entry 5, the floor, only
+  // when the Sky asks for it (its orientation is the rebuild's own).
+  for (int f = 4; f < 6; ++f) {
+    if (f == 5 && !sky.drawBottom) break;
+    if (!faceState(f)) continue;
+    const float z = f == 4 ? s : -s;
+    const V3 up[4] = {{-s, s, z}, {s, s, z}, {s, -s, z}, {-s, -s, z}};
     const float uv[4][2] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
     RasterVertex q[4];
     for (int i = 0; i < 4; ++i) {

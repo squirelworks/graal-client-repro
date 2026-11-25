@@ -18,6 +18,8 @@ Scene sceneFromGhosts(const GhostTable& ghosts, int cameraGhost, float fovDegree
   scene.view.fovDegrees = fovDegrees > 0 ? fovDegrees : 90.0f;
   for (const auto& [index, g] : ghosts) {
     if (g.className == "GameObject") {
+      // Flag 0x04 (an editor object) is not drawn (lab LAB-QUEUE 5).
+      if (g.object.flags & kGameObjectEditorFlag) continue;
       if (!g.object.nickname.empty() || !g.object.chat.empty()) {
         SceneTag tag;
         tag.ghost = index;
@@ -87,6 +89,7 @@ Scene sceneFromGhosts(const GhostTable& ghosts, int cameraGhost, float fovDegree
       scene.sky.fogColor[1] = clamp01(g.sky.fogColor.y);
       scene.sky.fogColor[2] = clamp01(g.sky.fogColor.z);
       scene.sky.useTextures = g.sky.options[0] != 0;
+      scene.sky.drawBottom = g.sky.options[1] != 0 || g.sky.options[2] != 0;
       scene.sky.solidColor[0] = clamp01(g.sky.solidColor.x);
       scene.sky.solidColor[1] = clamp01(g.sky.solidColor.y);
       scene.sky.solidColor[2] = clamp01(g.sky.solidColor.z);

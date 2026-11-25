@@ -17,6 +17,8 @@
 
 namespace graal3d::render {
 
+constexpr uint16_t kGameObjectEditorFlag = 0x04;
+
 struct SceneObject {
   int ghost = -1;
   std::string shape;
@@ -48,6 +50,9 @@ struct SkyBox {
   bool present = false;
   std::string textures[6];  // by sky-line entry: -y, +x, +y, -x, up, (bottom, not drawn)
   bool useTextures = true;  // the first option; off: the solid colour fills the sky
+  // Entry 5 drawn as the floor (the lab set the second and third options
+  // together; which of them does it is open).
+  bool drawBottom = false;
   float solidColor[3] = {0, 0, 0};
   float visibleDistance = 0;
   float fogColor[3] = {0, 0, 0};
