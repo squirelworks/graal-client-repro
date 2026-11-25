@@ -63,8 +63,8 @@ void printObject(const GameObjectState& o, const char* indent) {
   if (o.hasTransform)
     std::printf("%sposition %s axis %s angle %s rad\n", indent, fmt(o.position).c_str(), fmt(o.axis).c_str(),
                 fmt(o.angle).c_str());
-  if (o.velocity.x != 0 || o.velocity.y != 0 || o.velocity.z != 0)
-    std::printf("%svelocity %s\n", indent, fmt(o.velocity).c_str());
+  if (o.scale.x != 0 || o.scale.y != 0 || o.scale.z != 0)
+    std::printf("%sscale %s\n", indent, fmt(o.scale).c_str());
   if (!o.movetype.empty()) std::printf("%smovetype %s\n", indent, quote(o.movetype).c_str());
   if (o.hasMovementData)
     std::printf("%smovement position %s, %zu list entries, %u payloads\n", indent, fmt(o.movement.position).c_str(),

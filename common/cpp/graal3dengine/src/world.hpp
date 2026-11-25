@@ -35,7 +35,7 @@ struct MovementData {
 // seen. `has*` say a section has arrived at least once.
 struct GameObjectState {
   std::string name;
-  Vec3 velocity;
+  Vec3 scale;  // section 2: the shape's scale (lab T3D-015; 0, 0, 0 = unset)
   std::string shape, skin;
   Vec3 position, axis{0, 0, 1};
   float angle = 0;

@@ -22,7 +22,8 @@
 //   taken to follow .3ds until a lab shot.
 // - A textured material draws its texture as is; an untextured one its
 //   diffuse colour.
-// - Name tags: each tagged object's nickname is placed centred just above
+// - Name tags (scene.cpp: only on objects with a movetype; the real 5.12
+//   shows none on a static object): each tagged object's nickname is placed centred just above
 //   its shape's bounds (2 m above its origin with no shape), its chat one
 //   line above that. Tags are not hidden behind other objects and are
 //   left out past the visible distance or off screen.

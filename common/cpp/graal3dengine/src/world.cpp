@@ -78,7 +78,7 @@ bool readGameObjectUpdate(BitReader& r, GameObjectState& o, uint32_t* sections) 
     return b;
   };
   if (has(1)) o.name = r.pstring();
-  if (has(2)) o.velocity = readVec(r);
+  if (has(2)) o.scale = readVec(r);
   if (has(3)) o.shape = r.pstring();
   if (has(4)) o.skin = r.pstring();
   if (has(5)) {
@@ -126,7 +126,7 @@ bool readGameObjectUpdate(BitReader& r, GameObjectState& o, uint32_t* sections) 
 void writeGameObjectUpdate(BitWriter& w, const GameObjectState& o, uint32_t s) {
   auto on = [&](int section) { return (s >> (section - 1)) & 1; };
   if (w.flag(on(1))) w.pstring(o.name);
-  if (w.flag(on(2))) writeVec(w, o.velocity);
+  if (w.flag(on(2))) writeVec(w, o.scale);
   if (w.flag(on(3))) w.pstring(o.shape);
   if (w.flag(on(4))) w.pstring(o.skin);
   if (w.flag(on(5))) {

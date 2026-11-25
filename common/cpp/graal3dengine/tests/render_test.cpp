@@ -602,9 +602,12 @@ void testSceneFromGhosts() {
   ghosts[2].object.flags = 0x08;
   CHECK(sceneFromGhosts(ghosts, 3, 0).objects.size() == 1);
   ghosts[2].object.flags = 0;
-  // A shapeless GameObject with a nickname is tagged but not drawn.
+  // A static GameObject shows no tag, whatever its nickname (lab).
   ghosts[4].object.nickname = "Zed";
   ghosts[4].object.nickColor[0] = 7;
+  CHECK(sceneFromGhosts(ghosts, 3, 0).tags.empty() || sceneFromGhosts(ghosts, 3, 0).tags[0].ghost != 4);
+  // A moving, shapeless GameObject with a nickname is tagged but not drawn.
+  ghosts[4].object.hasMovement = true;
   {
     const Scene t = sceneFromGhosts(ghosts, 3, 0);
     CHECK(t.objects.size() == 1);
@@ -614,6 +617,17 @@ void testSceneFromGhosts() {
     CHECK(found == 1);
   }
   ghosts[4].object.nickname.clear();
+  ghosts[4].object.hasMovement = false;
+  // Section 2 scales the shape about its origin; zeros mean unset.
+  {
+    GameObjectState o;
+    o.position = {1, 2, 3};
+    const V3 p = objectTransform(o).point({1, 1, 1});
+    CHECK(std::fabs(p.x - 2) < 1e-5f && std::fabs(p.z - 4) < 1e-5f);
+    o.scale = {1, 1, 3};
+    const V3 q = objectTransform(o).point({1, 1, 1});
+    CHECK(std::fabs(q.x - 2) < 1e-5f && std::fabs(q.z - 6) < 1e-5f);
+  }
 
   // "-" leaves a face empty.
   ghosts[1].sky.textures = "a,-,c";

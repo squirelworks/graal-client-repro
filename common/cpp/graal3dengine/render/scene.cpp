@@ -10,7 +10,15 @@ V3 v(const Vec3& a) { return {a.x, a.y, a.z}; }
 float clamp01(float x) { return x < 0 ? 0 : (x > 1 ? 1 : x); }
 }  // namespace
 
-M4 objectTransform(const GameObjectState& o) { return graalShapeTransform(v(o.position), v(o.axis), o.angle); }
+M4 objectTransform(const GameObjectState& o) {
+  M4 m = graalShapeTransform(v(o.position), v(o.axis), o.angle);
+  // Section 2 scales the shape about its origin; all zeros is unset (lab
+  // T3D-015).
+  const Vec3& s = o.scale;
+  if ((s.x != 0 || s.y != 0 || s.z != 0) && std::isfinite(s.x) && std::isfinite(s.y) && std::isfinite(s.z))
+    m = m * M4::scale({s.x, s.y, s.z});
+  return m;
+}
 M4 cameraTransform(const GameObjectState& o) { return graalTransform(v(o.position), v(o.axis), o.angle); }
 
 Scene sceneFromGhosts(const GhostTable& ghosts, int cameraGhost, float fovDegrees) {
@@ -20,7 +28,11 @@ Scene sceneFromGhosts(const GhostTable& ghosts, int cameraGhost, float fovDegree
     if (g.className == "GameObject") {
       // Flag 0x04 (an editor object) is not drawn (lab LAB-QUEUE 5).
       if (g.object.flags & kGameObjectEditorFlag) continue;
-      if (!g.object.nickname.empty() || !g.object.chat.empty()) {
+      // The real 5.12 shows no tag on a static GameObject, whatever its
+      // nickname or chat (lab T3D-015). Tags go only on objects that move
+      // (a movetype set): the rebuild's own reading of "a player" until a
+      // lab shot of one.
+      if (g.object.hasMovement && (!g.object.nickname.empty() || !g.object.chat.empty())) {
         SceneTag tag;
         tag.ghost = index;
         tag.shape = g.object.shape;
