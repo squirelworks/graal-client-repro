@@ -44,7 +44,7 @@ of it.
 | Host | `common/cpp/quattro`'s `Shell::Program` on the 6.03r7 row: token `G3D0311C` and the `win` login tail on Windows, `G3D0511C` and `linux` on Linux and macOS (there is no Mac 6.03r7). Session, 178 warps, levels, players, GS2 weapon scripts, the 6.x HUD, 1024 x 768 | `src/host6037/` |
 | 3D | A server whose list name starts with `3 ` (given with `--server-name "3 Lab"`, or reached by the Login server's 178 warp to one, as the real 5.12 entered 3D) loses the marker and is entered on two links at once, as the 5.12 engine library does: the Torque link to the listed port + 1, then the TCP login on the listed port. The link is the 5.12 repro's protocol 24 (`common/cpp/graal3dengine`): handshake, packets and acks, events, ghosts, the control object and its movement, login steps 2 to 6. Server text (weapons, flags, scripts) goes to the 6.x program's GS2 machine, and its server triggers go back over the link as `events` lines | `src/net/udp/` (glue), `src/host6037/` |
 | UDP | Left enabled: the 3D link is a UDP socket on a random local port, in a 6.x host whose stock connect path opens none. The two links live and die together | `src/net/udp/` |
-| View | The 5.12 repro reads the 3D world but does not draw it yet. Once the link reaches step 6, the Frankenstein draws its own stand-in over the frame: the sky's fog colour, a ground grid and each `GameObject` as a box (the player's own in yellow), seen from behind the player, with the 6.x frame as a quarter-size inset bottom left. `--no-3d-view` keeps the plain 6.x frame | `src/graal3d5120/` |
+| View | Once the link reaches step 6 and the server names a Camera, the 5.12 repro's renderer (`common/cpp/graal3dengine/render`) draws the world over the frame: the sky, the shapes found in `levels3d/` (beside the program and under each `--asset-root`), the streamed terrain, water and name tags, with the lab's lighting and movement. Without a Camera, a stand-in: the sky's fog colour, a ground grid and each `GameObject` as a box (the player's own in yellow), seen from behind the player. The 6.x frame stays as a quarter-size inset bottom left. `--no-3d-view` keeps the plain 6.x frame | `src/graal3d5120/` |
 
 The real Torque world (terrain, interiors, DTS and `.3ds` shapes, sky
 textures) is a renderer of its own for `common/cpp/graal3dengine`, shared
@@ -140,7 +140,7 @@ frankenstein-6037/
   src/
     main.cpp           arguments, window, the 50 ms loop
     host6037/          the 6.03r7 program and the `3 ` path (host.*)
-    graal3d5120/       the stand-in 3D view (view3d.*)
+    graal3d5120/       the 3D view (view3d.*): the 5.12 renderer, or the stand-in
     net/udp/           the 5.12 link on a UDP socket (link3d.*)
     platform/          notes per platform (windows come from common/cpp/quattro/draw)
   tests/               frankenstein_test.cpp (loopback)
@@ -158,9 +158,9 @@ frankenstein-6037/
 - [x] macOS, Linux and Windows builds of the same client in
       `frankenstein-6037.yml`.
 - [x] Loopback coverage against servers the run starts.
-- [ ] The Torque world drawn (terrain, interiors, DTS and `.3ds` shapes,
-      sky): a renderer in `common/cpp/graal3dengine`, shared with the 4.x
-      and 5.x folders. Until then, the stand-in view.
+- [x] The Torque world drawn (terrain, interiors, DTS and `.3ds` shapes,
+      sky) by the renderer in `common/cpp/graal3dengine`, shared with the
+      4.x and 5.x folders, while the server names a Camera.
 - [ ] Keys moving the player in 3D (the link sends where the server's
       movetype took it; keyboard input with a movetype was not run on the
       real 5.12 either).

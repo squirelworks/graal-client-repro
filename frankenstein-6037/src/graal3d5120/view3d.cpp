@@ -3,6 +3,10 @@
 #include <algorithm>
 #include <cmath>
 
+#include "../../../common/cpp/graal3dengine/render/draw.hpp"
+#include "../../../common/cpp/quattro/draw/ui_font.hpp"
+#include "../../../common/torque/gui/canvas.hpp"
+
 namespace Frank {
 
 using graal3d::Vec3;
@@ -116,6 +120,64 @@ float yaw_of(const graal3d::GameObjectState& o) {
 }
 
 }  // namespace
+
+bool draw_world3d(Image& frame, const graal3d::Link& link, World3D& world, double now, View3DStats* stats) {
+  return draw_world3d(frame, link.ghosts(), link.cameraGhost(), link.controlGhost(), link.fieldOfView(),
+                      link.terrainChunks(), link.terrainChunkCount(), world, now, stats);
+}
+
+bool draw_world3d(Image& frame, const graal3d::GhostTable& ghosts, int camera, int control, int fov,
+                  const std::map<int, std::string>& chunks, int chunkCount, World3D& world, double now,
+                  View3DStats* stats) {
+  namespace R = graal3d::render;
+  if (frame.empty()) return false;
+  R::Scene scene = R::sceneFromGhosts(ghosts, camera, static_cast<float>(fov));
+  if (!scene.hasCamera) return false;
+  if (!world.rooted) {
+    if (world.roots.empty()) world.resources.addRoot("levels3d");
+    for (const auto& r : world.roots) world.resources.addRoot(r);
+    world.rooted = true;
+  }
+  R::applyMotion(scene, ghosts, world.motion, now, camera, control);
+  if (scene.terrain.present) {
+    // The session's chunks over the client's own cache, when a resource
+    // folder holds one (levels3d/heights/<server>/), as exports.cpp does.
+    const std::string info = world.resources.find("heights.info");
+    const std::string dir = info.empty() ? "" : info.substr(0, info.find_last_of("/\\"));
+    R::updateStreamedTerrain(world.terrain, scene.terrain.squareSize, scene.terrain.repeat, dir, chunks, chunkCount);
+    R::SceneObject so;
+    so.shape = "(terrain)";
+    so.transform = R::M4::identity();
+    so.direct = &world.terrain.shape;
+    scene.objects.push_back(so);
+  }
+  std::vector<uint32_t> px(std::size_t(frame.width) * frame.height);
+  const R::DrawStats ds = R::drawScene({px.data(), frame.width, frame.height, frame.width}, scene, world.resources);
+  Torque::Gui::Canvas canvas(frame.width, frame.height);
+  {
+    Image img(frame.width, frame.height);
+    for (std::size_t i = 0; i < px.size(); ++i) {
+      const uint32_t p = px[i];
+      img.pixels[i] = {uint8_t(p), uint8_t(p >> 8), uint8_t(p >> 16), 255};
+    }
+    canvas.blit(img, 0, 0);
+  }
+  // Name tags, farthest first, centred above their anchor with a shadow.
+  for (const R::Label& l : ds.labels) {
+    const int w = Quattro::Draw::ui_text_width(l.text, l.kind == R::Label::kNickname);
+    const int x = static_cast<int>(std::lround(l.x)) - w / 2;
+    const int y = static_cast<int>(std::lround(l.y)) - Quattro::Draw::kUiLineHeight;
+    const bool bold = l.kind == R::Label::kNickname;
+    Quattro::Draw::ui_draw_text(canvas, x + 1, y + 1, l.text, Color{0, 0, 0, 255}, bold);
+    Quattro::Draw::ui_draw_text(canvas, x, y, l.text, Color{l.color[0], l.color[1], l.color[2], 255}, bold);
+  }
+  frame.pixels = canvas.surface().pixels;
+  if (stats) {
+    stats->objects = ds.objectsDrawn;
+    stats->control = control >= 0 && ghosts.count(control);
+  }
+  return true;
+}
 
 View3DStats draw_view3d(Image& frame, const graal3d::GhostTable& ghosts, int control, const Vec3& control_at) {
   View3DStats st;

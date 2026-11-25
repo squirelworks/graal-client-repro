@@ -61,6 +61,29 @@ void test_view() {
   Torque::Gui::Image inset(64, 48, {1, 2, 3, 255});
   Frank::draw_inset(img, inset, 4);
   CHECK(img.at(8, 48 - 12 - 8) == (Torque::Gui::Color{1, 2, 3, 255}));
+
+  // With a Camera the 5.12 renderer draws: a Sky without textures fills
+  // the view above the horizon with its solid colour, and the fog colour
+  // below (lab T3D-046).
+  Frank::World3D world;
+  world.roots.push_back("no-such-levels3d");
+  std::map<int, std::string> chunks;
+  CHECK(!Frank::draw_world3d(img, ghosts, -1, 3, 0, chunks, 0, world, 0));
+  graal3d::Ghost cam;
+  cam.className = "Camera";
+  cam.camera.object.position = {0, -5, 2};
+  ghosts[1] = cam;
+  graal3d::Ghost sky;
+  sky.className = "Sky";
+  sky.sky.init = true;
+  sky.sky.solidColor = {0, 0, 1};
+  sky.sky.fogColor = {1, 0, 0};
+  ghosts[2] = sky;
+  Frank::View3DStats ws;
+  CHECK(Frank::draw_world3d(img, ghosts, 1, 3, 0, chunks, 0, world, 0, &ws));
+  CHECK(img.at(32, 4) == (Torque::Gui::Color{0, 0, 255, 255}));
+  CHECK(img.at(32, 44) == (Torque::Gui::Color{255, 0, 0, 255}));
+  CHECK(ws.control && ws.objects == 0);  // its shape is not on disk
 }
 
 void test_warp_into_3d() {

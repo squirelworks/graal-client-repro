@@ -46,6 +46,7 @@ class ViewWindow : public Quattro::Draw::Window {
   const graal3d::Link* link = nullptr;
   bool enabled = true;
   View3DStats last;
+  World3D world3d;  // the 5.12 renderer's state (resource folders in world3d.roots)
 
  private:
   Quattro::Draw::Window& inner_;
