@@ -170,18 +170,31 @@ DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
     st.alphaTest = false;
     st.depthWrite = false;
     st.opacity = w.opacity;
-    const float corners[4][2] = {{0, 0}, {w.width, 0}, {w.width, w.depth}, {0, w.depth}};
-    const float wave = waveHeight(w.waveMagnitude, scene.time);
-    RasterVertex q[4];
-    for (int i = 0; i < 4; ++i) {
-      q[i].position = w.transform.point({corners[i][0], corners[i][1], 0});
-      q[i].position.z += wave;
-      q[i].u = corners[i][0] / 16.0f;
-      q[i].v = corners[i][1] / 16.0f;
-    }
-    r.drawTriangle(q[0], q[1], q[2], st);
-    r.drawTriangle(q[0], q[2], q[3], st);
-    stats.triangles += 2;
+    // A grid of cells about 8 m a side (at most 64 by 64), so the waves
+    // can bend the surface; a calm block is one cell.
+    const bool calm = !(w.waveMagnitude > 0);
+    const int nx = calm ? 1 : std::clamp(int(std::ceil(w.width / 8.0f)), 1, 64);
+    const int ny = calm ? 1 : std::clamp(int(std::ceil(w.depth / 8.0f)), 1, 64);
+    std::vector<RasterVertex> grid(size_t(nx + 1) * (ny + 1));
+    for (int j = 0; j <= ny; ++j)
+      for (int i = 0; i <= nx; ++i) {
+        const float bx = w.width * i / nx, by = w.depth * j / ny;
+        RasterVertex& v = grid[size_t(j) * (nx + 1) + i];
+        v.position = w.transform.point({bx, by, 0});
+        v.position.z += waveHeight(w.waveMagnitude, scene.time, v.position.x, v.position.y);
+        v.u = bx / 16.0f;
+        v.v = by / 16.0f;
+      }
+    for (int j = 0; j < ny; ++j)
+      for (int i = 0; i < nx; ++i) {
+        const RasterVertex& a = grid[size_t(j) * (nx + 1) + i];
+        const RasterVertex& b = grid[size_t(j) * (nx + 1) + i + 1];
+        const RasterVertex& c = grid[size_t(j + 1) * (nx + 1) + i + 1];
+        const RasterVertex& d = grid[size_t(j + 1) * (nx + 1) + i];
+        r.drawTriangle(a, b, c, st);
+        r.drawTriangle(a, c, d, st);
+        stats.triangles += 2;
+      }
   }
   stats.labels = sceneLabels(scene, res, frame.width, frame.height);
   return stats;

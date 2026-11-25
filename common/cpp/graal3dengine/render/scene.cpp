@@ -10,13 +10,14 @@ V3 v(const Vec3& a) { return {a.x, a.y, a.z}; }
 float clamp01(float x) { return x < 0 ? 0 : (x > 1 ? 1 : x); }
 }  // namespace
 
-float waveHeight(float magnitude, double seconds) {
-  constexpr double kPeriod = 8.75, kRise = 3.25, kPi = 3.14159265358979323846;
-  if (!(magnitude > 0) || !std::isfinite(seconds)) return 0;
-  double p = std::fmod(seconds, kPeriod);
-  if (p < 0) p += kPeriod;
-  const double h = p < kRise ? -std::cos(kPi * p / kRise) : std::cos(kPi * (p - kRise) / (kPeriod - kRise));
-  return static_cast<float>(h * 0.16 * magnitude);
+float waveHeight(float magnitude, double seconds, float x, float y) {
+  constexpr double kPi = 3.14159265358979323846;
+  if (!(magnitude > 0) || !std::isfinite(seconds) || !std::isfinite(x) || !std::isfinite(y)) return 0;
+  // Distance along the direction the wave comes from (+x, +y): points
+  // farther along it are reached first.
+  const double along = (double(x) + double(y)) * 0.70710678118654752;
+  const double phase = (seconds + along / kWaveSpeed) / kWavePeriod;
+  return static_cast<float>(kWaveAmplitude * magnitude * std::sin(2 * kPi * (phase - std::floor(phase))));
 }
 
 M4 objectTransform(const GameObjectState& o) {

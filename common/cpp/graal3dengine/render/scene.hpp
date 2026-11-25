@@ -81,12 +81,17 @@ struct WaterSurface {
   float waveMagnitude = 0;  // the surface rises and falls (waveHeight)
 };
 
-// How far the water surface is off its rest height at `seconds` (lab, real
-// 5.12: peak to peak 0.32 x the wave magnitude, centred on the surface;
-// one wave every 8.75 s, rising for 3.25 s and falling for 5.5 s). The
-// whole surface moves together and the curve within each half is the
-// rebuild's own (a half cosine).
-float waveHeight(float magnitude, double seconds);
+// How far the water surface is off its rest height at world (x, y) at
+// `seconds`. Provisional, from the lab's first point samples (real 5.12,
+// run 12): each point swings about +-0.5 x the wave magnitude on a cycle
+// near 4.4 s, and the wave travels toward -x/-y (a point at (30, 30) peaks
+// about 0.6 s before one at (2, 18)). The constants below fit those
+// samples as a plain travelling sine; a 5x5 grid fit is coming and will
+// replace them.
+constexpr float kWaveAmplitude = 0.5f;   // x magnitude
+constexpr float kWavePeriod = 4.4f;      // seconds at a point
+constexpr float kWaveSpeed = 47.0f;      // metres a second, toward -x/-y
+float waveHeight(float magnitude, double seconds, float x = 0, float y = 0);
 
 struct Scene {
   bool hasCamera = false;
