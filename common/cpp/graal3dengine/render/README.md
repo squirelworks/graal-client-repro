@@ -11,7 +11,7 @@ link it beside its own world.
 |---|---|
 | `math.hpp` | Vectors and matrices; the clients' rotation rule (a positive angle about +z turns right, about +x tilts down) |
 | `mesh.*` | The one shape every reader produces: meshes, materials, collision meshes kept apart |
-| `read_3ds.*` | `.3ds`: objects, vertices, texture coordinates, faces, face groups, materials with diffuse colour and texture name. `Col-` meshes are collision only; faces with no material are not drawn |
+| `read_3ds.*` | `.3ds`: objects, vertices, texture coordinates, faces, face groups, materials with diffuse colour and texture name. `Col-` meshes are kept as the collision hull and drawn too, as the real 5.12 draws them; faces with no material are not drawn; material transparency is ignored and both sides of a face draw (lab T3D-032) |
 | `read_dts.*` | Torque `.dts`, versions 19 to 24 (the clients accept up to 24; 5.12 from 17): the three streams with their guards, nodes in their default pose, objects at the highest drawn detail level, standard and skin meshes (a child mesh shares its parent's vertices), triangle lists, strips and fans, the material list with each material's translucent flag. Below 23 the skins come in a list of their own, drawn with their detail level; below 22 the older sequence and node-state layout. Versions 17 and 18 (the pre-block stream), sorted and decal meshes are refused with a named error |
 | `read_dif.*` | Torque `.dif`, InteriorResource 44 with Interior 0 (the clients' only accepted versions): the first detail level's points, planes, texgens, windings and surfaces, one mesh per material with texgen texture coordinates, surfaces drawn as strips. Both winding widths and both lightmap field widths are read; the marker materials (`NULL`, `ORIGIN`, `TRIGGER`, `FORCEFIELD`, `EMITTER`) are not drawn. Lightmaps, portals, zones, other detail levels and the extra sections after the interiors are skipped |
 | `read_ft.*` | The 5.12's `.ft` trees (Graal_analysis `torque/ft-trees-512.md`): the text grammar parsed and grown as the client does (weighted rules, the first rule's symbol as the start, symbols with neither rule nor term dropped, 512 characters at most, levels 1 to 15), then walked as a turtle into tapered tubes and crossed leaf quads, material i being texture slot i. The random numbers, the turtle's angles, the tube and leaf shapes are the rebuild's own; billboards and texture rows are not drawn. Not drawn by default: the real 5.12 draws no `.ft` GameObject (lab); `gDrawFtTrees` turns them on |
@@ -62,7 +62,7 @@ side by side with a real 5.12:
   Sky's visible distance does nothing (lab fog run, under Mesa).
 - The sky (lab T3D-046, under Mesa): entries 0 to 3 on -y, +x, +y and -x,
   mirrored left to right; entry 4 on top, its image's top toward +y;
-  entry 5 not drawn; the fog colour below the horizon with a band of it
+  entry 5 drawn as a floor only when the second option is set; the fog colour below the horizon with a band of it
   fading up; the solid colour when the first option is off. Cloud layers
   and fog volumes are read but not drawn.
 - Lighting (lighting probe and follow-ups, under Mesa): the Sun's

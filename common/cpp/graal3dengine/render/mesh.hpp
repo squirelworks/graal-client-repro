@@ -39,7 +39,7 @@ struct Shape {
   Kind kind = k3ds;
   std::vector<Material> materials;
   std::vector<Mesh> meshes;     // drawn
-  std::vector<Mesh> collision;  // kept apart, never drawn
+  std::vector<Mesh> collision;  // the collision hulls (a .3ds Col- mesh is also in meshes: drawn)
   V3 boundsMin, boundsMax;
 
   void computeBounds();

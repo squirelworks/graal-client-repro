@@ -269,8 +269,8 @@ void testRead3ds() {
   CHECK(s.materials.size() == 1);
   CHECK(s.materials[0].name == "paint" && s.materials[0].texture == "brick.png");
   CHECK(std::fabs(s.materials[0].color[1] - 0.5f) < 1e-6f);
-  CHECK(s.meshes.size() == 2);       // box and bare
-  CHECK(s.collision.size() == 1);    // Col-1 is never drawn
+  CHECK(s.meshes.size() == 3);       // box, bare, and Col-1 (drawn, lab T3D-032)
+  CHECK(s.collision.size() == 1);    // Col-1 is also the collision hull
   CHECK(s.meshes[0].vertices.size() == 24 && s.meshes[0].triangles.size() == 12);
   CHECK(s.meshes[0].triangles[0].material == 0);
   CHECK(s.meshes[1].triangles[0].material == -1);  // no face group: not drawn

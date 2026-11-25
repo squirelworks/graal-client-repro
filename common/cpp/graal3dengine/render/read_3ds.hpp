@@ -8,7 +8,9 @@
 //
 // Graal's rules (Graal_analysis torque/engine-and-formats.md, the Seihai
 // gserver's lab notes): a mesh whose name starts with `Col-` is a
-// collision hull and is not drawn; a face with no material is not drawn
+// collision hull, yet the real 5.12 draws it like any other (lab T3D-032:
+// a 2.8-unit hull showed instead of the cube), so it is kept in both
+// lists; a face with no material is not drawn
 // ("a .3ds shape with only vertices and faces loads without an error but
 // is not drawn", 5.12 and 4.20r6, lab 2026-11-20).
 //
