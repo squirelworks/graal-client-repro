@@ -18,6 +18,7 @@
 // server content: keep them and this tool's output out of the repository.
 #include "capture.hpp"
 #include "draw.hpp"
+#include "motion.hpp"
 #include "png.hpp"
 #include "resources.hpp"
 #include "scene.hpp"
@@ -211,6 +212,12 @@ int main(int argc, char** argv) {
     for (const auto& r : roots) resources.addRoot(r);
     const int fov = link->fieldOfView() > 0 ? link->fieldOfView() : fovOverride;
     render::Scene scene = render::sceneFromGhosts(link->ghosts(), link->cameraGhost(), float(fov));
+    // At the capture's last moment: moving objects at their section 7
+    // targets, a Camera in mode 1 aimed at the control object, the water's
+    // waves at that time (the clock's origin is the capture's start).
+    render::MotionTracker motion;
+    scene.time = res.lastTime;
+    render::applyMotion(scene, link->ghosts(), motion, res.lastTime, link->cameraGhost(), link->controlGhost());
     // The streamed terrain: the chunks the session sent, over the client's
     // cache (levels3d/heights/<server>/) when a --res folder holds one.
     render::StreamedTerrain terrain;
