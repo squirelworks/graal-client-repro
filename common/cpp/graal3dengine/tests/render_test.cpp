@@ -1370,10 +1370,46 @@ void testClientImageFormats() {
   CHECK(res.texture("bmp.png") == nullptr);
   const Texture* g = res.texture("gif.jpg");  // named as anything: read by content
   CHECK(g && g->width == 2 && isColor(g->pixels[0], 255, 0, 0) && g->pixels[1] == packRgba(255, 255, 255));
+  // Up to 1024 a side draws; 2048 does not (lab, live-512-shapes).
+  auto greyPng = [](uint32_t w, uint32_t h) {
+    auto be = [](std::vector<uint8_t>& v, uint32_t x) {
+      for (int i = 3; i >= 0; --i) v.push_back(uint8_t(x >> (8 * i)));
+    };
+    auto chunk = [&](std::vector<uint8_t>& out, const char* type, const std::vector<uint8_t>& data) {
+      be(out, uint32_t(data.size()));
+      std::vector<uint8_t> td(type, type + 4);
+      td.insert(td.end(), data.begin(), data.end());
+      out.insert(out.end(), td.begin(), td.end());
+      be(out, uint32_t(crc32(0, td.data(), uInt(td.size()))));
+    };
+    std::vector<uint8_t> raw;
+    for (uint32_t y = 0; y < h; ++y) {
+      raw.push_back(0);
+      raw.insert(raw.end(), w, 128);
+    }
+    std::vector<uint8_t> z(compressBound(uLong(raw.size())));
+    uLongf zn = uLongf(z.size());
+    compress(z.data(), &zn, raw.data(), uLong(raw.size()));
+    z.resize(zn);
+    std::vector<uint8_t> out{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a};
+    std::vector<uint8_t> ihdr;
+    be(ihdr, w);
+    be(ihdr, h);
+    ihdr.insert(ihdr.end(), {8, 0, 0, 0, 0});
+    chunk(out, "IHDR", ihdr);
+    chunk(out, "IDAT", z);
+    chunk(out, "IEND", {});
+    return out;
+  };
+  write("side1024", greyPng(1024, 2));
+  write("side2048", greyPng(2, 2048));
+  res.rescan();
+  CHECK(res.texture("side1024") != nullptr);
+  CHECK(res.texture("side2048") == nullptr);
   Resources all;
   all.setImageFormats(Resources::ImageFormats::kAll);
   all.addRoot(root.string());
-  CHECK(all.texture("bmp") != nullptr && all.texture("png16") != nullptr);
+  CHECK(all.texture("bmp") != nullptr && all.texture("png16") != nullptr && all.texture("side2048") != nullptr);
   const Texture* ga = all.texture("gif");
   CHECK(ga && alpha(ga->pixels[1]) == 0);
   std::filesystem::remove_all(root);

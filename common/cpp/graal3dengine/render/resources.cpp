@@ -172,6 +172,10 @@ const Texture* Resources::texture(const std::string& name) {
       note("Graal3D: the client does not draw this kind of image (" + path + ")");
     } else if (!decodeImage(bytes.data(), bytes.size(), *t, error)) {
       note("Graal3D: cannot read texture " + path + (error.empty() ? "" : ": " + error));
+    } else if (formats_ == ImageFormats::kClient512 && (t->width > kClientMaxTextureSide || t->height > kClientMaxTextureSide)) {
+      // The real 5.12 draws 1024 a side but not 2048 or 4096 (lab, GDI):
+      // the shape draws untextured white.
+      note("Graal3D: the client does not draw a texture this large (" + path + ")");
     } else {
       if (formats_ == ImageFormats::kClient512 && kind == ImageKind::kGif)
         for (uint32_t& p : t->pixels)

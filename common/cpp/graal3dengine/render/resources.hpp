@@ -47,6 +47,10 @@ class Resources {
   // T3D-032). kAll loads everything stb_image reads (tools, older
   // clients not yet measured).
   enum class ImageFormats { kClient512, kAll };
+  // The largest side the 5.12 draws (lab, Graal_analysis
+  // torque/live-512-shapes-2026-11-25.md: 1024 draws, 2048 and 4096 do not;
+  // the limit between them is the rebuild's guess).
+  static constexpr int kClientMaxTextureSide = 1024;
   void setImageFormats(ImageFormats f) { formats_ = f; }
 
   // For tests: put a shape or texture in the cache without a file.
