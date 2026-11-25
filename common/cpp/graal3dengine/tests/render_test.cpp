@@ -419,8 +419,7 @@ void testSunAndFog() {
   CHECK(isColor(litCentre({0, 0.5f, -0.8660254f}), 159, 159, 159));
 
   // Fog: with a visible distance of 100, a cube 20 units away is clear,
-  // one 90 units away is mostly fog colour, one past 100 is not drawn
-  // (the background there, just under the horizon, is black).
+  // one 90 units away is mostly fog colour, one past 100 is not drawn.
   res.putShape("bigwhite.3ds", cubeShape(1, 1, 1, 10));
   auto fogged = [&](float dist) {
     TestFrame f;
@@ -437,7 +436,7 @@ void testSunAndFog() {
   CHECK(isColor(fogged(20), 255, 255, 255));
   const uint32_t far = fogged(90);
   CHECK(red(far) < 80 && blue(far) == 255);
-  CHECK(isColor(fogged(120), 0, 0, 0));
+  CHECK(isColor(fogged(120), 0, 0, 255));
 }
 
 void testSkyBox() {
@@ -468,10 +467,10 @@ void testSkyBox() {
   CHECK(isColor(lookAbove({0, 0, 1}, kPi), 200, 0, 0));          // entry 0, -y
   CHECK(isColor(lookAbove({0, 0, 1}, -kPi / 2), 200, 200, 0));   // entry 3, -x
   CHECK(isColor(look({1, 0, 0}, -kPi / 2), 0, 200, 200));        // up (a negative angle tilts up)
-  CHECK(isColor(look({1, 0, 0}, kPi / 2), 0, 0, 0));             // down: entry 5 not drawn, black
+  CHECK(isColor(look({1, 0, 0}, kPi / 2), 0, 0, 0));             // down: entry 5 not drawn, the fog colour
 
   // The fog band: the fog colour at the horizon, the image above it,
-  // black below.
+  // the fog colour below.
   {
     TestFrame f;
     Scene s = cameraScene({10, 20, 3});
@@ -483,7 +482,7 @@ void testSkyBox() {
     CHECK(isColor(f.at(f.w / 2, f.h / 2 - 30), 0, 0, 200));
     const uint32_t mid = f.at(f.w / 2, f.h / 2 - 10);  // part way up the band
     CHECK(red(mid) > 60 && red(mid) < 200 && blue(mid) > 40 && blue(mid) < 160);
-    CHECK(isColor(f.at(f.w / 2, f.h / 2 + 10), 0, 0, 0));
+    CHECK(isColor(f.at(f.w / 2, f.h / 2 + 10), 255, 0, 0));
   }
   // The side faces draw mirrored: facing +y, the image's right half is on
   // the viewer's left.

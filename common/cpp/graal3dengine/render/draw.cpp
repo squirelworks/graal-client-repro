@@ -44,7 +44,7 @@ void drawSkyBox(Rasterizer& r, const Scene& scene, Resources& res, float farPlan
     return st.texture != nullptr;
   };
   // Sides: only the half above the horizon (below it stays the clear
-  // colour, black). The lowest band fades from the fog colour at the
+  // colour, the fog colour). The lowest band fades from the fog colour at the
   // horizon into the image (band height: the rebuild's own).
   const float band = s * kSkyFogBand;
   for (int f = 0; f < 4; ++f) {
@@ -95,8 +95,9 @@ DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
   view.farPlane = farPlane;
   r.setView(view);
   const uint32_t fogColor = scene.sky.present ? colorOf(scene.sky.fogColor) : packRgba(0, 0, 0);
-  // With a Sky, below the horizon is black (T3D-046).
-  r.clear(scene.sky.present ? packRgba(0, 0, 0) : fogColor);
+  // Below the horizon is the fog colour (T3D-046 under Mesa; the black
+  // seen under GDI Generic 1.1 was that driver's).
+  r.clear(fogColor);
   if (scene.sky.present) drawSkyBox(r, scene, res, farPlane, fogColor);
   r.clearDepth();
 
