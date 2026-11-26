@@ -271,6 +271,13 @@ class Machine {
   struct Catch { std::string object, event; std::weak_ptr<Var> catcher; std::string function; };
   std::vector<Catch> catches_;
   std::map<std::string, std::shared_ptr<const Script>> classes_;  // lower-cased names
+  // Function values (`this.f`, `function () { ... }` as a value): one
+  // object per script function, made when a script converts the name to an
+  // object, and the function it stands for.
+  struct FunctionValue { std::shared_ptr<const Script> script; std::string name; };
+  std::map<const Var*, FunctionValue> functionValues_;
+  std::vector<VarPtr> functionObjects_;
+  VarPtr functionObject(const std::shared_ptr<const Script>& script, const Function& f);
   std::vector<VarPtr> objects_;
   double clock_ = 0;
   Exec* running_ = nullptr;

@@ -1,0 +1,40 @@
+// Seihai conformance script: each echo line is checked by tests/seihai_test.cpp.
+function onCreated() {
+  temp.a = 3; temp.b = 4;
+  echo("add " @ (temp.a + temp.b));
+  echo("pow " @ (2 ^ 10));
+  echo("cat " @ "x" @ temp.a);
+  temp.s = 0;
+  for (temp.i = 0; temp.i < 5; temp.i++) temp.s += temp.i;
+  echo("for " @ temp.s);
+  temp.l = {1, 2, 3};
+  temp.t = 0;
+  for (temp.e : temp.l) temp.t += temp.e;
+  echo("foreach " @ temp.t);
+  echo("in " @ (2 in |1, 5|) @ (7 in {1, 7}));
+  switch (temp.a) { case 1: echo("sw wrong"); break; case 3: echo("sw 3"); break; default: echo("sw def"); }
+  echo("call " @ this.twice(5));
+  echo("fmt " @ format("%d-%s", 7, "q"));
+  echo("null " @ (temp.zz == NULL));
+  if (temp.a == 3 && temp.b == 4 || false) echo("and ok");
+  temp.k = 0;
+  outer: for (temp.i = 0; temp.i < 3; temp.i++) { for (temp.j = 0; temp.j < 3; temp.j++) { if (temp.j == 1) continue outer; temp.k++; } }
+  echo("label " @ temp.k);
+  this.v = 5; this.v *= 3;
+  echo("member " @ this.v);
+  temp.o = new TStaticVar();
+  temp.o.p = "hi";
+  echo("obj " @ temp.o.p);
+  echo("params " @ this.cnt(1, 2, 3));
+  echo("str " @ temp.s.length() @ " " @ "Hello".substring(1, 3) @ " " @ "abc".pos("c"));
+  echo("tern " @ (temp.a > 2 ? "big" : "small"));
+  temp.w = 0; while (temp.w < 10) temp.w += 3;
+  echo("while " @ temp.w);
+  temp.o2 = new TStaticVar();
+  temp.o2.p = 5;
+  temp.ln = temp.o2.link();
+  echo("link " @ temp.ln.p);
+  echo("done");
+}
+function twice(n) { return n * 2; }
+function cnt() { return params.size(); }

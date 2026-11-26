@@ -153,7 +153,7 @@ bool opcodeImplemented(int op) {
     case 163: case 242:
     case 44: case 45: case 46: case 50: case 51: case 52: case 53:
     case 82: case 84: case 85: case 86: case 87: case 88: case 89: case 90: case 91: case 93: case 94:
-    case 97: case 98: case 101: case 102: case 103:
+    case 97: case 98: case 100: case 101: case 102: case 103:
     case 110: case 111: case 112: case 113: case 114: case 116: case 117:
     case 130: case 131: case 132: case 150: case 151:
     case 11: case 38: case 39: case 41: case 80: case 81: case 83: case 92: case 95: case 96: case 99:
@@ -539,6 +539,17 @@ VarPtr Machine::toObject(const Value& v) const {
   return t;
 }
 
+VarPtr Machine::functionObject(const std::shared_ptr<const Script>& script, const Function& f) {
+  for (const auto& o : functionObjects_) {
+    const auto& fv = functionValues_[o.get()];
+    if (fv.script == script && fv.name == f.name) return o;
+  }
+  auto o = std::make_shared<Var>(f.name, "function");
+  functionValues_[o.get()] = FunctionValue{script, f.name};
+  functionObjects_.push_back(o);
+  return o;
+}
+
 // ------------------------------------------------------------ running
 
 void Machine::runAction(Space& sp, const std::string& name, std::vector<Value> args) {
@@ -752,10 +763,34 @@ Value Machine::execute(Exec& ex) {
     if (v.tag == Value::Tag::Name) return resolveName(ex, v.str, create);
     return nullptr;
   };
+  // A name or member that is no variable but a script function (`this.f`,
+  // or `this.function_1_1`, the name a `function () { ... }` value is
+  // compiled to): that function's object, which a call through a variable
+  // holding it runs. Null otherwise.
+  auto functionValue = [&](const Value& v) -> VarPtr {
+    if ((v.tag != Value::Tag::Ref && v.tag != Value::Tag::Name) || ex.frames.empty()) return nullptr;
+    const std::string key = v.tag == Value::Tag::Ref ? v.ref.key : v.str;
+    if (key.empty() || (v.tag == Value::Tag::Ref && v.ref.index >= 0)) return nullptr;
+    const VarPtr owner = v.tag == Value::Tag::Ref ? v.ref.owner : nullptr;
+    Frame& fr = ex.frames.back();
+    if (owner && (owner == fr.locals || owner == fr.params)) return nullptr;
+    std::shared_ptr<const Script> piece;
+    const Function* fn = nullptr;
+    if (owner && owner != fr.thiso) {
+      if (Space* osp = space(owner, false); hasCode(osp)) fn = findFunction(osp, key, &piece);
+    } else {
+      if (Space* tsp = space(fr.thiso, false); hasCode(tsp)) fn = findFunction(tsp, key, &piece);
+      if (!fn && (fn = fr.script->findFunction(key))) piece = fr.script;
+    }
+    return fn ? functionObject(piece, *fn) : nullptr;
+  };
   // A stack value read out to a plain number, string or object.
   auto deref = [&](const Value& v) -> Value {
     if (v.tag != Value::Tag::Ref && v.tag != Value::Tag::Name) return v;
     auto t = varOf(v, false);
+    if (!t && v.tag == Value::Tag::Ref) {
+      if (auto fo = functionValue(v)) return Value::object(fo);
+    }
     if (!t) return Value::number(0);
     switch (t->kind()) {
       case Var::Kind::Number: return Value::number(t->number());
@@ -956,7 +991,25 @@ Value Machine::execute(Exec& ex) {
           calleeThis = owner;
           f = findFunction(osp, fname, &callee);
         }
+        if (!f && (a.tag == Value::Tag::Ref || a.tag == Value::Tag::Name || a.tag == Value::Tag::Object)) {
+          // A variable that holds a function object: run that function.
+          // Called as a member of an object (`obj.f()`), `this` is that
+          // object; through `temp`, `params` or a bare name it stays the
+          // caller's.
+          VarPtr t = a.tag == Value::Tag::Object ? a.obj : varOf(a, false);
+          if (t && t->kind() == Var::Kind::Object) t = t->object();
+          auto fv = t ? functionValues_.find(t.get()) : functionValues_.end();
+          if (fv != functionValues_.end() && (f = fv->second.script->findFunction(fv->second.name))) {
+            callee = fv->second.script;
+            const bool plain = !owner || owner == frame().locals || owner == frame().params;
+            calleeThis = plain ? thiso : owner;
+          }
+        }
         if (f) {
+          // A bare name passed on (`fn(v)` inside a function) is read here,
+          // in the caller's frame, not by the callee's parameter binding.
+          for (auto& arg : args)
+            if (arg.tag == Value::Tag::Name) arg = deref(arg);
           if (ex.frames.size() > kMaxFrames) { error("Callstack overrun", sp); push(Value::number(0)); break; }
           Frame fr;
           fr.script = callee;
@@ -1085,7 +1138,14 @@ Value Machine::execute(Exec& ex) {
         // it can make the variable (`this.list.add(x)` on a new list); read,
         // it is still nothing.
         auto o = obj(a);
-        if (!o && (a.tag == Value::Tag::Ref || a.tag == Value::Tag::Name)) push(std::move(a));
+        if (!o && (a.tag == Value::Tag::Ref || a.tag == Value::Tag::Name)) {
+          // A name that is a script function (`this.function_1_1`, the
+          // name a `function () { ... }` value is compiled to, or `this.f`)
+          // becomes that function's object, which a call through a
+          // variable holding it runs.
+          if (auto fo = functionValue(a)) push(Value::object(fo));
+          else push(std::move(a));
+        }
         else push(Value::object(o));
         break;
       }
@@ -1314,6 +1374,12 @@ Value Machine::execute(Exec& ex) {
         long d = floorInt(num(a)) % 4;
         if (d < 0) d += 4;
         push(Value::number(op == 97 ? vx[d] : vy[d]));
+        break;
+      }
+      case 100: {  // obj.link(): a link to the object, here the object itself (Seihai's VM reads it so)
+        if (!pop(a)) break;
+        VarPtr o = obj(a);
+        push(o ? Value::object(o) : Value::number(0));
         break;
       }
       case 103: {

@@ -1,0 +1,35 @@
+// Seihai conformance script: function values. Each echo line is checked by
+// tests/seihai_test.cpp.
+function onCreated() {
+  temp.hello = function() {
+    return "hello";
+  };
+  temp.sum = function(x, y) {
+    return x + y;
+  };
+  echo("plain " @ temp.hello() @ " " @ temp.sum(5, 10));
+  echo("named " @ this.apply(this.triple, 4));
+  echo("passed " @ this.apply(temp.sum, 2) @ " " @ this.apply(function(n) { return n * n; }, 6));
+  temp.box = new TStaticVar();
+  temp.box.size = 7;
+  temp.box.grow = function(by) {
+    this.size += by;
+    return this.size;
+  };
+  echo("method " @ temp.box.grow(3) @ " " @ temp.box.size);
+  this.counter = new TStaticVar();
+  this.counter.n = 0;
+  this.counter.bump = function() {
+    this.n++;
+  };
+  for (temp.i = 0; temp.i < 3; temp.i++)
+    this.counter.bump();
+  echo("member " @ this.counter.n);
+  echo("done");
+}
+function triple(v) {
+  return v * 3;
+}
+function apply(fn, v) {
+  return fn(v);
+}

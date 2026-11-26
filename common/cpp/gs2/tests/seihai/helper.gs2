@@ -1,0 +1,7 @@
+// Seihai conformance class: joined by joiner.gs2.
+function dbl(x) {
+  return x * 2;
+}
+public function greet(who) {
+  return "hi " @ who;
+}
