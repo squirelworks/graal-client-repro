@@ -2067,8 +2067,18 @@ void testReplicators() {
       const Shape& gshape = *gs.owned[0];
       CHECK(gshape.materials.size() == 1 && gshape.materials[0].texture == "grass.png");
       CHECK(gshape.meshes.size() == 1 && gshape.meshes[0].triangles.size() == 882);
-      for (const Vertex& v : gshape.meshes[0].vertices) CHECK(std::fabs(v.position.z - 2.52f) < 1e-3f);  // flat on the ground
+      // Upright on the ground (z 2 + offset 0.5), facing the control point
+      // here (no camera): bottom at 2.5, top 0.3 m above.
+      for (const Vertex& v : gshape.meshes[0].vertices)
+        CHECK(std::fabs(v.position.z - 2.5f) < 1e-3f || std::fabs(v.position.z - 2.8f) < 1e-3f);
       CHECK(gshape.boundsMax.x - gshape.boundsMin.x < 26);
+      {
+        const auto& v = gshape.meshes[0].vertices;
+        const V3 mid{(v[0].position.x + v[1].position.x) / 2, (v[0].position.y + v[1].position.y) / 2, 0};
+        const V3 across{v[1].position.x - v[0].position.x, v[1].position.y - v[0].position.y, 0};
+        const V3 toCam{3 - mid.x, 3 - mid.y, 0};
+        CHECK(std::fabs(across.x * toCam.x + across.y * toCam.y) < 1e-3f);  // its face toward the viewer
+      }
       s.minObjects = s.maxObjects = 250;  // clamped to 100
       Scene many;
       CHECK(scatterReplicators(many, g, t, {3, 3, 0}, res) == 900);  // clamped to 100: 10 x 10
