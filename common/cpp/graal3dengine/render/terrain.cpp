@@ -256,10 +256,13 @@ Shape terrainShape(const Terrain& t) {
   const int n = kTerrainSize;
   const float sq = t.squareSize > 0 ? t.squareSize : 8.0f;
   const float corner = -128.0f * sq;
-  // One mesh, so lighting is smooth across material edges; a material per
-  // id named in heights.info (or used by a square).
+  // A material per id named in heights.info (or used by a square), then
+  // the black base.
   size_t ids = t.materials.size();
-  for (uint8_t m : t.material) ids = std::max(ids, size_t(m) + 1);
+  for (size_t i = 0; i < t.material.size(); ++i) {
+    ids = std::max(ids, size_t(t.material[i]) + 1);
+    if (t.blendShare[i]) ids = std::max(ids, size_t(t.secondary[i]) + 1);
+  }
   for (size_t id = 0; id < ids; ++id) {
     Material m;
     m.name = id < t.materials.size() ? t.materials[id] : std::string();
@@ -267,8 +270,17 @@ Shape terrainShape(const Terrain& t) {
     m.alphaTest = false;
     shape.materials.push_back(m);
   }
+  const int base = int(shape.materials.size());
+  {
+    Material black;
+    black.name = "terrain base";
+    for (float& c : black.color) c = 0;
+    black.alphaTest = false;
+    shape.materials.push_back(black);
+  }
   // The grid of points is 257 by 257, the last row and column wrapping to
-  // the first.
+  // the first. One texture repeat covers kTerrainTextureSquares squares,
+  // image columns toward +x and rows toward +y (terrain-512.md, batch K).
   const float uvStep = 1.0f / float(kTerrainTextureSquares);
   Mesh mesh;
   mesh.name = "terrain";
@@ -286,23 +298,48 @@ Shape terrainShape(const Terrain& t) {
     for (int x = 0; x < n; ++x) {
       const size_t at = size_t(y) * size_t(n) + size_t(x);
       if (t.hole[at]) continue;
-      // The 5.12 draws every square with the first texture in heights.info,
-      // whatever material the square has: two labs on Mesa (T3D-044, and
-      // lab batch 2, 2026-11-26) saw grass and sand squares drawn
-      // as the lit water texture, with no blending.
-      const int mi = 0;
       const uint32_t a = idx(x, y), b = idx(x + 1, y), c = idx(x + 1, y + 1), d = idx(x, y + 1);
       // Stock Torque alternates the split by square.
       if ((x ^ y) & 1) {
-        mesh.triangles.push_back({{a, b, d}, mi});
-        mesh.triangles.push_back({{b, c, d}, mi});
+        mesh.triangles.push_back({{a, b, d}, base});
+        mesh.triangles.push_back({{b, c, d}, base});
       } else {
-        mesh.triangles.push_back({{a, b, c}, mi});
-        mesh.triangles.push_back({{a, c, d}, mi});
+        mesh.triangles.push_back({{a, b, c}, base});
+        mesh.triangles.push_back({{a, c, d}, base});
       }
     }
   computeNormals(mesh);
-  if (!mesh.triangles.empty()) shape.meshes.push_back(std::move(mesh));
+  if (mesh.triangles.empty()) {
+    shape.computeBounds();
+    return shape;
+  }
+  // Each point carries its square's material (the point's square: the one
+  // it is the low corner of, wrapping at the far edges), and the weights
+  // interpolate across the squares, so an edge fades over one square with
+  // its half-way line half a square before the boundary. A blended square
+  // gives its primary a / 16 and its secondary the rest (batch K).
+  std::vector<float> weights(ids * mesh.vertices.size(), 0.0f);
+  for (int y = 0; y <= n; ++y)
+    for (int x = 0; x <= n; ++x) {
+      const size_t at = size_t(y % n) * size_t(n) + size_t(x % n);
+      const size_t vi = idx(x, y);
+      const int share = t.blendShare[at];
+      const float wp = share ? float(share) / 16.0f : 1.0f;
+      weights[size_t(t.material[at]) * mesh.vertices.size() + vi] += wp;
+      if (share) weights[size_t(t.secondary[at]) * mesh.vertices.size() + vi] += 1.0f - wp;
+    }
+  for (size_t id = 0; id < ids; ++id) {
+    const float* w = &weights[id * mesh.vertices.size()];
+    Mesh layer;
+    layer.name = "terrain " + std::to_string(id);
+    for (const Triangle& tri : mesh.triangles)
+      if (w[tri.v[0]] > 0 || w[tri.v[1]] > 0 || w[tri.v[2]] > 0) layer.triangles.push_back({{tri.v[0], tri.v[1], tri.v[2]}, int(id)});
+    if (layer.triangles.empty()) continue;
+    layer.vertices = mesh.vertices;
+    layer.weight.assign(w, w + mesh.vertices.size());
+    shape.meshes.push_back(std::move(layer));
+  }
+  shape.meshes.insert(shape.meshes.begin(), std::move(mesh));
   shape.computeBounds();
   return shape;
 }

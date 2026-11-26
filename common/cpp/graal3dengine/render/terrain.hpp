@@ -7,10 +7,11 @@
 // material names in heights.info, one per line). The grid is 256 by 256
 // squares centred on the origin: its corner is at (-128, -128) squares.
 //
-// The rebuild's own (no lab check yet): the terrain is drawn with each
-// square's primary material only (no blending), each material texture
-// repeating every kTerrainTextureSquares squares, and the grid wraps at
-// its far edges as stock Torque's does.
+// Drawn as the 5.12 draws it (lab batch K, Mesa): each grid point carries
+// its square's material, blended ones by a / 16, and the materials fade
+// across each square; a texture repeats every kTerrainTextureSquares
+// squares at any square size, its rows toward +y. The grid wraps at its
+// far edges as stock Torque's does.
 #pragma once
 
 #include "mesh.hpp"
@@ -26,7 +27,7 @@ namespace graal3d::render {
 constexpr int kTerrainSize = 256;       // squares per side
 constexpr int kTerrainChunkSize = 16;   // squares per chunk side
 constexpr int kTerrainChunks = 16;      // chunks per side
-constexpr int kTerrainTextureSquares = 8;  // rebuild's own: squares per texture repeat
+constexpr int kTerrainTextureSquares = 8;  // squares per texture repeat (batch K)
 
 struct Terrain {
   bool present = false;
@@ -82,8 +83,10 @@ int loadTerrainCache(const std::string& dir, Terrain& t);
 // triangle's upward normal.
 bool terrainHeightAt(const Terrain& t, float x, float y, float& z, V3* normal = nullptr);
 
-// The terrain as a shape in world space: one mesh, material i naming
-// materials[i]'s texture. Holes are left out.
+// The terrain as a shape in world space, material i naming materials[i]'s
+// texture. Mesh 0 is the whole grid in a black base material (the last
+// material), then one additive layer (Mesh::weight) per material used.
+// Holes are left out.
 Shape terrainShape(const Terrain& t);
 
 // The streamed terrain as a renderer keeps it between frames: the cache

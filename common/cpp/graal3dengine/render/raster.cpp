@@ -47,7 +47,7 @@ void Rasterizer::drawTriangle(const RasterVertex& a, const RasterVertex& b, cons
   const RasterVertex* src[3] = {&a, &b, &c};
   for (int i = 0; i < 3; ++i) {
     const V3 p = worldToCamera_.point(src[i]->position);
-    in[i] = {p.x, p.z, p.y, src[i]->u, src[i]->v, {src[i]->light[0], src[i]->light[1], src[i]->light[2]}, src[i]->fog};
+    in[i] = {p.x, p.z, p.y, src[i]->u, src[i]->v, {src[i]->light[0], src[i]->light[1], src[i]->light[2]}, src[i]->fog, src[i]->weight};
   }
   // Clip (Sutherland-Hodgman) against the near and far planes and the four
   // sides of the view, widened by a guard band: a triangle that reaches
@@ -93,6 +93,7 @@ void Rasterizer::drawTriangle(const RasterVertex& a, const RasterVertex& b, cons
         r.v = p.v + (q.v - p.v) * t;
         for (int j = 0; j < 3; ++j) r.l[j] = p.l[j] + (q.l[j] - p.l[j]) * t;
         r.fog = p.fog + (q.fog - p.fog) * t;
+        r.weight = p.weight + (q.weight - p.weight) * t;
         next[k++] = r;
       }
     }
@@ -107,7 +108,7 @@ namespace {
 
 struct ScreenVertex {
   float sx, sy, iw;  // screen position and 1 / depth
-  float u, v, l[3], fog;  // each divided by depth
+  float u, v, l[3], fog, weight;  // each divided by depth
 };
 
 inline float edge(const ScreenVertex& a, const ScreenVertex& b, float x, float y) {
@@ -135,6 +136,7 @@ void Rasterizer::drawClipped(const ClipVertex* poly, int count, const RasterStat
     sv[i].v = p.v * iw;
     for (int j = 0; j < 3; ++j) sv[i].l[j] = p.l[j] * iw;
     sv[i].fog = p.fog * iw;
+    sv[i].weight = p.weight * iw;
   }
   const uint8_t fr = red(s.fogColor), fg = green(s.fogColor), fb = blue(s.fogColor);
   for (int t = 1; t + 1 < count; ++t) {
@@ -167,7 +169,7 @@ void Rasterizer::drawClipped(const ClipVertex* poly, int count, const RasterStat
         const float iw = w0 * a.iw + w1 * b.iw + w2 * c.iw;
         if (iw <= 0) continue;
         float& dz = depth_[size_t(y) * frame_.width + x];
-        if (s.depthTest && iw <= dz) continue;
+        if (s.depthTest && (s.additive ? iw < dz : iw <= dz)) continue;
         const float z = 1.0f / iw;
         const float u = (w0 * a.u + w1 * b.u + w2 * c.u) * z;
         const float v = (w0 * a.v + w1 * b.v + w2 * c.v) * z;
@@ -185,7 +187,14 @@ void Rasterizer::drawClipped(const ClipVertex* poly, int count, const RasterStat
         r = r + (fr - r) * fog;
         g = g + (fg - g) * fog;
         bch = bch + (fb - bch) * fog;
-        if (s.opacity < 1) {
+        if (s.additive) {
+          float wt = (w0 * a.weight + w1 * b.weight + w2 * c.weight) * z;
+          wt = wt < 0 ? 0 : (wt > 1 ? 1 : wt);
+          const uint32_t under = frame_.at(x, y);
+          r = red(under) + r * wt;
+          g = green(under) + g * wt;
+          bch = blue(under) + bch * wt;
+        } else if (s.opacity < 1) {
           const uint32_t under = frame_.at(x, y);
           const float o = s.opacity < 0 ? 0 : s.opacity;
           r = red(under) + (r - red(under)) * o;

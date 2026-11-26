@@ -22,9 +22,10 @@
 //   kind of shape. A .3ds face is lit by a fixed light from about
 //   (-x, -y, +z) in the world: 1.0 facing it, 0.85 facing away (the
 //   rebuild's curve: min(1, 0.85 + max(0, n . l))). Without a Sun a .3ds
-//   draws at a quarter, a .dts and a .dif black, terrain unchanged.
-//   .dts, .dif, .ft and terrain otherwise draw at full light; .dif
-//   lightmaps are not drawn (the client showed none).
+//   draws at a quarter, a .dts and a .dif black. Terrain draws at full
+//   light without a Sun and is shaded by a fixed light with one
+//   (kTerrainAmbient). .dts, .dif and .ft otherwise draw at full light;
+//   .dif lightmaps are not drawn (the client showed none).
 // - A textured material draws its texture as is; an untextured one its
 //   diffuse colour.
 // - Name tags (scene.cpp: only on objects with a movetype; the real 5.12
@@ -76,6 +77,15 @@ inline void setClientBuild(const std::string& build) {
   gReplicatorCover = !v420;
 }
 constexpr float kNoSunLight = 0.25f;  // a .3ds without a Sun
+// Terrain with a Sun (lab batch K, real 5.12 under Mesa): lit from a fixed
+// light on the -x/-y diagonal about 25 degrees up, whatever the Sun's
+// direction. A red texture drew 247 with no Sun and on slopes facing the
+// light, 214 flat, 156 facing +x/+y. The rebuild's curve, with 247 as full
+// light: min(1, ambient + diffuse * max(0, n . l)), ambient 156/247 and
+// diffuse fitted to the flat 214.
+constexpr float kTerrainLightElevation = 25.0f * 3.14159265f / 180.0f;
+constexpr float kTerrainAmbient = 156.0f / 247.0f;
+constexpr float kTerrainDiffuse = (214.0f - 156.0f) / 247.0f / 0.42261826f;  // sin 25
 constexpr float kFixedLightFloor = 0.85f;
 
 // A line of text for the host to draw over the frame, centred on (x, y),

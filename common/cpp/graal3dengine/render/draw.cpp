@@ -8,6 +8,10 @@ namespace graal3d::render {
 namespace {
 
 const V3 kFixedLight = normalize(V3{-1, -1, 1});
+// Toward the terrain's light: the -x/-y diagonal, kTerrainLightElevation up.
+const V3 kTerrainLight = normalize(V3{-std::cos(kTerrainLightElevation) * 0.70710678f,
+                                      -std::cos(kTerrainLightElevation) * 0.70710678f,
+                                      std::sin(kTerrainLightElevation)});
 
 uint32_t colorOf(const float c[3]) {
   auto b = [](float x) { return uint32_t(x <= 0 ? 0 : (x >= 1 ? 255 : x * 255.0f + 0.5f)); };
@@ -134,11 +138,16 @@ DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
           const V3 n = normalize(obj.transform.vector(mv.normal));
           light = scene.sun.present ? std::min(1.0f, kFixedLightFloor + std::max(0.0f, dot(n, kFixedLight)))
                                     : kNoSunLight;
+        } else if (shape->kind == Shape::kTerrain && scene.sun.present) {
+          const V3 n = normalize(obj.transform.vector(mv.normal));
+          light = std::min(1.0f, kTerrainAmbient + kTerrainDiffuse * std::max(0.0f, dot(n, kTerrainLight)));
         } else if (!scene.sun.present && (shape->kind == Shape::kDts || shape->kind == Shape::kDif)) {
           light = 0;
         }
         for (float& l : rv.light) l = light;
+        if (!mesh.weight.empty()) rv.weight = mesh.weight[i];
       }
+      const bool layer = !mesh.weight.empty();
       for (const Triangle& t : mesh.triangles) {
         if (t.material < 0 || size_t(t.material) >= shape->materials.size()) continue;  // not drawn (read_3ds.hpp)
         const Material& m = shape->materials[t.material];
@@ -153,6 +162,10 @@ DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
         if (gShapeTexturesWhite && (shape->kind == Shape::k3ds || shape->kind == Shape::kTerrain))
           st.texture = nullptr;  // 4.20r8: white
         st.alphaTest = m.alphaTest;
+        if (layer) {
+          st.additive = true;
+          st.depthWrite = false;
+        }
         // A material with no texture draws its colour. One whose texture is
         // missing or not drawable draws white, as the 5.12 does (T3D-032).
         if (!st.texture && m.texture.empty())
