@@ -631,6 +631,8 @@ void Link::writeClientGameSection(BitWriter& w) {
       if (move_.type == "list") sections |= 1u << 4;
       move_.announce = false;
     }
+    if (sendOwnTransform_) sections |= 1u << 4;
+    sendOwnTransform_ = false;
     writeGameObjectUpdate(w, back, sections);
     sendOwnState_ = false;
   }
@@ -768,7 +770,7 @@ void Link::tick(uint32_t now) {
         return;
       }
       advanceOwnMovement();
-      if (!outEvents_.empty() || now - lastSend_ >= kKeepAliveMs) sendDataPacket();
+      if (!outEvents_.empty() || sendOwnTransform_ || now - lastSend_ >= kKeepAliveMs) sendDataPacket();
       return;
     default:
       return;
@@ -783,6 +785,19 @@ Vec3 Link::controlPosition() const {
   if (controlGhost_ < 0 || it == ghosts_.end()) return Vec3();
   if (it->second.className == "Camera") return it->second.camera.object.position;
   return it->second.object.position;
+}
+
+void Link::moveControlTo(const Vec3& at) {
+  const auto it = ghosts_.find(controlGhost_);
+  if (controlGhost_ < 0 || it == ghosts_.end() || it->second.className != "GameObject") return;
+  it->second.object.position = at;
+  it->second.object.hasTransform = true;
+  if (!move_.type.empty() && move_.ghost == controlGhost_) {
+    // The client's own move ends any glide the server started.
+    move_.current = move_.from = move_.to = at;
+    move_.startMs = now_;
+  }
+  sendOwnTransform_ = true;
 }
 
 void Link::updateOwnMovement() {

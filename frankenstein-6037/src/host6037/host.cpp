@@ -1,7 +1,11 @@
 #include "host.hpp"
 
+#include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdio>
+#include <filesystem>
+#include <fstream>
 
 namespace Frank {
 
@@ -66,6 +70,11 @@ Host::Host(Quattro::Shell::Options opt, Quattro::Draw::Window& window)
   // 3D files: levels3d/ beside the program and under each asset root.
   view_.world3d.roots.push_back("levels3d");
   for (const auto& r : opt_.asset_roots) view_.world3d.roots.push_back(r + "/levels3d");
+  // What the server sends at step 6 is kept in the install's levels3d/
+  // (--assets), as a 5.x install keeps it; beside the program without one.
+  files3d_dir_ = opt_.assets.empty() ? std::string("levels3d") : opt_.assets + "/levels3d";
+  if (std::find(view_.world3d.roots.begin(), view_.world3d.roots.end(), files3d_dir_) == view_.world3d.roots.end())
+    view_.world3d.roots.push_back(files3d_dir_);
 }
 
 Link3D::Callbacks Host::callbacks() {
@@ -103,6 +112,10 @@ void Host::close() {
 void Host::make_program(const Quattro::Shell::Options& opt) {
   program_ = std::make_unique<Quattro::Shell::Program>(*profile_, opt, view_);
   program_->log = [this](const std::string& s) { say(s); };
+  // In 3D, a file the 2D side did not ask for is a 3D file: the shapes
+  // and textures asked for below, and what the server pushes (terrain).
+  program_->claims_file = [this](const std::string&) { return mode3d_; };
+  program_->take_file = [this](const std::string& name, const std::string& data) { save_3d_file(name, data); };
   // A Login-server 178 warp to a `3 ` server leaves this session for the
   // 3D path, as the real 5.12 entered 3D (torque/lab-2026-11-12-udp-trace.md).
   program_->session().take_warp = [this](const Quattro::Net::ServerWarp& w) {
@@ -164,18 +177,77 @@ bool Host::start_offline(const std::string& level, double x, double y) {
 // copied onto it each tick ("x y z", Torque metres) for weapons the 3D
 // world sends. Read only: a script setting it moves nothing yet.
 void Host::mirror_control_position() {
-  const graal3d::Link* l = link_.link();
+  graal3d::Link* l = link_.link();
   if (!program_ || !mode3d_ || !l || step_ < 5 || l->controlGhost() < 0) return;
+  auto pos = program_->scripts().player()->childOrCreate("position");
+  // A script that set player.position since the last tick moves the
+  // object there, as a 5.12 script setting it did (lab #458).
+  const std::string now = pos->string();
+  if (!position_written_.empty() && now != position_written_) {
+    float x = 0, y = 0, z = 0;
+    if (std::sscanf(now.c_str(), "%f %f %f", &x, &y, &z) == 3 && std::isfinite(x) && std::isfinite(y) &&
+        std::isfinite(z))
+      link_.move_control({x, y, z});
+  }
   const graal3d::Vec3 p = l->controlPosition();
   char text[96];
   std::snprintf(text, sizeof text, "%g %g %g", p.x, p.y, p.z);
-  program_->scripts().player()->childOrCreate("position")->setString(text);
+  position_written_ = text;
+  pos->setString(text);
+}
+
+// The arrow keys walk the 6.x player; in 3D the own object takes the same
+// steps, a tile a metre, the 2D y down being the Torque -y (the Seihai
+// gserver's 2D players in 3D: x, -y). Only a step taken with an arrow key
+// held moves it: a warp or a server move of the 2D player does not.
+void Host::walk_in_3d() {
+  if (!program_) return;
+  const auto& me = program_->me();
+  const bool walking = view_.held(Quattro::Draw::Key::Up) || view_.held(Quattro::Draw::Key::Down) ||
+                       view_.held(Quattro::Draw::Key::Left) || view_.held(Quattro::Draw::Key::Right);
+  const double dx = me.x - walk_x_, dy = me.y - walk_y_;
+  if (walk_known_ && walking && me.level == walk_level_ && (dx != 0 || dy != 0) && std::fabs(dx) < 4 &&
+      std::fabs(dy) < 4 && mode3d_ && step_ >= 5 && link_.link()) {
+    graal3d::Vec3 p = link_.link()->controlPosition();
+    p.x += static_cast<float>(dx);
+    p.y -= static_cast<float>(dy);
+    link_.move_control(p);
+  }
+  walk_known_ = true;
+  walk_level_ = me.level;
+  walk_x_ = me.x;
+  walk_y_ = me.y;
+}
+
+// Step 6 waits for the shapes and textures the world names (5.12 asks by
+// lower-case name over TCP). The renderer says which it could not find;
+// each is asked for once a session.
+void Host::ask_for_3d_files() {
+  if (!program_ || !mode3d_ || step_ < 6 || !view3d) return;
+  for (const auto& name : view_.world3d.resources.missing())
+    if (asked3d_.insert(name).second) program_->ask_file(name);
+}
+
+void Host::save_3d_file(const std::string& name, const std::string& data) {
+  std::error_code ec;
+  std::filesystem::create_directories(files3d_dir_, ec);
+  std::ofstream out(std::filesystem::path(files3d_dir_) / name, std::ios::binary | std::ios::trunc);
+  out.write(data.data(), static_cast<std::streamsize>(data.size()));
+  if (!out) {
+    say("Graal3D: could not save " + name);
+    return;
+  }
+  out.close();
+  view_.world3d.resources.rescan();
+  say("Graal3D: got " + name + " (" + std::to_string(data.size()) + " bytes)");
 }
 
 bool Host::tick() {
   if (!program_) return false;
   mirror_control_position();
   const bool go = program_->tick();
+  walk_in_3d();
+  ask_for_3d_files();
   link_.pump();
   view_.link = mode3d_ && view3d ? link_.link() : nullptr;
   if (failed_) {

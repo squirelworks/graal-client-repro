@@ -199,6 +199,11 @@ void test_warp_into_3d() {
   if (const auto pos = host.program().scripts().player()->child("position")) {
     float x = -1, y = -1, z = -1;
     CHECK(std::sscanf(pos->string().c_str(), "%f %f %f", &x, &y, &z) == 3);
+    // A script setting it moves the object (sent with the next tick).
+    pos->setString("1 2 3");
+    host.tick();
+    const graal3d::Vec3 at = host.link3d().link()->controlPosition();
+    CHECK(at.x == 1 && at.y == 2 && at.z == 3);
   } else {
     CHECK(false);
   }

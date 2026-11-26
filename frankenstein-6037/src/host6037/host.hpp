@@ -18,6 +18,7 @@
 
 #include <functional>
 #include <memory>
+#include <set>
 #include <string>
 
 namespace Frank {
@@ -93,6 +94,9 @@ class Host {
     if (log) log(s);
   }
   void mirror_control_position();
+  void walk_in_3d();
+  void ask_for_3d_files();
+  void save_3d_file(const std::string& name, const std::string& data);
 
   const Quattro::Net::BuildProfile* profile_;
   Quattro::Shell::Options opt_;
@@ -105,6 +109,16 @@ class Host {
   bool warp_pending_ = false;
   Quattro::Net::ServerWarp warp_;
   bool failed_ = false;
+  // player.position as last written, to see a script set it.
+  std::string position_written_;
+  // The 2D player where the last tick left it, for the walk in 3D.
+  bool walk_known_ = false;
+  std::string walk_level_;
+  double walk_x_ = 0, walk_y_ = 0;
+  // Step-6 files: the folder they are saved in (a renderer root), and the
+  // names asked for this session.
+  std::string files3d_dir_;
+  std::set<std::string> asked3d_;
 };
 
 }  // namespace Frank
