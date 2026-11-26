@@ -1392,6 +1392,17 @@ void testResources() {
   res.rescan();
   CHECK(res.shape("later.3ds") != nullptr);
   CHECK(res.shape("tower.3ds") == tower);  // kept across the rescan
+  // Every shape looked up is named, found or not (a host asks for each).
+  CHECK(res.shapesNamed().count("tower.3ds") && res.shapesNamed().count("later.3ds"));
+  // A newer copy over a loaded shape is read again after forget().
+  write(root / "shapes" / "later.3ds",
+        file3ds({material3ds("m", 1, 1, 1)}, {cubeMesh("x", {0, 0, 0}, 2, "m")}));
+  const Shape* before = res.shape("later.3ds");
+  const float sideBefore = before ? before->boundsMax.x - before->boundsMin.x : 0;
+  res.forget("LATER.3ds");
+  res.rescan();
+  const Shape* after = res.shape("later.3ds");
+  CHECK(after && std::fabs((after->boundsMax.x - after->boundsMin.x) - 2 * sideBefore) < 1e-3f);
   CHECK(!logs.empty());
   fs::remove_all(root);
 }

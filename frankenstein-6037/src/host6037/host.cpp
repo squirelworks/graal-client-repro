@@ -66,14 +66,18 @@ Host::Host(Quattro::Shell::Options opt, Quattro::Draw::Window& window)
       view_(window),
       link_(callbacks()) {
   opt_.build = host_build_label();
-  // 3D files: levels3d/ beside the program and under each asset root.
-  view_.world3d.roots.push_back("levels3d");
-  for (const auto& r : opt_.asset_roots) view_.world3d.roots.push_back(r + "/levels3d");
   // What the server sends at step 6 is kept in the install's levels3d/
   // (--assets), as a 5.x install keeps it; beside the program without one.
+  // It is the first root, so a fresh download wins over an older copy in
+  // another root (conformance C028).
   files3d_dir_ = opt_.assets.empty() ? std::string("levels3d") : opt_.assets + "/levels3d";
-  if (std::find(view_.world3d.roots.begin(), view_.world3d.roots.end(), files3d_dir_) == view_.world3d.roots.end())
-    view_.world3d.roots.push_back(files3d_dir_);
+  view_.world3d.roots.push_back(files3d_dir_);
+  // Then levels3d/ beside the program and under each asset root.
+  std::vector<std::string> more{"levels3d"};
+  for (const auto& r : opt_.asset_roots) more.push_back(r + "/levels3d");
+  for (const auto& r : more)
+    if (std::find(view_.world3d.roots.begin(), view_.world3d.roots.end(), r) == view_.world3d.roots.end())
+      view_.world3d.roots.push_back(r);
   // The player's draw distance, from a 5.12-style game_config.txt in the
   // install, beside the program or in an asset root (T3D-075: 1000 when
   // none sets it).
@@ -98,7 +102,9 @@ Link3D::Callbacks Host::callbacks() {
   };
   cb.error = [this](const std::string& why) {
     say("Graal3D: " + why);
-    // The two links live and die together (torque/udp-session.md §1).
+    // The two links live and die together (torque/udp-session.md §1): the
+    // session ends, and the program stays up, as the 5.12 dropped to its
+    // login when the server stopped (conformance C015, T3D-108).
     mode3d_ = false;
     view_.link = nullptr;
     failed_ = true;
@@ -147,6 +153,7 @@ bool Host::connect(const std::string& raw_name, const std::string& host, uint16_
   mode3d_ = false;
   step_ = 0;
   view_.link = nullptr;
+  asked3d_.clear();
   if (is3d) {
     if (port == 0xFFFF) {
       say("Graal3D: no port above " + std::to_string(port));
@@ -229,10 +236,14 @@ void Host::walk_in_3d() {
 }
 
 // Step 6 waits for the shapes and textures the world names (5.12 asks by
-// lower-case name over TCP). The renderer says which it could not find;
-// each is asked for once a session.
+// lower-case name over TCP). Each shape the world names is asked for once
+// a session even when a copy is cached, as the 5.12 asked again on a
+// second visit and drew the server's newer copy (conformance C028); a
+// texture only when no root has it.
 void Host::ask_for_3d_files() {
   if (!program_ || !mode3d_ || step_ < 6 || !view3d) return;
+  for (const auto& name : view_.world3d.resources.shapesNamed())
+    if (asked3d_.insert(name).second) program_->ask_file(name);
   for (const auto& name : view_.world3d.resources.missing())
     if (asked3d_.insert(name).second) program_->ask_file(name);
 }
@@ -247,6 +258,7 @@ void Host::save_3d_file(const std::string& name, const std::string& data) {
     return;
   }
   out.close();
+  view_.world3d.resources.forget(name);
   view_.world3d.resources.rescan();
   say("Graal3D: got " + name + " (" + std::to_string(data.size()) + " bytes)");
 }
@@ -260,9 +272,11 @@ bool Host::tick() {
   link_.pump();
   view_.link = mode3d_ && view3d ? link_.link() : nullptr;
   if (failed_) {
+    // The 3D session is over; the program keeps running (its own TCP
+    // drop shows as the 6.x does), and the window stays up until closed.
     failed_ = false;
-    program_.reset();
-    return false;
+    link_.close();
+    say("Graal3D: disconnected from the game server");
   }
   if (warp_pending_) {
     warp_pending_ = false;

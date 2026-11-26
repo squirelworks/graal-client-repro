@@ -56,6 +56,14 @@ class Resources {
   // Shape and texture names (lower case) looked up since the last rescan
   // and not found in any root: what a host may ask the server for.
   const std::set<std::string>& missing() const { return missing_; }
+  // Every shape name (lower case) looked up since the cache was made,
+  // found or not. The 5.12 asks the server for each shape a world names on
+  // every visit, even with a copy cached, and draws what comes back
+  // (Graal_analysis conformance C028).
+  const std::set<std::string>& shapesNamed() const { return shapesNamed_; }
+  // Drops a loaded shape or texture, so the next lookup reads its file
+  // again (a newer copy downloaded over it).
+  void forget(const std::string& name);
 
   // For tests: put a shape or texture in the cache without a file.
   void putShape(const std::string& name, Shape shape);
@@ -71,6 +79,7 @@ class Resources {
   std::map<std::string, std::unique_ptr<Texture>> textures_;
   std::set<std::string> logged_;
   std::set<std::string> missing_;
+  std::set<std::string> shapesNamed_;
   Log log_;
   ImageFormats formats_ = ImageFormats::kClient512;
 };
