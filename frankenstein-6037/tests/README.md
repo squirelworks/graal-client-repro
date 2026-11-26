@@ -3,7 +3,7 @@
 `frankenstein_test.cpp` (`make test`):
 
 - the `3 ` marker rule;
-- the stand-in view (sky and ground, the player's box, the inset);
+- the 3D view: black with no Camera, the renderer with one, the draw distance from `game_config.txt`, the inset;
 - over loopback: a Login server takes the 6.03r7 login and sends 178 to
   `3 Lab`; the client logs in to the game server on TCP with the 6.03r7
   token and runs the 5.12 link on the next port over UDP against a server

@@ -8,12 +8,14 @@ v5.120 is the 5.12 client, written the way the 6.x builds are
 token `G3D15097`, built from the same engine source). Their 3D library is
 `common/cpp/graal3dengine`, which this client links directly.
 
-`view3d.hpp` / `view3d.cpp` is the stand-in view: the 5.12 repro reads the
-world but draws none of it yet. It fills the frame with the sky's fog
-colour and the ground, draws a ground grid and each `GameObject` as a box,
-seen from 8 units behind and 4 above the player's object, and puts the 6.x
-frame in a quarter-size inset. None of it is the original's look. The real
-renderer belongs in `common/cpp/graal3dengine`, for every 3D build.
+`view3d.hpp` / `view3d.cpp` present the world with the 5.12 repro's
+renderer (`common/cpp/graal3dengine/render`), the same one every 3D build
+uses: the sky, the shapes in `levels3d/`, the streamed terrain, water,
+replicator cover and name tags. Until the server names a Camera the view
+is black, as the 5.12's is. The player's draw distance comes from a
+5.12-style `game_config.txt` (`visibledistance3D`, beside the program or
+in an asset root; 1000 when none sets it, at most 2400). The 6.x frame
+stays in a quarter-size inset.
 
 No modern Torque3D base. A small MIT-licensed piece from modern Torque3D
 is allowed only where that older Torque needs it.
