@@ -59,8 +59,10 @@ The pixels: the original draws through OpenGL, and no pixel match is
 claimed (`docs/functional-parity.md`). Also, until a lab run checks them
 side by side with a real 5.12:
 
-- Objects and water are never fogged or clipped by distance, and the
-  Sky's visible distance does nothing (lab fog run, under Mesa).
+- Objects and water are never fogged, and the Sky's visible distance
+  does nothing (lab fog run, under Mesa). They are cut at the player's
+  draw distance, `visibledistance3D` (1000 by default, at most 2400;
+  T3D-075), which a host sets with `graal3dengine_setVisibleDistance`.
 - The sky (lab T3D-046, under Mesa): entries 0 to 3 on -y, +x, +y and -x,
   mirrored left to right; entry 4 on top, its image's top toward +y;
   entry 5 drawn as a floor only when the second option is set; the fog colour below the horizon with a band of it

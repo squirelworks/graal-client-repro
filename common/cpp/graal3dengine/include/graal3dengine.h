@@ -78,6 +78,10 @@ G3D_API int32_t G3D_CALL graal3dengine_renderFrame(uint32_t *pixels, int32_t wid
 G3D_API void G3D_CALL graal3dengine_addResourceFolder(const char *folder);
 /* Looks for files again, after downloads have landed. */
 G3D_API void G3D_CALL graal3dengine_rescanResources(void);
+/* The player's draw distance, visibledistance3D in game_config.txt
+ * (default 1000): nothing farther from the camera is drawn. Clamped to
+ * 2400 as the 5.12 clamps it; returns the value used. */
+G3D_API float G3D_CALL graal3dengine_setVisibleDistance(float distance);
 
 /* The name tags and chat lines of the last renderFrame, for the host to
  * draw over the frame with its own font (the renderer has none): farthest

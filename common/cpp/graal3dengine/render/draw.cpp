@@ -97,9 +97,9 @@ DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
     return stats;
   }
   View view = scene.view;
-  // The 5.12 never fogs or distance-clips objects; the Sky's visible
-  // distance changed nothing in the lab (Mesa, fog run).
-  const float farPlane = kFarPlane;
+  // The 5.12 never fogs objects, and cuts them at the player's draw
+  // distance (draw.hpp); the Sky's visible distance changes nothing.
+  const float farPlane = gVisibleDistance3D;
   view.farPlane = farPlane;
   r.setView(view);
   const uint32_t fogColor = scene.sky.present ? colorOf(scene.sky.fogColor) : packRgba(0, 0, 0);
@@ -204,7 +204,7 @@ std::vector<Label> sceneLabels(const Scene& scene, Resources& res, int width, in
   std::vector<Label> out;
   if (!scene.hasCamera || width <= 0 || height <= 0) return out;
   View view = scene.view;
-  view.farPlane = kFarPlane;
+  view.farPlane = gVisibleDistance3D;
   constexpr float kLineHeight = 16;  // pixels between the nickname and chat lines
   for (const SceneTag& tag : scene.tags) {
     V3 anchor = tag.transform.point({0, 0, 2});

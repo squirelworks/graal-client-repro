@@ -10,6 +10,8 @@
 //     --res DIR       where the session's files are (repeat for more);
 //                     the client's levels3d folder, for example
 //     --fov DEGREES   the field of view when the server sent none
+//     --visible DIST  the player's draw distance (visibledistance3D; default
+//                     1000, at most 2400)
 //     --quiet         no event log, only the summary and the ghosts
 //
 // Prints the session (addresses, the class tables, the login steps, the
@@ -128,7 +130,7 @@ void printGhosts(const Link& link) {
 int usage() {
   std::fprintf(stderr,
                "usage: g3d-replay [--port N] [--protocol N] [--at SECONDS] [--render FILE.png] [--size WxH]\n"
-               "                  [--res DIR]... [--fov DEGREES] [--quiet] capture.pcap\n");
+               "                  [--res DIR]... [--fov DEGREES] [--visible DIST] [--quiet] capture.pcap\n");
   return 2;
 }
 
@@ -151,6 +153,7 @@ int main(int argc, char** argv) {
     else if (a == "--render" && (v = next())) renderPath = v;
     else if (a == "--res" && (v = next())) roots.push_back(v);
     else if (a == "--fov" && (v = next())) fovOverride = std::atoi(v);
+    else if (a == "--visible" && (v = next())) render::setVisibleDistance3D(float(std::atof(v)));
     else if (a == "--size" && (v = next())) {
       if (std::sscanf(v, "%dx%d", &width, &height) != 2 || width <= 0 || height <= 0 || width > 8192 ||
           height > 8192)

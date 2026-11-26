@@ -418,6 +418,23 @@ void testSunAndFog() {
     drawScene(f.frame(), s, res);
     return f.centre();
   };
+  // The draw distance (T3D-075): 1000 by default, set by the player,
+  // clamped to 2400; nothing past it draws.
+  {
+    res.putShape("big.3ds", cubeShape(1, 1, 1, 100));
+    auto drawnAt = [&](float y) {
+      TestFrame f;
+      Scene s = cameraScene({0, 0, 0});
+      s.objects.push_back(objectAt("big.3ds", {0, y, 0}));
+      drawScene(f.frame(), s, res);
+      return isColor(f.centre(), 255, 255, 255);
+    };
+    CHECK(gVisibleDistance3D == 1000);
+    CHECK(drawnAt(900) && !drawnAt(1100));
+    CHECK(setVisibleDistance3D(500) == 500 && drawnAt(400) && !drawnAt(600));
+    CHECK(setVisibleDistance3D(5000) == 2400 && drawnAt(2300) && !drawnAt(2500));
+    CHECK(setVisibleDistance3D(-1) == 1000 && setVisibleDistance3D(std::nanf("")) == 1000);
+  }
   // The 5.12 ignores the Sun's direction, colour and ambient (lighting
   // probe): every face full; without a Sun, a quarter.
   CHECK(isColor(litCentre({0, 1, 0}), 255, 255, 255));
