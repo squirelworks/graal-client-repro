@@ -1641,6 +1641,11 @@ void testTerrain() {
     const Vertex& v = m.vertices[size_t(3 * 16) * 257 + size_t(15 * 16)];
     CHECK(nearV(v.position, {(240 - 128) * 8.0f, (48 - 128) * 8.0f, 5.0f}));
     CHECK(nearV(m.vertices[256].position, {1024, -1024, 0}));  // wraps to point 0
+    // Every square draws with the first texture, whatever its material
+    // (the 5.12 on Mesa: grass and sand squares drew as water).
+    bool allFirst = true;
+    for (const auto& tri : m.triangles) allFirst = allFirst && tri.material == 0;
+    CHECK(allFirst);
   }
 
   // Drawn from above: the terrain fills the view in its texture's colour.
@@ -2035,6 +2040,14 @@ void testReplicators() {
       CHECK(scatterReplicators(dead, g, t, {-4, -4, 0}, res) == 0);
       CHECK(scatterReplicators(dead, g, t, {7, 7, 0}, res) == 0);
       CHECK(scatterReplicators(dead, g, t, {9, 4, 0}, res) == 18);
+      // The block centres on the cell rounded half up: (12, -12) is cell
+      // (2, -1), so copies lie within 4 of corners x 8..24, y -16..0.
+      Scene mid;
+      CHECK(scatterReplicators(mid, g, t, {12, -12, 0}, res) == 18);
+      for (const SceneObject& o : mid.objects) {
+        CHECK(o.transform.m[0][3] >= 4 && o.transform.m[0][3] < 28);
+        CHECK(o.transform.m[1][3] >= -20 && o.transform.m[1][3] < 4);
+      }
     }
     CHECK(sc.objects.size() == 18);
     for (const SceneObject& o : sc.objects) {
