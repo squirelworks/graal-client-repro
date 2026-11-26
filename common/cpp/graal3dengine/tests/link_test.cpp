@@ -363,6 +363,34 @@ std::string serverControlUpdate(uint32_t seq, uint32_t ack, const GameObjectStat
 
 constexpr uint32_t kSec(int n) { return 1u << (n - 1); }
 
+void testOwnMove() {
+  // A host moving the client's own object (moveControlTo): the next data
+  // packet carries the new position and the transform section.
+  LinkLogin login;
+  Link link(login, {});
+  uint32_t t = 0;
+  runSession(link, t);
+  link.takeOutgoing();
+  GameObjectState seen;
+  link.moveControlTo({5, 6, 7});
+  link.tick(++t);
+  auto out = link.takeOutgoing();
+  CHECK(out.size() == 1);
+  if (out.size() == 1) {
+    auto p = readClientPacket(out[0], link.eventClasses(), &seen);
+    CHECK(p.type == 0 && p.ownState);
+    CHECK(near(p.position.x, 5) && near(p.position.y, 6) && near(p.position.z, 7));
+    CHECK((p.ownSections & kSec(5)) != 0);
+  }
+  CHECK(near(link.controlPosition().x, 5) && near(link.controlPosition().z, 7));
+  // Sent once: the next keep-alive has no transform.
+  t += Link::kKeepAliveMs;
+  link.tick(t);
+  out = link.takeOutgoing();
+  CHECK(out.size() == 1);
+  if (out.size() == 1) CHECK((readClientPacket(out[0], link.eventClasses(), &seen).ownSections & kSec(5)) == 0);
+}
+
 void testMovetypes() {
   // E#505 (protocol/lab-appe-hosta-2026-11-20d.md): a server moves the
   // player with a movetype and movement data on its control object.
@@ -904,6 +932,7 @@ int main() {
   testPayloads();
   testServerSession();
   testMovetypes();
+  testOwnMove();
   testGhostAlwaysAndCameraControl();
   testTerrainAndWater();
   testLostEventIsResent();

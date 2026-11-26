@@ -160,6 +160,14 @@ class Program {
   // Pass names of the last frame, in the order they ran.
   const std::vector<std::string>& last_passes() const { return passes_; }
   std::function<void(const std::string&)> log;
+  // Files a host takes for itself (Frankenstein 6.037's 3D shapes and
+  // textures), outside the 2D asset bookkeeping: ask_file() asks with
+  // PLI_WANTFILE; a file the 2D side did not ask for and claims_file()
+  // says yes to goes to take_file() (size-capped like downloads) instead
+  // of being dropped. Unset: as before.
+  void ask_file(const std::string& name);
+  std::function<bool(const std::string& name)> claims_file;
+  std::function<void(const std::string& name, const std::string& data)> take_file;
 
   // The player list a 5.x engine reports to its launcher (the lab's 5.12,
   // 2026-11-13): one row per player the server names, across levels,

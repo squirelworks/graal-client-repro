@@ -24,6 +24,10 @@ from the `frankenstein-v` series.
   draws (the program keeps its 50 ms tick as its clock; the 3D frame takes
   at most about half the time), and a 3D weapon's `player.position` reads
   the player's own object.
+- The player's own 3D object moves with the arrow keys and with a script
+  setting `player.position`, and the server and other players see it.
+- Shapes and textures a 3D world names are asked for over TCP and kept in
+  the install's `levels3d/`, so a fresh install draws the world.
 
 ## What's new in frankenstein-6037-v0.0.1
 

@@ -53,6 +53,10 @@ class Resources {
   static constexpr int kClientMaxTextureSide = 1024;
   void setImageFormats(ImageFormats f) { formats_ = f; }
 
+  // Shape and texture names (lower case) looked up since the last rescan
+  // and not found in any root: what a host may ask the server for.
+  const std::set<std::string>& missing() const { return missing_; }
+
   // For tests: put a shape or texture in the cache without a file.
   void putShape(const std::string& name, Shape shape);
   void putTexture(const std::string& name, Texture texture);
@@ -66,6 +70,7 @@ class Resources {
   std::map<std::string, std::unique_ptr<Shape>> shapes_;
   std::map<std::string, std::unique_ptr<Texture>> textures_;
   std::set<std::string> logged_;
+  std::set<std::string> missing_;
   Log log_;
   ImageFormats formats_ = ImageFormats::kClient512;
 };

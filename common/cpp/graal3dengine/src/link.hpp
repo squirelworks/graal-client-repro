@@ -91,6 +91,13 @@ class Link {
   // Where the control object is: while it has a movement object, where
   // its movement has taken it; otherwise its transform's position.
   Vec3 controlPosition() const;
+  // Moves the client's own GameObject control object to `at` at once, and
+  // sends its transform in the next data packet (the server reads the
+  // position at the head of the client game section, and the transform
+  // section). For a host whose player moves its own object: a script
+  // setting player.position, or keys. Nothing without a GameObject
+  // control object.
+  void moveControlTo(const Vec3& at);
   // The movetype of the control object's movement object ("" for none).
   const std::string& controlMovetype() const { return move_.type; }
   // The class table from the connect accept: server id -> name, by type.
@@ -205,6 +212,7 @@ class Link {
   int cameraGhost_ = -1;
   int fov_ = 0;
   bool sendOwnState_ = false;
+  bool sendOwnTransform_ = false;  // moveControlTo() since the last data packet
 
   // The control object's movement object (E#505): a server moves the
   // player by giving its control object a movetype and movement data; the

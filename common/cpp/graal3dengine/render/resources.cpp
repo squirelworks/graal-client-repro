@@ -78,6 +78,7 @@ void Resources::rescan() {
   for (auto it = shapes_.begin(); it != shapes_.end();) it = it->second ? std::next(it) : shapes_.erase(it);
   for (auto it = textures_.begin(); it != textures_.end();) it = it->second ? std::next(it) : textures_.erase(it);
   logged_.clear();
+  missing_.clear();
 }
 
 std::string Resources::find(const std::string& name) const {
@@ -98,6 +99,7 @@ const Shape* Resources::shape(const std::string& name) {
   const std::string ext = extensionOf(key);
   if (path.empty()) {
     note("Graal3D: shape " + name + " is not here");
+    missing_.insert(key);
   } else if (ext != ".3ds" && ext != ".dts" && ext != ".dif" && ext != ".ft") {
     note("Graal3D: cannot draw " + ext + " shapes yet (" + name + ")");
   } else {
@@ -160,6 +162,7 @@ const Texture* Resources::texture(const std::string& name) {
   const std::string path = lookupTexturePath(key);
   if (path.empty()) {
     note("Graal3D: texture " + name + " is not here");
+    missing_.insert(key);
   } else {
     std::vector<uint8_t> bytes;
     auto t = std::make_unique<Texture>();

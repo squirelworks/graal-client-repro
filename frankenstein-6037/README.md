@@ -164,11 +164,10 @@ frankenstein-6037/
 - [x] The Torque world drawn (terrain, interiors, DTS and `.3ds` shapes,
       sky) by the renderer in `common/cpp/graal3dengine`, shared with the
       4.x and 5.x folders, while the server names a Camera.
-- [ ] Keys moving the player in 3D (the link sends where the server's
-      movetype took it; keyboard input with a movetype was not run on the
-      real 5.12 either).
-- [ ] The files step 6 waits for in 5.12 (shapes and sky textures over
-      TCP), `TerrainChunkEvent`, and the `fixedudpport` option (14899).
+- [ ] Mouse-look, and keys of the 5.12's own 3D controls (the arrows walk
+      the 6.x player, and the 3D object takes its steps; keyboard input
+      with a movetype was not run on the real 5.12).
+- [ ] `TerrainChunkEvent`, and the `fixedudpport` option (14899).
 - [ ] The 6.x start screen and server list: the program starts straight
       into its session, as `quattro-play` does.
 - [x] A lab run against the Seihai gserver's `graal3d` mode
@@ -176,8 +175,11 @@ frankenstein-6037/
       login, the 178 warp, the UDP link to step 6, ghosts, server moves
       and the 6.x inset work; the server must offer 6.03r7-token logins to
       its UDP side (seihai-gserver, same day).
-- [ ] The own 3D object following the 2D walk, and `player.position`
-      set by a script (it is read only).
+- [x] The own 3D object following the arrow keys (the 6.x walk), and a
+      script setting `player.position`; the server receives both.
+- [x] The files step 6 needs: shapes and textures the renderer cannot
+      find are asked for by name and kept in `<assets>/levels3d/` with
+      what the server pushes (terrain).
 
 ## Rules for this folder
 
