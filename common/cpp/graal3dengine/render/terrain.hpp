@@ -77,6 +77,11 @@ std::vector<std::string> parseHeightsInfo(const std::string& text);
 // number of chunk files loaded.
 int loadTerrainCache(const std::string& dir, Terrain& t);
 
+// The terrain's surface at world (x, y), on the same triangles the mesh
+// draws: false off the grid or over a hole. `normal`, when given, gets the
+// triangle's upward normal.
+bool terrainHeightAt(const Terrain& t, float x, float y, float& z, V3* normal = nullptr);
+
 // The terrain as a shape in world space: one mesh, material i naming
 // materials[i]'s texture. Holes are left out.
 Shape terrainShape(const Terrain& t);

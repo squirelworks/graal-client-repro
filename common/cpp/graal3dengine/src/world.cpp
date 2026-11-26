@@ -192,6 +192,51 @@ bool readTerrainBlockUpdate(BitReader& r, TerrainBlockState& t) {
   return !r.overrun();
 }
 
+namespace {
+// A sign flag (1 = negative), then an n-1 bit magnitude.
+int readSigned(BitReader& r, int n) {
+  const bool negative = r.flag();
+  const int m = int(r.bits(n - 1));
+  return negative ? -m : m;
+}
+}  // namespace
+
+bool readReplicatorUpdate(BitReader& r, ReplicatorState& s) {
+  if (!r.flag()) return !r.overrun();
+  s.init = true;
+  s.position = readVec(r);
+  float q[3];
+  for (float& f : q) f = r.f32();
+  const bool negative = r.flag();
+  const float ww = 1.0f - q[0] * q[0] - q[1] * q[1] - q[2] * q[2];
+  for (int i = 0; i < 3; ++i) s.rotation[i] = q[i];
+  s.rotation[3] = (ww > 0 ? std::sqrt(ww) : 0.0f) * (negative ? -1.0f : 1.0f);
+  s.seed = int32_t(r.bits(32));
+  s.shapeFiles = r.pstring();
+  s.radius = int(r.bits(8));
+  s.minObjects = int(r.bits(8));
+  s.maxObjects = int(r.bits(8));
+  for (int& v : s.boxMin) v = readSigned(r, 16);
+  for (int& v : s.boxMax) v = readSigned(r, 16);
+  s.scaleMin = readVec(r);
+  s.scaleMax = readVec(r);
+  s.rotateMin = readVec(r);
+  s.rotateMax = readVec(r);
+  s.offsetZ = r.f32();
+  s.allowTerrain = r.flag();
+  s.allowInteriors = r.flag();
+  s.allowStatics = r.flag();
+  s.allowWater = r.flag();
+  s.allowWaterSurface = r.flag();
+  s.allowedSlope = readSigned(r, 8);
+  s.alignToTerrain = r.flag();
+  s.terrainAlignment = readVec(r);
+  s.surfaceExclusion = r.flag();
+  s.surfaceType = readSigned(r, 8);
+  s.hide = r.flag();
+  return !r.overrun();
+}
+
 bool readWaterBlockUpdate(BitReader& r, WaterBlockState& w) {
   if (r.flag()) w.name = r.pstring();
   w.init = true;

@@ -22,6 +22,7 @@
 #include "png.hpp"
 #include "resources.hpp"
 #include "scene.hpp"
+#include "replicate.hpp"
 #include "terrain.hpp"
 
 #include <cstdio>
@@ -233,6 +234,11 @@ int main(int argc, char** argv) {
       so.transform = render::M4::identity();
       so.direct = &terrain.shape;
       scene.objects.push_back(so);
+      render::V3 control;
+      if (render::scenePositionOf(scene, link->controlGhost(), control)) {
+        const int n = render::scatterReplicators(scene, link->ghosts(), terrain.terrain, control, resources);
+        if (n) std::printf("  replicator cover: %d copies\n", n);
+      }
     }
     std::vector<uint32_t> pixels(size_t(width) * height, 0);
     std::printf("\nRendering %dx%d to %s\n", width, height, renderPath.c_str());

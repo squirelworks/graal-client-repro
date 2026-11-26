@@ -21,6 +21,7 @@ link it beside its own world.
 | `scene.*` | The scene from a `GhostTable`: every `GameObject` and `DynamicShapeReplicator` with a shape (grass classes draw nothing, lab T3D-048), the named `Camera` and the field of view, the first `Sun` and `Sky`, the `TerrainBlock`'s settings, and each `WaterBlock` as a surface from its corner to corner + scale, at position z + scale z, turned about its corner, rising and falling with its wave magnitude (lab, Graal_analysis PR #895). A caller adds the terrain's shape as an object (`SceneObject::direct`) |
 | `raster.*` | The software rasteriser: perspective-correct textured triangles, depth buffer, clipping to the near and far planes and to the view sides with a guard band (so a face reaching behind the camera, such as a sky-box face, is still drawn), bilinear texture filtering (held at the edges for sky-box faces), per-vertex light and fog |
 | `motion.*` | Where a moving GameObject is drawn between updates: `list` jumps onto each section 7 target, `interpolate` and `rigid` glide toward it over the time since the previous target (lab E#505; the curve is the rebuild's own) |
+| `replicate.*` | Replicator ground cover (Graal_analysis `torque/replicators-512.md`): each `DynamicShapeReplicator`'s shapes on 8-unit cells in a (2r+1)² block around the control object (r clamped to 1 to 64), a cell growing only when its corner is inside the world x/y box, its count from stock Torque's R250 seeded with seed + 256·(cy & 255) + (cx & 255). DynamicGrass and DynamicGrassReplicator grow small flat pieces lying on the ground over the same cells, textured from the names in shapefiles, up to 100 a cell (Graal_analysis PR #931). In a cell, a shape copy lies within half a cell of the corner and grass on a sub-grid of up to 16 by 16, each where a ray down meets the ground inside the box's z range. Hosts call it after adding the streamed terrain |
 | `draw.*` | One frame: the sky box, then each object lit as the 5.12 lights it; only the sky takes the fog |
 
 The library exports `graal3dengine_renderFrame`, `graal3dengine_addResourceFolder`
@@ -80,6 +81,9 @@ side by side with a real 5.12:
 - A textured material draws its texture unmodulated; an untextured one its
   diffuse colour. A material whose texture is missing or undrawable draws
   white, as the 5.12 does (lab, 2026-11-25).
+- Replicator cover: which shape, its scale and turn (drawn after x and y
+  from the cell's stream), a grass piece's size, turn and lift, no terrain alignment, cover only on terrain (interiors, statics
+  and water are not tried), and at most 20000 copies in all.
 - Textures are filtered bilinearly, as a `GL_LINEAR` texture draws, with no
   mipmaps; sky-box faces are held at their edges, other textures wrap.
 
@@ -92,7 +96,8 @@ side by side with a real 5.12:
 - [x] `.ft` shapes: read and grown, but not drawn by default, as on the real 5.12
 - [ ] Animation threads (`GameObject` section 8)
 - [ ] Terrain material blending and the client's terrain texture scale;
-  water waves, reflection and shore; replicators (milestone 6)
+  water reflection and shore; replicator cover on interiors, statics and water,
+  and terrain alignment (milestone 6)
 - [ ] A terrain cache in the link (the stamps are computed; the link still
   asks for every chunk)
 - [ ] `.dds`, `.jp2`, `.mng` textures

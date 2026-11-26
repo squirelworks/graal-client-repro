@@ -7,6 +7,7 @@
 #include "../render/read_dif.hpp"
 #include "../render/read_dts.hpp"
 #include "../render/read_ft.hpp"
+#include "../render/replicate.hpp"
 #include "../render/terrain.hpp"
 #include "bits.hpp"
 #include "vectors.hpp"
@@ -1855,6 +1856,219 @@ void testMotion() {
   CHECK(m.size() == 0);
 }
 
+void testReplicators() {
+  // The update after the GameObject part (terrain thread note, T3D-048).
+  {
+    BitWriter w;
+    w.flag(true);
+    for (float f : {10.f, 20.f, 30.f}) w.f32(f);
+    for (float f : {0.f, 0.f, 0.f}) w.f32(f);
+    w.flag(false);
+    w.bits(0xFFFFFFFEu, 32);
+    w.pstring("rock.3ds,bush.dts");
+    w.bits(3, 8);
+    w.bits(1, 8);
+    w.bits(4, 8);
+    for (int v : {-100, -200, 0}) { w.flag(v < 0); w.bits(uint32_t(std::abs(v)), 15); }
+    for (int v : {100, 200, 50}) { w.flag(v < 0); w.bits(uint32_t(std::abs(v)), 15); }
+    for (int i = 0; i < 12; ++i) w.f32(float(i));
+    w.f32(-0.5f);
+    for (bool b : {true, false, false, true, false}) w.flag(b);
+    w.flag(false); w.bits(30, 7);
+    w.flag(true);
+    for (float f : {0.f, 0.f, 1.f}) w.f32(f);
+    w.flag(false);
+    w.flag(true); w.bits(2, 7);
+    w.flag(true);
+    const std::string bytes = w.bytes();
+    BitReader r(bytes);
+    ReplicatorState s;
+    CHECK(readReplicatorUpdate(r, s));
+    CHECK(s.init && s.position.x == 10 && s.position.z == 30 && s.rotation[3] == 1);
+    CHECK(s.seed == -2 && s.shapeFiles == "rock.3ds,bush.dts");
+    CHECK(s.radius == 3 && s.minObjects == 1 && s.maxObjects == 4);
+    CHECK(s.boxMin[0] == -100 && s.boxMin[1] == -200 && s.boxMax[2] == 50);
+    CHECK(s.scaleMin.x == 0 && s.scaleMax.x == 3 && s.rotateMax.z == 11 && s.offsetZ == -0.5f);
+    CHECK(s.allowTerrain && !s.allowInteriors && s.allowWater && s.allowedSlope == 30);
+    CHECK(s.alignToTerrain && s.terrainAlignment.z == 1 && !s.surfaceExclusion);
+    CHECK(s.surfaceType == -2 && s.hide);
+    BitWriter end;
+    end.flag(false);
+    const std::string eb = end.bytes();
+    BitReader er(eb);
+    ReplicatorState none;
+    CHECK(readReplicatorUpdate(er, none) && !none.init);
+  }
+  // R250: one stream per seed; cell counts stay in [min, max].
+  {
+    R250 a(1234), b(1234), c(1235);
+    bool differs = false;
+    for (int i = 0; i < 600; ++i) {
+      const uint32_t x = a.next();
+      CHECK(x == b.next());
+      differs |= x != c.next();
+    }
+    CHECK(differs);
+    for (int i = 0; i < 100; ++i) {
+      const float u = a.unit();
+      CHECK(u >= 0 && u < 1);
+    }
+    int seen[5] = {};
+    for (int cy = -20; cy < 20; ++cy)
+      for (int cx = -20; cx < 20; ++cx) {
+        const int n = replicatorCellCount(77, cx, cy, 1, 4);
+        CHECK(n >= 1 && n <= 4);
+        if (n >= 0 && n <= 4) ++seen[n];
+        CHECK(n == replicatorCellCount(77, cx, cy, 1, 4));
+      }
+    CHECK(seen[0] == 0 && seen[1] && seen[2] && seen[3] && seen[4]);
+    CHECK(replicatorCellCount(77, 3, 3, 2, 2) == 2);
+    CHECK(replicatorCellCount(77, 3, 3, 5, 1) == 5);  // a larger minimum raises the maximum
+    // Cells 256 apart share a seed (cx & 255, cy & 255).
+    CHECK(replicatorCellCount(9, 4, 7, 0, 20) == replicatorCellCount(9, 260, 7, 0, 20));
+  }
+  // The height under a point, on the same triangles as the drawn terrain.
+  Terrain t;
+  t.present = true;
+  for (int y = 0; y < kTerrainSize; ++y)
+    for (int x = 0; x < kTerrainSize; ++x) t.heights[size_t(y) * kTerrainSize + size_t(x)] = 64;  // 2 m
+  {
+    float z = 0;
+    V3 n;
+    CHECK(terrainHeightAt(t, 3.3f, -7.1f, z, &n) && std::fabs(z - 2) < 1e-4f && std::fabs(n.z - 1) < 1e-5f);
+    CHECK(!terrainHeightAt(t, 128 * 8 + 1, 0, z));
+    Terrain slope = t;
+    for (int y = 0; y < kTerrainSize; ++y)
+      for (int x = 0; x < kTerrainSize; ++x) slope.heights[size_t(y) * kTerrainSize + size_t(x)] = uint16_t(x * 32);
+    const float wx = (10.5f - 128) * 8, wy = (20.25f - 128) * 8;
+    CHECK(terrainHeightAt(slope, wx, wy, z, &n) && std::fabs(z - 10.5f) < 1e-3f);
+    CHECK(std::fabs(n.x + 0.124035f) < 1e-4f && std::fabs(n.y) < 1e-5f);
+    slope.hole[size_t(20) * kTerrainSize + 10] = 1;
+    CHECK(!terrainHeightAt(slope, wx, wy, z));
+  }
+  // Cover on 8-unit cells around the control object, inside the box.
+  {
+    Resources res;
+    res.putShape("rock.3ds", cubeShape(1, 0, 0));
+    GhostTable g;
+    Ghost& d = g[5];
+    d.className = "DynamicShapeReplicator";
+    ReplicatorState& s = d.replicator;
+    s.init = true;
+    s.seed = 42;
+    s.shapeFiles = "rock.3ds";
+    s.radius = 1;
+    s.minObjects = s.maxObjects = 2;
+    s.boxMin[0] = s.boxMin[1] = -100;
+    s.boxMax[0] = s.boxMax[1] = 100;
+    s.boxMin[2] = -10;
+    s.boxMax[2] = 10;
+    s.scaleMin = s.scaleMax = {1, 1, 1};
+    s.offsetZ = 0.5f;
+    s.allowTerrain = true;
+    Scene sc;
+    CHECK(scatterReplicators(sc, g, t, {3, 3, 0}, res) == 18);  // 3 x 3 cells, 2 each
+    CHECK(sc.objects.size() == 18);
+    for (const SceneObject& o : sc.objects) {
+      CHECK(o.ghost == -1 && o.shape == "rock.3ds");
+      CHECK(std::fabs(o.transform.m[2][3] - 2.5f) < 1e-4f);
+      CHECK(o.transform.m[0][3] >= -12 && o.transform.m[0][3] < 12);  // within 4 of a corner -8, 0 or 8
+    }
+    Scene again;
+    scatterReplicators(again, g, t, {3, 3, 0}, res);
+    CHECK(again.objects[7].transform.m[0][3] == sc.objects[7].transform.m[0][3]);
+    // A listed shape we cannot load is still picked, and not drawn.
+    s.shapeFiles = "rock.3ds, missing.dts";
+    Scene partial;
+    const int some = scatterReplicators(partial, g, t, {3, 3, 0}, res);
+    CHECK(some > 0 && some < 18);
+    s.shapeFiles = "rock.3ds";
+    s.boxMin[0] = 0;  // the cell at x -8 has its corner outside
+    Scene boxed;
+    CHECK(scatterReplicators(boxed, g, t, {3, 3, 0}, res) == 12);
+    s.radius = 0;  // clamped to 1
+    Scene clamped;
+    CHECK(scatterReplicators(clamped, g, t, {3, 3, 0}, res) == 12);
+    s.boxMax[2] = 1;  // the ground at z 2 is above the box
+    Scene high;
+    CHECK(scatterReplicators(high, g, t, {3, 3, 0}, res) == 0);
+    s.boxMax[2] = 10;
+    // A minimum above its maximum is swapped: scale 2..1 stays in 1..2.
+    s.scaleMin = {2, 2, 2};
+    s.scaleMax = {1, 1, 1};
+    Scene swapped;
+    scatterReplicators(swapped, g, t, {3, 3, 0}, res);
+    for (const SceneObject& o : swapped.objects) {
+      const float len = std::sqrt(o.transform.m[0][0] * o.transform.m[0][0] + o.transform.m[1][0] * o.transform.m[1][0] +
+                                  o.transform.m[2][0] * o.transform.m[2][0]);
+      CHECK(len >= 1 - 1e-4f && len <= 2 + 1e-4f);
+    }
+    s.scaleMin = s.scaleMax = {1, 1, 1};
+    s.hide = true;
+    Scene hidden;
+    CHECK(scatterReplicators(hidden, g, t, {3, 3, 0}, res) == 0);
+    s.hide = false;
+    s.allowTerrain = false;
+    CHECK(scatterReplicators(hidden, g, t, {3, 3, 0}, res) == 0);
+    s.allowTerrain = true;
+    s.shapeFiles = "missing.dts";
+    CHECK(scatterReplicators(hidden, g, t, {3, 3, 0}, res) == 0);
+    // The control object's place after motion: its object, else its tag.
+    Scene where;
+    where.objects.push_back(objectAt("rock.3ds", {4, 5, 6}));
+    where.objects.back().ghost = 9;
+    V3 at;
+    CHECK(scenePositionOf(where, 9, at) && at.x == 4 && at.y == 5 && at.z == 6);
+    CHECK(!scenePositionOf(where, 8, at) && !scenePositionOf(where, -1, at));
+    // Grass (Graal_analysis PR #931): flat pieces over the same cells, a
+    // texture named in shapefiles, counts up to 100, one owned shape.
+    for (const char* cls : {"DynamicGrassReplicator", "DynamicGrass"}) {
+      d.className = cls;
+      s.shapeFiles = "grass.png";
+      s.boxMin[0] = -100;
+      s.radius = 1;
+      s.minObjects = s.maxObjects = 50;
+      Scene gs;
+      CHECK(scatterReplicators(gs, g, t, {3, 3, 0}, res) == 441);  // 9 cells, 7 x 7 of 50 each
+      CHECK(gs.objects.size() == 1 && gs.owned.size() == 1 && gs.objects[0].direct == gs.owned[0].get());
+      const Shape& gshape = *gs.owned[0];
+      CHECK(gshape.materials.size() == 1 && gshape.materials[0].texture == "grass.png");
+      CHECK(gshape.meshes.size() == 1 && gshape.meshes[0].triangles.size() == 882);
+      for (const Vertex& v : gshape.meshes[0].vertices) CHECK(std::fabs(v.position.z - 2.52f) < 1e-3f);  // flat on the ground
+      CHECK(gshape.boundsMax.x - gshape.boundsMin.x < 26);
+      s.minObjects = s.maxObjects = 250;  // clamped to 100
+      Scene many;
+      CHECK(scatterReplicators(many, g, t, {3, 3, 0}, res) == 900);  // clamped to 100: 10 x 10
+      s.minObjects = s.maxObjects = 5;  // 2 x 2
+      Scene five;
+      CHECK(scatterReplicators(five, g, t, {3, 3, 0}, res) == 36);
+      // The sub-grid: piece k of a cell at (k % cols / cols - 0.5) * 8.
+      const auto& fv = five.owned[0]->meshes[0].vertices;
+      float centreX = 0, centreY = 0;
+      for (int c = 0; c < 4; ++c) { centreX += fv[size_t(c)].position.x / 4; centreY += fv[size_t(c)].position.y / 4; }
+      CHECK(std::fabs(centreX - -12) < 1e-3f && std::fabs(centreY - -12) < 1e-3f);  // cell (-1, -1), piece 0
+      s.minObjects = s.maxObjects = 250;
+      Scene again2;
+      scatterReplicators(again2, g, t, {3, 3, 0}, res);
+      CHECK(again2.owned[0]->meshes[0].vertices[123].position.x == many.owned[0]->meshes[0].vertices[123].position.x);
+      s.minObjects = s.maxObjects = 0;
+      Scene none2;
+      CHECK(scatterReplicators(none2, g, t, {3, 3, 0}, res) == 0 && none2.objects.empty());
+    }
+    CHECK(replicatorCellCount(77, 3, 3, 150, 150, kMaxGrassCount) == 100);
+    // Two shapes in the list: each copy picks one.
+    d.className = "DynamicShapeReplicator";
+    res.putShape("bush.3ds", cubeShape(0, 1, 0));
+    s.shapeFiles = "rock.3ds,bush.3ds";
+    s.minObjects = s.maxObjects = 10;
+    Scene two;
+    CHECK(scatterReplicators(two, g, t, {3, 3, 0}, res) == 90);
+    int rocks = 0;
+    for (const SceneObject& o : two.objects) rocks += o.shape == "rock.3ds";
+    CHECK(rocks > 0 && rocks < 90);
+  }
+}
+
 int main() {
   testRead3ds();
   testMotion();
@@ -1872,6 +2086,7 @@ int main() {
   testStreamedTerrain();
   testTerrain();
   testClientImageFormats();
+  testReplicators();
   if (failures) {
     std::fprintf(stderr, "render-test: %d failure(s)\n", failures);
     return 1;

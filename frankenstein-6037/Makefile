@@ -38,7 +38,7 @@ SHELL_SRC = $(Q)/shell/program.cpp $(Q)/shell/npcs.cpp $(Q)/shell/server_text.cp
 G3D = $(G)/src/bits.cpp $(G)/src/world.cpp $(G)/src/link.cpp $(G)/src/udp.cpp ../common/cpp/third_party/torque3d/huffman.cpp
 # The 5.12 repro's world renderer (common/cpp/graal3dengine/render); its
 # stb_image part is built on its own, without -Werror, as third-party code.
-RENDER = $(addprefix $(G)/render/,mesh.cpp read_3ds.cpp read_dif.cpp read_dts.cpp read_ft.cpp terrain.cpp texture.cpp raster.cpp resources.cpp scene.cpp motion.cpp draw.cpp)
+RENDER = $(addprefix $(G)/render/,mesh.cpp read_3ds.cpp read_dif.cpp read_dts.cpp read_ft.cpp terrain.cpp texture.cpp raster.cpp resources.cpp scene.cpp motion.cpp replicate.cpp draw.cpp)
 FRANK = src/net/udp/link3d.cpp src/graal3d5120/view3d.cpp src/host6037/host.cpp
 WINDOW = $(Q)/draw/window_x11.cpp $(Q)/draw/window_native.cpp $(COCOA)
 CORE = $(NET) $(FILES) $(DRAW) $(SHELL_SRC) $(G3D) $(RENDER) $(FRANK)
