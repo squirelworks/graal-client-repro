@@ -85,7 +85,12 @@ void forEachCell(const ReplicatorState& s, int limit, const V3& control, Grow gr
   int lo = s.minObjects, hi = s.maxObjects;
   clampCounts(lo, hi, limit);
   const int radius = std::clamp(s.radius, 1, 64);
-  const int ccx = int(std::floor(control.x / kReplicatorCell)), ccy = int(std::floor(control.y / kReplicatorCell));
+  // The control object's cell, cut toward zero (replicators-512.md). The
+  // 5.12 grows nothing while that cell is (0, 0), i.e. the avatar anywhere
+  // in -8 < x, y < 8 (real 5.12 under Mesa, test H, 2026-11-26): likely
+  // its starting cell, so no cell change is ever seen.
+  const int ccx = int(control.x / kReplicatorCell), ccy = int(control.y / kReplicatorCell);
+  if (ccx == 0 && ccy == 0) return;
   for (int j = -radius; j <= radius; ++j)
     for (int i = -radius; i <= radius; ++i) {
       const int cx = ccx + i, cy = ccy + j;

@@ -2017,7 +2017,14 @@ void testReplicators() {
     s.offsetZ = 0.5f;
     s.allowTerrain = true;
     Scene sc;
-    CHECK(scatterReplicators(sc, g, t, {3, 3, 0}, res) == 18);  // 3 x 3 cells, 2 each
+    CHECK(scatterReplicators(sc, g, t, {3, 11, 0}, res) == 18);  // 3 x 3 cells, 2 each
+    {
+      // No cover while the avatar's cell (cut toward zero) is (0, 0).
+      Scene dead;
+      CHECK(scatterReplicators(dead, g, t, {-4, -4, 0}, res) == 0);
+      CHECK(scatterReplicators(dead, g, t, {7, 7, 0}, res) == 0);
+      CHECK(scatterReplicators(dead, g, t, {9, 4, 0}, res) == 18);
+    }
     CHECK(sc.objects.size() == 18);
     for (const SceneObject& o : sc.objects) {
       CHECK(o.ghost == -1 && o.shape == "rock.3ds");
@@ -2025,7 +2032,7 @@ void testReplicators() {
       CHECK(o.transform.m[0][3] >= -12 && o.transform.m[0][3] < 12);  // within 4 of a corner -8, 0 or 8
     }
     Scene again;
-    scatterReplicators(again, g, t, {3, 3, 0}, res);
+    scatterReplicators(again, g, t, {3, 11, 0}, res);
     CHECK(again.objects[7].transform.m[0][3] == sc.objects[7].transform.m[0][3]);
     // Lab 15 on the real 5.12 (seed 1, radius 1, 2 per cell, avatar at
     // 128, -128): every measured cube has a copy of ours within 0.5 m.
@@ -2055,24 +2062,24 @@ void testReplicators() {
     // A listed shape we cannot load is still picked, and not drawn.
     s.shapeFiles = "rock.3ds, missing.dts";
     Scene partial;
-    const int some = scatterReplicators(partial, g, t, {3, 3, 0}, res);
+    const int some = scatterReplicators(partial, g, t, {3, 11, 0}, res);
     CHECK(some > 0 && some < 18);
     s.shapeFiles = "rock.3ds";
     s.boxMin[0] = 0;  // the cell at x -8 has its corner outside
     Scene boxed;
-    CHECK(scatterReplicators(boxed, g, t, {3, 3, 0}, res) == 12);
+    CHECK(scatterReplicators(boxed, g, t, {3, 11, 0}, res) == 12);
     s.radius = 0;  // clamped to 1
     Scene clamped;
-    CHECK(scatterReplicators(clamped, g, t, {3, 3, 0}, res) == 12);
+    CHECK(scatterReplicators(clamped, g, t, {3, 11, 0}, res) == 12);
     s.boxMax[2] = 1;  // the ground at z 2 is above the box
     Scene high;
-    CHECK(scatterReplicators(high, g, t, {3, 3, 0}, res) == 0);
+    CHECK(scatterReplicators(high, g, t, {3, 11, 0}, res) == 0);
     s.boxMax[2] = 10;
     // A minimum above its maximum is swapped: scale 2..1 stays in 1..2.
     s.scaleMin = {2, 2, 2};
     s.scaleMax = {1, 1, 1};
     Scene swapped;
-    scatterReplicators(swapped, g, t, {3, 3, 0}, res);
+    scatterReplicators(swapped, g, t, {3, 11, 0}, res);
     for (const SceneObject& o : swapped.objects) {
       const float len = std::sqrt(o.transform.m[0][0] * o.transform.m[0][0] + o.transform.m[1][0] * o.transform.m[1][0] +
                                   o.transform.m[2][0] * o.transform.m[2][0]);
@@ -2081,13 +2088,13 @@ void testReplicators() {
     s.scaleMin = s.scaleMax = {1, 1, 1};
     s.hide = true;
     Scene hidden;
-    CHECK(scatterReplicators(hidden, g, t, {3, 3, 0}, res) == 0);
+    CHECK(scatterReplicators(hidden, g, t, {3, 11, 0}, res) == 0);
     s.hide = false;
     s.allowTerrain = false;
-    CHECK(scatterReplicators(hidden, g, t, {3, 3, 0}, res) == 0);
+    CHECK(scatterReplicators(hidden, g, t, {3, 11, 0}, res) == 0);
     s.allowTerrain = true;
     s.shapeFiles = "missing.dts";
-    CHECK(scatterReplicators(hidden, g, t, {3, 3, 0}, res) == 0);
+    CHECK(scatterReplicators(hidden, g, t, {3, 11, 0}, res) == 0);
     // The control object's place after motion: its object, else its tag.
     Scene where;
     where.objects.push_back(objectAt("rock.3ds", {4, 5, 6}));
@@ -2110,7 +2117,7 @@ void testReplicators() {
       s.radius = 1;
       s.minObjects = s.maxObjects = 50;
       Scene gs;
-      CHECK(scatterReplicators(gs, g, t, {3, 3, 0}, res) == 441);  // 9 cells, 7 x 7 of 50 each
+      CHECK(scatterReplicators(gs, g, t, {3, 11, 0}, res) == 441);  // 9 cells, 7 x 7 of 50 each
       CHECK(gs.objects.size() == 1 && gs.owned.size() == 1 && gs.objects[0].direct == gs.owned[0].get());
       const Shape& gshape = *gs.owned[0];
       CHECK(gshape.materials.size() == 1 && gshape.materials[0].texture == "grass.png");
@@ -2125,22 +2132,22 @@ void testReplicators() {
       CHECK(gshape.boundsMax.x - gshape.boundsMin.x < 26);
       s.minObjects = s.maxObjects = 250;  // clamped to 100
       Scene many;
-      CHECK(scatterReplicators(many, g, t, {3, 3, 0}, res) == 900);  // clamped to 100: 10 x 10
+      CHECK(scatterReplicators(many, g, t, {3, 11, 0}, res) == 900);  // clamped to 100: 10 x 10
       s.minObjects = s.maxObjects = 5;  // 2 x 2
       Scene five;
-      CHECK(scatterReplicators(five, g, t, {3, 3, 0}, res) == 36);
+      CHECK(scatterReplicators(five, g, t, {3, 11, 0}, res) == 36);
       // The sub-grid: piece k of a cell at (k % cols / cols - 0.5) * 8.
       const auto& fv = five.owned[0]->meshes[0].vertices;
       float centreX = 0, centreY = 0;
       for (int c = 0; c < 4; ++c) { centreX += fv[size_t(c)].position.x / 4; centreY += fv[size_t(c)].position.y / 4; }
-      CHECK(std::fabs(centreX - -12) < 1e-3f && std::fabs(centreY - -12) < 1e-3f);  // cell (-1, -1), piece 0
+      CHECK(std::fabs(centreX - -12) < 1e-3f && std::fabs(centreY - -4) < 1e-3f);  // cell (-1, 0), piece 0
       s.minObjects = s.maxObjects = 250;
       Scene again2;
-      scatterReplicators(again2, g, t, {3, 3, 0}, res);
+      scatterReplicators(again2, g, t, {3, 11, 0}, res);
       CHECK(again2.owned[0]->meshes[0].vertices[123].position.x == many.owned[0]->meshes[0].vertices[123].position.x);
       s.minObjects = s.maxObjects = 0;
       Scene none2;
-      CHECK(scatterReplicators(none2, g, t, {3, 3, 0}, res) == 0 && none2.objects.empty());
+      CHECK(scatterReplicators(none2, g, t, {3, 11, 0}, res) == 0 && none2.objects.empty());
     }
     CHECK(replicatorCellCount(77, 3, 3, 150, 150, kMaxGrassCount) == 100);
     // Two shapes in the list: each copy picks one.
@@ -2149,7 +2156,7 @@ void testReplicators() {
     s.shapeFiles = "rock.3ds,bush.3ds";
     s.minObjects = s.maxObjects = 10;
     Scene two;
-    CHECK(scatterReplicators(two, g, t, {3, 3, 0}, res) == 90);
+    CHECK(scatterReplicators(two, g, t, {3, 11, 0}, res) == 90);
     int rocks = 0;
     for (const SceneObject& o : two.objects) rocks += o.shape == "rock.3ds";
     CHECK(rocks > 0 && rocks < 90);
