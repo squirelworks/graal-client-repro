@@ -243,7 +243,7 @@ int scatterReplicators(Scene& scene, const GhostTable& ghosts, const Terrain& te
   return added;
 }
 
-bool scenePositionOf(const Scene& scene, int ghost, V3& out) {
+bool scenePositionOf(const Scene& scene, int ghost, V3& out, const GhostTable* ghosts) {
   if (ghost < 0) return false;
   for (const SceneObject& o : scene.objects)
     if (o.ghost == ghost) {
@@ -255,6 +255,14 @@ bool scenePositionOf(const Scene& scene, int ghost, V3& out) {
       out = t.transform.point({0, 0, 0});
       return true;
     }
+  if (ghosts) {
+    const auto it = ghosts->find(ghost);
+    if (it != ghosts->end() && it->second.className == "GameObject") {
+      const Vec3& p = it->second.object.position;
+      out = {p.x, p.y, p.z};
+      return true;
+    }
+  }
   return false;
 }
 

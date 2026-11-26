@@ -81,6 +81,9 @@ int scatterReplicators(Scene& scene, const GhostTable& ghosts, const Terrain& te
 
 // Where `ghost` stands in `scene` (after applyMotion): the position its
 // object or name tag was given. False when it has neither.
-bool scenePositionOf(const Scene& scene, int ghost, V3& out);
+// When the ghost draws nothing (a control object with no shape, no tag),
+// falls back to its last position in `ghosts`, so cover still centres on
+// a shapeless avatar.
+bool scenePositionOf(const Scene& scene, int ghost, V3& out, const GhostTable* ghosts = nullptr);
 
 }  // namespace graal3d::render
