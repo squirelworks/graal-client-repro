@@ -238,7 +238,7 @@ int main(int argc, char** argv) {
       so.direct = &terrain.shape;
       scene.objects.push_back(so);
       render::V3 control;
-      if (render::scenePositionOf(scene, link->controlGhost(), control)) {
+      if (render::scenePositionOf(scene, link->controlGhost(), control, &link->ghosts())) {
         const int n = render::scatterReplicators(scene, link->ghosts(), terrain.terrain, control, resources);
         if (n) std::printf("  replicator cover: %d copies\n", n);
       }

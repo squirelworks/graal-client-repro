@@ -2095,6 +2095,12 @@ void testReplicators() {
     V3 at;
     CHECK(scenePositionOf(where, 9, at) && at.x == 4 && at.y == 5 && at.z == 6);
     CHECK(!scenePositionOf(where, 8, at) && !scenePositionOf(where, -1, at));
+    // A shapeless control object is not in the scene: its ghost position.
+    GhostTable shapeless;
+    shapeless[8].className = "GameObject";
+    shapeless[8].object.position = {128, -128, 3};
+    CHECK(scenePositionOf(where, 8, at, &shapeless) && at.x == 128 && at.y == -128 && at.z == 3);
+    CHECK(!scenePositionOf(where, 7, at, &shapeless));
     // Grass (Graal_analysis PR #931): flat pieces over the same cells, a
     // texture named in shapefiles, counts up to 100, one owned shape.
     for (const char* cls : {"DynamicGrassReplicator", "DynamicGrass"}) {
