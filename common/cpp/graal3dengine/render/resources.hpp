@@ -37,8 +37,11 @@ class Resources {
   std::string find(const std::string& name) const;
 
   // Loaded and cached by lower-case name; null when missing or unreadable.
-  const Shape* shape(const std::string& name);
-  const Texture* texture(const std::string& name);
+  // `named` false: a lookup the client would not ask the server for (a
+  // replicator's shape: the 5.12 never downloads one, lab batch 2), kept
+  // out of shapesNamed() and missing().
+  const Shape* shape(const std::string& name, bool named = true);
+  const Texture* texture(const std::string& name, bool named = true);  // `named` as for shape()
 
   // Which image files load. The 5.12 client decodes a texture by its
   // content, whatever its name says, and draws only 8-bit PNG, JPEG and

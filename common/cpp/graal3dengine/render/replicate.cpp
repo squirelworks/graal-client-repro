@@ -1,5 +1,7 @@
 #include "replicate.hpp"
 
+#include "draw.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <memory>
@@ -131,6 +133,7 @@ bool groundAt(const ReplicatorState& s, const Terrain& terrain, float x, float y
 int scatterReplicators(Scene& scene, const GhostTable& ghosts, const Terrain& terrain, const V3& control,
                        Resources& res) {
   int added = 0;
+  if (!gReplicatorCover) return 0;  // 4.20r8 (draw.hpp)
   for (const auto& [index, g] : ghosts) {
     const bool shapes = g.className == "DynamicShapeReplicator";
     const bool grass = g.className == "DynamicGrass" || g.className == "DynamicGrassReplicator";
@@ -139,7 +142,7 @@ int scatterReplicators(Scene& scene, const GhostTable& ghosts, const Terrain& te
     if (s.hide || !s.allowTerrain || !terrain.present) continue;
     std::vector<std::string> names = splitShapes(s.shapeFiles);
     if (shapes) {
-      if (names.empty() || std::none_of(names.begin(), names.end(), [&](const std::string& n) { return res.shape(n) != nullptr; }))
+      if (names.empty() || std::none_of(names.begin(), names.end(), [&](const std::string& n) { return res.shape(n, false) != nullptr; }))
         continue;
       forEachCell(s, kMaxShapeCount, control, [&](R250& r, float wx, float wy, int count) {
         for (int k = 0; k < count; ++k) {
@@ -159,7 +162,7 @@ int scatterReplicators(Scene& scene, const GhostTable& ghosts, const Terrain& te
           scale.z = ranged(s.scaleMin.z, s.scaleMax.z, r.unit());
           scale.y = ranged(s.scaleMin.y, s.scaleMax.y, r.unit());
           scale.x = ranged(s.scaleMin.x, s.scaleMax.x, r.unit());
-          if (!res.shape(shape)) continue;  // a name we cannot load still takes its draws
+          if (!res.shape(shape, false)) continue;  // a name we cannot load still takes its draws
           const float d2r = 3.14159265f / 180.0f;
           M4 m = M4::translation({px, py, z + s.offsetZ}) * graalRotation({0, 0, 1}, turn.z * d2r) *
                  graalRotation({0, 1, 0}, turn.y * d2r) * graalRotation({1, 0, 0}, turn.x * d2r);
@@ -168,6 +171,7 @@ int scatterReplicators(Scene& scene, const GhostTable& ghosts, const Terrain& te
             m = m * M4::scale(scale);
           SceneObject so;
           so.ghost = -1;  // a copy: not moved as its ghost
+          so.replica = true;
           so.shape = shape;
           so.transform = m;
           scene.objects.push_back(so);
@@ -244,6 +248,7 @@ int scatterReplicators(Scene& scene, const GhostTable& ghosts, const Terrain& te
     shape->computeBounds();
     SceneObject so;
     so.ghost = -1;
+    so.replica = true;  // grass never asks for its texture (replicators-512.md)
     so.shape = "(grass)";
     so.transform = M4::identity();
     so.direct = shape.get();

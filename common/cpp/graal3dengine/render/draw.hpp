@@ -33,6 +33,7 @@
 //   line above that. Tags are not hidden behind other objects and are
 //   left out past the visible distance or off screen.
 #pragma once
+#include <string>
 
 #include "raster.hpp"
 #include "resources.hpp"
@@ -57,6 +58,22 @@ inline float gVisibleDistance3D = kDefaultVisibleDistance3D;
 inline float setVisibleDistance3D(float d) {
   gVisibleDistance3D = !(d > 0) ? kDefaultVisibleDistance3D : (d > kMaxVisibleDistance3D ? kMaxVisibleDistance3D : d);
   return gVisibleDistance3D;
+}
+// Per build. 4.20r8 fetches a .3ds material's texture but does not apply
+// it: the material draws plain white, while one with no texture draws its
+// colour (lab batch 2, real 4.20r8 and 5.12 under Mesa, 2026-11-26). Its
+// terrain is white too, as it never asks for heights.info or a terrain
+// texture (T3D-117). Off for 5.x.
+inline bool gShapeTexturesWhite = false;
+// Sets the per-build switches from the engine's build string ("4.20r8",
+// "5.12", ...). Only 4.20 is measured; other builds keep the 5.12's look.
+// 4.20r8 also takes a replicator's ghost and grows no cover under GDI or
+// Mesa (PR #951, lab batch 1).
+inline bool gReplicatorCover = true;
+inline void setClientBuild(const std::string& build) {
+  const bool v420 = build.rfind("4.20", 0) == 0;
+  gShapeTexturesWhite = v420;
+  gReplicatorCover = !v420;
 }
 constexpr float kNoSunLight = 0.25f;  // a .3ds without a Sun
 constexpr float kFixedLightFloor = 0.85f;

@@ -1385,6 +1385,18 @@ void testResources() {
     drawScene(f.frame(), s, res);
     CHECK(isColor(f.centre(), 10, 120, 30));
   }
+  // 4.20r8 draws a textured .3ds material plain white (lab batch 2).
+  {
+    setClientBuild("4.20r8");
+    TestFrame f;
+    Scene s = cameraScene({0, -5, 0});
+    s.objects.push_back(objectAt("tower.3ds", {0, 0, 0}));
+    drawScene(f.frame(), s, res);
+    const uint32_t c = f.centre();
+    CHECK(red(c) > 100 && std::abs(int(red(c)) - int(green(c))) < 8 && std::abs(int(green(c)) - int(blue(c))) < 8);  // grey-white, not green
+    setClientBuild("5.12");
+    CHECK(!gShapeTexturesWhite);
+  }
 
   // A file that lands later is found after a rescan.
   write(root / "shapes" / "later.3ds", file3ds({material3ds("m", 1, 1, 1)}, {cubeMesh("x", {0, 0, 0}, 1, "m")}));
@@ -2035,6 +2047,12 @@ void testReplicators() {
     Scene sc;
     CHECK(scatterReplicators(sc, g, t, {3, 11, 0}, res) == 18);  // 3 x 3 cells, 2 each
     {
+      setClientBuild("4.20r8");  // 4.20r8 grows no cover
+      Scene none;
+      CHECK(scatterReplicators(none, g, t, {3, 11, 0}, res) == 0);
+      setClientBuild("5.12");
+    }
+    {
       // No cover while the avatar's cell (cut toward zero) is (0, 0).
       Scene dead;
       CHECK(scatterReplicators(dead, g, t, {-4, -4, 0}, res) == 0);
@@ -2058,6 +2076,8 @@ void testReplicators() {
     Scene again;
     scatterReplicators(again, g, t, {3, 11, 0}, res);
     CHECK(again.objects[7].transform.m[0][3] == sc.objects[7].transform.m[0][3]);
+    // Replicator shapes are never asked for (the 5.12 never downloads one).
+    CHECK(sc.objects[0].replica && !res.shapesNamed().count("rock.3ds"));
     // Lab 15 on the real 5.12 (seed 1, radius 1, 2 per cell, avatar at
     // 128, -128): every measured cube has a copy of ours within 0.5 m.
     {

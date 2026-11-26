@@ -27,6 +27,9 @@ struct SceneObject {
   // A shape the caller holds (the streamed terrain); used instead of
   // looking `shape` up when set.
   const Shape* direct = nullptr;
+  // A replicator's copy: drawn from what the client already has, never
+  // asked for (the 5.12 never downloads a replicator's shape).
+  bool replica = false;
 };
 
 // A player's name tag and chat, from a GameObject with a nickname or chat

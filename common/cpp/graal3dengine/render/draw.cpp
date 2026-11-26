@@ -112,7 +112,7 @@ DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
   const V3 eye{view.cameraToWorld.m[0][3], view.cameraToWorld.m[1][3], view.cameraToWorld.m[2][3]};
 
   for (const SceneObject& obj : scene.objects) {
-    const Shape* shape = obj.direct ? obj.direct : res.shape(obj.shape);
+    const Shape* shape = obj.direct ? obj.direct : res.shape(obj.shape, !obj.replica);
     if (!shape) {
       ++stats.objectsMissing;
       continue;
@@ -144,12 +144,14 @@ DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
         const Material& m = shape->materials[t.material];
         RasterState st;
         st.fogColor = fogColor;
-        st.texture = m.texture.empty() ? nullptr : res.texture(m.texture);
+        st.texture = m.texture.empty() ? nullptr : res.texture(m.texture, !obj.replica);
         // A terrain texture must be 256 by 256, or the 5.12 logs "Terrain
         // texture of bad format" and uses its default (terrain-512.md
         // section 4; drawn white here).
         if (st.texture && shape->kind == Shape::kTerrain && (st.texture->width != 256 || st.texture->height != 256))
           st.texture = nullptr;
+        if (gShapeTexturesWhite && (shape->kind == Shape::k3ds || shape->kind == Shape::kTerrain))
+          st.texture = nullptr;  // 4.20r8: white
         st.alphaTest = m.alphaTest;
         // A material with no texture draws its colour. One whose texture is
         // missing or not drawable draws white, as the 5.12 does (T3D-032).
