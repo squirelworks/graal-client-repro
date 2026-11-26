@@ -196,6 +196,41 @@ An event scheduled by its handler's own name (`"onFoo"`) finds `onFoo`.
 `client.*` and `clientr.*` resolve to the player object when the program
 sets one, else to members of `player` (the Quattro program's weapons).
 
+## Scripts from Seihai's compiler
+
+`build/seihai-test` (part of `make test`) runs scripts that seihai-core's
+GS2 compiler wrote, in its official output shape: our own sources and the
+compiler's bytes, in `tests/seihai` (README there). Every opcode they use is
+in each profile and runs, and on 6.00 each prints what its source says.
+
+One limit is pinned there. The compiler keeps a call name it uses five
+times or in a loop in a frame slot (`makeprop`, then `setreg`). Only the
+6.00 loader folds that pair into 242, which keeps the name, so on the 4.2
+and 5.0 profiles the call through the slot finds nothing. Graal_analysis
+`client-internals/gs2-vm-quirks-by-version.md` says the same of official
+bodies on pre-6 loaders. A server must compile without the cache for 4.x
+and 5.x clients.
+
+## Function values
+
+A script function used as a value (`this.f`, or `this.function_<id>_<n>`,
+the name the official compiler gives a `function () { ... }` value: Graal_analysis
+`npc-library/gs2-official-emit-spec-2026-11-26.md`, "Lambda names") becomes
+one object per function when it is converted to an object (36) or read as a
+member that is no variable. A call through a variable that holds it runs
+that function. Called as a member of an object (`obj.f()`), `this` is that
+object; through `temp`, `params` or a bare name, `this` stays the caller's.
+
+The call shape is the official one (the captured lambda body pushes
+`this.function_<id>_<n>`, converts it to an object and assigns it). That
+`this` is the object for `obj.f()` comes from real weapon scripts that build
+their own object types this way and use `this.` inside the functions. How
+the engines store the function object is not read; this is a reading.
+
+A bare name passed as an argument (`fn(v)` inside a function) is now read in
+the caller's frame; before, the callee's parameter binding read it in its
+own frame and got 0.
+
 ## Not yet
 
 Each is refused with `opcode N (name) is not implemented` instead of
@@ -232,7 +267,9 @@ guessed.
   vertical. Each is a reading, not an observed engine result. Opcode 36 on
   a name that does not resolve leaves the name, so the list method after it
   can make the variable
-- [ ] `link` and the object compare (100, 104)
+- [x] `link` (100): `obj.link()` pushes the object itself. That is a reading
+  (Seihai's VM does the same); what kind of link the engines make is not read
+- [ ] The object compare (104)
 - [ ] The built-in command table and its signature letters (B2)
 - [ ] A show-image's `actor` (head, body, `attr[n]`): here a plain object
   that takes every property, with `attr` an array of 31. That is a reading

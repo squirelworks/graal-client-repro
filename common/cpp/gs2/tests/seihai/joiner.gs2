@@ -1,0 +1,17 @@
+// Seihai conformance script: joins the class in helper.gs2, then uses a
+// timer and a scheduled event.
+function onCreated() {
+  join("helper");
+  echo("joined " @ this.dbl(4) @ " " @ greet("bob"));
+  this.ticks = 0;
+  setTimer(0.1);
+  scheduleevent(0.5, "Later", "x");
+}
+function onTimeout() {
+  this.ticks++;
+  if (this.ticks < 3) setTimer(0.1);
+  else echo("timer " @ this.ticks);
+}
+function onLater(a) {
+  echo("later " @ a);
+}
