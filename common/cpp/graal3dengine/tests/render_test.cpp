@@ -934,6 +934,21 @@ std::vector<uint8_t> dtsFile(const DtsSpec& spec) {
       if (own) a.i32(0);
       a.g();
     }
+    if (m.type == 3) {  // sorted: one cluster over every primitive
+      a.i32(1);
+      a.i32(0);
+      a.i32(int32_t(m.prims.size()));
+      for (int i = 0; i < 3; ++i) a.f32(i == 2 ? 1.0f : 0.0f);
+      a.f32(0);
+      a.i32(-1);
+      a.i32(-1);
+      for (int arr = 0; arr < 4; ++arr) {
+        a.i32(1);
+        a.i32(arr == 2 ? int32_t(nv) : 0);
+      }
+      a.i32(1);  // always write depth
+      a.g();
+    }
   };
   for (const auto& m : d.meshes) {
     a.i32(m.type);
@@ -1024,6 +1039,24 @@ DtsSpec sampleDts() {
 bool nearV(const V3& a, const V3& b) { return std::fabs(a.x - b.x) < 1e-3f && std::fabs(a.y - b.y) < 1e-3f && std::fabs(a.z - b.z) < 1e-3f; }
 
 void testReadDts() {
+  // A sorted mesh (TSSortedMesh, in the 5.12) draws its faces as a
+  // standard one, placed by its node.
+  {
+    DtsSpec d = sampleDts();
+    d.meshes[0].type = 3;
+    Shape sorted, plain;
+    std::string e1, e2;
+    const bool ok1 = readDts(dtsFile(d), sorted, e1), ok2 = readDts(dtsFile(sampleDts()), plain, e2);
+    if (!ok1) std::fprintf(stderr, "readDts sorted: %s\n", e1.c_str());
+    CHECK(ok1 && ok2 && sorted.meshes.size() == plain.meshes.size());
+    if (ok1 && ok2 && sorted.meshes.size() == plain.meshes.size() && !sorted.meshes.empty()) {
+      CHECK(sorted.meshes[0].triangles.size() == plain.meshes[0].triangles.size());
+      CHECK(nearV(sorted.meshes[0].vertices[1].position, plain.meshes[0].vertices[1].position));
+    }
+    d.meshes[0].type = 2;  // decal: no such class in the 5.12
+    Shape decal;
+    CHECK(!readDts(dtsFile(d), decal, e1));
+  }
   Shape s;
   std::string error;
   const std::vector<uint8_t> file = dtsFile(sampleDts());
