@@ -7,9 +7,9 @@
 // material names in heights.info, one per line). The grid is 256 by 256
 // squares centred on the origin: its corner is at (-128, -128) squares.
 //
-// Drawn as the 5.12 draws it (lab batch K, Mesa): each grid point carries
-// its square's material, blended ones by a / 16, and the materials fade
-// across each square; a texture repeats every kTerrainTextureSquares
+// Drawn as the 5.12 draws it (lab batch K and T3D-162, Mesa): each square
+// puts its material on its low corner, a blended one by a / 15, and each
+// square blends its four corners bilinearly; a texture repeats every kTerrainTextureSquares
 // squares at any square size, its rows toward +y. The grid wraps at its
 // far edges as stock Torque's does.
 #pragma once

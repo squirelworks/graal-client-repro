@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -313,30 +314,41 @@ Shape terrainShape(const Terrain& t) {
     shape.computeBounds();
     return shape;
   }
-  // Each point carries its square's material (the point's square: the one
-  // it is the low corner of, wrapping at the far edges), and the weights
-  // interpolate across the squares, so an edge fades over one square with
-  // its half-way line half a square before the boundary. A blended square
-  // gives its primary a / 16 and its secondary the rest (batch K).
-  std::vector<float> weights(ids * mesh.vertices.size(), 0.0f);
-  for (int y = 0; y <= n; ++y)
-    for (int x = 0; x <= n; ++x) {
-      const size_t at = size_t(y % n) * size_t(n) + size_t(x % n);
-      const size_t vi = idx(x, y);
-      const int share = t.blendShare[at];
-      const float wp = share ? float(share) / 16.0f : 1.0f;
-      weights[size_t(t.material[at]) * mesh.vertices.size() + vi] += wp;
-      if (share) weights[size_t(t.secondary[at]) * mesh.vertices.size() + vi] += 1.0f - wp;
-    }
+  // Square (i, j) puts its material on its low corner, point (i, j), and
+  // each square blends its four corners' weights bilinearly, so an edge
+  // fades over one square with its half-way line half a square before the
+  // boundary. A blended square gives its primary a / 15 and its secondary
+  // the rest (T3D-162: steps of 1/15; a -0.04 offset left open).
+  const size_t cells = size_t(n) * size_t(n);
+  std::vector<float> weights(ids * cells, 0.0f);
+  for (size_t at = 0; at < cells; ++at) {
+    const int share = t.blendShare[at];
+    const float wp = share ? std::min(1.0f, float(share) / 15.0f) : 1.0f;
+    weights[size_t(t.material[at]) * cells + at] += wp;
+    if (share) weights[size_t(t.secondary[at]) * cells + at] += 1.0f - wp;
+  }
   for (size_t id = 0; id < ids; ++id) {
-    const float* w = &weights[id * mesh.vertices.size()];
+    const float* w = &weights[id * cells];
+    auto wAt = [&](int x, int y) { return w[size_t(y % n) * size_t(n) + size_t(x % n)]; };
     Mesh layer;
     layer.name = "terrain " + std::to_string(id);
-    for (const Triangle& tri : mesh.triangles)
-      if (w[tri.v[0]] > 0 || w[tri.v[1]] > 0 || w[tri.v[2]] > 0) layer.triangles.push_back({{tri.v[0], tri.v[1], tri.v[2]}, int(id)});
+    // The base's triangles, two per square in order: keep a square's pair
+    // when any of its corners carries this material.
+    for (size_t k = 0; k + 1 < mesh.triangles.size(); k += 2) {
+      const Vertex& lo = mesh.vertices[mesh.triangles[k].v[0]];
+      const int x = int(std::lround(lo.u * kTerrainTextureSquares)), y = int(std::lround(lo.v * kTerrainTextureSquares));
+      if (wAt(x, y) > 0 || wAt(x + 1, y) > 0 || wAt(x, y + 1) > 0 || wAt(x + 1, y + 1) > 0)
+        for (size_t q = k; q < k + 2; ++q) {
+          Triangle tri = mesh.triangles[q];
+          tri.material = int(id);
+          layer.triangles.push_back(tri);
+        }
+    }
     if (layer.triangles.empty()) continue;
     layer.vertices = mesh.vertices;
-    layer.weight.assign(w, w + mesh.vertices.size());
+    layer.weightMap.assign(w, w + cells);
+    layer.weightSize = n;
+    layer.weightScale = float(kTerrainTextureSquares);
     shape.meshes.push_back(std::move(layer));
   }
   shape.meshes.insert(shape.meshes.begin(), std::move(mesh));

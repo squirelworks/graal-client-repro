@@ -1648,7 +1648,7 @@ void testTerrain() {
   CHECK(s.meshes.size() >= 2 && s.materials.size() == 5 && s.materials[3].texture == "d");
   if (s.meshes.size() >= 2) {
     const Mesh& m = s.meshes[0];
-    CHECK(m.vertices.size() == 257u * 257u && m.weight.empty());
+    CHECK(m.vertices.size() == 257u * 257u && m.weightMap.empty());
     CHECK(m.triangles.size() == 2u * (256u * 256u - 1u));
     CHECK(nearV(m.vertices[0].position, {-1024, -1024, 0}));
     const Vertex& v = m.vertices[size_t(3 * 16) * 257 + size_t(15 * 16)];
@@ -1657,7 +1657,7 @@ void testTerrain() {
     CHECK(m.triangles[0].material == 4 && s.materials[4].color[0] == 0);
     const Mesh& l = s.meshes[1];
     CHECK(l.triangles.size() <= m.triangles.size() && l.triangles[0].material == 0);
-    CHECK(l.weight.size() == l.vertices.size() && l.weight[0] == 1);
+    CHECK(l.weightSize == 256 && l.weightMap.size() == 256u * 256u && l.weightMap[0] == 1);
     // One texture repeat every 8 squares, rows toward +y.
     CHECK(std::fabs(m.vertices[8].u - 1) < 1e-6f && std::fabs(m.vertices[8 * 257].v - 1) < 1e-6f);
   }
@@ -1702,7 +1702,8 @@ void testTerrain() {
 }
 
 // Terrain as the 5.12 draws it (lab batch K): edges fade over a square,
-// blends mix by a / 16, slopes shade only with a Sun, from a fixed side.
+// blends mix by a / 15 (T3D-162), a one-square checker reads half and half
+// at each centre (bilinear), slopes shade only with a Sun, from a fixed side.
 void testTerrainLook() {
   Terrain t;
   t.present = true;
@@ -1716,12 +1717,16 @@ void testTerrainLook() {
       t.secondary[at(x, y)] = 1;
       t.blendShare[at(x, y)] = 8;
     }
+  // A one-square checker.
+  for (int y = 40; y < 60; ++y)
+    for (int x = 40; x < 60; ++x) t.material[at(x, y)] = uint8_t((x + y) & 1);
   const Shape s = terrainShape(t);
   CHECK(s.meshes.size() == 3 && s.materials.size() == 3);
   if (s.meshes.size() != 3) return;
   const Mesh& red0 = s.meshes[1];
-  CHECK(red0.weight[129] == 1 && red0.weight[130] == 0 && s.meshes[2].weight[130] == 1);
-  CHECK(red0.weight[size_t(105) * 257 + 105] == 0.5f && s.meshes[2].weight[size_t(105) * 257 + 105] == 0.5f);
+  CHECK(red0.weightMap[129] == 1 && red0.weightMap[130] == 0 && s.meshes[2].weightMap[130] == 1);
+  const size_t mid = size_t(105) * 256 + 105;
+  CHECK(std::fabs(red0.weightMap[mid] - 8 / 15.0f) < 1e-6f && std::fabs(s.meshes[2].weightMap[mid] - 7 / 15.0f) < 1e-6f);
   Resources res;
   Texture r, b;
   r.width = r.height = b.width = b.height = 256;
@@ -1748,11 +1753,16 @@ void testTerrainLook() {
   CHECK(isColor(centre({0, 0, 0}), 255, 0, 0));
   CHECK(isColor(centre({15, 0, 0}), 32, 0, 223, 4));
   CHECK(isColor(centre({17, 0, 0}), 0, 0, 255));
-  // The blended patch: an even mix.
-  CHECK(isColor(centre({(104.5f - 128) * 8, (104.5f - 128) * 8, 0}), 128, 0, 128, 3));
-  // With a Sun, flat ground draws at 214 / 247; without, at full light.
+  // The blended patch: 8 / 15 primary.
+  CHECK(isColor(centre({(104.5f - 128) * 8, (104.5f - 128) * 8, 0}), 136, 0, 119, 3));
+  // The checker: half and half at a square's centre (a split by triangles
+  // would give all of one), all of one at a corner.
+  CHECK(isColor(centre({(50.5f - 128) * 8, (50.5f - 128) * 8, 0}), 128, 0, 128, 3));
+  CHECK(isColor(centre({(50.01f - 128) * 8, (50.01f - 128) * 8, 0}), 255, 0, 0, 8));
+  // With a Sun, flat ground draws at 0.615 + 0.96 * 0.259; without, at
+  // full light.
   scene.sun.present = true;
-  CHECK(isColor(centre({-40, 0, 0}), 221, 0, 0, 3));
+  CHECK(isColor(centre({-40, 0, 0}), 220, 0, 0, 3));
   // A slope facing +x is dark, one facing -x bright, whatever the Sun.
   Terrain hill = t;
   for (int y = 0; y < kTerrainSize; ++y)
@@ -1764,8 +1774,8 @@ void testTerrainLook() {
     }
   const Shape hs = terrainShape(hill);
   scene.objects[0].direct = &hs;
-  CHECK(isColor(centre({(100 - 128) * 8.0f, 0, (100 - 64) * 8.0f}), 255, 0, 0, 3));   // faces -x
-  CHECK(isColor(centre({(160 - 128) * 8.0f, 0, (192 - 160) * 8.0f}), 161, 0, 0, 3));  // faces +x
+  CHECK(isColor(centre({(100 - 128) * 8.0f, 0, (100 - 64) * 8.0f}), 252, 0, 0, 3));   // faces -x: the cap
+  CHECK(isColor(centre({(160 - 128) * 8.0f, 0, (192 - 160) * 8.0f}), 157, 0, 0, 3));  // faces +x: ambient
   scene.sun.present = false;
   CHECK(isColor(centre({(160 - 128) * 8.0f, 0, (192 - 160) * 8.0f}), 255, 0, 0));
 }

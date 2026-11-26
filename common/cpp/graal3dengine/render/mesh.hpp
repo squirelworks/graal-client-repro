@@ -31,10 +31,13 @@ struct Mesh {
   std::string name;
   std::vector<Vertex> vertices;
   std::vector<Triangle> triangles;
-  // Per vertex, when not empty: the mesh is an additive layer over the
-  // shape's earlier meshes, each vertex adding its colour times its weight
-  // (RasterState::additive). The terrain's material layers.
-  std::vector<float> weight;
+  // When not empty: the mesh is an additive layer over the shape's earlier
+  // meshes, weighted by this weightSize-square map read at texture
+  // coordinates times weightScale (RasterState::additive). The terrain's
+  // material layers.
+  std::vector<float> weightMap;
+  int weightSize = 0;
+  float weightScale = 1;
 };
 
 struct Shape {

@@ -47,7 +47,7 @@ void Rasterizer::drawTriangle(const RasterVertex& a, const RasterVertex& b, cons
   const RasterVertex* src[3] = {&a, &b, &c};
   for (int i = 0; i < 3; ++i) {
     const V3 p = worldToCamera_.point(src[i]->position);
-    in[i] = {p.x, p.z, p.y, src[i]->u, src[i]->v, {src[i]->light[0], src[i]->light[1], src[i]->light[2]}, src[i]->fog, src[i]->weight};
+    in[i] = {p.x, p.z, p.y, src[i]->u, src[i]->v, {src[i]->light[0], src[i]->light[1], src[i]->light[2]}, src[i]->fog};
   }
   // Clip (Sutherland-Hodgman) against the near and far planes and the four
   // sides of the view, widened by a guard band: a triangle that reaches
@@ -93,7 +93,6 @@ void Rasterizer::drawTriangle(const RasterVertex& a, const RasterVertex& b, cons
         r.v = p.v + (q.v - p.v) * t;
         for (int j = 0; j < 3; ++j) r.l[j] = p.l[j] + (q.l[j] - p.l[j]) * t;
         r.fog = p.fog + (q.fog - p.fog) * t;
-        r.weight = p.weight + (q.weight - p.weight) * t;
         next[k++] = r;
       }
     }
@@ -108,7 +107,7 @@ namespace {
 
 struct ScreenVertex {
   float sx, sy, iw;  // screen position and 1 / depth
-  float u, v, l[3], fog, weight;  // each divided by depth
+  float u, v, l[3], fog;  // each divided by depth
 };
 
 inline float edge(const ScreenVertex& a, const ScreenVertex& b, float x, float y) {
@@ -136,7 +135,6 @@ void Rasterizer::drawClipped(const ClipVertex* poly, int count, const RasterStat
     sv[i].v = p.v * iw;
     for (int j = 0; j < 3; ++j) sv[i].l[j] = p.l[j] * iw;
     sv[i].fog = p.fog * iw;
-    sv[i].weight = p.weight * iw;
   }
   const uint8_t fr = red(s.fogColor), fg = green(s.fogColor), fb = blue(s.fogColor);
   for (int t = 1; t + 1 < count; ++t) {
@@ -188,8 +186,23 @@ void Rasterizer::drawClipped(const ClipVertex* poly, int count, const RasterStat
         g = g + (fg - g) * fog;
         bch = bch + (fb - bch) * fog;
         if (s.additive) {
-          float wt = (w0 * a.weight + w1 * b.weight + w2 * c.weight) * z;
-          wt = wt < 0 ? 0 : (wt > 1 ? 1 : wt);
+          float wt = 1;
+          if (s.weightMap && s.weightSize > 0) {
+            const int n = s.weightSize;
+            const float gx = u * s.weightScale, gy = v * s.weightScale;
+            const float fx = std::floor(gx), fy = std::floor(gy);
+            const float ax = gx - fx, ay = gy - fy;
+            auto wrap = [n](float f) {
+              if (!std::isfinite(f)) return 0;
+              int i = int(std::fmod(f, float(n)));
+              return i < 0 ? i + n : i;
+            };
+            const int x0 = wrap(fx), y0 = wrap(fy), x1 = (x0 + 1) % n, y1 = (y0 + 1) % n;
+            const float* m = s.weightMap;
+            const float top = m[size_t(y0) * n + x0] * (1 - ax) + m[size_t(y0) * n + x1] * ax;
+            const float bot = m[size_t(y1) * n + x0] * (1 - ax) + m[size_t(y1) * n + x1] * ax;
+            wt = top * (1 - ay) + bot * ay;
+          }
           const uint32_t under = frame_.at(x, y);
           r = red(under) + r * wt;
           g = green(under) + g * wt;
