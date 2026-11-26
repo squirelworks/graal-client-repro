@@ -167,7 +167,7 @@ void Rasterizer::drawClipped(const ClipVertex* poly, int count, const RasterStat
         const float iw = w0 * a.iw + w1 * b.iw + w2 * c.iw;
         if (iw <= 0) continue;
         float& dz = depth_[size_t(y) * frame_.width + x];
-        if (s.depthTest && iw <= dz) continue;
+        if (s.depthTest && (s.additive ? iw < dz : iw <= dz)) continue;
         const float z = 1.0f / iw;
         const float u = (w0 * a.u + w1 * b.u + w2 * c.u) * z;
         const float v = (w0 * a.v + w1 * b.v + w2 * c.v) * z;
@@ -185,7 +185,29 @@ void Rasterizer::drawClipped(const ClipVertex* poly, int count, const RasterStat
         r = r + (fr - r) * fog;
         g = g + (fg - g) * fog;
         bch = bch + (fb - bch) * fog;
-        if (s.opacity < 1) {
+        if (s.additive) {
+          float wt = 1;
+          if (s.weightMap && s.weightSize > 0) {
+            const int n = s.weightSize;
+            const float gx = u * s.weightScale, gy = v * s.weightScale;
+            const float fx = std::floor(gx), fy = std::floor(gy);
+            const float ax = gx - fx, ay = gy - fy;
+            auto wrap = [n](float f) {
+              if (!std::isfinite(f)) return 0;
+              int i = int(std::fmod(f, float(n)));
+              return i < 0 ? i + n : i;
+            };
+            const int x0 = wrap(fx), y0 = wrap(fy), x1 = (x0 + 1) % n, y1 = (y0 + 1) % n;
+            const float* m = s.weightMap;
+            const float top = m[size_t(y0) * n + x0] * (1 - ax) + m[size_t(y0) * n + x1] * ax;
+            const float bot = m[size_t(y1) * n + x0] * (1 - ax) + m[size_t(y1) * n + x1] * ax;
+            wt = top * (1 - ay) + bot * ay;
+          }
+          const uint32_t under = frame_.at(x, y);
+          r = red(under) + r * wt;
+          g = green(under) + g * wt;
+          bch = blue(under) + bch * wt;
+        } else if (s.opacity < 1) {
           const uint32_t under = frame_.at(x, y);
           const float o = s.opacity < 0 ? 0 : s.opacity;
           r = red(under) + (r - red(under)) * o;

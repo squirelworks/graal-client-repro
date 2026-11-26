@@ -1644,20 +1644,22 @@ void testTerrain() {
 
   // The mesh: centred on the origin, 8 m squares, one hole left out.
   const Shape s = terrainShape(cached);
-  CHECK(s.meshes.size() == 1 && s.materials.size() == 4 && s.materials[3].texture == "d");
-  if (s.meshes.size() == 1) {
+  // Mesh 0, the black base, then a layer per material used.
+  CHECK(s.meshes.size() >= 2 && s.materials.size() == 5 && s.materials[3].texture == "d");
+  if (s.meshes.size() >= 2) {
     const Mesh& m = s.meshes[0];
-    CHECK(m.vertices.size() == 257u * 257u);
+    CHECK(m.vertices.size() == 257u * 257u && m.weightMap.empty());
     CHECK(m.triangles.size() == 2u * (256u * 256u - 1u));
     CHECK(nearV(m.vertices[0].position, {-1024, -1024, 0}));
     const Vertex& v = m.vertices[size_t(3 * 16) * 257 + size_t(15 * 16)];
     CHECK(nearV(v.position, {(240 - 128) * 8.0f, (48 - 128) * 8.0f, 5.0f}));
     CHECK(nearV(m.vertices[256].position, {1024, -1024, 0}));  // wraps to point 0
-    // Every square draws with the first texture, whatever its material
-    // (the 5.12 on Mesa: grass and sand squares drew as water).
-    bool allFirst = true;
-    for (const auto& tri : m.triangles) allFirst = allFirst && tri.material == 0;
-    CHECK(allFirst);
+    CHECK(m.triangles[0].material == 4 && s.materials[4].color[0] == 0);
+    const Mesh& l = s.meshes[1];
+    CHECK(l.triangles.size() <= m.triangles.size() && l.triangles[0].material == 0);
+    CHECK(l.weightSize == 256 && l.weightMap.size() == 256u * 256u && l.weightMap[0] == 1);
+    // One texture repeat every 8 squares, rows toward +y.
+    CHECK(std::fabs(m.vertices[8].u - 1) < 1e-6f && std::fabs(m.vertices[8 * 257].v - 1) < 1e-6f);
   }
 
   // Drawn from above: the terrain fills the view in its texture's colour.
@@ -1674,7 +1676,6 @@ void testTerrain() {
   scene.hasCamera = true;
   scene.view.fovDegrees = 60;
   scene.view.cameraToWorld = graalTransform({0, 0, 50}, {1, 0, 0}, 1.5708f);  // looking down
-  scene.sun.present = true;
   SceneObject obj;
   obj.direct = &s;
   obj.transform = M4::identity();
@@ -1698,6 +1699,85 @@ void testTerrain() {
   scene.water.push_back(w);
   drawScene({px.data(), 64, 48, 64}, scene, res);
   CHECK(isColor(px[24 * 64 + 32], 15, 100, 130));
+}
+
+// Terrain as the 5.12 draws it (lab batch K): edges fade over a square,
+// blends mix by a / 15 (T3D-162), a one-square checker reads half and half
+// at each centre (bilinear), slopes shade only with a Sun, from a fixed side.
+void testTerrainLook() {
+  Terrain t;
+  t.present = true;
+  t.materials = {"red", "blue"};
+  auto at = [](int x, int y) { return size_t(y) * kTerrainSize + size_t(x); };
+  for (int y = 0; y < kTerrainSize; ++y)
+    for (int x = 130; x < kTerrainSize; ++x) t.material[at(x, y)] = 1;
+  // A blended patch: red primary at 8 / 16, blue secondary.
+  for (int y = 100; y < 110; ++y)
+    for (int x = 100; x < 110; ++x) {
+      t.secondary[at(x, y)] = 1;
+      t.blendShare[at(x, y)] = 8;
+    }
+  // A one-square checker.
+  for (int y = 40; y < 60; ++y)
+    for (int x = 40; x < 60; ++x) t.material[at(x, y)] = uint8_t((x + y) & 1);
+  const Shape s = terrainShape(t);
+  CHECK(s.meshes.size() == 3 && s.materials.size() == 3);
+  if (s.meshes.size() != 3) return;
+  const Mesh& red0 = s.meshes[1];
+  CHECK(red0.weightMap[129] == 1 && red0.weightMap[130] == 0 && s.meshes[2].weightMap[130] == 1);
+  const size_t mid = size_t(105) * 256 + 105;
+  CHECK(std::fabs(red0.weightMap[mid] - 8 / 15.0f) < 1e-6f && std::fabs(s.meshes[2].weightMap[mid] - 7 / 15.0f) < 1e-6f);
+  Resources res;
+  Texture r, b;
+  r.width = r.height = b.width = b.height = 256;
+  r.pixels.assign(256 * 256, packRgba(255, 0, 0));
+  b.pixels.assign(256 * 256, packRgba(0, 0, 255));
+  res.putTexture("red", r);
+  res.putTexture("blue", b);
+  Scene scene;
+  scene.hasCamera = true;
+  scene.view.fovDegrees = 10;
+  SceneObject obj;
+  obj.direct = &s;
+  obj.transform = M4::identity();
+  scene.objects.push_back(obj);
+  std::vector<uint32_t> px(32 * 32);
+  auto centre = [&](V3 at) {
+    scene.view.cameraToWorld = graalTransform(at + V3{0, 0, 20}, {1, 0, 0}, 1.5708f);  // looking down
+    drawScene({px.data(), 32, 32, 32}, scene, res);
+    return px[16 * 32 + 16];
+  };
+  // Point 129 (x = 8) red, 130 (x = 16) blue: half way at x = 12, half a
+  // square before the boundary at 16.
+  CHECK(isColor(centre({12, 0, 0}), 128, 0, 128, 3));
+  CHECK(isColor(centre({0, 0, 0}), 255, 0, 0));
+  CHECK(isColor(centre({15, 0, 0}), 32, 0, 223, 4));
+  CHECK(isColor(centre({17, 0, 0}), 0, 0, 255));
+  // The blended patch: 8 / 15 primary.
+  CHECK(isColor(centre({(104.5f - 128) * 8, (104.5f - 128) * 8, 0}), 136, 0, 119, 3));
+  // The checker: half and half at a square's centre (a split by triangles
+  // would give all of one), all of one at a corner.
+  CHECK(isColor(centre({(50.5f - 128) * 8, (50.5f - 128) * 8, 0}), 128, 0, 128, 3));
+  CHECK(isColor(centre({(50.01f - 128) * 8, (50.01f - 128) * 8, 0}), 255, 0, 0, 8));
+  // With a Sun, flat ground draws at 0.615 + 0.96 * 0.259; without, at
+  // full light.
+  scene.sun.present = true;
+  CHECK(isColor(centre({-40, 0, 0}), 220, 0, 0, 3));
+  // A slope facing +x is dark, one facing -x bright, whatever the Sun.
+  Terrain hill = t;
+  for (int y = 0; y < kTerrainSize; ++y)
+    for (int x = 0; x < kTerrainSize; ++x) {
+      hill.material[at(x, y)] = 0;
+      hill.blendShare[at(x, y)] = 0;
+      const int d = x < 128 ? x - 64 : 192 - x;  // up to x 128, then down
+      hill.heights[at(x, y)] = uint16_t(std::max(0, d) * 8 * 32);  // 1 in 1
+    }
+  const Shape hs = terrainShape(hill);
+  scene.objects[0].direct = &hs;
+  CHECK(isColor(centre({(100 - 128) * 8.0f, 0, (100 - 64) * 8.0f}), 252, 0, 0, 3));   // faces -x: the cap
+  CHECK(isColor(centre({(160 - 128) * 8.0f, 0, (192 - 160) * 8.0f}), 157, 0, 0, 3));  // faces +x: ambient
+  scene.sun.present = false;
+  CHECK(isColor(centre({(160 - 128) * 8.0f, 0, (192 - 160) * 8.0f}), 255, 0, 0));
 }
 
 void testStreamedTerrain() {
@@ -2222,6 +2302,7 @@ int main() {
   testLabels();
   testFtTrees();
   testStreamedTerrain();
+  testTerrainLook();
   testTerrain();
   testClientImageFormats();
   testReplicators();

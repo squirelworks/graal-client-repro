@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -256,10 +257,13 @@ Shape terrainShape(const Terrain& t) {
   const int n = kTerrainSize;
   const float sq = t.squareSize > 0 ? t.squareSize : 8.0f;
   const float corner = -128.0f * sq;
-  // One mesh, so lighting is smooth across material edges; a material per
-  // id named in heights.info (or used by a square).
+  // A material per id named in heights.info (or used by a square), then
+  // the black base.
   size_t ids = t.materials.size();
-  for (uint8_t m : t.material) ids = std::max(ids, size_t(m) + 1);
+  for (size_t i = 0; i < t.material.size(); ++i) {
+    ids = std::max(ids, size_t(t.material[i]) + 1);
+    if (t.blendShare[i]) ids = std::max(ids, size_t(t.secondary[i]) + 1);
+  }
   for (size_t id = 0; id < ids; ++id) {
     Material m;
     m.name = id < t.materials.size() ? t.materials[id] : std::string();
@@ -267,8 +271,17 @@ Shape terrainShape(const Terrain& t) {
     m.alphaTest = false;
     shape.materials.push_back(m);
   }
+  const int base = int(shape.materials.size());
+  {
+    Material black;
+    black.name = "terrain base";
+    for (float& c : black.color) c = 0;
+    black.alphaTest = false;
+    shape.materials.push_back(black);
+  }
   // The grid of points is 257 by 257, the last row and column wrapping to
-  // the first.
+  // the first. One texture repeat covers kTerrainTextureSquares squares,
+  // image columns toward +x and rows toward +y (terrain-512.md, batch K).
   const float uvStep = 1.0f / float(kTerrainTextureSquares);
   Mesh mesh;
   mesh.name = "terrain";
@@ -286,23 +299,59 @@ Shape terrainShape(const Terrain& t) {
     for (int x = 0; x < n; ++x) {
       const size_t at = size_t(y) * size_t(n) + size_t(x);
       if (t.hole[at]) continue;
-      // The 5.12 draws every square with the first texture in heights.info,
-      // whatever material the square has: two labs on Mesa (T3D-044, and
-      // lab batch 2, 2026-11-26) saw grass and sand squares drawn
-      // as the lit water texture, with no blending.
-      const int mi = 0;
       const uint32_t a = idx(x, y), b = idx(x + 1, y), c = idx(x + 1, y + 1), d = idx(x, y + 1);
       // Stock Torque alternates the split by square.
       if ((x ^ y) & 1) {
-        mesh.triangles.push_back({{a, b, d}, mi});
-        mesh.triangles.push_back({{b, c, d}, mi});
+        mesh.triangles.push_back({{a, b, d}, base});
+        mesh.triangles.push_back({{b, c, d}, base});
       } else {
-        mesh.triangles.push_back({{a, b, c}, mi});
-        mesh.triangles.push_back({{a, c, d}, mi});
+        mesh.triangles.push_back({{a, b, c}, base});
+        mesh.triangles.push_back({{a, c, d}, base});
       }
     }
   computeNormals(mesh);
-  if (!mesh.triangles.empty()) shape.meshes.push_back(std::move(mesh));
+  if (mesh.triangles.empty()) {
+    shape.computeBounds();
+    return shape;
+  }
+  // Square (i, j) puts its material on its low corner, point (i, j), and
+  // each square blends its four corners' weights bilinearly, so an edge
+  // fades over one square with its half-way line half a square before the
+  // boundary. A blended square gives its primary a / 15 and its secondary
+  // the rest (T3D-162: steps of 1/15; a -0.04 offset left open).
+  const size_t cells = size_t(n) * size_t(n);
+  std::vector<float> weights(ids * cells, 0.0f);
+  for (size_t at = 0; at < cells; ++at) {
+    const int share = t.blendShare[at];
+    const float wp = share ? std::min(1.0f, float(share) / 15.0f) : 1.0f;
+    weights[size_t(t.material[at]) * cells + at] += wp;
+    if (share) weights[size_t(t.secondary[at]) * cells + at] += 1.0f - wp;
+  }
+  for (size_t id = 0; id < ids; ++id) {
+    const float* w = &weights[id * cells];
+    auto wAt = [&](int x, int y) { return w[size_t(y % n) * size_t(n) + size_t(x % n)]; };
+    Mesh layer;
+    layer.name = "terrain " + std::to_string(id);
+    // The base's triangles, two per square in order: keep a square's pair
+    // when any of its corners carries this material.
+    for (size_t k = 0; k + 1 < mesh.triangles.size(); k += 2) {
+      const Vertex& lo = mesh.vertices[mesh.triangles[k].v[0]];
+      const int x = int(std::lround(lo.u * kTerrainTextureSquares)), y = int(std::lround(lo.v * kTerrainTextureSquares));
+      if (wAt(x, y) > 0 || wAt(x + 1, y) > 0 || wAt(x, y + 1) > 0 || wAt(x + 1, y + 1) > 0)
+        for (size_t q = k; q < k + 2; ++q) {
+          Triangle tri = mesh.triangles[q];
+          tri.material = int(id);
+          layer.triangles.push_back(tri);
+        }
+    }
+    if (layer.triangles.empty()) continue;
+    layer.vertices = mesh.vertices;
+    layer.weightMap.assign(w, w + cells);
+    layer.weightSize = n;
+    layer.weightScale = float(kTerrainTextureSquares);
+    shape.meshes.push_back(std::move(layer));
+  }
+  shape.meshes.insert(shape.meshes.begin(), std::move(mesh));
   shape.computeBounds();
   return shape;
 }

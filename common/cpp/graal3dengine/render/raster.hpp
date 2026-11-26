@@ -44,6 +44,17 @@ struct RasterState {
   bool clampTexture = false;
   // Below 1, the pixel is blended over what is there (water).
   float opacity = 1;
+  // An additive layer: the pixel adds its colour times its weight to what
+  // is there, wherever the depth is no nearer than what is stored (the
+  // same triangle drawn again passes), writing no depth. The weight is
+  // read from `weightMap`, weightSize by weightSize values, at
+  // (u, v) * weightScale, blending the four nearest values bilinearly
+  // (value (i, j) sits exactly at (i, j)) and wrapping. Terrain materials:
+  // a black base, then one layer per material, the weights summing to 1.
+  bool additive = false;
+  const float* weightMap = nullptr;
+  int weightSize = 0;
+  float weightScale = 1;
 };
 
 // Where a world point lands on a width by height frame seen through
