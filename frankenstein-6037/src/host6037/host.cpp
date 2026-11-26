@@ -1,6 +1,7 @@
 #include "host.hpp"
 
 #include <chrono>
+#include <cstdio>
 
 namespace Frank {
 
@@ -21,16 +22,37 @@ std::string strip_marker(const std::string& raw, bool& is3d) {
   return raw;
 }
 
+namespace {
+double seconds_now() {
+  return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+}  // namespace
+
 void ViewWindow::present(const Torque::Gui::Image& frame) {
   if (!enabled || !link || link->loginStep() < 6 || frame.empty()) {
+    world_link_ = nullptr;
     inner_.present(frame);
     return;
   }
-  out_ = Torque::Gui::Image(frame.width, frame.height);
-  // The 5.12 renderer while the server names a Camera; else the stand-in.
-  const double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
-  if (!draw_world3d(out_, *link, world3d, now, &last))
-    last = draw_view3d(out_, link->ghosts(), link->controlGhost(), link->controlPosition());
+  // The 6.x program counts its timers and walking in 50 ms ticks, and this
+  // is called once a tick. In the lab (2026-11-26, a 2-CPU VM) the software
+  // renderer took 90 to 180 ms a frame, and every GS2 timer and walk ran 2
+  // to 3.6 times slow. So the 3D frame takes at most about half the time:
+  // after a frame that took t, the next waits t, and the ticks between show
+  // the last 3D frame under a live 6.x inset.
+  const double now = seconds_now();
+  const bool stale = world_link_ != link || world_.width != frame.width || world_.height != frame.height;
+  if (stale || now >= next_world_) {
+    world_ = Torque::Gui::Image(frame.width, frame.height);
+    // The 5.12 renderer while the server names a Camera; else the stand-in.
+    if (!draw_world3d(world_, *link, world3d, now, &last))
+      last = draw_view3d(world_, link->ghosts(), link->controlGhost(), link->controlPosition());
+    world_link_ = link;
+    ++worlds_drawn;
+    const double end = seconds_now();
+    next_world_ = end + (end - now);
+  }
+  out_ = world_;
   draw_inset(out_, frame, 4);
   inner_.present(out_);
 }
@@ -136,8 +158,23 @@ bool Host::start_offline(const std::string& level, double x, double y) {
   return program_->start_offline(level, x, y);
 }
 
+// In 5.12 a 3D client script's `player` is its own GameObject, and
+// `player.position` reads where it is (Graal_analysis lab #458). The 6.x
+// program's `player` is the 2D player, so the control object's position is
+// copied onto it each tick ("x y z", Torque metres) for weapons the 3D
+// world sends. Read only: a script setting it moves nothing yet.
+void Host::mirror_control_position() {
+  const graal3d::Link* l = link_.link();
+  if (!program_ || !mode3d_ || !l || step_ < 5 || l->controlGhost() < 0) return;
+  const graal3d::Vec3 p = l->controlPosition();
+  char text[96];
+  std::snprintf(text, sizeof text, "%g %g %g", p.x, p.y, p.z);
+  program_->scripts().player()->childOrCreate("position")->setString(text);
+}
+
 bool Host::tick() {
   if (!program_) return false;
+  mirror_control_position();
   const bool go = program_->tick();
   link_.pump();
   view_.link = mode3d_ && view3d ? link_.link() : nullptr;
