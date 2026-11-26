@@ -199,10 +199,10 @@ int scatterReplicators(Scene& scene, const GhostTable& ghosts, const Terrain& te
         float z;
         V3 n;
         if (!groundAt(s, terrain, px, py, z, n)) continue;
-        // A card lying on the ground at its own yaw and tilt (Graal_analysis
-        // PR #968): about a metre across at scale 1, x/y scale enlarging
-        // both sides. The yaw is the turn drawn above; the tilt, from the
-        // next draw, is the rebuild's own (up to kGrassMaxTilt).
+        // A flat card on the ground at its own yaw (Graal_analysis PR #968,
+        // #973): about 0.6 across at scale 1, x/y scale enlarging both
+        // sides. The yaw is the turn drawn above; the tilt draw (0 while
+        // kGrassMaxTilt is 0) is the rebuild's own.
         const float tilt = r.unit() * kGrassMaxTilt * 3.14159265f / 180.0f;
         const float hx = kGrassCard * 0.5f * sx, hy = kGrassCard * 0.5f * sy;
         const float c = std::cos(turn), sn = std::sin(turn), ct = std::cos(tilt), st = std::sin(tilt);

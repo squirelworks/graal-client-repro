@@ -2084,14 +2084,12 @@ void testReplicators() {
       const Shape& gshape = *gs.owned[0];
       CHECK(gshape.materials.size() == 1 && gshape.materials[0].texture == "grass.png");
       CHECK(gshape.meshes.size() == 1 && gshape.meshes[0].triangles.size() == 882);
-      // Cards on the ground (z 2 + offset 0.5), a metre across at scale 1,
-      // tilted at most 30 degrees.
-      for (const Vertex& v : gshape.meshes[0].vertices)
-        CHECK(v.position.z >= 2.5f && v.position.z <= 2.52f + 0.5f + 1e-3f);
+      // Flat cards on the ground (z 2 + offset 0.5 + lift), 0.6 across.
+      for (const Vertex& v : gshape.meshes[0].vertices) CHECK(std::fabs(v.position.z - 2.52f) < 1e-3f);
       {
         const auto& v = gshape.meshes[0].vertices;
         const float dx = v[1].position.x - v[0].position.x, dy = v[1].position.y - v[0].position.y;
-        CHECK(std::fabs(std::sqrt(dx * dx + dy * dy) - 1) < 1e-3f);
+        CHECK(std::fabs(std::sqrt(dx * dx + dy * dy) - 0.6f) < 1e-3f);
       }
       CHECK(gshape.boundsMax.x - gshape.boundsMin.x < 26);
       s.minObjects = s.maxObjects = 250;  // clamped to 100
