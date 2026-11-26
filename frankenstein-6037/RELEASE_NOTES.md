@@ -14,7 +14,11 @@ from the `frankenstein-v` series.
 - The 3D world is drawn by the 5.12 repro's renderer while the server names
   a Camera: sky, `.3ds`, `.dts` and `.dif` shapes from `levels3d/`, the
   streamed terrain, water and name tags, lit and moved as the lab saw the
-  real 5.12 do. The stand-in view remains for a server with no Camera.
+  real 5.12 do. The stand-in view is gone: until the server names a Camera
+  the view is black, as the 5.12's is.
+- The draw distance is the player's `visibledistance3D` from a
+  `game_config.txt` beside the program or in an asset root (1000 by
+  default, at most 2400, as the 5.12).
 - First lab run against a real server (seihai-gserver `graal3d`,
   2026-11-26): GS2 timers and walking no longer slow down while the 3D view
   draws (the program keeps its 50 ms tick as its clock; the 3D frame takes

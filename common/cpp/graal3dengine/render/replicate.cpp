@@ -63,20 +63,23 @@ uint32_t R250::next() {
   const int j = index_ >= 147 ? index_ - 147 : index_ + 103;
   const uint32_t n = buf_[index_] ^= buf_[j];
   index_ = index_ + 1 == 250 ? 0 : index_ + 1;
-  return n;
+  return n >> 1;
 }
 
 int replicatorCellCount(int32_t seed, int cx, int cy, int minObjects, int maxObjects, int limit) {
   clampCounts(minObjects, maxObjects, limit);
+  if (minObjects == maxObjects) return minObjects;  // no draw (lab 15)
   R250 r(seed + 256 * (cy & 255) + (cx & 255));
-  const uint32_t first = r.next();
-  return minObjects == maxObjects ? minObjects : minObjects + int(first % uint32_t(maxObjects - minObjects + 1));
+  return minObjects + int(r.next() % uint32_t(maxObjects - minObjects + 1));
 }
 
 namespace {
 
 // Calls `grow(r, wx, wy, count)` for each cell of `s` around `control`
-// whose corner is in the box, `r` positioned after the count draw.
+// whose corner is in the box, `r` positioned after the count draw. With
+// min equal to max the 5.12 draws no count: the first number already goes
+// to the first copy's x (lab 15 on the real 5.12: 9/9 and 17/17 copies
+// within 0.5 m, mean 0.1 m, Graal_analysis torque/replicators-512.md).
 template <typename Grow>
 void forEachCell(const ReplicatorState& s, int limit, const V3& control, Grow grow) {
   int lo = s.minObjects, hi = s.maxObjects;
@@ -91,8 +94,7 @@ void forEachCell(const ReplicatorState& s, int limit, const V3& control, Grow gr
             wy < float(s.boxMax[1])))
         continue;
       R250 r(s.seed + 256 * (cy & 255) + (cx & 255));
-      const uint32_t first = r.next();
-      const int count = lo == hi ? lo : lo + int(first % uint32_t(hi - lo + 1));
+      const int count = lo == hi ? lo : lo + int(r.next() % uint32_t(hi - lo + 1));
       if (!grow(r, wx, wy, count)) return;
     }
 }
@@ -199,10 +201,10 @@ int scatterReplicators(Scene& scene, const GhostTable& ghosts, const Terrain& te
         float z;
         V3 n;
         if (!groundAt(s, terrain, px, py, z, n)) continue;
-        // A card lying on the ground at its own yaw and tilt (Graal_analysis
-        // PR #968): about a metre across at scale 1, x/y scale enlarging
-        // both sides. The yaw is the turn drawn above; the tilt, from the
-        // next draw, is the rebuild's own (up to kGrassMaxTilt).
+        // A flat card on the ground at its own yaw (Graal_analysis PR #968,
+        // #973): about 0.6 across at scale 1, x/y scale enlarging both
+        // sides. The yaw is the turn drawn above; the tilt draw (0 while
+        // kGrassMaxTilt is 0) is the rebuild's own.
         const float tilt = r.unit() * kGrassMaxTilt * 3.14159265f / 180.0f;
         const float hx = kGrassCard * 0.5f * sx, hy = kGrassCard * 0.5f * sy;
         const float c = std::cos(turn), sn = std::sin(turn), ct = std::cos(tilt), st = std::sin(tilt);

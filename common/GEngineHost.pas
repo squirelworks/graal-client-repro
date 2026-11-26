@@ -88,6 +88,7 @@ type
     procedure SetError(const S: string);
     procedure Start3D;
     procedure Unload3D;
+    procedure Apply3DConfig;
     procedure Present3D;
   public
     { The frame the engine draws into, sized to the window. }
@@ -1574,8 +1575,52 @@ begin
     end;
     Load3D('');
     Note('Graal3D loaded');
+    Apply3DConfig;
   end;
   Connect(FLastName, FLastHost, FLastPort);
+end;
+
+{ The player's draw distance: visibledistance3D in the install's
+  game_config.txt (key=value), 1000 when absent; the library clamps it to
+  2400 as the 5.12 does (Graal_analysis T3D-075). }
+procedure TEngineHost.Apply3DConfig;
+type
+  TSetDistance = function(D: Single): Single; cdecl;
+var
+  SetDistance: TSetDistance;
+  Lines: TStringList;
+  I, Eq: Integer;
+  Key: string;
+  Value: Single;
+  Fmt: TFormatSettings;
+begin
+  if F3DLib = 0 then Exit;
+  Fmt := DefaultFormatSettings;
+  Fmt.DecimalSeparator := '.';
+  SetDistance := TSetDistance(GetProcedureAddress(TLibHandle(F3DLib), 'graal3dengine_setVisibleDistance'));
+  if not Assigned(SetDistance) then Exit;
+  Value := 0;
+  Lines := TStringList.Create;
+  try
+    if FileExists(ExtractFilePath(FLibPath) + 'game_config.txt') then
+      try
+        Lines.LoadFromFile(ExtractFilePath(FLibPath) + 'game_config.txt');
+      except
+        Lines.Clear;
+      end;
+    for I := 0 to Lines.Count - 1 do
+    begin
+      Eq := Pos('=', Lines[I]);
+      if Eq = 0 then Continue;
+      Key := LowerCase(Trim(Copy(Lines[I], 1, Eq - 1)));
+      if Key = 'visibledistance3d' then
+        Value := StrToFloatDef(Trim(Copy(Lines[I], Eq + 1, MaxInt)), 0, Fmt);
+    end;
+  finally
+    Lines.Free;
+  end;
+  Value := SetDistance(Value);
+  if Value <> 1000 then Note('Graal3D draw distance ' + IntToStr(Round(Value)));
 end;
 
 procedure TEngineHost.Unload3D;

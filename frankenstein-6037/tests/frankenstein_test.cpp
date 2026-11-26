@@ -40,24 +40,26 @@ void test_marker() {
 }
 
 void test_view() {
-  Torque::Gui::Image img(64, 48);
+  Torque::Gui::Image img(64, 48, {9, 9, 9, 255});
   graal3d::GhostTable ghosts;
-  auto st = Frank::draw_view3d(img, ghosts, -1, {});
-  CHECK(st.objects == 0 && !st.control);
-  // Sky above, ground below, with nothing in the table.
-  CHECK(img.at(32, 2).a == 255 && img.at(32, 45).a == 255);
-  CHECK(img.at(32, 2) != img.at(32, 45));
+  // No Camera named: black, as the 5.12 (no stand-in).
+  {
+    Frank::World3D none;
+    none.roots.push_back("no-such-levels3d");
+    std::map<int, std::string> noChunks;
+    Frank::View3DStats st;
+    CHECK(!Frank::draw_world3d(img, ghosts, -1, -1, 0, noChunks, 0, none, 0, &st));
+    CHECK(img.at(32, 2) == (Torque::Gui::Color{0, 0, 0, 255}) && st.objects == 0);
+  }
+  // The draw distance from a game_config.txt.
+  CHECK(Frank::visible_distance_from_config("foo=1\nVisibleDistance3D = 1800\r\nfogdistance3D=10\n") == 1800);
+  CHECK(Frank::visible_distance_from_config("visibledistance3D=\n") == 0);
+  CHECK(Frank::load_visible_distance({"no-such-config.txt"}) == 1000);
   graal3d::Ghost g;
   g.className = "GameObject";
   g.object.hasTransform = true;
   g.object.position = {0, 0, 0};
   ghosts[3] = g;
-  st = Frank::draw_view3d(img, ghosts, 3, {0, 0, 0});
-  CHECK(st.objects == 1 && st.control);
-  // The control object is drawn in yellow somewhere.
-  bool yellow = false;
-  for (const auto& p : img.pixels) yellow = yellow || (p.r == 255 && p.g == 220 && p.b == 64);
-  CHECK(yellow);
   Torque::Gui::Image inset(64, 48, {1, 2, 3, 255});
   Frank::draw_inset(img, inset, 4);
   CHECK(img.at(8, 48 - 12 - 8) == (Torque::Gui::Color{1, 2, 3, 255}));

@@ -48,9 +48,8 @@ void ViewWindow::present(const Torque::Gui::Image& frame) {
   const bool stale = world_link_ != link || world_.width != frame.width || world_.height != frame.height;
   if (stale || now >= next_world_) {
     world_ = Torque::Gui::Image(frame.width, frame.height);
-    // The 5.12 renderer while the server names a Camera; else the stand-in.
-    if (!draw_world3d(world_, *link, world3d, now, &last))
-      last = draw_view3d(world_, link->ghosts(), link->controlGhost(), link->controlPosition());
+    // The 5.12 renderer; black until the server names a Camera, as the 5.12.
+    draw_world3d(world_, *link, world3d, now, &last);
     world_link_ = link;
     ++worlds_drawn;
     const double end = seconds_now();
@@ -75,6 +74,16 @@ Host::Host(Quattro::Shell::Options opt, Quattro::Draw::Window& window)
   files3d_dir_ = opt_.assets.empty() ? std::string("levels3d") : opt_.assets + "/levels3d";
   if (std::find(view_.world3d.roots.begin(), view_.world3d.roots.end(), files3d_dir_) == view_.world3d.roots.end())
     view_.world3d.roots.push_back(files3d_dir_);
+  // The player's draw distance, from a 5.12-style game_config.txt in the
+  // install, beside the program or in an asset root (T3D-075: 1000 when
+  // none sets it).
+  std::vector<std::string> configs;
+  if (!opt_.assets.empty()) configs.push_back(opt_.assets + "/game_config.txt");
+  configs.push_back("game_config.txt");
+  for (const auto& r : opt_.asset_roots) configs.push_back(r + "/game_config.txt");
+  const float visible = load_visible_distance(configs);
+  if (visible != 1000.0f)  // the 5.12 default
+    say("Graal3D: draw distance " + std::to_string(static_cast<int>(visible)));
 }
 
 Link3D::Callbacks Host::callbacks() {

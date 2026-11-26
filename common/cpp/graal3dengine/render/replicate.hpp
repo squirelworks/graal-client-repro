@@ -4,8 +4,9 @@
 // its corner lies in the world-space x/y box. Each cell's count comes from
 // stock Torque's R250 stream seeded with seed + 256 (cy & 255) + (cx & 255).
 //
-// DynamicGrass and DynamicGrassReplicator grow over the same cells: cards
-// about a metre across lying on the ground, each at its own yaw and tilt,
+// DynamicGrass and DynamicGrassReplicator grow over the same cells: flat
+// square cards about 0.6 across lying on the ground, each at its own random
+// yaw (not the shaperotate range; PR #973),
 // textured from the names in shapefiles (an alpha texture draws as soft
 // shapes), the count clamped to 0-100 (Graal_analysis PR #931, #964, #968
 // under Mesa).
@@ -21,10 +22,13 @@
 // uniform in its range with a minimum above its maximum swapped; it sits
 // at the ground hit plus offsetz (replicators-512.md).
 //
+// Not modelled: on the real 5.12 a replicator with radius 1, one object a
+// cell and scale 1 all together grows nothing, though any one of those
+// alone grows (PR #973; the reason is not known yet).
+//
 // The rebuild's own until a lab check: an animated shape's extra draw
-// (r mod 64 + 1) is not taken, as no shape here animates yet; a grass
-// piece's size (half a metre times its x/y scale), turn (z only) and lift;
-// no terrain alignment; cover only on terrain (interiors, statics and
+// (r mod 64 + 1) is not taken, as no shape here animates yet; which draw
+// gives a grass card's yaw, and its lift; no terrain alignment; cover only on terrain (interiors, statics and
 // water are not tried); and at most kMaxReplicas copies in all.
 #pragma once
 
@@ -42,11 +46,11 @@ constexpr int kMaxReplicas = 20000;
 // PR #931).
 constexpr int kMaxShapeCount = 20;
 constexpr int kMaxGrassCount = 100;
-// A grass card's side before its x and y scale: about a metre (PR #968
-// close-up); its largest tilt off the ground and its lift against depth
-// fighting are the rebuild's own.
-constexpr float kGrassCard = 1.0f;
-constexpr float kGrassMaxTilt = 30.0f;
+// A grass card's side before its x and y scale: about 0.6 (an overhead
+// ruler, Graal_analysis PR #973). Cards lie flat; kGrassMaxTilt is kept for
+// a lab that sees them tilt. The lift against depth fighting is ours.
+constexpr float kGrassCard = 0.6f;
+constexpr float kGrassMaxTilt = 0.0f;
 constexpr float kGrassLift = 0.02f;
 
 // Stock Torque's R250 (MRandomR250): a 250-word shift register seeded
@@ -54,8 +58,10 @@ constexpr float kGrassLift = 0.02f;
 class R250 {
  public:
   explicit R250(int32_t seed);
+  // randI: the updated word shifted right once (31 bits), as stock Torque.
   uint32_t next();
-  float unit() { return float(next() & 0x7FFFFFFF) / 2147483648.0f; }  // [0, 1)
+  // The 5.12's copy offset: next() / 2^31, in [0, 1) (lab 15 fit).
+  float unit() { return float(double(next()) / 2147483648.0); }
 
  private:
   uint32_t buf_[250];

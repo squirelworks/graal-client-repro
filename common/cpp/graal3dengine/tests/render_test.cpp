@@ -2027,6 +2027,31 @@ void testReplicators() {
     Scene again;
     scatterReplicators(again, g, t, {3, 3, 0}, res);
     CHECK(again.objects[7].transform.m[0][3] == sc.objects[7].transform.m[0][3]);
+    // Lab 15 on the real 5.12 (seed 1, radius 1, 2 per cell, avatar at
+    // 128, -128): every measured cube has a copy of ours within 0.5 m.
+    {
+      GhostTable lab = g;
+      ReplicatorState& l = lab[5].replicator;
+      l.seed = 1;
+      l.boxMin[0] = l.boxMin[1] = -1024;
+      l.boxMax[0] = l.boxMax[1] = 1024;
+      l.boxMin[2] = -100;
+      l.boxMax[2] = 100;
+      Scene ls;
+      CHECK(scatterReplicators(ls, lab, t, {128, -128, 0}, res) == 18);
+      const float measured[][2] = {{119.62f, -137.28f}, {119.12f, -136.08f}, {130.76f, -136.18f},
+                                   {124.89f, -133.10f}, {138.72f, -134.09f}, {133.84f, -137.48f},
+                                   {124.00f, -125.44f}, {122.21f, -123.35f}, {124.10f, -129.02f},
+                                   {129.57f, -124.24f}, {139.12f, -130.51f}, {136.63f, -123.65f},
+                                   {120.81f, -124.94f}, {118.92f, -117.48f}, {125.39f, -123.75f},
+                                   {130.96f, -121.86f}, {132.85f, -119.77f}};
+      for (const auto& m : measured) {
+        float best = 1e9f;
+        for (const SceneObject& o : ls.objects)
+          best = std::min(best, std::hypot(o.transform.m[0][3] - m[0], o.transform.m[1][3] - m[1]));
+        CHECK(best < 0.5f);
+      }
+    }
     // A listed shape we cannot load is still picked, and not drawn.
     s.shapeFiles = "rock.3ds, missing.dts";
     Scene partial;
@@ -2084,14 +2109,12 @@ void testReplicators() {
       const Shape& gshape = *gs.owned[0];
       CHECK(gshape.materials.size() == 1 && gshape.materials[0].texture == "grass.png");
       CHECK(gshape.meshes.size() == 1 && gshape.meshes[0].triangles.size() == 882);
-      // Cards on the ground (z 2 + offset 0.5), a metre across at scale 1,
-      // tilted at most 30 degrees.
-      for (const Vertex& v : gshape.meshes[0].vertices)
-        CHECK(v.position.z >= 2.5f && v.position.z <= 2.52f + 0.5f + 1e-3f);
+      // Flat cards on the ground (z 2 + offset 0.5 + lift), 0.6 across.
+      for (const Vertex& v : gshape.meshes[0].vertices) CHECK(std::fabs(v.position.z - 2.52f) < 1e-3f);
       {
         const auto& v = gshape.meshes[0].vertices;
         const float dx = v[1].position.x - v[0].position.x, dy = v[1].position.y - v[0].position.y;
-        CHECK(std::fabs(std::sqrt(dx * dx + dy * dy) - 1) < 1e-3f);
+        CHECK(std::fabs(std::sqrt(dx * dx + dy * dy) - 0.6f) < 1e-3f);
       }
       CHECK(gshape.boundsMax.x - gshape.boundsMin.x < 26);
       s.minObjects = s.maxObjects = 250;  // clamped to 100

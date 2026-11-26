@@ -3,9 +3,8 @@
 // While the server names a Camera, the world is drawn by the 5.12 repro's
 // renderer (common/cpp/graal3dengine/render): the sky, the shapes in
 // levels3d/, the streamed terrain, water, name tags, with the lab's
-// lighting and movement. Without a Camera, the Frankenstein draws its own
-// stand-in: the sky's fog colour, a ground grid at z = 0 and each
-// GameObject as a box, seen from behind the control object.
+// lighting and movement. Without a Camera the view is black, as the 5.12's
+// is until the server names one.
 #pragma once
 
 #include <map>
@@ -36,8 +35,8 @@ struct World3D {
 };
 
 // Draws `link`'s world over all of `frame` with the 5.12 renderer, the
-// name tags in the tag colour. False (nothing drawn) when the server has
-// named no Camera. `now` is in seconds.
+// name tags in the tag colour. False when the server has named no Camera:
+// the frame is black, as on the 5.12. `now` is in seconds.
 bool draw_world3d(Torque::Gui::Image& frame, const graal3d::Link& link, World3D& world, double now,
                   View3DStats* stats = nullptr);
 // The same from a ghost table: the camera and control ghosts, the field of
@@ -46,10 +45,12 @@ bool draw_world3d(Torque::Gui::Image& frame, const graal3d::GhostTable& ghosts, 
                   const std::map<int, std::string>& chunks, int chunkCount, World3D& world, double now,
                   View3DStats* stats = nullptr);
 
-// Draws the stand-in view over all of `frame`. `control` is the control object's
-// ghost index (-1: none); `control_at` is where its movement has taken it.
-View3DStats draw_view3d(Torque::Gui::Image& frame, const graal3d::GhostTable& ghosts, int control,
-                        const graal3d::Vec3& control_at);
+// The player's draw distance: `visibledistance3D` in a 5.12-style
+// game_config.txt (key=value lines, the key in any case); 0 when absent.
+float visible_distance_from_config(const std::string& text);
+// Reads the first of `paths` that sets it and gives it to the renderer
+// (1000 when none does, at most 2400, as the 5.12). Returns the value used.
+float load_visible_distance(const std::vector<std::string>& paths);
 
 // Copies `inset` into the bottom-left of `frame`, scaled down by `div`,
 // with a one-pixel frame (the 6.x HUD and chat stay in view in 3D mode).
