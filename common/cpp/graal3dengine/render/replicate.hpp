@@ -58,8 +58,10 @@ constexpr float kGrassLift = 0.02f;
 class R250 {
  public:
   explicit R250(int32_t seed);
+  // randI: the updated word shifted right once (31 bits), as stock Torque.
   uint32_t next();
-  float unit() { return float(next() & 0x7FFFFFFF) / 2147483648.0f; }  // [0, 1)
+  // The 5.12's copy offset: next() / 2^31, in [0, 1) (lab 15 fit).
+  float unit() { return float(double(next()) / 2147483648.0); }
 
  private:
   uint32_t buf_[250];
