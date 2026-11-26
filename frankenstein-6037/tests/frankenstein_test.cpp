@@ -215,10 +215,15 @@ void test_warp_into_3d() {
   // The host going away sends the 3D disconnect (0x26).
   int disconnects = 0;
   host.close();
-  udp.wait(200);
-  std::string d, from;
-  while (udp.receiveFrom(d, from))
-    if (static_cast<uint8_t>(d[0]) == 0x26) ++disconnects;
+  // Data packets from the last ticks may come first, and on macOS the
+  // loopback can hand the datagrams over one at a time: read for a while.
+  const auto until = std::chrono::steady_clock::now() + std::chrono::milliseconds(500);
+  while (disconnects == 0 && std::chrono::steady_clock::now() < until) {
+    udp.wait(50);
+    std::string d, from;
+    while (udp.receiveFrom(d, from))
+      if (static_cast<uint8_t>(d[0]) == 0x26) ++disconnects;
+  }
   CHECK(disconnects == 1);
   if (failures)
     for (const auto& l : logs) std::fprintf(stderr, "  log: %s\n", l.c_str());
