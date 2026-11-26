@@ -90,9 +90,9 @@ void Resources::note(const std::string& what) {
   if (log_ && logged_.insert(what).second) log_(what);
 }
 
-const Shape* Resources::shape(const std::string& name) {
+const Shape* Resources::shape(const std::string& name, bool named) {
   const std::string key = lowerName(name);
-  shapesNamed_.insert(key);
+  if (named) shapesNamed_.insert(key);
   auto it = shapes_.find(key);
   if (it != shapes_.end()) return it->second.get();
   std::unique_ptr<Shape> loaded;
@@ -100,7 +100,7 @@ const Shape* Resources::shape(const std::string& name) {
   const std::string ext = extensionOf(key);
   if (path.empty()) {
     note("Graal3D: shape " + name + " is not here");
-    missing_.insert(key);
+    if (named) missing_.insert(key);
   } else if (ext != ".3ds" && ext != ".dts" && ext != ".dif" && ext != ".ft") {
     note("Graal3D: cannot draw " + ext + " shapes yet (" + name + ")");
   } else {
@@ -154,7 +154,7 @@ std::string Resources::lookupTexturePath(const std::string& name) const {
   return {};
 }
 
-const Texture* Resources::texture(const std::string& name) {
+const Texture* Resources::texture(const std::string& name, bool named) {
   if (name.empty()) return nullptr;
   const std::string key = lowerName(name);
   auto it = textures_.find(key);
@@ -163,7 +163,7 @@ const Texture* Resources::texture(const std::string& name) {
   const std::string path = lookupTexturePath(key);
   if (path.empty()) {
     note("Graal3D: texture " + name + " is not here");
-    missing_.insert(key);
+    if (named) missing_.insert(key);
   } else {
     std::vector<uint8_t> bytes;
     auto t = std::make_unique<Texture>();

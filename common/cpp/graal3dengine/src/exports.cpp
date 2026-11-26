@@ -66,6 +66,7 @@ void G3D_CALL cbConnect(const char* host, int32_t port) {
   login.password = password;
   const char* build = graalengine_build();
   login.protocol = graal3d::protocolForBuild(build ? build : "");
+  graal3d::render::setClientBuild(build ? build : "");
   uint32_t seq = s.sequence;
   if (!seq) seq = (nowMs() * 2654435761u) & 0x7FFFFFFEu;
   login.connectSequence = seq;
