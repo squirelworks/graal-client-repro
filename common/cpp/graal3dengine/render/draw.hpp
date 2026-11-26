@@ -2,10 +2,11 @@
 // lit as the 5.12 lights it (only the sky takes the fog).
 //
 // Rebuild choices, to be checked side by side with a real 5.12 in the lab:
-// - Objects and water are never fogged or clipped by distance (lab fog
-//   run under Mesa: cubes out to 800 m drawn untinted behind a visible
-//   distance of 100; the Sky's visible distance changed nothing). The far
-//   plane is the fixed kFarPlane.
+// - Objects and water are never fogged (lab fog run under Mesa: cubes out
+//   to 800 m drawn untinted; the Sky's visible distance changed nothing).
+//   They are cut at the client's own draw distance, visibledistance3D in
+//   game_config.txt: 1000 by default, at most 2400 (T3D-075, Graal_analysis
+//   PR #962). The far plane is gVisibleDistance3D.
 // - The sky (lab T3D-046, real 5.12): entries 0 to 3 of the sky line draw
 //   on -y, +x, +y and -x, each mirrored left to right with up still up;
 //   entry 4 on top, its image's top toward +y; entry 5, the floor, only
@@ -45,8 +46,18 @@ constexpr float kSkyFogBand = 0.25f;
 // is logged). The tree is still read and grown (read_ft.hpp); a host may
 // set this to draw it.
 inline bool gDrawFtTrees = false;
-// The far plane, fixed (the visible distance does nothing in the 5.12).
-constexpr float kFarPlane = 10000.0f;
+// The draw distance: the client's visibledistance3D (T3D-075), 1000 by
+// default and clamped to 2400 as the 5.12 clamps it. A host sets it from
+// the player's game_config.txt with setVisibleDistance3D.
+constexpr float kDefaultVisibleDistance3D = 1000.0f;
+constexpr float kMaxVisibleDistance3D = 2400.0f;
+inline float gVisibleDistance3D = kDefaultVisibleDistance3D;
+// Sets gVisibleDistance3D, clamped to (0, 2400]; returns what it set. A
+// value that is not a positive number leaves the default.
+inline float setVisibleDistance3D(float d) {
+  gVisibleDistance3D = !(d > 0) ? kDefaultVisibleDistance3D : (d > kMaxVisibleDistance3D ? kMaxVisibleDistance3D : d);
+  return gVisibleDistance3D;
+}
 constexpr float kNoSunLight = 0.25f;  // a .3ds without a Sun
 constexpr float kFixedLightFloor = 0.85f;
 

@@ -203,6 +203,10 @@ G3D_API void G3D_CALL graal3dengine_addResourceFolder(const char* folder) {
 
 G3D_API void G3D_CALL graal3dengine_rescanResources(void) { st().resources.rescan(); }
 
+G3D_API float G3D_CALL graal3dengine_setVisibleDistance(float distance) {
+  return graal3d::render::setVisibleDistance3D(distance);
+}
+
 G3D_API int32_t G3D_CALL graal3dengine_renderFrame(uint32_t* pixels, int32_t width, int32_t height, int32_t stride) {
   auto& s = st();
   if (!pixels || width <= 0 || height <= 0 || stride < width) return 0;

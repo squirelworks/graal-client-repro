@@ -18,7 +18,8 @@
 // chain of default rotations and translations); a skin mesh's initial
 // vertices are already in shape space. Triangle lists, strips and fans
 // become triangles. A primitive flagged as having no material is not drawn.
-// Sorted and decal meshes are refused (not read yet).
+// Sorted meshes are drawn as standard ones (their translucency order is
+// not kept); decal meshes, a class the 5.12 lacks, are refused.
 #pragma once
 
 #include "mesh.hpp"

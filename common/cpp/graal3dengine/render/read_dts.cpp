@@ -232,6 +232,20 @@ bool readMesh(Alloc& a, int version, int type, std::vector<RawMesh>& meshes, Raw
     if (!p) a.skip32(nn);
     a.checkGuard();
   }
+  if (type == kSorted) {
+    // TSSortedMesh (in the 5.12, Graal_analysis PR #952): the clusters
+    // that order its faces for translucency, then the per-frame vertex
+    // runs and the depth flag. The faces are the base mesh's; the order
+    // is not kept (every face is drawn with the depth buffer).
+    const size_t nc = a.count(a.s32(), "sorted cluster");
+    a.skip32(nc * 8);  // start and end primitive, normal, k, front and back cluster
+    for (const char* what : {"cluster start", "first vertex", "vertex count", "first texture vertex"}) {
+      const size_t n = a.count(a.s32(), what);
+      a.skip32(n);
+    }
+    a.s32();  // always write depth
+    a.checkGuard();
+  }
   return !a.bad;
 }
 
@@ -490,11 +504,9 @@ bool readDts(const uint8_t* data, size_t size, Shape& out, std::string& error) {
   for (size_t i = 0; i < h.meshes && !a.bad; ++i) {
     const int type = a.s32();
     if (type == kNull) continue;
-    if (type == kDecal || type == kSorted) {
-      error = std::string("dts: ") + (type == kDecal ? "decal" : "sorted") + " meshes are not read yet";
-      return false;
-    }
-    if (type != kStandard && type != kSkin) return error = "dts: unknown mesh type " + std::to_string(type), false;
+    // The 5.12 has no decal mesh class (Graal_analysis PR #952).
+    if (type == kDecal) return error = "dts: decal meshes are not read", false;
+    if (type != kStandard && type != kSkin && type != kSorted) return error = "dts: unknown mesh type " + std::to_string(type), false;
     if (!readMesh(a, version, type, meshes, meshes[i])) break;
   }
   if (a.bad) return error = a.why, false;
@@ -564,7 +576,7 @@ bool readDts(const uint8_t* data, size_t size, Shape& out, std::string& error) {
       if (mi < 0 || size_t(mi) >= meshes.size() || !meshes[size_t(mi)].present) continue;
       const RawMesh& raw = meshes[size_t(mi)];
       M4 place = M4::identity();
-      if (raw.type == kStandard && o.node >= 0 && size_t(o.node) < world.size()) place = world[size_t(o.node)];
+      if (raw.type != kSkin && o.node >= 0 && size_t(o.node) < world.size()) place = world[size_t(o.node)];
       Mesh m;
       buildMesh(raw, place, shape.materials.size(), m);
       if (m.triangles.empty()) continue;
