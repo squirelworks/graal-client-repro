@@ -40,8 +40,11 @@ class Link3D {
   void close();
 
   void event_lines(const std::string& lines);
+  // Moves the own object (graal3d::Link::moveControlTo) and sends it.
+  void move_control(const graal3d::Vec3& at);
   bool active() const { return link_ != nullptr; }
   const graal3d::Link* link() const { return link_.get(); }
+  graal3d::Link* link() { return link_.get(); }
   uint16_t local_port() const { return socket_.localPort(); }
 
   static uint32_t now_ms();

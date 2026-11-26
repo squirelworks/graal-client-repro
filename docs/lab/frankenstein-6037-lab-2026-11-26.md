@@ -83,3 +83,27 @@ Still missing before the view matches a real 5.12 session:
   sending section 5/9 updates; a script setting `player.position`;
 - the camera: the server's Camera ghost is drawn as sent; no mouse-look;
 - name tags for `G2DPlayer_` ghosts.
+
+## Second run: own movement and step-6 files
+
+Same setup, with the server fix applied (squirelworks/seihai-gserver#210),
+two Frankenstein clients started from clean copies of the 2D assets (no
+`levels3d/` folder, no `--asset-root`).
+
+| Check | Result |
+|---|---|
+| Step-6 files | the client asked for the shapes the renderer could not find (`ground.3ds`, `labcube.3ds`) by name over TCP; the server's pushed terrain files (`heights.info` and four textures) were kept too. All went to the install's `levels3d/` and drew: terrain textures, water, the ground and the cubes, on both clients |
+| Own movement, from the arrows | the server received a position and transform each step (half a tile a tick as the 6.x walk goes; Right 3 s took x from 34.5 to 64.5, Up 2 s took y from -26 to -5.5) |
+| Own movement, from a script | a 3D weapon setting `player.position = "40 -30 1"` moved the object there; the server received it |
+| Others see it | the second client drew the first one's object at each new place (start, after the walk right, after the walk up, after the script move) |
+| Server moves | still glide; an arrow step during a glide ends it where it is and walks on from there |
+| Unit tests | link (own move sends the transform once), render, Quattro and Frankenstein tests pass |
+
+How it works, in short: an arrow step of the 6.x player moves the own
+object by the same amount (a tile a metre, the 2D y down being the Torque
+-y), only while an arrow is held, so warps and server moves of the 2D
+player do not echo into 3D. A script that changes `player.position` moves
+the object there on the next tick. Files: the renderer lists the names it
+could not find; each is asked for once with `PLI_WANTFILE`, and in 3D a
+file the 2D side did not ask for is kept in `<assets>/levels3d/` and the
+renderer rescans.

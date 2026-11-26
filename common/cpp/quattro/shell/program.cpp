@@ -179,6 +179,12 @@ void Program::want_file(const std::string& name) {
   if (log) log("asking for " + name);
 }
 
+void Program::ask_file(const std::string& name) {
+  if (!Draw::safe_file_name(name)) return;
+  session_.connection().send(23, name);  // PLI_WANTFILE
+  if (log) log("asking for " + name);
+}
+
 void Program::ask_for_missing() {
   // The real 5.x clients ask with 23 for a file they do not have (the
   // lab's 5.12 asked for its fonts, steps2.wav and push.gani so,
@@ -278,6 +284,14 @@ bool Program::wanted(const std::string& name) const {
 }
 
 void Program::save_download(const std::string& name, const std::string& data) {
+  if (!wanted(name) && claims_file && Draw::safe_file_name(name) && claims_file(name)) {
+    if (data.size() > opt_.max_download) {
+      if (log) log(name + " is too large to keep");
+    } else if (take_file) {
+      take_file(name, data);
+    }
+    return;
+  }
   // Only a file this program asked for is kept; anything else the server
   // sends is dropped.
   if (!wanted(name) || opt_.assets.empty()) return;
@@ -1100,7 +1114,8 @@ void Program::on_message(int id, std::string_view body) {
       break;
     }
     case 68:  // PLO_LARGEFILESTART: name; 102 chunks follow until 69
-      if (wanted(std::string(body))) large_[std::string(body)].clear();
+      if (wanted(std::string(body)) || (claims_file && Draw::safe_file_name(std::string(body)) && claims_file(std::string(body))))
+        large_[std::string(body)].clear();
       break;
     case 69:  // PLO_LARGEFILEEND: name
       if (auto it = large_.find(std::string(body)); it != large_.end()) {

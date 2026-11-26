@@ -77,6 +77,14 @@ void Link3D::close() {
   socket_.close();
 }
 
+void Link3D::move_control(const graal3d::Vec3& at) {
+  if (!link_) return;
+  link_->moveControlTo(at);
+  link_->tick(now_ms());
+  flush();
+  settle();
+}
+
 void Link3D::event_lines(const std::string& lines) {
   if (!link_) return;
   std::istringstream in(lines);
