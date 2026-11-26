@@ -11,7 +11,7 @@ results only; captures, logs and screenshots stay off the repo.
 |---|---|
 | Server | `seihai-gserver` main `5915349` (`graal3d = true`, UDP on port + 1, `lobby_port` for the 178 warp, `movetype interpolate`, a `-G3P` weapon that sends `g3dpos` at 15 s and 35 s), the lab world from the earlier 3D runs (terrain, water, sky, a cube, a ground shape). One server process serves the Login lobby and the `3 Frank Lab` game port |
 | Clients | `frankenstein-6037` Linux build from main `cbfe639f` (then with this PR); stock Linux 6.03r7 (`G3D0511C`, unpacked, unchanged) |
-| Network | Linux lab VM, two private network namespaces joined by a veth pair: server `10.77.0.1`, clients `10.77.0.2`. Nothing reaches outside the VM. The stock client's `loginserver` name points at `10.77.0.1` through a private `/etc/hosts` mount |
+| Network | Linux lab VM: server and clients in two private network namespaces joined by a veth pair. Nothing reaches outside the VM. The stock client's login-server name points at the lab server through a private hosts-file mount |
 | Driving | Xvfb per client, `xdotool` keys, `xwd` screenshots; the server's `graal3d_trace` |
 
 Not done here: the Windows build in the Windows 10 VM. The host had under
