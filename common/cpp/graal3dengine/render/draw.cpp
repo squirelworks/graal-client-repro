@@ -19,6 +19,10 @@ void drawSkyBox(Rasterizer& r, const Scene& scene, Resources& res, float farPlan
   const V3 eye{scene.view.cameraToWorld.m[0][3], scene.view.cameraToWorld.m[1][3], scene.view.cameraToWorld.m[2][3]};
   const float s = farPlane * 0.5f;
   const SkyBox& sky = scene.sky;
+  // Every name on the sky line is looked up (and so asked for when no root
+  // has it), whatever is drawn: the 5.12 downloads the bottom face and
+  // cloud textures with the flags off (lab T3D-086).
+  for (const std::string& name : sky.fetch) res.texture(name);
   RasterState st;
   st.depthTest = false;
   st.depthWrite = false;

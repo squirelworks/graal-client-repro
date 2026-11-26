@@ -67,7 +67,10 @@ side by side with a real 5.12:
   mirrored left to right; entry 4 on top, its image's top toward +y;
   entry 5 drawn as a floor only when the second option is set; the fog colour below the horizon with a band of it
   fading up; the solid colour when the first option is off. Cloud layers
-  and fog volumes are read but not drawn.
+  and fog volumes are read but not drawn. Every name on the sky line (the
+  bottom face and any cloud textures included) is looked up, and so asked
+  for when missing, whatever the options, as the 5.12 downloads them all
+  (T3D-086).
 - Lighting (lighting probe and follow-ups, under Mesa): the Sun's
   direction, colour and ambient shade nothing. A `.3ds` face is lit by a
   fixed light from about (-x, -y, +z): 1.0 facing it, 0.85 facing away;

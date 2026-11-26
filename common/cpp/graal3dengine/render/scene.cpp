@@ -132,15 +132,19 @@ Scene sceneFromGhosts(const GhostTable& ghosts, int cameraGhost, float fovDegree
       scene.sky.solidColor[0] = clamp01(g.sky.solidColor.x);
       scene.sky.solidColor[1] = clamp01(g.sky.solidColor.y);
       scene.sky.solidColor[2] = clamp01(g.sky.solidColor.z);
-      // The texture field is a comma list; the first six are the box.
+      // The texture field is a comma list; the first six are the box, any
+      // after them cloud layers (asked for, never drawn).
       size_t start = 0;
-      for (int i = 0; i < 6 && start <= g.sky.textures.size(); ++i) {
+      for (int i = 0; start <= g.sky.textures.size(); ++i) {
         size_t comma = g.sky.textures.find(',', start);
         if (comma == std::string::npos) comma = g.sky.textures.size();
         std::string name = g.sky.textures.substr(start, comma - start);
         while (!name.empty() && name.front() == ' ') name.erase(name.begin());
         while (!name.empty() && name.back() == ' ') name.pop_back();
-        if (name != "-") scene.sky.textures[i] = name;
+        if (name != "-") {
+          if (i < 6) scene.sky.textures[i] = name;
+          if (!name.empty()) scene.sky.fetch.push_back(name);
+        }
         start = comma + 1;
       }
     }
