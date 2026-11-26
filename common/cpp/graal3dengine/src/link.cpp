@@ -715,8 +715,11 @@ void Link::queueEventLine(const std::string& line) {
 
 void Link::flushEventLines() {
   if (eventLines_.empty() || state_ != State::Connected) return;
+  // Lines joined by newlines, with none after the last: the 5.12 sent
+  // `t gui,ConfProbe,cf,ready,1` as 26 bytes (conformance C008, seihai-
+  // gserver g3d trace, 2026-11-26).
   std::string text;
-  for (const auto& l : eventLines_) text += l + "\n";
+  for (const auto& l : eventLines_) text += (text.empty() ? "" : "\n") + l;
   eventLines_.clear();
   // One `events` message: a start event, then chunks of up to 191 bytes.
   // Sent uncompressed (the real client zips over 49 bytes; the reader

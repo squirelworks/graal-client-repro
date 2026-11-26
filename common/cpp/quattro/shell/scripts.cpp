@@ -243,7 +243,11 @@ ScriptHost::ScriptHost(gs2::Profile profile) : machine_(profile) {
     std::vector<std::string> f{"serverside"};
     for (size_t i = 1; i < a.size(); ++i) f.push_back(m.toString(a[i]));
     if (event_line_) {
-      f[0] = "weapon";
+      // The kind goes as the script gave it: a 4.20r6 sent
+      // triggerserver("gui","Ev3D",...) as `t gui,Ev3D,...` (Graal_analysis
+      // torque/3d-client-events-420r6-2026-11-25.md), and the conformance
+      // probes report with "gui" (C008).
+      f[0] = a.empty() ? std::string("weapon") : m.toString(a[0]);
       event_line_("t " + to_csv(f));
     } else if (send_) {
       send_(38, trigger_body(0, 0, to_csv(f)));

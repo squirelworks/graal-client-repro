@@ -92,6 +92,7 @@ void Resources::note(const std::string& what) {
 
 const Shape* Resources::shape(const std::string& name) {
   const std::string key = lowerName(name);
+  shapesNamed_.insert(key);
   auto it = shapes_.find(key);
   if (it != shapes_.end()) return it->second.get();
   std::unique_ptr<Shape> loaded;
@@ -189,6 +190,21 @@ const Texture* Resources::texture(const std::string& name) {
   const Texture* result = loaded.get();
   textures_[key] = std::move(loaded);
   return result;
+}
+
+void Resources::forget(const std::string& name) {
+  const std::string key = lowerName(name);
+  shapes_.erase(key);
+  textures_.erase(key);
+  // A texture stored without its extension is looked up with one.
+  std::string stem = key;
+  const std::string ext = extensionOf(key);
+  if (!ext.empty()) stem = key.substr(0, key.size() - ext.size());
+  for (auto it = textures_.begin(); it != textures_.end();) {
+    const std::string& k = it->first;
+    const bool same = k == stem || k.compare(0, stem.size() + 1, stem + ".") == 0;
+    it = same ? textures_.erase(it) : std::next(it);
+  }
 }
 
 void Resources::putShape(const std::string& name, Shape shape) {

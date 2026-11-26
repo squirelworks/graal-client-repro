@@ -326,7 +326,7 @@ void test_v4_bytecode() {
   CHECK(h.fire("Bow"));
   h.tick();
   CHECK(sent.size() == before);
-  CHECK(lines.size() == 1 && lines[0] == "t weapon,Bow,shot");
+  CHECK(lines.size() == 1 && lines[0] == "t gui,Bow,shot");  // the kind as given
   for (const auto& e : h.machine().errors()) std::fprintf(stderr, "%s\n", e.c_str());
   CHECK(h.machine().errors().empty());
   fs::remove_all(dir);

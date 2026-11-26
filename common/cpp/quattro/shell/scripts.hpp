@@ -100,7 +100,7 @@ class ScriptHost {
   void set_send(SendFn fn) { send_ = std::move(fn); }
   // In 3D mode the client's script events go over the Graal3D link as
   // `events` lines (torque/udp-session.md §7): with this set, triggerserver
-  // sends `t weapon,<weapon>,<params>` through it instead of C->S 38.
+  // sends `t <kind>,<weapon>,<params>` through it instead of C->S 38.
   void set_event_line(std::function<void(const std::string&)> fn) { event_line_ = std::move(fn); }
   // The cache folder for this server: <assets>/weblevels/<host>. Empty: no
   // disk cache (every 197 then asks again).

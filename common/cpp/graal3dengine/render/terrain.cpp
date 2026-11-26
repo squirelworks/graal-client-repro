@@ -286,7 +286,11 @@ Shape terrainShape(const Terrain& t) {
     for (int x = 0; x < n; ++x) {
       const size_t at = size_t(y) * size_t(n) + size_t(x);
       if (t.hole[at]) continue;
-      const int mi = t.material[at];
+      // The 5.12 draws every square with the first texture in heights.info,
+      // whatever material the square has: two labs on Mesa (T3D-044, and
+      // lab batch 2, 2026-11-26) saw grass and sand squares drawn
+      // as the lit water texture, with no blending.
+      const int mi = 0;
       const uint32_t a = idx(x, y), b = idx(x + 1, y), c = idx(x + 1, y + 1), d = idx(x, y + 1);
       // Stock Torque alternates the split by square.
       if ((x ^ y) & 1) {
