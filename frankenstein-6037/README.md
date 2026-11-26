@@ -61,7 +61,10 @@ frankenstein-6037 --offline start.nw --assets DIR
 With the default server name (`Login`) the Login server's warp decides; a
 `3 ` warp takes the player into 3D. The secure login follows the player's
 setting as `quattro-play` does. `--headless --seconds N --shot FILE.png`
-runs without a window and saves the last frame. The 3D server must take
+runs without a window and saves the last frame. The program keeps the 6.x
+50 ms tick as its clock, and draws the 3D frame at most about half the
+time, so GS2 timers and walking stay real-time when the software
+renderer is slower than a tick. The 3D server must take
 protocol 24 on its port + 1, as the Seihai gserver's `graal3d` mode does.
 
 ## Build and test
@@ -168,7 +171,13 @@ frankenstein-6037/
       TCP), `TerrainChunkEvent`, and the `fixedudpport` option (14899).
 - [ ] The 6.x start screen and server list: the program starts straight
       into its session, as `quattro-play` does.
-- [ ] A lab run against the Seihai gserver's `graal3d` mode.
+- [x] A lab run against the Seihai gserver's `graal3d` mode
+      ([`docs/lab/frankenstein-6037-lab-2026-11-26.md`](../docs/lab/frankenstein-6037-lab-2026-11-26.md)):
+      login, the 178 warp, the UDP link to step 6, ghosts, server moves
+      and the 6.x inset work; the server must offer 6.03r7-token logins to
+      its UDP side (seihai-gserver, same day).
+- [ ] The own 3D object following the 2D walk, and `player.position`
+      set by a script (it is read only).
 
 ## Rules for this folder
 

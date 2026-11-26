@@ -127,11 +127,20 @@ int main(int argc, char** argv) {
     return 1;
   }
   const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(seconds);
+  // The 6.x program's clock is its 50 ms tick (timers, walking). Ticks keep
+  // to that clock: one that runs long is caught up by the next ones, which
+  // the 3D view leaves cheap (ViewWindow::present); more than 250 ms behind,
+  // the backlog is dropped.
+  const auto tick = std::chrono::milliseconds(50);
+  auto next = std::chrono::steady_clock::now();
   for (;;) {
     const auto t0 = std::chrono::steady_clock::now();
     if (!host.tick()) break;
     if (seconds > 0 && t0 >= end) break;
-    std::this_thread::sleep_until(t0 + std::chrono::milliseconds(50));
+    next += tick;
+    const auto after = std::chrono::steady_clock::now();
+    if (after - next > 5 * tick) next = after;
+    std::this_thread::sleep_until(next);
   }
   std::printf("server %s, 3D %s, login step %d\n", host.server().c_str(), host.mode3d() ? "yes" : "no",
               host.login_step());

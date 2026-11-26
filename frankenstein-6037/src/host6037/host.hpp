@@ -47,10 +47,17 @@ class ViewWindow : public Quattro::Draw::Window {
   bool enabled = true;
   View3DStats last;
   World3D world3d;  // the 5.12 renderer's state (resource folders in world3d.roots)
+  int worlds_drawn = 0;  // 3D frames drawn (the inset is redrawn on every frame)
 
  private:
   Quattro::Draw::Window& inner_;
   Torque::Gui::Image out_;
+  // The last 3D frame, and when the next may be drawn. The software
+  // renderer can take longer than the program's 50 ms tick; the 3D frame
+  // is then kept and the 6.x frame over it stays live (see present()).
+  Torque::Gui::Image world_;
+  const graal3d::Link* world_link_ = nullptr;
+  double next_world_ = 0;
 };
 
 class Host {
@@ -85,6 +92,7 @@ class Host {
   void say(const std::string& s) {
     if (log) log(s);
   }
+  void mirror_control_position();
 
   const Quattro::Net::BuildProfile* profile_;
   Quattro::Shell::Options opt_;

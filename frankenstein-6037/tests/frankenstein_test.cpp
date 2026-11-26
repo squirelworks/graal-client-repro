@@ -193,7 +193,15 @@ void test_warp_into_3d() {
   host.tick();
   CHECK(window.frames() > 0);
   CHECK(host.view().last.control);
+  CHECK(host.view().worlds_drawn == 1);
   CHECK(window.last().width == 320 && window.last().height == 240);
+  // A 3D script's player.position is where the control object is.
+  if (const auto pos = host.program().scripts().player()->child("position")) {
+    float x = -1, y = -1, z = -1;
+    CHECK(std::sscanf(pos->string().c_str(), "%f %f %f", &x, &y, &z) == 3);
+  } else {
+    CHECK(false);
+  }
   if (const char* shot = std::getenv("FRANK_SHOT")) {  // a look at the view, by hand
     std::string err;
     Torque::Gui::write_file(shot, Torque::Gui::encode_png(window.last()), err);

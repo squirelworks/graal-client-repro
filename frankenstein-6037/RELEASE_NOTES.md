@@ -15,6 +15,11 @@ from the `frankenstein-v` series.
   a Camera: sky, `.3ds`, `.dts` and `.dif` shapes from `levels3d/`, the
   streamed terrain, water and name tags, lit and moved as the lab saw the
   real 5.12 do. The stand-in view remains for a server with no Camera.
+- First lab run against a real server (seihai-gserver `graal3d`,
+  2026-11-26): GS2 timers and walking no longer slow down while the 3D view
+  draws (the program keeps its 50 ms tick as its clock; the 3D frame takes
+  at most about half the time), and a 3D weapon's `player.position` reads
+  the player's own object.
 
 ## What's new in frankenstein-6037-v0.0.1
 
