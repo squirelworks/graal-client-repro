@@ -165,10 +165,8 @@ int scatterReplicators(Scene& scene, const GhostTable& ghosts, const Terrain& te
       });
       continue;
     }
-    // Grass (Graal_analysis PR #931, #964): short upright billboards
-    // standing on the ground and facing the camera, textured from the
-    // names in shapefiles, all in one mesh.
-    const V3 camera = scene.hasCamera ? scene.view.cameraToWorld.point({0, 0, 0}) : control;
+    // Grass (Graal_analysis PR #931, #968): cards lying on the ground,
+    // textured from the names in shapefiles, all in one mesh.
     if (names.empty()) names.push_back("");
     auto shape = std::make_shared<Shape>();
     shape->kind = Shape::k3ds;
@@ -195,32 +193,31 @@ int scatterReplicators(Scene& scene, const GhostTable& ghosts, const Terrain& te
         float sx = lerp(s.scaleMin.x, s.scaleMax.x, r.unit()), sy = lerp(s.scaleMin.y, s.scaleMax.y, r.unit());
         if (!(std::isfinite(sx) && sx > 0)) sx = 1;
         if (!(std::isfinite(sy) && sy > 0)) sy = 1;
-        const float turn = lerp(s.rotateMin.z, s.rotateMax.z, r.unit()) * 3.14159265f / 180.0f;
+        // Its yaw: the whole circle, as each card in the lab lay its own way
+        // (the rebuild's own draw).
+        const float turn = r.unit() * 2 * 3.14159265f;
         float z;
         V3 n;
         if (!groundAt(s, terrain, px, py, z, n)) continue;
-        (void)turn;  // drawn, but a billboard faces the camera (Graal_analysis PR #964)
-        // A short upright piece standing on the ground, turned about z to
-        // face the camera.
-        const float halfWidth = kGrassWidth * 0.5f * sx, height = kGrassHeight * sy;
-        float fx = camera.x - px, fy = camera.y - py;
-        const float len = std::sqrt(fx * fx + fy * fy);
-        if (len > 1e-4f) {
-          fx /= len;
-          fy /= len;
-        } else {
-          fx = 0;
-          fy = -1;
-        }
-        const float rx = -fy, ry = fx;  // across the view
+        // A card lying on the ground at its own yaw and tilt (Graal_analysis
+        // PR #968): about a metre across at scale 1, x/y scale enlarging
+        // both sides. The yaw is the turn drawn above; the tilt, from the
+        // next draw, is the rebuild's own (up to kGrassMaxTilt).
+        const float tilt = r.unit() * kGrassMaxTilt * 3.14159265f / 180.0f;
+        const float hx = kGrassCard * 0.5f * sx, hy = kGrassCard * 0.5f * sy;
+        const float c = std::cos(turn), sn = std::sin(turn), ct = std::cos(tilt), st = std::sin(tilt);
         const uint32_t base = uint32_t(mesh.vertices.size());
-        const float corners[4][2] = {{-1, 0}, {1, 0}, {1, 1}, {-1, 1}};
+        const float corners[4][2] = {{-1, -1}, {1, -1}, {1, 1}, {-1, 1}};
+        const V3 up = normalize(V3{0, -st, ct});
+        const V3 normal{-sn * up.y, c * up.y, up.z};
         for (const auto& k2 : corners) {
+          // Tilted about the card's own x axis, then turned about z.
+          const float lx = k2[0] * hx, ly = k2[1] * hy * ct, lz = k2[1] * hy * st;
           Vertex v;
-          v.position = {px + rx * halfWidth * k2[0], py + ry * halfWidth * k2[0], z + s.offsetZ + height * k2[1]};
-          v.normal = {fx, fy, 0};
+          v.position = {px + lx * c - ly * sn, py + lx * sn + ly * c, z + s.offsetZ + kGrassLift + std::fabs(lz)};
+          v.normal = normal;
           v.u = k2[0] > 0 ? 1.0f : 0.0f;
-          v.v = k2[1] > 0 ? 0.0f : 1.0f;  // the texture's top at the top
+          v.v = k2[1] > 0 ? 1.0f : 0.0f;
           mesh.vertices.push_back(v);
         }
         mesh.triangles.push_back({{base, base + 1, base + 2}, mat});

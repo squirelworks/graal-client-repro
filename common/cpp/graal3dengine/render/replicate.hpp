@@ -4,11 +4,11 @@
 // its corner lies in the world-space x/y box. Each cell's count comes from
 // stock Torque's R250 stream seeded with seed + 256 (cy & 255) + (cx & 255).
 //
-// DynamicGrass and DynamicGrassReplicator grow over the same cells: short
-// upright billboards standing on the ground and turned to face the camera,
+// DynamicGrass and DynamicGrassReplicator grow over the same cells: cards
+// about a metre across lying on the ground, each at its own yaw and tilt,
 // textured from the names in shapefiles (an alpha texture draws as soft
-// shapes), the count clamped to 0-100 (Graal_analysis PR #931, #964 under
-// Mesa).
+// shapes), the count clamped to 0-100 (Graal_analysis PR #931, #964, #968
+// under Mesa).
 //
 // Inside a cell (replicators-512.md, PR #931): a shape copy draws x then y
 // from the cell's stream, within half a cell of the corner; grass sits on
@@ -42,10 +42,12 @@ constexpr int kMaxReplicas = 20000;
 // PR #931).
 constexpr int kMaxShapeCount = 20;
 constexpr int kMaxGrassCount = 100;
-// A grass billboard's width and height before its x and y scale: much
-// shorter than a 1 m cube under Mesa (PR #964); the numbers are ours.
-constexpr float kGrassWidth = 0.4f;
-constexpr float kGrassHeight = 0.3f;
+// A grass card's side before its x and y scale: about a metre (PR #968
+// close-up); its largest tilt off the ground and its lift against depth
+// fighting are the rebuild's own.
+constexpr float kGrassCard = 1.0f;
+constexpr float kGrassMaxTilt = 30.0f;
+constexpr float kGrassLift = 0.02f;
 
 // Stock Torque's R250 (MRandomR250): a 250-word shift register seeded
 // from a Park-Miller stream.
@@ -67,8 +69,7 @@ int replicatorCellCount(int32_t seed, int cx, int cy, int minObjects, int maxObj
 // Adds the cover of every replicator in `ghosts` to `scene` around
 // `control` (world), on `terrain`: a DynamicShapeReplicator's shapes as
 // objects, a DynamicGrass or DynamicGrassReplicator's flat pieces as one
-// shape held in `scene.owned`, facing the scene's camera (or `control`
-// with none). Returns the copies and pieces added.
+// shape held in `scene.owned`. Returns the copies and pieces added.
 int scatterReplicators(Scene& scene, const GhostTable& ghosts, const Terrain& terrain, const V3& control,
                        Resources& res);
 
