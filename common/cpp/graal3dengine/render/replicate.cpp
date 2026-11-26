@@ -86,14 +86,14 @@ void forEachCell(const ReplicatorState& s, int limit, const V3& control, Grow gr
   clampCounts(lo, hi, limit);
   const int radius = std::clamp(s.radius, 1, 64);
   // The 5.12 grows nothing while the avatar's cell cut toward zero is
-  // (0, 0), i.e. anywhere in -8 < x, y < 8 (test H and GwenTea2 batch 2,
+  // (0, 0), i.e. anywhere in -8 < x, y < 8 (test H and lab batch 2,
   // 16 spawns): likely its remembered last cell starts there, so no
   // change is ever seen.
   if (int(control.x / kReplicatorCell) == 0 && int(control.y / kReplicatorCell) == 0) return;
   // The block centres on the avatar's cell rounded half up,
   // floor(x / 8 + 0.5): the only rule that fit avatars at (12, -12) and
   // (132, -124) on the real 5.12 (all 18 cubes each, within 0.25 m;
-  // GwenTea2 batch 2). At a cell corner, as in lab 15, it is the corner's.
+  // lab batch 2). At a cell corner, as in lab 15, it is the corner's.
   const int ccx = int(std::floor(control.x / kReplicatorCell + 0.5f)),
             ccy = int(std::floor(control.y / kReplicatorCell + 0.5f));
   for (int j = -radius; j <= radius; ++j)

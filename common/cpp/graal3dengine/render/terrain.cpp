@@ -288,7 +288,7 @@ Shape terrainShape(const Terrain& t) {
       if (t.hole[at]) continue;
       // The 5.12 draws every square with the first texture in heights.info,
       // whatever material the square has: two labs on Mesa (T3D-044, and
-      // GwenTea2 batch 2, 2026-11-26) saw grass and sand squares drawn
+      // lab batch 2, 2026-11-26) saw grass and sand squares drawn
       // as the lit water texture, with no blending.
       const int mi = 0;
       const uint32_t a = idx(x, y), b = idx(x + 1, y), c = idx(x + 1, y + 1), d = idx(x, y + 1);
