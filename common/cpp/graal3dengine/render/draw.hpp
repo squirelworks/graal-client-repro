@@ -63,10 +63,15 @@ inline float setVisibleDistance3D(float d) {
 }
 // Per build. 4.20r8 fetches a .3ds material's texture but does not apply
 // it: the material draws plain white, while one with no texture draws its
-// colour (lab batch 2, real 4.20r8 and 5.12 under Mesa, 2026-11-26). Its
-// terrain is white too, as it never asks for heights.info or a terrain
-// texture (T3D-117). Off for 5.x.
+// colour (lab batch 2, real 4.20r8 and 5.12 under Mesa, 2026-11-26). Off
+// for 5.x.
 inline bool gShapeTexturesWhite = false;
+// 4.20r8 textures its terrain only when heights.info names the texture
+// with its .png extension (from the second visit); a bare name, as the
+// 5.12 takes, stays white. Its terrain is never shaded, Sun or not, though
+// a Sun lights its shapes (lab batch L).
+inline bool gTerrainNeedsPngName = false;
+inline bool gTerrainShading = true;
 // Sets the per-build switches from the engine's build string ("4.20r8",
 // "5.12", ...). Only 4.20 is measured; other builds keep the 5.12's look.
 // 4.20r8 also takes a replicator's ghost and grows no cover under GDI or
@@ -75,6 +80,8 @@ inline bool gReplicatorCover = true;
 inline void setClientBuild(const std::string& build) {
   const bool v420 = build.rfind("4.20", 0) == 0;
   gShapeTexturesWhite = v420;
+  gTerrainNeedsPngName = v420;
+  gTerrainShading = !v420;
   gReplicatorCover = !v420;
 }
 constexpr float kNoSunLight = 0.25f;  // a .3ds without a Sun

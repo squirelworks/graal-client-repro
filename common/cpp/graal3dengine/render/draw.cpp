@@ -1,11 +1,19 @@
 #include "draw.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 
 namespace graal3d::render {
 
 namespace {
+
+bool endsWithPng(const std::string& name) {
+  if (name.size() < 4) return false;
+  std::string e = name.substr(name.size() - 4);
+  for (char& ch : e) ch = char(std::tolower(static_cast<unsigned char>(ch)));
+  return e == ".png";
+}
 
 uint32_t colorOf(const float c[3]) {
   auto b = [](float x) { return uint32_t(x <= 0 ? 0 : (x >= 1 ? 255 : x * 255.0f + 0.5f)); };
@@ -25,7 +33,7 @@ float vertexLight(Shape::Kind kind, bool sun, const V3& worldNormal) {
     const V3 n = normalize(worldNormal);
     return sun ? std::min(1.0f, kFixedLightFloor + std::max(0.0f, dot(n, kFixedLight))) : kNoSunLight;
   }
-  if (kind == Shape::kTerrain && sun) {
+  if (kind == Shape::kTerrain && sun && gTerrainShading) {
     static const V3 kTerrainLight = terrainLightDirection();
     const V3 n = normalize(worldNormal);
     return std::min(kTerrainLightCap, kTerrainAmbient + kTerrainDiffuse * std::max(0.0f, dot(n, kTerrainLight)));
@@ -44,8 +52,9 @@ RasterState materialState(const Shape& shape, const Mesh& mesh, const Material& 
   // section 4; drawn white here).
   if (st.texture && shape.kind == Shape::kTerrain && (st.texture->width != 256 || st.texture->height != 256))
     st.texture = nullptr;
-  if (gShapeTexturesWhite && (shape.kind == Shape::k3ds || shape.kind == Shape::kTerrain))
-    st.texture = nullptr;  // 4.20r8: white
+  if (gShapeTexturesWhite && shape.kind == Shape::k3ds) st.texture = nullptr;  // 4.20r8: white
+  if (gTerrainNeedsPngName && shape.kind == Shape::kTerrain && !endsWithPng(m.texture))
+    st.texture = nullptr;  // 4.20r8: a bare terrain texture name stays white
   st.alphaTest = m.alphaTest;
   if (!mesh.weightMap.empty()) {
     st.additive = true;

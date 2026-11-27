@@ -650,7 +650,7 @@ class GlRenderer : public SceneRenderer {
     const bool sun = scene.sun.present;
     if (shape.kind == R::Shape::k3ds && sun) {
       g_.Uniform1i(uLightMode_, 1);
-    } else if (shape.kind == R::Shape::kTerrain && sun) {
+    } else if (shape.kind == R::Shape::kTerrain && sun && R::gTerrainShading) {
       g_.Uniform1i(uLightMode_, 2);
     } else {
       g_.Uniform1i(uLightMode_, 3);
