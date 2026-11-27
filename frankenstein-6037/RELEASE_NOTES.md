@@ -9,7 +9,28 @@ from the `frankenstein-v` series.
 > affiliated with, endorsed by, or connected to GraalOnline or
 > graalonline.com, Cyberjoueurs, or Stéphane Portha ("unixmad").
 
-## Unreleased
+## frankenstein-6037-v0.0.1 (2026-11-27)
+
+The first release. Experimental: it runs, logs in and draws, and plenty is
+missing. Start with `QUICKSTART.md` in the zip.
+
+| Download | For |
+|---|---|
+| `frankenstein-6037-v0.0.1-macos.zip` | macOS 11 or newer, Apple Silicon and Intel (one universal program) |
+| `frankenstein-6037-v0.0.1-windows.zip` | Windows 10 or newer, 64-bit |
+| `frankenstein-6037-v0.0.1-linux.zip` | Linux x86-64 with X11 |
+| `SHA256SUMS` | checksums of the three zips |
+
+Each zip has the program, a launcher (`play.command` on macOS and Linux,
+`play.bat` on Windows) that asks for the server, account and password, and
+`QUICKSTART.md`. The program is unsigned: on macOS right-click the
+launcher and choose Open, or run `xattr -dr com.apple.quarantine .` in its
+folder (the quick start has the steps). No game data is included: point
+`--assets` at your own Graal folder, or let `--download-files` fetch what
+the server offers.
+
+### In this release
+
 
 - The 3D world is drawn by the 5.12 repro's renderer while the server names
   a Camera: sky, `.3ds`, `.dts` and `.dif` shapes from `levels3d/`, the
@@ -73,7 +94,7 @@ from the `frankenstein-v` series.
   every 5 seconds). `--no-seihai3d` sends no hello, for a third-party
   server that refuses one.
 
-## What's new in frankenstein-6037-v0.0.1
+### The base it builds on
 
 - The first client: `frankenstein-6037` for macOS, Linux and Windows. The
   6.03r7 Quattro program (6.03r7 token and login tail per platform) with
@@ -84,13 +105,15 @@ from the `frankenstein-v` series.
   step 6 and keeps the player's object, its movement and the other ghosts;
   server text goes to the 6.x GS2 machine and its triggers come back as
   `events`.
-- A stand-in 3D view once the link is up (sky colour, ground grid, a box
-  per object, the 6.x frame as an inset). `--no-3d-view` turns it off.
+- `--no-3d-view` keeps the plain 6.x frame.
 
 ## Not yet
 
-- A Metal backend for the 3D view (the renderer interface has room for
-  one; OpenGL still runs on current macOS).
-- The real Torque world (terrain, interiors, shapes, sky textures); keys
-  moving the player in 3D; the 6.x start screen and server list; a lab run
-  against the Seihai gserver's `graal3d` mode.
+- The 6.x start screen and server list: the server is given on the
+  command line or to the launcher.
+- Mouse-look and the 5.12's own 3D controls (the arrows walk the 6.x
+  player and the 3D object follows).
+- `TerrainChunkEvent` and the `fixedudpport` option.
+- A Metal backend for the 3D view (OpenGL 3.2 still runs on current macOS,
+  on Metal; `--renderer software` needs no GPU).
+- Code signing and notarisation.

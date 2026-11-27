@@ -20,6 +20,10 @@ PLAYER_LDFLAGS = -static -static-libgcc -static-libstdc++
 EXE = .exe
 else ifeq ($(shell uname -s),Darwin)
 X11_DEFS = -DQUATTRO_COCOA
+# MAC_ARCH, e.g. "-arch arm64 -arch x86_64 -mmacosx-version-min=11.0", makes a
+# universal program; the release build sets it. It rides on CXX so every
+# object, stb's included, and the link get it.
+CXX += $(MAC_ARCH)
 WINDOW_LIBS = -framework Cocoa
 COCOA = $(Q)/draw/window_cocoa.mm
 else
