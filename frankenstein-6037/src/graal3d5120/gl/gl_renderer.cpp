@@ -144,6 +144,7 @@ void to_gl(const R::M4& m, float out[16]) {
 struct StreamVertex {
   float pos[3], normal[3], uv[2], lightFog[2];
 };
+static_assert(sizeof(StreamVertex) == 10 * sizeof(float), "StreamVertex is ten floats, interpolated as such");
 
 bool same_state(const R::RasterState& a, const R::RasterState& b) {
   return a.texture == b.texture && a.color[0] == b.color[0] && a.color[1] == b.color[1] && a.color[2] == b.color[2] &&
@@ -274,6 +275,7 @@ class GlRenderer : public SceneRenderer {
     const float farPlane = R::gVisibleDistance3D;
     view.farPlane = farPlane;
     viewProj_ = viewProjection(view, frame.width, frame.height);
+    near_ = view.nearPlane;
     const uint32_t fog = R::sceneFogColor(scene);
 
     // The fog colour below the horizon, alpha kept at full.
@@ -351,11 +353,11 @@ class GlRenderer : public SceneRenderer {
                     const R::RasterState& st) {
         if (!verts_.empty() && !same_state(st, state_)) flush();
         state_ = st;
+        StreamVertex in[3];
+        int k = 0;
         for (const R::RasterVertex* v : {&a, &b, &c})
-          verts_.push_back({{v->position.x, v->position.y, v->position.z},
-                            {0, 0, 0},
-                            {v->u, v->v},
-                            {v->light[0], v->fog}});
+          in[k++] = {{v->position.x, v->position.y, v->position.z}, {0, 0, 0}, {v->u, v->v}, {v->light[0], v->fog}};
+        addClipped(in);
       };
     }
     void flush() {
@@ -365,6 +367,51 @@ class GlRenderer : public SceneRenderer {
     }
 
    private:
+    // The sky box and the water plane reach behind the camera. They are cut
+    // at the near plane here, as the rasteriser cuts them (raster.cpp),
+    // rather than left to the driver: Apple's software renderer drops some
+    // such triangles whole.
+    void addClipped(const StreamVertex (&tri)[3]) {
+      const R::M4& m = r_.viewProj_;
+      auto depth = [&m](const StreamVertex& v) {
+        return m.m[3][0] * v.pos[0] + m.m[3][1] * v.pos[1] + m.m[3][2] * v.pos[2] + m.m[3][3];
+      };
+      const float nearPlane = r_.near_;
+      float d[3];
+      bool all = true, none = true;
+      for (int i = 0; i < 3; ++i) {
+        d[i] = depth(tri[i]) - nearPlane;
+        all = all && d[i] >= 0;
+        none = none && d[i] < 0;
+      }
+      if (none) return;
+      if (all) {
+        verts_.insert(verts_.end(), tri, tri + 3);
+        return;
+      }
+      StreamVertex poly[4];
+      int n = 0;
+      for (int i = 0; i < 3; ++i) {
+        const StreamVertex& p = tri[i];
+        const StreamVertex& q = tri[(i + 1) % 3];
+        const float dp = d[i], dq = d[(i + 1) % 3];
+        if (dp >= 0) poly[n++] = p;
+        if ((dp >= 0) != (dq >= 0)) {
+          const float t = dp / (dp - dq);
+          const float* fp = &p.pos[0];
+          const float* fq = &q.pos[0];
+          float* fr = &poly[n].pos[0];
+          for (size_t j = 0; j < sizeof(StreamVertex) / sizeof(float); ++j) fr[j] = fp[j] + (fq[j] - fp[j]) * t;
+          ++n;
+        }
+      }
+      for (int i = 1; i + 1 < n; ++i) {
+        verts_.push_back(poly[0]);
+        verts_.push_back(poly[i]);
+        verts_.push_back(poly[i + 1]);
+      }
+    }
+
     GlRenderer& r_;
     R::RasterState state_;
     std::vector<StreamVertex> verts_;
@@ -724,6 +771,7 @@ class GlRenderer : public SceneRenderer {
   GLint uMVP_ = -1, uNormalM_ = -1, uLightMode_ = -1, uLight_ = -1, uTextured_ = -1, uAlphaTest_ = -1,
         uAdditive_ = -1, uColor_ = -1, uFogColor_ = -1, uOpacity_ = -1, uWeightScale_ = -1, uWeightSize_ = -1;
   R::M4 viewProj_;
+  float near_ = 0.1f;
   int frameNo_ = 0;
   int errorsLogged_ = 0;
   GLuint blank_ = 0;
