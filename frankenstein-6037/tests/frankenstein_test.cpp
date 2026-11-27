@@ -143,9 +143,16 @@ void test_renderers() {
     const auto ca = Frank::colour_shares(a), cb = Frank::colour_shares(b);
     bool shares = true;
     for (size_t i = 0; i < ca.size(); ++i) shares = shares && std::fabs(ca[i].share - cb[i].share) < 0.005;
-    if (d.mismatched >= 0.01 || !shares)
+    if (d.mismatched >= 0.01 || !shares) {
       std::fprintf(stderr, "  %s: %.2f%% of pixels apart (largest %d)\n", name.c_str(), d.mismatched * 100,
                    d.largest);
+      if (const char* out = std::getenv("FRANK_TEST_SHOTS")) {  // both frames, for a look
+        fs::create_directories(out, ec);
+        std::string err;
+        Torque::Gui::write_file((fs::path(out) / (name + "-opengl.png")).string(), Torque::Gui::encode_png(a), err);
+        Torque::Gui::write_file((fs::path(out) / (name + "-software.png")).string(), Torque::Gui::encode_png(b), err);
+      }
+    }
     CHECK(d.mismatched < 0.01);
     CHECK(shares);
     frames[name] = a;

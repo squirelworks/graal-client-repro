@@ -92,22 +92,31 @@ jobs:
         shell: bash
         env:
           FRANK_REQUIRE_GL: '1'
+          FRANK_TEST_SHOTS: ${{ github.workspace }}/gl-mismatch
         run: frankenstein-6037/test.sh
       - name: Build and test (Windows)
         if: runner.os == 'Windows'
         shell: msys2 {0}
         env:
           FRANK_REQUIRE_GL: '1'
+          FRANK_TEST_SHOTS: ${{ github.workspace }}/gl-mismatch
         run: |
           # The runner has no OpenGL 3.2 driver: Mesa's opengl32.dll stands in.
           export FRANK_GL_LIBRARY="$(cygpath -w /ucrt64/bin/opengl32.dll)"
           frankenstein-6037/test.sh
+      - name: Frames that differed between the renderers
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: gl-mismatch-${{ matrix.name }}
+          path: gl-mismatch/
+          if-no-files-found: ignore
       - name: Bench, OpenGL against software (macOS, Linux)
-        if: runner.os != 'Windows'
+        if: always() && runner.os != 'Windows'
         shell: bash
         run: frankenstein-6037/build/frankenstein-6037 --bench all --seconds 1 --compare
       - name: Bench, OpenGL against software (Windows)
-        if: runner.os == 'Windows'
+        if: always() && runner.os == 'Windows'
         shell: msys2 {0}
         run: |
           export FRANK_GL_LIBRARY="$(cygpath -w /ucrt64/bin/opengl32.dll)"
