@@ -166,6 +166,7 @@ jobs:
             cp frankenstein-6037/README.md frankenstein-6037/RELEASE_NOTES.md frankenstein-6037/VERSION "$stage/"
             (cd dist && zip -qr "frankenstein-6037-$V-$spec.zip" "frankenstein-6037-$V-$spec")
           done
+          (cd dist && sha256sum -- *.zip > SHA256SUMS && cat SHA256SUMS)
           echo "TAG_NAME=frankenstein-6037-$V" >> "$GITHUB_ENV"
           echo "TITLE=Frankenstein 6.037 $V" >> "$GITHUB_ENV"
       - uses: softprops/action-gh-release@v2
@@ -175,5 +176,7 @@ jobs:
           body_path: frankenstein-6037/RELEASE_NOTES.md
           target_commitish: ${{ github.sha }}
           draft: ${{ inputs.publish != 'yes' }}
-          files: dist/*.zip
+          files: |
+            dist/*.zip
+            dist/SHA256SUMS
           make_latest: false
