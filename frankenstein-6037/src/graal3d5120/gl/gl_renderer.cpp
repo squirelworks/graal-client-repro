@@ -7,7 +7,7 @@
 //
 // Same choices as drawScene (common/cpp/graal3dengine/render/draw.cpp),
 // through the functions it shares: sceneFogColor, materialState,
-// skyBoxTriangles, waterTriangles; vertexLight's rules are repeated in the
+// skyBoxTriangles, flareTriangles, waterTriangles; vertexLight's rules are repeated in the
 // vertex shader with draw.hpp's constants. The rasteriser's own rules map
 // onto GL state:
 //   - its depth test keeps strictly nearer pixels (GL_LESS), an additive
@@ -295,6 +295,11 @@ class GlRenderer : public SceneRenderer {
       g_.DepthMask(1);
       g_.Clear(DEPTH_BUFFER_BIT);
       checkError("sky");
+    }
+    {
+      Batch batch(*this);
+      R::flareTriangles(scene, res, frame.width, frame.height, batch.sink());
+      batch.flush();
     }
 
     std::unordered_set<const R::Shape*> owned;

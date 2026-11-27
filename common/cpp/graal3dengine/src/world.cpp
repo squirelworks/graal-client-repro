@@ -268,6 +268,31 @@ bool readWaterBlockUpdate(BitReader& r, WaterBlockState& w) {
   return !r.overrun();
 }
 
+bool readSunFlareUpdate(BitReader& r, SunFlareState& f) {
+  if (!r.flag()) return !r.overrun();
+  f.init = true;
+  f.name = r.pstring();
+  f.position = readVec(r);
+  float q[3];
+  for (float& v : q) v = r.f32();
+  const bool negative = r.flag();
+  const float ww = 1.0f - q[0] * q[0] - q[1] * q[1] - q[2] * q[2];
+  for (int i = 0; i < 3; ++i) f.rotation[i] = q[i];
+  f.rotation[3] = (ww > 0 ? std::sqrt(ww) : 0.0f) * (negative ? -1.0f : 1.0f);
+  f.enable = r.u8() != 0;
+  f.localBitmap = r.pstring();
+  f.remoteBitmap = r.pstring();
+  f.azimuth = r.f32();
+  f.elevation = r.f32();
+  f.flareTP = r.u8() != 0;
+  for (uint8_t& c : f.color) c = r.u8();
+  f.brightness = r.f32();
+  f.flareSize = r.f32();
+  f.fadeTime = r.f32();
+  f.blendMode = r.u32();
+  return !r.overrun();
+}
+
 bool readSkyUpdate(BitReader& r, SkyState& s) {
   const bool init = r.flag();
   if (init) {

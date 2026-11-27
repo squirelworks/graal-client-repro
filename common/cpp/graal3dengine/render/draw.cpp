@@ -187,6 +187,40 @@ int waterTriangles(const WaterSurface& w, double seconds, uint32_t fogColor, Res
   return count;
 }
 
+void flareTriangles(const Scene& scene, Resources& res, int width, int height, const TriangleSink& sink) {
+  const SunFlare& f = scene.flare;
+  if (!f.present || width <= 0 || height <= 0) return;
+  const M4& m = scene.view.cameraToWorld;
+  const V3 right{m.m[0][0], m.m[1][0], m.m[2][0]}, forward{m.m[0][1], m.m[1][1], m.m[2][1]},
+      up{m.m[0][2], m.m[1][2], m.m[2][2]}, eye{m.m[0][3], m.m[1][3], m.m[2][3]};
+  const V3 toward{std::sin(kFlareAzimuth) * std::cos(kFlareElevation), std::cos(kFlareAzimuth) * std::cos(kFlareElevation),
+                  std::sin(kFlareElevation)};
+  if (!(dot(forward, toward) > 0)) return;
+  RasterState st;
+  st.texture = res.texture(f.texture);
+  if (!st.texture) return;
+  for (int i = 0; i < 3; ++i) st.color[i] = f.color[i];
+  st.depthTest = false;
+  st.depthWrite = false;
+  st.alphaTest = false;
+  st.clampTexture = true;
+  st.additive = f.blendMode != 1;
+  // A quad at distance d spanning the view exactly (the rasterizer's
+  // field of view is horizontal).
+  const float d = std::max(1.0f, scene.view.nearPlane * 2), halfTan = std::tan(scene.view.fovDegrees * 0.5f * 3.14159265f / 180.0f);
+  const float hx = d * halfTan, hy = hx * float(height) / float(width);
+  const V3 c = eye + forward * d;
+  RasterVertex q[4];
+  const float sx[4] = {-1, 1, 1, -1}, sy[4] = {1, 1, -1, -1};
+  for (int i = 0; i < 4; ++i) {
+    q[i].position = c + right * (sx[i] * hx) + up * (sy[i] * hy);
+    q[i].u = sx[i] < 0 ? 0.0f : 1.0f;
+    q[i].v = sy[i] > 0 ? 0.0f : 1.0f;
+  }
+  sink(q[0], q[1], q[2], st);
+  sink(q[0], q[2], q[3], st);
+}
+
 DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
   DrawStats stats;
   Rasterizer r(frame);
@@ -207,6 +241,7 @@ DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
   // seen under GDI Generic 1.1 was that driver's).
   r.clear(fogColor);
   if (scene.sky.present) skyBoxTriangles(scene, res, farPlane, fogColor, draw);
+  flareTriangles(scene, res, frame.width, frame.height, draw);
   r.clearDepth();
 
   for (const SceneObject& obj : scene.objects) {

@@ -50,6 +50,16 @@ struct SunLight {
   float ambient[3] = {0, 0, 0};
 };
 
+// The fxSunLight flare as the 5.12 draws it (fxsunlight-512.md, lab):
+// its texture times its colour over the whole screen, in the sky layer,
+// while the camera faces the fixed direction kFlareDirection (draw.hpp).
+struct SunFlare {
+  bool present = false;
+  std::string texture;
+  float color[3] = {1, 1, 1};
+  uint32_t blendMode = 0;  // 1 opaque; 0, 2 (and others) additive
+};
+
 struct SkyBox {
   bool present = false;
   std::string textures[6];  // by sky-line entry: -y, +x, +y, -x, up, bottom (drawBottom)
@@ -109,6 +119,7 @@ struct Scene {
   double time = 0;  // seconds, for the water's waves
   View view;
   SunLight sun;
+  SunFlare flare;
   SkyBox sky;
   TerrainSettings terrain;
   std::vector<SceneObject> objects;
