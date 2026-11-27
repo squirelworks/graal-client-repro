@@ -4,6 +4,8 @@
 #include <zlib.h>
 
 #include <algorithm>
+#include <cstdio>
+#include <cstdlib>
 
 namespace graal3d {
 
@@ -119,9 +121,11 @@ void Link::sendConnectRequest() {
   w.u32(static_cast<uint32_t>(login_.protocol));  // current
   w.u32(static_cast<uint32_t>(login_.protocol));  // minimum
   w.string(login_.password);  // the account password, in clear, as the real clients send it
-  w.u32(2);
+  const bool hello = login_.seihai3dHello && login_.protocol != 19;
+  w.u32(hello ? 3 : 2);
   w.string(login_.account);
   w.string(login_.nickname);
+  if (hello) w.string(seihai3d::helloArg(seihai3d::kVersion, login_.seihai3dCaps & seihai3d::kKnownV1));
   out_.push_back(w.bytes());
 }
 
@@ -474,12 +478,55 @@ void Link::bigDataDone(int transfer) {
   if (cb_.text) cb_.text(t);
 }
 
+std::string seihai3d::helloArg(int version, uint32_t caps) {
+  char buf[48];
+  std::snprintf(buf, sizeof buf, "seihai3d/%d/%08x", version, static_cast<unsigned>(caps));
+  return buf;
+}
+
+void Link::sendFrameStats(double fps, double p95Ms, int ghosts, double drawMs) {
+  if (!extHas(seihai3d::kFrameStats) || state_ != State::Connected) return;
+  char a[32], b[32], d[32];
+  std::snprintf(a, sizeof a, "%.1f", fps);
+  std::snprintf(b, sizeof b, "%.2f", p95Ms);
+  std::snprintf(d, sizeof d, "%.2f", drawMs);
+  sendCommand("seihai3dStats", {a, b, std::to_string(ghosts), d});
+}
+
 void Link::onCommand(const std::vector<std::string>& args) {
   if (args.empty()) return;
   commands_.push_back(args[0]);
+  if (args[0] == "seihai3d") {
+    // The extension's reply: guaranteed events come in order, so one after
+    // MissionStartPhase1 (or without our hello) is ignored, and so is a
+    // bit we did not ask for (seihai3d-ext-v1.md, Fallback).
+    if (!login_.seihai3dHello || phase1Seen_ || args.size() < 3 || extVersion_) return;
+    char* end = nullptr;
+    const long v = std::strtol(args[1].c_str(), &end, 10);
+    if (!end || *end || v < 1 || v > 65535) return;
+    const unsigned long caps = std::strtoul(args[2].c_str(), &end, 16);
+    if (!end || *end || args[2].empty() || args[2].size() > 8) return;
+    extVersion_ = static_cast<int>(std::min<long>(v, seihai3d::kVersion));
+    extCaps_ = static_cast<uint32_t>(caps) & login_.seihai3dCaps & seihai3d::kKnownV1;
+    char hex[16];
+    std::snprintf(hex, sizeof hex, "%08x", static_cast<unsigned>(extCaps_));
+    log(std::string("Graal3D: seihai3d ") + std::to_string(extVersion_) + " caps " + hex);
+    return;
+  }
+  if (args[0] == "seihai3dChat") {
+    if (extHas(seihai3d::kChat3d) && args.size() >= 3 && cb_.chat3d) {
+      std::string text = args[2];
+      for (size_t i = 3; i < args.size(); ++i) text += " " + args[i];
+      cb_.chat3d(args[1], text);
+    }
+    return;
+  }
   // The mission start (§7, torque/4208-g3d.md, torque/5007-g3d.md). Any
   // other command name is ignored, as the real clients do.
   if (args[0] == "MissionStartPhase1") {
+    if (login_.seihai3dHello && !phase1Seen_ && !extVersion_)
+      log("Graal3D: no seihai3d reply; a plain 5.12 link");
+    phase1Seen_ = true;
     log("Phase 1: Download Ghost Objects");
     setStep(2);
     sendCommand("MissionStartPhase1Ack");
@@ -715,12 +762,16 @@ void Link::queueEvent(const std::string& className, BitWriter payload) {
   outEvents_.push_back(std::move(ev));
 }
 
-void Link::sendCommand(const std::string& name) {
+void Link::sendCommand(const std::string& name, const std::vector<std::string>& args) {
   // The real client answers with the name as a plain string, not a tag (§5).
   BitWriter p;
-  p.bits(1, 5);
+  p.bits(static_cast<uint32_t>(1 + std::min<size_t>(args.size(), 30)), 5);
   p.bits(1, 2);
   p.pstring(name);
+  for (size_t i = 0; i < args.size() && i < 30; ++i) {
+    p.bits(1, 2);
+    p.pstring(args[i]);
+  }
   queueEvent("RemoteCommandEvent", std::move(p));
 }
 

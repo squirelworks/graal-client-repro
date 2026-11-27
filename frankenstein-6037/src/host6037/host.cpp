@@ -56,6 +56,13 @@ void FrameCounter::add(double now, double ms) {
   }
 }
 
+double FrameCounter::p95_ms() const {
+  if (times_.empty()) return 0;
+  std::vector<double> t = times_;
+  std::sort(t.begin(), t.end());
+  return t[std::min(t.size() - 1, size_t(0.95 * double(t.size() - 1) + 0.5))];
+}
+
 std::string FrameCounter::summary() const {
   if (times_.empty()) return "no 3D frames drawn";
   std::vector<double> t = times_;
@@ -146,6 +153,12 @@ void ViewWindow::compose(bool) {
         d = {mix(c.r, d.r), mix(c.g, d.g), mix(c.b, d.b), 255};
       }
   }
+  // seihai3d chat_3d: the chat lines bottom right, over the scene (the
+  // 5.12 shows no chat in 3D; this is the extension's own).
+  for (size_t i = 0; i < chat_lines.size(); ++i) {
+    const int y = out_.height - 14 * int(chat_lines.size() - i) - 6;
+    draw_text(out_, out_.width / 4 + 12, y, chat_lines[i], Torque::Gui::Color{255, 255, 255, 255}, true);
+  }
   if (show_fps && counter.frames() > 0) {
     char text[96];
     std::snprintf(text, sizeof text, "%.1f fps  %.1f ms  %s", counter.fps(), counter.mean_ms(), renderer_name());
@@ -205,6 +218,16 @@ Link3D::Callbacks Host::callbacks() {
   };
   cb.text = [this](const graal3d::BigText& t) {
     if (program_) program_->server_text(t.s1, t.s2, t.s3, t.data);
+  };
+  cb.chat3d = [this](const std::string& account, const std::string& text) {
+    std::string line = account + ": " + text;
+    if (line.size() > 120) line.resize(120);
+    for (char& c : line)
+      if (static_cast<unsigned char>(c) < 32) c = ' ';
+    auto& lines = view_.chat_lines;
+    lines.push_back(line);
+    if (lines.size() > ViewWindow::kChatLines) lines.erase(lines.begin());
+    say("Graal3D chat: " + line);
   };
   return cb;
 }
@@ -269,6 +292,11 @@ bool Host::connect(const std::string& raw_name, const std::string& host, uint16_
     l.nickname = opt_.nickname.empty() ? "unknown" : opt_.nickname;
     l.password = opt_.password;
     l.protocol = graal3d::protocolForBuild("5.12");
+    // seihai3d v1: frame_stats and chat_3d, the bits this client acts on.
+    l.seihai3dHello = seihai3d;
+    l.seihai3dCaps = graal3d::seihai3d::kFrameStats | graal3d::seihai3d::kChat3d;
+    view_.chat_lines.clear();
+    next_stats_ms_ = 0;
     l.connectSequence = connect_sequence ? connect_sequence
                                          : ((Link3D::now_ms() * 2654435761u) & 0x7FFFFFFEu) | 2u;
     failed_ = false;
@@ -402,6 +430,14 @@ void Host::publish_3d_state() {
   }
   const double tv3 = timevar3_server_ / 1000.0 + static_cast<double>(local - timevar3_local_) / 1000.0;
   m.universe()->childOrCreate("timevar3")->setNumber(tv3);
+
+  // seihai3d frame_stats: about every 5 s once agreed.
+  if (l->extHas(graal3d::seihai3d::kFrameStats) && view_.counter.frames() > 0 && local >= next_stats_ms_) {
+    if (next_stats_ms_ != 0)
+      l->sendFrameStats(view_.counter.fps(), view_.counter.p95_ms(), static_cast<int>(l->ghosts().size()),
+                        view_.counter.mean_ms());
+    next_stats_ms_ = local + 5000;
+  }
 
   const auto cam = l->ghosts().find(l->cameraGhost());
   if (cam == l->ghosts().end() || cam->second.className != "Camera") return;

@@ -201,6 +201,12 @@ frankenstein-6037/
       editor classes (Graal_analysis
       `torque/gs2-3d-typed-surface-512-2026-11-26.md`).
 - [x] GS2 show-images on the screen layer over the whole 3D view (C010).
+- [x] The `seihai3d` v1 hello and reply, with `chat_3d` (chat lines in
+      the 3D view) and `frame_stats`; a server without the extension gets
+      a plain 5.12 (`--no-seihai3d` sends no hello).
+- [ ] The other `seihai3d` v1 bits (`world_terrain_cache`,
+      `chunk_relight`, `view_distance`, `fast_pacing`, `wide_ghosts`,
+      `world_chunks`), and chat bubbles over players.
 - [ ] A Metal backend (OpenGL still runs on current macOS, on Metal).
 - [x] The files step 6 needs: shapes and textures the renderer cannot
       find are asked for by name and kept in `<assets>/levels3d/` with

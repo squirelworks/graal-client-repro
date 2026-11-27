@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -149,7 +150,7 @@ void testAcceptsAndFirstPackets() {
   LinkLogin login;
   login.account = "guest";
   login.password = "7Y3bdzjf";
-  Link link(login, {[&](const std::string& s) { logs.push_back(s); }, nullptr, nullptr, nullptr});
+  Link link(login, {[&](const std::string& s) { logs.push_back(s); }, nullptr, nullptr, nullptr, nullptr});
   link.start(0);
   link.receive(challengeResponse(), 1);
   link.takeOutgoing();
@@ -182,7 +183,7 @@ void testAcceptsAndFirstPackets() {
   LinkLogin old = login;
   old.protocol = 21;
   std::string error;
-  Link refused(old, {nullptr, nullptr, [&](const std::string& e) { error = e; }, nullptr});
+  Link refused(old, {nullptr, nullptr, [&](const std::string& e) { error = e; }, nullptr, nullptr});
   refused.start(0);
   refused.receive(challengeResponse(), 1);
   refused.receive(fromHex(kAcceptEmpty), 2);
@@ -243,7 +244,7 @@ void testServerSession() {
   login.account = "guest";
   login.password = "7Y3bdzjf";
   Link link(login, {[&](const std::string& s) { logs.push_back(s); }, [&](int s) { steps.push_back(s); }, nullptr,
-                    nullptr});
+                    nullptr, nullptr});
   uint32_t t = 0;
   link.start(t);
   link.receive(challengeResponse(), ++t);
@@ -593,7 +594,7 @@ BitWriter ghostAlwaysEvent(int ghost, int classId, const BitWriter& payload) {
 // after the block, and the client's one TerrainRequestUpdatesEvent.
 void testTerrainAndWater() {
   LinkLogin login;
-  Link link(login, {nullptr, nullptr, nullptr, nullptr});
+  Link link(login, {nullptr, nullptr, nullptr, nullptr, nullptr});
   uint32_t t = 0;
   link.start(t);
   link.receive(challengeResponse(), ++t);
@@ -703,7 +704,7 @@ void testTerrainAndWater() {
 void testGhostAlwaysAndCameraControl() {
   std::vector<int> steps;
   LinkLogin login;
-  Link link(login, {nullptr, [&](int s) { steps.push_back(s); }, nullptr, nullptr});
+  Link link(login, {nullptr, [&](int s) { steps.push_back(s); }, nullptr, nullptr, nullptr});
   uint32_t t = 0;
   link.start(t);
   link.receive(challengeResponse(), ++t);
@@ -858,7 +859,7 @@ void testLostEventIsResent() {
 void testTimeouts() {
   std::string error;
   LinkLogin login;
-  Link link(login, {nullptr, nullptr, [&](const std::string& e) { error = e; }, nullptr});
+  Link link(login, {nullptr, nullptr, [&](const std::string& e) { error = e; }, nullptr, nullptr});
   link.start(0);
   link.tick(Link::kResendMs);
   auto out = link.takeOutgoing();
@@ -868,7 +869,7 @@ void testTimeouts() {
   CHECK(error == "The connection to the Graal3D server couldn't be established.");
 
   error.clear();
-  Link quiet(login, {nullptr, nullptr, [&](const std::string& e) { error = e; }, nullptr});
+  Link quiet(login, {nullptr, nullptr, [&](const std::string& e) { error = e; }, nullptr, nullptr});
   quiet.start(0);
   quiet.receive(challengeResponse(), 1);
   quiet.receive(fromHex(kAcceptEmpty), 2);
@@ -888,7 +889,7 @@ void testServerText() {
   // A BigData `events` message from the server, uncompressed and zlib.
   LinkLogin login;
   std::vector<BigText> got;
-  Link link(login, {nullptr, nullptr, nullptr, [&](const BigText& t) { got.push_back(t); }});
+  Link link(login, {nullptr, nullptr, nullptr, [&](const BigText& t) { got.push_back(t); }, nullptr});
   link.start(0);
   link.receive(challengeResponse(), 1);
   link.receive(fromHex(kAcceptFull), 2);
@@ -956,6 +957,130 @@ void testServerText() {
         p.commands[1].first == idOf("BigDataChunkEvent"));
 }
 
+// A server data packet with RemoteCommandEvents as guaranteed events from
+// event seq `first`, each a list of plain-string arguments.
+std::string serverCommands(const Link& link, uint32_t seq, int first,
+                           const std::vector<std::vector<std::string>>& commands) {
+  int cmd = -1;
+  for (const auto& [id, name] : link.eventClasses())
+    if (name == "RemoteCommandEvent") cmd = id;
+  BitWriter w;
+  w.flag(true);
+  w.bits(0, 1);
+  w.bits(seq & 0x1FF, 9);
+  w.bits(1, 9);
+  w.bits(0, 2);
+  w.bits(1, 3);
+  w.bits(1, 8);
+  for (int i = 0; i < 6; ++i) w.flag(false);  // rates, game section, unguaranteed
+  for (size_t i = 0; i < commands.size(); ++i) {
+    BitWriter e;
+    e.bits(static_cast<uint32_t>(commands[i].size()), 5);
+    for (const auto& a : commands[i]) {
+      e.bits(1, 2);
+      e.pstring(a);
+    }
+    w.flag(true);
+    if (i == 0) {
+      w.flag(false);
+      w.bits(static_cast<uint32_t>(first), 7);
+    } else {
+      w.flag(true);
+    }
+    w.bits(static_cast<uint32_t>(cmd), 12);
+    w.bits(static_cast<uint32_t>(e.pos()), 14);
+    w.append(e);
+  }
+  w.flag(false);  // end of guaranteed
+  w.flag(false);  // ghosts
+  return w.bytes();
+}
+
+void testSeihai3d() {
+  // seihai3d v1 (Graal_analysis torque/seihai3d-ext-v1.md): the hello as a
+  // third connect argument, the reply before MissionStartPhase1, the
+  // agreed bits, chat_3d and frame_stats.
+  std::vector<std::pair<std::string, std::string>> chats;
+  auto connect = [&](bool hello) {
+    LinkLogin login;
+    login.account = "guest";
+    login.seihai3dHello = hello;
+    login.seihai3dCaps = seihai3d::kFrameStats | seihai3d::kChat3d;
+    Link::Callbacks cb;
+    cb.chat3d = [&](const std::string& a, const std::string& t) { chats.emplace_back(a, t); };
+    auto link = std::make_unique<Link>(login, cb);
+    link->start(0);
+    link->takeOutgoing();
+    link->receive(challengeResponse(), 1);
+    auto out = link->takeOutgoing();
+    CHECK(out.size() == 1);
+    if (out.size() == 1) {
+      BitReader r(out[0]);
+      r.u8();
+      for (int i = 0; i < 5; ++i) r.u32();
+      r.string();
+      r.u32();
+      r.u32();
+      r.string();
+      r.u32();
+      r.u32();
+      r.string();
+      const uint32_t argc = r.u32();
+      CHECK(argc == (hello ? 3u : 2u));
+      r.string();
+      r.string();
+      if (hello) CHECK(r.string() == "seihai3d/1/00000003");
+      CHECK(r.left() < 8);  // padding to the byte
+    }
+    link->receive(fromHex(kAcceptFull), 2);
+    link->takeOutgoing();
+    return link;
+  };
+  CHECK(seihai3d::helloArg(1, 3) == "seihai3d/1/00000003");
+
+  // A server with the extension: the reply (offering more than asked),
+  // a chat line, then the mission start.
+  {
+    auto link = connect(true);
+    link->receive(serverCommands(*link, 1, 0,
+                                 {{"seihai3d", "1", "000000ff"}, {"seihai3dChat", "bob", "hi", "there"},
+                                  {"MissionStartPhase1"}}),
+                  3);
+    CHECK(link->extVersion() == 1 && link->extCaps() == 3);
+    CHECK(link->extHas(seihai3d::kChat3d) && link->extHas(seihai3d::kFrameStats));
+    CHECK(chats.size() == 1 && chats[0].first == "bob" && chats[0].second == "hi there");
+    CHECK(link->loginStep() == 2);
+    link->takeOutgoing();
+    link->sendFrameStats(59.9, 4.5, 12, 3.25);
+    link->tick(4);
+    int commands = 0;
+    for (const auto& d : link->takeOutgoing()) {
+      auto p = readClientPacket(d, link->eventClasses());
+      for (const auto& c : p.commands)
+        if (link->eventClasses().at(c.first) == "RemoteCommandEvent") ++commands;
+    }
+    CHECK(commands >= 1);
+  }
+  // A server without it: no reply before Phase 1, a plain 5.12; a late
+  // reply is ignored, and so is chat.
+  {
+    chats.clear();
+    auto link = connect(true);
+    link->receive(serverCommands(*link, 1, 0,
+                                 {{"MissionStartPhase1"}, {"seihai3d", "1", "00000003"},
+                                  {"seihai3dChat", "bob", "hi"}}),
+                  3);
+    CHECK(link->extVersion() == 0 && link->extCaps() == 0 && chats.empty());
+    CHECK(link->loginStep() == 2);
+  }
+  // No hello: a reply is not ours.
+  {
+    auto link = connect(false);
+    link->receive(serverCommands(*link, 1, 0, {{"seihai3d", "1", "00000003"}}), 3);
+    CHECK(link->extVersion() == 0);
+  }
+}
+
 }  // namespace
 
 int main() {
@@ -966,6 +1091,7 @@ int main() {
   testMovetypes();
   testOwnMove();
   testServerMoveReported();
+  testSeihai3d();
   testGhostAlwaysAndCameraControl();
   testTerrainAndWater();
   testLostEventIsResent();

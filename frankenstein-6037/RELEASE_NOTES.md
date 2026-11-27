@@ -64,6 +64,15 @@ from the `frankenstein-v` series.
 - 3D files are asked for as the 5.12 asks: images by their bare name,
   and `.cs` and `.ter` names never.
 
+- The `seihai3d` extension, version 1 (Graal_analysis
+  `torque/seihai3d-ext-v1.md`): the client asks for it with a third
+  connect argument, `seihai3d/1/00000003`, and takes the server's reply
+  before `MissionStartPhase1`; with no reply it is a plain 5.12, as
+  before. Two bits act: `chat_3d` (the server's `seihai3dChat` lines show
+  in the 3D view, bottom right) and `frame_stats` (`seihai3dStats` about
+  every 5 seconds). `--no-seihai3d` sends no hello, for a third-party
+  server that refuses one.
+
 ## What's new in frankenstein-6037-v0.0.1
 
 - The first client: `frankenstein-6037` for macOS, Linux and Windows. The
