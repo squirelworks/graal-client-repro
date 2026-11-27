@@ -368,6 +368,12 @@ bool updateStreamedTerrain(StreamedTerrain& st, float squareSize, bool repeat, c
   for (const auto& [i, bytes] : chunks)
     applyCompressedTerrainChunk(st.terrain, i % kTerrainChunks, i / kTerrainChunks,
                                 reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
+  // A TerrainBlock is there (the caller has one), so there is ground to
+  // grow cover on even with no cache and no chunks yet: flat at 0 until
+  // they come. Before this only a cache folder's chunks set it, and grass
+  // and shapes never grew on streamed or flat terrain (conformance C035 to
+  // C037 on the Frankenstein 6.037).
+  st.terrain.present = true;
   st.shape = terrainShape(st.terrain);
   st.builtChunkCount = chunkCount;
   st.builtCacheDir = cacheDir;

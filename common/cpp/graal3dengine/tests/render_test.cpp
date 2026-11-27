@@ -736,6 +736,25 @@ void testSceneFromGhosts() {
   ghosts[1].sky.textures = "a,-,c";
   Scene dash = sceneFromGhosts(ghosts, 3, 0);
   CHECK(dash.sky.textures[0] == "a" && dash.sky.textures[1].empty() && dash.sky.textures[2] == "c");
+  CHECK(dash.sky.fetch.size() == 2 && dash.sky.fetch[0] == "a" && dash.sky.fetch[1] == "c");
+  // Every name is asked for, the bottom face and a cloud layer after the
+  // six included, whatever the options (lab T3D-086): drawn with textures
+  // and the bottom off, every name is still looked up.
+  ghosts[1].sky.textures = "f0,f1,f2,f3,f4,f5,cloud1";
+  const uint8_t keep0 = ghosts[1].sky.options[0], keep1 = ghosts[1].sky.options[1];
+  ghosts[1].sky.options[0] = ghosts[1].sky.options[1] = 0;
+  {
+    Scene all = sceneFromGhosts(ghosts, 3, 0);
+    CHECK(all.sky.textures[5] == "f5" && all.sky.fetch.size() == 7 && all.sky.fetch[6] == "cloud1");
+    CHECK(!all.sky.useTextures && !all.sky.drawBottom);
+    Resources none;
+    TestFrame f;
+    drawScene(f.frame(), all, none);
+    for (const char* n : {"f0", "f4", "f5", "cloud1"}) CHECK(none.missing().count(n) == 1);
+  }
+  ghosts[1].sky.options[0] = keep0;
+  ghosts[1].sky.options[1] = keep1;
+  ghosts[1].sky.textures = "a,-,c";
 
   // Drawn: the player's shape from a file of the test's own.
   Resources res;
@@ -1800,6 +1819,33 @@ void testStreamedTerrain() {
   CHECK(std::fabs(st.terrain.heightMetres(3, 4) - 7) < 1e-4f);
   CHECK(updateStreamedTerrain(st, 4, false, "", chunks, 2));
   CHECK(st.terrain.squareSize == 4);
+  CHECK(st.terrain.present);
+  // No cache and no chunks yet: still ground (flat at 0), so grass grows
+  // on it (conformance C035 to C037: none grew on the Frankenstein 6.037).
+  StreamedTerrain flat;
+  CHECK(updateStreamedTerrain(flat, 8, false, "", {}, 0) && flat.terrain.present);
+  GhostTable g;
+  Ghost& d = g[4];
+  d.className = "DynamicGrass";
+  ReplicatorState& s = d.replicator;
+  s.init = true;
+  s.seed = 1;
+  s.shapeFiles = "conf_grass.png";
+  s.radius = 8;
+  s.minObjects = 40;
+  s.maxObjects = 60;
+  for (int i = 0; i < 2; ++i) {
+    s.boxMin[i] = -1024;
+    s.boxMax[i] = 1024;
+  }
+  s.boxMin[2] = -32767;
+  s.boxMax[2] = 32767;
+  s.scaleMin = s.scaleMax = {3, 3, 3};
+  s.allowTerrain = true;
+  s.allowedSlope = 90;
+  Scene scene;
+  Resources res;
+  CHECK(scatterReplicators(scene, g, flat.terrain, {20, 20, 1}, res) > 0 && scene.owned.size() == 1);
 }
 
 void testFtTrees() {

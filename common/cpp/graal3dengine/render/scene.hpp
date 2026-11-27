@@ -52,7 +52,12 @@ struct SunLight {
 
 struct SkyBox {
   bool present = false;
-  std::string textures[6];  // by sky-line entry: -y, +x, +y, -x, up, (bottom, not drawn)
+  std::string textures[6];  // by sky-line entry: -y, +x, +y, -x, up, bottom (drawBottom)
+  // Every name on the sky line, the six faces and any cloud layers after
+  // them: the 5.12 asks for all of them whatever the options, the bottom
+  // face included, though it draws no cloud layer and the bottom only with
+  // the second option (lab T3D-046, T3D-086).
+  std::vector<std::string> fetch;
   bool useTextures = true;  // the first option; off: the solid colour fills the sky
   // The second option: entry 5 drawn as the floor (lab; the third option
   // showed nothing).
