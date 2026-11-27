@@ -93,7 +93,24 @@ jobs:
         env:
           FRANK_REQUIRE_GL: '1'
           FRANK_TEST_SHOTS: ${{ github.workspace }}/gl-mismatch
+          # macOS: one universal program, Apple Silicon and Intel, macOS 11+.
+          MAC_ARCH: ${{ runner.os == 'macOS' && '-arch arm64 -arch x86_64 -mmacosx-version-min=11.0' || '' }}
         run: frankenstein-6037/test.sh
+      - name: Check the universal program, and run its Intel half (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -eu
+          P=build/frankenstein-6037/frankenstein-6037
+          lipo -info "$P"
+          lipo "$P" -verify_arch arm64 x86_64
+          codesign -v "$P" || codesign -s - -f "$P"
+          # The Intel half under Rosetta, if the runner has it (not fatal).
+          if arch -x86_64 /usr/bin/true 2>/dev/null; then
+            arch -x86_64 "$P" --bench cube --renderer software --seconds 1
+          else
+            echo "no Rosetta on this runner: the Intel half is checked by lipo only"
+          fi
       - name: Build and test (Windows)
         if: runner.os == 'Windows'
         shell: msys2 {0}
@@ -163,7 +180,14 @@ jobs:
             stage="dist/frankenstein-6037-$V-$spec"
             mkdir -p "$stage"
             cp -a "$src/." "$stage/"
-            cp frankenstein-6037/README.md frankenstein-6037/RELEASE_NOTES.md frankenstein-6037/VERSION "$stage/"
+            cp frankenstein-6037/README.md frankenstein-6037/RELEASE_NOTES.md frankenstein-6037/VERSION \
+              frankenstein-6037/release/QUICKSTART.md "$stage/"
+            if [ "$spec" = windows ]; then
+              cp frankenstein-6037/release/play.bat "$stage/"
+            else
+              cp frankenstein-6037/release/play.command "$stage/"
+              chmod +x "$stage/play.command" "$stage/frankenstein-6037"
+            fi
             (cd dist && zip -qr "frankenstein-6037-$V-$spec.zip" "frankenstein-6037-$V-$spec")
           done
           (cd dist && sha256sum -- *.zip > SHA256SUMS && cat SHA256SUMS)
