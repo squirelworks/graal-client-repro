@@ -47,6 +47,32 @@ from the `frankenstein-v` series.
   terrain, water, 1024 cubes, grass, and all of them together) drawn
   offline for frame rates, with `--compare` against the software renderer.
 
+- The 5.12's GS2 3D objects on the 6.x GS2 machine: `new GameObject(name)`
+  and `player.camera` (the view's Camera, read only) with the
+  `GameObject` and `SceneObject` members a weapon3d reads and sets
+  (position, x, y, z, scale, transform, rotation, eulerrotation, the
+  forward, right and up vectors, the boxes, alpha, nickname, shape and the
+  mount and drawn queries), in the 5.12's formats and rotation rules. The
+  conformance probe C030 gives back every value the real 5.12 gave.
+- `timevar3`, the server's Graal3D clock, advances in 3D weapons.
+- GS2 show-images and show-texts (every layer, at their pixel places) draw over the
+  whole 3D view, as GS2 GUIs drew over the 5.12's scene, not only in the
+  6.x inset.
+- When the server moves the player's own object (a door, a warp in the
+  same world), the client reports the new place to the server, as the
+  5.12 did.
+- 3D files are asked for as the 5.12 asks: images by their bare name,
+  and `.cs` and `.ter` names never.
+
+- The `seihai3d` extension, version 1 (Graal_analysis
+  `torque/seihai3d-ext-v1.md`): the client asks for it with a third
+  connect argument, `seihai3d/1/00000003`, and takes the server's reply
+  before `MissionStartPhase1`; with no reply it is a plain 5.12, as
+  before. Two bits act: `chat_3d` (the server's `seihai3dChat` lines show
+  in the 3D view, bottom right) and `frame_stats` (`seihai3dStats` about
+  every 5 seconds). `--no-seihai3d` sends no hello, for a third-party
+  server that refuses one.
+
 ## What's new in frankenstein-6037-v0.0.1
 
 - The first client: `frankenstein-6037` for macOS, Linux and Windows. The

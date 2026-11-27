@@ -1,0 +1,20 @@
+// Conformance probe (T3D-024): does timevar3 advance on the client in 3D?
+//#CLIENTSIDE
+function onCreated() {
+  this.n = 0;
+  setTimer(1);
+}
+function onTimeout() {
+  this.n++;
+  if (this.n == 1) this.t0 = timevar3;
+  if (this.n == 7) {
+    this.t1 = timevar3;
+    if (this.t1 > this.t0) cf("tv3_advances", "1");
+    else cf("tv3_advances", "0");
+    cf("tv3_delta", int(this.t1 - this.t0));
+  }
+  if (this.n < 8) setTimer(1);
+}
+function cf(k, v) {
+  triggerserver("gui", "ConfProbe", "cf", k, v);
+}

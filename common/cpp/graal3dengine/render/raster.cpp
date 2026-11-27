@@ -111,7 +111,11 @@ struct ScreenVertex {
 };
 
 inline float edge(const ScreenVertex& a, const ScreenVertex& b, float x, float y) {
-  return (b.sx - a.sx) * (y - a.sy) - (b.sy - a.sy) * (x - a.sx);
+  // Worked from the edge's ends in one fixed order, so the triangle on the
+  // other side of a shared edge gets exactly the negated value (the fill
+  // rule below depends on it).
+  if (a.sy < b.sy || (a.sy == b.sy && a.sx < b.sx)) return (b.sx - a.sx) * (y - a.sy) - (b.sy - a.sy) * (x - a.sx);
+  return -((a.sx - b.sx) * (y - b.sy) - (a.sy - b.sy) * (x - b.sx));
 }
 
 inline uint8_t clamp8(float v) {
@@ -152,6 +156,16 @@ void Rasterizer::drawClipped(const ClipVertex* poly, int count, const RasterStat
       continue;
     // Both windings are drawn; the depth buffer sorts them out.
     const float inv = 1.0f / area;
+    // A pixel centre exactly on an edge belongs to one of the two triangles
+    // that share it (a fill rule), so an additive layer adds it once: the
+    // edge's owner is the triangle that runs it, inside on one fixed side,
+    // downward (or rightward when level).
+    const float sgn = area > 0 ? 1.0f : -1.0f;
+    auto owns = [sgn](const ScreenVertex& p, const ScreenVertex& q) {
+      const float dx = (q.sx - p.sx) * sgn, dy = (q.sy - p.sy) * sgn;
+      return dy > 0 || (dy == 0 && dx > 0);
+    };
+    const bool own0 = owns(b, c), own1 = owns(c, a), own2 = owns(a, b);
     const int x0 = std::max(0, int(std::floor(std::min({a.sx, b.sx, c.sx}))));
     const int x1 = std::min(frame_.width - 1, int(std::ceil(std::max({a.sx, b.sx, c.sx}))));
     const int y0 = std::max(0, int(std::floor(std::min({a.sy, b.sy, c.sy}))));
@@ -164,6 +178,7 @@ void Rasterizer::drawClipped(const ClipVertex* poly, int count, const RasterStat
         float w1 = edge(c, a, px, py) * inv;
         float w2 = edge(a, b, px, py) * inv;
         if (w0 < 0 || w1 < 0 || w2 < 0) continue;
+        if ((w0 == 0 && !own0) || (w1 == 0 && !own1) || (w2 == 0 && !own2)) continue;
         const float iw = w0 * a.iw + w1 * b.iw + w2 * c.iw;
         if (iw <= 0) continue;
         float& dz = depth_[size_t(y) * frame_.width + x];

@@ -1428,6 +1428,15 @@ bool Program::tick() {
     draw_sign();
     draw_chat_input();
   }
+  if (screen_overlay_on_) {
+    Draw::Canvas layer(canvas_.width(), canvas_.height(), {0, 0, 0, 0});
+    std::swap(canvas_, layer);
+    draw_show_images(true, true);
+    std::swap(canvas_, layer);
+    screen_overlay_ = layer.surface();
+  } else if (!screen_overlay_.empty()) {
+    screen_overlay_ = Torque::Gui::Image();
+  }
   window_.present(canvas_.surface());
   return !quit_;
 }

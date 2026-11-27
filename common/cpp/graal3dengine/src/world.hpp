@@ -134,6 +134,24 @@ struct WaterBlockState {
 };
 bool readWaterBlockUpdate(BitReader& r, WaterBlockState& w);
 
+// fxSunLight, the sun flare (Graal_analysis torque/fxsunlight-512.md):
+// the fields up to the blend mode; the animation block after it is left
+// to the length.
+struct SunFlareState {
+  bool init = false;
+  std::string name;
+  Vec3 position;
+  float rotation[4] = {0, 0, 0, 1};
+  bool enable = false;
+  std::string localBitmap, remoteBitmap;
+  float azimuth = 0, elevation = 0;
+  bool flareTP = false;
+  uint8_t color[4] = {0, 0, 0, 0};
+  float brightness = 0, flareSize = 0, fadeTime = 0;
+  uint32_t blendMode = 0;
+};
+bool readSunFlareUpdate(BitReader& r, SunFlareState& f);
+
 // The replicators' own part, after their GameObject update (Graal_analysis
 // torque/replicators-512.md): ground cover scattered on 8-unit cells
 // around the control object.
@@ -173,6 +191,7 @@ struct Ghost {
   SkyState sky;
   TerrainBlockState terrain;
   WaterBlockState water;
+  SunFlareState flare;  // fxSunLight
   ReplicatorState replicator;  // DynamicShapeReplicator, DynamicGrass(Replicator)
   int updates = 0;
 };

@@ -636,13 +636,14 @@ void Program::draw_showimg_ctrl(const gs2::gui::Control& c, const gs2::gui::Rect
   passes_.push_back("Draw_ShowImg");
 }
 
-void Program::draw_show_images(bool screen_layer) {
+void Program::draw_show_images(bool screen_layer, bool overlay) {
   if (show_images_.size() == 0) return;
   Draw::View view = Draw::follow(world_, canvas_.width(), canvas_.height());
+  if (overlay) screen_layer = true;
   for (const auto& im : show_images_.in_order()) {
     const double layer = child_num(im, "layer", 1);
     if (!std::isfinite(layer)) continue;
-    if ((layer >= 4) != screen_layer) continue;
+    if (!overlay && (layer >= 4) != screen_layer) continue;
     const std::string type = child_str(im, "type");
     auto to_px = [&](double x, double y) {
       if (screen_layer) return std::make_pair(x, y);

@@ -39,7 +39,24 @@ struct LinkLogin {
   // name the recorded client's packets, not ours, so they are not checked
   // against what this link sent and resend nothing.
   bool replay = false;
+  // The Seihai `seihai3d` extension (Graal_analysis torque/seihai3d-ext-v1.md,
+  // seihai-core protocol::three_d_ext): when set, the connect request
+  // carries a third argument `seihai3d/<version>/<caps hex>`. A real 5.12
+  // never sends one, so a server answers only us; one that does not
+  // answer leaves the link a plain 5.12.
+  bool seihai3dHello = false;
+  uint32_t seihai3dCaps = 0;
 };
+
+// seihai3d v1 (EXT_VERSION and the capability bits in seihai-core).
+namespace seihai3d {
+constexpr int kVersion = 1;
+constexpr uint32_t kFrameStats = 1u << 0;
+constexpr uint32_t kChat3d = 1u << 1;
+constexpr uint32_t kKnownV1 = 0xFF;
+// The hello argument, `seihai3d/1/00000003`.
+std::string helloArg(int version, uint32_t caps);
+}  // namespace seihai3d
 
 // A Graal text message over BigData (udp-session.md §7).
 struct BigText {
@@ -58,6 +75,8 @@ class Link {
     std::function<void(const std::string&)> error;
     // Server text: weapons, flags, events (s2 selects the action).
     std::function<void(const BigText&)> text;
+    // seihai3d chat_3d: a chat line from the server (`seihai3dChat`).
+    std::function<void(const std::string& account, const std::string& text)> chat3d;
   };
 
   Link(LinkLogin login, Callbacks cb);
@@ -75,6 +94,14 @@ class Link {
   void flushEventLines();
 
   State state() const { return state_; }
+  // seihai3d: the version and capabilities the server agreed to (0 and 0
+  // on a server without the extension, or before its reply).
+  int extVersion() const { return extVersion_; }
+  uint32_t extCaps() const { return extCaps_; }
+  bool extHas(uint32_t cap) const { return (extCaps_ & cap) == cap && cap; }
+  // frame_stats: `seihai3dStats <fps> <frame ms p95> <ghosts> <draw ms>`
+  // once agreed; nothing otherwise.
+  void sendFrameStats(double fps, double p95Ms, int ghosts, double drawMs);
   int protocol() const { return login_.protocol; }
   int loginStep() const { return step_; }
   const GhostTable& ghosts() const { return ghosts_; }
@@ -158,12 +185,13 @@ class Link {
   void deliver(const InEvent& ev);
   void onCommand(const std::vector<std::string>& args);
   void readGhosts(BitReader& r);
-  bool readGhostPayload(BitReader& r, Ghost& g);
+  bool readGhostPayload(BitReader& r, Ghost& g, uint32_t* sections = nullptr);
+  void serverMovedControl(int ghost, uint32_t sections);
   void sendDataPacket();
   void sendAckPacket(int type);
   void writeHeader(BitWriter& w, int type);
   void writeClientGameSection(BitWriter& w);
-  void sendCommand(const std::string& name);
+  void sendCommand(const std::string& name, const std::vector<std::string>& args = {});
   int eventClassId(const std::string& name) const;
   void queueEvent(const std::string& className, BitWriter payload);
   void notify(uint32_t highestAck, uint32_t mask, int maskBits);
@@ -233,6 +261,9 @@ class Link {
   OwnMovement move_;
   uint32_t serverTime_ = 0;
   std::vector<std::string> commands_;
+  int extVersion_ = 0;
+  uint32_t extCaps_ = 0;
+  bool phase1Seen_ = false;
 };
 
 }  // namespace graal3d

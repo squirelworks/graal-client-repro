@@ -84,6 +84,12 @@ inline void setClientBuild(const std::string& build) {
   gTerrainShading = !v420;
   gReplicatorCover = !v420;
 }
+// The flare's gate (fxsunlight-512.md, 179 lab runs on the real 5.12
+// under Mesa): on exactly while the camera's forward vector has a positive
+// dot with this fixed direction, azimuth about 227 (0 = +y, 90 = +x) and
+// elevation about 76; a hard switch, nothing sent moves it.
+constexpr float kFlareAzimuth = 227.0f * 3.14159265f / 180.0f;
+constexpr float kFlareElevation = 76.0f * 3.14159265f / 180.0f;
 constexpr float kNoSunLight = 0.25f;  // a .3ds without a Sun
 // Terrain with a Sun (T3D-162, real 5.12 under Mesa): one fixed light
 // toward about (-0.683, -0.683, 0.259) (azimuth 225, about 15 degrees up),
@@ -143,6 +149,10 @@ using TriangleSink = std::function<void(const RasterVertex&, const RasterVertex&
                                         const RasterState&)>;
 void skyBoxTriangles(const Scene& scene, Resources& resources, float farPlane, uint32_t fogColor,
                      const TriangleSink& sink);
+// The fxSunLight flare's two triangles, filling a width by height frame,
+// when the camera faces its fixed direction (draw.hpp); drawn after the
+// sky box, before the shapes.
+void flareTriangles(const Scene& scene, Resources& resources, int width, int height, const TriangleSink& sink);
 // Returns the number of triangles.
 int waterTriangles(const WaterSurface& water, double seconds, uint32_t fogColor, Resources& resources,
                    const TriangleSink& sink);

@@ -48,7 +48,7 @@ G3D = $(G)/src/bits.cpp $(G)/src/world.cpp $(G)/src/link.cpp $(G)/src/udp.cpp ..
 RENDER = $(addprefix $(G)/render/,mesh.cpp read_3ds.cpp read_dif.cpp read_dts.cpp read_ft.cpp terrain.cpp texture.cpp raster.cpp resources.cpp scene.cpp motion.cpp replicate.cpp draw.cpp)
 # The 3D view's backends: the software rasteriser above and OpenGL 3.2
 # core (src/graal3d5120/gl), loaded at run time.
-FRANK = src/net/udp/link3d.cpp src/graal3d5120/view3d.cpp src/graal3d5120/renderer.cpp \
+FRANK = src/net/udp/link3d.cpp src/graal3d5120/view3d.cpp src/graal3d5120/renderer.cpp src/graal3d5120/gs2_3d.cpp \
   src/graal3d5120/gl/gl_context.cpp src/graal3d5120/gl/gl_renderer.cpp src/host6037/host.cpp src/bench.cpp
 WINDOW = $(Q)/draw/window_x11.cpp $(Q)/draw/window_native.cpp $(COCOA)
 CORE = $(NET) $(FILES) $(DRAW) $(SHELL_SRC) $(G3D) $(RENDER) $(FRANK)

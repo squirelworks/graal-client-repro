@@ -6,6 +6,8 @@
 // the 3D view over the frame, and the disconnect when the host goes.
 #include "../src/bench.hpp"
 #include "../src/host6037/host.hpp"
+#include "../src/graal3d5120/gs2_3d.hpp"
+#include "../../common/cpp/gs2/engine_commands.hpp"
 #include "../../common/cpp/quattro/tests/fake_server.hpp"
 #include "bits.hpp"
 #include "udp.hpp"
@@ -15,6 +17,9 @@
 #include <atomic>
 #include <cmath>
 #include <filesystem>
+#include <fstream>
+#include <map>
+#include <sstream>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -359,10 +364,105 @@ void test_warp_into_3d() {
     for (const auto& l : logs) std::fprintf(stderr, "  log: %s\n", l.c_str());
 }
 
+
+// The conformance probes (Graal_analysis torque/conformance/scripts, our
+// own GS2, compiled by seihai-core: tests/gs2/README.md) on the 6.x GS2
+// machine with the 3D classes, against what the real 5.12 reported for the
+// same probe (conformance results.tsv, C030 and C026, 5.12 Windows).
+std::map<std::string, std::string> run_probe(const std::string& file, double seconds,
+                                             std::function<void(gs2::Machine&, double)> each = nullptr) {
+  std::map<std::string, std::string> cf;
+  std::ifstream in("tests/gs2/" + file, std::ios::binary);
+  std::stringstream bytes;
+  bytes << in.rdbuf();
+  CHECK(!bytes.str().empty());
+  gs2::Machine m(gs2::Profile::Engine600);
+  gs2::addEngineCommands(m, {});
+  Frank::install_gs2_3d(m);
+  m.addCommand("triggerserver", "ss", [&cf](gs2::Machine& mm, gs2::Var&, std::vector<gs2::Value>& a) {
+    if (a.size() >= 5 && mm.toString(a[2]) == "cf") cf[mm.toString(a[3])] = mm.toString(a[4]);
+    return gs2::Value::number(0);
+  });
+  m.logMissingFunctions = false;
+  auto w = m.newVar("ConfProbe");
+  std::string err;
+  CHECK(m.setScript(w, bytes.str(), &err));
+  for (double t = 0; t < seconds; t += 0.05) {
+    if (each) each(m, t);
+    m.runScripts();
+  }
+  return cf;
+}
+
+bool near_vec(const std::string& got, std::vector<double> want, double tol = 2e-3) {
+  std::istringstream in(got);
+  for (double w : want) {
+    double g;
+    if (!(in >> g) || std::fabs(g - w) > tol) return false;
+  }
+  return true;
+}
+
+void test_gs2_3d() {
+  CHECK(Frank::g3d_number(0.9996241920001) == "0.999624192");
+  CHECK(Frank::g3d_number(-0.0) == "0" && Frank::g3d_number(7) == "7" && Frank::g3d_number(3.25) == "3.25");
+
+  auto cf = run_probe("probe_gameobject.gs2bc", 12);
+  CHECK(cf.size() == 47);  // every report the probe makes
+  const std::map<std::string, std::string> exact = {
+      {"made", "1"},           {"d_position", "0 0 0"},  {"d_scale", "1 1 1"},
+      {"d_transform", "0 0 0 1 0 0 0"},                  {"d_rotation", "1 0 0 0"},
+      {"d_euler", "0 0 0"},    {"d_velocity", "0 0 0"},  {"d_alpha", "1"},
+      {"d_shape", ""},         {"d_solid", "0"},         {"d_collision", "1"},
+      {"d_forward", "0 1 0"},  {"d_up", "0 0 1"},        {"d_right", "1 0 0"},
+      {"d_objectbox", "0 0 0 0 0 0"},                    {"d_drawn", "0"},
+      {"p_get", "1.5 -2 3.25"}, {"p_prop", "1.5 -2 3.25"}, {"p_xyz", "1.5_-2_3.25"},
+      {"p_afterx", "7 -2 3.25"}, {"p_assigned", "4 5 6"}, {"s_get", "2 3 4"},
+      {"s_prop", "2 3 4"},     {"s_worldbox", "4 5 6 4 5 6"}, {"s_center", "4 5 6"},
+      {"t_up", "0 0 1"},       {"t_position", "1 2 3"},  {"dir_forward", "1 0 0"},
+      {"sh_shape", "conf_red.3ds"}, {"sh_objectbox", "0 0 0 0 0 0"}, {"sh_drawn", "0"},
+      {"n_nickname", "conf"},  {"n_alpha", "0.25"},      {"f_byname", "0"},
+      {"v_velocity", "0 0 0"}, {"v_after1s", "0 0 10"},  {"o_found", "0"},
+      {"x_gone", "1"},         {"done", "1"}};
+  for (const auto& [k, v] : exact) {
+    if (cf[k] != v) std::fprintf(stderr, "  C030 %s: got \"%s\", 5.12 \"%s\"\n", k.c_str(), cf[k].c_str(), v.c_str());
+    CHECK(cf[k] == v);
+  }
+  // The rotation rules, to the 5.12's float precision.
+  CHECK(near_vec(cf["t_get"], {1, 2, 3, 0, 0, 1, 1.5708}));
+  CHECK(near_vec(cf["t_rotation"], {0, 0, 1, 1.5708}));
+  CHECK(near_vec(cf["t_euler"], {0, 0, -0.027415631}));
+  CHECK(near_vec(cf["t_forward"], {0.027412196, 0.999624192, 0}));
+  CHECK(near_vec(cf["t_right"], {0.999624192, -0.027412196, 0}));
+  CHECK(near_vec(cf["e_transform"], {1, 2, 3, 0, 0, -1, 116.62015253}));
+  CHECK(near_vec(cf["e_forward"], {-0.893996596, -0.448073625, 0}));
+  CHECK(near_vec(cf["dir_euler"], {0, 0, -1.570796251}));
+
+  // C026's slice of the typed table.
+  auto typed = run_probe("probe_typed.gs2bc", 8);
+  CHECK(typed["getposition"] == "2 3 4" && typed["position"] == "2 3 4" && typed["getscale"] == "2 2 2");
+  CHECK(typed["x"] == "2" && typed["transform"] == "2 3 4 1 0 0 0" && typed["alpha"] == "0.5");
+  CHECK(typed["nickname"] == "conf" && typed["ismounted"] == "0" && typed["done"] == "1");
+
+  // timevar3 advances with the host's clock (C009).
+  auto tv = run_probe("probe_timevar3.gs2bc", 10, [](gs2::Machine& mm, double t) {
+    mm.universe()->childOrCreate("timevar3")->setNumber(12.0 + t);
+  });
+  CHECK(tv["tv3_advances"] == "1");
+
+  // The 5.12's request names (T3D-033, C006, C007).
+  CHECK(Frank::request_name_3d("conf_tex.png") == "conf_tex");
+  CHECK(Frank::request_name_3d("conf_sky2") == "conf_sky2");
+  CHECK(Frank::request_name_3d("base.marble") == "base.marble");
+  CHECK(Frank::request_name_3d("conf_red.3ds") == "conf_red.3ds");
+  CHECK(Frank::request_name_3d("conf_marker.cs").empty() && Frank::request_name_3d("conf_marker.ter").empty());
+}
+
 }  // namespace
 
 int main() {
   test_marker();
+  test_gs2_3d();
   test_view();
   test_renderers();
   test_warp_into_3d();

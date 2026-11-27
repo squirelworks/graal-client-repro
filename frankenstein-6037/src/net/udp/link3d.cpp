@@ -32,6 +32,9 @@ bool Link3D::open(const std::string& host, uint16_t port, const graal3d::LinkLog
   lc.text = [this](const graal3d::BigText& t) {
     if (cb_.text) cb_.text(t);
   };
+  lc.chat3d = [this](const std::string& account, const std::string& text) {
+    if (cb_.chat3d) cb_.chat3d(account, text);
+  };
   link_ = std::make_unique<graal3d::Link>(login, lc);
   failed_.clear();
   link_->start(now_ms());

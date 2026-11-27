@@ -81,6 +81,15 @@ Scene sceneFromGhosts(const GhostTable& ghosts, int cameraGhost, float fovDegree
         scene.terrain.squareSize = g.terrain.squareSize > 0 && g.terrain.squareSize <= 1024 ? float(g.terrain.squareSize) : 8.0f;
         scene.terrain.repeat = g.terrain.repeat;
       }
+    } else if (g.className == "fxSunLight" && g.flare.init) {
+      // Its enable, azimuth, elevation, size and alpha change nothing (lab).
+      const std::string& tex = !g.flare.localBitmap.empty() ? g.flare.localBitmap : g.flare.remoteBitmap;
+      if (!tex.empty()) {
+        scene.flare.present = true;
+        scene.flare.texture = tex;
+        for (int i = 0; i < 3; ++i) scene.flare.color[i] = g.flare.color[i] / 255.0f;
+        scene.flare.blendMode = g.flare.blendMode;
+      }
     } else if (g.className == "WaterBlock" && g.water.init) {
       const WaterBlockState& w = g.water;
       if (!std::isfinite(w.scale.x) || !std::isfinite(w.scale.y) || w.scale.x <= 0 || w.scale.y <= 0) continue;

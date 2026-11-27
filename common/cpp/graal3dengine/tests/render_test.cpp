@@ -1723,6 +1723,56 @@ void testTerrain() {
 // Terrain as the 5.12 draws it (lab batch K): edges fade over a square,
 // blends mix by a / 15 (T3D-162), a one-square checker reads half and half
 // at each centre (bilinear), slopes shade only with a Sun, from a fixed side.
+// The fxSunLight flare (fxsunlight-512.md): the whole frame, texture
+// times colour, while the camera faces azimuth 227, elevation 76.
+void testSunFlare() {
+  Resources res;
+  Texture t;
+  t.width = t.height = 4;
+  t.pixels.assign(16, packRgba(200, 100, 0));
+  res.putTexture("flare", t);
+  Scene scene;
+  scene.hasCamera = true;
+  scene.flare.present = true;
+  scene.flare.texture = "flare";
+  scene.flare.color[1] = 0.5f;
+  std::vector<uint32_t> px(16 * 16);
+  auto shot = [&](float yawDegrees, float pitchDegrees) {
+    // Level toward +y, turned clockwise from above by the yaw, then
+    // pitched up.
+    const float yaw = yawDegrees * 3.14159265f / 180.0f, pitch = pitchDegrees * 3.14159265f / 180.0f;
+    M4 m = M4::identity();
+    const V3 f{std::sin(yaw) * std::cos(pitch), std::cos(yaw) * std::cos(pitch), std::sin(pitch)};
+    const V3 rgt = normalize(V3{f.y, -f.x, 0});
+    const V3 up{rgt.y * f.z - rgt.z * f.y, rgt.z * f.x - rgt.x * f.z, rgt.x * f.y - rgt.y * f.x};
+    for (int i = 0; i < 3; ++i) {
+      m.m[i][0] = (&rgt.x)[i];
+      m.m[i][1] = (&f.x)[i];
+      m.m[i][2] = (&up.x)[i];
+    }
+    scene.view.cameraToWorld = m;
+    drawScene({px.data(), 16, 16, 16}, scene, res);
+    return px[8 * 16 + 8];
+  };
+  // Additive over the black clear: 200, 50, 0 (alpha 255).
+  CHECK(isColor(shot(227, 0), 200, 50, 0));
+  // Added once everywhere, the two triangles' shared edge included (the
+  // rasterizer's fill rule).
+  bool once = true;
+  for (uint32_t c : px) once = once && isColor(c, 200, 50, 0);
+  CHECK(once);
+  CHECK(isColor(shot(140, 0), 200, 50, 0));
+  CHECK(isColor(shot(134, 0), 0, 0, 0));    // off from 0 to about 136
+  CHECK(isColor(shot(47, 0), 0, 0, 0));
+  CHECK(isColor(shot(314, 0), 200, 50, 0));  // on to about 316
+  CHECK(isColor(shot(320, 0), 0, 0, 0));
+  CHECK(isColor(shot(225, -10), 200, 50, 0));  // off once 14 degrees down
+  CHECK(isColor(shot(225, -18), 0, 0, 0));
+  // Blend mode 1 is opaque; others add.
+  scene.flare.blendMode = 1;
+  CHECK(isColor(shot(227, 30), 200, 50, 0));
+}
+
 void testTerrainLook() {
   Terrain t;
   t.present = true;
@@ -2369,6 +2419,7 @@ int main() {
   testFtTrees();
   testStreamedTerrain();
   testTerrainLook();
+  testSunFlare();
   testTerrain();
   testClientImageFormats();
   testReplicators();

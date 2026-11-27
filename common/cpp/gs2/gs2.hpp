@@ -116,6 +116,11 @@ class Var : public std::enable_shared_from_this<Var> {
   // their property set; a plain object made by `new` takes every name until
   // its class gives the real list.
   virtual bool acceptsProperty(const std::string& key) const;
+  // Called before a script reads or writes the member `key` of this
+  // object (`obj.key`). A typed object whose members derive from one
+  // another (a Graal3D GameObject's position, x and transform) brings them
+  // up to date here. Plain variables do nothing.
+  virtual void beforeMemberAccess(const std::string& key) { (void)key; }
   void setAcceptsAllProperties(bool b) { acceptsAll_ = b; }
 
   Kind kind() const { return kind_; }
@@ -228,6 +233,8 @@ class Machine {
   // that accepts every property. The machine keeps every object it made.
   using Factory = std::function<VarPtr(Machine&, const std::string& type, const std::string& name)>;
   void setObjectFactory(Factory f) { factory_ = std::move(f); }
+  // The factory set now, for a host that adds classes in front of it.
+  const Factory& objectFactory() const { return factory_; }
   const std::vector<VarPtr>& objects() const { return objects_; }
 
   // `_(text)` (opcode 119). The default returns the text unchanged.
