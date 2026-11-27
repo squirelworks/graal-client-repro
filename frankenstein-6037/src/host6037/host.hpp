@@ -100,7 +100,7 @@ class ViewWindow : public Quattro::Draw::Window {
   bool show_fps = true;  // the counter in the top-left corner
   FrameCounter counter;
   std::function<void(const std::string&)> log;
-  // The program's GS2 screen layer, drawn over the whole 3D frame (null: none).
+  // The program's GS2 show-images, drawn over the whole 3D frame (null: none).
   const Torque::Gui::Image* overlay = nullptr;
   // seihai3d chat_3d: the last chat lines, drawn in the 3D view, newest last.
   std::vector<std::string> chat_lines;

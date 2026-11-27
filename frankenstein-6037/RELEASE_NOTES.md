@@ -55,7 +55,7 @@ from the `frankenstein-v` series.
   mount and drawn queries), in the 5.12's formats and rotation rules. The
   conformance probe C030 gives back every value the real 5.12 gave.
 - `timevar3`, the server's Graal3D clock, advances in 3D weapons.
-- GS2 show-images on the screen layer (layer 4 and up) draw over the
+- GS2 show-images and show-texts (every layer, at their pixel places) draw over the
   whole 3D view, as GS2 GUIs drew over the 5.12's scene, not only in the
   6.x inset.
 - When the server moves the player's own object (a door, a warp in the

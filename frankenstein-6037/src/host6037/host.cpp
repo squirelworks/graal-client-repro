@@ -268,7 +268,7 @@ void Host::make_program(const Quattro::Shell::Options& opt) {
     camera_var_.reset();
     timevar3_known_ = false;
   }
-  // The GS2 screen layer (show-images on layer 4 and up) also comes as an
+  // The GS2 show-images (every layer, in window pixels) also come as an
   // overlay of its own, drawn over the whole 3D view as the 5.12 drew GS2
   // GUIs over its scene (T3D-058, conformance C010).
   program_->set_screen_overlay(mode3d_ && view3d);
