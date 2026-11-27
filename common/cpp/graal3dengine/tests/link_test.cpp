@@ -391,6 +391,38 @@ void testOwnMove() {
   if (out.size() == 1) CHECK((readClientPacket(out[0], link.eventClasses(), &seen).ownSections & kSec(5)) == 0);
 }
 
+void testServerMoveReported() {
+  // A server move with no movetype (seihai-gserver g3dpos, conformance
+  // C011): the control object's transform changes, and the client reports
+  // the new place with its transform section in the next packet, as the
+  // real 5.12 did; once only.
+  LinkLogin login;
+  Link link(login, {});
+  uint32_t t = 0;
+  runSession(link, t);
+  link.takeOutgoing();
+  GameObjectState seen;
+  GameObjectState o;
+  o.position = {3, 0, 1};
+  o.hasTransform = true;
+  uint32_t seq = 6;
+  link.receive(serverControlUpdate(seq++, link.sentDataPackets(), o, kSec(5)), ++t);
+  link.tick(++t);
+  bool reported = false;
+  for (const auto& d : link.takeOutgoing()) {
+    auto p = readClientPacket(d, link.eventClasses(), &seen);
+    if (p.type != 0) continue;
+    reported = near(p.position.x, 3) && near(p.position.z, 1) && (p.ownSections & kSec(5)) != 0;
+  }
+  CHECK(reported);
+  t += Link::kKeepAliveMs;
+  link.tick(t);
+  for (const auto& d : link.takeOutgoing()) {
+    auto p = readClientPacket(d, link.eventClasses(), &seen);
+    if (p.type == 0) CHECK((p.ownSections & kSec(5)) == 0);
+  }
+}
+
 void testMovetypes() {
   // E#505 (protocol/lab-appe-hosta-2026-11-20d.md): a server moves the
   // player with a movetype and movement data on its control object.
@@ -933,6 +965,7 @@ int main() {
   testServerSession();
   testMovetypes();
   testOwnMove();
+  testServerMoveReported();
   testGhostAlwaysAndCameraControl();
   testTerrainAndWater();
   testLostEventIsResent();

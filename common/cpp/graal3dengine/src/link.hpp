@@ -158,7 +158,8 @@ class Link {
   void deliver(const InEvent& ev);
   void onCommand(const std::vector<std::string>& args);
   void readGhosts(BitReader& r);
-  bool readGhostPayload(BitReader& r, Ghost& g);
+  bool readGhostPayload(BitReader& r, Ghost& g, uint32_t* sections = nullptr);
+  void serverMovedControl(int ghost, uint32_t sections);
   void sendDataPacket();
   void sendAckPacket(int type);
   void writeHeader(BitWriter& w, int type);

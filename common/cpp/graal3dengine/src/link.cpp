@@ -316,7 +316,9 @@ bool Link::readServerGameSection(BitReader& r) {
     } else {
       GameObjectState scratch;
       GameObjectState& o = it != ghosts_.end() ? it->second.object : scratch;
-      if (!readGameObjectUpdate(r, o)) return false;
+      uint32_t sections = 0;
+      if (!readGameObjectUpdate(r, o, &sections)) return false;
+      serverMovedControl(idx, sections);
     }
     if (it == ghosts_.end() || (!camera && it->second.className != "GameObject")) {
       log("Graal3D: control object " + std::to_string(idx) + " is not a GameObject or Camera ghost");
@@ -512,14 +514,27 @@ void Link::readGhosts(BitReader& r) {
       g = Ghost();
       g.className = name;
     }
-    readGhostPayload(r, g);
+    uint32_t sections = 0;
+    readGhostPayload(r, g, &sections);
+    if (g.className == "GameObject") serverMovedControl(idx, sections);
     ++g.updates;
     r.seek(start + len);
   }
 }
 
-bool Link::readGhostPayload(BitReader& r, Ghost& g) {
-  if (g.className == "GameObject") return readGameObjectUpdate(r, g.object);
+// The server moved the client's own GameObject (a transform in its
+// update, no movetype): the client reports the new place in its next
+// packet, as the real 5.12 did after a g3dpos move (conformance C011: the
+// server's trace shows the control-object report at the new position).
+void Link::serverMovedControl(int ghost, uint32_t sections) {
+  if (ghost < 0 || ghost != controlGhost_ || !(sections & (1u << 4))) return;
+  const auto it = ghosts_.find(ghost);
+  if (it == ghosts_.end() || it->second.className != "GameObject" || it->second.object.hasMovement) return;
+  sendOwnTransform_ = true;
+}
+
+bool Link::readGhostPayload(BitReader& r, Ghost& g, uint32_t* sections) {
+  if (g.className == "GameObject") return readGameObjectUpdate(r, g.object, sections);
   // The replicators and grass share one reader: a whole GameObject update,
   // then a flag-guarded block of their own, left unread (lab T3D-048,
   // static read and live on the real 5.12).

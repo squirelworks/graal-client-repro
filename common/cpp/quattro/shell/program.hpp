@@ -124,6 +124,11 @@ class Program {
   void fire_weapon();
   // What the weapon scripts set (shell/weapon_api.cpp).
   const ShowImages& show_images() const { return show_images_; }
+  // A host that draws a view of its own over the frame (the Frankenstein
+  // 6.037's 3D view) asks for the screen layer (show-images on layer 4 and
+  // up) a second time, alone on a transparent image of the frame's size.
+  void set_screen_overlay(bool on) { screen_overlay_on_ = on; }
+  const Torque::Gui::Image& screen_overlay() const { return screen_overlay_; }
   const std::string& sign_text() const { return sign_text_; }  // say2's box; empty when closed
   double freeze_left() const { return freeze_left_; }
   bool def_movement() const { return def_movement_; }
@@ -299,6 +304,8 @@ class Program {
     double freeze = 0;
   } script_seen_;
   ShowImages show_images_;
+  bool screen_overlay_on_ = false;
+  Torque::Gui::Image screen_overlay_;
   std::string sign_text_;
   double freeze_left_ = 0;  // seconds the player stays frozen
   double hide_left_ = 0;    // hideplayer

@@ -1,5 +1,7 @@
 #include "host.hpp"
 
+#include "../graal3d5120/gs2_3d.hpp"
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -130,6 +132,20 @@ void ViewWindow::compose(bool) {
   }
   out_ = world_;
   draw_inset(out_, frame, 4);
+  if (overlay && overlay->width == out_.width && overlay->height == out_.height) {
+    for (int y = 0; y < out_.height; ++y)
+      for (int x = 0; x < out_.width; ++x) {
+        const Torque::Gui::Color c = overlay->at(x, y);
+        if (c.a == 0) continue;
+        Torque::Gui::Color& d = out_.at(x, y);
+        if (c.a == 255) {
+          d = c;
+          continue;
+        }
+        auto mix = [&](int a, int b) { return static_cast<uint8_t>((a * c.a + b * (255 - c.a)) / 255); };
+        d = {mix(c.r, d.r), mix(c.g, d.g), mix(c.b, d.b), 255};
+      }
+  }
   if (show_fps && counter.frames() > 0) {
     char text[96];
     std::snprintf(text, sizeof text, "%.1f fps  %.1f ms  %s", counter.fps(), counter.mean_ms(), renderer_name());
@@ -198,12 +214,15 @@ Host::~Host() { close(); }
 void Host::close() {
   link_.close();
   view_.link = nullptr;
+  view_.overlay = nullptr;
   mode3d_ = false;
   program_.reset();
 }
 
 void Host::make_program(const Quattro::Shell::Options& opt) {
+  view_.overlay = nullptr;
   program_ = std::make_unique<Quattro::Shell::Program>(*profile_, opt, view_);
+  view_.overlay = &program_->screen_overlay();
   program_->log = [this](const std::string& s) { say(s); };
   // In 3D, a file the 2D side did not ask for is a 3D file: the shapes
   // and textures asked for below, and what the server pushes (terrain).
@@ -221,7 +240,15 @@ void Host::make_program(const Quattro::Shell::Options& opt) {
     // In 3D mode the scripts' server triggers go over the 3D link as event
     // lines (torque/udp-session.md §7), not as C->S 38.
     program_->scripts().set_event_line([this](const std::string& line) { link_.event_lines(line); });
+    // The 5.12's GS2 3D classes (GameObject, Camera) and their members.
+    install_gs2_3d(program_->scripts().machine());
+    camera_var_.reset();
+    timevar3_known_ = false;
   }
+  // The GS2 screen layer (show-images on layer 4 and up) also comes as an
+  // overlay of its own, drawn over the whole 3D view as the 5.12 drew GS2
+  // GUIs over its scene (T3D-058, conformance C010).
+  program_->set_screen_overlay(mode3d_ && view3d);
 }
 
 bool Host::connect(const std::string& raw_name, const std::string& host, uint16_t port) {
@@ -318,12 +345,30 @@ void Host::walk_in_3d() {
 // a session even when a copy is cached, as the 5.12 asked again on a
 // second visit and drew the server's newer copy (conformance C028); a
 // texture only when no root has it.
+//
+// What goes on the wire follows the 5.12 (T3D-033, conformance C004, C006,
+// C007): an image is asked for by its bare name, any image extension
+// dropped (it stores the download under that name, which the resolver
+// finds); a `.cs` or `.ter` shape is never asked for, as no 5.12 takes
+// server TorqueScript or a `.ter` file.
+std::string request_name_3d(const std::string& lower_name) {
+  const size_t dot = lower_name.rfind('.');
+  if (dot == std::string::npos || lower_name.find('/', dot) != std::string::npos) return lower_name;
+  const std::string ext = lower_name.substr(dot);
+  if (ext == ".cs" || ext == ".ter") return {};
+  for (const char* e : {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tga", ".dds", ".jp2", ".mng"})
+    if (ext == e) return lower_name.substr(0, dot);
+  return lower_name;
+}
+
 void Host::ask_for_3d_files() {
   if (!program_ || !mode3d_ || step_ < 6 || !view3d) return;
-  for (const auto& name : view_.world3d.resources.shapesNamed())
-    if (asked3d_.insert(name).second) program_->ask_file(name);
-  for (const auto& name : view_.world3d.resources.missing())
-    if (asked3d_.insert(name).second) program_->ask_file(name);
+  auto ask = [this](const std::string& name) {
+    const std::string wire = request_name_3d(name);
+    if (!wire.empty() && asked3d_.insert(wire).second) program_->ask_file(wire);
+  };
+  for (const auto& name : view_.world3d.resources.shapesNamed()) ask(name);
+  for (const auto& name : view_.world3d.resources.missing()) ask(name);
 }
 
 void Host::save_3d_file(const std::string& name, const std::string& data) {
@@ -341,9 +386,40 @@ void Host::save_3d_file(const std::string& name, const std::string& data) {
   say("Graal3D: got " + name + " (" + std::to_string(data.size()) + " bytes)");
 }
 
+// What a 5.12 weapon3d reads of the 3D world each tick: `timevar3`, the
+// server's Graal3D clock in seconds running on between its updates (T3D-024),
+// and `player.camera`, the view's Camera with its live pose (T3D-140,
+// T3D-163: G3DCamera_<account>, read only).
+void Host::publish_3d_state() {
+  graal3d::Link* l = link_.link();
+  if (!program_ || !mode3d_ || !l || step_ < 5) return;
+  auto& m = program_->scripts().machine();
+  const uint32_t local = Link3D::now_ms();
+  if (!timevar3_known_ || l->serverTime() != timevar3_server_) {
+    timevar3_known_ = true;
+    timevar3_server_ = l->serverTime();
+    timevar3_local_ = local;
+  }
+  const double tv3 = timevar3_server_ / 1000.0 + static_cast<double>(local - timevar3_local_) / 1000.0;
+  m.universe()->childOrCreate("timevar3")->setNumber(tv3);
+
+  const auto cam = l->ghosts().find(l->cameraGhost());
+  if (cam == l->ghosts().end() || cam->second.className != "Camera") return;
+  if (!camera_var_) {
+    camera_var_ = std::make_shared<GameObject3D>("G3DCamera_" + opt_.account, "Camera");
+    camera_var_->mirror = true;
+  }
+  const graal3d::GameObjectState& o = cam->second.camera.object;
+  camera_var_->pose.p = {o.position.x, o.position.y, o.position.z};
+  g3d_set_wire_rotation(camera_var_->pose, {o.axis.x, o.axis.y, o.axis.z}, o.angle);
+  camera_var_->publish();
+  program_->scripts().player()->childOrCreate("camera")->setObject(camera_var_);
+}
+
 bool Host::tick() {
   if (!program_) return false;
   mirror_control_position();
+  publish_3d_state();
   const bool go = program_->tick();
   walk_in_3d();
   ask_for_3d_files();

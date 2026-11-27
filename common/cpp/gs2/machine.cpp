@@ -452,6 +452,7 @@ VarPtr refTarget(const Ref& r, bool create) {
     if (static_cast<std::size_t>(r.index) < el.size()) return el[static_cast<std::size_t>(r.index)];
     return nullptr;
   }
+  r.owner->beforeMemberAccess(r.key);
   return create ? r.owner->childOrCreate(r.key) : r.owner->child(r.key);
 }
 

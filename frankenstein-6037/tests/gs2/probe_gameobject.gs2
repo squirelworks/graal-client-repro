@@ -1,0 +1,101 @@
+// Conformance probe (C030): the value formats and defaults of the core
+// GameObject / SceneObject members on a client-made object and on the
+// player's own 3D object, for the Frankenstein 6.037 and 5.12 repro's GS2 3D
+// surface (graal-client-repro). Values are recorded, not judged: the repro
+// copies the text each member gives (number format, vector spacing, the
+// transform's axis-angle form) from these reports.
+//#CLIENTSIDE
+function onCreated() {
+  setTimer(4);
+}
+function onTimeout() {
+  temp.go = new GameObject("conf_go");
+  if (temp.go == NULL) {
+    cf("made", "0");
+    return;
+  }
+  cf("made", "1");
+  // Defaults on a new object.
+  cf("d_position", temp.go.position);
+  cf("d_scale", temp.go.scale);
+  cf("d_transform", temp.go.transform);
+  cf("d_rotation", temp.go.rotation);
+  cf("d_euler", temp.go.eulerrotation);
+  cf("d_velocity", temp.go.velocity);
+  cf("d_alpha", temp.go.alpha);
+  cf("d_shape", temp.go.shape);
+  cf("d_solid", temp.go.solid);
+  cf("d_collision", temp.go.collision);
+  cf("d_forward", temp.go.getForwardVector());
+  cf("d_up", temp.go.getUpVector());
+  cf("d_right", temp.go.getRightVector());
+  cf("d_objectbox", temp.go.getObjectBox());
+  cf("d_drawn", temp.go.isDrawn());
+  // Position: the call, the property and the x/y/z parts.
+  temp.go.setPosition("1.5 -2 3.25");
+  cf("p_get", temp.go.getPosition());
+  cf("p_prop", temp.go.position);
+  cf("p_xyz", temp.go.x @ "_" @ temp.go.y @ "_" @ temp.go.z);
+  temp.go.x = 7;
+  cf("p_afterx", temp.go.getPosition());
+  temp.go.position = "4 5 6";
+  cf("p_assigned", temp.go.getPosition());
+  // Scale and the boxes.
+  temp.go.setScale("2 3 4");
+  cf("s_get", temp.go.getScale());
+  cf("s_prop", temp.go.scale);
+  cf("s_worldbox", temp.go.getWorldBox());
+  cf("s_center", temp.go.getWorldBoxCenter());
+  // Rotation: an axis-angle transform, then Euler degrees, then a direction.
+  temp.go.setTransform("1 2 3 0 0 1 1.5708");
+  cf("t_get", temp.go.getTransform());
+  cf("t_rotation", temp.go.rotation);
+  cf("t_euler", temp.go.eulerrotation);
+  cf("t_forward", temp.go.getForwardVector());
+  cf("t_right", temp.go.getRightVector());
+  cf("t_up", temp.go.getUpVector());
+  cf("t_position", temp.go.getPosition());
+  temp.go.eulerrotation = "0 0 90";
+  cf("e_transform", temp.go.getTransform());
+  cf("e_forward", temp.go.getForwardVector());
+  temp.go.setDirection("1 0 0");
+  cf("dir_forward", temp.go.getForwardVector());
+  cf("dir_euler", temp.go.eulerrotation);
+  // Shape and drawing.
+  temp.go.shape = "conf_red.3ds";
+  cf("sh_shape", temp.go.shape);
+  cf("sh_objectbox", temp.go.getObjectBox());
+  cf("sh_drawn", temp.go.isDrawn());
+  // Text members.
+  temp.go.nickname = "conf";
+  cf("n_nickname", temp.go.nickname);
+  temp.go.alpha = 0.25;
+  cf("n_alpha", temp.go.alpha);
+  // Found by name, then velocity over one second.
+  cf("f_byname", findobject("conf_go") == temp.go);
+  temp.go.setPosition("0 0 10");
+  temp.go.velocity = "1 0 0";
+  cf("v_velocity", temp.go.velocity);
+  sleep(1);
+  cf("v_after1s", temp.go.getPosition());
+  // The player's own 3D object.
+  temp.own = findobject("G3DPlayer_" @ player.account);
+  if (temp.own == NULL) cf("o_found", "0");
+  else {
+    cf("o_found", "1");
+    cf("o_position", temp.own.position);
+    cf("o_transform", temp.own.getTransform());
+    cf("o_scale", temp.own.scale);
+    cf("o_shape", temp.own.shape);
+    cf("o_nickname", temp.own.nickname);
+    cf("o_box", temp.own.getObjectBox());
+    cf("o_dropz", temp.own.getdropz(temp.own.position));
+  }
+  // Destroyed objects are gone by name.
+  temp.go.destroy();
+  cf("x_gone", findobject("conf_go") == NULL);
+  cf("done", "1");
+}
+function cf(k, v) {
+  triggerserver("gui", "ConfProbe", "cf", k, v);
+}

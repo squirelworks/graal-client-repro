@@ -28,6 +28,10 @@ namespace Frank {
 // Linux one elsewhere (there is no Mac 6.03r7).
 const char* host_build_label();
 
+// The name a 3D file is asked for by (lower case): an image without its
+// extension, "" for a name the 5.12 never asks for (.cs, .ter).
+std::string request_name_3d(const std::string& lower_name);
+
 // Splits a list name: "3 Lab" -> ("Lab", true). A name whose second
 // character is a space loses its first two characters either way.
 std::string strip_marker(const std::string& raw, bool& is3d);
@@ -94,6 +98,8 @@ class ViewWindow : public Quattro::Draw::Window {
   bool show_fps = true;  // the counter in the top-left corner
   FrameCounter counter;
   std::function<void(const std::string&)> log;
+  // The program's GS2 screen layer, drawn over the whole 3D frame (null: none).
+  const Torque::Gui::Image* overlay = nullptr;
 
  private:
   void compose(bool fresh2d);
@@ -144,6 +150,7 @@ class Host {
   void walk_in_3d();
   void ask_for_3d_files();
   void save_3d_file(const std::string& name, const std::string& data);
+  void publish_3d_state();
 
   const Quattro::Net::BuildProfile* profile_;
   Quattro::Shell::Options opt_;
@@ -166,6 +173,10 @@ class Host {
   // names asked for this session.
   std::string files3d_dir_;
   std::set<std::string> asked3d_;
+  // timevar3: the server time last seen and the local clock then.
+  bool timevar3_known_ = false;
+  uint32_t timevar3_server_ = 0, timevar3_local_ = 0;
+  std::shared_ptr<class GameObject3D> camera_var_;
 };
 
 }  // namespace Frank
