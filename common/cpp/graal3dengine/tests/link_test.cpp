@@ -225,6 +225,35 @@ void testPayloads() {
     CHECK(near(s.color[0], 0.8f) && near(s.ambient[2], 0.35f));
   }
   {
+    // fxSunLight (fxsunlight-512.md): flag, name, transform, enable, two
+    // bitmaps, azimuth, elevation, flare TP, RGBA, four 32-bit values.
+    BitWriter w;
+    w.flag(true);
+    w.pstring("flare");
+    for (float f : {1.0f, 2.0f, 3.0f, 0.0f, 0.0f, 0.0f}) w.f32(f);
+    w.flag(false);
+    w.u8(1);
+    w.pstring("flare.png");
+    w.pstring("");
+    w.f32(90);
+    w.f32(30);
+    w.u8(0);
+    for (uint32_t c : {255u, 200u, 0u, 128u}) w.u8(c);
+    w.f32(1);
+    w.f32(300);
+    w.f32(0);
+    w.u32(2);
+    BitReader r(w.bytes());
+    SunFlareState f;
+    CHECK(readSunFlareUpdate(r, f) && f.init && f.name == "flare" && f.enable);
+    CHECK(f.localBitmap == "flare.png" && near(f.azimuth, 90) && near(f.elevation, 30));
+    CHECK(f.color[0] == 255 && f.color[1] == 200 && f.color[3] == 128 && near(f.flareSize, 300) && f.blendMode == 2);
+    CHECK(near(f.position.y, 2) && near(f.rotation[3], 1));
+    BitReader none(fromHex("00"));
+    SunFlareState g;
+    CHECK(readSunFlareUpdate(none, g) && !g.init);
+  }
+  {
     BitReader r(fromHex(kSky));
     SkyState s;
     CHECK(readSkyUpdate(r, s));

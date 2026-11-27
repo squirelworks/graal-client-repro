@@ -530,6 +530,7 @@ bool Link::readGhostPayload(BitReader& r, Ghost& g) {
   if (g.className == "Sky") return readSkyUpdate(r, g.sky);
   if (g.className == "TerrainBlock") return readTerrainBlockUpdate(r, g.terrain);
   if (g.className == "WaterBlock") return readWaterBlockUpdate(r, g.water);
+  if (g.className == "fxSunLight") return readSunFlareUpdate(r, g.flare);
   return true;  // read by length only
 }
 
