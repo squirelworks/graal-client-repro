@@ -103,6 +103,8 @@ jobs:
         run: |
           # The runner has no OpenGL 3.2 driver: Mesa's opengl32.dll stands in.
           export FRANK_GL_LIBRARY="$(cygpath -w /ucrt64/bin/opengl32.dll)"
+          # Mesa on its CPU rasteriser, not D3D12 on the runner's Basic Render Driver.
+          export GALLIUM_DRIVER=llvmpipe
           frankenstein-6037/test.sh
       - name: Frames that differed between the renderers
         if: failure()
@@ -120,6 +122,8 @@ jobs:
         shell: msys2 {0}
         run: |
           export FRANK_GL_LIBRARY="$(cygpath -w /ucrt64/bin/opengl32.dll)"
+          # Mesa on its CPU rasteriser, not D3D12 on the runner's Basic Render Driver.
+          export GALLIUM_DRIVER=llvmpipe
           frankenstein-6037/build/frankenstein-6037.exe --bench all --seconds 1 --compare
       - uses: actions/upload-artifact@v6
         with:

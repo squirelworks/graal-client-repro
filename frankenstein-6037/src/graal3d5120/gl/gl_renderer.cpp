@@ -26,6 +26,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <unordered_map>
 #include <unordered_set>
@@ -160,6 +161,7 @@ class GlRenderer : public SceneRenderer {
     for (auto& [k, m] : meshes_) release(m);
     for (auto& [k, t] : textures_) g_.DeleteTextures(1, &t.tex);
     g_.DeleteTextures(1, &streamWeight_);
+    if (blank_) g_.DeleteTextures(1, &blank_);
     g_.DeleteBuffers(1, &streamVbo_);
     g_.DeleteBuffers(1, &streamIbo_);
     g_.DeleteVertexArrays(1, &vao_);
@@ -219,6 +221,20 @@ class GlRenderer : public SceneRenderer {
     g_.GenBuffers(1, &streamVbo_);
     g_.GenBuffers(1, &streamIbo_);
     g_.GenTextures(1, &streamWeight_);
+    // Both samplers always have a complete texture behind them, whatever
+    // the driver makes of a sampler the frame does not use.
+    {
+      static const float one = 1.0f;
+      static const uint8_t white[4] = {255, 255, 255, 255};
+      g_.ActiveTexture(TEXTURE0 + 1);
+      uploadWeight(streamWeight_, &one, 1);
+      g_.ActiveTexture(TEXTURE0);
+      g_.GenTextures(1, &blank_);
+      g_.BindTexture(TEXTURE_2D, blank_);
+      g_.TexImage2D(TEXTURE_2D, 0, RGBA8, 1, 1, 0, RGBA, UNSIGNED_BYTE, white);
+      g_.TexParameteri(TEXTURE_2D, TEXTURE_MIN_FILTER, NEAREST);
+      g_.TexParameteri(TEXTURE_2D, TEXTURE_MAG_FILTER, NEAREST);
+    }
     g_.GenFramebuffers(1, &fbo_);
     g_.GenRenderbuffers(1, &colorRb_);
     g_.GenRenderbuffers(1, &depthRb_);
@@ -274,6 +290,7 @@ class GlRenderer : public SceneRenderer {
       batch.flush();
       g_.DepthMask(1);
       g_.Clear(DEPTH_BUFFER_BIT);
+      checkError("sky");
     }
 
     std::unordered_set<const R::Shape*> owned;
@@ -297,8 +314,10 @@ class GlRenderer : public SceneRenderer {
       for (const R::WaterSurface& w : scene.water) stats.triangles += R::waterTriangles(w, scene.time, fog, res, batch.sink());
       batch.flush();
     }
+    checkError("shapes and water");
 
     readBack(frame);
+    checkError("read-back");
     evict();
     stats.labels = R::sceneLabels(scene, res, frame.width, frame.height);
     return stats;
@@ -490,6 +509,7 @@ class GlRenderer : public SceneRenderer {
     g_.Uniform1f(uOpacity_, st.opacity < 0 ? 0.0f : st.opacity);
     g_.ActiveTexture(TEXTURE0);
     const GLuint tex = texture(st.texture, st.clampTexture, st.bilinear);
+    if (!tex) g_.BindTexture(TEXTURE_2D, blank_);
     g_.Uniform1i(uTextured_, tex ? 1 : 0);
     g_.Uniform1i(uAlphaTest_, st.alphaTest ? 1 : 0);
     g_.Uniform3f(uColor_, st.color[0], st.color[1], st.color[2]);
@@ -659,6 +679,15 @@ class GlRenderer : public SceneRenderer {
       std::memcpy(&frame.at(0, y), &readBuf_[size_t(y) * frame.width], size_t(frame.width) * 4);
   }
 
+  // A GL error is a renderer bug: the first few go to stderr.
+  void checkError(const char* where) {
+    for (GLenum e = g_.GetError(); e != NO_ERROR; e = g_.GetError())
+      if (errorsLogged_ < 8) {
+        ++errorsLogged_;
+        std::fprintf(stderr, "opengl: GL error 0x%04x (%s, frame %d)\n", unsigned(e), where, frameNo_);
+      }
+  }
+
   void release(MeshGpu& m) {
     if (m.vbo) g_.DeleteBuffers(1, &m.vbo);
     if (m.ibo) g_.DeleteBuffers(1, &m.ibo);
@@ -696,6 +725,8 @@ class GlRenderer : public SceneRenderer {
         uAdditive_ = -1, uColor_ = -1, uFogColor_ = -1, uOpacity_ = -1, uWeightScale_ = -1, uWeightSize_ = -1;
   R::M4 viewProj_;
   int frameNo_ = 0;
+  int errorsLogged_ = 0;
+  GLuint blank_ = 0;
   std::unordered_map<const R::Mesh*, MeshGpu> meshes_;
   std::unordered_map<const R::Texture*, TexGpu> textures_;
   std::vector<uint32_t> readBuf_;

@@ -11,6 +11,7 @@
 #include "udp.hpp"
 #include "vectors.hpp"
 
+#include <algorithm>
 #include <atomic>
 #include <cmath>
 #include <filesystem>
@@ -146,6 +147,33 @@ void test_renderers() {
     if (d.mismatched >= 0.01 || !shares) {
       std::fprintf(stderr, "  %s: %.2f%% of pixels apart (largest %d)\n", name.c_str(), d.mismatched * 100,
                    d.largest);
+      // Where they differ, for a CI log: one character per 10x10 block
+      // ('#' over half apart, '+' some), then a few pixels side by side.
+      int samples = 0;
+      for (int by = 0; by < a.height; by += 10) {
+        std::string row = "    ";
+        for (int bx = 0; bx < a.width; bx += 10) {
+          int apart = 0, n = 0;
+          for (int y = by; y < std::min(by + 10, a.height); ++y)
+            for (int x = bx; x < std::min(bx + 10, a.width); ++x, ++n) {
+              const auto& p = a.at(x, y);
+              const auto& q = b.at(x, y);
+              if (std::abs(p.r - q.r) > 24 || std::abs(p.g - q.g) > 24 || std::abs(p.b - q.b) > 24) ++apart;
+            }
+          row += apart * 2 > n ? '#' : apart ? '+' : '.';
+        }
+        std::fprintf(stderr, "%s\n", row.c_str());
+      }
+      for (int y = 5; y < a.height && samples < 8; y += 30)
+        for (int x = 5; x < a.width && samples < 8; x += 40) {
+          const auto& p = a.at(x, y);
+          const auto& q = b.at(x, y);
+          if (std::abs(p.r - q.r) > 24 || std::abs(p.g - q.g) > 24 || std::abs(p.b - q.b) > 24) {
+            std::fprintf(stderr, "    (%d,%d) opengl %d,%d,%d  software %d,%d,%d\n", x, y, p.r, p.g, p.b, q.r, q.g,
+                         q.b);
+            ++samples;
+          }
+        }
       if (const char* out = std::getenv("FRANK_TEST_SHOTS")) {  // both frames, for a look
         fs::create_directories(out, ec);
         std::string err;
