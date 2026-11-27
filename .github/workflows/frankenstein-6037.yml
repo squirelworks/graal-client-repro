@@ -12,7 +12,11 @@ name: frankenstein-6037
 #
 # The build job compiles frankenstein-6037 (common/cpp/quattro on the
 # 6.03r7 row plus the 5.12 Graal3D link from common/cpp/graal3dengine) on
-# macOS, Linux and Windows and runs its loopback test.
+# macOS, Linux and Windows and runs its loopback test. The test also draws
+# the conformance worlds with the OpenGL renderer and the software one and
+# compares them (FRANK_REQUIRE_GL: no skipping): Mesa llvmpipe on Linux,
+# Apple's OpenGL (on Metal) on the Apple Silicon macOS runner, Mesa's
+# opengl32.dll on Windows. A short bench of both renderers is logged.
 
 on:
   push:
@@ -21,6 +25,7 @@ on:
       - 'frankenstein-6037/**'
       - 'common/cpp/quattro/**'
       - 'common/cpp/graal3dengine/src/**'
+      - 'common/cpp/graal3dengine/render/**'
       - 'common/cpp/gs2/*.cpp'
       - 'common/cpp/gs2/*.hpp'
       - 'common/torque/gui/*.cpp'
@@ -31,6 +36,7 @@ on:
       - 'frankenstein-6037/**'
       - 'common/cpp/quattro/**'
       - 'common/cpp/graal3dengine/src/**'
+      - 'common/cpp/graal3dengine/render/**'
       - 'common/cpp/gs2/*.cpp'
       - 'common/cpp/gs2/*.hpp'
       - 'common/torque/gui/*.cpp'
@@ -74,21 +80,38 @@ jobs:
       - uses: actions/checkout@v5
       - name: Install zlib, bzip2 and Xlib (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y g++ make zlib1g-dev libbz2-dev libx11-dev
+        run: sudo apt-get update && sudo apt-get install -y g++ make zlib1g-dev libbz2-dev libx11-dev libegl1 libgl1-mesa-dri
       - uses: msys2/setup-msys2@v2
         if: runner.os == 'Windows'
         with:
           msystem: UCRT64
           update: true
-          install: make mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-zlib mingw-w64-ucrt-x86_64-bzip2
+          install: make mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-zlib mingw-w64-ucrt-x86_64-bzip2 mingw-w64-ucrt-x86_64-mesa
       - name: Build and test (macOS, Linux)
         if: runner.os != 'Windows'
         shell: bash
+        env:
+          FRANK_REQUIRE_GL: '1'
         run: frankenstein-6037/test.sh
       - name: Build and test (Windows)
         if: runner.os == 'Windows'
         shell: msys2 {0}
-        run: frankenstein-6037/test.sh
+        env:
+          FRANK_REQUIRE_GL: '1'
+        run: |
+          # The runner has no OpenGL 3.2 driver: Mesa's opengl32.dll stands in.
+          export FRANK_GL_LIBRARY="$(cygpath -w /ucrt64/bin/opengl32.dll)"
+          frankenstein-6037/test.sh
+      - name: Bench, OpenGL against software (macOS, Linux)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: frankenstein-6037/build/frankenstein-6037 --bench all --seconds 1 --compare
+      - name: Bench, OpenGL against software (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: |
+          export FRANK_GL_LIBRARY="$(cygpath -w /ucrt64/bin/opengl32.dll)"
+          frankenstein-6037/build/frankenstein-6037.exe --bench all --seconds 1 --compare
       - uses: actions/upload-artifact@v6
         with:
           name: frankenstein-6037-${{ matrix.name }}

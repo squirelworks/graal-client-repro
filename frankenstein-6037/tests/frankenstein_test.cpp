@@ -4,6 +4,7 @@
 // link on port + 1 over UDP, driven through the recorded protocol-24
 // server session (graal3dengine/tests/vectors.hpp) to login step 6. Then
 // the 3D view over the frame, and the disconnect when the host goes.
+#include "../src/bench.hpp"
 #include "../src/host6037/host.hpp"
 #include "../../common/cpp/quattro/tests/fake_server.hpp"
 #include "bits.hpp"
@@ -11,6 +12,8 @@
 #include "vectors.hpp"
 
 #include <atomic>
+#include <cmath>
+#include <filesystem>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -86,6 +89,96 @@ void test_view() {
   CHECK(img.at(32, 4) == (Torque::Gui::Color{0, 0, 255, 255}));
   CHECK(img.at(32, 44) == (Torque::Gui::Color{255, 0, 0, 255}));
   CHECK(ws.control && ws.objects == 0);  // its shape is not on disk
+}
+
+// The OpenGL backend against the software rasteriser on the conformance
+// worlds (bench.hpp): the same pixels within the rasterisers' edge rules,
+// and the conformance checks' colours in the same shares. Skipped when no
+// OpenGL 3.2 core context can be made, unless FRANK_REQUIRE_GL is set (CI
+// on Linux, macOS and Windows).
+void test_renderers() {
+  Frank::RendererChoice c;
+  CHECK(Frank::parse_renderer("auto", c) && c == Frank::RendererChoice::Auto);
+  CHECK(Frank::parse_renderer("opengl", c) && c == Frank::RendererChoice::OpenGL);
+  CHECK(Frank::parse_renderer("gl", c) && c == Frank::RendererChoice::OpenGL);
+  CHECK(Frank::parse_renderer("software", c) && c == Frank::RendererChoice::Software);
+  CHECK(!Frank::parse_renderer("metal", c));
+
+  Frank::FrameCounter counter;
+  for (int i = 0; i <= 30; ++i) counter.add(100.0 + i / 30.0, 4.0);
+  CHECK(std::fabs(counter.fps() - 30.0) < 0.5 && std::fabs(counter.mean_ms() - 4.0) < 1e-9);
+  CHECK(counter.frames() == 31 && counter.summary().find("31 3D frames") == 0);
+
+  std::string why;
+  std::unique_ptr<Frank::SceneRenderer> gl = Frank::make_gl_renderer(why);
+  const bool require = std::getenv("FRANK_REQUIRE_GL") != nullptr;
+  if (!gl) {
+    std::printf("renderers: OpenGL skipped (%s)\n", why.c_str());
+    CHECK(!require);
+    std::string note;
+    auto fallback = Frank::make_renderer(Frank::RendererChoice::Auto, note);
+    CHECK(fallback && std::string(fallback->name()) == "software");
+    CHECK(!Frank::make_renderer(Frank::RendererChoice::OpenGL, note));
+    return;
+  }
+  std::printf("renderers: %s\n", gl->description().c_str());
+  namespace fs = std::filesystem;
+  std::error_code ec;
+  const fs::path dir = fs::temp_directory_path(ec) / "frankenstein-test-content";
+  CHECK(Frank::write_bench_content(dir.string(), why));
+  Frank::World3D glw, sww;
+  glw.roots = sww.roots = {dir.string()};
+  glw.renderer = std::move(gl);
+  sww.renderer = Frank::make_software_renderer();
+  std::map<std::string, Torque::Gui::Image> frames;
+  for (const std::string& name : Frank::bench_world_names()) {
+    Frank::BenchWorld w;
+    CHECK(Frank::make_bench_world(name, w));
+    Torque::Gui::Image a(320, 240), b(320, 240);
+    Frank::View3DStats sa, sb;
+    CHECK(Frank::draw_world3d(a, w.ghosts, w.camera, w.control, 0, w.chunks, w.chunkCount, glw, 0, &sa));
+    CHECK(Frank::draw_world3d(b, w.ghosts, w.camera, w.control, 0, w.chunks, w.chunkCount, sww, 0, &sb));
+    CHECK(sa.objects == sb.objects && sa.triangles == sb.triangles);
+    const Frank::FrameDiff d = Frank::diff_frames(a, b);
+    const auto ca = Frank::colour_shares(a), cb = Frank::colour_shares(b);
+    bool shares = true;
+    for (size_t i = 0; i < ca.size(); ++i) shares = shares && std::fabs(ca[i].share - cb[i].share) < 0.005;
+    if (d.mismatched >= 0.01 || !shares)
+      std::fprintf(stderr, "  %s: %.2f%% of pixels apart (largest %d)\n", name.c_str(), d.mismatched * 100,
+                   d.largest);
+    CHECK(d.mismatched < 0.01);
+    CHECK(shares);
+    frames[name] = a;
+  }
+  // The conformance checks on the OpenGL frames: C005's red cube and
+  // C006's green texture at least 0.2% of the view, C004's sky faces,
+  // C019's water, and C035's grass changing the lower half of C046's view
+  // (here the terrain world) by at least 5%.
+  auto share = [&](const std::string& world, const char* colour) {
+    for (const auto& s : Frank::colour_shares(frames[world]))
+      if (std::string(s.name) == colour) return s.share;
+    return 0.0;
+  };
+  CHECK(share("cube", "red") >= 0.002);
+  CHECK(share("texture", "green") >= 0.002);
+  CHECK(share("sky", "sky2") >= 0.1);
+  CHECK(share("grass", "magenta") >= 0.01 && share("terrain", "magenta") == 0);
+  auto lower_half_changed = [&](const std::string& world, const std::string& against) {
+    const Torque::Gui::Image& g = frames[world];
+    const Torque::Gui::Image& t = frames[against];
+    size_t changed = 0, total = 0;
+    for (int y = g.height / 2; y < g.height; ++y)
+      for (int x = 0; x < g.width; ++x, ++total) {
+        const auto& p = g.at(x, y);
+        const auto& q = t.at(x, y);
+        if (std::abs(p.r - q.r) > 24 || std::abs(p.g - q.g) > 24 || std::abs(p.b - q.b) > 24) ++changed;
+      }
+    return double(changed) / double(total);
+  };
+  CHECK(lower_half_changed("grass", "terrain") >= 0.05);
+  // The water blends over the fog colour below the horizon.
+  CHECK(lower_half_changed("water", "sky") >= 0.5);
+  fs::remove_all(dir, ec);
 }
 
 void test_warp_into_3d() {
@@ -236,6 +329,7 @@ void test_warp_into_3d() {
 int main() {
   test_marker();
   test_view();
+  test_renderers();
   test_warp_into_3d();
   if (failures) {
     std::fprintf(stderr, "%d check(s) failed\n", failures);

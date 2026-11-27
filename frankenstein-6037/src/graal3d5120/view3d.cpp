@@ -103,32 +103,44 @@ bool draw_world3d(Image& frame, const graal3d::GhostTable& ghosts, int camera, i
     R::V3 at;
     if (R::scenePositionOf(scene, control, at, &ghosts)) R::scatterReplicators(scene, ghosts, world.terrain.terrain, at, world.resources);
   }
-  std::vector<uint32_t> px(std::size_t(frame.width) * frame.height);
-  const R::DrawStats ds = R::drawScene({px.data(), frame.width, frame.height, frame.width}, scene, world.resources);
-  Torque::Gui::Canvas canvas(frame.width, frame.height);
-  {
-    Image img(frame.width, frame.height);
-    for (std::size_t i = 0; i < px.size(); ++i) {
-      const uint32_t p = px[i];
-      img.pixels[i] = {uint8_t(p), uint8_t(p >> 8), uint8_t(p >> 16), 255};
-    }
-    canvas.blit(img, 0, 0);
-  }
+  if (!world.renderer) world.renderer = make_software_renderer();
+  // Drawn straight into the frame's pixels: a Color is the renderer's
+  // 32-bit RGBA, red in the lowest byte.
+  static_assert(sizeof(Color) == 4, "Color is 4 bytes of RGBA");
+  const R::Frame target{reinterpret_cast<uint32_t*>(frame.pixels.data()), frame.width, frame.height, frame.width};
+  const R::DrawStats ds = world.renderer->draw(target, scene, world.resources);
+  for (Color& p : frame.pixels) p.a = 255;
   // Name tags, farthest first, centred above their anchor with a shadow.
   for (const R::Label& l : ds.labels) {
-    const int w = Quattro::Draw::ui_text_width(l.text, l.kind == R::Label::kNickname);
-    const int x = static_cast<int>(std::lround(l.x)) - w / 2;
-    const int y = static_cast<int>(std::lround(l.y)) - Quattro::Draw::kUiLineHeight;
     const bool bold = l.kind == R::Label::kNickname;
-    Quattro::Draw::ui_draw_text(canvas, x + 1, y + 1, l.text, Color{0, 0, 0, 255}, bold);
-    Quattro::Draw::ui_draw_text(canvas, x, y, l.text, Color{l.color[0], l.color[1], l.color[2], 255}, bold);
+    const int w = Quattro::Draw::ui_text_width(l.text, bold);
+    draw_text(frame, static_cast<int>(std::lround(l.x)) - w / 2,
+              static_cast<int>(std::lround(l.y)) - Quattro::Draw::kUiLineHeight, l.text,
+              Color{l.color[0], l.color[1], l.color[2], 255}, bold);
   }
-  frame.pixels = canvas.surface().pixels;
   if (stats) {
     stats->objects = ds.objectsDrawn;
+    stats->triangles = ds.triangles;
     stats->control = control >= 0 && ghosts.count(control);
   }
   return true;
+}
+
+void draw_text(Image& frame, int x, int y, const std::string& text, Color color, bool bold) {
+  const int pw = Quattro::Draw::ui_text_width(text, bold) + 2, ph = Quattro::Draw::kUiLineHeight + 2;
+  const int x0 = std::max(0, x), y0 = std::max(0, y);
+  const int x1 = std::min(frame.width, x + pw), y1 = std::min(frame.height, y + ph);
+  if (x0 >= x1 || y0 >= y1) return;
+  Image patch(pw, ph);
+  for (int yy = y0; yy < y1; ++yy)
+    for (int xx = x0; xx < x1; ++xx) patch.at(xx - x, yy - y) = frame.at(xx, yy);
+  Torque::Gui::Canvas canvas(pw, ph);
+  canvas.blit(patch, 0, 0);
+  Quattro::Draw::ui_draw_text(canvas, 1, 1, text, Color{0, 0, 0, 255}, bold);
+  Quattro::Draw::ui_draw_text(canvas, 0, 0, text, color, bold);
+  const Image& out = canvas.surface();
+  for (int yy = y0; yy < y1; ++yy)
+    for (int xx = x0; xx < x1; ++xx) frame.at(xx, yy) = out.at(xx - x, yy - y);
 }
 
 void draw_inset(Image& frame, const Image& inset, int div) {

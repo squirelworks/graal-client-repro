@@ -20,6 +20,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <vector>
 
 namespace Frank {
 
@@ -31,8 +32,40 @@ const char* host_build_label();
 // character is a space loses its first two characters either way.
 std::string strip_marker(const std::string& raw, bool& is3d);
 
+// Counts the 3D frames the view draws: the frame rate over the last
+// second (shown on screen and logged), and every frame's draw time for a
+// summary at the end of a run.
+class FrameCounter {
+ public:
+  // A frame drawn at `now` (seconds) that took `ms` to draw.
+  void add(double now, double ms);
+  // Frames a second over the last whole second, and the mean draw time.
+  double fps() const { return fps_; }
+  double mean_ms() const { return mean_ms_; }
+  int frames() const { return int(times_.size()); }
+  // "<frames> 3D frames in <s> s: <fps> fps, draw mean <ms> ms, p50 <ms>, p95 <ms>".
+  std::string summary() const;
+  // True once a second: the line to log.
+  bool due_log(double now, std::string& line, const char* renderer);
+
+ private:
+  std::vector<double> times_;  // every frame's draw time, ms
+  double first_ = -1, last_ = -1;
+  double window_start_ = -1;
+  int window_frames_ = 0;
+  double window_ms_ = 0;
+  double fps_ = 0, mean_ms_ = 0;
+  double next_log_ = 0;
+};
+
 // Draws the 3D view over the program's frame while the link is up, with
 // the 6.x frame as an inset.
+//
+// The 6.x program presents a frame each 50 ms tick. The 3D frame is drawn
+// on its own clock between ticks (refresh(), called by the main loop), so
+// it is not held to the tick rate: up to max_fps a second with OpenGL. The
+// software renderer, which can take longer than a tick, keeps its earlier
+// rule: after a frame that took t, the next waits t (the 2026-11-26 lab).
 class ViewWindow : public Quattro::Draw::Window {
  public:
   explicit ViewWindow(Quattro::Draw::Window& inner) : inner_(inner) {}
@@ -43,19 +76,33 @@ class ViewWindow : public Quattro::Draw::Window {
   const std::string& title() const override { return inner_.title(); }
   bool poll_input(Quattro::Draw::InputEvent& e) override { return inner_.poll_input(e); }
 
+  // Draws and presents a new 3D frame over the last 6.x frame when one is
+  // due. True when it did.
+  bool refresh();
+  // When the next 3D frame is due (steady-clock seconds); infinity while
+  // the 3D view is not shown.
+  double next_frame_at() const;
+  bool showing3d() const;
+
   // Set while the 3D world should be shown; null for the plain 6.x frame.
   const graal3d::Link* link = nullptr;
   bool enabled = true;
   View3DStats last;
-  World3D world3d;  // the 5.12 renderer's state (resource folders in world3d.roots)
+  World3D world3d;  // the renderer and its state (resource folders in world3d.roots)
   int worlds_drawn = 0;  // 3D frames drawn (the inset is redrawn on every frame)
+  int max_fps = 60;      // 0: as fast as the renderer goes
+  bool show_fps = true;  // the counter in the top-left corner
+  FrameCounter counter;
+  std::function<void(const std::string&)> log;
 
  private:
+  void compose(bool fresh2d);
+  const char* renderer_name() const { return world3d.renderer ? world3d.renderer->name() : "software"; }
+
   Quattro::Draw::Window& inner_;
   Torque::Gui::Image out_;
-  // The last 3D frame, and when the next may be drawn. The software
-  // renderer can take longer than the program's 50 ms tick; the 3D frame
-  // is then kept and the 6.x frame over it stays live (see present()).
+  Torque::Gui::Image last2d_;  // the 6.x frame of the last tick
+  // The last 3D frame, and when the next may be drawn.
   Torque::Gui::Image world_;
   const graal3d::Link* world_link_ = nullptr;
   double next_world_ = 0;

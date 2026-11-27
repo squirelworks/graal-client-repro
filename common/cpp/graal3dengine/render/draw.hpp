@@ -34,6 +34,7 @@
 //   line above that. Tags are not hidden behind other objects and are
 //   left out past the visible distance or off screen.
 #pragma once
+#include <functional>
 #include <string>
 
 #include "raster.hpp"
@@ -86,6 +87,10 @@ constexpr float kTerrainAmbient = 0.615f;
 constexpr float kTerrainDiffuse = 0.96f;
 constexpr float kTerrainLightCap = 0.99f;
 constexpr float kFixedLightFloor = 0.85f;
+// The two fixed light directions (toward the light): the .3ds light from
+// about (-x, -y, +z), and the terrain's (T3D-162). Normalised.
+inline V3 fixedLightDirection() { return normalize(V3{-1, -1, 1}); }
+inline V3 terrainLightDirection() { return normalize(V3{-0.683f, -0.683f, 0.259f}); }
 
 // A line of text for the host to draw over the frame, centred on (x, y),
 // its baseline at y.
@@ -109,5 +114,30 @@ struct DrawStats {
 std::vector<Label> sceneLabels(const Scene& scene, Resources& resources, int width, int height);
 
 DrawStats drawScene(Frame frame, const Scene& scene, Resources& resources);
+
+// The pieces of drawScene another backend shares (the Frankenstein
+// 6.037's OpenGL renderer draws the same frame through the GPU), so both
+// make the same choices.
+//
+// The clear colour: the Sky's fog colour, black without a Sky.
+uint32_t sceneFogColor(const Scene& scene);
+// A vertex's light for a shape of `kind` (draw.hpp's lighting rules), from
+// its normal turned into the world (not normalised).
+float vertexLight(Shape::Kind kind, bool sun, const V3& worldNormal);
+// What a triangle of `material` in `mesh` of `shape` draws with: its
+// texture (looked up, so asked for when missing, unless `named` is false),
+// colour, alpha test and, for a terrain layer, the additive weight map.
+// `fogColor` from sceneFogColor.
+RasterState materialState(const Shape& shape, const Mesh& mesh, const Material& material, Resources& resources,
+                          bool named, uint32_t fogColor);
+// The sky box's and a water block's triangles in world space, in the
+// order drawScene draws them, with their states.
+using TriangleSink = std::function<void(const RasterVertex&, const RasterVertex&, const RasterVertex&,
+                                        const RasterState&)>;
+void skyBoxTriangles(const Scene& scene, Resources& resources, float farPlane, uint32_t fogColor,
+                     const TriangleSink& sink);
+// Returns the number of triangles.
+int waterTriangles(const WaterSurface& water, double seconds, uint32_t fogColor, Resources& resources,
+                   const TriangleSink& sink);
 
 }  // namespace graal3d::render

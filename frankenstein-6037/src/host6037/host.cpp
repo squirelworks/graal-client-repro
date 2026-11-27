@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 
 namespace Frank {
 
@@ -32,31 +33,108 @@ double seconds_now() {
 }
 }  // namespace
 
+void FrameCounter::add(double now, double ms) {
+  times_.push_back(ms);
+  if (first_ < 0) first_ = now;
+  last_ = now;
+  if (window_start_ < 0) {
+    // The first frame opens the window; the frames after it are counted.
+    window_start_ = now;
+    mean_ms_ = ms;
+    return;
+  }
+  ++window_frames_;
+  window_ms_ += ms;
+  if (now - window_start_ >= 1.0) {
+    fps_ = window_frames_ / (now - window_start_);
+    mean_ms_ = window_ms_ / window_frames_;
+    window_start_ = now;
+    window_frames_ = 0;
+    window_ms_ = 0;
+  }
+}
+
+std::string FrameCounter::summary() const {
+  if (times_.empty()) return "no 3D frames drawn";
+  std::vector<double> t = times_;
+  std::sort(t.begin(), t.end());
+  double sum = 0;
+  for (double v : t) sum += v;
+  const double span = last_ - first_;
+  auto pct = [&t](double p) { return t[std::min(t.size() - 1, size_t(p * double(t.size() - 1) + 0.5))]; };
+  char line[200];
+  std::snprintf(line, sizeof line, "%d 3D frames in %.1f s: %.1f fps, draw mean %.2f ms, p50 %.2f ms, p95 %.2f ms",
+                int(t.size()), span, span > 0 ? double(t.size() - 1) / span : 0.0, sum / double(t.size()), pct(0.5),
+                pct(0.95));
+  return line;
+}
+
+bool FrameCounter::due_log(double now, std::string& line, const char* renderer) {
+  if (fps_ <= 0 || now < next_log_) return false;
+  const bool first = next_log_ == 0;
+  next_log_ = now + 5.0;
+  if (first) return false;  // the first second is still warming up
+  char buf[120];
+  std::snprintf(buf, sizeof buf, "Graal3D: %.1f fps, 3D frame %.2f ms (%s)", fps_, mean_ms_, renderer);
+  line = buf;
+  return true;
+}
+
+bool ViewWindow::showing3d() const { return enabled && link && link->loginStep() >= 6 && !last2d_.empty(); }
+
+double ViewWindow::next_frame_at() const {
+  return showing3d() ? next_world_ : std::numeric_limits<double>::infinity();
+}
+
 void ViewWindow::present(const Torque::Gui::Image& frame) {
   if (!enabled || !link || link->loginStep() < 6 || frame.empty()) {
     world_link_ = nullptr;
+    last2d_ = Torque::Gui::Image();
     inner_.present(frame);
     return;
   }
-  // The 6.x program counts its timers and walking in 50 ms ticks, and this
-  // is called once a tick. In the lab (2026-11-26, a 2-CPU VM) the software
-  // renderer took 90 to 180 ms a frame, and every GS2 timer and walk ran 2
-  // to 3.6 times slow. So the 3D frame takes at most about half the time:
-  // after a frame that took t, the next waits t, and the ticks between show
-  // the last 3D frame under a live 6.x inset.
+  last2d_ = frame;
+  compose(true);
+}
+
+bool ViewWindow::refresh() {
+  if (!showing3d() || seconds_now() < next_world_) return false;
+  compose(false);
+  return true;
+}
+
+void ViewWindow::compose(bool) {
+  const Torque::Gui::Image& frame = last2d_;
   const double now = seconds_now();
   const bool stale = world_link_ != link || world_.width != frame.width || world_.height != frame.height;
   if (stale || now >= next_world_) {
-    world_ = Torque::Gui::Image(frame.width, frame.height);
+    if (world_.width != frame.width || world_.height != frame.height)
+      world_ = Torque::Gui::Image(frame.width, frame.height);
     // The 5.12 renderer; black until the server names a Camera, as the 5.12.
-    draw_world3d(world_, *link, world3d, now, &last);
+    const bool drawn = draw_world3d(world_, *link, world3d, now, &last);
     world_link_ = link;
     ++worlds_drawn;
     const double end = seconds_now();
-    next_world_ = end + (end - now);
+    const double took = end - now;
+    if (drawn) counter.add(end, took * 1000.0);
+    if (std::string line; log && counter.due_log(end, line, renderer_name())) log(line);
+    if (world3d.renderer && std::string(world3d.renderer->name()) != "software") {
+      // The GPU: as often as max_fps allows.
+      next_world_ = max_fps > 0 ? std::max(end, now + 1.0 / max_fps) : end;
+    } else {
+      // The software rasteriser takes at most about half the time
+      // (after a frame that took t, the next waits t).
+      next_world_ = end + took;
+      if (max_fps > 0) next_world_ = std::max(next_world_, now + 1.0 / max_fps);
+    }
   }
   out_ = world_;
   draw_inset(out_, frame, 4);
+  if (show_fps && counter.frames() > 0) {
+    char text[96];
+    std::snprintf(text, sizeof text, "%.1f fps  %.1f ms  %s", counter.fps(), counter.mean_ms(), renderer_name());
+    draw_text(out_, 6, 4, text, Torque::Gui::Color{255, 255, 0, 255}, false);
+  }
   inner_.present(out_);
 }
 
