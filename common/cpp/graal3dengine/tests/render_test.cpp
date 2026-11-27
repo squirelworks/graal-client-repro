@@ -1797,6 +1797,19 @@ void testTerrainLook() {
   CHECK(isColor(centre({(160 - 128) * 8.0f, 0, (192 - 160) * 8.0f}), 157, 0, 0, 3));  // faces +x: ambient
   scene.sun.present = false;
   CHECK(isColor(centre({(160 - 128) * 8.0f, 0, (192 - 160) * 8.0f}), 255, 0, 0));
+  // 4.20r8 (lab batch L): never shaded, and a bare texture name stays
+  // white; one named with .png draws.
+  setClientBuild("4.20r8");
+  scene.sun.present = true;
+  CHECK(isColor(centre({(160 - 128) * 8.0f, 0, (192 - 160) * 8.0f}), 255, 255, 255));
+  Terrain png = hill;
+  png.materials = {"red.png", "blue.png"};
+  const Shape ps = terrainShape(png);
+  scene.objects[0].direct = &ps;
+  res.putTexture("red.png", r);
+  CHECK(isColor(centre({(160 - 128) * 8.0f, 0, (192 - 160) * 8.0f}), 255, 0, 0));
+  setClientBuild("5.12");
+  CHECK(gTerrainShading && !gTerrainNeedsPngName);
 }
 
 void testStreamedTerrain() {

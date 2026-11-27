@@ -1,6 +1,7 @@
 #include "draw.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 
 namespace graal3d::render {
@@ -9,6 +10,13 @@ namespace {
 
 const V3 kFixedLight = normalize(V3{-1, -1, 1});
 const V3 kTerrainLight = normalize(V3{-0.683f, -0.683f, 0.259f});
+
+bool endsWithPng(const std::string& name) {
+  if (name.size() < 4) return false;
+  std::string e = name.substr(name.size() - 4);
+  for (char& ch : e) ch = char(std::tolower(static_cast<unsigned char>(ch)));
+  return e == ".png";
+}
 
 uint32_t colorOf(const float c[3]) {
   auto b = [](float x) { return uint32_t(x <= 0 ? 0 : (x >= 1 ? 255 : x * 255.0f + 0.5f)); };
@@ -139,7 +147,7 @@ DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
           const V3 n = normalize(obj.transform.vector(mv.normal));
           light = scene.sun.present ? std::min(1.0f, kFixedLightFloor + std::max(0.0f, dot(n, kFixedLight)))
                                     : kNoSunLight;
-        } else if (shape->kind == Shape::kTerrain && scene.sun.present) {
+        } else if (shape->kind == Shape::kTerrain && scene.sun.present && gTerrainShading) {
           const V3 n = normalize(obj.transform.vector(mv.normal));
           light = std::min(kTerrainLightCap, kTerrainAmbient + kTerrainDiffuse * std::max(0.0f, dot(n, kTerrainLight)));
         } else if (!scene.sun.present && (shape->kind == Shape::kDts || shape->kind == Shape::kDif)) {
@@ -159,8 +167,9 @@ DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
         // section 4; drawn white here).
         if (st.texture && shape->kind == Shape::kTerrain && (st.texture->width != 256 || st.texture->height != 256))
           st.texture = nullptr;
-        if (gShapeTexturesWhite && (shape->kind == Shape::k3ds || shape->kind == Shape::kTerrain))
-          st.texture = nullptr;  // 4.20r8: white
+        if (gShapeTexturesWhite && shape->kind == Shape::k3ds) st.texture = nullptr;  // 4.20r8: white
+        if (gTerrainNeedsPngName && shape->kind == Shape::kTerrain && !endsWithPng(m.texture))
+          st.texture = nullptr;  // 4.20r8: a bare terrain texture name stays white
         st.alphaTest = m.alphaTest;
         if (layer) {
           st.additive = true;
