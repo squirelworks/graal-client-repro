@@ -70,6 +70,7 @@ FRANK_PASSWORD=secret ./frankenstein-6037 --connect HOST:PORT --account NAME \
 | `--max-fps N` | cap the 3D view's frame rate (60 by default, 0 for no cap) |
 | `--no-fps` | hide the frame-rate counter |
 | `--no-3d-view` | keep the plain 2D (6.x) frame |
+| `--no-seihai3d` | do not send the Seihai 3D extension hello, for a server that refuses it |
 | `--offline LEVEL.nw --assets DIR` | walk a level from your own files with no server |
 | `--bench all --seconds 5` | measure frame rates on the built-in test worlds, no server needed |
 
