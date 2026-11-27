@@ -25,6 +25,7 @@ class Link3D {
     std::function<void(int)> login_step;
     std::function<void(const std::string&)> error;
     std::function<void(const graal3d::BigText&)> text;
+    std::function<void(const std::string&, const std::string&)> chat3d;  // seihai3d chat_3d
   };
 
   explicit Link3D(Callbacks cb) : cb_(std::move(cb)) {}

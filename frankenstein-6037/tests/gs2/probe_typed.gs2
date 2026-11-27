@@ -1,0 +1,37 @@
+// Conformance probe (T3D-150, T3D-125): call a slice of the typed GS2 3D
+// member table (torque/gs2-3d-typed-surface-512-2026-11-26.md) on a
+// client-made GameObject and report what each returns. An empty report is
+// an inert or absent member; the values are recorded, not judged.
+//#CLIENTSIDE
+function onCreated() {
+  setTimer(4);
+}
+function onTimeout() {
+  temp.go = new GameObject("conf_typed");
+  if (temp.go == NULL) {
+    cf("made", "0");
+    return;
+  }
+  cf("made", "1");
+  temp.go.setPosition("2 3 4");
+  cf("getposition", temp.go.getPosition());
+  cf("position", temp.go.position);
+  temp.go.setScale("2 2 2");
+  cf("getscale", temp.go.getScale());
+  cf("x", temp.go.x);
+  cf("transform", temp.go.getTransform());
+  cf("worldboxcenter", temp.go.getWorldBoxCenter());
+  cf("forward", temp.go.getForwardVector());
+  cf("isdrawn", temp.go.isDrawn());
+  cf("ismounted", temp.go.isMounted());
+  cf("mountcount", temp.go.getMountedObjectCount());
+  cf("dropz", temp.go.getdropz("0 0 10"));
+  temp.go.alpha = 0.5;
+  cf("alpha", temp.go.alpha);
+  temp.go.nickname = "conf";
+  cf("nickname", temp.go.nickname);
+  cf("done", "1");
+}
+function cf(k, v) {
+  triggerserver("gui", "ConfProbe", "cf", k, v);
+}

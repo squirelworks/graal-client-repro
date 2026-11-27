@@ -5,7 +5,7 @@
 //       [--server-name NAME] [--nickname NICK] [--assets DIR] [--asset-root DIR]...
 //       [--program FILE] [--download-files] [--no-3d-view]
 //       [--headless --seconds N --shot FILE.png]
-//       [--renderer auto|opengl|software] [--max-fps N] [--no-fps]
+//       [--renderer auto|opengl|software] [--max-fps N] [--no-fps] [--no-seihai3d]
 //   frankenstein-6037 --offline LEVEL [--x X --y Y] --assets DIR
 //   frankenstein-6037 --bench [WORLD] [--renderer R] [--seconds N] [--size WxH] [--shot-dir DIR]
 //
@@ -60,7 +60,7 @@ int usage() {
                "       frankenstein-6037 --offline LEVEL [--x X --y Y]\n"
                "  both: [--assets DIR] [--asset-root DIR]... [--download-files] [--program FILE]\n"
                "        [--headless] [--seconds N] [--shot FILE.png]\n"
-               "        [--renderer auto|opengl|software] [--max-fps N (0: no cap)] [--no-fps]\n"
+               "        [--renderer auto|opengl|software] [--max-fps N (0: no cap)] [--no-fps] [--no-seihai3d]\n"
                "       frankenstein-6037 --bench [WORLD|all] [--renderer R] [--seconds N] [--size WxH]\n"
                "                         [--shot-dir DIR] [--compare]\n"
                "  A server name starting with \"3 \" is a Graal3D server: UDP on its port + 1.\n");
@@ -76,7 +76,7 @@ int main(int argc, char** argv) {
   opt.height = 768;
   std::string target, pw_env, shot, offline;
   double start_x = 30, start_y = 30;
-  bool headless = false, view3d = true, show_fps = true, bench = false, compare = false;
+  bool headless = false, view3d = true, show_fps = true, seihai3d = true, bench = false, compare = false;
   int seconds = 0, max_fps = 60, bench_w = 1024, bench_h = 768;
   std::string bench_world = "all", shot_dir;
   Frank::RendererChoice renderer = Frank::RendererChoice::Auto;
@@ -102,6 +102,7 @@ int main(int argc, char** argv) {
     else if (a == "--renderer") { if (!Frank::parse_renderer(next(), renderer)) return usage(); }
     else if (a == "--max-fps") { if (!integer(next(), 0, 1000, max_fps)) return usage(); }
     else if (a == "--no-fps") show_fps = false;
+    else if (a == "--no-seihai3d") seihai3d = false;
     else if (a == "--bench") {
       bench = true;
       if (i + 1 < argc && argv[i + 1][0] != '-') bench_world = argv[++i];
@@ -165,6 +166,7 @@ int main(int argc, char** argv) {
   }
   host.view().max_fps = max_fps;
   host.view().show_fps = show_fps;
+  host.seihai3d = seihai3d;
   host.view().log = host.log;
   if (offline.empty() ? !host.start() : !host.start_offline(offline, start_x, start_y)) {
     std::fprintf(stderr, "%s\n", offline.empty() ? "could not start" : ("no level " + offline).c_str());

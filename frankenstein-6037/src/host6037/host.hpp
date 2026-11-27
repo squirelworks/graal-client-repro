@@ -28,6 +28,10 @@ namespace Frank {
 // Linux one elsewhere (there is no Mac 6.03r7).
 const char* host_build_label();
 
+// The name a 3D file is asked for by (lower case): an image without its
+// extension, "" for a name the 5.12 never asks for (.cs, .ter).
+std::string request_name_3d(const std::string& lower_name);
+
 // Splits a list name: "3 Lab" -> ("Lab", true). A name whose second
 // character is a space loses its first two characters either way.
 std::string strip_marker(const std::string& raw, bool& is3d);
@@ -43,6 +47,8 @@ class FrameCounter {
   double fps() const { return fps_; }
   double mean_ms() const { return mean_ms_; }
   int frames() const { return int(times_.size()); }
+  // The 95th percentile of the draw times so far, ms (0 before any).
+  double p95_ms() const;
   // "<frames> 3D frames in <s> s: <fps> fps, draw mean <ms> ms, p50 <ms>, p95 <ms>".
   std::string summary() const;
   // True once a second: the line to log.
@@ -94,6 +100,11 @@ class ViewWindow : public Quattro::Draw::Window {
   bool show_fps = true;  // the counter in the top-left corner
   FrameCounter counter;
   std::function<void(const std::string&)> log;
+  // The program's GS2 show-images, drawn over the whole 3D frame (null: none).
+  const Torque::Gui::Image* overlay = nullptr;
+  // seihai3d chat_3d: the last chat lines, drawn in the 3D view, newest last.
+  std::vector<std::string> chat_lines;
+  static constexpr size_t kChatLines = 6;
 
  private:
   void compose(bool fresh2d);
@@ -130,6 +141,9 @@ class Host {
   // Tests fix the connect sequence the recorded 5.12 session used.
   uint32_t connect_sequence = 0;
   bool view3d = true;
+  // Ask the server for the seihai3d extension (on by default; a server
+  // without it answers nothing and the link stays a plain 5.12).
+  bool seihai3d = true;
 
   std::function<void(const std::string&)> log;
 
@@ -144,6 +158,7 @@ class Host {
   void walk_in_3d();
   void ask_for_3d_files();
   void save_3d_file(const std::string& name, const std::string& data);
+  void publish_3d_state();
 
   const Quattro::Net::BuildProfile* profile_;
   Quattro::Shell::Options opt_;
@@ -166,6 +181,11 @@ class Host {
   // names asked for this session.
   std::string files3d_dir_;
   std::set<std::string> asked3d_;
+  // timevar3: the server time last seen and the local clock then.
+  bool timevar3_known_ = false;
+  uint32_t timevar3_server_ = 0, timevar3_local_ = 0;
+  std::shared_ptr<class GameObject3D> camera_var_;
+  uint32_t next_stats_ms_ = 0;  // seihai3d frame_stats
 };
 
 }  // namespace Frank

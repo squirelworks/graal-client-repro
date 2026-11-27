@@ -124,6 +124,13 @@ class Program {
   void fire_weapon();
   // What the weapon scripts set (shell/weapon_api.cpp).
   const ShowImages& show_images() const { return show_images_; }
+  // A host that draws a view of its own over the frame (the Frankenstein
+  // 6.037's 3D view) asks for the show-images a second time, alone on a
+  // transparent image of the frame's size, every layer in window pixels
+  // (a 5.12 weapon3d's showimg and showtext both drew over its 3D scene at
+  // their pixel positions: Graal_analysis T3D-058, T3D-152).
+  void set_screen_overlay(bool on) { screen_overlay_on_ = on; }
+  const Torque::Gui::Image& screen_overlay() const { return screen_overlay_; }
   const std::string& sign_text() const { return sign_text_; }  // say2's box; empty when closed
   double freeze_left() const { return freeze_left_; }
   bool def_movement() const { return def_movement_; }
@@ -248,7 +255,9 @@ class Program {
   void script_input(const Draw::InputEvent& e);  // onKeyPressed, onMouseDown, the say2 box
   void script_tick();                            // freeze time, hidden player, focus
   bool held_index(int i) const;                  // keydown(i): up,left,down,right,S,A,D,M,tab,Q,P
-  void draw_show_images(bool screen_layer);
+  // `overlay`: every layer in window pixels (the 3D view's overlay, where
+  // there is no level to place layers 0 to 3 on).
+  void draw_show_images(bool screen_layer, bool overlay = false);
   // GuiShowImgCtrl: ani (playerlook / actor) or plain `image`, plus offsets.
   // Graal_analysis client-internals/showimg-particles-and-gs2-format.md.
   void draw_showimg_ctrl(const gs2::gui::Control& c, const gs2::gui::Rect& r);
@@ -299,6 +308,8 @@ class Program {
     double freeze = 0;
   } script_seen_;
   ShowImages show_images_;
+  bool screen_overlay_on_ = false;
+  Torque::Gui::Image screen_overlay_;
   std::string sign_text_;
   double freeze_left_ = 0;  // seconds the player stays frozen
   double hide_left_ = 0;    // hideplayer
