@@ -1846,6 +1846,13 @@ void testStreamedTerrain() {
   Scene scene;
   Resources res;
   CHECK(scatterReplicators(scene, g, flat.terrain, {20, 20, 1}, res) > 0 && scene.owned.size() == 1);
+  // The grass texture is asked for when missing (the 5.12 draws it textured
+  // on a fresh cache).
+  CHECK(!scene.objects.back().replica);
+  scene.hasCamera = true;
+  TestFrame f;
+  drawScene(f.frame(), scene, res);
+  CHECK(res.missing().count("conf_grass.png") == 1);
 }
 
 void testFtTrees() {

@@ -248,7 +248,11 @@ int scatterReplicators(Scene& scene, const GhostTable& ghosts, const Terrain& te
     shape->computeBounds();
     SceneObject so;
     so.ghost = -1;
-    so.replica = true;  // grass never asks for its texture (replicators-512.md)
+    // Not a replica: its texture is asked for when no root has it. With a
+    // fresh cache the real 5.12 gets the grass texture from the server and
+    // draws it (PR #472 lab, C035 to C037: magenta grass), while ours drew
+    // it untextured white because it never asked. A cached one is not asked.
+    so.replica = false;
     so.shape = "(grass)";
     so.transform = M4::identity();
     so.direct = shape.get();
