@@ -45,6 +45,7 @@ of it.
 | 3D | A server whose list name starts with `3 ` (given with `--server-name "3 Lab"`, or reached by the Login server's 178 warp to one, as the real 5.12 entered 3D) loses the marker and is entered on two links at once, as the 5.12 engine library does: the Torque link to the listed port + 1, then the TCP login on the listed port. The link is the 5.12 repro's protocol 24 (`common/cpp/graal3dengine`): handshake, packets and acks, events, ghosts, the control object and its movement, login steps 2 to 6. Server text (weapons, flags, scripts) goes to the 6.x program's GS2 machine, and its server triggers go back over the link as `events` lines | `src/net/udp/` (glue), `src/host6037/` |
 | UDP | Left enabled: the 3D link is a UDP socket on a random local port, in a 6.x host whose stock connect path opens none. The two links live and die together | `src/net/udp/` |
 | View | Once the link reaches step 6 and the server names a Camera, the 5.12 repro's renderer (`common/cpp/graal3dengine/render`) draws the world over the frame: the sky, the shapes found in `levels3d/` (beside the program and under each `--asset-root`), the streamed terrain, water and name tags, with the lab's lighting and movement. Until the server names a Camera the view is black, as the 5.12's is. The draw distance is the player's `visibledistance3D` from a `game_config.txt` beside the program or in an asset root (1000 by default, at most 2400). The 6.x frame stays as a quarter-size inset bottom left. `--no-3d-view` keeps the plain 6.x frame | `src/graal3d5120/` |
+| Renderers | The frame is drawn by OpenGL 3.2 core (`src/graal3d5120/gl/`, offscreen, read back into the frame) or by the software rasteriser, behind one interface (`renderer.hpp`), with the same rules (`draw.hpp`'s shared pieces). `--renderer auto` (the default) takes OpenGL and falls back to software. The GL library and context (EGL, CGL, WGL) are loaded at run time, so no build needs GL headers and a machine without OpenGL 3.2 still runs. A frame-rate counter sits top left (`--no-fps` hides it) and is logged | `src/graal3d5120/` |
 
 The real Torque world (terrain, interiors, DTS and `.3ds` shapes, sky
 textures) is a renderer of its own for `common/cpp/graal3dengine`, shared
@@ -62,10 +63,20 @@ With the default server name (`Login`) the Login server's warp decides; a
 `3 ` warp takes the player into 3D. The secure login follows the player's
 setting as `quattro-play` does. `--headless --seconds N --shot FILE.png`
 runs without a window and saves the last frame. The program keeps the 6.x
-50 ms tick as its clock, and draws the 3D frame at most about half the
-time, so GS2 timers and walking stay real-time when the software
-renderer is slower than a tick. The 3D server must take
-protocol 24 on its port + 1, as the Seihai gserver's `graal3d` mode does.
+50 ms tick as its clock; the 3D view draws between ticks on its own clock,
+up to `--max-fps` (60; 0 for no cap) with OpenGL, and at most about half
+the time with the software renderer, so GS2 timers and walking stay
+real-time when the software renderer is slower than a tick.
+`--renderer opengl|software` picks the backend (`auto` by default).
+`FRANK_GL_LIBRARY` names a GL library to load instead of the system's,
+such as Mesa's `opengl32.dll` on a Windows VM with no GPU driver. The 3D
+server must take protocol 24 on its port + 1, as the Seihai gserver's
+`graal3d` mode does.
+
+```
+frankenstein-6037 --bench all --seconds 5             # frame rates on the conformance worlds
+frankenstein-6037 --bench grass --compare --shot-dir out/   # against the software renderer, with PNGs
+```
 
 ## Build and test
 
@@ -143,7 +154,8 @@ frankenstein-6037/
   src/
     main.cpp           arguments, window, the 50 ms loop
     host6037/          the 6.03r7 program and the `3 ` path (host.*)
-    graal3d5120/       the 3D view (view3d.*): the 5.12 renderer
+    bench.*            --bench: the conformance worlds drawn offline for frame rates
+    graal3d5120/       the 3D view (view3d.*), its backends (renderer.*) and OpenGL (gl/)
     net/udp/           the 5.12 link on a UDP socket (link3d.*)
     platform/          notes per platform (windows come from common/cpp/quattro/draw)
   tests/               frankenstein_test.cpp (loopback)
@@ -177,6 +189,9 @@ frankenstein-6037/
       its UDP side (seihai-gserver, same day).
 - [x] The own 3D object following the arrow keys (the 6.x walk), and a
       script setting `player.position`; the server receives both.
+- [x] An OpenGL 3.2 core renderer with the software one as fallback, a
+      frame-rate counter, and the 3D view off the 50 ms tick.
+- [ ] A Metal backend (OpenGL still runs on current macOS, on Metal).
 - [x] The files step 6 needs: shapes and textures the renderer cannot
       find are asked for by name and kept in `<assets>/levels3d/` with
       what the server pushes (terrain).

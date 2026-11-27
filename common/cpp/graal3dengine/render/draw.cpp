@@ -8,9 +8,6 @@ namespace graal3d::render {
 
 namespace {
 
-const V3 kFixedLight = normalize(V3{-1, -1, 1});
-const V3 kTerrainLight = normalize(V3{-0.683f, -0.683f, 0.259f});
-
 bool endsWithPng(const std::string& name) {
   if (name.size() < 4) return false;
   std::string e = name.substr(name.size() - 4);
@@ -23,7 +20,58 @@ uint32_t colorOf(const float c[3]) {
   return packRgba(b(c[0]), b(c[1]), b(c[2]));
 }
 
-void drawSkyBox(Rasterizer& r, const Scene& scene, Resources& res, float farPlane, uint32_t fogColor) {
+}  // namespace
+
+uint32_t sceneFogColor(const Scene& scene) {
+  return scene.sky.present ? colorOf(scene.sky.fogColor) : packRgba(0, 0, 0);
+}
+
+float vertexLight(Shape::Kind kind, bool sun, const V3& worldNormal) {
+  // draw.hpp: the 5.12's lighting by kind of shape.
+  if (kind == Shape::k3ds) {
+    static const V3 kFixedLight = fixedLightDirection();
+    const V3 n = normalize(worldNormal);
+    return sun ? std::min(1.0f, kFixedLightFloor + std::max(0.0f, dot(n, kFixedLight))) : kNoSunLight;
+  }
+  if (kind == Shape::kTerrain && sun && gTerrainShading) {
+    static const V3 kTerrainLight = terrainLightDirection();
+    const V3 n = normalize(worldNormal);
+    return std::min(kTerrainLightCap, kTerrainAmbient + kTerrainDiffuse * std::max(0.0f, dot(n, kTerrainLight)));
+  }
+  if (!sun && (kind == Shape::kDts || kind == Shape::kDif)) return 0;
+  return 1;
+}
+
+RasterState materialState(const Shape& shape, const Mesh& mesh, const Material& m, Resources& res, bool named,
+                          uint32_t fogColor) {
+  RasterState st;
+  st.fogColor = fogColor;
+  st.texture = m.texture.empty() ? nullptr : res.texture(m.texture, named);
+  // A terrain texture must be 256 by 256, or the 5.12 logs "Terrain
+  // texture of bad format" and uses its default (terrain-512.md
+  // section 4; drawn white here).
+  if (st.texture && shape.kind == Shape::kTerrain && (st.texture->width != 256 || st.texture->height != 256))
+    st.texture = nullptr;
+  if (gShapeTexturesWhite && shape.kind == Shape::k3ds) st.texture = nullptr;  // 4.20r8: white
+  if (gTerrainNeedsPngName && shape.kind == Shape::kTerrain && !endsWithPng(m.texture))
+    st.texture = nullptr;  // 4.20r8: a bare terrain texture name stays white
+  st.alphaTest = m.alphaTest;
+  if (!mesh.weightMap.empty()) {
+    st.additive = true;
+    st.depthWrite = false;
+    st.weightMap = mesh.weightMap.data();
+    st.weightSize = mesh.weightSize;
+    st.weightScale = mesh.weightScale;
+  }
+  // A material with no texture draws its colour. One whose texture is
+  // missing or not drawable draws white, as the 5.12 does (T3D-032).
+  if (!st.texture && m.texture.empty())
+    for (int j = 0; j < 3; ++j) st.color[j] = m.color[j];
+  return st;
+}
+
+void skyBoxTriangles(const Scene& scene, Resources& res, float farPlane, uint32_t fogColor,
+                     const TriangleSink& sink) {
   const V3 eye{scene.view.cameraToWorld.m[0][3], scene.view.cameraToWorld.m[1][3], scene.view.cameraToWorld.m[2][3]};
   const float s = farPlane * 0.5f;
   const SkyBox& sky = scene.sky;
@@ -77,8 +125,8 @@ void drawSkyBox(Rasterizer& r, const Scene& scene, Resources& res, float farPlan
         q[i].v = 0.5f - zz[i] / s * 0.5f;
         q[i].fog = zz[i] >= band ? 0.0f : 1.0f - zz[i] / band;
       }
-      r.drawTriangle(q[0], q[1], q[2], st);
-      r.drawTriangle(q[0], q[2], q[3], st);
+      sink(q[0], q[1], q[2], st);
+      sink(q[0], q[2], q[3], st);
     }
   }
   // Up (entry 4), its image's top toward +y. Entry 5, the floor, only
@@ -95,12 +143,49 @@ void drawSkyBox(Rasterizer& r, const Scene& scene, Resources& res, float farPlan
       q[i].u = uv[i][0];
       q[i].v = uv[i][1];
     }
-    r.drawTriangle(q[0], q[1], q[2], st);
-    r.drawTriangle(q[0], q[2], q[3], st);
+    sink(q[0], q[1], q[2], st);
+    sink(q[0], q[2], q[3], st);
   }
 }
 
-}  // namespace
+int waterTriangles(const WaterSurface& w, double seconds, uint32_t fogColor, Resources& res,
+                   const TriangleSink& sink) {
+  // The rebuild's own: a flat, unlit surface blended over what is beneath,
+  // its texture repeating every 16 m.
+  RasterState st;
+  st.fogColor = fogColor;
+  st.texture = w.texture.empty() ? nullptr : res.texture(w.texture);
+  st.alphaTest = false;
+  st.depthWrite = false;
+  st.opacity = w.opacity;
+  // A grid of cells about 8 m a side (at most 64 by 64), so the waves
+  // can bend the surface; a calm block is one cell.
+  const bool calm = !(w.waveMagnitude > 0);
+  const int nx = calm ? 1 : std::clamp(int(std::ceil(w.width / 8.0f)), 1, 64);
+  const int ny = calm ? 1 : std::clamp(int(std::ceil(w.depth / 8.0f)), 1, 64);
+  std::vector<RasterVertex> grid(size_t(nx + 1) * (ny + 1));
+  for (int j = 0; j <= ny; ++j)
+    for (int i = 0; i <= nx; ++i) {
+      const float bx = w.width * i / nx, by = w.depth * j / ny;
+      RasterVertex& v = grid[size_t(j) * (nx + 1) + i];
+      v.position = w.transform.point({bx, by, 0});
+      v.position.z += waveHeight(w.waveMagnitude, seconds, v.position.x, v.position.y);
+      v.u = bx / 16.0f;
+      v.v = by / 16.0f;
+    }
+  int count = 0;
+  for (int j = 0; j < ny; ++j)
+    for (int i = 0; i < nx; ++i) {
+      const RasterVertex& a = grid[size_t(j) * (nx + 1) + i];
+      const RasterVertex& b = grid[size_t(j) * (nx + 1) + i + 1];
+      const RasterVertex& c = grid[size_t(j + 1) * (nx + 1) + i + 1];
+      const RasterVertex& d = grid[size_t(j + 1) * (nx + 1) + i];
+      sink(a, b, c, st);
+      sink(a, c, d, st);
+      count += 2;
+    }
+  return count;
+}
 
 DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
   DrawStats stats;
@@ -115,14 +200,14 @@ DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
   const float farPlane = gVisibleDistance3D;
   view.farPlane = farPlane;
   r.setView(view);
-  const uint32_t fogColor = scene.sky.present ? colorOf(scene.sky.fogColor) : packRgba(0, 0, 0);
+  const uint32_t fogColor = sceneFogColor(scene);
+  const TriangleSink draw = [&r](const RasterVertex& a, const RasterVertex& b, const RasterVertex& c,
+                                 const RasterState& st) { r.drawTriangle(a, b, c, st); };
   // Below the horizon is the fog colour (T3D-046 under Mesa; the black
   // seen under GDI Generic 1.1 was that driver's).
   r.clear(fogColor);
-  if (scene.sky.present) drawSkyBox(r, scene, res, farPlane, fogColor);
+  if (scene.sky.present) skyBoxTriangles(scene, res, farPlane, fogColor, draw);
   r.clearDepth();
-
-  const V3 eye{view.cameraToWorld.m[0][3], view.cameraToWorld.m[1][3], view.cameraToWorld.m[2][3]};
 
   for (const SceneObject& obj : scene.objects) {
     const Shape* shape = obj.direct ? obj.direct : res.shape(obj.shape, !obj.replica);
@@ -141,88 +226,20 @@ DrawStats drawScene(Frame frame, const Scene& scene, Resources& res) {
         rv.position = obj.transform.point(mv.position);
         rv.u = mv.u;
         rv.v = mv.v;
-        // draw.hpp: the 5.12's lighting by kind of shape.
-        float light = 1;
-        if (shape->kind == Shape::k3ds) {
-          const V3 n = normalize(obj.transform.vector(mv.normal));
-          light = scene.sun.present ? std::min(1.0f, kFixedLightFloor + std::max(0.0f, dot(n, kFixedLight)))
-                                    : kNoSunLight;
-        } else if (shape->kind == Shape::kTerrain && scene.sun.present && gTerrainShading) {
-          const V3 n = normalize(obj.transform.vector(mv.normal));
-          light = std::min(kTerrainLightCap, kTerrainAmbient + kTerrainDiffuse * std::max(0.0f, dot(n, kTerrainLight)));
-        } else if (!scene.sun.present && (shape->kind == Shape::kDts || shape->kind == Shape::kDif)) {
-          light = 0;
-        }
+        const float light = vertexLight(shape->kind, scene.sun.present, obj.transform.vector(mv.normal));
         for (float& l : rv.light) l = light;
       }
-      const bool layer = !mesh.weightMap.empty();
       for (const Triangle& t : mesh.triangles) {
         if (t.material < 0 || size_t(t.material) >= shape->materials.size()) continue;  // not drawn (read_3ds.hpp)
-        const Material& m = shape->materials[t.material];
-        RasterState st;
-        st.fogColor = fogColor;
-        st.texture = m.texture.empty() ? nullptr : res.texture(m.texture, !obj.replica);
-        // A terrain texture must be 256 by 256, or the 5.12 logs "Terrain
-        // texture of bad format" and uses its default (terrain-512.md
-        // section 4; drawn white here).
-        if (st.texture && shape->kind == Shape::kTerrain && (st.texture->width != 256 || st.texture->height != 256))
-          st.texture = nullptr;
-        if (gShapeTexturesWhite && shape->kind == Shape::k3ds) st.texture = nullptr;  // 4.20r8: white
-        if (gTerrainNeedsPngName && shape->kind == Shape::kTerrain && !endsWithPng(m.texture))
-          st.texture = nullptr;  // 4.20r8: a bare terrain texture name stays white
-        st.alphaTest = m.alphaTest;
-        if (layer) {
-          st.additive = true;
-          st.depthWrite = false;
-          st.weightMap = mesh.weightMap.data();
-          st.weightSize = mesh.weightSize;
-          st.weightScale = mesh.weightScale;
-        }
-        // A material with no texture draws its colour. One whose texture is
-        // missing or not drawable draws white, as the 5.12 does (T3D-032).
-        if (!st.texture && m.texture.empty())
-          for (int j = 0; j < 3; ++j) st.color[j] = m.color[j];
+        const RasterState st = materialState(*shape, mesh, shape->materials[t.material], res, !obj.replica, fogColor);
         r.drawTriangle(vs[t.v[0]], vs[t.v[1]], vs[t.v[2]], st);
         ++stats.triangles;
       }
     }
   }
 
-  // Water last, blended over what is beneath (the rebuild's own: a flat,
-  // unlit surface, its texture repeating every 16 m).
-  for (const WaterSurface& w : scene.water) {
-    RasterState st;
-    st.fogColor = fogColor;
-    st.texture = w.texture.empty() ? nullptr : res.texture(w.texture);
-    st.alphaTest = false;
-    st.depthWrite = false;
-    st.opacity = w.opacity;
-    // A grid of cells about 8 m a side (at most 64 by 64), so the waves
-    // can bend the surface; a calm block is one cell.
-    const bool calm = !(w.waveMagnitude > 0);
-    const int nx = calm ? 1 : std::clamp(int(std::ceil(w.width / 8.0f)), 1, 64);
-    const int ny = calm ? 1 : std::clamp(int(std::ceil(w.depth / 8.0f)), 1, 64);
-    std::vector<RasterVertex> grid(size_t(nx + 1) * (ny + 1));
-    for (int j = 0; j <= ny; ++j)
-      for (int i = 0; i <= nx; ++i) {
-        const float bx = w.width * i / nx, by = w.depth * j / ny;
-        RasterVertex& v = grid[size_t(j) * (nx + 1) + i];
-        v.position = w.transform.point({bx, by, 0});
-        v.position.z += waveHeight(w.waveMagnitude, scene.time, v.position.x, v.position.y);
-        v.u = bx / 16.0f;
-        v.v = by / 16.0f;
-      }
-    for (int j = 0; j < ny; ++j)
-      for (int i = 0; i < nx; ++i) {
-        const RasterVertex& a = grid[size_t(j) * (nx + 1) + i];
-        const RasterVertex& b = grid[size_t(j) * (nx + 1) + i + 1];
-        const RasterVertex& c = grid[size_t(j + 1) * (nx + 1) + i + 1];
-        const RasterVertex& d = grid[size_t(j + 1) * (nx + 1) + i];
-        r.drawTriangle(a, b, c, st);
-        r.drawTriangle(a, c, d, st);
-        stats.triangles += 2;
-      }
-  }
+  // Water last, blended over what is beneath.
+  for (const WaterSurface& w : scene.water) stats.triangles += waterTriangles(w, scene.time, fogColor, res, draw);
   stats.labels = sceneLabels(scene, res, frame.width, frame.height);
   return stats;
 }

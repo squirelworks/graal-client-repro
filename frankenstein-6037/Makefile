@@ -13,7 +13,8 @@ LIBS = -lz -lbz2
 OUT ?= build
 EXE =
 ifeq ($(OS),Windows_NT)
-LIBS += -lws2_32 -ladvapi32
+# gdi32 and user32 also for the OpenGL context's hidden window (WGL).
+LIBS += -lws2_32 -ladvapi32 -lgdi32 -luser32
 WINDOW_LIBS = -luser32 -lgdi32
 PLAYER_LDFLAGS = -static -static-libgcc -static-libstdc++
 EXE = .exe
@@ -22,6 +23,8 @@ X11_DEFS = -DQUATTRO_COCOA
 WINDOW_LIBS = -framework Cocoa
 COCOA = $(Q)/draw/window_cocoa.mm
 else
+# The OpenGL renderer loads libEGL at run time (no GL library is linked).
+LIBS += -ldl
 ifneq ($(wildcard /usr/include/X11/Xlib.h),)
 X11_DEFS = -DQUATTRO_X11
 X11_LIBS = -lX11
@@ -39,10 +42,13 @@ G3D = $(G)/src/bits.cpp $(G)/src/world.cpp $(G)/src/link.cpp $(G)/src/udp.cpp ..
 # The 5.12 repro's world renderer (common/cpp/graal3dengine/render); its
 # stb_image part is built on its own, without -Werror, as third-party code.
 RENDER = $(addprefix $(G)/render/,mesh.cpp read_3ds.cpp read_dif.cpp read_dts.cpp read_ft.cpp terrain.cpp texture.cpp raster.cpp resources.cpp scene.cpp motion.cpp replicate.cpp draw.cpp)
-FRANK = src/net/udp/link3d.cpp src/graal3d5120/view3d.cpp src/host6037/host.cpp
+# The 3D view's backends: the software rasteriser above and OpenGL 3.2
+# core (src/graal3d5120/gl), loaded at run time.
+FRANK = src/net/udp/link3d.cpp src/graal3d5120/view3d.cpp src/graal3d5120/renderer.cpp \
+  src/graal3d5120/gl/gl_context.cpp src/graal3d5120/gl/gl_renderer.cpp src/host6037/host.cpp src/bench.cpp
 WINDOW = $(Q)/draw/window_x11.cpp $(Q)/draw/window_native.cpp $(COCOA)
 CORE = $(NET) $(FILES) $(DRAW) $(SHELL_SRC) $(G3D) $(RENDER) $(FRANK)
-HDRS = $(wildcard src/*/*.hpp src/net/udp/*.hpp $(Q)/*/*.hpp $(G)/src/*.hpp $(G)/render/*.hpp $(TG)/*.hpp $(GS)/*.hpp)
+HDRS = $(wildcard src/*.hpp src/*/*.hpp src/graal3d5120/gl/*.hpp src/net/udp/*.hpp $(Q)/*/*.hpp $(G)/src/*.hpp $(G)/render/*.hpp $(TG)/*.hpp $(GS)/*.hpp)
 
 .PHONY: all test clean
 all: $(OUT)/frankenstein-6037$(EXE)

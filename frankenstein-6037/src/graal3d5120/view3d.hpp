@@ -8,6 +8,7 @@
 #pragma once
 
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -16,6 +17,7 @@
 #include "../../../common/cpp/graal3dengine/render/resources.hpp"
 #include "../../../common/cpp/graal3dengine/render/terrain.hpp"
 #include "link.hpp"
+#include "renderer.hpp"
 #include "world.hpp"
 
 namespace Frank {
@@ -23,6 +25,7 @@ namespace Frank {
 struct View3DStats {
   int objects = 0;  // GameObject and Camera ghosts drawn
   bool control = false;  // the control object was among them
+  long triangles = 0;
 };
 
 // What the world renderer keeps between frames.
@@ -32,6 +35,8 @@ struct World3D {
   graal3d::render::StreamedTerrain terrain;
   bool rooted = false;
   std::vector<std::string> roots;  // resource folders; "levels3d" when empty
+  // The backend that draws (renderer.hpp); the software one when unset.
+  std::unique_ptr<SceneRenderer> renderer;
 };
 
 // Draws `link`'s world over all of `frame` with the 5.12 renderer, the
@@ -51,6 +56,11 @@ float visible_distance_from_config(const std::string& text);
 // Reads the first of `paths` that sets it and gives it to the renderer
 // (1000 when none does, at most 2400, as the 5.12). Returns the value used.
 float load_visible_distance(const std::vector<std::string>& paths);
+
+// Draws `text` in the UI font with a one-pixel shadow, its top-left at
+// (x, y), on its own patch of `frame`.
+void draw_text(Torque::Gui::Image& frame, int x, int y, const std::string& text, Torque::Gui::Color color,
+               bool bold);
 
 // Copies `inset` into the bottom-left of `frame`, scaled down by `div`,
 // with a one-pixel frame (the 6.x HUD and chat stay in view in 3D mode).

@@ -28,6 +28,24 @@ from the `frankenstein-v` series.
   setting `player.position`, and the server and other players see it.
 - Shapes and textures a 3D world names are asked for over TCP and kept in
   the install's `levels3d/`, so a fresh install draws the world.
+- An OpenGL renderer for the 3D view (OpenGL 3.2 core, the profile macOS,
+  Mesa and the Windows drivers all offer; on Apple Silicon Macs Apple runs
+  it on Metal). It draws the same frame as the software renderer, through
+  the same rules (the conformance worlds match to within 0.01% of the
+  pixels), several times faster, and the 3D view is no longer held to the
+  6.x program's 50 ms tick: it draws up to 60 frames a second
+  (`--max-fps N`, 0 for no cap) while the program keeps its clock.
+  `--renderer auto|opengl|software` picks the backend; auto falls back to
+  the software renderer when no OpenGL 3.2 context can be made (a Windows
+  VM with only GDI Generic 1.1, where Mesa's `opengl32.dll` beside the
+  program, or named by `FRANK_GL_LIBRARY`, also serves). Nothing about the
+  protocol changes.
+- A frame-rate counter in the top-left corner of the 3D view (frames a
+  second, the mean draw time, the renderer; `--no-fps` hides it), logged
+  every 5 seconds, with a summary at exit.
+- `--bench [WORLD]`: the conformance suite's worlds (sky, cube, texture,
+  terrain, water, 1024 cubes, grass, and all of them together) drawn
+  offline for frame rates, with `--compare` against the software renderer.
 
 ## What's new in frankenstein-6037-v0.0.1
 
@@ -45,6 +63,8 @@ from the `frankenstein-v` series.
 
 ## Not yet
 
+- A Metal backend for the 3D view (the renderer interface has room for
+  one; OpenGL still runs on current macOS).
 - The real Torque world (terrain, interiors, shapes, sky textures); keys
   moving the player in 3D; the 6.x start screen and server list; a lab run
   against the Seihai gserver's `graal3d` mode.
