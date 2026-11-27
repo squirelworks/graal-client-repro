@@ -30,6 +30,7 @@
 #include <cstring>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 namespace Frank {
@@ -276,6 +277,7 @@ class GlRenderer : public SceneRenderer {
     view.farPlane = farPlane;
     viewProj_ = viewProjection(view, frame.width, frame.height);
     near_ = view.nearPlane;
+    far_ = view.farPlane;
     const uint32_t fog = R::sceneFogColor(scene);
 
     // The fog colour below the horizon, alpha kept at full.
@@ -367,48 +369,73 @@ class GlRenderer : public SceneRenderer {
     }
 
    private:
-    // The sky box and the water plane reach behind the camera. They are cut
-    // at the near plane here, as the rasteriser cuts them (raster.cpp),
-    // rather than left to the driver: Apple's software renderer drops some
-    // such triangles whole.
+    // The sky box and the water plane reach behind the camera and past the
+    // far plane. They are cut to the view here, as the rasteriser cuts them
+    // (raster.cpp), rather than left to the driver: Apple's software
+    // renderer drops some such triangles whole (the macOS CI). The sides
+    // are cut a little outside the view and the depth a little inside, so
+    // the driver has nothing left to cut.
     void addClipped(const StreamVertex (&tri)[3]) {
-      const R::M4& m = r_.viewProj_;
-      auto depth = [&m](const StreamVertex& v) {
-        return m.m[3][0] * v.pos[0] + m.m[3][1] * v.pos[1] + m.m[3][2] * v.pos[2] + m.m[3][3];
+      struct V {
+        StreamVertex s;
+        float c[4];  // clip coordinates
       };
-      const float nearPlane = r_.near_;
-      float d[3];
-      bool all = true, none = true;
+      constexpr int kFloats = int(sizeof(StreamVertex) / sizeof(float));
+      const R::M4& m = r_.viewProj_;
+      auto clip = [&m](V& v) {
+        for (int r = 0; r < 4; ++r)
+          v.c[r] = m.m[r][0] * v.s.pos[0] + m.m[r][1] * v.s.pos[1] + m.m[r][2] * v.s.pos[2] + m.m[r][3];
+      };
+      const float nearCut = r_.near_ * 1.0001f, farCut = r_.far_ * 0.9999f, side = 1.001f;
+      // Signed distance inside plane p (>= 0 is kept).
+      auto dist = [&](const V& v, int p) {
+        switch (p) {
+          case 0: return v.c[3] - nearCut;
+          case 1: return farCut - v.c[3];
+          case 2: return side * v.c[3] - v.c[0];
+          case 3: return side * v.c[3] + v.c[0];
+          case 4: return side * v.c[3] - v.c[1];
+          default: return side * v.c[3] + v.c[1];
+        }
+      };
+      V bufA[12], bufB[12];
+      V* cur = bufA;
+      V* next = bufB;
+      int n = 3;
+      bool inside = true;
       for (int i = 0; i < 3; ++i) {
-        d[i] = depth(tri[i]) - nearPlane;
-        all = all && d[i] >= 0;
-        none = none && d[i] < 0;
+        cur[i].s = tri[i];
+        clip(cur[i]);
+        for (int p = 0; p < 6; ++p) inside = inside && dist(cur[i], p) >= 0;
       }
-      if (none) return;
-      if (all) {
+      if (inside) {
         verts_.insert(verts_.end(), tri, tri + 3);
         return;
       }
-      StreamVertex poly[4];
-      int n = 0;
-      for (int i = 0; i < 3; ++i) {
-        const StreamVertex& p = tri[i];
-        const StreamVertex& q = tri[(i + 1) % 3];
-        const float dp = d[i], dq = d[(i + 1) % 3];
-        if (dp >= 0) poly[n++] = p;
-        if ((dp >= 0) != (dq >= 0)) {
-          const float t = dp / (dp - dq);
-          const float* fp = &p.pos[0];
-          const float* fq = &q.pos[0];
-          float* fr = &poly[n].pos[0];
-          for (size_t j = 0; j < sizeof(StreamVertex) / sizeof(float); ++j) fr[j] = fp[j] + (fq[j] - fp[j]) * t;
-          ++n;
+      for (int p = 0; p < 6 && n >= 3; ++p) {
+        int k = 0;
+        for (int i = 0; i < n; ++i) {
+          const V& a = cur[i];
+          const V& b = cur[(i + 1) % n];
+          const float da = dist(a, p), db = dist(b, p);
+          if (da >= 0 && k < 12) next[k++] = a;
+          if ((da >= 0) != (db >= 0) && k < 12) {
+            const float t = da / (da - db);
+            V& r = next[k++];
+            const float* fa = &a.s.pos[0];
+            const float* fb = &b.s.pos[0];
+            float* fr = &r.s.pos[0];
+            for (int j = 0; j < kFloats; ++j) fr[j] = fa[j] + (fb[j] - fa[j]) * t;
+            for (int j = 0; j < 4; ++j) r.c[j] = a.c[j] + (b.c[j] - a.c[j]) * t;
+          }
         }
+        std::swap(cur, next);
+        n = k;
       }
       for (int i = 1; i + 1 < n; ++i) {
-        verts_.push_back(poly[0]);
-        verts_.push_back(poly[i]);
-        verts_.push_back(poly[i + 1]);
+        verts_.push_back(cur[0].s);
+        verts_.push_back(cur[i].s);
+        verts_.push_back(cur[i + 1].s);
       }
     }
 
@@ -771,7 +798,7 @@ class GlRenderer : public SceneRenderer {
   GLint uMVP_ = -1, uNormalM_ = -1, uLightMode_ = -1, uLight_ = -1, uTextured_ = -1, uAlphaTest_ = -1,
         uAdditive_ = -1, uColor_ = -1, uFogColor_ = -1, uOpacity_ = -1, uWeightScale_ = -1, uWeightSize_ = -1;
   R::M4 viewProj_;
-  float near_ = 0.1f;
+  float near_ = 0.1f, far_ = 1000.0f;
   int frameNo_ = 0;
   int errorsLogged_ = 0;
   GLuint blank_ = 0;
